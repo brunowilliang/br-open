@@ -20,6 +20,7 @@ import type {
 } from '../_generated/server';
 import { httpAction, internalMutation } from '../_generated/server';
 import schema from '../schema';
+import { migrations } from '../migrations/manifest';
 
 
 const ormFunctions: OrmFunctions = {
@@ -33,7 +34,7 @@ const ormSchema = schema;
 
 registerProcedureNameLookup(
   {
-  "messages.ts": [{ column: 3, line: 32, name: "messages:create" }, { column: 3, line: 15, name: "messages:list" }],
+  "player/profile.ts": [{ column: 3, line: 7, name: "player/profile:get" }, { column: 3, line: 18, name: "player/profile:upsert" }],
 },
   "convex/functions"
 );
@@ -41,6 +42,7 @@ registerProcedureNameLookup(
 export const orm = createOrm({
   schema: ormSchema,
   ormFunctions,
+  migrations,
   internalMutation,
 });
 

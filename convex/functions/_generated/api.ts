@@ -10,6 +10,7 @@
 
 import type { FunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
+import { anyApi, componentsGeneric } from "convex/server";
 
 /**
  * A utility for referencing Convex functions in your app's public API.
@@ -19,17 +20,141 @@ import type { GenericId as Id } from "convex/values";
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: {
-  messages: {
-    create: FunctionReference<"mutation", "public", { body: string }, string>;
-    list: FunctionReference<
-      "query",
-      "public",
-      {},
-      Array<{ body: string; createdAt: any; id: string }>
-    >;
+export const api: {
+  player: {
+    profile: {
+      get: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          address: string;
+          birthDate: string;
+          city: string;
+          country: "Brasil";
+          cpf: string;
+          fullName: string;
+          gender: "Feminino" | "Masculino";
+          nickname: string;
+          phone: string;
+          state:
+            | "AC"
+            | "AL"
+            | "AP"
+            | "AM"
+            | "BA"
+            | "CE"
+            | "DF"
+            | "ES"
+            | "GO"
+            | "MA"
+            | "MT"
+            | "MS"
+            | "MG"
+            | "PA"
+            | "PB"
+            | "PR"
+            | "PE"
+            | "PI"
+            | "RJ"
+            | "RN"
+            | "RS"
+            | "RO"
+            | "RR"
+            | "SC"
+            | "SP"
+            | "SE"
+            | "TO";
+          zipCode: string;
+        } | null
+      >;
+      upsert: FunctionReference<
+        "mutation",
+        "public",
+        {
+          address: string;
+          birthDate: string;
+          city: string;
+          country: "Brasil";
+          cpf: string;
+          fullName: string;
+          gender: "Feminino" | "Masculino";
+          nickname: string;
+          phone: string;
+          state:
+            | "AC"
+            | "AL"
+            | "AP"
+            | "AM"
+            | "BA"
+            | "CE"
+            | "DF"
+            | "ES"
+            | "GO"
+            | "MA"
+            | "MT"
+            | "MS"
+            | "MG"
+            | "PA"
+            | "PB"
+            | "PR"
+            | "PE"
+            | "PI"
+            | "RJ"
+            | "RN"
+            | "RS"
+            | "RO"
+            | "RR"
+            | "SC"
+            | "SP"
+            | "SE"
+            | "TO";
+          zipCode: string;
+        },
+        {
+          address: string;
+          birthDate: string;
+          city: string;
+          country: "Brasil";
+          cpf: string;
+          fullName: string;
+          gender: "Feminino" | "Masculino";
+          nickname: string;
+          phone: string;
+          state:
+            | "AC"
+            | "AL"
+            | "AP"
+            | "AM"
+            | "BA"
+            | "CE"
+            | "DF"
+            | "ES"
+            | "GO"
+            | "MA"
+            | "MT"
+            | "MS"
+            | "MG"
+            | "PA"
+            | "PB"
+            | "PR"
+            | "PE"
+            | "PI"
+            | "RJ"
+            | "RN"
+            | "RS"
+            | "RO"
+            | "RR"
+            | "SC"
+            | "SP"
+            | "SE"
+            | "TO";
+          zipCode: string;
+        } | null
+      >;
+    };
   };
-};
+} = anyApi as any;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -39,7 +164,7 @@ export declare const api: {
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: {
+export const internal: {
   generated: {
     auth: {
       create: FunctionReference<
@@ -207,6 +332,6 @@ export declare const internal: {
       >;
     };
   };
-};
+} = anyApi as any;
 
-export declare const components: {};
+export const components = componentsGeneric() as unknown as {};

@@ -12,10 +12,20 @@ const c = initCRPC
   }>()
   .create();
 
-type IdentityUser = {
+export type IdentityUser = {
   email?: string | null;
   id: string;
   name?: string | null;
+};
+
+export type AuthenticatedCtx<
+  Ctx extends QueryCtx | MutationCtx | ActionCtx =
+    | QueryCtx
+    | MutationCtx
+    | ActionCtx,
+> = Ctx & {
+  user: IdentityUser;
+  userId: string;
 };
 
 function requireAuth<T>(user: T | null): T {

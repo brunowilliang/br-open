@@ -1,2 +1,67 @@
 @import "tailwindcss";
 @import "uniwind";
+
+@import "heroui-native/styles";
+@import "heroui-native-pro/styles";
+
+@source "../src/";
+@source "../node_modules/heroui-native/lib";
+@source "../node_modules/heroui-native-pro/lib";
+
+@layer theme {
+  @variant light {
+    /* Theme Colors */
+    --background: oklch(97.02% 0.005 156.3);
+    --muted: oklch(55.17% 0.01 156.3);
+    --scrollbar: oklch(87.10% 0.005 156.3);
+    --surface-secondary: oklch(95.24% 0.0075 156.3);
+    --surface-tertiary: oklch(93.73% 0.0075 156.3);
+    --default: oklch(94.00% 0.005 156.3);
+    --accent: #31ad6e;
+    --success: oklch(73.29% 0.1954 139.13);
+    --warning: oklch(78.19% 0.16 60.62);
+    --danger: oklch(65.32% 0.2351 14.03);
+    --field-border: oklch(90.00% 0.005 156.3);
+    --border: oklch(90.00% 0.005 156.3);
+    --separator: oklch(92.00% 0.005 156.3);
+
+    /* Border Radius */
+    --radius: 0.25rem;
+
+    /* Shadows */
+    --surface-shadow: none;
+    --overlay-shadow:
+      0 1px 4px 0 rgba(0, 0, 0, 0.04), 0 -2px 6px 0 rgba(0, 0, 0, 0.02),
+      0 6px 14px 0 rgba(0, 0, 0, 0.05);
+    --field-shadow: none;
+  }
+  @variant dark {
+    /* Theme Colors */
+    --background: oklch(12.00% 0.005 156.3);
+    --muted: oklch(70.50% 0.01 156.3);
+    --scrollbar: oklch(70.50% 0.005 156.3);
+    --surface: oklch(21.03% 0.01 156.3);
+    --surface-secondary: oklch(25.70% 0.0075 156.3);
+    --surface-secondary-foreground: oklch(25.70% 0 156.3);
+    --surface-tertiary: oklch(27.21% 0.0075 156.3);
+    --surface-tertiary-foreground: oklch(27.21% 0 156.3);
+    --overlay: oklch(21.03% 0.01 156.3);
+    --default: oklch(27.40% 0.005 156.3);
+    --accent: #31ad6e;
+    --success: oklch(73.29% 0.1954 139.13);
+    --warning: oklch(78.19% 0.16 60.62);
+    --danger: oklch(65.32% 0.2351 14.03);
+    --field-background: oklch(21.03% 0.01 156.3);
+    --field-placeholder: oklch(70.50% 0 156.3);
+    --field-border: oklch(28.00% 0.005 156.3);
+    --segment: oklch(39.64% 0.005 156.3);
+    --border: oklch(28.00% 0.005 156.3);
+    --separator: oklch(25.00% 0.005 156.3);
+
+    /* Border Radius */
+    --radius: 0.25rem;
+
+    /* Shadows */
+    --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+  }
+}

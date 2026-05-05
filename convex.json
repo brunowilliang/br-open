@@ -1,7 +1,16 @@
 {
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "functions": "convex/functions",
+  "typescriptCompiler": "tsgo",
+  "generateCommonJSApi": false,
+  "aiFiles": {
+    "skills": {
+      "agents": ["codex"]
+    }
+  },
   "codegen": {
     "staticApi": true,
-    "staticDataModel": true
+    "staticDataModel": true,
+    "fileType": "ts"
   }
 }

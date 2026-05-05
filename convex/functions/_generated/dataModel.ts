@@ -301,6 +301,46 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  invitation: {
+    document: {
+      createdAt: number;
+      email: string;
+      expiresAt?: null | number;
+      inviterId: string;
+      organizationId: string;
+      role: string;
+      status: string;
+      teamId?: null | string;
+      _id: Id<"invitation">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "email"
+      | "expiresAt"
+      | "inviterId"
+      | "organizationId"
+      | "role"
+      | "status"
+      | "teamId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      email: ["email", "_creationTime"];
+      email_organizationId_status: [
+        "email",
+        "organizationId",
+        "status",
+        "_creationTime",
+      ];
+      organizationId_status: ["organizationId", "status", "_creationTime"];
+      status: ["status", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   jwks: {
     document: {
       createdAt: number;
@@ -324,12 +364,28 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
-  messages: {
-    document: { body: string; _id: Id<"messages">; _creationTime: number };
-    fieldPaths: "_creationTime" | "_id" | "body";
+  member: {
+    document: {
+      createdAt: number;
+      organizationId: string;
+      role: string;
+      userId: string;
+      _id: Id<"member">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "organizationId"
+      | "role"
+      | "userId";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      organizationId_role: ["organizationId", "role", "_creationTime"];
+      organizationId_userId: ["organizationId", "userId", "_creationTime"];
+      userId: ["userId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -418,8 +474,83 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  organization: {
+    document: {
+      createdAt: number;
+      logo?: null | string;
+      metadata?: null | any;
+      name: string;
+      slug: string;
+      updatedAt?: null | number;
+      _id: Id<"organization">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "logo"
+      | "metadata"
+      | "name"
+      | "slug"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      name: ["name", "_creationTime"];
+      organization_slug_unique: ["slug", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  playerProfile: {
+    document: {
+      address?: null | string;
+      birthDate?: null | string;
+      city?: null | string;
+      country?: null | string;
+      cpf?: null | string;
+      createdAt: number;
+      fullName?: null | string;
+      gender?: null | string;
+      nickname?: null | string;
+      phone?: null | string;
+      state?: null | string;
+      updatedAt: number;
+      userId: string;
+      zipCode?: null | string;
+      _id: Id<"playerProfile">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "address"
+      | "birthDate"
+      | "city"
+      | "country"
+      | "cpf"
+      | "createdAt"
+      | "fullName"
+      | "gender"
+      | "nickname"
+      | "phone"
+      | "state"
+      | "updatedAt"
+      | "userId"
+      | "zipCode";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      playerProfile_userId_unique: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   session: {
     document: {
+      activeOrganizationId?: null | string;
+      activeTeamId?: null | string;
       createdAt: number;
       expiresAt: number;
       ipAddress?: null | string;
@@ -433,6 +564,8 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "activeOrganizationId"
+      | "activeTeamId"
       | "createdAt"
       | "expiresAt"
       | "ipAddress"
@@ -451,13 +584,57 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  team: {
+    document: {
+      createdAt: number;
+      name: string;
+      organizationId: string;
+      updatedAt?: null | number;
+      _id: Id<"team">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "name"
+      | "organizationId"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      organizationId: ["organizationId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  teamMember: {
+    document: {
+      createdAt?: null | number;
+      teamId: string;
+      userId: string;
+      _id: Id<"teamMember">;
+      _creationTime: number;
+    };
+    fieldPaths: "_creationTime" | "_id" | "createdAt" | "teamId" | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      teamId: ["teamId", "_creationTime"];
+      userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   user: {
     document: {
       createdAt: number;
       email: string;
       emailVerified: boolean;
       image?: null | string;
+      lastActiveOrganizationId?: null | string;
       name: string;
+      personalOrganizationId?: null | string;
       updatedAt: number;
       userId?: null | string;
       _id: Id<"user">;
@@ -470,7 +647,9 @@ export type DataModel = {
       | "email"
       | "emailVerified"
       | "image"
+      | "lastActiveOrganizationId"
       | "name"
+      | "personalOrganizationId"
       | "updatedAt"
       | "userId";
     indexes: {

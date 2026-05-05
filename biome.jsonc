@@ -1,6 +1,13 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "rules": {
       "correctness": {
@@ -16,9 +23,24 @@
         },
         "noNonNullAssertion": "off"
       },
+      "suspicious": {
+        "noEmptyBlockStatements": "off"
+      },
       "performance": {
         "noNamespaceImport": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["convex/functions/migrations/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    }
+  ]
 }

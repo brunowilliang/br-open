@@ -71,21 +71,25 @@ da plataforma.
   cosmeticas.
 - Separar claramente "torneio em rascunho", "publicado", "inscricoes abertas",
   "inscricoes encerradas", "chaves geradas", "em andamento" e "finalizado".
-- Nao colocar componentes, tipos ou logica de negocio dentro de
-  `apps/native/app`; a pasta `app` deve ter apenas rotas e layouts.
+- Nao colocar componentes, tipos ou logica de negocio dentro de `src/app`; a
+  pasta `app` deve ter apenas rotas e layouts.
 
 ## Stack do Projeto
 
 O projeto deve seguir a base ja instalada no repositorio atual.
 
-### Monorepo
+### Estrutura do Repositorio
 
 - Package manager: Bun.
-- Orquestracao: Turbo.
-- App mobile: `apps/native`.
-- Backend Convex: `packages/backend`.
-- Config compartilhada: `packages/config`.
-- Variaveis tipadas: `packages/env`.
+- Repo unico, sem divisao por workspaces ou pacotes internos.
+- App Expo/React Native na raiz, com codigo em `src`.
+- Rotas Expo Router em `src/app`.
+- Componentes reutilizaveis em `src/components`.
+- Helpers, clients e providers do app em `src/lib`.
+- Backend Convex/kitcn na raiz em `convex`.
+- Codigo deployado em `convex/functions`.
+- Regras internas e algoritmos em `convex/lib`.
+- Codigo compartilhado seguro para o app em `convex/shared`.
 
 ### Backend
 
@@ -140,46 +144,45 @@ HeroUI React / HeroUI Pro web nao devem ser usados nos componentes nativos.
 
 ## Setup Inicial
 
-1. Usar o monorepo existente com `apps/native` e `packages/backend`.
-2. Rodar o backend com `bun run dev:server` ou `bun run dev:setup`.
-3. Rodar o app mobile com `bun run dev:native`.
+1. Usar a estrutura atual de repo unico.
+2. Rodar o backend com `bun run convex:dev`.
+3. Rodar o app mobile com `bun run dev`, `bun run ios`, `bun run android` ou
+   `bun run web`, conforme o ambiente.
 4. Manter auth em Better Auth + `kitcn`, usando `convex/functions/auth.ts` como
    contrato de auth no backend.
-5. Manter o backend no padrao `packages/backend/convex/functions`,
-   `packages/backend/convex/lib` e `packages/backend/convex/shared`.
-6. Definir o schema Convex em `packages/backend/convex/functions/schema.ts`
-   antes de construir telas complexas.
-7. Organizar procedures cRPC por dominio dentro de
-   `packages/backend/convex/functions`.
-8. Manter regras internas e algoritmos em `packages/backend/convex/lib`.
-9. Manter tipos/client metadata seguros em `packages/backend/convex/shared`.
-10. Manter telas/rotas apenas em `apps/native/app`.
-11. Manter componentes reutilizaveis em `apps/native/components`.
+5. Manter o backend no padrao `convex/functions`, `convex/lib` e
+   `convex/shared`.
+6. Definir o schema Convex em `convex/functions/schema.ts` antes de construir
+   telas complexas.
+7. Organizar procedures cRPC por dominio dentro de `convex/functions`.
+8. Manter regras internas e algoritmos em `convex/lib`.
+9. Manter tipos/client metadata seguros em `convex/shared`.
+10. Manter telas/rotas apenas em `src/app`.
+11. Manter componentes reutilizaveis em `src/components`.
 12. Criar dados seed de exemplo: cidades, clubes, ligas, torneios, categorias e
     jogadores.
 13. Adicionar Stripe quando a fase de pagamentos comecar.
 
-## Convex Local e Dashboard
+## Convex Dev e Dashboard
 
-Para rodar o Convex local com `kitcn`, use o pacote backend diretamente:
+Para rodar o Convex com `kitcn`, use o script da raiz:
 
 ```bash
-cd packages/backend
-bun run dev:local
+bun run convex:dev
 ```
 
-O script executa `kitcn dev --local`. Quando aparecer `Convex functions ready`,
-o backend local esta pronto.
+O script executa `kitcn dev`. Quando aparecer que as funcoes Convex estao
+prontas, o backend esta pronto para o app consumir.
 
-URLs locais importantes:
+Se o ambiente estiver usando Convex local, as URLs comuns sao:
 
-- Dashboard Convex local: `http://127.0.0.1:6790`
-- API interna do dashboard/tooling local: `http://127.0.0.1:6791`
+- Dashboard Convex: `http://127.0.0.1:6790`
+- API interna do dashboard/tooling: `http://127.0.0.1:6791`
 - Convex client URL usada pelo app: `http://127.0.0.1:3210`
 - Convex site/auth URL usada pelo app: `http://127.0.0.1:3211`
 
-As portas `3210` e `3211` ficam registradas em
-`packages/backend/.convex/local/default/config.json`:
+Se o ambiente estiver usando Convex local, as portas `3210` e `3211` podem ficar
+registradas em `.convex/local/default/config.json`:
 
 ```json
 {
@@ -198,34 +201,31 @@ tooling. Para confirmar em uma maquina local:
 lsof -nP -iTCP -sTCP:LISTEN | rg '3210|3211|6790|6791|convex'
 ```
 
-O app Expo deve apontar para o Convex local em `apps/native/.env`:
+O app Expo deve apontar para o Convex em `.env.local`. Em ambiente local, os
+valores costumam ficar assim:
 
 ```env
 EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210
 EXPO_PUBLIC_CONVEX_SITE_URL=http://127.0.0.1:3211
 ```
 
-Observacao operacional: no estado atual, o comando direto dentro de
-`packages/backend` e o caminho confiavel. Se o comando raiz
-`bun run dev:server:local` falhar com
-`Could not find task dev:local in project`, ajuste o `turbo.json` antes de
-depender dele.
+Observacao operacional: nao assumir scripts de workspaces ou pacotes internos.
+A base atual usa os scripts da raiz definidos em `package.json`.
 
 ## Estrutura Sugerida de Rotas
 
 Sim, precisa existir uma estrutura de rotas, porque o Expo Router usa a pasta
 `app` como fonte de navegacao. O que nao precisa e transformar cada componente
-em rota. A pasta `apps/native/app` deve conter apenas telas e `_layout.tsx`;
-componentes reutilizaveis ficam em `apps/native/components`, hooks em
-`apps/native/hooks`, helpers em `apps/native/lib`, e regras/backend em
-`packages/backend/convex`.
+em rota. A pasta `src/app` deve conter apenas telas e `_layout.tsx`;
+componentes reutilizaveis ficam em `src/components`, hooks em `src/hooks`,
+helpers em `src/lib`, e regras/backend em `convex`.
 
-A estrutura atual do starter tem `(drawer)/(tabs)` e telas demo como `two.tsx`.
-Para o BR Open, a recomendacao e substituir esse starter por grupos de rotas
-mais claros: auth, app autenticado, telas publicas, organizador e admin.
+A estrutura atual ainda esta minima. Para o BR Open, a recomendacao e evoluir
+para grupos de rotas mais claros: auth, app autenticado, telas publicas,
+organizador e admin.
 
 ```txt
-apps/native/app/
+src/app/
   _layout.tsx
   +not-found.tsx
   index.tsx
@@ -335,9 +335,9 @@ Regras para essa estrutura:
 - Usar diretorio dinamico com `index.tsx`, por exemplo
   `tournaments/[tournamentId]/index.tsx`, e mais limpo do que misturar
   `[tournamentId].tsx` com subrotas.
-- Se o drawer atual for mantido, ele deve ser uma decisao de navegacao visual,
-  nao a organizacao principal do dominio. Para este app, tabs + stacks ja
-  resolvem melhor a primeira versao completa.
+- Se algum drawer for adotado, ele deve ser uma decisao de navegacao visual, nao
+  a organizacao principal do dominio. Para este app, tabs + stacks ja resolvem
+  melhor a primeira versao completa.
 - Expo Router loaders nao precisam ser a base do app nativo. Eles fazem mais
   sentido para web/SSR. Para o app Expo + Convex, carregar dados com
   queries/hooks do Convex nas telas e componentes de feature e mais direto.
@@ -476,81 +476,80 @@ como `crpc.tournaments.list.queryOptions(...)`.
 O projeto deve manter a estrutura alvo do kitcn assim:
 
 ```txt
-packages/backend/
-  convex.json
-  convex/
-    functions/
-      _generated/
-        api.ts
-        dataModel.ts
-      generated/
-        server.ts
-        auth.ts
-      schema.ts
-      auth.ts
-      auth.config.ts
-      convex.config.ts
-      http.ts
-      users.ts
-      profiles.ts
-      venues.ts
-      tournaments.ts
-      categories.ts
-      registrations.ts
-      payments.ts
-      brackets.ts
-      matches.ts
-      schedule.ts
-      notifications.ts
-      rankings.ts
-      leagues.ts
-      leagueRankings.ts
-      sponsors.ts
-      audit.ts
-      admin.ts
-      migrations.ts
-      crons.ts
-    lib/
-      crpc.ts
-      orm.ts
-      auth.ts
-      permissions.ts
-      errors.ts
-      env.ts
-      payments/
-        stripe.ts
-        webhooks.ts
-      brackets/
-        single-elimination.ts
-        round-robin.ts
-        groups.ts
-        seeding.ts
-      scheduling/
-        conflicts.ts
-        slots.ts
-        reminders.ts
-      notifications/
-        push.ts
-        templates.ts
-      leagues/
-        scoring.ts
-        standings.ts
-        seasons.ts
-        memberships.ts
-      plugins/
-        ratelimit/
-          schema.ts
-          plugin.ts
-    shared/
+convex.json
+convex/
+  functions/
+    _generated/
       api.ts
-      types.ts
-      constants.ts
+      dataModel.ts
+    generated/
+      server.ts
+      auth.ts
+    schema.ts
+    auth.ts
+    auth.config.ts
+    convex.config.ts
+    http.ts
+    users.ts
+    profiles.ts
+    venues.ts
+    tournaments.ts
+    categories.ts
+    registrations.ts
+    payments.ts
+    brackets.ts
+    matches.ts
+    schedule.ts
+    notifications.ts
+    rankings.ts
+    leagues.ts
+    leagueRankings.ts
+    sponsors.ts
+    audit.ts
+    admin.ts
+    migrations.ts
+    crons.ts
+  lib/
+    crpc.ts
+    orm.ts
+    auth.ts
+    permissions.ts
+    errors.ts
+    env.ts
+    payments/
+      stripe.ts
+      webhooks.ts
+    brackets/
+      single-elimination.ts
+      round-robin.ts
+      groups.ts
+      seeding.ts
+    scheduling/
+      conflicts.ts
+      slots.ts
+      reminders.ts
+    notifications/
+      push.ts
+      templates.ts
+    leagues/
+      scoring.ts
+      standings.ts
+      seasons.ts
+      memberships.ts
+    plugins/
+      ratelimit/
+        schema.ts
+        plugin.ts
+  shared/
+    api.ts
+    types.ts
+    constants.ts
 ```
 
 Responsabilidades:
 
-- `packages/backend/convex.json`: deve apontar `functions` para
-  `convex/functions`, seguindo o padrao kitcn.
+- `convex.json`: deve apontar `functions` para `convex/functions`, seguindo o
+  padrao kitcn.
 - `convex/functions/schema.ts`: schema ORM do kitcn com tabelas, indices,
   relacoes, triggers e extensoes.
 - `convex/functions/auth.ts`: contrato Better Auth via kitcn; alterar aqui ao
@@ -727,7 +726,7 @@ Regras de uso:
 - [ ] Configurar Google Pay.
 - [ ] Preparar development build/EAS Build para Apple Pay e Google Pay.
 - [ ] Registrar pagamento em `payments`.
-- [ ] Webhook Stripe em `packages/backend/convex/http.ts`.
+- [ ] Webhook Stripe em `convex/functions/http.ts`.
 - [ ] Validar assinatura do webhook.
 - [ ] Atualizar status de pagamento por webhook.
 - [ ] Confirmar inscricao automaticamente apos pagamento aprovado.
@@ -900,19 +899,19 @@ Este roteiro nao e um MVP. Ele e a ordem recomendada para construir o produto
 completo sem embolar dependencias. Marque cada item quando a feature estiver
 funcionando no app e persistindo corretamente no Convex.
 
-### Fase 0 - Fundacao do Monorepo
+### Fase 0 - Fundacao do Repo
 
 Objetivo: deixar a base pronta para construir todas as features.
 
-- [ ] Confirmar scripts Bun/Turbo.
-- [ ] Confirmar app Expo em `apps/native`.
-- [ ] Confirmar backend Convex em `packages/backend`.
+- [ ] Confirmar scripts Bun da raiz.
+- [ ] Confirmar app Expo em `src`.
+- [ ] Confirmar backend Convex em `convex`.
 - [ ] Confirmar Expo Router.
 - [ ] Confirmar Better Auth + `kitcn`.
-- [ ] Confirmar `apps/native/lib/auth-client.ts`.
+- [ ] Confirmar `src/lib/convex/auth-client.ts`.
 - [ ] Confirmar providers nativos: Better Auth, Convex, HeroUI Native e Uniwind.
 - [ ] Remover ou substituir telas demo do starter.
-- [ ] Reorganizar `apps/native/app` conforme a estrutura de rotas definida.
+- [ ] Reorganizar `src/app` conforme a estrutura de rotas definida.
 - [ ] Criar tema base BR Open com HeroUI Native + Uniwind.
 - [ ] Criar estados base: loading, vazio, erro e permissao negada.
 - [ ] Criar seed inicial de usuarios, clubes, ligas, torneios e categorias.
@@ -1337,7 +1336,7 @@ durante o desenvolvimento evita criar regras erradas:
 
 ### Fundacao
 
-- [ ] Monorepo organizado.
+- [ ] Repo organizado.
 - [ ] Expo Router organizado.
 - [ ] Convex conectado.
 - [ ] Better Auth funcionando.

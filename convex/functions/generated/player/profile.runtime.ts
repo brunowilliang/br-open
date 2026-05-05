@@ -10,12 +10,12 @@ import {
   type GeneratedRegistryCallerForContext,
   type GeneratedRegistryHandlerForContext,
 } from 'kitcn/server';
-import type { ActionCtx, MutationCtx, QueryCtx } from './server';
+import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
-  "create": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../messages").create>("messages:create"), () => (require("../messages") as Record<string, unknown>)["create"])],
-  "list": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../messages").list>("messages:list"), () => (require("../messages") as Record<string, unknown>)["list"])],
+  "get": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../player/profile").get>("player/profile:get"), () => (require("../../player/profile") as Record<string, unknown>)["get"])],
+  "upsert": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../player/profile").upsert>("player/profile:upsert"), () => (require("../../player/profile") as Record<string, unknown>)["upsert"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;
@@ -58,7 +58,7 @@ type GeneratedProcedureHandler<
 >;
 
 
-export function createMessagesCaller<TCtx extends ProcedureCallerContext>(
+export function createPlayerProfileCaller<TCtx extends ProcedureCallerContext>(
   ctx: TCtx
 ): GeneratedProcedureCaller<TCtx> {
   return generatedRuntime.getCallerFactory()(
@@ -66,7 +66,7 @@ export function createMessagesCaller<TCtx extends ProcedureCallerContext>(
   ) as GeneratedProcedureCaller<TCtx>;
 }
 
-export function createMessagesHandler<TCtx extends ProcedureHandlerContext>(
+export function createPlayerProfileHandler<TCtx extends ProcedureHandlerContext>(
   ctx: TCtx
 ): GeneratedProcedureHandler<TCtx> {
   return generatedRuntime.getHandlerFactory()(ctx) as GeneratedProcedureHandler<TCtx>;
