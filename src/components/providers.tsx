@@ -1,6 +1,7 @@
 import { type HeroUINativeConfig, HeroUINativeProvider } from "heroui-native";
 import type { ReactNode } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaListener } from "react-native-safe-area-context";
 import { Uniwind } from "uniwind";
 
@@ -24,9 +25,11 @@ export function Providers({ children }: { children: ReactNode }) {
       }}
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <HeroUINativeProvider config={heroUIConfig}>
-          <AppConvexProvider>{children}</AppConvexProvider>
-        </HeroUINativeProvider>
+        <KeyboardProvider>
+          <HeroUINativeProvider config={heroUIConfig}>
+            <AppConvexProvider>{children}</AppConvexProvider>
+          </HeroUINativeProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaListener>
   );

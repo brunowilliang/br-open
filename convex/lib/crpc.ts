@@ -4,6 +4,7 @@ import type {
   MutationCtx,
   QueryCtx,
 } from "../functions/generated/server";
+import type { Id } from "../functions/_generated/dataModel";
 import { initCRPC } from "../functions/generated/server";
 
 const c = initCRPC
@@ -14,7 +15,7 @@ const c = initCRPC
 
 export type IdentityUser = {
   email?: string | null;
-  id: string;
+  id: Id<"user">;
   name?: string | null;
 };
 
@@ -25,7 +26,7 @@ export type AuthenticatedCtx<
     | ActionCtx,
 > = Ctx & {
   user: IdentityUser;
-  userId: string;
+  userId: Id<"user">;
 };
 
 function requireAuth<T>(user: T | null): T {
@@ -45,7 +46,7 @@ async function getIdentityUser(
   }
 
   return {
-    id: identity.subject,
+    id: identity.subject as Id<"user">,
     email: identity.email,
     name: identity.name,
   };

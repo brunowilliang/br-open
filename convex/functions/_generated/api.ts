@@ -21,6 +21,443 @@ import { anyApi, componentsGeneric } from "convex/server";
  * ```
  */
 export const api: {
+  league: {
+    discovery: {
+      getById: FunctionReference<
+        "query",
+        "public",
+        { leagueId: string },
+        {
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          isManagerOwner: boolean;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          viewerMembershipStatus?:
+            | "pending"
+            | "active"
+            | "rejected"
+            | "removed"
+            | "left"
+            | "suspended"
+            | null;
+          visibility: "public" | "private" | "invite_only";
+        }
+      >;
+      listAvailable: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private" | "invite_only";
+        }>
+      >;
+    };
+    management: {
+      create: FunctionReference<
+        "mutation",
+        "public",
+        {
+          categories: Array<string>;
+          city: string;
+          description?: string;
+          locationNotes?: string;
+          name: string;
+          regulation?: string;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          visibility: "public" | "private" | "invite_only";
+        },
+        {
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private" | "invite_only";
+        }
+      >;
+      getById: FunctionReference<
+        "query",
+        "public",
+        { leagueId: string },
+        {
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private" | "invite_only";
+        }
+      >;
+      listMine: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private" | "invite_only";
+        }>
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string },
+        { success: true }
+      >;
+      update: FunctionReference<
+        "mutation",
+        "public",
+        {
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          description?: string;
+          leagueId: string;
+          locationNotes?: string;
+          name: string;
+          regulation?: string;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          visibility: "public" | "private" | "invite_only";
+        },
+        {
+          avatarStorageId: string;
+          categories: Array<string>;
+          city: string;
+          coverStorageId: string;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          managerUserId: string;
+          mode: "challenges";
+          name: string;
+          regulation?: string | null;
+          ruleConfig: {
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private" | "invite_only";
+        }
+      >;
+    };
+    membership: {
+      approve: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string; membershipId: string },
+        {
+          createdAt: number;
+          id: string;
+          leagueId: string;
+          player: {
+            avatarUrl?: string | null;
+            fullName: string;
+            nickname: string;
+          };
+          rankingPosition?: number | null;
+          reviewedAt?: number | null;
+          status:
+            | "pending"
+            | "active"
+            | "rejected"
+            | "removed"
+            | "left"
+            | "suspended";
+          updatedAt: number;
+          userId: string;
+        }
+      >;
+      getOverview: FunctionReference<
+        "query",
+        "public",
+        { leagueId: string },
+        {
+          pendingRequests: Array<{
+            createdAt: number;
+            id: string;
+            leagueId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            rankingPosition?: number | null;
+            reviewedAt?: number | null;
+            status:
+              | "pending"
+              | "active"
+              | "rejected"
+              | "removed"
+              | "left"
+              | "suspended";
+            updatedAt: number;
+            userId: string;
+          }>;
+          ranking: Array<{
+            createdAt: number;
+            id: string;
+            leagueId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            rankingPosition?: number | null;
+            reviewedAt?: number | null;
+            status:
+              | "pending"
+              | "active"
+              | "rejected"
+              | "removed"
+              | "left"
+              | "suspended";
+            updatedAt: number;
+            userId: string;
+          }>;
+        }
+      >;
+      reject: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string; membershipId: string },
+        {
+          createdAt: number;
+          id: string;
+          leagueId: string;
+          player: {
+            avatarUrl?: string | null;
+            fullName: string;
+            nickname: string;
+          };
+          rankingPosition?: number | null;
+          reviewedAt?: number | null;
+          status:
+            | "pending"
+            | "active"
+            | "rejected"
+            | "removed"
+            | "left"
+            | "suspended";
+          updatedAt: number;
+          userId: string;
+        }
+      >;
+      reorderRanking: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string; membershipIds: Array<string> },
+        { success: true }
+      >;
+      requestJoin: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string },
+        {
+          createdAt: number;
+          id: string;
+          leagueId: string;
+          player: {
+            avatarUrl?: string | null;
+            fullName: string;
+            nickname: string;
+          };
+          rankingPosition?: number | null;
+          reviewedAt?: number | null;
+          status:
+            | "pending"
+            | "active"
+            | "rejected"
+            | "removed"
+            | "left"
+            | "suspended";
+          updatedAt: number;
+          userId: string;
+        }
+      >;
+    };
+  };
   player: {
     profile: {
       get: FunctionReference<
@@ -28,129 +465,27 @@ export const api: {
         "public",
         {},
         {
-          address: string;
-          birthDate: string;
-          city: string;
-          country: "Brasil";
-          cpf: string;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
-          phone: string;
-          state:
-            | "AC"
-            | "AL"
-            | "AP"
-            | "AM"
-            | "BA"
-            | "CE"
-            | "DF"
-            | "ES"
-            | "GO"
-            | "MA"
-            | "MT"
-            | "MS"
-            | "MG"
-            | "PA"
-            | "PB"
-            | "PR"
-            | "PE"
-            | "PI"
-            | "RJ"
-            | "RN"
-            | "RS"
-            | "RO"
-            | "RR"
-            | "SC"
-            | "SP"
-            | "SE"
-            | "TO";
-          zipCode: string;
+          phone: any;
         } | null
       >;
       upsert: FunctionReference<
         "mutation",
         "public",
         {
-          address: string;
-          birthDate: string;
-          city: string;
-          country: "Brasil";
-          cpf: string;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
-          phone: string;
-          state:
-            | "AC"
-            | "AL"
-            | "AP"
-            | "AM"
-            | "BA"
-            | "CE"
-            | "DF"
-            | "ES"
-            | "GO"
-            | "MA"
-            | "MT"
-            | "MS"
-            | "MG"
-            | "PA"
-            | "PB"
-            | "PR"
-            | "PE"
-            | "PI"
-            | "RJ"
-            | "RN"
-            | "RS"
-            | "RO"
-            | "RR"
-            | "SC"
-            | "SP"
-            | "SE"
-            | "TO";
-          zipCode: string;
+          phone?: string;
         },
         {
-          address: string;
-          birthDate: string;
-          city: string;
-          country: "Brasil";
-          cpf: string;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
-          phone: string;
-          state:
-            | "AC"
-            | "AL"
-            | "AP"
-            | "AM"
-            | "BA"
-            | "CE"
-            | "DF"
-            | "ES"
-            | "GO"
-            | "MA"
-            | "MT"
-            | "MS"
-            | "MG"
-            | "PA"
-            | "PB"
-            | "PR"
-            | "PE"
-            | "PI"
-            | "RJ"
-            | "RN"
-            | "RS"
-            | "RO"
-            | "RR"
-            | "SC"
-            | "SP"
-            | "SE"
-            | "TO";
-          zipCode: string;
-        } | null
+          phone: any;
+        }
       >;
     };
   };

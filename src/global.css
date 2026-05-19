@@ -8,10 +8,22 @@
 @source "../node_modules/heroui-native/lib";
 @source "../node_modules/heroui-native-pro/lib";
 
+@theme {
+  --font-normal: "Outfit_400Regular";
+  --font-medium: "Outfit_500Medium";
+  --font-semibold: "Outfit_600SemiBold";
+  --font-bold: "Outfit_700Bold";
+}
+
+@utility centered {
+  @apply items-center justify-center;
+}
+
 @layer theme {
   @variant light {
-    /* Theme Colors */
-    --background: oklch(97.02% 0.005 156.3);
+    --surface-shadow: none;
+    --field-shadow: 0 0 0 0 transparent;
+    /* --background: oklch(97.02% 0.005 156.3);
     --muted: oklch(55.17% 0.01 156.3);
     --scrollbar: oklch(87.10% 0.005 156.3);
     --surface-secondary: oklch(95.24% 0.0075 156.3);
@@ -24,20 +36,17 @@
     --field-border: oklch(90.00% 0.005 156.3);
     --border: oklch(90.00% 0.005 156.3);
     --separator: oklch(92.00% 0.005 156.3);
-
-    /* Border Radius */
     --radius: 0.25rem;
-
-    /* Shadows */
     --surface-shadow: none;
     --overlay-shadow:
       0 1px 4px 0 rgba(0, 0, 0, 0.04), 0 -2px 6px 0 rgba(0, 0, 0, 0.02),
       0 6px 14px 0 rgba(0, 0, 0, 0.05);
-    --field-shadow: none;
+    --field-shadow: none; */
   }
   @variant dark {
-    /* Theme Colors */
-    --background: oklch(12.00% 0.005 156.3);
+    --surface-shadow: none;
+    --field-shadow: 0 0 0 0 transparent;
+    /* --background: oklch(12.00% 0.005 156.3);
     --muted: oklch(70.50% 0.01 156.3);
     --scrollbar: oklch(70.50% 0.005 156.3);
     --surface: oklch(21.03% 0.01 156.3);
@@ -57,11 +66,7 @@
     --segment: oklch(39.64% 0.005 156.3);
     --border: oklch(28.00% 0.005 156.3);
     --separator: oklch(25.00% 0.005 156.3);
-
-    /* Border Radius */
     --radius: 0.25rem;
-
-    /* Shadows */
-    --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+    --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.15) inset; */
   }
 }

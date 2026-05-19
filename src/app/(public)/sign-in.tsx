@@ -174,7 +174,7 @@ export default function SignIn() {
 
           <Button
             isDisabled={isSubmitPending}
-            onPress={() => router.push("/sign-up")}
+            onPress={() => router.navigate("/sign-up")}
             variant="ghost"
           >
             <Button.Label>Criar conta</Button.Label>

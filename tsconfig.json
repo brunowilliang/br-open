@@ -2,10 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "types": ["bun-types"],
     "paths": {
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"],
-      "@convex/*": ["./convex/shared/*"]
+      "@convex/*": ["./convex/*", "./convex/shared/*"]
     },
     "strictFunctionTypes": false
   },

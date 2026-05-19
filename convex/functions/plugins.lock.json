@@ -14,16 +14,36 @@
             "checksum": "0d378994c19c",
             "owner": "managed"
           },
+          "invitation": {
+            "checksum": "1553e931bcd3",
+            "owner": "managed"
+          },
           "jwks": {
             "checksum": "68e9a48ed9f7",
             "owner": "managed"
           },
+          "member": {
+            "checksum": "5b7ba12d645e",
+            "owner": "managed"
+          },
+          "organization": {
+            "checksum": "c2c7b05119dc",
+            "owner": "managed"
+          },
           "session": {
-            "checksum": "6fb042402973",
+            "checksum": "c0fe86d32400",
+            "owner": "managed"
+          },
+          "team": {
+            "checksum": "570427ca4592",
+            "owner": "managed"
+          },
+          "teamMember": {
+            "checksum": "5ba553774677",
             "owner": "managed"
           },
           "user": {
-            "checksum": "8a96073bc92f",
+            "checksum": "249296396ca6",
             "owner": "managed"
           },
           "verification": {

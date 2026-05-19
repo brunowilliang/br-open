@@ -4,9 +4,7 @@
   "typescriptCompiler": "tsgo",
   "generateCommonJSApi": false,
   "aiFiles": {
-    "skills": {
-      "agents": ["codex"]
-    }
+    "enabled": false
   },
   "codegen": {
     "staticApi": true,

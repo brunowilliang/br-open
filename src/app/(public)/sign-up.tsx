@@ -37,7 +37,7 @@ export default function SignUp() {
 
   const signUp = useMutation(
     useSignUpMutationOptions({
-      onSuccess: () => router.replace("/settings/player/profile"),
+      onSuccess: () => router.replace("/"),
       onError: (error) => {
         toast.show({
           description: error.message || "Não foi possível criar sua conta.",
@@ -192,7 +192,7 @@ export default function SignUp() {
 
           <Button
             isDisabled={isSubmitPending}
-            onPress={() => router.push("/sign-in")}
+            onPress={() => router.navigate("/sign-in")}
             variant="ghost"
           >
             <Button.Label>Já tenho conta</Button.Label>

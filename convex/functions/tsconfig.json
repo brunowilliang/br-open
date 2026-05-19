@@ -20,6 +20,6 @@
     "resolveJsonModule": true,
     "allowJs": true
   },
-  "include": ["./**/*", "../lib/**/*", "../shared/**/*"],
+  "include": ["./**/*", "../lib/**/*", "../shared/**/*", "../utils"],
   "exclude": ["node_modules", "./_generated", "**/*.spec.ts", "**/*.test.ts"]
 }

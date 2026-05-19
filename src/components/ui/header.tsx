@@ -1,13 +1,31 @@
 import { cn, styled, withSlots } from "better-styled";
-import { Text, View } from "react-native";
-import { HugeIcons } from "../huge-icons";
+import { View } from "react-native";
+import { HugeIcons } from "./huge-icons";
+import { Text } from "./text";
 
 const HeaderRoot = styled(View, {
   base: {
     className: cn(
       "flex-row items-center justify-between px-4 pb-4",
-      "bg-linear-to-b from-40% from-background to-background/0"
+      "bg-linear-to-b",
+      "from-20% from-background/96",
+      "via-60% via-background/80",
+      "to-background/0"
+      // "via-95% via-background/0",
     ),
+  },
+  variants: {
+    transparent: {
+      true: {
+        className: cn(
+          "flex-row items-center justify-between px-4 pb-4",
+          "bg-linear-to-b",
+          "from-20% from-background/0",
+          "via-60% via-background/0",
+          "to-background/0"
+        ),
+      },
+    },
   },
 });
 
@@ -31,13 +49,15 @@ const RightFrame = styled(View, {
 
 const HeaderTitle = styled(Text, {
   base: {
-    className: "text-base text-foreground font-semibold text-center",
+    variant: "body",
+    weight: "semibold",
   },
 });
 
 const HeaderSubTitle = styled(Text, {
   base: {
-    className: "text-muted text-xs text-center",
+    variant: "description",
+    color: "muted",
     numberOfLines: 2,
   },
 });

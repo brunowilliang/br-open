@@ -8,8 +8,10 @@ export default function HomePublic() {
       <Stack.Screen options={{ headerShown: false }} />
       <View className="flex-1 pt-safe">
         <Text>PUBLIC</Text>
-        <Button onPress={() => router.push("/sign-in")}>Faça seu login</Button>
-        <Button onPress={() => router.push("/sign-up")}>
+        <Button onPress={() => router.navigate("/sign-in")}>
+          Faça seu login
+        </Button>
+        <Button onPress={() => router.navigate("/sign-up")}>
           Crie a sua conta
         </Button>
       </View>

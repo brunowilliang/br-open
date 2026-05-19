@@ -276,10 +276,8 @@ src/app/
         index.tsx
         join.tsx
         ranking.tsx
+        challenges.tsx
         members.tsx
-        seasons.tsx
-        tournaments.tsx
-        calendar.tsx
 
     organizer/
       _layout.tsx
@@ -297,14 +295,22 @@ src/app/
           schedule.tsx
           communications.tsx
           reports.tsx
+    settings/
+      index.tsx
+      player/
+        profile.tsx
+        entries.tsx
       leagues/
+        index.tsx
         new.tsx
         [leagueId]/
           index.tsx
-          settings.tsx
+          general.tsx
+          rules.tsx
           members.tsx
+          approvals.tsx
+          challenges.tsx
           seasons.tsx
-          scoring.tsx
           ranking.tsx
           tournaments.tsx
           communications.tsx
@@ -330,6 +336,9 @@ Regras para essa estrutura:
 - `(app)/(tabs)` deve conter as telas principais do jogador.
 - `organizer` pode ficar dentro de `(app)` porque tambem exige login e role de
   organizador.
+- `leagues` concentra descoberta, entrada na liga e acompanhamento do jogador.
+- `settings/leagues` concentra criacao, configuracao e operacao da liga pelo
+  gestor.
 - `admin` pode ficar dentro de `(app)` porque tambem exige login e role de
   admin.
 - Usar diretorio dinamico com `index.tsx`, por exemplo
@@ -614,14 +623,14 @@ Regras de uso:
 
 ### 1. Autenticacao, Perfil e Permissoes
 
-- [ ] Cadastro por email e senha.
-- [ ] Login por email e senha.
-- [ ] Logout.
+- [x] Cadastro por email e senha.
+- [x] Login por email e senha.
+- [x] Logout.
 - [ ] Sessao persistida no app nativo com Expo Secure Store.
 - [ ] Recuperacao de senha.
 - [ ] Verificacao de email.
 - [ ] Login social, se fizer sentido para aquisicao.
-- [ ] Perfil do jogador com nome, foto, cidade, estado, telefone, genero, data
+- [x] Perfil do jogador com nome, foto, cidade, estado, telefone, genero, data
       de nascimento, clube, categoria declarada e mao dominante.
 - [ ] Perfil publico do jogador com historico, rankings e estatisticas.
 - [ ] Perfil de organizador com nome publico, telefone, cidade, status de
@@ -824,24 +833,24 @@ Regras de uso:
 
 ### 13. Ligas e Ranking de Liga
 
-- [ ] Criar liga.
+- [x] Criar liga.
 - [ ] Editar liga.
-- [ ] Definir liga publica, privada ou por convite.
-- [ ] Definir cidade/estado da liga.
-- [ ] Definir regulamento da liga.
-- [ ] Definir categorias aceitas na liga.
+- [x] Definir liga publica, privada ou por convite.
+- [x] Definir cidade/estado da liga.
+- [x] Definir regulamento da liga.
+- [x] Definir categorias aceitas na liga.
 - [ ] Definir temporada da liga.
 - [ ] Definir regra de pontuacao da liga.
-- [ ] Jogador solicitar entrada na liga.
-- [ ] Gestor aprovar/reprovar membro.
+- [x] Jogador solicitar entrada na liga.
+- [x] Gestor aprovar/reprovar membro.
 - [ ] Membro sair da liga.
 - [ ] Gestor suspender/remover membro.
-- [ ] Ranking publico da liga.
+- [x] Ranking publico da liga.
 - [ ] Ranking por temporada.
 - [ ] Ranking por categoria dentro da liga.
 - [ ] Pontos gerados por torneios vinculados.
 - [ ] Pontos gerados por partidas vinculadas.
-- [ ] Ledger/auditoria de pontos da liga.
+- [x] Ledger/auditoria de pontos da liga.
 - [ ] Criterios de desempate.
 - [ ] Comunicados para membros da liga.
 - [ ] Pagina publica da liga.
@@ -903,13 +912,13 @@ funcionando no app e persistindo corretamente no Convex.
 
 Objetivo: deixar a base pronta para construir todas as features.
 
-- [ ] Confirmar scripts Bun da raiz.
-- [ ] Confirmar app Expo em `src`.
-- [ ] Confirmar backend Convex em `convex`.
-- [ ] Confirmar Expo Router.
-- [ ] Confirmar Better Auth + `kitcn`.
-- [ ] Confirmar `src/lib/convex/auth-client.ts`.
-- [ ] Confirmar providers nativos: Better Auth, Convex, HeroUI Native e Uniwind.
+- [x] Confirmar scripts Bun da raiz.
+- [x] Confirmar app Expo em `src`.
+- [x] Confirmar backend Convex em `convex`.
+- [x] Confirmar Expo Router.
+- [x] Confirmar Better Auth + `kitcn`.
+- [x] Confirmar `src/lib/convex/auth-client.ts`.
+- [x] Confirmar providers nativos: Better Auth, Convex, HeroUI Native e Uniwind.
 - [ ] Remover ou substituir telas demo do starter.
 - [ ] Reorganizar `src/app` conforme a estrutura de rotas definida.
 - [ ] Criar tema base BR Open com HeroUI Native + Uniwind.
@@ -934,11 +943,11 @@ Objetivo: modelar o produto completo antes de criar telas demais.
 - [ ] Criar tabelas de agenda.
 - [ ] Criar tabelas de notificacoes.
 - [ ] Criar tabelas de ranking/historico.
-- [ ] Criar tabelas de ligas.
-- [ ] Criar tabelas de membros de liga.
-- [ ] Criar tabelas de temporadas de liga.
-- [ ] Criar tabelas de ranking de liga.
-- [ ] Criar ledger/auditoria de pontos de liga.
+- [x] Criar tabelas de ligas.
+- [x] Criar tabelas de membros de liga.
+- [x] Criar tabelas de temporadas de liga.
+- [x] Criar tabelas de ranking de liga.
+- [x] Criar ledger/auditoria de pontos de liga.
 - [ ] Criar tabelas de patrocinadores.
 - [ ] Criar tabelas de auditoria.
 - [ ] Criar indices para buscas por cidade, estado, status, organizador, gestor
@@ -951,13 +960,13 @@ dominio.
 
 Objetivo: separar jogador, organizador, gestor de liga, clube e admin.
 
-- [ ] Cadastro.
-- [ ] Login.
-- [ ] Logout.
+- [x] Cadastro.
+- [x] Login.
+- [x] Logout.
 - [ ] Recuperacao de senha.
 - [ ] Verificacao de email.
-- [ ] Completar perfil de jogador.
-- [ ] Editar perfil de jogador.
+- [x] Completar perfil de jogador.
+- [x] Editar perfil de jogador.
 - [ ] Criar perfil de organizador.
 - [ ] Solicitar/verificar organizador.
 - [ ] Criar perfil de gestor de liga.
@@ -980,9 +989,9 @@ Objetivo: construir a experiencia principal do jogador.
 - [ ] Compartilhar link do torneio.
 - [ ] Favoritar torneio.
 - [ ] Tela "Meus torneios".
-- [ ] Tela de descoberta de ligas.
-- [ ] Detalhe publico da liga.
-- [ ] Entrada em liga.
+- [x] Tela de descoberta de ligas.
+- [x] Detalhe publico da liga.
+- [x] Entrada em liga.
 - [ ] Calendario do jogador.
 - [ ] Tela de notificacoes.
 - [ ] Perfil publico do jogador.
@@ -1176,24 +1185,34 @@ inscricao.
 Objetivo: permitir que usuarios, clubes ou organizadores criem ligas permanentes
 com ranking proprio.
 
-- [ ] Criar liga.
+- [x] Primeira entrega de liga com template `challenge_ladder`.
+- [x] Criar liga.
 - [ ] Editar liga.
-- [ ] Definir visibilidade publica/privada/convite.
-- [ ] Definir regulamento da liga.
-- [ ] Definir categorias aceitas.
-- [ ] Definir temporadas.
-- [ ] Definir regra de pontuacao.
-- [ ] Jogador solicitar entrada.
-- [ ] Gestor aprovar/reprovar membro.
-- [ ] Ranking publico da liga.
-- [ ] Ranking por temporada.
-- [ ] Ranking por categoria.
-- [ ] Vincular torneios a liga.
-- [ ] Gerar pontos a partir de torneios.
-- [ ] Gerar pontos a partir de partidas.
-- [ ] Ledger/auditoria dos pontos.
+- [x] Definir visibilidade publica/privada/convite.
+- [x] Definir regulamento da liga.
+- [ ] Definir configuracao da regra de desafios.
+- [x] Definir categoria/segmento aceito pela liga.
+- [ ] Definir temporada operacional para limites e historico.
+- [x] Jogador solicitar entrada.
+- [x] Gestor aprovar/reprovar membro.
+- [x] Ranking publico posicional da liga.
+- [x] Historico de desafios da liga.
+- [x] Criar desafio respeitando distancia maxima de posicoes.
+- [x] Limitar desafios ativos por jogador.
+- [x] Limitar desafios por periodo.
+- [x] Prazo para responder desafio.
+- [x] Prazo para realizar partida do desafio.
+- [x] Registrar resultado de desafio.
+- [ ] Tratar W.O. como perda automatica conforme regra da liga.
+- [x] Trocar posicoes automaticamente apos vitoria do desafiante.
+- [ ] Aplicar penalidade por inatividade.
+- [ ] Reset mensal de limites operacionais.
+- [x] Ledger/auditoria das mudancas de ranking.
 - [ ] Comunicados da liga.
 - [ ] Pagina publica compartilhavel da liga.
+- [x] Painel de gestao da liga em `/settings/leagues`.
+- [ ] Preparar base para futuros templates de liga:
+      `points_season`, `tournament_circuit` e `round_robin`.
 
 Entrega: BR Open tem ligas permanentes que funcionam como comunidade competitiva
 e ranking proprio.
@@ -1271,7 +1290,7 @@ Entrega: app pronto para piloto com organizadores e clubes reais.
 25. Ligas.
 26. Detalhe da liga.
 27. Ranking da liga.
-28. Gestao da liga.
+28. Gestao da liga em `/settings/leagues`.
 29. Admin.
 
 ## Regras de Negocio Importantes
@@ -1338,23 +1357,23 @@ durante o desenvolvimento evita criar regras erradas:
 
 - [ ] Repo organizado.
 - [ ] Expo Router organizado.
-- [ ] Convex conectado.
-- [ ] Better Auth funcionando.
-- [ ] HeroUI Native funcionando.
-- [ ] Uniwind funcionando.
+- [x] Convex conectado.
+- [x] Better Auth funcionando.
+- [x] HeroUI Native funcionando.
+- [x] Uniwind funcionando.
 - [ ] Tema BR Open definido.
 - [ ] Schema Convex completo.
 - [ ] Seeds de desenvolvimento.
 
 ### Jogador
 
-- [ ] Conta criada.
-- [ ] Perfil completo.
+- [x] Conta criada.
+- [x] Perfil completo.
 - [ ] Busca de torneios.
 - [ ] Filtros completos.
 - [ ] Favoritos.
-- [ ] Busca de ligas.
-- [ ] Entrada em liga.
+- [x] Busca de ligas.
+- [x] Entrada em liga.
 - [ ] Inscricao em torneio.
 - [ ] Pagamento de inscricao.
 - [ ] Meus torneios.
@@ -1363,7 +1382,7 @@ durante o desenvolvimento evita criar regras erradas:
 - [ ] Resultados.
 - [ ] Historico.
 - [ ] Ranking.
-- [ ] Ranking de liga.
+- [x] Ranking de liga.
 - [ ] Notificacoes.
 
 ### Organizador
@@ -1384,19 +1403,19 @@ durante o desenvolvimento evita criar regras erradas:
 
 ### Ligas
 
-- [ ] Criar liga.
+- [x] Criar liga.
 - [ ] Editar liga.
-- [ ] Definir regulamento.
+- [x] Definir regulamento.
 - [ ] Definir categorias.
 - [ ] Definir temporadas.
 - [ ] Definir regra de pontuacao.
-- [ ] Aprovar membros.
-- [ ] Ranking da liga.
+- [x] Aprovar membros.
+- [x] Ranking da liga.
 - [ ] Ranking por temporada.
 - [ ] Ranking por categoria.
 - [ ] Vincular torneios.
-- [ ] Gerar pontos.
-- [ ] Auditar pontos.
+- [x] Gerar pontos.
+- [x] Auditar pontos.
 - [ ] Comunicados da liga.
 - [ ] Pagina publica da liga.
 

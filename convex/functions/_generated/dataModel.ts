@@ -40,7 +40,7 @@ export type DataModel = {
       refreshTokenExpiresAt?: null | number;
       scope?: null | string;
       updatedAt: number;
-      userId: string;
+      userId: Id<"user">;
       _id: Id<"account">;
       _creationTime: number;
     };
@@ -306,11 +306,11 @@ export type DataModel = {
       createdAt: number;
       email: string;
       expiresAt?: null | number;
-      inviterId: string;
-      organizationId: string;
+      inviterId: Id<"user">;
+      organizationId: Id<"organization">;
       role: string;
       status: string;
-      teamId?: null | string;
+      teamId?: null | Id<"team">;
       _id: Id<"invitation">;
       _creationTime: number;
     };
@@ -335,8 +335,10 @@ export type DataModel = {
         "status",
         "_creationTime",
       ];
+      inviterId: ["inviterId", "_creationTime"];
       organizationId_status: ["organizationId", "status", "_creationTime"];
       status: ["status", "_creationTime"];
+      teamId: ["teamId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -364,12 +366,95 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  league: {
+    document: {
+      avatarStorageId: string;
+      categories: any;
+      city: string;
+      coverStorageId: string;
+      createdAt: number;
+      description?: null | string;
+      locationNotes?: null | string;
+      managerUserId: Id<"user">;
+      mode: string;
+      name: string;
+      regulation?: null | string;
+      ruleConfig: any;
+      state: string;
+      updatedAt: number;
+      visibility: string;
+      _id: Id<"league">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "avatarStorageId"
+      | "categories"
+      | "city"
+      | "coverStorageId"
+      | "createdAt"
+      | "description"
+      | "locationNotes"
+      | "managerUserId"
+      | "mode"
+      | "name"
+      | "regulation"
+      | "ruleConfig"
+      | "state"
+      | "updatedAt"
+      | "visibility";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      managerUserId: ["managerUserId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  leagueMembership: {
+    document: {
+      createdAt: number;
+      leagueId: Id<"league">;
+      rankingPosition?: null | number;
+      reviewedAt?: null | number;
+      status: string;
+      updatedAt: number;
+      userId: Id<"user">;
+      _id: Id<"leagueMembership">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "leagueId"
+      | "rankingPosition"
+      | "reviewedAt"
+      | "status"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      leagueId_rankingPosition: [
+        "leagueId",
+        "rankingPosition",
+        "_creationTime",
+      ];
+      leagueId_status: ["leagueId", "status", "_creationTime"];
+      leagueId_userId: ["leagueId", "userId", "_creationTime"];
+      userId_status: ["userId", "status", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   member: {
     document: {
       createdAt: number;
-      organizationId: string;
+      organizationId: Id<"organization">;
       role: string;
-      userId: string;
+      userId: Id<"user">;
       _id: Id<"member">;
       _creationTime: number;
     };
@@ -517,7 +602,7 @@ export type DataModel = {
       phone?: null | string;
       state?: null | string;
       updatedAt: number;
-      userId: string;
+      userId: Id<"user">;
       zipCode?: null | string;
       _id: Id<"playerProfile">;
       _creationTime: number;
@@ -549,15 +634,15 @@ export type DataModel = {
   };
   session: {
     document: {
-      activeOrganizationId?: null | string;
-      activeTeamId?: null | string;
+      activeOrganizationId?: null | Id<"organization">;
+      activeTeamId?: null | Id<"team">;
       createdAt: number;
       expiresAt: number;
       ipAddress?: null | string;
       token: string;
       updatedAt: number;
       userAgent?: null | string;
-      userId: string;
+      userId: Id<"user">;
       _id: Id<"session">;
       _creationTime: number;
     };
@@ -576,6 +661,8 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      activeOrganizationId: ["activeOrganizationId", "_creationTime"];
+      activeTeamId: ["activeTeamId", "_creationTime"];
       expiresAt: ["expiresAt", "_creationTime"];
       expiresAt_userId: ["expiresAt", "userId", "_creationTime"];
       session_token_unique: ["token", "_creationTime"];
@@ -588,7 +675,7 @@ export type DataModel = {
     document: {
       createdAt: number;
       name: string;
-      organizationId: string;
+      organizationId: Id<"organization">;
       updatedAt?: null | number;
       _id: Id<"team">;
       _creationTime: number;
@@ -611,8 +698,8 @@ export type DataModel = {
   teamMember: {
     document: {
       createdAt?: null | number;
-      teamId: string;
-      userId: string;
+      teamId: Id<"team">;
+      userId: Id<"user">;
       _id: Id<"teamMember">;
       _creationTime: number;
     };
@@ -632,9 +719,9 @@ export type DataModel = {
       email: string;
       emailVerified: boolean;
       image?: null | string;
-      lastActiveOrganizationId?: null | string;
+      lastActiveOrganizationId?: null | Id<"organization">;
       name: string;
-      personalOrganizationId?: null | string;
+      personalOrganizationId?: null | Id<"organization">;
       updatedAt: number;
       userId?: null | string;
       _id: Id<"user">;
@@ -656,7 +743,9 @@ export type DataModel = {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       email_name: ["email", "name", "_creationTime"];
+      lastActiveOrganizationId: ["lastActiveOrganizationId", "_creationTime"];
       name: ["name", "_creationTime"];
+      personalOrganizationId: ["personalOrganizationId", "_creationTime"];
       user_email_unique: ["email", "_creationTime"];
     };
     searchIndexes: {};

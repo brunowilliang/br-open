@@ -23,10 +23,10 @@ export function AppConvexProvider({ children }: { children: ReactNode }) {
       authClient={authClient}
       client={convex}
       onMutationUnauthorized={() => {
-        // router.push("/auth");
+        // router.navigate("/auth");
       }}
       onQueryUnauthorized={() => {
-        // router.push("/auth");
+        // router.navigate("/auth");
       }}
     >
       <QueryProvider>{children}</QueryProvider>

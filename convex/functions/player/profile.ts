@@ -1,20 +1,20 @@
+import { playerProfile } from "../../domains/player/tables";
+import { playerProfileSchema } from "../../domains/player/contract";
 import { authMutation, authQuery } from "../../lib/crpc";
-import { PlayerProfileSchema } from "../../shared/zod-schemas/player-profile";
-import { playerProfileTable } from "../schema";
 
 export const get = authQuery
-  .output(PlayerProfileSchema.nullable())
+  .output(playerProfileSchema.nullable())
   .query(async ({ ctx }) => {
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { userId: ctx.userId },
+    const currentPlayerProfile = await ctx.orm.query.playerProfile.findFirst({
+      where: (playerProfile, { eq }) => eq(playerProfile.userId, ctx.userId),
     });
 
-    return PlayerProfileSchema.nullable().parse(playerProfile);
+    return playerProfileSchema.nullable().parse(currentPlayerProfile);
   });
 
 export const upsert = authMutation
-  .input(PlayerProfileSchema)
-  .output(PlayerProfileSchema.nullable())
+  .input(playerProfileSchema)
+  .output(playerProfileSchema)
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const values = {
@@ -23,20 +23,21 @@ export const upsert = authMutation
     };
 
     await ctx.orm
-      .insert(playerProfileTable)
+      .insert(playerProfile)
       .values({
         ...values,
         createdAt: now,
         userId: ctx.userId,
       })
       .onConflictDoUpdate({
-        target: playerProfileTable.userId,
         set: values,
+        target: playerProfile.userId,
       });
 
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { userId: ctx.userId },
+    const currentPlayerProfile = await ctx.orm.query.playerProfile.findFirst({
+      where: (currentPlayerProfile, { eq }) =>
+        eq(currentPlayerProfile.userId, ctx.userId),
     });
 
-    return PlayerProfileSchema.parse(playerProfile);
+    return playerProfileSchema.parse(currentPlayerProfile);
   });

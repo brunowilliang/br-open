@@ -4,7 +4,10 @@
   "assist": {
     "actions": {
       "source": {
-        "organizeImports": "on"
+        "organizeImports": {
+          "level": "off",
+          "options": {}
+        }
       }
     }
   },
@@ -13,7 +16,11 @@
       "correctness": {
         "noGlobalDirnameFilename": "off"
       },
+      "complexity": {
+        "noUselessSwitchCase": "off"
+      },
       "style": {
+        "noExportedImports": "off",
         "useConsistentTypeDefinitions": {
           "level": "error",
           "fix": "safe",
@@ -24,7 +31,8 @@
         "noNonNullAssertion": "off"
       },
       "suspicious": {
-        "noEmptyBlockStatements": "off"
+        "noEmptyBlockStatements": "off",
+        "noArrayIndexKey": "off"
       },
       "performance": {
         "noNamespaceImport": "off"
