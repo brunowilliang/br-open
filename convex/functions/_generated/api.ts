@@ -31,6 +31,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -40,12 +53,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -78,6 +114,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -86,12 +135,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -116,15 +188,51 @@ export const api: {
         {
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           description?: string;
           locationNotes?: string;
           name: string;
-          regulation?: string;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig?: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -143,6 +251,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -151,12 +272,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -181,6 +325,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -189,12 +346,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -219,6 +399,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -227,12 +420,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -262,17 +478,53 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           description?: string;
           leagueId: string;
           locationNotes?: string;
           name: string;
-          regulation?: string;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig?: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -291,6 +543,19 @@ export const api: {
           avatarStorageId: string;
           categories: Array<string>;
           city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
           coverStorageId: string;
           createdAt: number;
           description?: string | null;
@@ -299,12 +564,35 @@ export const api: {
           managerUserId: string;
           mode: "challenges";
           name: string;
-          regulation?: string | null;
           ruleConfig: {
             hasInactivityPenalty: boolean;
             inactivityPenaltyDays?: number;
             inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
             lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
             maxActiveChallengesPerPlayer: number;
             maxChallengeDistance: number;
             maxChallengesPerMonth: number;
@@ -399,6 +687,32 @@ export const api: {
         }
       >;
       reject: FunctionReference<
+        "mutation",
+        "public",
+        { leagueId: string; membershipId: string },
+        {
+          createdAt: number;
+          id: string;
+          leagueId: string;
+          player: {
+            avatarUrl?: string | null;
+            fullName: string;
+            nickname: string;
+          };
+          rankingPosition?: number | null;
+          reviewedAt?: number | null;
+          status:
+            | "pending"
+            | "active"
+            | "rejected"
+            | "removed"
+            | "left"
+            | "suspended";
+          updatedAt: number;
+          userId: string;
+        }
+      >;
+      remove: FunctionReference<
         "mutation",
         "public",
         { leagueId: string; membershipId: string },
@@ -666,6 +980,23 @@ export const internal: {
         any
       >;
     };
+  };
+  seed: {
+    preview: FunctionReference<
+      "mutation",
+      "internal",
+      { primaryUserEmail?: string; reset?: boolean; targetLeagueId?: string },
+      {
+        leaguesCreated: number;
+        membershipsCreated: number;
+        playerProfilesCreated: number;
+        primaryUserLinked: boolean;
+        resetApplied: boolean;
+        skipped: boolean;
+        targetLeagueLinked: boolean;
+        usersCreated: number;
+      }
+    >;
   };
 } = anyApi as any;
 

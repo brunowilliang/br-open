@@ -371,6 +371,7 @@ export type DataModel = {
       avatarStorageId: string;
       categories: any;
       city: string;
+      courts?: null | any;
       coverStorageId: string;
       createdAt: number;
       description?: null | string;
@@ -378,7 +379,6 @@ export type DataModel = {
       managerUserId: Id<"user">;
       mode: string;
       name: string;
-      regulation?: null | string;
       ruleConfig: any;
       state: string;
       updatedAt: number;
@@ -392,6 +392,7 @@ export type DataModel = {
       | "avatarStorageId"
       | "categories"
       | "city"
+      | "courts"
       | "coverStorageId"
       | "createdAt"
       | "description"
@@ -399,7 +400,6 @@ export type DataModel = {
       | "managerUserId"
       | "mode"
       | "name"
-      | "regulation"
       | "ruleConfig"
       | "state"
       | "updatedAt"

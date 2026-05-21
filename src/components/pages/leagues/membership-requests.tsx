@@ -3,6 +3,10 @@ import { EmptyState } from "heroui-native-pro";
 import { Fragment } from "react";
 
 import { Image } from "@/components/core/image";
+import { ErrorState } from "@/components/ui/error-state";
+import { HugeIcons } from "@/components/ui/huge-icons";
+import { LoadingState } from "@/components/ui/loading-state";
+import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 export type MembershipRequestItem = {
   avatarUrl?: string | null;
@@ -12,6 +16,8 @@ export type MembershipRequestItem = {
 };
 
 type MembershipRequestsProps = {
+  errorMessage?: string;
+  isLoading?: boolean;
   isPending?: boolean;
   items: MembershipRequestItem[];
   onApprove: (membershipId: string) => void;
@@ -19,7 +25,16 @@ type MembershipRequestsProps = {
 };
 
 export const MembershipRequests = (props: MembershipRequestsProps) => {
-  const { isPending, items, onApprove, onReject } = props;
+  const { errorMessage, isLoading, isPending, items, onApprove, onReject } =
+    props;
+
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  if (errorMessage) {
+    return <ErrorState message={errorMessage} />;
+  }
 
   if (items.length === 0) {
     return (
@@ -48,30 +63,37 @@ export const MembershipRequests = (props: MembershipRequestsProps) => {
               />
             </ListGroup.ItemPrefix>
             <ListGroup.ItemContent>
-              <ListGroup.ItemTitle>{item.name}</ListGroup.ItemTitle>
-              <ListGroup.ItemDescription>
+              <ListGroup.ItemTitle numberOfLines={1}>
+                {item.name} {item.name}
+              </ListGroup.ItemTitle>
+              <ListGroup.ItemDescription numberOfLines={1}>
                 {item.nickname}
               </ListGroup.ItemDescription>
             </ListGroup.ItemContent>
-            <ListGroup.ItemSuffix className="flex-row gap-2">
+            <ListGroup.ItemSuffix className="flex-row gap-1">
               <Button
                 isDisabled={isPending}
+                isIconOnly
                 onPress={() => {
                   onReject(item.id);
                 }}
                 size="sm"
                 variant="outline"
               >
-                <Button.Label>Reprovar</Button.Label>
+                <HugeIcons icon={Cancel01Icon} />
               </Button>
               <Button
                 isDisabled={isPending}
+                isIconOnly
                 onPress={() => {
                   onApprove(item.id);
                 }}
                 size="sm"
               >
-                <Button.Label>Aprovar</Button.Label>
+                <HugeIcons
+                  className="text-accent-foreground"
+                  icon={Tick02Icon}
+                />
               </Button>
             </ListGroup.ItemSuffix>
           </ListGroup.Item>

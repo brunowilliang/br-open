@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Description,
   ListGroup,
   PressableFeedback,
@@ -7,6 +6,8 @@ import {
   Separator,
 } from "heroui-native";
 import { FlatList, View } from "react-native";
+
+import { Image } from "@/components/core/image";
 
 type PlayerItem = {
   id: string;
@@ -50,14 +51,12 @@ export const Players = () => (
           <PressableFeedback animation={false}>
             <ListGroup.Item disabled>
               <ListGroup.ItemPrefix>
-                <Avatar alt={item.name}>
-                  <Avatar.Image
-                    source={{
-                      uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
-                    }}
-                  />
-                  <Avatar.Fallback>BW</Avatar.Fallback>
-                </Avatar>
+                <Image
+                  alt={item.name}
+                  className="size-10 rounded-full"
+                  fallback="green"
+                  source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
+                />
               </ListGroup.ItemPrefix>
               <ListGroup.ItemContent>
                 <ListGroup.ItemTitle>{item.name}</ListGroup.ItemTitle>

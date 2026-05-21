@@ -34,10 +34,11 @@ const ormSchema = schema;
 
 registerProcedureNameLookup(
   {
-  "league/discovery.ts": [{ column: 3, line: 41, name: "league/discovery:getById" }, { column: 3, line: 80, name: "league/discovery:listAvailable" }],
-  "league/management.ts": [{ column: 3, line: 74, name: "league/management:create" }, { column: 3, line: 62, name: "league/management:getById" }, { column: 3, line: 49, name: "league/management:listMine" }, { column: 3, line: 132, name: "league/management:remove" }, { column: 3, line: 96, name: "league/management:update" }],
-  "league/membership.ts": [{ column: 3, line: 300, name: "league/membership:approve" }, { column: 3, line: 273, name: "league/membership:getOverview" }, { column: 3, line: 335, name: "league/membership:reject" }, { column: 3, line: 363, name: "league/membership:reorderRanking" }, { column: 3, line: 167, name: "league/membership:requestJoin" }],
+  "league/discovery.ts": [{ column: 3, line: 42, name: "league/discovery:getById" }, { column: 3, line: 81, name: "league/discovery:listAvailable" }],
+  "league/management.ts": [{ column: 3, line: 75, name: "league/management:create" }, { column: 3, line: 63, name: "league/management:getById" }, { column: 3, line: 50, name: "league/management:listMine" }, { column: 3, line: 133, name: "league/management:remove" }, { column: 3, line: 97, name: "league/management:update" }],
+  "league/membership.ts": [{ column: 3, line: 336, name: "league/membership:approve" }, { column: 3, line: 297, name: "league/membership:getOverview" }, { column: 3, line: 371, name: "league/membership:reject" }, { column: 3, line: 399, name: "league/membership:remove" }, { column: 3, line: 429, name: "league/membership:reorderRanking" }, { column: 3, line: 191, name: "league/membership:requestJoin" }],
   "player/profile.ts": [{ column: 3, line: 7, name: "player/profile:get" }, { column: 3, line: 18, name: "player/profile:upsert" }],
+  "seed.ts": [{ column: 3, line: 596, name: "seed:preview" }],
 },
   "convex/functions"
 );

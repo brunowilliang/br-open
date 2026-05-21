@@ -16,6 +16,7 @@ type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 function serializeLeague(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
+    courts: record.courts ?? [],
     createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
   });

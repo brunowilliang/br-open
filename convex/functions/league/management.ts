@@ -21,6 +21,7 @@ type LeagueRecord = InferSelectModel<typeof league>;
 function serializeLeague(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
+    courts: record.courts ?? [],
     createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
   });
@@ -104,12 +105,12 @@ export const update = authMutation
       .set({
         name: input.name,
         description: input.description,
-        regulation: input.regulation,
         city: input.city,
         state: input.state,
         locationNotes: input.locationNotes,
         visibility: input.visibility,
         categories: input.categories,
+        courts: input.courts,
         ruleConfig: input.ruleConfig,
         coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,

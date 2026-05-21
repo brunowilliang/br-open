@@ -1,4 +1,5 @@
-import LeagueCard from "@/components/pages/home/league-card";
+import { Image } from "@/components/core/image";
+import { LeagueCard } from "@/components/pages/home/league-card";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
@@ -8,7 +9,7 @@ import { useCRPC } from "@/lib/convex/crpc";
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Avatar, Button, Description, SearchField } from "heroui-native";
+import { Button, Description, SearchField } from "heroui-native";
 import { Badge } from "heroui-native-pro";
 import { View } from "react-native";
 
@@ -27,14 +28,12 @@ export default function HomePrivate() {
           <View className="flex-1 flex-row items-center justify-between gap-4">
             <View className="flex-row items-center gap-3">
               <Badge.Anchor>
-                <Avatar alt="user">
-                  <Avatar.Image
-                    source={{
-                      uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
-                    }}
-                  />
-                  <Avatar.Fallback>BW</Avatar.Fallback>
-                </Avatar>
+                <Image
+                  alt="user"
+                  className="size-10 rounded-full"
+                  fallback="green"
+                  source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
+                />
                 <Badge color="danger" size="sm">
                   5
                 </Badge>

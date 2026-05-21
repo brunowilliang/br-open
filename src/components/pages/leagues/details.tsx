@@ -1,6 +1,4 @@
 import {
-  Avatar,
-  Description,
   FieldError,
   Input,
   Label,
@@ -8,7 +6,9 @@ import {
   TextArea,
   TextField,
 } from "heroui-native";
-import { Image } from "react-native";
+import { Image as NativeImage } from "react-native";
+
+import { Image } from "@/components/core/image";
 
 type DetailsProps = {
   description: string;
@@ -20,10 +20,6 @@ type DetailsProps = {
   onDescriptionChange: (value: string) => void;
   onNameBlur: () => void;
   onNameChange: (value: string) => void;
-  onRegulationBlur: () => void;
-  onRegulationChange: (value: string) => void;
-  regulation: string;
-  regulationError?: string;
 };
 
 export const Details = ({
@@ -36,14 +32,10 @@ export const Details = ({
   onDescriptionChange,
   onNameBlur,
   onNameChange,
-  onRegulationBlur,
-  onRegulationChange,
-  regulation,
-  regulationError,
 }: DetailsProps) => (
   <>
     <PressableFeedback className="aspect-video w-full overflow-hidden rounded-3xl">
-      <Image
+      <NativeImage
         className="size-full"
         source={{
           uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
@@ -53,14 +45,12 @@ export const Details = ({
     </PressableFeedback>
 
     <PressableFeedback className="-mt-20 self-center rounded-full">
-      <Avatar alt="Perfil" className="size-30">
-        <Avatar.Image
-          source={{
-            uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
-          }}
-        />
-        <Avatar.Fallback>BW</Avatar.Fallback>
-      </Avatar>
+      <Image
+        alt="Perfil"
+        className="size-30 rounded-full"
+        fallback="blue"
+        source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg"
+      />
       <PressableFeedback.Highlight />
     </PressableFeedback>
 
@@ -85,20 +75,6 @@ export const Details = ({
         value={description}
       />
       <FieldError>{descriptionError ?? ""}</FieldError>
-    </TextField>
-    <TextField isInvalid={Boolean(regulationError)}>
-      <Label>Regulamento</Label>
-      <TextArea
-        editable={!isDisabled}
-        onBlur={onRegulationBlur}
-        onChangeText={onRegulationChange}
-        placeholder="Ex: Jogos devem ser marcados com antecedência..."
-        value={regulation}
-      />
-      <Description>
-        Descreva as regras gerais, combinados e orientações da liga.
-      </Description>
-      <FieldError>{regulationError ?? ""}</FieldError>
     </TextField>
   </>
 );

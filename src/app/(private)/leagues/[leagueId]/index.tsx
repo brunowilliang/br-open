@@ -9,18 +9,23 @@ import {
   Tabs,
   useToast,
 } from "heroui-native";
+import { Badge } from "heroui-native-pro";
 import { Fragment, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Ranking } from "@/components/pages/leagues/ranking";
+import { MembershipRequests } from "@/components/pages/leagues/membership-requests";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { Text } from "@/components/ui/text";
+import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getMembershipActionLabel } from "@/lib/leagues/presentation";
 
 type RuleConfig = ApiOutputs["league"]["management"]["getById"]["ruleConfig"];
+type MembershipOverview = ApiOutputs["league"]["membership"]["getOverview"];
 
 type RuleItem = {
   label: string;
@@ -100,6 +105,43 @@ function formatInactivityPenaltyType(
   }
 }
 
+function formatBoolean(value: boolean) {
+  return value ? "Sim" : "Não";
+}
+
+function formatScoringMode(value: RuleConfig["matchConfig"]["scoringMode"]) {
+  switch (value) {
+    case "no_ad":
+      return "No-ad";
+    default:
+      return "Com vantagem";
+  }
+}
+
+function formatTieBreakSummary(input: {
+  gamesAll: number;
+  hasTieBreak: boolean;
+  mustWinByTwo: boolean;
+  points: number;
+}) {
+  if (!input.hasTieBreak) {
+    return "Não";
+  }
+
+  return `${input.gamesAll}x${input.gamesAll}, ${input.points} pontos${input.mustWinByTwo ? ", com 2 de diferença" : ""}`;
+}
+
+function formatFinalSetSummary(matchConfig: RuleConfig["matchConfig"]) {
+  switch (matchConfig.finalSetMode) {
+    case "custom_set":
+      return `${matchConfig.finalSetGamesPerSet} games, ${formatScoringMode(matchConfig.finalSetScoringMode)}, ${matchConfig.finalSetHasTieBreak ? `tie-break em ${matchConfig.finalSetTieBreakAtGamesAll}x${matchConfig.finalSetTieBreakAtGamesAll} com ${matchConfig.finalSetTieBreakPoints} pontos` : "sem tie-break"}`;
+    case "super_tiebreak":
+      return `Super tie-break de ${matchConfig.finalSetSuperTieBreakPoints} pontos${matchConfig.finalSetSuperTieBreakMustWinByTwo ? ", com 2 de diferença" : ""}`;
+    default:
+      return "Igual aos sets anteriores";
+  }
+}
+
 function buildRuleSections(ruleConfig: RuleConfig): RuleSection[] {
   const rankingItems: RuleItem[] = [
     {
@@ -168,13 +210,77 @@ function buildRuleSections(ruleConfig: RuleConfig): RuleSection[] {
       items: rankingItems,
       title: "Ranking",
     },
+    {
+      items: [
+        {
+          label: "Quantos sets?",
+          value: `${ruleConfig.matchConfig.bestOfSets} sets`,
+        },
+        {
+          label: "Quantos games por set?",
+          value: `${ruleConfig.matchConfig.gamesPerSet} games`,
+        },
+        {
+          label: "Duração padrão da partida",
+          value: `${ruleConfig.matchConfig.defaultDurationMinutes} min`,
+        },
+        {
+          label: "Pontuação dos games",
+          value: formatScoringMode(ruleConfig.matchConfig.scoringMode),
+        },
+        {
+          label: "Vencer o set por 2 games",
+          value: formatBoolean(ruleConfig.matchConfig.setMustWinByTwoGames),
+        },
+        {
+          label: "Tie-break",
+          value: formatTieBreakSummary({
+            gamesAll: ruleConfig.matchConfig.tieBreakAtGamesAll,
+            hasTieBreak: ruleConfig.matchConfig.hasTieBreak,
+            mustWinByTwo: ruleConfig.matchConfig.tieBreakMustWinByTwo,
+            points: ruleConfig.matchConfig.tieBreakPoints,
+          }),
+        },
+        {
+          label: "Último set",
+          value: formatFinalSetSummary(ruleConfig.matchConfig),
+        },
+      ],
+      title: "Partidas",
+    },
   ];
 }
 
+function buildMembershipRequestItems(data?: MembershipOverview) {
+  return (
+    data?.pendingRequests.map((item) => ({
+      avatarUrl: item.player.avatarUrl,
+      id: item.id,
+      name: item.player.fullName,
+      nickname: item.player.nickname,
+    })) ?? []
+  );
+}
+
+function buildRankingItems(data?: MembershipOverview) {
+  return (
+    data?.ranking.map((item, index) => ({
+      avatarUrl: item.player.avatarUrl,
+      id: item.id,
+      name: item.player.fullName,
+      nickname: item.player.nickname,
+      position: item.rankingPosition ?? index + 1,
+      userId: item.userId,
+    })) ?? []
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this screen coordinates public, member, and manager league states in one route
 export default function LeagueDetailsScreen() {
   const crpc = useCRPC();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: session } = authClient.useSession();
   const { leagueId: rawLeagueId } = useLocalSearchParams<{
     leagueId?: string | string[];
   }>();
@@ -187,6 +293,16 @@ export default function LeagueDetailsScreen() {
     }),
     enabled: Boolean(leagueId),
   });
+  const membershipOverviewQuery = useQuery({
+    ...crpc.league.membership.getOverview.queryOptions({
+      leagueId: leagueId ?? "",
+    }),
+    enabled: Boolean(
+      leagueId &&
+        (leagueQuery.data?.isManagerOwner ||
+          leagueQuery.data?.viewerMembershipStatus === "active")
+    ),
+  });
   const requestJoin = useMutation(
     crpc.league.membership.requestJoin.mutationOptions({
       onSuccess: async (membership) => {
@@ -194,9 +310,14 @@ export default function LeagueDetailsScreen() {
           return;
         }
 
-        await queryClient.invalidateQueries(
-          crpc.league.discovery.getById.queryFilter({ leagueId })
-        );
+        await Promise.all([
+          queryClient.invalidateQueries(
+            crpc.league.discovery.getById.queryFilter({ leagueId })
+          ),
+          queryClient.invalidateQueries(
+            crpc.league.membership.getOverview.queryFilter({ leagueId })
+          ),
+        ]);
 
         toast.show({
           description:
@@ -216,6 +337,131 @@ export default function LeagueDetailsScreen() {
           description: error.message || "Não foi possível solicitar entrada.",
           id: "request-join-error",
           label: "Erro ao solicitar entrada",
+          variant: "danger",
+        });
+      },
+    })
+  );
+  const approveMembership = useMutation(
+    crpc.league.membership.approve.mutationOptions({
+      onSuccess: async () => {
+        if (!leagueId) {
+          return;
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries(
+            crpc.league.membership.getOverview.queryFilter({ leagueId })
+          ),
+          queryClient.invalidateQueries(
+            crpc.league.discovery.getById.queryFilter({ leagueId })
+          ),
+        ]);
+        toast.show({
+          description: "Participante aprovado com sucesso.",
+          id: "approve-membership-success",
+          label: "Solicitação aprovada",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description:
+            error.message || "Não foi possível aprovar a solicitação.",
+          id: "approve-membership-error",
+          label: "Erro ao aprovar solicitação",
+          variant: "danger",
+        });
+      },
+    })
+  );
+  const rejectMembership = useMutation(
+    crpc.league.membership.reject.mutationOptions({
+      onSuccess: async () => {
+        if (!leagueId) {
+          return;
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries(
+            crpc.league.membership.getOverview.queryFilter({ leagueId })
+          ),
+          queryClient.invalidateQueries(
+            crpc.league.discovery.getById.queryFilter({ leagueId })
+          ),
+        ]);
+        toast.show({
+          description: "Solicitação reprovada com sucesso.",
+          id: "reject-membership-success",
+          label: "Solicitação reprovada",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description:
+            error.message || "Não foi possível reprovar a solicitação.",
+          id: "reject-membership-error",
+          label: "Erro ao reprovar solicitação",
+          variant: "danger",
+        });
+      },
+    })
+  );
+  const removeMembership = useMutation(
+    crpc.league.membership.remove.mutationOptions({
+      onSuccess: async () => {
+        if (!leagueId) {
+          return;
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries(
+            crpc.league.membership.getOverview.queryFilter({ leagueId })
+          ),
+          queryClient.invalidateQueries(
+            crpc.league.discovery.getById.queryFilter({ leagueId })
+          ),
+        ]);
+        toast.show({
+          description: "Jogador removido com sucesso.",
+          id: "remove-membership-success",
+          label: "Jogador removido",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description: error.message || "Não foi possível remover o jogador.",
+          id: "remove-membership-error",
+          label: "Erro ao remover jogador",
+          variant: "danger",
+        });
+      },
+    })
+  );
+  const reorderRanking = useMutation(
+    crpc.league.membership.reorderRanking.mutationOptions({
+      onSuccess: async () => {
+        if (!leagueId) {
+          return;
+        }
+
+        await queryClient.invalidateQueries(
+          crpc.league.membership.getOverview.queryFilter({ leagueId })
+        );
+        toast.show({
+          description: "Ranking atualizado com sucesso.",
+          id: "reorder-ranking-success",
+          label: "Ranking atualizado",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description: error.message || "Não foi possível atualizar o ranking.",
+          id: "reorder-ranking-error",
+          label: "Erro ao atualizar ranking",
           variant: "danger",
         });
       },
@@ -248,16 +494,28 @@ export default function LeagueDetailsScreen() {
 
   const league = leagueQuery.data;
   const ruleSections = buildRuleSections(league.ruleConfig);
+  const isManagerOwner = league.isManagerOwner;
+  const isAcceptedViewer = league.viewerMembershipStatus === "active";
+  const showRankingTab = isManagerOwner || isAcceptedViewer;
+  const showRequestsTab = isManagerOwner;
+  const showRulesTab = !isManagerOwner;
+  const showJoinFooter = !(isManagerOwner || isAcceptedViewer);
+  const isRankingTabActive = showRankingTab && activeTab === "ranking";
   const membershipLabel = getMembershipActionLabel(
     league.viewerMembershipStatus,
     {
-      isManagerOwner: league.isManagerOwner,
+      isManagerOwner,
     }
   );
+  const rankingItems = buildRankingItems(membershipOverviewQuery.data);
+  const requestItems = buildMembershipRequestItems(
+    membershipOverviewQuery.data
+  );
+  const viewerPosition =
+    rankingItems.find((item) => item.userId === session?.user?.id)?.position ??
+    null;
   const isJoinDisabled =
-    requestJoin.isPending ||
-    league.viewerMembershipStatus === "active" ||
-    league.viewerMembershipStatus === "pending";
+    requestJoin.isPending || league.viewerMembershipStatus === "pending";
 
   return (
     <Tabs
@@ -283,81 +541,179 @@ export default function LeagueDetailsScreen() {
               <Tabs.Trigger value="details">
                 <Tabs.Label>Detalhes</Tabs.Label>
               </Tabs.Trigger>
-              <Tabs.Trigger value="table">
-                <Tabs.Label>Classificação</Tabs.Label>
-              </Tabs.Trigger>
-              <Tabs.Trigger value="rules">
-                <Tabs.Label>Regras</Tabs.Label>
-              </Tabs.Trigger>
+              {showRankingTab ? (
+                <Tabs.Trigger value="ranking">
+                  <Tabs.Label>Ranking</Tabs.Label>
+                </Tabs.Trigger>
+              ) : null}
+              {showRequestsTab ? (
+                <Tabs.Trigger value="requests">
+                  <Tabs.Label>Solicitações</Tabs.Label>
+                  {requestItems.length ? (
+                    <Badge
+                      className="absolute top-1 right-1"
+                      color="danger"
+                      size="sm"
+                    >
+                      {requestItems.length}
+                    </Badge>
+                  ) : null}
+                </Tabs.Trigger>
+              ) : null}
+              {showRulesTab ? (
+                <Tabs.Trigger value="rules">
+                  <Tabs.Label>Regras</Tabs.Label>
+                </Tabs.Trigger>
+              ) : null}
             </Tabs.List>
           </View>
         </Page.Header>
 
-        <Page.KeyboardAwareScrollView contentContainerClassName="gap-4 px-4 pb-safe-offset-4">
-          <Tabs.Content className="gap-3" value="details">
-            <Image
-              className="aspect-video w-full rounded-3xl"
-              fallback="green"
-            />
-            <Image
-              className="-mt-15 mb-4 aspect-square size-30 self-center rounded-full"
-              fallback="blue"
-            />
-            <View className="gap-2">
-              <Text className="text-center" variant="title">
-                {league.name}
-              </Text>
-              <Text className="text-center" color="muted" variant="description">
-                {league.description?.trim() ||
-                  "Essa liga ainda não adicionou uma apresentação."}
-              </Text>
-            </View>
-          </Tabs.Content>
+        {isRankingTabActive ? null : (
+          <Page.KeyboardAwareScrollView contentContainerClassName="gap-4 px-4 pb-safe-offset-4">
+            <Tabs.Content className="gap-3" value="details">
+              <Image
+                className="aspect-video w-full rounded-3xl"
+                fallback="green"
+              />
+              <Image
+                className="-mt-15 mb-4 aspect-square size-30 self-center rounded-full"
+                fallback="blue"
+              />
+              <View className="gap-2">
+                <Text className="text-center" variant="title">
+                  {league.name}
+                </Text>
+                <Text
+                  className="text-center"
+                  color="muted"
+                  variant="description"
+                >
+                  {league.description?.trim() ||
+                    "Essa liga ainda não adicionou uma apresentação."}
+                </Text>
+              </View>
+            </Tabs.Content>
 
-          <Tabs.Content className="gap-4" value="table">
-            <Text>table</Text>
-          </Tabs.Content>
+            {showRulesTab ? (
+              <Tabs.Content className="gap-3" value="rules">
+                {ruleSections.map((section) => (
+                  <Fragment key={section.title}>
+                    <Description>{section.title}</Description>
+                    <ListGroup>
+                      {section.items.map((rule, index) => (
+                        <Fragment key={`${section.title}-${rule.label}`}>
+                          {index > 0 ? <Separator className="mx-4" /> : null}
+                          <ListGroup.Item disabled>
+                            <ListGroup.ItemContent>
+                              <ListGroup.ItemTitle>
+                                {rule.label}
+                              </ListGroup.ItemTitle>
+                              <ListGroup.ItemDescription>
+                                {rule.value}
+                              </ListGroup.ItemDescription>
+                            </ListGroup.ItemContent>
+                          </ListGroup.Item>
+                        </Fragment>
+                      ))}
+                    </ListGroup>
+                  </Fragment>
+                ))}
+              </Tabs.Content>
+            ) : null}
+            {showRequestsTab ? (
+              <Tabs.Content className="gap-4" value="requests">
+                <MembershipRequests
+                  errorMessage={
+                    membershipOverviewQuery.isError
+                      ? membershipOverviewQuery.error.message
+                      : undefined
+                  }
+                  isLoading={membershipOverviewQuery.isPending}
+                  isPending={
+                    approveMembership.isPending || rejectMembership.isPending
+                  }
+                  items={requestItems}
+                  onApprove={(membershipId) => {
+                    if (!leagueId) {
+                      return;
+                    }
 
-          <Tabs.Content className="gap-3" value="rules">
-            {ruleSections.map((section) => (
-              <Fragment key={section.title}>
-                <Description>{section.title}</Description>
-                <ListGroup>
-                  {section.items.map((rule, index) => (
-                    <Fragment key={`${section.title}-${rule.label}`}>
-                      {index > 0 ? <Separator className="mx-4" /> : null}
-                      <ListGroup.Item disabled>
-                        <ListGroup.ItemContent>
-                          <ListGroup.ItemTitle>
-                            {rule.label}
-                          </ListGroup.ItemTitle>
-                          <ListGroup.ItemDescription>
-                            {rule.value}
-                          </ListGroup.ItemDescription>
-                        </ListGroup.ItemContent>
-                      </ListGroup.Item>
-                    </Fragment>
-                  ))}
-                </ListGroup>
-              </Fragment>
-            ))}
-          </Tabs.Content>
-        </Page.KeyboardAwareScrollView>
+                    approveMembership.mutate({ leagueId, membershipId });
+                  }}
+                  onReject={(membershipId) => {
+                    if (!leagueId) {
+                      return;
+                    }
 
-        <Page.Footer className="centered">
-          <Button
-            isDisabled={isJoinDisabled}
-            onPress={() => {
-              if (!leagueId) {
-                return;
-              }
+                    rejectMembership.mutate({ leagueId, membershipId });
+                  }}
+                />
+              </Tabs.Content>
+            ) : null}
+          </Page.KeyboardAwareScrollView>
+        )}
 
-              requestJoin.mutate({ leagueId });
-            }}
-          >
-            <Button.Label>{membershipLabel}</Button.Label>
-          </Button>
-        </Page.Footer>
+        {showRankingTab ? (
+          <Page.View className="flex-1">
+            <Tabs.Content
+              className="flex-1 px-4 pb-safe-offset-4"
+              value="ranking"
+            >
+              <Ranking
+                canManage={isManagerOwner}
+                errorMessage={
+                  membershipOverviewQuery.isError
+                    ? membershipOverviewQuery.error.message
+                    : undefined
+                }
+                isDisabled={!isManagerOwner || reorderRanking.isPending}
+                isLoading={membershipOverviewQuery.isPending}
+                items={rankingItems}
+                maxChallengeDistance={league.ruleConfig.maxChallengeDistance}
+                onChange={(items) => {
+                  if (!(leagueId && isManagerOwner)) {
+                    return;
+                  }
+
+                  reorderRanking.mutate({
+                    leagueId,
+                    membershipIds: items.map((item) => item.id),
+                  });
+                }}
+                onRemove={
+                  leagueId
+                    ? async (membershipId) => {
+                        await removeMembership.mutateAsync({
+                          leagueId,
+                          membershipId,
+                        });
+                      }
+                    : undefined
+                }
+                viewerPosition={viewerPosition}
+                viewerUserId={session?.user?.id}
+              />
+            </Tabs.Content>
+          </Page.View>
+        ) : null}
+
+        {showJoinFooter ? (
+          <Page.Footer className="centered">
+            <Button
+              isDisabled={isJoinDisabled}
+              onPress={() => {
+                if (!leagueId) {
+                  return;
+                }
+
+                requestJoin.mutate({ leagueId });
+              }}
+            >
+              <Button.Label>{membershipLabel}</Button.Label>
+            </Button>
+          </Page.Footer>
+        ) : null}
       </Page>
     </Tabs>
   );

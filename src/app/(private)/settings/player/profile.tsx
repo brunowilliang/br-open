@@ -1,7 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Avatar,
   Button,
   FieldError,
   Input,
@@ -15,6 +14,7 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 
+import { Image } from "@/components/core/image";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -167,14 +167,12 @@ export default function PlayerProfile() {
       </Page.Header>
       <Page.KeyboardAwareScrollView contentContainerClassName="items-center gap-6">
         <View>
-          <Avatar alt={displayName} className="size-30">
-            <Avatar.Image
-              source={{
-                uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
-              }}
-            />
-            <Avatar.Fallback>BW</Avatar.Fallback>
-          </Avatar>
+          <Image
+            alt={displayName}
+            className="size-30 rounded-full"
+            fallback="green"
+            source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
+          />
           <Button
             className="absolute -right-2 -bottom-2"
             isIconOnly

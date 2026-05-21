@@ -1,19 +1,22 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Menu, Tabs } from "heroui-native";
-import type { ReactNode } from "react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
 import { Categories } from "@/components/pages/leagues/categories";
+import { Courts } from "@/components/pages/leagues/courts";
 import { Details } from "@/components/pages/leagues/details";
 import { Location } from "@/components/pages/leagues/location";
 import { Rules } from "@/components/pages/leagues/rules";
 import { Settings } from "@/components/pages/leagues/settings";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { Page } from "@/components/ui/page";
-import { CreateLeagueSchema } from "@convex/domains/league/contract";
+import {
+  CreateLeagueSchema,
+  LeagueMatchConfigSchema,
+} from "@convex/domains/league/contract";
 import {
   CheckmarkCircle02Icon,
   MoreVerticalIcon,
@@ -27,13 +30,15 @@ type CategoryItem = {
 const LeagueSchema = z.object({
   name: CreateLeagueSchema.shape.name,
   description: CreateLeagueSchema.shape.description,
-  regulation: CreateLeagueSchema.shape.regulation,
   city: CreateLeagueSchema.shape.city,
   state: CreateLeagueSchema.shape.state,
   locationNotes: CreateLeagueSchema.shape.locationNotes,
   visibility: CreateLeagueSchema.shape.visibility,
   categories: CreateLeagueSchema.shape.categories,
-  ruleConfig: CreateLeagueSchema.shape.ruleConfig,
+  courts: CreateLeagueSchema.shape.courts,
+  ruleConfig: CreateLeagueSchema.shape.ruleConfig.safeExtend({
+    matchConfig: LeagueMatchConfigSchema,
+  }),
 });
 
 export type LeagueScreenValues = z.infer<typeof LeagueSchema>;
@@ -45,8 +50,6 @@ type LeagueScreenProps = {
   mode: "create" | "edit";
   onDelete?: () => Promise<void>;
   onSubmit: (values: LeagueScreenValues) => Promise<void>;
-  rankingContent?: ReactNode;
-  requestsContent?: ReactNode;
   showDelete?: boolean;
   title: string;
 };
@@ -59,8 +62,6 @@ export function LeagueScreen(props: LeagueScreenProps) {
     mode,
     onDelete,
     onSubmit,
-    rankingContent,
-    requestsContent,
     showDelete,
     title,
   } = props;
@@ -144,26 +145,22 @@ export function LeagueScreen(props: LeagueScreenProps) {
                 <Tabs.Trigger value="rules">
                   <Tabs.Label>Regras</Tabs.Label>
                 </Tabs.Trigger>
+                <Tabs.Trigger value="courts">
+                  <Tabs.Label>Quadras</Tabs.Label>
+                </Tabs.Trigger>
                 <Tabs.Trigger value="settings">
                   <Tabs.Label>Configurações</Tabs.Label>
                 </Tabs.Trigger>
-                {mode === "edit" ? (
-                  <Tabs.Trigger value="requests">
-                    <Tabs.Label>Solicitações</Tabs.Label>
-                  </Tabs.Trigger>
-                ) : null}
-                {mode === "edit" ? (
-                  <Tabs.Trigger value="ranking">
-                    <Tabs.Label>Ranking</Tabs.Label>
-                  </Tabs.Trigger>
-                ) : null}
               </Tabs.ScrollView>
             </Tabs.List>
           </View>
         </Page.Header>
 
-        <Page.KeyboardAwareScrollView contentContainerClassName="px-4 pb-safe-offset-4">
-          <Tabs.Content className="gap-4" value="details">
+        <Page.KeyboardAwareScrollView
+          className="h-full"
+          contentContainerClassName="px-4 pb-safe-offset-4"
+        >
+          <Tabs.Content className="flex-1 gap-4" value="details">
             <Details
               description={values.description ?? ""}
               descriptionError={errors.description?.message}
@@ -190,18 +187,6 @@ export function LeagueScreen(props: LeagueScreenProps) {
                   shouldValidate: true,
                 });
               }}
-              onRegulationBlur={() => {
-                form.trigger("regulation").catch(() => undefined);
-              }}
-              onRegulationChange={(value) => {
-                form.setValue("regulation", value, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: true,
-                });
-              }}
-              regulation={values.regulation ?? ""}
-              regulationError={errors.regulation?.message}
             />
           </Tabs.Content>
 
@@ -276,6 +261,58 @@ export function LeagueScreen(props: LeagueScreenProps) {
                 inactivityPenaltyType:
                   errors.ruleConfig?.inactivityPenaltyType?.message,
                 lossBehavior: errors.ruleConfig?.lossBehavior?.message,
+                matchConfig: {
+                  bestOfSets:
+                    errors.ruleConfig?.matchConfig?.bestOfSets?.message,
+                  defaultDurationMinutes:
+                    errors.ruleConfig?.matchConfig?.defaultDurationMinutes
+                      ?.message,
+                  finalSetGamesPerSet:
+                    errors.ruleConfig?.matchConfig?.finalSetGamesPerSet
+                      ?.message,
+                  finalSetHasTieBreak:
+                    errors.ruleConfig?.matchConfig?.finalSetHasTieBreak
+                      ?.message,
+                  finalSetMode:
+                    errors.ruleConfig?.matchConfig?.finalSetMode?.message,
+                  finalSetMustWinByTwoGames:
+                    errors.ruleConfig?.matchConfig?.finalSetMustWinByTwoGames
+                      ?.message,
+                  finalSetScoringMode:
+                    errors.ruleConfig?.matchConfig?.finalSetScoringMode
+                      ?.message,
+                  finalSetSuperTieBreakMustWinByTwo:
+                    errors.ruleConfig?.matchConfig
+                      ?.finalSetSuperTieBreakMustWinByTwo?.message,
+                  finalSetSuperTieBreakPoints:
+                    errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
+                      ?.message,
+                  finalSetTieBreakAtGamesAll:
+                    errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
+                      ?.message,
+                  finalSetTieBreakMustWinByTwo:
+                    errors.ruleConfig?.matchConfig?.finalSetTieBreakMustWinByTwo
+                      ?.message,
+                  finalSetTieBreakPoints:
+                    errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
+                      ?.message,
+                  gamesPerSet:
+                    errors.ruleConfig?.matchConfig?.gamesPerSet?.message,
+                  hasTieBreak:
+                    errors.ruleConfig?.matchConfig?.hasTieBreak?.message,
+                  scoringMode:
+                    errors.ruleConfig?.matchConfig?.scoringMode?.message,
+                  setMustWinByTwoGames:
+                    errors.ruleConfig?.matchConfig?.setMustWinByTwoGames
+                      ?.message,
+                  tieBreakAtGamesAll:
+                    errors.ruleConfig?.matchConfig?.tieBreakAtGamesAll?.message,
+                  tieBreakMustWinByTwo:
+                    errors.ruleConfig?.matchConfig?.tieBreakMustWinByTwo
+                      ?.message,
+                  tieBreakPoints:
+                    errors.ruleConfig?.matchConfig?.tieBreakPoints?.message,
+                },
                 maxActiveChallengesPerPlayer:
                   errors.ruleConfig?.maxActiveChallengesPerPlayer?.message,
                 maxChallengeDistance:
@@ -302,6 +339,25 @@ export function LeagueScreen(props: LeagueScreenProps) {
             />
           </Tabs.Content>
 
+          <Tabs.Content className="gap-4" value="courts">
+            <Courts
+              error={
+                typeof errors.courts?.message === "string"
+                  ? errors.courts.message
+                  : undefined
+              }
+              isDisabled={isSubmitPending}
+              onChange={(nextCourts) => {
+                form.setValue("courts", nextCourts, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+              value={values.courts}
+            />
+          </Tabs.Content>
+
           <Tabs.Content className="gap-4" value="settings">
             <Settings
               isDisabled={isSubmitPending}
@@ -318,18 +374,6 @@ export function LeagueScreen(props: LeagueScreenProps) {
               visibilityError={errors.visibility?.message}
             />
           </Tabs.Content>
-
-          {mode === "edit" ? (
-            <Tabs.Content className="gap-4" value="requests">
-              {requestsContent}
-            </Tabs.Content>
-          ) : null}
-
-          {mode === "edit" ? (
-            <Tabs.Content className="gap-4" value="ranking">
-              {rankingContent}
-            </Tabs.Content>
-          ) : null}
         </Page.KeyboardAwareScrollView>
       </Page>
     </Tabs>

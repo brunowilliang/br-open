@@ -26,7 +26,7 @@ export const ErrorState = (props: ErrorStateProps) => (
     </EmptyState.Header>
     <EmptyState.Content className="w-full gap-2.5">
       <Button variant="outline">
-        <HugeIcons className="text-accent-foreground" icon={ArrowLeft01Icon} />
+        <HugeIcons icon={ArrowLeft01Icon} />
         <Button.Label>Voltar</Button.Label>
       </Button>
     </EmptyState.Content>

@@ -7,17 +7,20 @@ import {
   type LeagueScreenValues,
 } from "@/components/pages/leagues/screen";
 import { useCRPC } from "@/lib/convex/crpc";
-import type { CreateLeagueInput } from "@convex/domains/league/contract";
+import {
+  DEFAULT_LEAGUE_MATCH_CONFIG,
+  type CreateLeagueInput,
+} from "@convex/domains/league/contract";
 
 const defaultValues: LeagueScreenValues = {
   name: "",
   description: "",
-  regulation: "",
   city: "",
   state: "",
   locationNotes: "",
   visibility: "private",
   categories: [],
+  courts: [],
   ruleConfig: {
     maxChallengeDistance: 4,
     maxActiveChallengesPerPlayer: 1,
@@ -28,6 +31,9 @@ const defaultValues: LeagueScreenValues = {
     walkoverBehavior: "automatic_loss",
     newPlayerPlacement: "end_of_ranking",
     hasInactivityPenalty: false,
+    matchConfig: {
+      ...DEFAULT_LEAGUE_MATCH_CONFIG,
+    },
   },
 };
 
@@ -35,12 +41,12 @@ function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
   return {
     name: values.name,
     description: values.description,
-    regulation: values.regulation,
     city: values.city,
     state: values.state,
     locationNotes: values.locationNotes,
     visibility: values.visibility,
     categories: values.categories,
+    courts: values.courts,
     ruleConfig: values.ruleConfig,
   };
 }

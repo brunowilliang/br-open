@@ -6,9 +6,6 @@ import { withUniwind } from "uniwind";
 
 export const ImageStyled = styled(withUniwind(ExpoImage), {
   base: {
-    placeholder: {
-      uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
-    },
     placeholderContentFit: "cover",
     transition: 300,
   },
@@ -25,6 +22,9 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
         },
       },
     },
+  },
+  defaultVariants: {
+    fallback: "blue",
   },
 });
 

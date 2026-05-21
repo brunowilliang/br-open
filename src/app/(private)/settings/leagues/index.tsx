@@ -1,22 +1,24 @@
-// import { LeagueCard } from "@/components/leagues/league-card";
+import {
+  CreateLeagueCard,
+  LeagueCard,
+} from "@/components/pages/home/league-card";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { useCRPC } from "@/lib/convex/crpc";
-import { Add01Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons";
+import {
+  Add01Icon,
+  ListChevronsDownUpIcon,
+  MoreVerticalIcon,
+} from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import {
-  Avatar,
-  Button,
-  ListGroup,
-  Menu,
-  PressableFeedback,
-  Separator,
-} from "heroui-native";
+import { Button, Menu } from "heroui-native";
 import { EmptyState } from "heroui-native-pro";
 import { View } from "react-native";
+
+const CREATE_CARD_ID = "__create_new_league__";
 
 const MenuOptions = () => (
   <Menu>
@@ -40,6 +42,49 @@ const MenuOptions = () => (
 export default function SettingsLeaguesIndex() {
   const crpc = useCRPC();
   const leagues = useQuery(crpc.league.management.listMine.queryOptions());
+  const hasLeagues = Boolean(leagues.data?.length);
+
+  const items = hasLeagues
+    ? [
+        ...(leagues.data ?? []),
+        {
+          id: CREATE_CARD_ID,
+          city: null,
+          name: "Nova liga",
+          state: null,
+        },
+      ]
+    : [];
+
+  function renderListEmptyComponent() {
+    if (leagues.isPending) {
+      return <LoadingState />;
+    }
+
+    if (leagues.isError) {
+      return <ErrorState message={leagues.error.message} />;
+    }
+
+    return (
+      <EmptyState className="gap-3.5 p-2">
+        <EmptyState.Media variant="icon">
+          <HugeIcons icon={ListChevronsDownUpIcon} />
+        </EmptyState.Media>
+        <View>
+          <EmptyState.Title>Nenhuma liga criada</EmptyState.Title>
+          <EmptyState.Description>
+            Crie a primeira liga para começar a receber participantes
+          </EmptyState.Description>
+        </View>
+        <EmptyState.Content className="mt-2 w-full gap-2.5">
+          <Button onPress={() => router.navigate("/settings/leagues/new")}>
+            <Button.Label>Criar nova liga</Button.Label>
+            <HugeIcons className="text-accent-foreground" icon={Add01Icon} />
+          </Button>
+        </EmptyState.Content>
+      </EmptyState>
+    );
+  }
 
   return (
     <Page>
@@ -55,85 +100,39 @@ export default function SettingsLeaguesIndex() {
         </Page.Header.Right>
       </Page.Header>
 
-      <Page.ScrollView contentContainerClassName="gap-6 px-4 pb-safe-offset-4">
-        {leagues.isPending ? <LoadingState /> : null}
-
-        {leagues.isError ? (
-          <ErrorState message={leagues.error.message} />
-        ) : null}
-
-        {leagues.isPending || leagues.isError || leagues.data?.length ? null : (
-          <EmptyState>
-            <EmptyState.Header>
-              <EmptyState.Title>Nenhuma liga criada</EmptyState.Title>
-              <EmptyState.Description>
-                Crie a primeira liga para começar a receber participantes
-              </EmptyState.Description>
-            </EmptyState.Header>
-            <EmptyState.Content className="w-full gap-2.5">
-              <Button onPress={() => router.navigate("/settings/leagues/new")}>
-                <Button.Label>Criar nova liga</Button.Label>
-                <HugeIcons
-                  className="text-accent-foreground"
-                  icon={Add01Icon}
-                />
-              </Button>
-            </EmptyState.Content>
-          </EmptyState>
-        )}
-
-        {leagues.data?.length ? (
-          <View className="centered gap-5">
-            <ListGroup className="w-full">
-              {leagues.data.map((league, index) => (
-                <View key={league.id}>
-                  <PressableFeedback
-                    animation={false}
-                    onPress={() => {
-                      router.navigate({
-                        pathname: "/settings/leagues/[leagueId]/edit",
-                        params: { leagueId: league.id },
-                      });
-                    }}
-                  >
-                    <ListGroup.Item disabled>
-                      <ListGroup.ItemPrefix>
-                        <Avatar alt={league.name}>
-                          <Avatar.Image
-                            source={{
-                              uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
-                            }}
-                          />
-                          <Avatar.Fallback>BW</Avatar.Fallback>
-                        </Avatar>
-                      </ListGroup.ItemPrefix>
-                      <ListGroup.ItemContent>
-                        <ListGroup.ItemTitle>{league.name}</ListGroup.ItemTitle>
-                        <ListGroup.ItemDescription>
-                          {league.city}-{league.state}
-                        </ListGroup.ItemDescription>
-                      </ListGroup.ItemContent>
-                      <ListGroup.ItemSuffix />
-                    </ListGroup.Item>
-                    <PressableFeedback.Highlight />
-                  </PressableFeedback>
-                  {index < leagues.data.length - 1 ? (
-                    <Separator className="mx-5" />
-                  ) : null}
-                </View>
-              ))}
-            </ListGroup>
-            <Button
-              className="w-auto"
-              onPress={() => router.navigate("/settings/leagues/new")}
-              variant="primary"
-            >
-              <Button.Label>Criar nova liga</Button.Label>
-              <HugeIcons className="text-accent-foreground" icon={Add01Icon} />
-            </Button>
-          </View>
-        ) : null}
-      </Page.ScrollView>
+      <Page.LegendList
+        columnWrapperStyle={{ gap: 8 }}
+        contentContainerClassName="px-4 pb-safe-offset-4"
+        data={items}
+        estimatedItemSize={220}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={renderListEmptyComponent}
+        numColumns={2}
+        renderItem={({ item }) =>
+          item.id === CREATE_CARD_ID ? (
+            <CreateLeagueCard />
+          ) : (
+            <LeagueCard
+              city={item.city}
+              name={item.name}
+              onEditPress={() => {
+                router.navigate({
+                  pathname: "/settings/leagues/[leagueId]/edit",
+                  params: { leagueId: item.id },
+                });
+              }}
+              onPress={() => {
+                router.navigate({
+                  pathname: "/leagues/[leagueId]",
+                  params: { leagueId: item.id },
+                });
+              }}
+              state={item.state}
+            />
+          )
+        }
+        showsVerticalScrollIndicator={false}
+      />
     </Page>
   );
 }

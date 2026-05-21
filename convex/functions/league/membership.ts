@@ -1,4 +1,4 @@
-import { and, eq, type InferSelectModel } from "kitcn/orm";
+import { eq, type InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { Id } from "../../functions/_generated/dataModel";
@@ -147,6 +147,30 @@ async function getNextRankingPosition(ctx: OrmCtx, leagueId: Id<"league">) {
   return activeMemberships.length + 1;
 }
 
+async function normalizeRankingPositions(
+  ctx: OrmMutationCtx,
+  leagueId: Id<"league">
+) {
+  const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    orderBy: { rankingPosition: "asc" },
+    where: { leagueId, status: "active" },
+  });
+
+  for (const [index, membership] of activeMemberships.entries()) {
+    const nextPosition = index + 1;
+
+    if (membership.rankingPosition === nextPosition) {
+      continue;
+    }
+
+    await ctx.db.patch(membership.id as Id<"leagueMembership">, {
+      rankingPosition: nextPosition,
+      updatedAt: Date.now(),
+    });
+  }
+}
+
 async function updateMembership(
   ctx: OrmMutationCtx,
   currentMembership: LeagueMembershipRecord,
@@ -272,15 +296,27 @@ export const getOverview = authQuery
   .output(leagueMembershipOverviewSchema)
   .query(async ({ ctx, input }) => {
     const leagueId = input.leagueId as Id<"league">;
+    const currentLeague = await getLeagueOrThrow(ctx, leagueId);
+    const isManagerOwner = currentLeague.managerUserId === ctx.userId;
+    const isDiscoverable =
+      currentLeague.visibility === "public" ||
+      currentLeague.visibility === "invite_only";
 
-    await getManagedLeagueOrThrow(ctx, leagueId);
+    if (!(isManagerOwner || isDiscoverable)) {
+      throw new CRPCError({
+        code: "FORBIDDEN",
+        message: "Essa liga não está disponível para visualização.",
+      });
+    }
 
     const [pendingRequests, ranking] = await Promise.all([
-      ctx.orm.query.leagueMembership.findMany({
-        limit: 500,
-        orderBy: { createdAt: "asc" },
-        where: { leagueId, status: "pending" },
-      }),
+      isManagerOwner
+        ? ctx.orm.query.leagueMembership.findMany({
+            limit: 500,
+            orderBy: { createdAt: "asc" },
+            where: { leagueId, status: "pending" },
+          })
+        : Promise.resolve([]),
       ctx.orm.query.leagueMembership.findMany({
         limit: 500,
         orderBy: { rankingPosition: "asc" },
@@ -357,6 +393,36 @@ export const reject = authMutation
     );
   });
 
+export const remove = authMutation
+  .input(ReviewLeagueMembershipSchema)
+  .output(leagueMembershipSchema)
+  .mutation(async ({ ctx, input }) => {
+    const now = new Date();
+    const leagueId = input.leagueId as Id<"league">;
+
+    await getManagedLeagueOrThrow(ctx, leagueId);
+
+    const currentMembership = await getMembershipByIdOrThrow(
+      ctx,
+      leagueId,
+      input.membershipId as Id<"leagueMembership">
+    );
+
+    const updatedMembership = await updateMembership(ctx, currentMembership, {
+      rankingPosition: null,
+      reviewedAt: now,
+      status: "removed",
+      updatedAt: now,
+    });
+
+    await normalizeRankingPositions(ctx, leagueId);
+
+    return serializeLeagueMembership(
+      updatedMembership,
+      await getPlayerSummary(ctx, updatedMembership.userId)
+    );
+  });
+
 export const reorderRanking = authMutation
   .input(ReorderLeagueRankingSchema)
   .output(z.object({ success: z.literal(true) }))
@@ -387,22 +453,12 @@ export const reorderRanking = authMutation
       });
     }
 
-    await Promise.all(
-      requestedIds.map(async (membershipId, index) => {
-        await ctx.orm
-          .update(leagueMembership)
-          .set({
-            rankingPosition: index + 1,
-            updatedAt: now,
-          })
-          .where(
-            and(
-              eq(leagueMembership.id, membershipId as Id<"leagueMembership">),
-              eq(leagueMembership.leagueId, leagueId)
-            )!
-          );
-      })
-    );
+    for (const [index, membershipId] of requestedIds.entries()) {
+      await ctx.db.patch(membershipId as Id<"leagueMembership">, {
+        rankingPosition: index + 1,
+        updatedAt: now.getTime(),
+      });
+    }
 
     return { success: true };
   });
