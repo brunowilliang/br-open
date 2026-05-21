@@ -1,10 +1,10 @@
+import { Text } from "@/components/core/text";
+import { EmptyState } from "@/components/ui/empty-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { Text } from "@/components/ui/text";
 import {
   Add01Icon,
   DragDropVerticalIcon,
   Edit02Icon,
-  ListChevronsDownUpIcon,
 } from "@hugeicons/core-free-icons";
 import {
   Button,
@@ -17,7 +17,6 @@ import {
   Separator,
   TextField,
 } from "heroui-native";
-import { EmptyState } from "heroui-native-pro";
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, View } from "react-native";
 import DraggableFlatList, {
@@ -197,27 +196,18 @@ export const Categories = ({
   return (
     <>
       {categories.length === 0 ? (
-        <EmptyState className="gap-3.5 p-2">
-          <EmptyState.Media variant="icon">
-            <HugeIcons icon={ListChevronsDownUpIcon} />
-          </EmptyState.Media>
-          <View>
-            <EmptyState.Title>Nenhuma categoria criada</EmptyState.Title>
-            <EmptyState.Description>
-              Crie suas categorias
-            </EmptyState.Description>
-          </View>
+        <EmptyState
+          buttonIsDisabled={isDisabled}
+          buttonLabel="Criar Categoria"
+          buttonOnPress={openCreateDialog}
+          description="Crie suas categorias"
+          title="Nenhuma categoria criada"
+        >
           {error ? (
             <Text className="text-center" color="danger" variant="description">
               {error}
             </Text>
           ) : null}
-          <EmptyState.Content className="mt-2 w-full gap-2.5">
-            <Button isDisabled={isDisabled} onPress={openCreateDialog}>
-              <Button.Label>Criar Categoria</Button.Label>
-              <HugeIcons className="text-accent-foreground" icon={Add01Icon} />
-            </Button>
-          </EmptyState.Content>
         </EmptyState>
       ) : (
         <View className="flex-1 gap-2">

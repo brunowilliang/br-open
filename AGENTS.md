@@ -10,7 +10,7 @@ Domain code is organized under `convex/domains/*` and composed in
 - Start app: `bun run dev`
 - Start Convex/codegen loop: `bun convex:dev`
 - Regenerate kitcn artifacts: `bun run codegen`
-- Typecheck: `bun run typecheck`
+- Typecheck: `bun run typecheck` ou `bun run check`
 - Repo checks: `bun run check`
 - Diff hygiene: `git diff --check`
 

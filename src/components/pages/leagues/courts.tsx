@@ -1,6 +1,7 @@
+import { Text } from "@/components/core/text";
+import { EmptyState } from "@/components/ui/empty-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
-import { Text } from "@/components/ui/text";
 import {
   Add01Icon,
   Cancel01Icon,
@@ -23,7 +24,6 @@ import {
   TextField,
   useThemeColor,
 } from "heroui-native";
-import { EmptyState } from "heroui-native-pro";
 import { useState } from "react";
 import { KeyboardAvoidingView, ScrollView, View } from "react-native";
 import Animated from "react-native-reanimated";
@@ -123,7 +123,7 @@ function hasRangeOverlap(
   return false;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this tab composes court creation, weekly availability, and slot editing dialogs in one local screen module
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this screen intentionally keeps the full courts editor flow in one local module
 export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
   const dialogSurfaceColor = useThemeColor("surface");
   const [activeDayByCourt, setActiveDayByCourt] = useState<
@@ -372,24 +372,18 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
   return (
     <>
       {value.length === 0 ? (
-        <EmptyState className="gap-3.5 p-2">
-          <EmptyState.Header>
-            <EmptyState.Title>Nenhuma quadra cadastrada</EmptyState.Title>
-            <EmptyState.Description>
-              Adicione uma quadra para configurar os horários disponíveis.
-            </EmptyState.Description>
-          </EmptyState.Header>
+        <EmptyState
+          buttonIsDisabled={isDisabled}
+          buttonLabel="Criar Quadra"
+          buttonOnPress={openCreateCourtDialog}
+          description="Adicione uma quadra para configurar os horários disponíveis."
+          title="Nenhuma quadra cadastrada"
+        >
           {error ? (
             <Text className="text-center" color="danger" variant="description">
               {error}
             </Text>
           ) : null}
-          <EmptyState.Content className="mt-2 w-full gap-2.5">
-            <Button isDisabled={isDisabled} onPress={openCreateCourtDialog}>
-              <Button.Label>Criar Quadra</Button.Label>
-              <HugeIcons className="text-accent-foreground" icon={Add01Icon} />
-            </Button>
-          </EmptyState.Content>
         </EmptyState>
       ) : (
         <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
@@ -464,28 +458,17 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
                             value={day.key}
                           >
                             {dayRanges.length === 0 ? (
-                              <EmptyState className="gap-3.5 p-2">
-                                <EmptyState.Header>
-                                  <EmptyState.Title>
-                                    Nenhum horário cadastrado
-                                  </EmptyState.Title>
-                                  <EmptyState.Description>
-                                    Adicione os horários disponíveis para este
-                                    dia.
-                                  </EmptyState.Description>
-                                </EmptyState.Header>
-                                <EmptyState.Content className="mt-2 w-full gap-2.5">
-                                  <Button
-                                    isDisabled={isDisabled}
-                                    onPress={() => {
-                                      openRangeDialog(court.id, day.key);
-                                    }}
-                                    variant="secondary"
-                                  >
-                                    Adicionar Horário
-                                  </Button>
-                                </EmptyState.Content>
-                              </EmptyState>
+                              <EmptyState
+                                buttonIcon={null}
+                                buttonIsDisabled={isDisabled}
+                                buttonLabel="Adicionar Horário"
+                                buttonOnPress={() => {
+                                  openRangeDialog(court.id, day.key);
+                                }}
+                                buttonVariant="secondary"
+                                description="Adicione os horários disponíveis para este dia."
+                                title="Nenhum horário cadastrado"
+                              />
                             ) : (
                               <View className="gap-3">
                                 <ListGroup>

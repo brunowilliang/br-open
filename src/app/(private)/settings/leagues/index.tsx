@@ -2,21 +2,16 @@ import {
   CreateLeagueCard,
   LeagueCard,
 } from "@/components/pages/home/league-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { useCRPC } from "@/lib/convex/crpc";
-import {
-  Add01Icon,
-  ListChevronsDownUpIcon,
-  MoreVerticalIcon,
-} from "@hugeicons/core-free-icons";
+import { Add01Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Button, Menu } from "heroui-native";
-import { EmptyState } from "heroui-native-pro";
-import { View } from "react-native";
 
 const CREATE_CARD_ID = "__create_new_league__";
 
@@ -66,23 +61,12 @@ export default function SettingsLeaguesIndex() {
     }
 
     return (
-      <EmptyState className="gap-3.5 p-2">
-        <EmptyState.Media variant="icon">
-          <HugeIcons icon={ListChevronsDownUpIcon} />
-        </EmptyState.Media>
-        <View>
-          <EmptyState.Title>Nenhuma liga criada</EmptyState.Title>
-          <EmptyState.Description>
-            Crie a primeira liga para começar a receber participantes
-          </EmptyState.Description>
-        </View>
-        <EmptyState.Content className="mt-2 w-full gap-2.5">
-          <Button onPress={() => router.navigate("/settings/leagues/new")}>
-            <Button.Label>Criar nova liga</Button.Label>
-            <HugeIcons className="text-accent-foreground" icon={Add01Icon} />
-          </Button>
-        </EmptyState.Content>
-      </EmptyState>
+      <EmptyState
+        buttonLabel="Criar nova liga"
+        buttonOnPress={() => router.navigate("/settings/leagues/new")}
+        description="Crie a primeira liga para começar a receber participantes"
+        title="Nenhuma liga criada"
+      />
     );
   }
 

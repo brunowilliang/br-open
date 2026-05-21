@@ -1,8 +1,8 @@
 import { Button, ListGroup, Separator } from "heroui-native";
-import { EmptyState } from "heroui-native-pro";
 import { Fragment } from "react";
 
 import { Image } from "@/components/core/image";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -38,14 +38,10 @@ export const MembershipRequests = (props: MembershipRequestsProps) => {
 
   if (items.length === 0) {
     return (
-      <EmptyState className="gap-3.5 p-2">
-        <EmptyState.Header>
-          <EmptyState.Title>Nenhuma solicitação pendente</EmptyState.Title>
-          <EmptyState.Description>
-            Quando alguém solicitar entrada, ela aparecerá aqui.
-          </EmptyState.Description>
-        </EmptyState.Header>
-      </EmptyState>
+      <EmptyState
+        description="Quando alguém solicitar entrada, ela aparecerá aqui."
+        title="Nenhuma solicitação pendente"
+      />
     );
   }
 

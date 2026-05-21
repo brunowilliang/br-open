@@ -1,8 +1,8 @@
 import { ArrowLeft01Icon, SadDizzyIcon } from "@hugeicons/core-free-icons";
 import { Button, Surface } from "heroui-native";
 import { EmptyState } from "heroui-native-pro";
+import { Text } from "../core/text";
 import { HugeIcons } from "./huge-icons";
-import { Text } from "./text";
 
 type ErrorStateProps = {
   message?: string;

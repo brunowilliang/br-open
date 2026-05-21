@@ -1,9 +1,9 @@
 import { Image } from "@/components/core/image";
+import { Text } from "@/components/core/text";
 import { LeagueCard } from "@/components/pages/home/league-card";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
-import { Text } from "@/components/ui/text";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
 import { Settings02Icon } from "@hugeicons/core-free-icons";

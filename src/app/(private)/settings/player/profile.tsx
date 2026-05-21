@@ -15,12 +15,12 @@ import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
-import { Text } from "@/components/ui/text";
 import { useCRPC } from "@/lib/convex/crpc";
 import { playerProfileSchema } from "@convex/domains/player/contract";
 import { Edit01Icon } from "@hugeicons/core-free-icons";

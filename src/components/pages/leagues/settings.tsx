@@ -1,6 +1,6 @@
+import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
-import { Text } from "@/components/ui/text";
 import type { ApiInputs } from "@convex/shared/api";
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import {

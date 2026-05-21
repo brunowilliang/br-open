@@ -14,12 +14,12 @@ import { Fragment, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Ranking } from "@/components/pages/leagues/ranking";
+import { Text } from "@/components/core/text";
 import { MembershipRequests } from "@/components/pages/leagues/membership-requests";
+import { Ranking } from "@/components/pages/leagues/ranking";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
-import { Text } from "@/components/ui/text";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getMembershipActionLabel } from "@/lib/leagues/presentation";

@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "extends": [
+    "ultracite/biome/core",
+    "ultracite/biome/react"
+  ],
   "assist": {
     "actions": {
       "source": {
@@ -41,11 +44,28 @@
   },
   "overrides": [
     {
-      "includes": ["convex/functions/migrations/*.ts"],
+      "includes": [
+        "convex/functions/migrations/*.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
             "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/uniwind-types.d.ts"
+      ],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "rules": {
+          "style": {
+            "useConsistentTypeDefinitions": "off"
           }
         }
       }

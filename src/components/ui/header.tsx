@@ -1,7 +1,7 @@
 import { cn, styled, withSlots } from "better-styled";
 import { View } from "react-native";
+import { Text } from "../core/text";
 import { HugeIcons } from "./huge-icons";
-import { Text } from "./text";
 
 const HeaderRoot = styled(View, {
   base: {

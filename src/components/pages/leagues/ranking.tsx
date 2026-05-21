@@ -1,8 +1,9 @@
 import { Image } from "@/components/core/image";
+import { Text } from "@/components/core/text";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Text } from "@/components/ui/text";
 import { Cancel01Icon, DragDropVerticalIcon } from "@hugeicons/core-free-icons";
 import { cn } from "better-styled";
 import {
@@ -13,7 +14,6 @@ import {
   PressableFeedback,
   Separator,
 } from "heroui-native";
-import { EmptyState } from "heroui-native-pro";
 import { useState } from "react";
 import { View } from "react-native";
 import DraggableFlatList, {
@@ -296,14 +296,10 @@ export const Ranking = (props: RankingProps) => {
 
   if (listItems.length === 0) {
     return (
-      <EmptyState className="gap-3.5 p-2">
-        <View>
-          <EmptyState.Title>Nenhum jogador no ranking</EmptyState.Title>
-          <EmptyState.Description>
-            Aprove solicitações para começar a montar a classificação.
-          </EmptyState.Description>
-        </View>
-      </EmptyState>
+      <EmptyState
+        description="Aprove solicitações para começar a montar a classificação."
+        title="Nenhum jogador no ranking"
+      />
     );
   }
 

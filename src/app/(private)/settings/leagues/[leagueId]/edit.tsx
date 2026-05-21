@@ -6,12 +6,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useToast } from "heroui-native";
 
+import { Text } from "@/components/core/text";
 import {
   LeagueScreen,
   type LeagueScreenValues,
 } from "@/components/pages/leagues/screen";
 import { Page } from "@/components/ui/page";
-import { Text } from "@/components/ui/text";
 import { useCRPC } from "@/lib/convex/crpc";
 type FallbackColor = "danger" | "muted";
 
