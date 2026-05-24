@@ -3,6 +3,8 @@ import { CRPCError } from "kitcn/server";
 import type { Id } from "../../functions/_generated/dataModel";
 
 import {
+  DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+  DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
   LeagueByIdSchema,
   leagueDiscoverySchema,
   leagueSchema,
@@ -17,6 +19,15 @@ function serializeLeague(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
     courts: record.courts ?? [],
+    ruleConfig: {
+      ...record.ruleConfig,
+      challengeValidationMode:
+        record.ruleConfig?.challengeValidationMode ??
+        DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+      resultValidationMode:
+        record.ruleConfig?.resultValidationMode ??
+        DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+    },
     createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
   });

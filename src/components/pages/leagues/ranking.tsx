@@ -38,6 +38,7 @@ type RankingProps = {
   items: RankingItem[];
   maxChallengeDistance?: number;
   onChange?: (items: RankingItem[]) => void;
+  onChallengePress?: (item: RankingItem) => void;
   onRemove?: (membershipId: string) => Promise<void>;
   viewerPosition?: number | null;
   viewerUserId?: string | null;
@@ -52,6 +53,7 @@ export const Ranking = (props: RankingProps) => {
     items,
     maxChallengeDistance,
     onChange,
+    onChallengePress,
     onRemove,
     viewerPosition,
     viewerUserId,
@@ -112,7 +114,9 @@ export const Ranking = (props: RankingProps) => {
           {isChallengeable ? (
             <Button
               className="h-7.5"
-              onPress={() => undefined}
+              onPress={() => {
+                onChallengePress?.(item);
+              }}
               size="sm"
               variant="secondary"
             >

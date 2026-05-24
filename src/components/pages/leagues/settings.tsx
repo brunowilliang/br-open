@@ -1,7 +1,7 @@
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
-import type { ApiInputs } from "@convex/shared/api";
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import {
   Button,
@@ -14,17 +14,13 @@ import {
   TextField,
 } from "heroui-native";
 import { useState } from "react";
+import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { View } from "react-native";
-
-type CreateLeagueInput = ApiInputs["league"]["management"]["create"];
 
 type SettingsProps = {
   isDisabled?: boolean;
-  onChange: (value: CreateLeagueInput["visibility"]) => void;
   onDelete?: () => Promise<void>;
   showDelete?: boolean;
-  value: CreateLeagueInput["visibility"];
-  visibilityError?: string;
 };
 
 const visibilityOptions = [
@@ -35,13 +31,21 @@ const visibilityOptions = [
 
 export const Settings = ({
   isDisabled,
-  onChange,
   onDelete,
   showDelete,
-  value,
-  visibilityError,
 }: SettingsProps) => {
+  const { control, getValues, setValue } = useFormContext<LeagueScreenValues>();
+  const { errors } = useFormState({
+    control,
+    name: "visibility",
+  });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const value = useWatch({
+    control,
+    name: "visibility",
+    defaultValue: getValues("visibility"),
+  });
+  const visibilityError = errors.visibility?.message;
 
   async function handleConfirmDelete() {
     if (!onDelete) {
@@ -65,14 +69,26 @@ export const Settings = ({
             isDisabled={isDisabled}
             onValueChange={(nextValue) => {
               if (nextValue && !Array.isArray(nextValue)) {
-                onChange(nextValue.value as CreateLeagueInput["visibility"]);
+                setValue(
+                  "visibility",
+                  nextValue.value as LeagueScreenValues["visibility"],
+                  {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  }
+                );
               }
             }}
             selectionMode="single"
             value={visibilityOptions.find((option) => option.value === value)}
           >
             <Select.Trigger>
-              <Select.Value numberOfLines={1} placeholder="Escolha uma opção" />
+              <Select.Value
+                className="font-normal"
+                numberOfLines={1}
+                placeholder="Escolha uma opção"
+              />
               <Select.TriggerIndicator />
             </Select.Trigger>
             <Select.Portal>

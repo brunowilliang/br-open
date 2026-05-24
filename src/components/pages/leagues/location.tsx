@@ -1,72 +1,66 @@
 import { FieldError, Input, Label, TextArea, TextField } from "heroui-native";
+import { useController, useFormContext } from "react-hook-form";
+
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 
 type LocationProps = {
-  city: string;
-  cityError?: string;
   isDisabled?: boolean;
-  locationNotes: string;
-  locationNotesError?: string;
-  onCityBlur: () => void;
-  onCityChange: (value: string) => void;
-  onLocationNotesBlur: () => void;
-  onLocationNotesChange: (value: string) => void;
-  onStateBlur: () => void;
-  onStateChange: (value: string) => void;
-  state: string;
-  stateError?: string;
 };
 
-export const Location = ({
-  city,
-  cityError,
-  isDisabled,
-  locationNotes,
-  locationNotesError,
-  onCityBlur,
-  onCityChange,
-  onLocationNotesBlur,
-  onLocationNotesChange,
-  onStateBlur,
-  onStateChange,
-  state,
-  stateError,
-}: LocationProps) => (
-  <>
-    <TextField isInvalid={Boolean(cityError)} isRequired>
-      <Label>Cidade</Label>
-      <Input
-        editable={!isDisabled}
-        onBlur={onCityBlur}
-        onChangeText={onCityChange}
-        placeholder="Ex: Florianópolis"
-        value={city}
-      />
-      <FieldError>{cityError ?? ""}</FieldError>
-    </TextField>
+export const Location = ({ isDisabled }: LocationProps) => {
+  const { control } = useFormContext<LeagueScreenValues>();
+  const { field: cityField, fieldState: cityState } = useController({
+    control,
+    name: "city",
+  });
+  const { field: stateField, fieldState: stateState } = useController({
+    control,
+    name: "state",
+  });
+  const { field: locationNotesField, fieldState: locationNotesState } =
+    useController({
+      control,
+      name: "locationNotes",
+    });
 
-    <TextField isInvalid={Boolean(stateError)} isRequired>
-      <Label>Estado</Label>
-      <Input
-        autoCapitalize="characters"
-        editable={!isDisabled}
-        onBlur={onStateBlur}
-        onChangeText={onStateChange}
-        placeholder="Ex: SC"
-        value={state}
-      />
-      <FieldError>{stateError ?? ""}</FieldError>
-    </TextField>
+  return (
+    <>
+      <TextField isInvalid={Boolean(cityState.error)} isRequired>
+        <Label>Cidade</Label>
+        <Input
+          editable={!isDisabled}
+          onBlur={cityField.onBlur}
+          onChangeText={cityField.onChange}
+          placeholder="Ex: Florianópolis"
+          value={cityField.value}
+        />
+        <FieldError>{cityState.error?.message ?? ""}</FieldError>
+      </TextField>
 
-    <TextField isInvalid={Boolean(locationNotesError)}>
-      <Label>Complemento do local</Label>
-      <TextArea
-        editable={!isDisabled}
-        onBlur={onLocationNotesBlur}
-        onChangeText={onLocationNotesChange}
-        placeholder="Ex: Quadra 3 do clube"
-        value={locationNotes}
-      />
-      <FieldError>{locationNotesError ?? ""}</FieldError>
-    </TextField>
-  </>
-);
+      <TextField isInvalid={Boolean(stateState.error)} isRequired>
+        <Label>Estado</Label>
+        <Input
+          autoCapitalize="characters"
+          editable={!isDisabled}
+          onBlur={stateField.onBlur}
+          onChangeText={stateField.onChange}
+          placeholder="Ex: SC"
+          value={stateField.value}
+        />
+        <FieldError>{stateState.error?.message ?? ""}</FieldError>
+      </TextField>
+
+      <TextField isInvalid={Boolean(locationNotesState.error)}>
+        <Label>Complemento do local</Label>
+        <TextArea
+          editable={!isDisabled}
+          onBlur={locationNotesField.onBlur}
+          onChangeText={locationNotesField.onChange}
+          placeholder="Ex: Quadra 3 do clube"
+          value={locationNotesField.value ?? ""}
+        />
+        <FieldError>{locationNotesState.error?.message ?? ""}</FieldError>
+      </TextField>
+    </>
+  );
+};

@@ -7,7 +7,9 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import {
   CreateLeagueSchema,
   DeleteLeagueSchema,
+  DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MODE,
+  DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
   DEFAULT_LEAGUE_STORAGE,
   LeagueByIdSchema,
   UpdateLeagueSchema,
@@ -22,6 +24,15 @@ function serializeLeague(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
     courts: record.courts ?? [],
+    ruleConfig: {
+      ...record.ruleConfig,
+      challengeValidationMode:
+        record.ruleConfig?.challengeValidationMode ??
+        DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+      resultValidationMode:
+        record.ruleConfig?.resultValidationMode ??
+        DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+    },
     createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
   });

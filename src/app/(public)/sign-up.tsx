@@ -14,6 +14,7 @@ import { ScrollView, Text, View } from "react-native";
 import { z } from "zod";
 
 import { useSignUpMutationOptions } from "@/lib/convex/auth-client";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const SignUpFormSchema = z
   .object({
@@ -40,7 +41,10 @@ export default function SignUp() {
       onSuccess: () => router.replace("/"),
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível criar sua conta.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível criar sua conta."
+          ),
           id: "sign-up-auth-error",
           label: "Não foi possível cadastrar",
           variant: "danger",

@@ -18,11 +18,14 @@ import {
   TextField,
 } from "heroui-native";
 import { useMemo, useState } from "react";
+import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, View } from "react-native";
 import DraggableFlatList, {
   ScaleDecorator,
   type RenderItemParams,
 } from "react-native-draggable-flatlist";
+
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 
 type CategoryItem = {
   id: string;
@@ -34,18 +37,15 @@ type CategoryListItem = CategoryItem & {
 };
 
 type CategoriesProps = {
-  categories: CategoryItem[];
-  error?: string;
   isDisabled?: boolean;
-  onChange: (categories: CategoryItem[]) => void;
 };
 
-export const Categories = ({
-  categories,
-  error,
-  isDisabled,
-  onChange,
-}: CategoriesProps) => {
+export const Categories = ({ isDisabled }: CategoriesProps) => {
+  const { control, getValues, setValue } = useFormContext<LeagueScreenValues>();
+  const { errors } = useFormState({
+    control,
+    name: "categories",
+  });
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<
@@ -53,10 +53,20 @@ export const Categories = ({
   >(null);
   const [isOpen, setIsOpen] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const categories = useWatch({
+    control,
+    name: "categories",
+    defaultValue: getValues("categories"),
+  });
+  const error =
+    typeof errors.categories?.message === "string"
+      ? errors.categories.message
+      : undefined;
   const categoryItems = useMemo(
     () =>
       categories.map((category, index) => ({
-        ...category,
+        id: String(index + 1),
+        name: category,
         index,
       })),
     [categories]
@@ -99,6 +109,18 @@ export const Categories = ({
     }
   }
 
+  function updateCategories(nextCategories: CategoryItem[]) {
+    setValue(
+      "categories",
+      nextCategories.map((category) => category.name),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      }
+    );
+  }
+
   function handleSaveCategory() {
     const trimmedName = draftName.trim();
 
@@ -108,8 +130,8 @@ export const Categories = ({
     }
 
     if (editingCategoryIndex !== null) {
-      onChange(
-        categories.map((category, index) =>
+      updateCategories(
+        categoryItems.map((category, index) =>
           index === editingCategoryIndex
             ? { ...category, name: trimmedName }
             : category
@@ -119,13 +141,13 @@ export const Categories = ({
       return;
     }
 
-    onChange([
-      ...categories,
+    updateCategories([
+      ...categoryItems,
       {
         id: String(
           Math.max(
             0,
-            ...categories.map((category) => Number(category.id) || 0)
+            ...categoryItems.map((category) => Number(category.id) || 0)
           ) + 1
         ),
         name: trimmedName,
@@ -139,7 +161,9 @@ export const Categories = ({
       return;
     }
 
-    onChange(categories.filter((_, index) => index !== editingCategoryIndex));
+    updateCategories(
+      categoryItems.filter((_, index) => index !== editingCategoryIndex)
+    );
     closeDialog();
   }
 
@@ -210,12 +234,13 @@ export const Categories = ({
           ) : null}
         </EmptyState>
       ) : (
-        <View className="flex-1 gap-2">
-          <Text className="px-4 pb-1 text-muted" variant="description">
-            Minhas Categorias
-          </Text>
+        <View className="gap-5">
           {error ? (
-            <Text className="px-4" color="danger" variant="description">
+            <Text
+              className="px-4 text-center"
+              color="danger"
+              variant="description"
+            >
               {error}
             </Text>
           ) : null}
@@ -229,7 +254,7 @@ export const Categories = ({
                 setActiveCategoryId(categoryItems[index]?.id ?? null);
               }}
               onDragEnd={({ data }) => {
-                onChange(
+                updateCategories(
                   data.map(({ id, name }) => ({
                     id,
                     name,
@@ -244,7 +269,7 @@ export const Categories = ({
           </ListGroup>
 
           <Button
-            className="mt-5 self-center"
+            className="self-center"
             isDisabled={isDisabled}
             onPress={openCreateDialog}
             variant="secondary"

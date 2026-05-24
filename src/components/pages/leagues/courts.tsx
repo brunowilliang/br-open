@@ -25,9 +25,11 @@ import {
   useThemeColor,
 } from "heroui-native";
 import { useState } from "react";
+import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, ScrollView, View } from "react-native";
 import Animated from "react-native-reanimated";
 
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import type {
   LeagueCourt,
   LeagueCourtDay,
@@ -35,10 +37,7 @@ import type {
 import { LinearGradient } from "expo-linear-gradient";
 
 type CourtsProps = {
-  error?: string;
   isDisabled?: boolean;
-  onChange: (value: LeagueCourt[]) => void;
-  value: LeagueCourt[];
 };
 
 const DAY_OPTIONS: Array<{
@@ -124,8 +123,22 @@ function hasRangeOverlap(
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this screen intentionally keeps the full courts editor flow in one local module
-export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
+export const Courts = ({ isDisabled }: CourtsProps) => {
+  const { control, getValues, setValue } = useFormContext<LeagueScreenValues>();
+  const { errors: formStateErrors } = useFormState({
+    control,
+    name: "courts",
+  });
   const dialogSurfaceColor = useThemeColor("surface");
+  const value = useWatch({
+    control,
+    name: "courts",
+    defaultValue: getValues("courts"),
+  });
+  const error =
+    typeof formStateErrors.courts?.message === "string"
+      ? formStateErrors.courts.message
+      : undefined;
   const [activeDayByCourt, setActiveDayByCourt] = useState<
     Partial<Record<string, LeagueCourtDay>>
   >({});
@@ -167,6 +180,14 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
     rangeDay === null
       ? `${rangeActionLabel} Horário`
       : `${rangeActionLabel} Horário - ${getDayLabel(rangeDay)}`;
+
+  function onChange(nextValue: LeagueCourt[]) {
+    setValue("courts", nextValue, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  }
 
   function getActiveDay(courtId: string) {
     return activeDayByCourt[courtId] ?? "mon";
@@ -386,9 +407,13 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
           ) : null}
         </EmptyState>
       ) : (
-        <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
+        <Animated.View className="gap-5" layout={AccordionLayoutTransition}>
           {error ? (
-            <Text className="px-4" color="danger" variant="description">
+            <Text
+              className="px-4 text-center"
+              color="danger"
+              variant="description"
+            >
               {error}
             </Text>
           ) : null}
@@ -561,7 +586,7 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
 
           <Animated.View layout={AccordionLayoutTransition}>
             <Button
-              className="mt-5 self-center"
+              className="self-center"
               isDisabled={isDisabled}
               onPress={openCreateCourtDialog}
               variant="secondary"
@@ -692,7 +717,10 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
                     value={getSelectedOption(rangeStartMinute)}
                   >
                     <Select.Trigger className="bg-surface-secondary">
-                      <Select.Value placeholder="--:--" />
+                      <Select.Value
+                        className="font-normal"
+                        placeholder="--:--"
+                      />
                       <Select.TriggerIndicator />
                     </Select.Trigger>
                     <Select.Portal>
@@ -743,7 +771,10 @@ export const Courts = ({ error, isDisabled, onChange, value }: CourtsProps) => {
                     value={getSelectedOption(rangeEndMinute)}
                   >
                     <Select.Trigger className="bg-surface-secondary">
-                      <Select.Value placeholder="--:--" />
+                      <Select.Value
+                        className="font-normal"
+                        placeholder="--:--"
+                      />
                       <Select.TriggerIndicator />
                     </Select.Trigger>
                     <Select.Portal>

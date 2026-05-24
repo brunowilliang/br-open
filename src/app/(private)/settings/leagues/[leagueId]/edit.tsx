@@ -7,12 +7,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useToast } from "heroui-native";
 
 import { Text } from "@/components/core/text";
-import {
-  LeagueScreen,
-  type LeagueScreenValues,
-} from "@/components/pages/leagues/screen";
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+import { LeagueScreen } from "@/components/pages/leagues/screen";
 import { Page } from "@/components/ui/page";
 import { useCRPC } from "@/lib/convex/crpc";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
 type FallbackColor = "danger" | "muted";
 
 function toLeagueScreenValues(league: League): LeagueScreenValues {
@@ -110,7 +109,10 @@ export default function EditLeagueScreen() {
       },
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível atualizar a liga.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível atualizar a liga."
+          ),
           id: "update-league-error",
           label: "Erro ao atualizar liga",
           variant: "danger",
@@ -134,7 +136,10 @@ export default function EditLeagueScreen() {
       },
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível deletar a liga.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível deletar a liga."
+          ),
           id: "delete-league-error",
           label: "Erro ao deletar liga",
           variant: "danger",

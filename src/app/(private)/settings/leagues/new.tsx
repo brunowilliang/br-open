@@ -2,40 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useToast } from "heroui-native";
 
-import {
-  LeagueScreen,
-  type LeagueScreenValues,
-} from "@/components/pages/leagues/screen";
+import { buildCreateLeagueDefaultValues } from "@/components/pages/leagues/form-defaults";
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+import { LeagueScreen } from "@/components/pages/leagues/screen";
 import { useCRPC } from "@/lib/convex/crpc";
-import {
-  DEFAULT_LEAGUE_MATCH_CONFIG,
-  type CreateLeagueInput,
-} from "@convex/domains/league/contract";
-
-const defaultValues: LeagueScreenValues = {
-  name: "",
-  description: "",
-  city: "",
-  state: "",
-  locationNotes: "",
-  visibility: "private",
-  categories: [],
-  courts: [],
-  ruleConfig: {
-    maxChallengeDistance: 4,
-    maxActiveChallengesPerPlayer: 1,
-    maxChallengesPerMonth: 4,
-    responseDeadlineHours: 48,
-    winBehavior: "take_opponent_position",
-    lossBehavior: "stay_put",
-    walkoverBehavior: "automatic_loss",
-    newPlayerPlacement: "end_of_ranking",
-    hasInactivityPenalty: false,
-    matchConfig: {
-      ...DEFAULT_LEAGUE_MATCH_CONFIG,
-    },
-  },
-};
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import type { CreateLeagueInput } from "@convex/domains/league/contract";
 
 function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
   return {
@@ -76,7 +48,10 @@ export default function CreateLeagueScreen() {
       },
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível criar a liga.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível criar a liga."
+          ),
           id: "create-league-error",
           label: "Erro ao criar liga",
           variant: "danger",
@@ -92,7 +67,7 @@ export default function CreateLeagueScreen() {
 
   return (
     <LeagueScreen
-      defaultValues={defaultValues}
+      defaultValues={buildCreateLeagueDefaultValues()}
       isPending={createLeague.isPending}
       isRulesLocked={false}
       mode="create"

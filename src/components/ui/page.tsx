@@ -120,7 +120,7 @@ const PageKeyboardAwareScrollView = (props: KeyboardAwareScrollViewProps) => {
     <RNKeyboardAwareScrollView
       {...props}
       bottomOffset={100}
-      className={cn("h-full bg-background", props.className)}
+      className={cn("bg-background", props.className)}
       contentContainerClassName={cn("grow", props.contentContainerClassName)}
       contentContainerStyle={[
         {

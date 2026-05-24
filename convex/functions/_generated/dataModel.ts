@@ -412,6 +412,179 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  leagueChallenge: {
+    document: {
+      cancellationRequestedAt?: null | number;
+      cancellationRequestedByMembershipId?: null | Id<"leagueMembership">;
+      cancelledAt?: null | number;
+      challengeValidationMode: string;
+      challengedMembershipId: Id<"leagueMembership">;
+      challengerMembershipId: Id<"leagueMembership">;
+      confirmedAt?: null | number;
+      createdAt: number;
+      currentProposalId?: null | string;
+      finishedAt?: null | number;
+      invalidatedAt?: null | number;
+      leagueId: Id<"league">;
+      lockedAt?: null | number;
+      matchConfigSnapshot: any;
+      rankingAppliedAt?: null | number;
+      rankingSnapshotAfterResult?: null | any;
+      rankingSnapshotBeforeResult?: null | any;
+      resultValidationMode: string;
+      status: string;
+      updatedAt: number;
+      _id: Id<"leagueChallenge">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "cancellationRequestedAt"
+      | "cancellationRequestedByMembershipId"
+      | "cancelledAt"
+      | "challengedMembershipId"
+      | "challengerMembershipId"
+      | "challengeValidationMode"
+      | "confirmedAt"
+      | "createdAt"
+      | "currentProposalId"
+      | "finishedAt"
+      | "invalidatedAt"
+      | "leagueId"
+      | "lockedAt"
+      | "matchConfigSnapshot"
+      | "rankingAppliedAt"
+      | "rankingSnapshotAfterResult"
+      | "rankingSnapshotBeforeResult"
+      | "resultValidationMode"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      challengedMembershipId_status: [
+        "challengedMembershipId",
+        "status",
+        "_creationTime",
+      ];
+      challengerMembershipId_status: [
+        "challengerMembershipId",
+        "status",
+        "_creationTime",
+      ];
+      leagueId_status: ["leagueId", "status", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  leagueChallengeAdminAction: {
+    document: {
+      action: string;
+      challengeId: Id<"leagueChallenge">;
+      createdAt: number;
+      fromStatus: string;
+      performedByUserId: Id<"user">;
+      reason: string;
+      toStatus: string;
+      _id: Id<"leagueChallengeAdminAction">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "action"
+      | "challengeId"
+      | "createdAt"
+      | "fromStatus"
+      | "performedByUserId"
+      | "reason"
+      | "toStatus";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      challengeId: ["challengeId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  leagueChallengeProposal: {
+    document: {
+      challengeId: Id<"leagueChallenge">;
+      courtId: string;
+      createdAt: number;
+      endMinute: number;
+      matchDate: string;
+      proposedByMembershipId: Id<"leagueMembership">;
+      responseDeadlineAt: number;
+      revisionNumber: number;
+      startMinute: number;
+      status: string;
+      _id: Id<"leagueChallengeProposal">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "challengeId"
+      | "courtId"
+      | "createdAt"
+      | "endMinute"
+      | "matchDate"
+      | "proposedByMembershipId"
+      | "responseDeadlineAt"
+      | "revisionNumber"
+      | "startMinute"
+      | "status";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      challengeId_revisionNumber: [
+        "challengeId",
+        "revisionNumber",
+        "_creationTime",
+      ];
+      courtId_matchDate: ["courtId", "matchDate", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  leagueChallengeResultSubmission: {
+    document: {
+      adminReviewedByUserId?: null | Id<"user">;
+      challengeId: Id<"leagueChallenge">;
+      confirmedAt?: null | number;
+      confirmedByMembershipId?: null | Id<"leagueMembership">;
+      reviewAction?: null | string;
+      reviewedAt?: null | number;
+      score: any;
+      submittedAt: number;
+      submittedByMembershipId: Id<"leagueMembership">;
+      winnerMembershipId?: null | Id<"leagueMembership">;
+      _id: Id<"leagueChallengeResultSubmission">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "adminReviewedByUserId"
+      | "challengeId"
+      | "confirmedAt"
+      | "confirmedByMembershipId"
+      | "reviewAction"
+      | "reviewedAt"
+      | "score"
+      | "submittedAt"
+      | "submittedByMembershipId"
+      | "winnerMembershipId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      challengeId_submittedAt: ["challengeId", "submittedAt", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   leagueMembership: {
     document: {
       createdAt: number;

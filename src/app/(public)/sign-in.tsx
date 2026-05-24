@@ -16,6 +16,7 @@ import { ScrollView, Text, View } from "react-native";
 import { z } from "zod";
 
 import { useSignInMutationOptions } from "@/lib/convex/auth-client";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const SignInFormSchema = z.object({
   email: z.email("Informe um e-mail válido."),
@@ -33,7 +34,10 @@ export default function SignIn() {
       onSuccess: () => router.replace("/"),
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível autenticar.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível autenticar."
+          ),
           id: "sign-in-auth-error",
           label: "Não foi possível entrar",
           variant: "danger",

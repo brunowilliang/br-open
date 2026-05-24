@@ -35,6 +35,19 @@ export const LeagueInactivityPenaltyTypeOptions = [
   "move_to_ranking_end",
 ] as const;
 
+export const LeagueChallengeValidationModeOptions = [
+  "automatic",
+  "manual",
+] as const;
+
+export const LeagueResultValidationModeOptions = [
+  "automatic",
+  "manual",
+] as const;
+
+export const DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE = "automatic" as const;
+export const DEFAULT_LEAGUE_RESULT_VALIDATION_MODE = "automatic" as const;
+
 export const LeagueScoringModeOptions = ["advantage", "no_ad"] as const;
 
 export const LeagueFinalSetModeOptions = [
@@ -50,6 +63,49 @@ export const LeagueMembershipStatusOptions = [
   "removed",
   "left",
   "suspended",
+] as const;
+
+export const LeagueChallengeStatusOptions = [
+  "pending_opponent_response",
+  "pending_creator_reapproval",
+  "pending_admin_challenge_validation",
+  "confirmed",
+  "pending_cancellation_acceptance",
+  "pending_result_submission",
+  "pending_result_confirmation",
+  "pending_admin_result_validation",
+  "pending_result_correction",
+  "pending_admin_decision",
+  "finished",
+  "declined",
+  "cancelled",
+  "invalidated",
+] as const;
+
+export const LeagueChallengeProposalStatusOptions = [
+  "active",
+  "accepted",
+  "replaced",
+  "declined",
+  "cancelled",
+] as const;
+
+export const LeagueChallengeScoreSetKindOptions = [
+  "set",
+  "super_tiebreak",
+] as const;
+
+export const LeagueChallengeResultReviewActionOptions = [
+  "approved",
+  "correction_requested",
+  "invalidated",
+] as const;
+
+export const LeagueChallengeAdminActionOptions = [
+  "cancel",
+  "invalidate",
+  "reopen_challenge",
+  "reopen_result",
 ] as const;
 
 export const LeagueCourtDayKeys = [
@@ -300,6 +356,8 @@ export const ChallengeRuleConfigSchema = z
     lossBehavior: z.enum(LeagueLossBehaviorOptions),
     walkoverBehavior: z.enum(LeagueWalkoverBehaviorOptions),
     newPlayerPlacement: z.enum(LeagueNewPlayerPlacementOptions),
+    challengeValidationMode: z.enum(LeagueChallengeValidationModeOptions),
+    resultValidationMode: z.enum(LeagueResultValidationModeOptions),
     matchConfig: LeagueMatchConfigSchema.default(
       DEFAULT_LEAGUE_MATCH_CONFIG
     ).catch(DEFAULT_LEAGUE_MATCH_CONFIG),
@@ -474,6 +532,83 @@ export const leagueMembershipOverviewSchema = z.object({
   ranking: z.array(leagueMembershipSchema),
 });
 
+export const leagueChallengeParticipantSchema = z.object({
+  membershipId: leagueMembershipIdSchema,
+  userId: z.string().min(1, "Usuário inválido."),
+  rankingPosition: z.number().int().positive().nullable().optional(),
+  player: leagueMembershipPlayerSchema,
+});
+
+export const leagueChallengeScoreSetSchema = z.object({
+  challengerGames: z.number().int().min(0),
+  challengedGames: z.number().int().min(0),
+  kind: z.enum(LeagueChallengeScoreSetKindOptions),
+});
+
+export const leagueChallengeScoreSchema = z.object({
+  winnerMembershipId: leagueMembershipIdSchema,
+  sets: z.array(leagueChallengeScoreSetSchema).min(1),
+});
+
+export const leagueChallengeProposalSchema = z.object({
+  id: z.string().min(1, "Proposta inválida."),
+  challengeId: z.string().min(1, "Desafio inválido."),
+  proposedByMembershipId: leagueMembershipIdSchema,
+  courtId: z.string().min(1, "Quadra inválida."),
+  courtName: z.string().min(1, "Quadra inválida."),
+  matchDate: z.string().min(1, "Data inválida."),
+  startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+  endMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+  responseDeadlineAt: z.number(),
+  revisionNumber: z.number().int().min(1),
+  status: z.enum(LeagueChallengeProposalStatusOptions),
+  createdAt: z.number(),
+});
+
+export const leagueChallengeResultSubmissionSchema = z.object({
+  id: z.string().min(1, "Resultado inválido."),
+  challengeId: z.string().min(1, "Desafio inválido."),
+  submittedByMembershipId: leagueMembershipIdSchema,
+  confirmedByMembershipId: leagueMembershipIdSchema.nullable().optional(),
+  adminReviewedByUserId: z.string().nullable().optional(),
+  reviewAction: z
+    .enum(LeagueChallengeResultReviewActionOptions)
+    .nullable()
+    .optional(),
+  score: leagueChallengeScoreSchema,
+  winnerMembershipId: leagueMembershipIdSchema.nullable().optional(),
+  submittedAt: z.number(),
+  confirmedAt: z.number().nullable().optional(),
+  reviewedAt: z.number().nullable().optional(),
+});
+
+export const leagueChallengeSchema = z.object({
+  id: z.string().min(1, "Desafio inválido."),
+  leagueId: leagueIdSchema,
+  status: z.enum(LeagueChallengeStatusOptions),
+  challengeValidationMode: z.enum(LeagueChallengeValidationModeOptions),
+  resultValidationMode: z.enum(LeagueResultValidationModeOptions),
+  challenger: leagueChallengeParticipantSchema,
+  challenged: leagueChallengeParticipantSchema,
+  matchConfigSnapshot: LeagueMatchConfigSchema,
+  currentProposal: leagueChallengeProposalSchema,
+  proposals: z.array(leagueChallengeProposalSchema),
+  latestResultSubmission: leagueChallengeResultSubmissionSchema
+    .nullable()
+    .optional(),
+  cancellationRequestedByMembershipId: leagueMembershipIdSchema
+    .nullable()
+    .optional(),
+  cancellationRequestedAt: z.number().nullable().optional(),
+  lockedAt: z.number().nullable().optional(),
+  confirmedAt: z.number().nullable().optional(),
+  finishedAt: z.number().nullable().optional(),
+  cancelledAt: z.number().nullable().optional(),
+  invalidatedAt: z.number().nullable().optional(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
 export const leagueDiscoverySchema = leagueSchema.extend({
   isManagerOwner: z.boolean(),
   viewerMembershipStatus: z
@@ -482,11 +617,136 @@ export const leagueDiscoverySchema = leagueSchema.extend({
     .optional(),
 });
 
+export const LeagueChallengeByIdSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+});
+
+export const LeagueChallengesByLeagueSchema = z.object({
+  leagueId: leagueIdSchema,
+});
+
+export const CreateLeagueChallengeSchema = z
+  .object({
+    leagueId: leagueIdSchema,
+    challengedMembershipId: leagueMembershipIdSchema,
+    courtId: z.string().min(1, "Quadra inválida."),
+    matchDate: z.string().min(1, "Informe a data da partida."),
+    startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+    endMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+  })
+  .superRefine((value, ctx) => {
+    if (value.startMinute % THIRTY_MINUTES !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Os horários devem seguir intervalos de 30 minutos.",
+        path: ["startMinute"],
+      });
+    }
+
+    if (value.endMinute % THIRTY_MINUTES !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Os horários devem seguir intervalos de 30 minutos.",
+        path: ["endMinute"],
+      });
+    }
+
+    if (value.startMinute >= value.endMinute) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "O horário inicial deve ser menor que o horário final.",
+        path: ["endMinute"],
+      });
+    }
+  });
+
+export const CounterProposeLeagueChallengeSchema = z
+  .object({
+    challengeId: z.string().min(1, "Desafio inválido."),
+    courtId: z.string().min(1, "Quadra inválida."),
+    matchDate: z.string().min(1, "Informe a data da partida."),
+    startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+    endMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+  })
+  .superRefine((value, ctx) => {
+    if (value.startMinute % THIRTY_MINUTES !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Os horários devem seguir intervalos de 30 minutos.",
+        path: ["startMinute"],
+      });
+    }
+
+    if (value.endMinute % THIRTY_MINUTES !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Os horários devem seguir intervalos de 30 minutos.",
+        path: ["endMinute"],
+      });
+    }
+
+    if (value.startMinute >= value.endMinute) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "O horário inicial deve ser menor que o horário final.",
+        path: ["endMinute"],
+      });
+    }
+  });
+
+export const SubmitLeagueChallengeResultSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+  score: leagueChallengeScoreSchema,
+});
+
+export const RequestLeagueChallengeCancellationSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+});
+
+export const RespondLeagueChallengeCancellationSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+  action: z.enum(["accept", "reject"]),
+});
+
+export const ReviewLeagueChallengeSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+  action: z.enum(["approve", "reject"]),
+});
+
+export const ReviewLeagueChallengeResultSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+  resultSubmissionId: z.string().min(1, "Resultado inválido."),
+  action: z.enum(["approve", "request_correction", "invalidate"]),
+});
+
+export const AdminManageLeagueChallengeSchema = z.object({
+  challengeId: z.string().min(1, "Desafio inválido."),
+  action: z.enum(LeagueChallengeAdminActionOptions),
+  reason: z.string().trim().min(1, "Informe o motivo da ação administrativa."),
+});
+
 export type CreateLeagueInput = z.infer<typeof CreateLeagueSchema>;
 export type ChallengeRuleConfig = z.infer<typeof ChallengeRuleConfigSchema>;
+export type CreateLeagueChallengeInput = z.infer<
+  typeof CreateLeagueChallengeSchema
+>;
+export type CounterProposeLeagueChallengeInput = z.infer<
+  typeof CounterProposeLeagueChallengeSchema
+>;
 export type DeleteLeagueInput = z.infer<typeof DeleteLeagueSchema>;
 export type LeagueByIdInput = z.infer<typeof LeagueByIdSchema>;
 export type League = z.infer<typeof leagueSchema>;
+export type LeagueChallenge = z.infer<typeof leagueChallengeSchema>;
+export type LeagueChallengeParticipant = z.infer<
+  typeof leagueChallengeParticipantSchema
+>;
+export type LeagueChallengeProposal = z.infer<
+  typeof leagueChallengeProposalSchema
+>;
+export type LeagueChallengeResultSubmission = z.infer<
+  typeof leagueChallengeResultSubmissionSchema
+>;
+export type LeagueChallengeScore = z.infer<typeof leagueChallengeScoreSchema>;
 export type LeagueCourt = z.infer<typeof LeagueCourtSchema>;
 export type LeagueCourtAvailability = z.infer<
   typeof LeagueCourtAvailabilitySchema
@@ -502,11 +762,29 @@ export type LeagueMembershipOverview = z.infer<
 export type LeagueMembershipStatus = z.infer<
   typeof leagueMembershipSchema.shape.status
 >;
+export type RequestLeagueChallengeCancellationInput = z.infer<
+  typeof RequestLeagueChallengeCancellationSchema
+>;
+export type AdminManageLeagueChallengeInput = z.infer<
+  typeof AdminManageLeagueChallengeSchema
+>;
+export type ReviewLeagueChallengeInput = z.infer<
+  typeof ReviewLeagueChallengeSchema
+>;
+export type ReviewLeagueChallengeResultInput = z.infer<
+  typeof ReviewLeagueChallengeResultSchema
+>;
 export type ReorderLeagueRankingInput = z.infer<
   typeof ReorderLeagueRankingSchema
 >;
 export type RequestLeagueJoinInput = z.infer<typeof RequestLeagueJoinSchema>;
+export type RespondLeagueChallengeCancellationInput = z.infer<
+  typeof RespondLeagueChallengeCancellationSchema
+>;
 export type ReviewLeagueMembershipInput = z.infer<
   typeof ReviewLeagueMembershipSchema
+>;
+export type SubmitLeagueChallengeResultInput = z.infer<
+  typeof SubmitLeagueChallengeResultSchema
 >;
 export type UpdateLeagueInput = z.infer<typeof UpdateLeagueSchema>;

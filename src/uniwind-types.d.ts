@@ -7,5 +7,4 @@ declare module 'uniwind' {
     }
 }
 
-export { }
-
+export {}

@@ -60,7 +60,7 @@ export const MembershipRequests = (props: MembershipRequestsProps) => {
             </ListGroup.ItemPrefix>
             <ListGroup.ItemContent>
               <ListGroup.ItemTitle numberOfLines={1}>
-                {item.name} {item.name}
+                {item.name}
               </ListGroup.ItemTitle>
               <ListGroup.ItemDescription numberOfLines={1}>
                 {item.nickname}

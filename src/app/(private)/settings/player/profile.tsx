@@ -22,6 +22,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { playerProfileSchema } from "@convex/domains/player/contract";
 import { Edit01Icon } from "@hugeicons/core-free-icons";
 import { z } from "zod";
@@ -88,7 +89,10 @@ export default function PlayerProfile() {
       },
       onError: (error) => {
         toast.show({
-          description: error.message || "Não foi possível atualizar o perfil.",
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível atualizar o perfil."
+          ),
           id: "update-player-profile-error",
           label: "Erro ao atualizar perfil",
           variant: "danger",
@@ -255,6 +259,7 @@ export default function PlayerProfile() {
                   >
                     <Select.Trigger>
                       <Select.Value
+                        className="font-normal"
                         numberOfLines={1}
                         placeholder="Escolha uma opção"
                       />
