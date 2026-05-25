@@ -2769,6 +2769,153 @@ export const api: {
       >;
     };
   };
+  notification: {
+    feed: {
+      list: FunctionReference<
+        "query",
+        "public",
+        { limit?: number },
+        Array<{
+          actorUserId: string | null;
+          body: string;
+          data: Record<string, any>;
+          eventType:
+            | "league.membership.requested"
+            | "league.membership.approved"
+            | "league.membership.rejected"
+            | "league.membership.removed"
+            | "league.challenge.created"
+            | "league.challenge.counter_proposed"
+            | "league.challenge.proposal_accepted"
+            | "league.challenge.proposal_declined"
+            | "league.challenge.cancelled"
+            | "league.challenge.cancellation_requested"
+            | "league.challenge.cancellation_accepted"
+            | "league.challenge.cancellation_rejected"
+            | "league.challenge.result_submitted"
+            | "league.challenge.result_confirmed"
+            | "league.challenge.result_correction_requested"
+            | "league.challenge.result_invalidated"
+            | "league.challenge.admin_approved"
+            | "league.challenge.admin_rejected";
+          id: string;
+          isRead: boolean;
+          occurredAt: number;
+          readAt: number | null;
+          recipientUserId: string;
+          title: string;
+        }>
+      >;
+      markAllRead: FunctionReference<
+        "mutation",
+        "public",
+        {},
+        { success: true }
+      >;
+      markRead: FunctionReference<
+        "mutation",
+        "public",
+        { notificationId: string },
+        {
+          actorUserId: string | null;
+          body: string;
+          data: Record<string, any>;
+          eventType:
+            | "league.membership.requested"
+            | "league.membership.approved"
+            | "league.membership.rejected"
+            | "league.membership.removed"
+            | "league.challenge.created"
+            | "league.challenge.counter_proposed"
+            | "league.challenge.proposal_accepted"
+            | "league.challenge.proposal_declined"
+            | "league.challenge.cancelled"
+            | "league.challenge.cancellation_requested"
+            | "league.challenge.cancellation_accepted"
+            | "league.challenge.cancellation_rejected"
+            | "league.challenge.result_submitted"
+            | "league.challenge.result_confirmed"
+            | "league.challenge.result_correction_requested"
+            | "league.challenge.result_invalidated"
+            | "league.challenge.admin_approved"
+            | "league.challenge.admin_rejected";
+          id: string;
+          isRead: boolean;
+          occurredAt: number;
+          readAt: number | null;
+          recipientUserId: string;
+          title: string;
+        }
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "public",
+        { notificationId: string },
+        { success: true }
+      >;
+      removeAll: FunctionReference<"mutation", "public", {}, { success: true }>;
+    };
+    settings: {
+      setPreference: FunctionReference<
+        "mutation",
+        "public",
+        { pushEnabled: boolean },
+        {
+          canReceivePush: boolean;
+          deviceCount: number;
+          permissionStatus: "denied" | "granted" | "undetermined";
+          pushEnabled: boolean;
+          readinessReason:
+            | "missing_device"
+            | "permission_denied"
+            | "permission_undetermined"
+            | "preference_disabled"
+            | "ready";
+          unreadCount: number;
+        }
+      >;
+      status: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          canReceivePush: boolean;
+          deviceCount: number;
+          permissionStatus: "denied" | "granted" | "undetermined";
+          pushEnabled: boolean;
+          readinessReason:
+            | "missing_device"
+            | "permission_denied"
+            | "permission_undetermined"
+            | "preference_disabled"
+            | "ready";
+          unreadCount: number;
+        }
+      >;
+      upsertDevice: FunctionReference<
+        "mutation",
+        "public",
+        {
+          expoPushToken: string;
+          permissionStatus: "denied" | "granted" | "undetermined";
+          platform: "android" | "ios" | "web";
+        },
+        {
+          canReceivePush: boolean;
+          deviceCount: number;
+          permissionStatus: "denied" | "granted" | "undetermined";
+          pushEnabled: boolean;
+          readinessReason:
+            | "missing_device"
+            | "permission_denied"
+            | "permission_undetermined"
+            | "preference_disabled"
+            | "ready";
+          unreadCount: number;
+        }
+      >;
+    };
+  };
   player: {
     profile: {
       get: FunctionReference<
@@ -2976,6 +3123,78 @@ export const internal: {
         any,
         any
       >;
+    };
+  };
+  notification: {
+    orchestrator: {
+      claimPendingDeliveries: FunctionReference<
+        "mutation",
+        "internal",
+        { limit?: number },
+        Array<{
+          deliveryId: string;
+          message: {
+            body: string;
+            categoryId?: string;
+            channelId: string;
+            data: Record<string, any>;
+            sound: "default";
+            title: string;
+            to: string;
+          };
+        }>
+      >;
+      createForRecipients: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string | null;
+          eventType:
+            | "league.membership.requested"
+            | "league.membership.approved"
+            | "league.membership.rejected"
+            | "league.membership.removed"
+            | "league.challenge.created"
+            | "league.challenge.counter_proposed"
+            | "league.challenge.proposal_accepted"
+            | "league.challenge.proposal_declined"
+            | "league.challenge.cancelled"
+            | "league.challenge.cancellation_requested"
+            | "league.challenge.cancellation_accepted"
+            | "league.challenge.cancellation_rejected"
+            | "league.challenge.result_submitted"
+            | "league.challenge.result_confirmed"
+            | "league.challenge.result_correction_requested"
+            | "league.challenge.result_invalidated"
+            | "league.challenge.admin_approved"
+            | "league.challenge.admin_rejected";
+          leagueId: string;
+          metadata?: Record<string, any>;
+          recipientUserIds: Array<string>;
+        },
+        any
+      >;
+      markDeliveryResults: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          results: Array<{
+            deliveryId: string;
+            errorMessage?: string;
+            responseId?: string;
+            state:
+              | "awaiting_delivery"
+              | "in_progress"
+              | "delivered"
+              | "needs_retry"
+              | "failed"
+              | "maybe_delivered"
+              | "unable_to_deliver";
+          }>;
+        },
+        any
+      >;
+      sendPending: FunctionReference<"action", "internal", {}, any>;
     };
   };
   seed: {

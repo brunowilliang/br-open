@@ -5,6 +5,18 @@ import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
+  applyChallengeResultToRanking,
+  buildResponseDeadline,
+  canPlayersCancelChallenge,
+  isChallengeSlotBlocked,
+  resolveAcceptedChallengeStatus,
+  resolveMissingResultStatus,
+  resolveNoResponseStatus,
+  resolveReopenedChallengeStatus,
+  resolveScoreConfirmationStatus,
+  type LeagueChallengeStatus,
+} from "../../domains/league/challenge-rules";
+import {
   AdminManageLeagueChallengeSchema,
   CounterProposeLeagueChallengeSchema,
   CreateLeagueChallengeSchema,
@@ -14,12 +26,6 @@ import {
   leagueChallengeSchema,
   leagueChallengeScoreSchema,
   LeagueCourtDayKeys,
-  type League,
-  type LeagueChallenge,
-  type LeagueChallengeProposal,
-  type LeagueChallengeResultSubmission,
-  type LeagueChallengeScore,
-  type LeagueCourtDay,
   LeagueMatchConfigSchema,
   leagueMembershipPlayerSchema,
   leagueSchema,
@@ -28,19 +34,13 @@ import {
   ReviewLeagueChallengeResultSchema,
   ReviewLeagueChallengeSchema,
   SubmitLeagueChallengeResultSchema,
+  type League,
+  type LeagueChallenge,
+  type LeagueChallengeProposal,
+  type LeagueChallengeResultSubmission,
+  type LeagueChallengeScore,
+  type LeagueCourtDay,
 } from "../../domains/league/contract";
-import {
-  applyChallengeResultToRanking,
-  buildResponseDeadline,
-  canPlayersCancelChallenge,
-  isChallengeSlotBlocked,
-  type LeagueChallengeStatus,
-  resolveAcceptedChallengeStatus,
-  resolveMissingResultStatus,
-  resolveNoResponseStatus,
-  resolveReopenedChallengeStatus,
-  resolveScoreConfirmationStatus,
-} from "../../domains/league/challenge-rules";
 import {
   leagueChallenge,
   leagueChallengeAdminAction,
@@ -49,7 +49,9 @@ import {
   type league,
   type leagueMembership,
 } from "../../domains/league/tables";
+import type { NotificationEventType } from "../../shared/notifications/protocol";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
+import { scheduleLeagueNotification } from "../notification/events";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 type LeagueChallengeRecord = InferSelectModel<typeof leagueChallenge>;
@@ -905,6 +907,32 @@ function assertParticipantAccess(input: {
   }
 }
 
+async function scheduleChallengeNotification(input: {
+  actorUserId: Id<"user">;
+  challenge: LeagueChallengeRecord;
+  ctx: OrmMutationCtx;
+  eventType: NotificationEventType;
+  metadata?: Record<string, unknown>;
+  recipientMembershipIds: Id<"leagueMembership">[];
+}) {
+  const memberships = await Promise.all(
+    Array.from(new Set(input.recipientMembershipIds)).map((membershipId) =>
+      getMembershipRecordByIdOrThrow(input.ctx, membershipId)
+    )
+  );
+
+  await scheduleLeagueNotification(input.ctx, {
+    actorUserId: input.actorUserId,
+    eventType: input.eventType,
+    leagueId: input.challenge.leagueId as Id<"league">,
+    metadata: {
+      challengeId: input.challenge.id,
+      ...input.metadata,
+    },
+    recipientUserIds: memberships.map((membership) => membership.userId),
+  });
+}
+
 export const listForLeague = authQuery
   .input(LeagueByIdSchema)
   .output(z.array(leagueChallengeSchema))
@@ -1099,6 +1127,17 @@ export const create = authMutation
       updatedAt: now.getTime(),
     });
 
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: createdChallenge,
+      ctx,
+      eventType: "league.challenge.created",
+      metadata: { proposalId: createdProposal.id },
+      recipientMembershipIds: [
+        challengedMembership.id as Id<"leagueMembership">,
+      ],
+    });
+
     return serializeChallenge(ctx, currentLeague, {
       ...createdChallenge,
       currentProposalId: createdProposal.id,
@@ -1181,6 +1220,19 @@ export const acceptProposal = authMutation
       }),
     ]);
 
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: syncedChallenge,
+      ctx,
+      eventType: "league.challenge.proposal_accepted",
+      metadata: { proposalId: currentProposal.id },
+      recipientMembershipIds: [
+        (viewerMembership.id === syncedChallenge.challengerMembershipId
+          ? syncedChallenge.challengedMembershipId
+          : syncedChallenge.challengerMembershipId) as Id<"leagueMembership">,
+      ],
+    });
+
     return serializeChallenge(ctx, currentLeague, {
       ...syncedChallenge,
       status: nextStatus,
@@ -1246,6 +1298,19 @@ export const declineProposal = authMutation
         updatedAt: now.getTime(),
       }),
     ]);
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.proposal_declined",
+      metadata: { proposalId: currentProposal.id },
+      recipientMembershipIds: [
+        (viewerMembership.id === currentChallenge.challengerMembershipId
+          ? currentChallenge.challengedMembershipId
+          : currentChallenge.challengerMembershipId) as Id<"leagueMembership">,
+      ],
+    });
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
@@ -1362,6 +1427,19 @@ export const counterPropose = authMutation
       }),
     ]);
 
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: syncedChallenge,
+      ctx,
+      eventType: "league.challenge.counter_proposed",
+      metadata: { proposalId: createdProposal.id },
+      recipientMembershipIds: [
+        (nextStatus === "pending_creator_reapproval"
+          ? syncedChallenge.challengerMembershipId
+          : syncedChallenge.challengedMembershipId) as Id<"leagueMembership">,
+      ],
+    });
+
     return serializeChallenge(ctx, currentLeague, {
       ...syncedChallenge,
       currentProposalId: createdProposal.id,
@@ -1459,6 +1537,23 @@ export const cancel = authMutation
       }),
     ]);
 
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.cancelled",
+      recipientMembershipIds: isManagerOwner
+        ? [
+            currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+            currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+          ]
+        : [
+            (viewerMembership?.id === currentChallenge.challengerMembershipId
+              ? currentChallenge.challengedMembershipId
+              : currentChallenge.challengerMembershipId) as Id<"leagueMembership">,
+          ],
+    });
+
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
       status: "cancelled",
@@ -1533,6 +1628,18 @@ export const requestCancellation = authMutation
       cancellationRequestedByMembershipId:
         viewerMembership.id as Id<"leagueMembership">,
       updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.cancellation_requested",
+      recipientMembershipIds: [
+        (viewerMembership.id === currentChallenge.challengerMembershipId
+          ? currentChallenge.challengedMembershipId
+          : currentChallenge.challengerMembershipId) as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {
@@ -1618,6 +1725,16 @@ export const respondCancellationRequest = authMutation
         }),
       ]);
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.cancellation_accepted",
+        recipientMembershipIds: [
+          currentChallenge.cancellationRequestedByMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: "cancelled",
@@ -1633,6 +1750,16 @@ export const respondCancellationRequest = authMutation
       cancellationRequestedAt: null,
       cancellationRequestedByMembershipId: null,
       updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.cancellation_rejected",
+      recipientMembershipIds: [
+        currentChallenge.cancellationRequestedByMembershipId as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {
@@ -1722,6 +1849,18 @@ export const submitResult = authMutation
     await ctx.db.patch(syncedChallenge.id as Id<"leagueChallenge">, {
       status: "pending_result_confirmation",
       updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: syncedChallenge,
+      ctx,
+      eventType: "league.challenge.result_submitted",
+      recipientMembershipIds: [
+        (viewerMembership.id === syncedChallenge.challengerMembershipId
+          ? syncedChallenge.challengedMembershipId
+          : syncedChallenge.challengerMembershipId) as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {
@@ -1829,6 +1968,16 @@ export const confirmResult = authMutation
       } as never
     );
 
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.result_confirmed",
+      recipientMembershipIds: [
+        latestResultSubmission.submittedByMembershipId as Id<"leagueMembership">,
+      ],
+    });
+
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
       status: nextStatus,
@@ -1872,6 +2021,17 @@ export const reviewChallenge = authMutation
         updatedAt: now.getTime(),
       });
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.admin_approved",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: "confirmed",
@@ -1884,6 +2044,17 @@ export const reviewChallenge = authMutation
       status: "cancelled",
       cancelledAt: now.getTime(),
       updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.admin_rejected",
+      recipientMembershipIds: [
+        currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {
@@ -1968,6 +2139,17 @@ export const reviewResult = authMutation
         } as never
       );
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.result_confirmed",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: "finished",
@@ -1991,6 +2173,17 @@ export const reviewResult = authMutation
         updatedAt: now.getTime(),
       });
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.result_correction_requested",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: "pending_result_correction",
@@ -2011,6 +2204,17 @@ export const reviewResult = authMutation
       status: "invalidated",
       invalidatedAt: now.getTime(),
       updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.result_invalidated",
+      recipientMembershipIds: [
+        currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {
@@ -2109,6 +2313,17 @@ export const adminManage = authMutation
         toStatus: "cancelled",
       });
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.cancelled",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: "cancelled",
@@ -2166,6 +2381,17 @@ export const adminManage = authMutation
         performedByUserId: ctx.userId,
         reason,
         toStatus: "invalidated",
+      });
+
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.result_invalidated",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
       });
 
       return serializeChallenge(ctx, currentLeague, {
@@ -2296,6 +2522,17 @@ export const adminManage = authMutation
       performedByUserId: ctx.userId,
       reason,
       toStatus: "pending_result_correction",
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.result_correction_requested",
+      recipientMembershipIds: [
+        currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+      ],
     });
 
     return serializeChallenge(ctx, currentLeague, {

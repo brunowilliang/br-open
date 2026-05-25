@@ -13,6 +13,7 @@ import {
 } from "../../domains/league/contract";
 import { leagueMembership } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
+import { scheduleLeagueNotification } from "../notification/events";
 
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 type OrmCtx = AuthenticatedCtx<QueryCtx | MutationCtx>;
@@ -285,6 +286,14 @@ export const requestJoin = authMutation
             .returning()
         )[0];
 
+    await scheduleLeagueNotification(ctx, {
+      actorUserId: ctx.userId,
+      eventType: "league.membership.requested",
+      leagueId,
+      metadata: { membershipId: membershipRecord.id },
+      recipientUserIds: [currentLeague.managerUserId],
+    });
+
     return serializeLeagueMembership(
       membershipRecord,
       await getPlayerSummary(ctx, membershipRecord.userId)
@@ -359,6 +368,14 @@ export const approve = authMutation
             updatedAt: now,
           });
 
+    await scheduleLeagueNotification(ctx, {
+      actorUserId: ctx.userId,
+      eventType: "league.membership.approved",
+      leagueId,
+      metadata: { membershipId: updatedMembership.id },
+      recipientUserIds: [updatedMembership.userId],
+    });
+
     return serializeLeagueMembership(
       updatedMembership,
       await getPlayerSummary(ctx, updatedMembership.userId)
@@ -385,6 +402,14 @@ export const reject = authMutation
       reviewedAt: now,
       status: "rejected",
       updatedAt: now,
+    });
+
+    await scheduleLeagueNotification(ctx, {
+      actorUserId: ctx.userId,
+      eventType: "league.membership.rejected",
+      leagueId,
+      metadata: { membershipId: updatedMembership.id },
+      recipientUserIds: [updatedMembership.userId],
     });
 
     return serializeLeagueMembership(
@@ -416,6 +441,14 @@ export const remove = authMutation
     });
 
     await normalizeRankingPositions(ctx, leagueId);
+
+    await scheduleLeagueNotification(ctx, {
+      actorUserId: ctx.userId,
+      eventType: "league.membership.removed",
+      leagueId,
+      metadata: { membershipId: updatedMembership.id },
+      recipientUserIds: [updatedMembership.userId],
+    });
 
     return serializeLeagueMembership(
       updatedMembership,

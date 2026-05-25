@@ -48,6 +48,20 @@ export const api = {
       requestJoin: createApiLeaf<"mutation", typeof import("../functions/league/membership").requestJoin>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/membership").requestJoin>("league/membership:requestJoin"), { auth: "required", type: "mutation" }),
     },
   },
+  notification: {
+    feed: {
+      list: createApiLeaf<"query", typeof import("../functions/notification/feed").list>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/notification/feed").list>("notification/feed:list"), { auth: "required", type: "query" }),
+      markAllRead: createApiLeaf<"mutation", typeof import("../functions/notification/feed").markAllRead>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/feed").markAllRead>("notification/feed:markAllRead"), { auth: "required", type: "mutation" }),
+      markRead: createApiLeaf<"mutation", typeof import("../functions/notification/feed").markRead>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/feed").markRead>("notification/feed:markRead"), { auth: "required", type: "mutation" }),
+      remove: createApiLeaf<"mutation", typeof import("../functions/notification/feed").remove>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/feed").remove>("notification/feed:remove"), { auth: "required", type: "mutation" }),
+      removeAll: createApiLeaf<"mutation", typeof import("../functions/notification/feed").removeAll>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/feed").removeAll>("notification/feed:removeAll"), { auth: "required", type: "mutation" }),
+    },
+    settings: {
+      setPreference: createApiLeaf<"mutation", typeof import("../functions/notification/settings").setPreference>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/settings").setPreference>("notification/settings:setPreference"), { auth: "required", type: "mutation" }),
+      status: createApiLeaf<"query", typeof import("../functions/notification/settings").status>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/notification/settings").status>("notification/settings:status"), { auth: "required", type: "query" }),
+      upsertDevice: createApiLeaf<"mutation", typeof import("../functions/notification/settings").upsertDevice>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/settings").upsertDevice>("notification/settings:upsertDevice"), { auth: "required", type: "mutation" }),
+    },
+  },
   player: {
     profile: {
       get: createApiLeaf<"query", typeof import("../functions/player/profile").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/profile").get>("player/profile:get"), { auth: "required", type: "query" }),

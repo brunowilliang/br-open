@@ -37,6 +37,19 @@ export const defineAuthRelations = (r: RelationsBuilder<typeof tables>) => ({
       from: r.user.id,
       to: r.league.managerUserId,
     }),
+    notificationDevices: r.many.notificationDevice({
+      from: r.user.id,
+      to: r.notificationDevice.userId,
+    }),
+    notificationFeed: r.many.notificationFeed({
+      from: r.user.id,
+      to: r.notificationFeed.recipientUserId,
+    }),
+    notificationFeedAsActor: r.many.notificationFeed({
+      alias: "actor",
+      from: r.user.id,
+      to: r.notificationFeed.actorUserId,
+    }),
   },
   session: {
     user: r.one.user({

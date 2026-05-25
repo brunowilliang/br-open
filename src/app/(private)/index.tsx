@@ -18,8 +18,12 @@ export default function HomePrivate() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const leagues = useQuery(crpc.league.discovery.listAvailable.queryOptions());
+  const notificationStatus = useQuery(
+    crpc.notification.settings.status.queryOptions()
+  );
 
   const userName = session?.user?.name?.trim() || "Jogador";
+  const unreadCount = notificationStatus.data?.unreadCount ?? 0;
 
   return (
     <Page>
@@ -34,9 +38,11 @@ export default function HomePrivate() {
                   fallback="green"
                   source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
                 />
-                <Badge color="danger" size="sm">
-                  5
-                </Badge>
+                {unreadCount > 0 ? (
+                  <Badge color="danger" size="sm">
+                    {unreadCount}
+                  </Badge>
+                ) : null}
               </Badge.Anchor>
               <View>
                 <Text>Bom dia,</Text>
@@ -78,6 +84,7 @@ export default function HomePrivate() {
           estimatedItemSize={220}
           keyExtractor={(item) => item.id}
           numColumns={2}
+          recycleItems
           renderItem={({ item }) => (
             <LeagueCard
               city={item.city}

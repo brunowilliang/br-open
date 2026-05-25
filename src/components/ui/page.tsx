@@ -1,5 +1,5 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import type { LegendListRef } from "@legendapp/list";
+import type { LegendListRef } from "@legendapp/list/react-native";
 import {
   AnimatedLegendList,
   type AnimatedLegendListProps,

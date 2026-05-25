@@ -92,6 +92,7 @@ export default function SettingsLeaguesIndex() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={renderListEmptyComponent}
         numColumns={2}
+        recycleItems
         renderItem={({ item }) =>
           item.id === CREATE_CARD_ID ? (
             <CreateLeagueCard />

@@ -1,6 +1,10 @@
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { Page } from "@/components/ui/page";
-import { ChampionIcon, TennisRacketIcon } from "@hugeicons/core-free-icons";
+import {
+  BellDotIcon,
+  ChampionIcon,
+  TennisRacketIcon,
+} from "@hugeicons/core-free-icons";
 import { type Href, router } from "expo-router";
 import { Description, ListGroup, Separator } from "heroui-native";
 import type { ComponentProps } from "react";
@@ -33,6 +37,12 @@ const sections: SettingsSection[] = [
         description: "Crie e administre suas ligas",
         icon: ChampionIcon,
         href: "/settings/leagues",
+      },
+      {
+        title: "Notificações",
+        description: "Push e central de notificações",
+        icon: BellDotIcon,
+        href: "/settings/notifications",
       },
     ],
   },

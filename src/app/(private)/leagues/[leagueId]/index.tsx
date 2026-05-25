@@ -10,7 +10,7 @@ import {
   useToast,
 } from "heroui-native";
 import { Badge } from "heroui-native-pro";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Image } from "@/components/core/image";
@@ -55,6 +55,26 @@ const ACTIVE_CHALLENGE_BLOCKING_STATUSES = new Set([
   "pending_result_correction",
   "pending_admin_decision",
 ] as const);
+
+const LEAGUE_TAB_VALUES = [
+  "details",
+  "ranking",
+  "challenges",
+  "requests",
+  "rules",
+] as const;
+
+type LeagueTabValue = (typeof LEAGUE_TAB_VALUES)[number];
+
+function normalizeLeagueTabParam(
+  value?: string | string[]
+): LeagueTabValue | null {
+  const tab = Array.isArray(value) ? value[0] : value;
+
+  return LEAGUE_TAB_VALUES.includes(tab as LeagueTabValue)
+    ? (tab as LeagueTabValue)
+    : null;
+}
 
 function formatResponseDeadlineHours(hours: number) {
   switch (hours) {
@@ -413,15 +433,23 @@ export default function LeagueDetailsScreen() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = authClient.useSession();
-  const { leagueId: rawLeagueId } = useLocalSearchParams<{
+  const { leagueId: rawLeagueId, tab: rawTab } = useLocalSearchParams<{
     leagueId?: string | string[];
+    tab?: string | string[];
   }>();
   const leagueId = Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
-  const [activeTab, setActiveTab] = useState("details");
+  const requestedTab = normalizeLeagueTabParam(rawTab);
+  const [activeTab, setActiveTab] = useState<string>(requestedTab ?? "details");
   const [createChallengeTarget, setCreateChallengeTarget] = useState<{
     membershipId: string;
     name: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   const leagueQuery = useQuery({
     ...crpc.league.discovery.getById.queryOptions({

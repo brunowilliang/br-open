@@ -732,6 +732,142 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  notificationDelivery: {
+    document: {
+      attempts: number;
+      deliveredAt?: null | number;
+      deviceId: Id<"notificationDevice">;
+      errorMessage?: null | string;
+      expoPushToken: string;
+      feedId: Id<"notificationFeed">;
+      lastAttemptAt?: null | number;
+      responseId?: null | string;
+      state:
+        | "awaiting_delivery"
+        | "in_progress"
+        | "delivered"
+        | "needs_retry"
+        | "failed"
+        | "maybe_delivered"
+        | "unable_to_deliver";
+      _id: Id<"notificationDelivery">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "attempts"
+      | "deliveredAt"
+      | "deviceId"
+      | "errorMessage"
+      | "expoPushToken"
+      | "feedId"
+      | "lastAttemptAt"
+      | "responseId"
+      | "state";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      deviceId: ["deviceId", "_creationTime"];
+      feedId: ["feedId", "_creationTime"];
+      state: ["state", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  notificationDevice: {
+    document: {
+      disabledAt?: null | number;
+      expoPushToken: string;
+      lastSeenAt: number;
+      permissionStatus: string;
+      platform: string;
+      registeredAt: number;
+      userId: Id<"user">;
+      _id: Id<"notificationDevice">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "disabledAt"
+      | "expoPushToken"
+      | "lastSeenAt"
+      | "permissionStatus"
+      | "platform"
+      | "registeredAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      expoPushToken: ["expoPushToken", "_creationTime"];
+      userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  notificationFeed: {
+    document: {
+      actorUserId?: null | Id<"user">;
+      body: string;
+      data: any;
+      eventType: string;
+      isRead: boolean;
+      occurredAt: number;
+      readAt?: null | number;
+      recipientUserId: Id<"user">;
+      title: string;
+      _id: Id<"notificationFeed">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "actorUserId"
+      | "body"
+      | "data"
+      | "eventType"
+      | "isRead"
+      | "occurredAt"
+      | "readAt"
+      | "recipientUserId"
+      | "title";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      eventType: ["eventType", "_creationTime"];
+      recipientUserId_isRead: ["recipientUserId", "isRead", "_creationTime"];
+      recipientUserId_occurredAt: [
+        "recipientUserId",
+        "occurredAt",
+        "_creationTime",
+      ];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  notificationPreference: {
+    document: {
+      pushEnabled: boolean;
+      updatedAt: number;
+      userId: Id<"user">;
+      _id: Id<"notificationPreference">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "pushEnabled"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   organization: {
     document: {
       createdAt: number;

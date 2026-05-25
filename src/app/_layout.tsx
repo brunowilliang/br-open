@@ -14,6 +14,7 @@ import { useAuth } from "kitcn/react";
 import { useEffect } from "react";
 import { useColorScheme } from "react-native";
 
+import { NotificationBootstrap } from "@/components/notifications/notification-bootstrap";
 import { Providers } from "@/components/providers";
 import { useThemeColor } from "heroui-native";
 
@@ -64,6 +65,7 @@ function Root() {
           <Stack.Screen name="(public)" options={{ animation: "fade" }} />
         </Stack.Protected>
       </Stack>
+      <NotificationBootstrap isEnabled={isAuthenticated} />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </>
   );
