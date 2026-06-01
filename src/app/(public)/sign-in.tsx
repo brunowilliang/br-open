@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import {
   Button,
@@ -11,13 +12,17 @@ import {
   useToast,
 } from "heroui-native";
 import { SocialAuthButton } from "heroui-native-pro";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { z } from "zod";
 
 import { Image, LogoImage } from "@/components/core/image";
 import { Text } from "@/components/core/text";
-import { useSignInMutationOptions } from "@/lib/convex/auth-client";
+import {
+  useSignInMutationOptions,
+  useSignInSocialMutationOptions,
+} from "@/lib/convex/auth-client";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const SignInFormSchema = z.object({
@@ -27,13 +32,21 @@ const SignInFormSchema = z.object({
     .min(6, "Sua senha deve ter no mínimo 6 caracteres"),
 });
 
+type AppleIdTokenUser = {
+  email?: string;
+  name?: {
+    firstName?: string;
+    lastName?: string;
+  };
+};
+
 export default function SignIn() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isAppleSignInPending, setIsAppleSignInPending] = useState(false);
 
   const signIn = useMutation(
     useSignInMutationOptions({
-      onSuccess: () => router.replace("/"),
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -48,6 +61,8 @@ export default function SignIn() {
     })
   );
 
+  const signInSocial = useMutation(useSignInSocialMutationOptions());
+
   const form = useForm({
     defaultValues: {
       email: "bruno@bruno.com",
@@ -58,8 +73,13 @@ export default function SignIn() {
     resolver: zodResolver(SignInFormSchema),
   });
 
-  const isSubmitPending = signIn.isPending || form.formState.isSubmitting;
-  const submitForm = form.handleSubmit(async (values) => {
+  const isSubmitPending =
+    signIn.isPending ||
+    signInSocial.isPending ||
+    form.formState.isSubmitting ||
+    isAppleSignInPending;
+
+  const handleSubmitPress = form.handleSubmit(async (values) => {
     signIn.reset();
 
     await signIn.mutateAsync({
@@ -69,18 +89,115 @@ export default function SignIn() {
     });
   });
 
-  function handleSubmitPress() {
-    submitForm().catch(() => undefined);
+  function signInWithAppleOAuth() {
+    return signInSocial.mutateAsync({
+      callbackURL: "/",
+      provider: "apple",
+    });
   }
 
-  function handleSocialPress() {
-    signIn.reset();
-    toast.show({
-      description: "Login social ainda precisa dos providers no Better Auth.",
-      id: "sign-in-social-error",
-      label: "Login social indisponível",
-      variant: "warning",
+  async function signInWithNativeApple() {
+    const isAvailable = await AppleAuthentication.isAvailableAsync();
+
+    if (!isAvailable) {
+      throw new Error(
+        "Login nativo com Apple indisponível neste build. Rebuild o app iOS."
+      );
+    }
+
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
     });
+
+    if (!credential.identityToken) {
+      throw new Error("A Apple não retornou o token de autenticação.");
+    }
+
+    const appleUser: AppleIdTokenUser = {};
+    const firstName = credential.fullName?.givenName ?? undefined;
+    const lastName = credential.fullName?.familyName ?? undefined;
+
+    if (credential.email) {
+      appleUser.email = credential.email;
+    }
+
+    if (firstName || lastName) {
+      appleUser.name = { firstName, lastName };
+    }
+
+    return signInSocial.mutateAsync({
+      callbackURL: "/",
+      idToken: {
+        token: credential.identityToken,
+        ...(Object.keys(appleUser).length > 0 ? { user: appleUser } : {}),
+      },
+      provider: "apple",
+    });
+  }
+
+  async function handleApplePress() {
+    signIn.reset();
+    signInSocial.reset();
+    setIsAppleSignInPending(true);
+
+    try {
+      await (Platform.OS === "ios"
+        ? signInWithNativeApple()
+        : signInWithAppleOAuth());
+    } catch (error) {
+      const isAppleSignInCanceled =
+        error instanceof Error &&
+        error.message === "The user canceled the authorization attempt";
+
+      if (isAppleSignInCanceled) {
+        return;
+      }
+
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível autenticar com a Apple."
+        ),
+        id: "sign-in-apple-error",
+        label: "Não foi possível entrar",
+        variant: "danger",
+      });
+    } finally {
+      setIsAppleSignInPending(false);
+    }
+  }
+
+  async function handleGooglePress() {
+    signIn.reset();
+    signInSocial.reset();
+
+    try {
+      await signInSocial.mutateAsync({
+        callbackURL: "/",
+        provider: "google",
+      });
+    } catch (error) {
+      const isGoogleSignInCanceled =
+        error instanceof Error &&
+        error.message === "Authentication did not complete. Try again.";
+
+      if (isGoogleSignInCanceled) {
+        return;
+      }
+
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível autenticar com o Google."
+        ),
+        id: "sign-in-google-error",
+        label: "Não foi possível entrar",
+        variant: "danger",
+      });
+    }
   }
 
   return (
@@ -166,13 +283,13 @@ export default function SignIn() {
         <SocialAuthButton
           className="flex-1"
           isDisabled={isSubmitPending}
-          onPress={handleSocialPress}
+          onPress={handleApplePress}
           provider="apple"
         />
         <SocialAuthButton
           className="flex-1"
           isDisabled={isSubmitPending}
-          onPress={handleSocialPress}
+          onPress={handleGooglePress}
           provider="google"
         />
       </View>

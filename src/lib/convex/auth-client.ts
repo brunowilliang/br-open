@@ -29,6 +29,7 @@ export const authClient = createAuthClient({
 
 export const {
   useSignInMutationOptions,
+  useSignInSocialMutationOptions,
   useSignOutMutationOptions,
   useSignUpMutationOptions,
 } = createAuthMutations(authClient);

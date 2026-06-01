@@ -20,6 +20,23 @@ export type PushDeviceRegistration = {
   platform: PushDevicePlatform;
 };
 
+type PushPermissionBootstrapStatus = {
+  deviceCount: number;
+  permissionStatus: NotificationPermissionStatus;
+};
+
+export function shouldRequestPushPermission(
+  status: PushPermissionBootstrapStatus
+) {
+  return status.deviceCount === 0 && status.permissionStatus === "undetermined";
+}
+
+export function shouldOpenNotificationSettingsAlert(
+  permissionStatus: NotificationPermissionStatus
+) {
+  return permissionStatus !== "granted";
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: false,
@@ -134,4 +151,12 @@ export async function registerForPushNotificationsAsync(input: {
     permissionStatus,
     platform: getPlatform(),
   };
+}
+
+export async function getPushPermissionStatusAsync() {
+  await ensureAndroidNotificationChannel();
+
+  const permissions = await Notifications.getPermissionsAsync();
+
+  return normalizePermissionStatus(permissions);
 }

@@ -11,7 +11,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "kitcn/react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
 
 import { NotificationBootstrap } from "@/components/notifications/notification-bootstrap";
@@ -36,13 +36,29 @@ function Root() {
   const colorScheme = useColorScheme();
   const backgroundColor = useThemeColor("background");
   const { isAuthenticated, isLoading } = useAuth();
+  const [hasResolvedAuth, setHasResolvedAuth] = useState(false);
+  const lastAuthenticatedRef = useRef(false);
   const [fontsLoaded, fontsError] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
     Outfit_600SemiBold,
     Outfit_700Bold,
   });
-  const isAppReady = !isLoading && (fontsLoaded || fontsError);
+  const effectiveIsAuthenticated =
+    isLoading && hasResolvedAuth
+      ? lastAuthenticatedRef.current
+      : isAuthenticated;
+  const isAppReady =
+    (hasResolvedAuth || !isLoading) && (fontsLoaded || fontsError);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    lastAuthenticatedRef.current = isAuthenticated;
+    setHasResolvedAuth(true);
+  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (isAppReady) {
@@ -63,14 +79,14 @@ function Root() {
           animation: "fade",
         }}
       >
-        <Stack.Protected guard={isAuthenticated}>
+        <Stack.Protected guard={effectiveIsAuthenticated}>
           <Stack.Screen name="(private)" options={{ animation: "fade" }} />
         </Stack.Protected>
-        <Stack.Protected guard={!isAuthenticated}>
+        <Stack.Protected guard={!effectiveIsAuthenticated}>
           <Stack.Screen name="(public)" options={{ animation: "fade" }} />
         </Stack.Protected>
       </Stack>
-      <NotificationBootstrap isEnabled={isAuthenticated} />
+      <NotificationBootstrap isEnabled={effectiveIsAuthenticated} />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </>
   );

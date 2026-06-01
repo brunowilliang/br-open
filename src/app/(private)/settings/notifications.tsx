@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
 import {
+  Alert,
   Button,
   Chip,
   Description,
@@ -21,8 +22,8 @@ import {
   Switch,
   useToast,
 } from "heroui-native";
-import { Fragment, useState } from "react";
-import { View } from "react-native";
+import { Fragment, useEffect, useState } from "react";
+import { Alert as RNAlert, AppState, Linking, View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -32,7 +33,12 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { registerForPushNotificationsAsync } from "@/lib/notifications/expo-notifications";
+import {
+  getPushPermissionStatusAsync,
+  type NotificationPermissionStatus,
+  registerForPushNotificationsAsync,
+  shouldOpenNotificationSettingsAlert,
+} from "@/lib/notifications/expo-notifications";
 import { getNotificationFeedActionState } from "@/lib/notifications/feed-action-state";
 
 type NotificationItem = ApiOutputs["notification"]["feed"]["list"][number];
@@ -47,26 +53,26 @@ const NOTIFICATION_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
 
 function getPushDescription(status?: NotificationStatus) {
   if (!status) {
-    return "Carregando estado deste dispositivo";
+    return "Verificando push neste dispositivo.";
   }
 
   if (!status.pushEnabled) {
-    return "Push desligado. A central continua registrando novas notificações.";
+    return "Pausado. As notificações ficam salvas na central.";
   }
 
   switch (status.readinessReason) {
     case "ready":
-      return "Push ligado neste dispositivo.";
+      return "Ativo. Você recebe alertas no dispositivo.";
     case "missing_device":
-      return "Push ligado, aguardando token deste dispositivo.";
+      return "Ativo, aguardando registro do dispositivo.";
     case "permission_denied":
-      return "Push ligado, mas bloqueado nas permissões do sistema.";
+      return "Bloqueado nas permissões do sistema.";
     case "permission_undetermined":
-      return "Push ligado, aguardando permissão do sistema.";
+      return "Aguardando permissão do sistema.";
     case "preference_disabled":
-      return "Push desligado. A central continua registrando novas notificações.";
+      return "Pausado. As notificações ficam salvas na central.";
     default:
-      return "Push desligado. A central continua registrando novas notificações.";
+      return "Pausado. As notificações ficam salvas na central.";
   }
 }
 
@@ -201,6 +207,8 @@ function NotificationFeedItem(props: {
 export default function SettingsNotificationsRoute() {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isPreferencesDialogOpen, setIsPreferencesDialogOpen] = useState(false);
+  const [systemPermissionStatus, setSystemPermissionStatus] =
+    useState<NotificationPermissionStatus | null>(null);
   const crpc = useCRPC();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -282,6 +290,31 @@ export default function SettingsNotificationsRoute() {
     unreadCount: statusQuery.data?.unreadCount ?? 0,
   });
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshPermissionStatus() {
+      const permissionStatus = await getPushPermissionStatusAsync();
+
+      if (isMounted) {
+        setSystemPermissionStatus(permissionStatus);
+      }
+    }
+
+    refreshPermissionStatus().catch(() => undefined);
+
+    const subscription = AppState.addEventListener("change", (appState) => {
+      if (appState === "active") {
+        refreshPermissionStatus().catch(() => undefined);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, []);
+
   async function handleConfirmClearNotifications() {
     try {
       await removeAllNotifications.mutateAsync({});
@@ -299,7 +332,7 @@ export default function SettingsNotificationsRoute() {
     }
 
     const registration = await registerForPushNotificationsAsync({
-      requestPermission: true,
+      requestPermission: false,
     });
 
     if (registration.expoPushToken) {
@@ -320,6 +353,40 @@ export default function SettingsNotificationsRoute() {
       label: "Push ainda não está pronto",
       variant: "warning",
     });
+  }
+
+  function handlePushRowPress() {
+    if (statusQuery.isPending || isMutatingPush) {
+      return;
+    }
+
+    handlePushToggle(!(statusQuery.data?.pushEnabled ?? false)).catch(
+      () => undefined
+    );
+  }
+
+  async function handleOpenPreferences() {
+    const permissionStatus = await getPushPermissionStatusAsync();
+    setSystemPermissionStatus(permissionStatus);
+
+    if (shouldOpenNotificationSettingsAlert(permissionStatus)) {
+      RNAlert.alert(
+        "Notificações bloqueadas",
+        "Habilite as notificações nos ajustes do app para receber push.",
+        [
+          { style: "cancel", text: "Cancelar" },
+          {
+            onPress: () => {
+              Linking.openSettings().catch(() => undefined);
+            },
+            text: "Abrir ajustes",
+          },
+        ]
+      );
+      return;
+    }
+
+    setIsPreferencesDialogOpen(true);
   }
 
   async function handleOpenNotification(notification: NotificationItem) {
@@ -373,35 +440,11 @@ export default function SettingsNotificationsRoute() {
     );
   }
 
-  function renderPreferences() {
-    return (
-      <ListGroup>
-        <ListGroup.Item>
-          <ListGroup.ItemPrefix>
-            <HugeIcons icon={BellDotIcon} />
-          </ListGroup.ItemPrefix>
-          <ListGroup.ItemContent>
-            <ListGroup.ItemTitle>Push no dispositivo</ListGroup.ItemTitle>
-            <ListGroup.ItemDescription>
-              {getPushDescription(statusQuery.data)}
-            </ListGroup.ItemDescription>
-          </ListGroup.ItemContent>
-          <ListGroup.ItemSuffix>
-            <Switch
-              isDisabled={statusQuery.isPending || isMutatingPush}
-              isSelected={statusQuery.data?.pushEnabled ?? false}
-              onSelectedChange={(isSelected) => {
-                handlePushToggle(isSelected).catch(() => undefined);
-              }}
-            />
-          </ListGroup.ItemSuffix>
-        </ListGroup.Item>
-      </ListGroup>
-    );
-  }
-
   function renderAllNotifications() {
     const hasNotifications = Boolean(notificationsQuery.data?.length);
+    const shouldShowNotificationSettingsAlert = systemPermissionStatus
+      ? shouldOpenNotificationSettingsAlert(systemPermissionStatus)
+      : false;
 
     return (
       <View className="gap-2">
@@ -416,6 +459,26 @@ export default function SettingsNotificationsRoute() {
               ) : null}
             </View>
           </View>
+        ) : null}
+        {shouldShowNotificationSettingsAlert ? (
+          <Alert status="warning">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Title>Notificações bloqueadas</Alert.Title>
+              <Alert.Description>
+                Habilite as notificações nos ajustes do app para receber push.
+              </Alert.Description>
+            </Alert.Content>
+            <Button
+              onPress={() => {
+                Linking.openSettings().catch(() => undefined);
+              }}
+              size="sm"
+              variant="primary"
+            >
+              <Button.Label>Abrir ajustes</Button.Label>
+            </Button>
+          </Alert>
         ) : null}
         {renderFeed()}
       </View>
@@ -461,7 +524,7 @@ export default function SettingsNotificationsRoute() {
               markAllRead.mutate({});
             }}
             onOpenPreferences={() => {
-              setIsPreferencesDialogOpen(true);
+              handleOpenPreferences().catch(() => undefined);
             }}
           />
         </Page.Header.Right>
@@ -482,7 +545,36 @@ export default function SettingsNotificationsRoute() {
           <Dialog.Content className="gap-4 p-5">
             <Dialog.Close className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Preferências</Dialog.Title>
-            {renderPreferences()}
+            <ListGroup>
+              <PressableFeedback animation={false} onPress={handlePushRowPress}>
+                <ListGroup.Item disabled>
+                  <ListGroup.ItemPrefix>
+                    <HugeIcons icon={BellDotIcon} />
+                  </ListGroup.ItemPrefix>
+                  <ListGroup.ItemContent>
+                    <ListGroup.ItemTitle>
+                      Push no dispositivo
+                    </ListGroup.ItemTitle>
+                    <ListGroup.ItemDescription>
+                      {getPushDescription(statusQuery.data)}
+                    </ListGroup.ItemDescription>
+                  </ListGroup.ItemContent>
+                  <ListGroup.ItemSuffix>
+                    <Switch
+                      isDisabled={statusQuery.isPending || isMutatingPush}
+                      isSelected={statusQuery.data?.pushEnabled ?? false}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                      }}
+                      onSelectedChange={(isSelected) => {
+                        handlePushToggle(isSelected).catch(() => undefined);
+                      }}
+                    />
+                  </ListGroup.ItemSuffix>
+                </ListGroup.Item>
+                <PressableFeedback.Highlight />
+              </PressableFeedback>
+            </ListGroup>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog>

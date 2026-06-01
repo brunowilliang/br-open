@@ -4,11 +4,26 @@ import { z } from "zod";
 const envSchema = z.object({
   DEPLOY_ENV: z.string().default("production"),
   SITE_URL: z.string().default("http://localhost:3000"),
+  BETTER_AUTH_URL: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().optional(),
   JWKS: z.string().optional(),
-  CONVEX_SITE_URL: z.string().optional(),
+  APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
 export const getEnv = createEnv({
+  readOptionalRuntimeEnv: [
+    "APPLE_APP_BUNDLE_IDENTIFIER",
+    "APPLE_CLIENT_ID",
+    "APPLE_CLIENT_SECRET",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "JWKS",
+  ],
   schema: envSchema,
 });

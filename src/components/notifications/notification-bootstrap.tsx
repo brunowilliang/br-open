@@ -7,6 +7,7 @@ import { useCRPC } from "@/lib/convex/crpc";
 import {
   registerForPushNotificationsAsync,
   registerNotificationCategoriesAsync,
+  shouldRequestPushPermission,
 } from "@/lib/notifications/expo-notifications";
 import {
   type NotificationResponseIntent,
@@ -22,12 +23,22 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
   const queryClient = useQueryClient();
   const handledResponseKey = useRef<string | null>(null);
   const lastSyncedToken = useRef<string | null>(null);
+  const hasRequestedPushPermission = useRef(false);
   const statusQuery = useQuery({
     ...crpc.notification.settings.status.queryOptions(),
     enabled: props.isEnabled,
   });
   const upsertDevice = useMutation(
     crpc.notification.settings.upsertDevice.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries(
+          crpc.notification.settings.status.queryFilter()
+        );
+      },
+    })
+  );
+  const setPreference = useMutation(
+    crpc.notification.settings.setPreference.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.notification.settings.status.queryFilter()
@@ -179,15 +190,27 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
   }, [handleNotificationResponse, props.isEnabled]);
 
   useEffect(() => {
-    if (!(props.isEnabled && statusQuery.data?.pushEnabled)) {
+    if (
+      !props.isEnabled ||
+      statusQuery.isPending ||
+      statusQuery.isError ||
+      !statusQuery.data
+    ) {
       return;
     }
 
     let isCancelled = false;
+    const requestPermission =
+      !hasRequestedPushPermission.current &&
+      shouldRequestPushPermission(statusQuery.data);
+
+    if (requestPermission) {
+      hasRequestedPushPermission.current = true;
+    }
 
     async function syncDevice() {
       const registration = await registerForPushNotificationsAsync({
-        requestPermission: false,
+        requestPermission,
       });
 
       if (
@@ -199,11 +222,15 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
       }
 
       lastSyncedToken.current = registration.expoPushToken;
-      upsertDevice.mutate({
+      await upsertDevice.mutateAsync({
         expoPushToken: registration.expoPushToken,
         permissionStatus: registration.permissionStatus,
         platform: registration.platform,
       });
+
+      if (requestPermission && !statusQuery.data?.pushEnabled) {
+        await setPreference.mutateAsync({ pushEnabled: true });
+      }
     }
 
     syncDevice().catch(() => undefined);
@@ -211,7 +238,14 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
     return () => {
       isCancelled = true;
     };
-  }, [props.isEnabled, statusQuery.data?.pushEnabled, upsertDevice]);
+  }, [
+    props.isEnabled,
+    setPreference,
+    statusQuery.data,
+    statusQuery.isError,
+    statusQuery.isPending,
+    upsertDevice,
+  ]);
 
   return null;
 }

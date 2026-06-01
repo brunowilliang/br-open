@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "br-open",
@@ -19,8 +20,9 @@
         "@tanstack/react-query": "5.95.2",
         "better-auth": "1.6.9",
         "better-styled": "^1.3.2",
-        "convex": "1.37.0",
+        "convex": "1.39.1",
         "expo": "56.0.4",
+        "expo-apple-authentication": "~56.0.4",
         "expo-constants": "~56.0.15",
         "expo-dev-client": "~56.0.15",
         "expo-device": "~56.0.4",
@@ -44,7 +46,7 @@
         "heroui-native": "^1.0.2",
         "heroui-native-pro": "^1.0.0-beta.3",
         "hono": "4.12.9",
-        "kitcn": "0.14.3",
+        "kitcn": "0.15.9",
         "react": "19.2.3",
         "react-dom": "19.2.3",
         "react-hook-form": "^7.75.0",
@@ -740,7 +742,7 @@
 
     "convert-source-map": ["convert-source-map@2.0.0", "", {}, "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg=="],
 
-    "convex": ["convex@1.37.0", "", { "dependencies": { "esbuild": "0.27.0", "prettier": "^3.0.0", "ws": "8.18.0" }, "peerDependencies": { "@auth0/auth0-react": "^2.0.1", "@clerk/clerk-react": "^4.12.8 || ^5.0.0", "@clerk/react": "^6.4.3", "react": "^18.0.0 || ^19.0.0-0 || ^19.0.0" }, "optionalPeers": ["@auth0/auth0-react", "@clerk/clerk-react", "@clerk/react", "react"], "bin": { "convex": "bin/main.js" } }, "sha512-xGSx5edIsXCEex3OU2U2N0oyB/cOa9qGwKiImF9yOWqjqZgOkx39idtpdlwNBTBSt4S30oAvs4yeXY5xxPIX3A=="],
+    "convex": ["convex@1.39.1", "", { "dependencies": { "esbuild": "0.27.0", "prettier": "^3.0.0", "ws": "8.18.0" }, "peerDependencies": { "@auth0/auth0-react": "^2.0.1", "@clerk/clerk-react": "^4.12.8 || ^5.0.0", "@clerk/react": "^6.4.3", "react": "^18.0.0 || ^19.0.0-0 || ^19.0.0" }, "optionalPeers": ["@auth0/auth0-react", "@clerk/clerk-react", "@clerk/react", "react"], "bin": { "convex": "bin/main.js" } }, "sha512-W+gVXA7BpRF1xLlS1kGTtKVaqd5yonqbGESKiPtIUXjV744GdDz8IG7RVsSY5KzHbgxuJBHKaJYk+92OIHTskQ=="],
 
     "copy-anything": ["copy-anything@4.0.5", "", { "dependencies": { "is-what": "^5.2.0" } }, "sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA=="],
 
@@ -873,6 +875,8 @@
     "execa": ["execa@9.6.1", "", { "dependencies": { "@sindresorhus/merge-streams": "^4.0.0", "cross-spawn": "^7.0.6", "figures": "^6.1.0", "get-stream": "^9.0.0", "human-signals": "^8.0.1", "is-plain-obj": "^4.1.0", "is-stream": "^4.0.1", "npm-run-path": "^6.0.0", "pretty-ms": "^9.2.0", "signal-exit": "^4.1.0", "strip-final-newline": "^4.0.0", "yoctocolors": "^2.1.1" } }, "sha512-9Be3ZoN4LmYR90tUoVu2te2BsbzHfhJyfEiAVfz7N5/zv+jduIfLrV2xdQXOHbaD6KgpGdO9PRPM1Y4Q9QkPkA=="],
 
     "expo": ["expo@56.0.4", "", { "dependencies": { "@babel/runtime": "^7.20.0", "@expo/cli": "^56.1.11", "@expo/config": "~56.0.9", "@expo/config-plugins": "~56.0.8", "@expo/devtools": "~56.0.2", "@expo/dom-webview": "~56.0.5", "@expo/fingerprint": "^0.19.2", "@expo/local-build-cache-provider": "^56.0.7", "@expo/log-box": "^56.0.12", "@expo/metro": "~56.0.0", "@expo/metro-config": "~56.0.12", "@ungap/structured-clone": "^1.3.0", "babel-preset-expo": "~56.0.12", "expo-asset": "~56.0.14", "expo-constants": "~56.0.15", "expo-file-system": "~56.0.7", "expo-font": "~56.0.5", "expo-keep-awake": "~56.0.3", "expo-modules-autolinking": "~56.0.12", "expo-modules-core": "~56.0.12", "pretty-format": "^29.7.0", "react-refresh": "^0.14.2", "whatwg-url-minimum": "^0.1.2" }, "peerDependencies": { "@expo/metro-runtime": "*", "react": "*", "react-dom": "*", "react-native": "*", "react-native-web": "*", "react-native-webview": "*" }, "optionalPeers": ["@expo/metro-runtime", "react-dom", "react-native-web", "react-native-webview"], "bin": { "expo": "bin/cli", "fingerprint": "bin/fingerprint", "expo-modules-autolinking": "bin/autolinking" } }, "sha512-ZwoOkOTwITJrFQRRO5tUsBp6NlddvjWSs3ADb+zOu1UIQWBCk9dmwmSrdFxu0P+hYnU2hk5k/Y6xq6DPLNSKzg=="],
+
+    "expo-apple-authentication": ["expo-apple-authentication@56.0.4", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-y9cIfulRCKyWrbWBx6lV172dnJZ+aNHdyEPC7tIlGJAO2zn3J1Vq6/mcKr2eynzjdt3e5Z02qeZWQN2R7rcbrg=="],
 
     "expo-application": ["expo-application@56.0.3", "", { "peerDependencies": { "expo": "*" } }, "sha512-DdGGPlMuM6cSTeKhbvh6OeLr2O/+EI5BHKYrD+Do8sJPYgLwzGrgESELfyjJCpEhFzT+TgKIdmLmWXhNUQnHiw=="],
 
@@ -1104,7 +1108,7 @@
 
     "jwt-decode": ["jwt-decode@4.0.0", "", {}, "sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA=="],
 
-    "kitcn": ["kitcn@0.14.3", "", { "dependencies": { "@babel/parser": "^7.28.4", "@better-fetch/fetch": "^1.1.21", "@clack/prompts": "^0.11.0", "chokidar": "^5.0.0", "common-tags": "^1.8.2", "diff": "^8.0.2", "dotenv": "^17.3.1", "esbuild": "^0.27.3", "execa": "^9.6.1", "jiti": "^2.6.1", "jose": "^6.1.3", "jotai": "^2.18.0", "jotai-x": "^2.3.3", "picocolors": "^1.1.1", "remeda": "^2.33.6", "svix": "^1.84.1", "type-fest": "^5.4.4", "typescript": "5.9.3" }, "peerDependencies": { "@tanstack/query-core": ">=5", "@tanstack/react-query": ">=5", "@tanstack/solid-query": ">=5", "better-auth": "1.6.9", "convex": ">=1.36", "hono": "4.12.9", "next": ">=14", "react": ">=18", "solid-js": ">=1.8", "zod": ">=4" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/solid-query", "better-auth", "hono", "next", "react", "solid-js"], "bin": { "kitcn": "dist/cli.mjs", "intent": "bin/intent.js" } }, "sha512-cC9CVuGRp59oZCiOJrInu1wgSSBTsFOu+Vt1WwplbDqx2NP9gntQMDb55RTx/Df+hSx6JlLxUtb2P+a6fRkhnQ=="],
+    "kitcn": ["kitcn@0.15.9", "", { "dependencies": { "@babel/parser": "^7.28.4", "@better-fetch/fetch": "^1.1.21", "@clack/prompts": "^0.11.0", "chokidar": "^5.0.0", "common-tags": "^1.8.2", "diff": "^8.0.2", "dotenv": "^17.3.1", "esbuild": "^0.27.3", "execa": "^9.6.1", "jiti": "^2.6.1", "jose": "^6.1.3", "jotai": "^2.18.0", "jotai-x": "^2.3.3", "picocolors": "^1.1.1", "remeda": "^2.33.6", "svix": "^1.84.1", "type-fest": "^5.4.4", "typescript": "5.9.3" }, "peerDependencies": { "@tanstack/query-core": ">=5", "@tanstack/react-query": ">=5", "@tanstack/react-start": ">=1", "@tanstack/solid-query": ">=5", "better-auth": "1.6.9", "convex": ">=1.38", "hono": "4.12.9", "next": ">=14", "react": ">=18", "solid-js": ">=1.8", "zod": ">=4" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/react-start", "@tanstack/solid-query", "better-auth", "hono", "next", "react", "solid-js"], "bin": { "kitcn": "dist/cli.mjs", "intent": "bin/intent.js" } }, "sha512-/XMk6toVx0fU7P03XwiCHjytRM/n3kOXLjKA+DDeDUdoDqBe36Z51/DPBXLeF3OPxEfv0uEZrywQftfdRltVfg=="],
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
 

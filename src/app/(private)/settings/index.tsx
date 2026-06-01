@@ -54,11 +54,9 @@ const sections: SettingsSection[] = [
 
 export default function Settings() {
   const { toast } = useToast();
-  const signOut = useMutation(
+
+  const handleSignOutPress = useMutation(
     useSignOutMutationOptions({
-      onSuccess: () => {
-        router.replace("/sign-in");
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -72,15 +70,6 @@ export default function Settings() {
       },
     })
   );
-
-  function handleSignOutPress() {
-    if (signOut.isPending) {
-      return;
-    }
-
-    signOut.reset();
-    signOut.mutate();
-  }
 
   return (
     <Page>
@@ -121,16 +110,16 @@ export default function Settings() {
         <Description>Conta</Description>
         <ListGroup>
           <ListGroup.Item
-            className={signOut.isPending ? "opacity-50" : undefined}
-            disabled={signOut.isPending}
-            onPress={handleSignOutPress}
+            className={handleSignOutPress.isPending ? "opacity-50" : undefined}
+            disabled={handleSignOutPress.isPending}
+            onPress={() => handleSignOutPress.mutate()}
           >
             <ListGroup.ItemPrefix>
               <HugeIcons className="text-danger" icon={Logout03Icon} />
             </ListGroup.ItemPrefix>
             <ListGroup.ItemContent>
               <ListGroup.ItemTitle className="text-danger">
-                {signOut.isPending ? "Saindo..." : "Sair"}
+                {handleSignOutPress.isPending ? "Saindo..." : "Sair"}
               </ListGroup.ItemTitle>
               <ListGroup.ItemDescription>
                 Encerrar sessão neste dispositivo
