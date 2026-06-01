@@ -1,9 +1,28 @@
 import { z } from "zod";
 
+import { getBestOfSetValidationError } from "@convex/domains/league/challenge-rules";
 import {
   CreateLeagueSchema,
   LeagueMatchConfigSchema,
 } from "@convex/domains/league/contract";
+
+const LeagueMatchConfigFormSchema = LeagueMatchConfigSchema.superRefine(
+  (value, ctx) => {
+    const bestOfSetValidationError = getBestOfSetValidationError(
+      value.bestOfSets
+    );
+
+    if (!bestOfSetValidationError) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: bestOfSetValidationError,
+      path: ["bestOfSets"],
+    });
+  }
+);
 
 export const LeagueSchema = z.object({
   name: CreateLeagueSchema.shape.name,
@@ -14,8 +33,10 @@ export const LeagueSchema = z.object({
   visibility: CreateLeagueSchema.shape.visibility,
   categories: CreateLeagueSchema.shape.categories,
   courts: CreateLeagueSchema.shape.courts,
+  coverStorageId: CreateLeagueSchema.shape.coverStorageId,
+  avatarStorageId: CreateLeagueSchema.shape.avatarStorageId,
   ruleConfig: CreateLeagueSchema.shape.ruleConfig.safeExtend({
-    matchConfig: LeagueMatchConfigSchema,
+    matchConfig: LeagueMatchConfigFormSchema,
   }),
 });
 

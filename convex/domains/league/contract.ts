@@ -407,6 +407,58 @@ export const ChallengeRuleConfigSchema = z
     }
   });
 
+export const DEFAULT_LEAGUE_MODE = "challenges" as const;
+
+export const DEFAULT_LEAGUE_STORAGE = {
+  avatarStorageId: null,
+  coverStorageId: null,
+} as const;
+
+export const LEGACY_DEFAULT_LEAGUE_STORAGE_IDS = [
+  "DEFAULT_AVATAR_STORAGE_ID",
+  "DEFAULT_COVER_STORAGE_ID",
+] as const;
+
+type LeagueMediaStorageIds = {
+  avatarStorageId?: null | string;
+  coverStorageId?: null | string;
+};
+
+function isDeletableLeagueStorageId(
+  storageId?: null | string
+): storageId is string {
+  return Boolean(
+    storageId &&
+      !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(
+        storageId
+      )
+  );
+}
+
+export function collectReplacedLeagueStorageIds(input: {
+  next: LeagueMediaStorageIds;
+  previous: LeagueMediaStorageIds;
+}) {
+  const nextStorageIds = new Set(
+    [input.next.avatarStorageId, input.next.coverStorageId].filter(
+      isDeletableLeagueStorageId
+    )
+  );
+  const previousStorageIds = [
+    input.previous.avatarStorageId,
+    input.previous.coverStorageId,
+  ].filter(isDeletableLeagueStorageId);
+
+  return [...new Set(previousStorageIds)].filter(
+    (storageId) => !nextStorageIds.has(storageId)
+  );
+}
+
+const LeagueMediaStorageIdSchema = z
+  .string()
+  .min(1, "Imagem inválida.")
+  .nullable();
+
 export const CreateLeagueSchema = z.object({
   name: requiredString("Informe o nome da liga.").pipe(
     z.string().min(1, "Informe o nome da liga.")
@@ -427,15 +479,10 @@ export const CreateLeagueSchema = z.object({
     .array(requiredString("Informe a categoria."))
     .min(1, "Informe pelo menos uma categoria."),
   courts: LeagueCourtsSchema,
+  coverStorageId: LeagueMediaStorageIdSchema,
+  avatarStorageId: LeagueMediaStorageIdSchema,
   ruleConfig: ChallengeRuleConfigSchema,
 });
-
-export const DEFAULT_LEAGUE_MODE = "challenges" as const;
-
-export const DEFAULT_LEAGUE_STORAGE = {
-  avatarStorageId: "DEFAULT_AVATAR_STORAGE_ID",
-  coverStorageId: "DEFAULT_COVER_STORAGE_ID",
-} as const;
 
 const leagueIdSchema = z.string().min(1, "Liga inválida.");
 export const LeagueByIdSchema = z.object({
@@ -464,8 +511,8 @@ export const UpdateLeagueSchema = z.object({
     .min(1, "Informe pelo menos uma categoria."),
   courts: LeagueCourtsSchema,
   ruleConfig: ChallengeRuleConfigSchema,
-  coverStorageId: z.string().min(1),
-  avatarStorageId: z.string().min(1),
+  coverStorageId: LeagueMediaStorageIdSchema,
+  avatarStorageId: LeagueMediaStorageIdSchema,
 });
 
 export const DeleteLeagueSchema = z.object({
@@ -503,8 +550,10 @@ export const leagueSchema = z.object({
   mode: z.literal(DEFAULT_LEAGUE_MODE),
   courts: LeagueCourtsSchema.default([]).catch([]),
   ruleConfig: ChallengeRuleConfigSchema,
-  coverStorageId: z.string(),
-  avatarStorageId: z.string(),
+  coverStorageId: z.string().nullable(),
+  avatarStorageId: z.string().nullable(),
+  coverUrl: z.string().nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

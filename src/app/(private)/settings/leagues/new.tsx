@@ -19,6 +19,8 @@ function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
     visibility: values.visibility,
     categories: values.categories,
     courts: values.courts,
+    coverStorageId: values.coverStorageId,
+    avatarStorageId: values.avatarStorageId,
     ruleConfig: values.ruleConfig,
   };
 }

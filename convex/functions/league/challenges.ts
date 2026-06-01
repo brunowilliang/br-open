@@ -10,6 +10,7 @@ import {
   canPlayersCancelChallenge,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
+  validateChallengeScore,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
   resolveReopenedChallengeStatus,
@@ -137,6 +138,21 @@ function rangesOverlap(input: {
   );
 }
 
+async function resolvePlayerProfileAvatarUrl(
+  ctx: OrmCtx,
+  storageId?: null | string
+) {
+  if (!storageId) {
+    return null;
+  }
+
+  try {
+    return await ctx.storage.getUrl(storageId as Id<"_storage">);
+  } catch {
+    return null;
+  }
+}
+
 async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
   const [user, playerProfile] = await Promise.all([
     ctx.orm.query.user.findFirst({ where: { id: userId } }),
@@ -155,9 +171,13 @@ async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
     playerProfile?.nickname?.trim() ||
     playerProfile?.fullName?.trim() ||
     user.name;
+  const avatarUrl = await resolvePlayerProfileAvatarUrl(
+    ctx,
+    playerProfile?.avatarStorageId
+  );
 
   return leagueMembershipPlayerSchema.parse({
-    avatarUrl: user.image ?? null,
+    avatarUrl: avatarUrl ?? user.image ?? null,
     fullName,
     nickname,
   });
@@ -1833,6 +1853,22 @@ export const submitResult = authMutation
     }
 
     const parsedScore = leagueChallengeScoreSchema.parse(input.score);
+    const matchConfigSnapshot = LeagueMatchConfigSchema.parse(
+      syncedChallenge.matchConfigSnapshot
+    );
+    const scoreValidationError = validateChallengeScore({
+      challengedMembershipId: String(syncedChallenge.challengedMembershipId),
+      challengerMembershipId: String(syncedChallenge.challengerMembershipId),
+      matchConfig: matchConfigSnapshot,
+      score: parsedScore,
+    });
+
+    if (scoreValidationError) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: scoreValidationError,
+      });
+    }
 
     await ctx.orm
       .insert(leagueChallengeResultSubmission)

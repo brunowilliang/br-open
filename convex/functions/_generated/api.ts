@@ -2009,7 +2009,8 @@ export const api: {
         "public",
         { leagueId: string },
         {
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2025,7 +2026,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2094,7 +2096,8 @@ export const api: {
         "public",
         {},
         Array<{
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2110,7 +2113,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2171,6 +2175,7 @@ export const api: {
         "mutation",
         "public",
         {
+          avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2186,6 +2191,7 @@ export const api: {
             id: string;
             name: string;
           }>;
+          coverStorageId: string | null;
           description?: string;
           locationNotes?: string;
           name: string;
@@ -2235,7 +2241,8 @@ export const api: {
           visibility: "public" | "private" | "invite_only";
         },
         {
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2251,7 +2258,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2306,12 +2314,14 @@ export const api: {
           visibility: "public" | "private" | "invite_only";
         }
       >;
+      generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
       getById: FunctionReference<
         "query",
         "public",
         { leagueId: string },
         {
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2327,7 +2337,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2387,7 +2398,8 @@ export const api: {
         "public",
         {},
         Array<{
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2403,7 +2415,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2468,7 +2481,7 @@ export const api: {
         "mutation",
         "public",
         {
-          avatarStorageId: string;
+          avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2484,7 +2497,7 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
           description?: string;
           leagueId: string;
           locationNotes?: string;
@@ -2535,7 +2548,8 @@ export const api: {
           visibility: "public" | "private" | "invite_only";
         },
         {
-          avatarStorageId: string;
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           categories: Array<string>;
           city: string;
           courts: Array<{
@@ -2551,7 +2565,8 @@ export const api: {
             id: string;
             name: string;
           }>;
-          coverStorageId: string;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
           id: string;
@@ -2918,11 +2933,14 @@ export const api: {
   };
   player: {
     profile: {
+      generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
       get: FunctionReference<
         "query",
         "public",
         {},
         {
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
@@ -2933,12 +2951,15 @@ export const api: {
         "mutation",
         "public",
         {
+          avatarStorageId: string | null;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
           phone?: string;
         },
         {
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;

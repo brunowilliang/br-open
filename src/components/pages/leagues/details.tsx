@@ -7,16 +7,31 @@ import {
   TextField,
 } from "heroui-native";
 import { useController, useFormContext } from "react-hook-form";
-import { Image as NativeImage } from "react-native";
+import { View } from "react-native";
 
-import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { Image } from "@/components/core/image";
+import { Text } from "@/components/core/text";
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+import { HugeIcons } from "@/components/ui/huge-icons";
+import { ImageUploadIcon } from "@hugeicons/core-free-icons";
+
+type LeagueMediaKind = "avatar" | "cover";
 
 type DetailsProps = {
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
   isDisabled?: boolean;
+  isMediaUploading?: boolean;
+  onMediaPress?: (kind: LeagueMediaKind) => void;
 };
 
-export const Details = ({ isDisabled }: DetailsProps) => {
+export const Details = ({
+  avatarUrl,
+  coverUrl,
+  isDisabled,
+  isMediaUploading,
+  onMediaPress,
+}: DetailsProps) => {
   const { control } = useFormContext<LeagueScreenValues>();
   const { field: nameField, fieldState: nameState } = useController({
     control,
@@ -30,23 +45,43 @@ export const Details = ({ isDisabled }: DetailsProps) => {
 
   return (
     <>
-      <PressableFeedback className="aspect-video w-full overflow-hidden rounded-3xl">
-        <NativeImage
+      <PressableFeedback
+        className="aspect-video w-full overflow-hidden rounded-3xl"
+        isDisabled={isDisabled}
+        onPress={() => onMediaPress?.("cover")}
+      >
+        <Image
           className="size-full"
-          source={{
-            uri: "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
-          }}
+          contentFit="cover"
+          fallback="blue"
+          source={coverUrl ?? undefined}
         />
+        <View className="centered absolute inset-0 bg-black/45">
+          <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
+          <Text className="mb-7 text-white" variant="description">
+            {isMediaUploading ? "Salvando..." : "Alterar Banner"}
+          </Text>
+        </View>
         <PressableFeedback.Highlight />
       </PressableFeedback>
 
-      <PressableFeedback className="-mt-20 self-center rounded-full">
+      <PressableFeedback
+        className="-mt-20 self-center rounded-full"
+        isDisabled={isDisabled}
+        onPress={() => onMediaPress?.("avatar")}
+      >
         <Image
           alt="Perfil"
           className="size-30 rounded-full"
           fallback="blue"
-          source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg"
+          source={avatarUrl ?? undefined}
         />
+        <View className="centered absolute inset-0 bg-black/45">
+          <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
+          <Text className="text-white" variant="description">
+            {isMediaUploading ? "Salvando..." : "Alterar Avatar"}
+          </Text>
+        </View>
         <PressableFeedback.Highlight />
       </PressableFeedback>
 

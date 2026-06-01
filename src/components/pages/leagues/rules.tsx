@@ -856,30 +856,36 @@ const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
         isInvalid={Boolean(errors.ruleConfig?.matchConfig?.bestOfSets)}
         isRequired
       >
-        <Label>Quantos sets?</Label>
+        <Label>Melhor de quantos sets?</Label>
         <Description className="-mt-1.5 mb-1">
-          Define o padrão inicial de sets para as partidas da liga.
+          Escolha o formato da partida. Quem atingir a maioria dos sets vence.
         </Description>
-        <NumberStepper
-          className="self-start"
-          defaultValue={bestOfSets}
+        <Segment
           isDisabled={isDisabled}
-          maxValue={9}
-          minValue={1}
           onValueChange={(nextValue) => {
             setValue(
               "ruleConfig.matchConfig.bestOfSets",
-              nextValue,
+              Number(nextValue),
               fieldUpdateOptions
             );
           }}
-          step={1}
-          value={bestOfSets}
+          value={String(bestOfSets)}
         >
-          <NumberStepper.DecrementButton />
-          <NumberStepper.Value />
-          <NumberStepper.IncrementButton />
-        </NumberStepper>
+          <Segment.Group>
+            <Segment.ScrollView>
+              <Segment.Indicator />
+              <Segment.Item value="1">
+                <Segment.Label>Melhor de 1</Segment.Label>
+              </Segment.Item>
+              <Segment.Item value="3">
+                <Segment.Label>Melhor de 3</Segment.Label>
+              </Segment.Item>
+              <Segment.Item value="5">
+                <Segment.Label>Melhor de 5</Segment.Label>
+              </Segment.Item>
+            </Segment.ScrollView>
+          </Segment.Group>
+        </Segment>
         <FieldError>
           {errors.ruleConfig?.matchConfig?.bestOfSets?.message ?? ""}
         </FieldError>

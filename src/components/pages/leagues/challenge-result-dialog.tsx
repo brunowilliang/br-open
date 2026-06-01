@@ -11,15 +11,20 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
-import type { LeagueMatchConfig } from "@convex/domains/league/contract";
+import {
+  buildChallengeScoreProgress,
+  getExpectedSetKind,
+  getRequiredSetWins,
+  isChallengeScoreSetBlank,
+  resolveChallengeScoreWinnerMembershipId,
+  validateChallengeScore,
+} from "@convex/domains/league/challenge-rules";
+import type {
+  LeagueChallengeScore,
+  LeagueMatchConfig,
+} from "@convex/domains/league/contract";
 
-const SCORE_SET_PARTS_REGEX = /[-xX]/;
-
-type ChallengeScoreSet = {
-  challengerGames: number;
-  challengedGames: number;
-  kind: "set" | "super_tiebreak";
-};
+type ChallengeScoreSet = LeagueChallengeScore["sets"][number];
 
 type ChallengeResultDialogValue = {
   sets: ChallengeScoreSet[];
@@ -31,8 +36,7 @@ type ChallengeResultDialogProps = {
   challengedName: string;
   challengerMembershipId: string;
   challengerName: string;
-  initialScoreText?: string;
-  initialWinnerMembershipId?: string;
+  initialScore?: ChallengeScoreSet[];
   isOpen: boolean;
   isPending?: boolean;
   matchConfig: LeagueMatchConfig;
@@ -41,81 +45,62 @@ type ChallengeResultDialogProps = {
   title: string;
 };
 
-function getTieBreakSetValidationError(input: {
-  gamesPerSet: number;
-  loserGames: number;
-  tieBreakAtGamesAll: number;
-  winnerGames: number;
-}) {
-  if (input.loserGames <= input.gamesPerSet - 2) {
-    return input.winnerGames === input.gamesPerSet
-      ? null
-      : `Com ${input.loserGames} games do adversário, o placar final deve ser ${input.gamesPerSet}x${input.loserGames}.`;
-  }
-
-  if (input.loserGames === input.gamesPerSet - 1) {
-    return input.winnerGames === input.gamesPerSet + 1
-      ? null
-      : `Antes do tie-break, o set deve terminar em ${input.gamesPerSet + 1}x${input.loserGames}.`;
-  }
-
-  if (input.loserGames === input.tieBreakAtGamesAll) {
-    return input.winnerGames === input.tieBreakAtGamesAll + 1
-      ? null
-      : `Com tie-break em ${input.tieBreakAtGamesAll}x${input.tieBreakAtGamesAll}, o placar final deve ser ${input.tieBreakAtGamesAll + 1}x${input.tieBreakAtGamesAll}.`;
-  }
-
-  return "Esse placar não respeita a regra do tie-break da liga.";
+function buildEmptySet(
+  matchConfig: LeagueMatchConfig,
+  setIndex: number
+): ChallengeScoreSet {
+  return {
+    challengedGames: 0,
+    challengerGames: 0,
+    kind: getExpectedSetKind(matchConfig, setIndex),
+  };
 }
 
-function getAdvantageSetValidationError(input: {
-  gamesPerSet: number;
-  loserGames: number;
-  winnerGames: number;
-}) {
-  if (input.winnerGames - input.loserGames !== 2) {
-    return "Sem tie-break, o vencedor precisa abrir 2 games de diferença.";
+function trimTrailingBlankSets(sets: ChallengeScoreSet[]) {
+  const trimmedSets = [...sets];
+
+  while (trimmedSets.length > 0) {
+    const lastSet = trimmedSets.at(-1);
+
+    if (!(lastSet && isChallengeScoreSetBlank(lastSet))) {
+      break;
+    }
+
+    trimmedSets.pop();
   }
 
-  return input.winnerGames >= input.gamesPerSet
-    ? null
-    : `O vencedor precisa chegar a pelo menos ${input.gamesPerSet} games.`;
+  return trimmedSets;
 }
 
-function getSetValidationError(input: {
-  challengedGames: number;
-  challengerGames: number;
-  matchConfig: LeagueMatchConfig;
-}) {
-  const winnerGames = Math.max(input.challengerGames, input.challengedGames);
-  const loserGames = Math.min(input.challengerGames, input.challengedGames);
-  const gamesPerSet = input.matchConfig.gamesPerSet;
-  const tieBreakAtGamesAll = input.matchConfig.tieBreakAtGamesAll;
-
-  if (winnerGames < gamesPerSet) {
-    return `O vencedor precisa chegar a pelo menos ${gamesPerSet} games.`;
-  }
-
-  if (!input.matchConfig.setMustWinByTwoGames) {
-    return winnerGames === gamesPerSet
-      ? null
-      : `A partida deve terminar em ${gamesPerSet} games.`;
-  }
-
-  if (input.matchConfig.hasTieBreak) {
-    return getTieBreakSetValidationError({
-      gamesPerSet,
-      loserGames,
-      tieBreakAtGamesAll,
-      winnerGames,
-    });
-  }
-
-  return getAdvantageSetValidationError({
-    gamesPerSet,
-    loserGames,
-    winnerGames,
+function pruneDraftSets(
+  matchConfig: LeagueMatchConfig,
+  draftSets: ChallengeScoreSet[]
+) {
+  const trimmedSets = trimTrailingBlankSets(draftSets);
+  const progress = buildChallengeScoreProgress({
+    matchConfig,
+    sets: trimmedSets,
   });
+
+  return progress.winnerSide
+    ? trimmedSets.slice(0, progress.completedSetCount)
+    : trimmedSets.slice(0, progress.visibleSetCount);
+}
+
+function getSetLabel(matchConfig: LeagueMatchConfig, setIndex: number) {
+  return getExpectedSetKind(matchConfig, setIndex) === "super_tiebreak"
+    ? "Super tie-break"
+    : `Set ${setIndex + 1}`;
+}
+
+function getDialogDescription(matchConfig: LeagueMatchConfig) {
+  const requiredSetWins = getRequiredSetWins(matchConfig.bestOfSets);
+  const decidingSetDescription =
+    matchConfig.bestOfSets > 1 && matchConfig.finalSetMode === "super_tiebreak"
+      ? " Se precisar, o último set será um super tie-break."
+      : "";
+
+  return `Melhor de ${matchConfig.bestOfSets} sets. Vence quem fizer ${requiredSetWins} ${requiredSetWins === 1 ? "set" : "sets"} primeiro.${decidingSetDescription}`;
 }
 
 export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
@@ -124,8 +109,7 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
     challengedName,
     challengerMembershipId,
     challengerName,
-    initialScoreText,
-    initialWinnerMembershipId,
+    initialScore,
     isOpen,
     isPending,
     matchConfig,
@@ -133,8 +117,7 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
     onSubmit,
     title,
   } = props;
-  const [challengerGames, setChallengerGames] = useState(0);
-  const [challengedGames, setChallengedGames] = useState(0);
+  const [draftSets, setDraftSets] = useState<ChallengeScoreSet[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -142,64 +125,62 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
       return;
     }
 
-    if (initialScoreText) {
-      const [initialChallengerGames, initialChallengedGames] = initialScoreText
-        .split(SCORE_SET_PARTS_REGEX)
-        .map((item) => Number(item.trim()));
-
-      setChallengerGames(
-        Number.isNaN(initialChallengerGames) ? 0 : initialChallengerGames
-      );
-      setChallengedGames(
-        Number.isNaN(initialChallengedGames) ? 0 : initialChallengedGames
-      );
-    } else {
-      setChallengerGames(0);
-      setChallengedGames(0);
-    }
-
+    setDraftSets(pruneDraftSets(matchConfig, [...(initialScore ?? [])]));
     setErrorMessage("");
-  }, [initialScoreText, isOpen]);
+  }, [initialScore, isOpen, matchConfig]);
 
-  let winnerMembershipId: string | null = initialWinnerMembershipId ?? null;
+  const trimmedDraftSets = trimTrailingBlankSets(draftSets);
+  const progress = buildChallengeScoreProgress({
+    matchConfig,
+    sets: trimmedDraftSets,
+  });
+  const winnerMembershipId = resolveChallengeScoreWinnerMembershipId({
+    challengedMembershipId,
+    challengerMembershipId,
+    matchConfig,
+    sets: trimmedDraftSets,
+  });
 
-  if (challengerGames > challengedGames) {
-    winnerMembershipId = challengerMembershipId;
-  } else if (challengedGames > challengerGames) {
-    winnerMembershipId = challengedMembershipId;
+  function updateDraftSet(
+    setIndex: number,
+    field: "challengedGames" | "challengerGames",
+    nextValue: number
+  ) {
+    setErrorMessage("");
+    setDraftSets((currentDraftSets) => {
+      const nextDraftSets = [...currentDraftSets];
+      const currentSet =
+        nextDraftSets[setIndex] ?? buildEmptySet(matchConfig, setIndex);
+
+      nextDraftSets[setIndex] = {
+        ...currentSet,
+        [field]: nextValue,
+        kind: getExpectedSetKind(matchConfig, setIndex),
+      };
+
+      return pruneDraftSets(matchConfig, nextDraftSets);
+    });
   }
 
   async function handleSubmit() {
-    if (challengerGames === challengedGames) {
-      setErrorMessage("O placar não pode empatar.");
-      return;
-    }
-
-    const setValidationError = getSetValidationError({
-      challengedGames,
-      challengerGames,
+    const score = {
+      sets: trimmedDraftSets,
+      winnerMembershipId: winnerMembershipId ?? challengerMembershipId,
+    } satisfies ChallengeResultDialogValue;
+    const validationError = validateChallengeScore({
+      challengedMembershipId,
+      challengerMembershipId,
       matchConfig,
+      score,
     });
 
-    if (setValidationError) {
-      setErrorMessage(setValidationError);
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
     setErrorMessage("");
-    await onSubmit({
-      sets: [
-        {
-          challengerGames,
-          challengedGames,
-          kind: "set",
-        },
-      ],
-      winnerMembershipId:
-        winnerMembershipId === null
-          ? challengerMembershipId
-          : winnerMembershipId,
-    });
+    await onSubmit(score);
   }
 
   return (
@@ -220,60 +201,83 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
             <Dialog.Close className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
-          <Description>Informe o placar da partida.</Description>
+          <Description>{getDialogDescription(matchConfig)}</Description>
 
           <TextField isInvalid={Boolean(errorMessage)} isRequired>
             <Label>Placar</Label>
-            <View className="gap-4 rounded-2xl bg-surface-secondary px-4 py-4">
-              <View className="flex-row items-center justify-between gap-3">
-                <View className="flex-1 items-center gap-3">
-                  <Text className="text-center" weight="semibold">
-                    {challengerName}
-                  </Text>
-                  <NumberStepper
-                    className="self-center"
-                    defaultValue={challengerGames}
-                    isDisabled={isPending}
-                    maxValue={99}
-                    minValue={0}
-                    onValueChange={(nextValue) => {
-                      setChallengerGames(nextValue);
-                    }}
-                    step={1}
-                    value={challengerGames}
-                  >
-                    <NumberStepper.DecrementButton />
-                    <NumberStepper.Value />
-                    <NumberStepper.IncrementButton />
-                  </NumberStepper>
-                </View>
+            <View className="gap-3 rounded-2xl bg-surface-secondary px-4 py-4">
+              {Array.from(
+                { length: progress.visibleSetCount },
+                (_, setIndex) => {
+                  const draftSet =
+                    draftSets[setIndex] ?? buildEmptySet(matchConfig, setIndex);
 
-                <Text className="text-muted" weight="bold">
-                  x
-                </Text>
+                  return (
+                    <View className="gap-3" key={setIndex}>
+                      <Text className="text-muted" variant="description">
+                        {getSetLabel(matchConfig, setIndex)}
+                      </Text>
+                      <View className="flex-row items-center justify-between gap-3">
+                        <View className="flex-1 items-center gap-3">
+                          <Text className="text-center" weight="semibold">
+                            {challengerName}
+                          </Text>
+                          <NumberStepper
+                            className="self-center"
+                            defaultValue={draftSet.challengerGames}
+                            isDisabled={isPending}
+                            maxValue={99}
+                            minValue={0}
+                            onValueChange={(nextValue) => {
+                              updateDraftSet(
+                                setIndex,
+                                "challengerGames",
+                                nextValue
+                              );
+                            }}
+                            step={1}
+                            value={draftSet.challengerGames}
+                          >
+                            <NumberStepper.DecrementButton />
+                            <NumberStepper.Value />
+                            <NumberStepper.IncrementButton />
+                          </NumberStepper>
+                        </View>
 
-                <View className="flex-1 items-center gap-3">
-                  <Text className="text-center" weight="semibold">
-                    {challengedName}
-                  </Text>
-                  <NumberStepper
-                    className="self-center"
-                    defaultValue={challengedGames}
-                    isDisabled={isPending}
-                    maxValue={99}
-                    minValue={0}
-                    onValueChange={(nextValue) => {
-                      setChallengedGames(nextValue);
-                    }}
-                    step={1}
-                    value={challengedGames}
-                  >
-                    <NumberStepper.DecrementButton />
-                    <NumberStepper.Value />
-                    <NumberStepper.IncrementButton />
-                  </NumberStepper>
-                </View>
-              </View>
+                        <Text className="text-muted" weight="bold">
+                          x
+                        </Text>
+
+                        <View className="flex-1 items-center gap-3">
+                          <Text className="text-center" weight="semibold">
+                            {challengedName}
+                          </Text>
+                          <NumberStepper
+                            className="self-center"
+                            defaultValue={draftSet.challengedGames}
+                            isDisabled={isPending}
+                            maxValue={99}
+                            minValue={0}
+                            onValueChange={(nextValue) => {
+                              updateDraftSet(
+                                setIndex,
+                                "challengedGames",
+                                nextValue
+                              );
+                            }}
+                            step={1}
+                            value={draftSet.challengedGames}
+                          >
+                            <NumberStepper.DecrementButton />
+                            <NumberStepper.Value />
+                            <NumberStepper.IncrementButton />
+                          </NumberStepper>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                }
+              )}
             </View>
             <FieldError>{errorMessage}</FieldError>
           </TextField>

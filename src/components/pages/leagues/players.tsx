@@ -55,7 +55,6 @@ export const Players = () => (
                   alt={item.name}
                   className="size-10 rounded-full"
                   fallback="green"
-                  source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
                 />
               </ListGroup.ItemPrefix>
               <ListGroup.ItemContent>

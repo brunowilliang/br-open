@@ -15,6 +15,7 @@ import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
   "create": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../league/management").create>("league/management:create"), () => (require("../../league/management") as Record<string, unknown>)["create"])],
+  "generateUploadUrl": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../league/management").generateUploadUrl>("league/management:generateUploadUrl"), () => (require("../../league/management") as Record<string, unknown>)["generateUploadUrl"])],
   "getById": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../league/management").getById>("league/management:getById"), () => (require("../../league/management") as Record<string, unknown>)["getById"])],
   "listMine": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../league/management").listMine>("league/management:listMine"), () => (require("../../league/management") as Record<string, unknown>)["listMine"])],
   "remove": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../league/management").remove>("league/management:remove"), () => (require("../../league/management") as Record<string, unknown>)["remove"])],

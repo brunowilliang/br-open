@@ -14,6 +14,7 @@ export const playerProfile = convexTable("playerProfile", {
   cpf: text(),
   phone: text(),
   address: text(),
+  avatarStorageId: text(),
   city: text(),
   state: text(),
   zipCode: text(),

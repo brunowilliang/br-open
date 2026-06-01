@@ -18,13 +18,44 @@ const phoneSchema = z
   }, "Informe um telefone válido.")
   .transform((value) => value || undefined);
 
-export const playerProfileSchema = z.object({
+const playerAvatarStorageIdSchema = z
+  .string()
+  .min(1, "Imagem inválida.")
+  .nullable();
+
+const playerProfileFields = {
   fullName: requiredString("Informe o nome completo.").pipe(
     z.string().min(2, "Informe o nome completo.")
   ),
+  gender: enumField(playerGenderOptions, "Selecione o gênero."),
   nickname: requiredString("Informe o apelido.").pipe(
     z.string().min(2, "Informe o apelido.")
   ),
-  gender: enumField(playerGenderOptions, "Selecione o gênero."),
   phone: phoneSchema,
+};
+
+export const upsertPlayerProfileSchema = z.object({
+  ...playerProfileFields,
+  avatarStorageId: playerAvatarStorageIdSchema,
 });
+
+export const playerProfileSchema = upsertPlayerProfileSchema.extend({
+  avatarUrl: z.string().nullable().optional(),
+});
+
+export function collectReplacedPlayerAvatarStorageIds(input: {
+  next: { avatarStorageId?: null | string };
+  previous?: { avatarStorageId?: null | string } | null;
+}) {
+  const previousAvatarStorageId = input.previous?.avatarStorageId ?? null;
+  const nextAvatarStorageId = input.next.avatarStorageId ?? null;
+
+  if (
+    !previousAvatarStorageId ||
+    previousAvatarStorageId === nextAvatarStorageId
+  ) {
+    return [];
+  }
+
+  return [previousAvatarStorageId];
+}

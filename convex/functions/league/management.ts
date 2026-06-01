@@ -10,9 +10,10 @@ import {
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MODE,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
-  DEFAULT_LEAGUE_STORAGE,
+  LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   LeagueByIdSchema,
   UpdateLeagueSchema,
+  collectReplacedLeagueStorageIds,
   leagueSchema,
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
@@ -20,9 +21,39 @@ import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
-function serializeLeague(record: LeagueRecord) {
+async function resolveLeagueMediaUrl(
+  ctx: QueryCtx | MutationCtx,
+  storageId?: null | string
+) {
+  if (
+    !storageId ||
+    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
+  ) {
+    return null;
+  }
+
+  try {
+    return await ctx.storage.getUrl(storageId as Id<"_storage">);
+  } catch {
+    return null;
+  }
+}
+
+async function serializeLeague(
+  ctx: QueryCtx | MutationCtx,
+  record: LeagueRecord
+) {
+  const [avatarUrl, coverUrl] = await Promise.all([
+    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
+    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+  ]);
+
   return leagueSchema.parse({
     ...record,
+    avatarStorageId: record.avatarStorageId ?? null,
+    coverStorageId: record.coverStorageId ?? null,
+    avatarUrl,
+    coverUrl,
     courts: record.courts ?? [],
     ruleConfig: {
       ...record.ruleConfig,
@@ -56,6 +87,12 @@ async function getManagedLeagueOrThrow(
   return currentLeague;
 }
 
+async function deleteLeagueStorageIds(ctx: MutationCtx, storageIds: string[]) {
+  for (const storageId of storageIds) {
+    await ctx.storage.delete(storageId as Id<"_storage">);
+  }
+}
+
 export const listMine = authQuery
   .output(leagueSchema.array())
   .query(async ({ ctx }) => {
@@ -65,7 +102,9 @@ export const listMine = authQuery
       where: { managerUserId: ctx.userId },
     });
 
-    return leagues.map(serializeLeague);
+    return Promise.all(
+      leagues.map((currentLeague) => serializeLeague(ctx, currentLeague))
+    );
   });
 
 export const getById = authQuery
@@ -77,8 +116,12 @@ export const getById = authQuery
       input.leagueId as Id<"league">
     );
 
-    return serializeLeague(currentLeague);
+    return serializeLeague(ctx, currentLeague);
   });
+
+export const generateUploadUrl = authMutation
+  .output(z.string())
+  .mutation(async ({ ctx }) => ctx.storage.generateUploadUrl());
 
 export const create = authMutation
   .input(CreateLeagueSchema)
@@ -92,14 +135,14 @@ export const create = authMutation
         ...input,
         managerUserId: ctx.userId,
         mode: DEFAULT_LEAGUE_MODE,
-        coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,
-        avatarStorageId: DEFAULT_LEAGUE_STORAGE.avatarStorageId,
+        coverStorageId: input.coverStorageId,
+        avatarStorageId: input.avatarStorageId,
         createdAt: now,
         updatedAt: now,
       })
       .returning();
 
-    return serializeLeague(createdLeague);
+    return serializeLeague(ctx, createdLeague);
   });
 
 export const update = authMutation
@@ -110,6 +153,10 @@ export const update = authMutation
     const leagueId = input.leagueId as Id<"league">;
 
     const currentLeague = await getManagedLeagueOrThrow(ctx, leagueId);
+    const replacedStorageIds = collectReplacedLeagueStorageIds({
+      next: input,
+      previous: currentLeague,
+    });
 
     const [updatedLeague] = await ctx.orm
       .update(league)
@@ -135,7 +182,9 @@ export const update = authMutation
       )
       .returning();
 
-    return serializeLeague(updatedLeague);
+    await deleteLeagueStorageIds(ctx, replacedStorageIds);
+
+    return serializeLeague(ctx, updatedLeague);
   });
 
 export const remove = authMutation
@@ -145,6 +194,13 @@ export const remove = authMutation
     const leagueId = input.leagueId as Id<"league">;
 
     const currentLeague = await getManagedLeagueOrThrow(ctx, leagueId);
+    const replacedStorageIds = collectReplacedLeagueStorageIds({
+      next: {
+        avatarStorageId: null,
+        coverStorageId: null,
+      },
+      previous: currentLeague,
+    });
 
     await ctx.orm
       .delete(league)
@@ -154,6 +210,8 @@ export const remove = authMutation
           eq(league.managerUserId, currentLeague.managerUserId)
         )!
       );
+
+    await deleteLeagueStorageIds(ctx, replacedStorageIds);
 
     return { success: true };
   });

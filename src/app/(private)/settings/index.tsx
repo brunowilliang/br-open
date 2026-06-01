@@ -1,12 +1,16 @@
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { Page } from "@/components/ui/page";
+import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BellDotIcon,
   ChampionIcon,
+  Logout03Icon,
   TennisRacketIcon,
 } from "@hugeicons/core-free-icons";
+import { useMutation } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
-import { Description, ListGroup, Separator } from "heroui-native";
+import { Description, ListGroup, Separator, useToast } from "heroui-native";
 import type { ComponentProps } from "react";
 import { Fragment } from "react";
 
@@ -49,6 +53,35 @@ const sections: SettingsSection[] = [
 ];
 
 export default function Settings() {
+  const { toast } = useToast();
+  const signOut = useMutation(
+    useSignOutMutationOptions({
+      onSuccess: () => {
+        router.replace("/sign-in");
+      },
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível encerrar sua sessão."
+          ),
+          id: "settings-sign-out-error",
+          label: "Erro ao sair",
+          variant: "danger",
+        });
+      },
+    })
+  );
+
+  function handleSignOutPress() {
+    if (signOut.isPending) {
+      return;
+    }
+
+    signOut.reset();
+    signOut.mutate();
+  }
+
   return (
     <Page>
       <Page.Header>
@@ -85,6 +118,27 @@ export default function Settings() {
             </ListGroup>
           </Fragment>
         ))}
+        <Description>Conta</Description>
+        <ListGroup>
+          <ListGroup.Item
+            className={signOut.isPending ? "opacity-50" : undefined}
+            disabled={signOut.isPending}
+            onPress={handleSignOutPress}
+          >
+            <ListGroup.ItemPrefix>
+              <HugeIcons className="text-danger" icon={Logout03Icon} />
+            </ListGroup.ItemPrefix>
+            <ListGroup.ItemContent>
+              <ListGroup.ItemTitle className="text-danger">
+                {signOut.isPending ? "Saindo..." : "Sair"}
+              </ListGroup.ItemTitle>
+              <ListGroup.ItemDescription>
+                Encerrar sessão neste dispositivo
+              </ListGroup.ItemDescription>
+            </ListGroup.ItemContent>
+            <ListGroup.ItemSuffix />
+          </ListGroup.Item>
+        </ListGroup>
       </Page.ScrollView>
     </Page>
   );

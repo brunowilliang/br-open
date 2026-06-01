@@ -368,11 +368,11 @@ export type DataModel = {
   };
   league: {
     document: {
-      avatarStorageId: string;
+      avatarStorageId?: null | string;
       categories: any;
       city: string;
       courts?: null | any;
-      coverStorageId: string;
+      coverStorageId?: null | string;
       createdAt: number;
       description?: null | string;
       locationNotes?: null | string;
@@ -900,6 +900,7 @@ export type DataModel = {
   playerProfile: {
     document: {
       address?: null | string;
+      avatarStorageId?: null | string;
       birthDate?: null | string;
       city?: null | string;
       country?: null | string;
@@ -920,6 +921,7 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "address"
+      | "avatarStorageId"
       | "birthDate"
       | "city"
       | "country"

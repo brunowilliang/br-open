@@ -3,15 +3,21 @@ import { describe, expect, it } from "bun:test";
 import {
   ACTIVE_CHALLENGE_BLOCKING_STATUSES,
   applyChallengeResultToRanking,
+  buildChallengeScoreProgress,
   buildResponseDeadline,
   canPlayersCancelChallenge,
+  getExpectedSetKind,
+  getRequiredSetWins,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
+  resolveChallengeScoreWinnerMembershipId,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
   resolveReopenedChallengeStatus,
   resolveScoreConfirmationStatus,
+  validateChallengeScore,
 } from "../challenge-rules";
+import { DEFAULT_LEAGUE_MATCH_CONFIG } from "../contract";
 
 describe("league challenge rules", () => {
   it("resets the response deadline on each counterproposal", () => {
@@ -190,5 +196,188 @@ describe("league challenge rules", () => {
         proposedByMembershipId: "membership-2",
       })
     ).toBe("pending_creator_reapproval");
+  });
+
+  it("calculates the number of sets needed to win from the best-of format", () => {
+    expect(getRequiredSetWins(1)).toBe(1);
+    expect(getRequiredSetWins(3)).toBe(2);
+    expect(getRequiredSetWins(5)).toBe(3);
+  });
+
+  it("reveals the deciding third set only after a best-of-three match reaches one set each", () => {
+    const initialProgress = buildChallengeScoreProgress({
+      matchConfig: {
+        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        bestOfSets: 3,
+      },
+      sets: [],
+    });
+
+    expect(initialProgress.visibleSetCount).toBe(2);
+
+    const splitMatchProgress = buildChallengeScoreProgress({
+      matchConfig: {
+        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        bestOfSets: 3,
+      },
+      sets: [
+        {
+          challengedGames: 3,
+          challengerGames: 6,
+          kind: "set",
+        },
+        {
+          challengedGames: 6,
+          challengerGames: 4,
+          kind: "set",
+        },
+      ],
+    });
+
+    expect(splitMatchProgress.visibleSetCount).toBe(3);
+    expect(splitMatchProgress.winnerSide).toBeNull();
+  });
+
+  it("reveals the fourth and fifth sets progressively in a best-of-five match", () => {
+    const threeSetProgress = buildChallengeScoreProgress({
+      matchConfig: {
+        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        bestOfSets: 5,
+      },
+      sets: [
+        {
+          challengedGames: 3,
+          challengerGames: 6,
+          kind: "set",
+        },
+        {
+          challengedGames: 6,
+          challengerGames: 4,
+          kind: "set",
+        },
+        {
+          challengedGames: 4,
+          challengerGames: 6,
+          kind: "set",
+        },
+      ],
+    });
+
+    expect(threeSetProgress.visibleSetCount).toBe(4);
+    expect(threeSetProgress.winnerSide).toBeNull();
+
+    const fourSetProgress = buildChallengeScoreProgress({
+      matchConfig: {
+        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        bestOfSets: 5,
+      },
+      sets: [
+        {
+          challengedGames: 3,
+          challengerGames: 6,
+          kind: "set",
+        },
+        {
+          challengedGames: 6,
+          challengerGames: 4,
+          kind: "set",
+        },
+        {
+          challengedGames: 4,
+          challengerGames: 6,
+          kind: "set",
+        },
+        {
+          challengedGames: 6,
+          challengerGames: 3,
+          kind: "set",
+        },
+      ],
+    });
+
+    expect(fourSetProgress.visibleSetCount).toBe(5);
+    expect(fourSetProgress.winnerSide).toBeNull();
+  });
+
+  it("uses a super tie-break only in the deciding set when configured", () => {
+    const matchConfig = {
+      ...DEFAULT_LEAGUE_MATCH_CONFIG,
+      bestOfSets: 3,
+      finalSetMode: "super_tiebreak" as const,
+    };
+
+    expect(getExpectedSetKind(matchConfig, 0)).toBe("set");
+    expect(getExpectedSetKind(matchConfig, 1)).toBe("set");
+    expect(getExpectedSetKind(matchConfig, 2)).toBe("super_tiebreak");
+  });
+
+  it("validates and resolves the winner for a straight-sets best-of-three result", () => {
+    const score = {
+      sets: [
+        {
+          challengedGames: 3,
+          challengerGames: 6,
+          kind: "set" as const,
+        },
+        {
+          challengedGames: 4,
+          challengerGames: 6,
+          kind: "set" as const,
+        },
+      ],
+      winnerMembershipId: "membership-1",
+    };
+
+    expect(
+      validateChallengeScore({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        score,
+      })
+    ).toBeNull();
+
+    expect(
+      resolveChallengeScoreWinnerMembershipId({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        sets: score.sets,
+      })
+    ).toBe("membership-1");
+  });
+
+  it("rejects a best-of-three score without the deciding set after a one-set-each split", () => {
+    expect(
+      validateChallengeScore({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        score: {
+          sets: [
+            {
+              challengedGames: 3,
+              challengerGames: 6,
+              kind: "set",
+            },
+            {
+              challengedGames: 6,
+              challengerGames: 4,
+              kind: "set",
+            },
+          ],
+          winnerMembershipId: "membership-1",
+        },
+      })
+    ).toBe("Esse placar ainda não define o vencedor da partida.");
   });
 });

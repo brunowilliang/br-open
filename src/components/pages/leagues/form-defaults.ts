@@ -3,6 +3,7 @@ import {
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MATCH_CONFIG,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  DEFAULT_LEAGUE_STORAGE,
 } from "@convex/domains/league/contract";
 
 export function buildCreateLeagueDefaultValues(): LeagueScreenValues {
@@ -15,6 +16,8 @@ export function buildCreateLeagueDefaultValues(): LeagueScreenValues {
     visibility: "private",
     categories: [],
     courts: [],
+    coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,
+    avatarStorageId: DEFAULT_LEAGUE_STORAGE.avatarStorageId,
     ruleConfig: {
       maxChallengeDistance: 4,
       maxActiveChallengesPerPlayer: 1,

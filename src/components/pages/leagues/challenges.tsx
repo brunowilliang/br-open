@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
+import { buildChallengeCardScoreSummary } from "@/lib/leagues/challenge-card-score-summary";
 import { buildChallengeTabCounts } from "@/lib/leagues/challenge-tab-counts";
 import {
   Cancel01Icon,
@@ -250,16 +251,27 @@ function formatStatus(status: ChallengeItem["status"]) {
 }
 
 function formatScoreSummary(challenge: ChallengeItem) {
-  const firstSet = challenge.latestResultSubmission?.score.sets[0];
+  const scoreSets = challenge.latestResultSubmission?.score.sets;
 
-  if (!firstSet) {
+  if (!(scoreSets && scoreSets.length > 0)) {
     return null;
   }
 
-  return {
-    challengedGames: firstSet.challengedGames,
-    challengerGames: firstSet.challengerGames,
-  };
+  return buildChallengeCardScoreSummary({
+    matchConfig: challenge.matchConfigSnapshot,
+    sets: scoreSets,
+  });
+}
+
+function getScoreValueClassName(input: {
+  hasScoreSummary: boolean;
+  isWinner: boolean;
+}) {
+  if (input.isWinner) {
+    return "font-semibold text-accent";
+  }
+
+  return input.hasScoreSummary ? "text-foreground" : "text-muted";
 }
 
 function getAdminActionCopy(action: AdminActionTarget["action"]) {
@@ -641,6 +653,16 @@ export const Challenges = (props: ChallengesProps) => {
               const scoreSummary = formatScoreSummary(challenge);
               const winnerMembershipId =
                 challenge.latestResultSubmission?.winnerMembershipId ?? null;
+              const challengerScoreClass = getScoreValueClassName({
+                hasScoreSummary: Boolean(scoreSummary),
+                isWinner:
+                  winnerMembershipId === challenge.challenger.membershipId,
+              });
+              const challengedScoreClass = getScoreValueClassName({
+                hasScoreSummary: Boolean(scoreSummary),
+                isWinner:
+                  winnerMembershipId === challenge.challenged.membershipId,
+              });
               const menuActions: Array<{
                 icon: ComponentProps<typeof HugeIcons>["icon"];
                 id: string;
@@ -1014,66 +1036,55 @@ export const Challenges = (props: ChallengesProps) => {
                         ) : null}
                       </View>
 
-                      <View className="flex-row items-center gap-1">
-                        <Text
-                          className={cn(
-                            "min-w-0",
-                            winnerMembershipId ===
-                              challenge.challenger.membershipId
-                              ? "font-semibold text-accent"
-                              : ""
-                          )}
-                          numberOfLines={1}
-                          variant="description"
-                        >
-                          {challenge.challenger.player.fullName}
-                        </Text>
-                        {scoreSummary ? (
-                          <>
-                            <Text
-                              className={cn(
-                                winnerMembershipId ===
-                                  challenge.challenger.membershipId
-                                  ? "font-semibold text-accent"
-                                  : "text-foreground"
-                              )}
-                              variant="description"
-                            >
-                              {scoreSummary.challengerGames}
-                            </Text>
-                            <Text className="text-muted" variant="description">
-                              x
-                            </Text>
-                            <Text
-                              className={cn(
-                                winnerMembershipId ===
-                                  challenge.challenged.membershipId
-                                  ? "font-semibold text-accent"
-                                  : "text-foreground"
-                              )}
-                              variant="description"
-                            >
-                              {scoreSummary.challengedGames}
-                            </Text>
-                          </>
-                        ) : (
+                      <View className="gap-1">
+                        <View className="flex-row items-center gap-1">
+                          <Text
+                            className={cn(
+                              "min-w-0",
+                              winnerMembershipId ===
+                                challenge.challenger.membershipId
+                                ? "font-semibold text-accent"
+                                : ""
+                            )}
+                            numberOfLines={1}
+                            variant="description"
+                          >
+                            {challenge.challenger.player.fullName}
+                          </Text>
+                          <Text
+                            className={cn(challengerScoreClass)}
+                            variant="description"
+                          >
+                            {scoreSummary?.challengerScore ?? "-"}
+                          </Text>
                           <Text className="text-muted" variant="description">
                             x
                           </Text>
-                        )}
-                        <Text
-                          className={cn(
-                            "min-w-0",
-                            winnerMembershipId ===
-                              challenge.challenged.membershipId
-                              ? "font-semibold text-accent"
-                              : ""
-                          )}
-                          numberOfLines={1}
-                          variant="description"
-                        >
-                          {challenge.challenged.player.fullName}
-                        </Text>
+                          <Text
+                            className={cn(challengedScoreClass)}
+                            variant="description"
+                          >
+                            {scoreSummary?.challengedScore ?? "-"}
+                          </Text>
+                          <Text
+                            className={cn(
+                              "min-w-0",
+                              winnerMembershipId ===
+                                challenge.challenged.membershipId
+                                ? "font-semibold text-accent"
+                                : ""
+                            )}
+                            numberOfLines={1}
+                            variant="description"
+                          >
+                            {challenge.challenged.player.fullName}
+                          </Text>
+                        </View>
+                        {scoreSummary?.setsSummary ? (
+                          <Text className="text-muted" variant="description">
+                            {scoreSummary.setsSummary}
+                          </Text>
+                        ) : null}
                       </View>
 
                       <ListGroup.ItemDescription>
@@ -1153,11 +1164,7 @@ export const Challenges = (props: ChallengesProps) => {
           challengedName={resultTarget.challenged.player.fullName}
           challengerMembershipId={resultTarget.challenger.membershipId}
           challengerName={resultTarget.challenger.player.fullName}
-          initialScoreText={
-            resultTarget.latestResultSubmission?.score.sets[0]
-              ? `${resultTarget.latestResultSubmission.score.sets[0].challengerGames}x${resultTarget.latestResultSubmission.score.sets[0].challengedGames}`
-              : undefined
-          }
+          initialScore={resultTarget.latestResultSubmission?.score.sets}
           isOpen
           isPending={isPending}
           matchConfig={resultTarget.matchConfigSnapshot}

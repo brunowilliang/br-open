@@ -18,6 +18,10 @@ import { NotificationBootstrap } from "@/components/notifications/notification-b
 import { Providers } from "@/components/providers";
 import { useThemeColor } from "heroui-native";
 
+SplashScreen.setOptions({
+  duration: 500,
+  fade: true,
+});
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
@@ -56,6 +60,7 @@ function Root() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor },
+          animation: "fade",
         }}
       >
         <Stack.Protected guard={isAuthenticated}>

@@ -364,8 +364,8 @@ function buildRuleSections(ruleConfig: RuleConfig): RuleSection[] {
     {
       items: [
         {
-          label: "Quantos sets?",
-          value: `${ruleConfig.matchConfig.bestOfSets} sets`,
+          label: "Formato da partida",
+          value: `Melhor de ${ruleConfig.matchConfig.bestOfSets} sets`,
         },
         {
           label: "Quantos games por set?",
@@ -926,7 +926,10 @@ export default function LeagueDetailsScreen() {
 
   if (!leagueId) {
     return (
-      <ScrollView className="flex-1" contentContainerClassName="grow px-4 py-6">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="grow px-4 pt-safe-offset-4 bg-background"
+      >
         <ErrorState message="Liga inválida." />
       </ScrollView>
     );
@@ -934,7 +937,10 @@ export default function LeagueDetailsScreen() {
 
   if (leagueQuery.isPending) {
     return (
-      <ScrollView className="flex-1" contentContainerClassName="grow px-4 py-6">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="grow px-4 pt-safe-offset-4 bg-background"
+      >
         <LoadingState />
       </ScrollView>
     );
@@ -1073,11 +1079,13 @@ export default function LeagueDetailsScreen() {
             <Tabs.Content value="details">
               <Image
                 className="aspect-video w-full rounded-3xl"
-                fallback="green"
+                fallback="blue"
+                source={league.coverUrl ?? undefined}
               />
               <Image
                 className="-mt-15 mb-4 aspect-square size-30 self-center rounded-full"
                 fallback="blue"
+                source={league.avatarUrl ?? undefined}
               />
               <View className="gap-2">
                 <Text className="text-center" variant="title">

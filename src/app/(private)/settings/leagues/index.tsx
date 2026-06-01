@@ -45,6 +45,7 @@ export default function SettingsLeaguesIndex() {
         {
           id: CREATE_CARD_ID,
           city: null,
+          coverUrl: null,
           name: "Nova liga",
           state: null,
         },
@@ -99,6 +100,7 @@ export default function SettingsLeaguesIndex() {
           ) : (
             <LeagueCard
               city={item.city}
+              coverUrl={item.coverUrl}
               name={item.name}
               onEditPress={() => {
                 router.navigate({

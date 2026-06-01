@@ -9,6 +9,7 @@ import { useToast } from "heroui-native";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { LeagueScreen } from "@/components/pages/leagues/screen";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -24,13 +25,14 @@ function toLeagueScreenValues(league: League): LeagueScreenValues {
     visibility: league.visibility,
     categories: league.categories,
     courts: league.courts,
+    coverStorageId: league.coverStorageId,
+    avatarStorageId: league.avatarStorageId,
     ruleConfig: league.ruleConfig,
   };
 }
 
 function toUpdateLeagueInput(
   leagueId: string,
-  currentLeague: League,
   values: LeagueScreenValues
 ): UpdateLeagueInput {
   return {
@@ -44,8 +46,8 @@ function toUpdateLeagueInput(
     categories: values.categories,
     courts: values.courts,
     ruleConfig: values.ruleConfig,
-    coverStorageId: currentLeague.coverStorageId,
-    avatarStorageId: currentLeague.avatarStorageId,
+    coverStorageId: values.coverStorageId,
+    avatarStorageId: values.avatarStorageId,
   };
 }
 
@@ -154,9 +156,7 @@ export default function EditLeagueScreen() {
     }
 
     updateLeague.reset();
-    await updateLeague.mutateAsync(
-      toUpdateLeagueInput(leagueId, leagueQuery.data, values)
-    );
+    await updateLeague.mutateAsync(toUpdateLeagueInput(leagueId, values));
   }
 
   async function handleDelete() {
@@ -168,19 +168,38 @@ export default function EditLeagueScreen() {
     await deleteLeague.mutateAsync({ leagueId });
   }
 
-  if (!(leagueId && !leagueQuery.isPending && !leagueQuery.isError)) {
-    let fallbackMessage = "Liga inválida.";
+  if (!leagueId) {
+    return <EditLeagueFallback color="danger" message="Liga inválida." />;
+  }
 
-    if (leagueId) {
-      fallbackMessage = leagueQuery.isPending
-        ? "Carregando liga..."
-        : leagueQuery.error?.message || "Não foi possível carregar a liga.";
-    }
-
-    const fallbackColor = !leagueId || leagueQuery.isError ? "danger" : "muted";
-
+  if (leagueQuery.isPending) {
     return (
-      <EditLeagueFallback color={fallbackColor} message={fallbackMessage} />
+      <Page>
+        <Page.Header>
+          <Page.Header.Left>
+            <Page.Header.BackButton />
+          </Page.Header.Left>
+          <Page.Header.Center>
+            <Page.Header.Title>Editar Liga</Page.Header.Title>
+          </Page.Header.Center>
+          <Page.Header.Right />
+        </Page.Header>
+
+        <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
+          <LoadingState />
+        </Page.ScrollView>
+      </Page>
+    );
+  }
+
+  if (leagueQuery.isError || !leagueQuery.data) {
+    return (
+      <EditLeagueFallback
+        color="danger"
+        message={
+          leagueQuery.error?.message || "Não foi possível carregar a liga."
+        }
+      />
     );
   }
 
@@ -189,6 +208,10 @@ export default function EditLeagueScreen() {
       defaultValues={toLeagueScreenValues(leagueQuery.data)}
       isPending={updateLeague.isPending || deleteLeague.isPending}
       key={`${leagueQuery.data.id}:${leagueQuery.data.updatedAt}`}
+      mediaUrls={{
+        avatarUrl: leagueQuery.data.avatarUrl,
+        coverUrl: leagueQuery.data.coverUrl,
+      }}
       mode="edit"
       onDelete={handleDelete}
       onSubmit={handleUpdate}

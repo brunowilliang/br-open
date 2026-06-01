@@ -6,10 +6,16 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
+import { getHomePlayerDisplayName } from "@/lib/player/home-identity";
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button, Description, SearchField } from "heroui-native";
+import {
+  Button,
+  Description,
+  PressableFeedback,
+  SearchField,
+} from "heroui-native";
 import { Badge } from "heroui-native-pro";
 import { View } from "react-native";
 
@@ -18,11 +24,16 @@ export default function HomePrivate() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const leagues = useQuery(crpc.league.discovery.listAvailable.queryOptions());
+  const playerProfile = useQuery(crpc.player.profile.get.queryOptions());
   const notificationStatus = useQuery(
     crpc.notification.settings.status.queryOptions()
   );
 
-  const userName = session?.user?.name?.trim() || "Jogador";
+  const userName = getHomePlayerDisplayName({
+    playerFullName: playerProfile.data?.fullName,
+    userId: session?.user?.id,
+  });
+  const userAvatarSource = playerProfile.data?.avatarUrl ?? undefined;
   const unreadCount = notificationStatus.data?.unreadCount ?? 0;
 
   return (
@@ -30,25 +41,32 @@ export default function HomePrivate() {
       <Page.Header>
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row items-center justify-between gap-4">
-            <View className="flex-row items-center gap-3">
-              <Badge.Anchor>
-                <Image
-                  alt="user"
-                  className="size-10 rounded-full"
-                  fallback="green"
-                  source="https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
-                />
-                {unreadCount > 0 ? (
-                  <Badge color="danger" size="sm">
-                    {unreadCount}
-                  </Badge>
-                ) : null}
-              </Badge.Anchor>
-              <View>
-                <Text>Bom dia,</Text>
-                <Text variant="title">{userName} 🎾</Text>
+            <PressableFeedback
+              className="rounded-2xl"
+              onPress={() => router.navigate("/settings/player/profile")}
+            >
+              <View className="flex-row items-center gap-3">
+                <Badge.Anchor>
+                  <Image
+                    alt={userName}
+                    className="size-10 rounded-full"
+                    fallback="green"
+                    source={userAvatarSource}
+                  />
+                  {unreadCount > 0 ? (
+                    <Badge color="danger" size="sm">
+                      {unreadCount}
+                    </Badge>
+                  ) : null}
+                </Badge.Anchor>
+                <View>
+                  <Text>Bom dia,</Text>
+                  <Text className="-mt-1" variant="title">
+                    {userName} 🎾
+                  </Text>
+                </View>
               </View>
-            </View>
+            </PressableFeedback>
 
             <Button
               isIconOnly
@@ -88,6 +106,7 @@ export default function HomePrivate() {
           renderItem={({ item }) => (
             <LeagueCard
               city={item.city}
+              coverUrl={item.coverUrl}
               name={item.name}
               onPress={() => {
                 router.navigate({

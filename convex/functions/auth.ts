@@ -3,6 +3,7 @@ import { i18n } from "@better-auth/i18n";
 import { organization } from "better-auth/plugins/organization";
 import { convex } from "kitcn/auth";
 import { authTranslations } from "../lib/auth-i18n";
+import { buildTrustedOrigins } from "../lib/auth-trusted-origins";
 import { getEnv } from "../lib/get-env";
 import { ac, roles } from "../shared/auth-shared";
 import authConfig from "./auth.config";
@@ -39,5 +40,7 @@ export default defineAuth(() => ({
     updateAge: 60 * 60 * 24 * 15,
   },
   telemetry: { enabled: false },
-  trustedOrigins: [getEnv().SITE_URL],
+  trustedOrigins: buildTrustedOrigins({
+    siteUrl: getEnv().SITE_URL,
+  }),
 }));

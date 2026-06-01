@@ -1,3 +1,5 @@
+import type { LeagueChallengeScore, LeagueMatchConfig } from "./contract";
+
 export const ACTIVE_CHALLENGE_BLOCKING_STATUSES = new Set([
   "pending_opponent_response",
   "pending_creator_reapproval",
@@ -67,7 +69,22 @@ type ResolveReopenedChallengeStatusInput = {
   proposedByMembershipId: string;
 };
 
+type ChallengeScoreWinnerSide = "challenger" | "challenged";
+
+type BuildChallengeScoreProgressInput = {
+  matchConfig: LeagueMatchConfig;
+  sets: LeagueChallengeScore["sets"];
+};
+
+type ValidateChallengeScoreInput = {
+  challengedMembershipId: string;
+  challengerMembershipId: string;
+  matchConfig: LeagueMatchConfig;
+  score: LeagueChallengeScore;
+};
+
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const SUPPORTED_BEST_OF_SET_COUNTS = [1, 3, 5] as const;
 
 function moveItem(
   items: string[],
@@ -88,6 +105,144 @@ function moveItem(
   nextItems.splice(toIndex, 0, movedItem);
 
   return nextItems;
+}
+
+function getNormalizedBestOfSets(bestOfSets: number) {
+  return Math.max(1, Math.trunc(bestOfSets));
+}
+
+function isFinalSet(matchConfig: LeagueMatchConfig, setIndex: number) {
+  return setIndex === getNormalizedBestOfSets(matchConfig.bestOfSets) - 1;
+}
+
+function getChallengeScoreSetWinner(
+  set: LeagueChallengeScore["sets"][number]
+): ChallengeScoreWinnerSide | null {
+  if (set.challengerGames === set.challengedGames) {
+    return null;
+  }
+
+  return set.challengerGames > set.challengedGames
+    ? "challenger"
+    : "challenged";
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: set validation keeps tennis score rules centralized for shared frontend/backend use
+function getSetValidationError(input: {
+  matchConfig: LeagueMatchConfig;
+  set: LeagueChallengeScore["sets"][number];
+  setIndex: number;
+}) {
+  const { matchConfig, set, setIndex } = input;
+  const winner = getChallengeScoreSetWinner(set);
+
+  if (!winner) {
+    return "O set não pode terminar empatado.";
+  }
+
+  const winnerGames = Math.max(set.challengerGames, set.challengedGames);
+  const loserGames = Math.min(set.challengerGames, set.challengedGames);
+  const isDecidingSet = isFinalSet(matchConfig, setIndex);
+  const isSuperTieBreakSet =
+    isDecidingSet && matchConfig.finalSetMode === "super_tiebreak";
+
+  if (isSuperTieBreakSet) {
+    if (set.kind !== "super_tiebreak") {
+      return "O último set desta liga deve ser um super tie-break.";
+    }
+
+    if (winnerGames < matchConfig.finalSetSuperTieBreakPoints) {
+      return `O super tie-break precisa chegar a pelo menos ${matchConfig.finalSetSuperTieBreakPoints} pontos.`;
+    }
+
+    if (
+      matchConfig.finalSetSuperTieBreakMustWinByTwo &&
+      winnerGames - loserGames < 2
+    ) {
+      return "O super tie-break precisa terminar com 2 pontos de diferença.";
+    }
+
+    return null;
+  }
+
+  if (set.kind !== "set") {
+    return "Esse placar deve ser informado como um set normal.";
+  }
+
+  const gamesPerSet =
+    isDecidingSet && matchConfig.finalSetMode === "custom_set"
+      ? matchConfig.finalSetGamesPerSet
+      : matchConfig.gamesPerSet;
+  const setMustWinByTwoGames =
+    isDecidingSet && matchConfig.finalSetMode === "custom_set"
+      ? matchConfig.finalSetMustWinByTwoGames
+      : matchConfig.setMustWinByTwoGames;
+  const hasTieBreak =
+    isDecidingSet && matchConfig.finalSetMode === "custom_set"
+      ? matchConfig.finalSetHasTieBreak
+      : matchConfig.hasTieBreak;
+  const tieBreakAtGamesAll =
+    isDecidingSet && matchConfig.finalSetMode === "custom_set"
+      ? matchConfig.finalSetTieBreakAtGamesAll
+      : matchConfig.tieBreakAtGamesAll;
+
+  if (winnerGames < gamesPerSet) {
+    return `O vencedor precisa chegar a pelo menos ${gamesPerSet} games.`;
+  }
+
+  if (!setMustWinByTwoGames) {
+    return winnerGames === gamesPerSet
+      ? null
+      : `A partida deve terminar em ${gamesPerSet} games.`;
+  }
+
+  if (hasTieBreak) {
+    if (loserGames <= gamesPerSet - 2) {
+      return winnerGames === gamesPerSet
+        ? null
+        : `Com ${loserGames} games do adversário, o placar final deve ser ${gamesPerSet}x${loserGames}.`;
+    }
+
+    if (loserGames === gamesPerSet - 1) {
+      return winnerGames === gamesPerSet + 1
+        ? null
+        : `Antes do tie-break, o set deve terminar em ${gamesPerSet + 1}x${loserGames}.`;
+    }
+
+    if (loserGames === tieBreakAtGamesAll) {
+      return winnerGames === tieBreakAtGamesAll + 1
+        ? null
+        : `Com tie-break em ${tieBreakAtGamesAll}x${tieBreakAtGamesAll}, o placar final deve ser ${tieBreakAtGamesAll + 1}x${tieBreakAtGamesAll}.`;
+    }
+
+    return "Esse placar não respeita a regra do tie-break da liga.";
+  }
+
+  if (winnerGames - loserGames !== 2) {
+    return "Sem tie-break, o vencedor precisa abrir 2 games de diferença.";
+  }
+
+  return winnerGames >= gamesPerSet
+    ? null
+    : `O vencedor precisa chegar a pelo menos ${gamesPerSet} games.`;
+}
+
+function getVisibleSetCount(input: {
+  completedSetCount: number;
+  hasWinner: boolean;
+  maxSets: number;
+  setsNeededToWin: number;
+}) {
+  const initialVisibleSetCount = Math.min(input.maxSets, input.setsNeededToWin);
+
+  if (input.hasWinner) {
+    return Math.max(initialVisibleSetCount, input.completedSetCount);
+  }
+
+  return Math.min(
+    input.maxSets,
+    Math.max(initialVisibleSetCount, input.completedSetCount + 1)
+  );
 }
 
 export function buildResponseDeadline(input: BuildResponseDeadlineInput) {
@@ -130,6 +285,182 @@ export function canPlayersCancelChallenge(
   input: CanPlayersCancelChallengeInput
 ) {
   return input.now < input.scheduledStartAt;
+}
+
+export function getBestOfSetValidationError(bestOfSets: number) {
+  return SUPPORTED_BEST_OF_SET_COUNTS.includes(
+    bestOfSets as (typeof SUPPORTED_BEST_OF_SET_COUNTS)[number]
+  )
+    ? null
+    : "Escolha melhor de 1, 3 ou 5 sets.";
+}
+
+export function getRequiredSetWins(bestOfSets: number) {
+  return Math.floor(getNormalizedBestOfSets(bestOfSets) / 2) + 1;
+}
+
+export function getExpectedSetKind(
+  matchConfig: LeagueMatchConfig,
+  setIndex: number
+) {
+  return isFinalSet(matchConfig, setIndex) &&
+    matchConfig.finalSetMode === "super_tiebreak"
+    ? "super_tiebreak"
+    : "set";
+}
+
+export function isChallengeScoreSetBlank(
+  set: LeagueChallengeScore["sets"][number]
+) {
+  return set.challengerGames === 0 && set.challengedGames === 0;
+}
+
+export function buildChallengeScoreProgress(
+  input: BuildChallengeScoreProgressInput
+) {
+  const maxSets = getNormalizedBestOfSets(input.matchConfig.bestOfSets);
+  const setsNeededToWin = getRequiredSetWins(maxSets);
+  let challengerSets = 0;
+  let challengedSets = 0;
+  let completedSetCount = 0;
+  let winnerSide: ChallengeScoreWinnerSide | null = null;
+
+  for (const [setIndex, set] of input.sets.slice(0, maxSets).entries()) {
+    if (isChallengeScoreSetBlank(set)) {
+      break;
+    }
+
+    if (
+      getSetValidationError({
+        matchConfig: input.matchConfig,
+        set,
+        setIndex,
+      })
+    ) {
+      break;
+    }
+
+    const setWinner = getChallengeScoreSetWinner(set);
+
+    if (!setWinner) {
+      break;
+    }
+
+    completedSetCount += 1;
+
+    if (setWinner === "challenger") {
+      challengerSets += 1;
+    } else {
+      challengedSets += 1;
+    }
+
+    if (challengerSets === setsNeededToWin) {
+      winnerSide = "challenger";
+      break;
+    }
+
+    if (challengedSets === setsNeededToWin) {
+      winnerSide = "challenged";
+      break;
+    }
+  }
+
+  return {
+    challengedSets,
+    challengerSets,
+    completedSetCount,
+    maxSets,
+    setsNeededToWin,
+    visibleSetCount: getVisibleSetCount({
+      completedSetCount,
+      hasWinner: winnerSide !== null,
+      maxSets,
+      setsNeededToWin,
+    }),
+    winnerSide,
+  };
+}
+
+export function resolveChallengeScoreWinnerMembershipId(input: {
+  challengedMembershipId: string;
+  challengerMembershipId: string;
+  matchConfig: LeagueMatchConfig;
+  sets: LeagueChallengeScore["sets"];
+}) {
+  const progress = buildChallengeScoreProgress({
+    matchConfig: input.matchConfig,
+    sets: input.sets,
+  });
+
+  if (progress.winnerSide === "challenger") {
+    return input.challengerMembershipId;
+  }
+
+  if (progress.winnerSide === "challenged") {
+    return input.challengedMembershipId;
+  }
+
+  return null;
+}
+
+export function validateChallengeScore(input: ValidateChallengeScoreInput) {
+  const maxSets = getNormalizedBestOfSets(input.matchConfig.bestOfSets);
+  const scoreSets = input.score.sets.slice(0, maxSets);
+
+  if (scoreSets.length === 0) {
+    return "Informe pelo menos um set.";
+  }
+
+  if (input.score.sets.length > maxSets) {
+    return `Essa liga aceita no máximo ${maxSets} sets nessa partida.`;
+  }
+
+  if (
+    input.score.winnerMembershipId !== input.challengerMembershipId &&
+    input.score.winnerMembershipId !== input.challengedMembershipId
+  ) {
+    return "O vencedor informado não participa dessa partida.";
+  }
+
+  for (const [setIndex, set] of scoreSets.entries()) {
+    if (isChallengeScoreSetBlank(set)) {
+      return "Preencha apenas os sets jogados.";
+    }
+
+    const setValidationError = getSetValidationError({
+      matchConfig: input.matchConfig,
+      set,
+      setIndex,
+    });
+
+    if (setValidationError) {
+      return setValidationError;
+    }
+  }
+
+  const winnerMembershipId = resolveChallengeScoreWinnerMembershipId({
+    challengedMembershipId: input.challengedMembershipId,
+    challengerMembershipId: input.challengerMembershipId,
+    matchConfig: input.matchConfig,
+    sets: scoreSets,
+  });
+
+  if (!winnerMembershipId) {
+    return "Esse placar ainda não define o vencedor da partida.";
+  }
+
+  const progress = buildChallengeScoreProgress({
+    matchConfig: input.matchConfig,
+    sets: scoreSets,
+  });
+
+  if (progress.completedSetCount !== scoreSets.length) {
+    return "Remova os sets extras após a definição do vencedor.";
+  }
+
+  return winnerMembershipId === input.score.winnerMembershipId
+    ? null
+    : "O vencedor informado não corresponde ao placar.";
 }
 
 export function isChallengeSlotBlocked(status: LeagueChallengeStatus) {

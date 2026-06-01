@@ -99,6 +99,21 @@ async function getMembershipByIdOrThrow(
   return currentMembership;
 }
 
+async function resolvePlayerProfileAvatarUrl(
+  ctx: OrmCtx,
+  storageId?: null | string
+) {
+  if (!storageId) {
+    return null;
+  }
+
+  try {
+    return await ctx.storage.getUrl(storageId as Id<"_storage">);
+  } catch {
+    return null;
+  }
+}
+
 async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
   const [user, playerProfile] = await Promise.all([
     ctx.orm.query.user.findFirst({ where: { id: userId } }),
@@ -117,9 +132,13 @@ async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
     playerProfile?.nickname?.trim() ||
     playerProfile?.fullName?.trim() ||
     user.name;
+  const avatarUrl = await resolvePlayerProfileAvatarUrl(
+    ctx,
+    playerProfile?.avatarStorageId
+  );
 
   return {
-    avatarUrl: user.image ?? null,
+    avatarUrl: avatarUrl ?? user.image ?? null,
     fullName,
     nickname,
   };

@@ -8,6 +8,7 @@ import { View } from "react-native";
 
 type LeagueCardProps = {
   city?: string | null;
+  coverUrl?: string | null;
   name?: string;
   onEditPress?: () => void;
   onPress?: () => void;
@@ -17,7 +18,12 @@ type LeagueCardProps = {
 export const LeagueCard = (props: LeagueCardProps) => (
   <PressableFeedback onPress={props.onPress}>
     <Card className="flex-1 p-2" variant="tertiary">
-      <Image className="aspect-16/12 w-full rounded-2xl" contentFit="cover" />
+      <Image
+        className="aspect-16/12 w-full rounded-2xl"
+        contentFit="cover"
+        fallback="blue"
+        source={props.coverUrl ?? undefined}
+      />
       <Chip className="absolute top-3.5 left-3.5" size="sm">
         Liga
       </Chip>

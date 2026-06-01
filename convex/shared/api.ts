@@ -34,6 +34,7 @@ export const api = {
     },
     management: {
       create: createApiLeaf<"mutation", typeof import("../functions/league/management").create>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/management").create>("league/management:create"), { auth: "required", type: "mutation" }),
+      generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/league/management").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/management").generateUploadUrl>("league/management:generateUploadUrl"), { auth: "required", type: "mutation" }),
       getById: createApiLeaf<"query", typeof import("../functions/league/management").getById>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/management").getById>("league/management:getById"), { auth: "required", type: "query" }),
       listMine: createApiLeaf<"query", typeof import("../functions/league/management").listMine>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/management").listMine>("league/management:listMine"), { auth: "required", type: "query" }),
       remove: createApiLeaf<"mutation", typeof import("../functions/league/management").remove>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/management").remove>("league/management:remove"), { auth: "required", type: "mutation" }),
@@ -64,6 +65,7 @@ export const api = {
   },
   player: {
     profile: {
+      generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
       get: createApiLeaf<"query", typeof import("../functions/player/profile").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/profile").get>("player/profile:get"), { auth: "required", type: "query" }),
       upsert: createApiLeaf<"mutation", typeof import("../functions/player/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").upsert>("player/profile:upsert"), { auth: "required", type: "mutation" }),
     },

@@ -14,6 +14,7 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "generateUploadUrl": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), () => (require("../../player/profile") as Record<string, unknown>)["generateUploadUrl"])],
   "get": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../player/profile").get>("player/profile:get"), () => (require("../../player/profile") as Record<string, unknown>)["get"])],
   "upsert": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../player/profile").upsert>("player/profile:upsert"), () => (require("../../player/profile") as Record<string, unknown>)["upsert"])],
 } as const;

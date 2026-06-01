@@ -1,10 +1,12 @@
 import type { InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import type { Id } from "../../functions/_generated/dataModel";
+import type { QueryCtx } from "../../functions/generated/server";
 
 import {
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   LeagueByIdSchema,
   leagueDiscoverySchema,
   leagueSchema,
@@ -15,9 +17,33 @@ import { authQuery } from "../../lib/crpc";
 type LeagueRecord = InferSelectModel<typeof league>;
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 
-function serializeLeague(record: LeagueRecord) {
+async function resolveLeagueMediaUrl(ctx: QueryCtx, storageId?: null | string) {
+  if (
+    !storageId ||
+    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
+  ) {
+    return null;
+  }
+
+  try {
+    return await ctx.storage.getUrl(storageId as Id<"_storage">);
+  } catch {
+    return null;
+  }
+}
+
+async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
+  const [avatarUrl, coverUrl] = await Promise.all([
+    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
+    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+  ]);
+
   return leagueSchema.parse({
     ...record,
+    avatarStorageId: record.avatarStorageId ?? null,
+    coverStorageId: record.coverStorageId ?? null,
+    avatarUrl,
+    coverUrl,
     courts: record.courts ?? [],
     ruleConfig: {
       ...record.ruleConfig,
@@ -33,7 +59,8 @@ function serializeLeague(record: LeagueRecord) {
   });
 }
 
-function serializeLeagueDiscovery(
+async function serializeLeagueDiscovery(
+  ctx: QueryCtx,
   record: LeagueRecord,
   options: {
     isManagerOwner: boolean;
@@ -41,7 +68,7 @@ function serializeLeagueDiscovery(
   }
 ) {
   return leagueDiscoverySchema.parse({
-    ...serializeLeague(record),
+    ...(await serializeLeague(ctx, record)),
     isManagerOwner: options.isManagerOwner,
     viewerMembershipStatus: options.viewerMembershipStatus ?? null,
   });
@@ -81,7 +108,7 @@ export const getById = authQuery
       },
     });
 
-    return serializeLeagueDiscovery(currentLeague, {
+    return serializeLeagueDiscovery(ctx, currentLeague, {
       isManagerOwner,
       viewerMembershipStatus: currentMembership?.status ?? null,
     });
@@ -95,14 +122,16 @@ export const listAvailable = authQuery
       orderBy: { createdAt: "desc" },
     });
 
-    return leagues
-      .filter((currentLeague) => {
-        const isManagerOwner = currentLeague.managerUserId === ctx.userId;
-        const isDiscoverable =
-          currentLeague.visibility === "public" ||
-          currentLeague.visibility === "invite_only";
+    const visibleLeagues = leagues.filter((currentLeague) => {
+      const isManagerOwner = currentLeague.managerUserId === ctx.userId;
+      const isDiscoverable =
+        currentLeague.visibility === "public" ||
+        currentLeague.visibility === "invite_only";
 
-        return isManagerOwner || isDiscoverable;
-      })
-      .map(serializeLeague);
+      return isManagerOwner || isDiscoverable;
+    });
+
+    return Promise.all(
+      visibleLeagues.map((currentLeague) => serializeLeague(ctx, currentLeague))
+    );
   });
