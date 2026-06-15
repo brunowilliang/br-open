@@ -1,6 +1,8 @@
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { Page } from "@/components/ui/page";
+import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
+import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BellDotIcon,
@@ -8,9 +10,16 @@ import {
   Logout03Icon,
   TennisRacketIcon,
 } from "@hugeicons/core-free-icons";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
-import { Description, ListGroup, Separator, useToast } from "heroui-native";
+import {
+  Description,
+  ListGroup,
+  PressableFeedback,
+  Separator,
+  Switch,
+  useToast,
+} from "heroui-native";
 import type { ComponentProps } from "react";
 import { Fragment } from "react";
 
@@ -18,6 +27,7 @@ type SettingsItem = {
   description: string;
   href: Href;
   icon: ComponentProps<typeof HugeIcons>["icon"];
+  requiresOrganizer?: boolean;
   title: string;
 };
 
@@ -41,6 +51,7 @@ const sections: SettingsSection[] = [
         description: "Crie e administre suas ligas",
         icon: ChampionIcon,
         href: "/settings/leagues",
+        requiresOrganizer: true,
       },
       {
         title: "Notificações",
@@ -53,7 +64,76 @@ const sections: SettingsSection[] = [
 ];
 
 export default function Settings() {
+  const crpc = useCRPC();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const activeActor = viewerContext.data?.activeActor ?? null;
+  const organizationActor = viewerContext.data?.availableActors.find(
+    (actor) => actor.kind === "organization"
+  );
+  const isOrganizationActor = activeActor?.kind === "organization";
+  const canShowOrganizerResources =
+    viewerContext.data?.capabilities?.canManageLeagues ?? false;
+
+  async function invalidateActorScopedQueries(
+    nextViewerContext?: typeof viewerContext.data
+  ) {
+    if (nextViewerContext) {
+      applyViewerContextToClientState({
+        queryClient,
+        viewerContext: nextViewerContext,
+        viewerContextFilter: crpc.viewer.context.get.queryFilter(),
+      });
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries(crpc.viewer.context.get.queryFilter()),
+      queryClient.invalidateQueries(
+        crpc.notification.settings.status.queryFilter()
+      ),
+      queryClient.invalidateQueries(
+        crpc.league.discovery.listParticipating.queryFilter()
+      ),
+      queryClient.invalidateQueries(
+        crpc.league.management.listMine.queryFilter()
+      ),
+    ]);
+  }
+
+  const setActiveActor = useMutation(
+    crpc.viewer.context.setActiveActor.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível trocar o modo."
+          ),
+          id: "settings-set-active-actor-error",
+          label: "Modo não alterado",
+          variant: "danger",
+        });
+      },
+      onSuccess: invalidateActorScopedQueries,
+    })
+  );
+
+  const activateOrganization = useMutation(
+    crpc.viewer.context.activateOrganization.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível ativar o organizador."
+          ),
+          id: "settings-activate-organization-error",
+          label: "Organizador não ativado",
+          variant: "danger",
+        });
+      },
+      onSuccess: invalidateActorScopedQueries,
+    })
+  );
 
   const handleSignOutPress = useMutation(
     useSignOutMutationOptions({
@@ -70,6 +150,32 @@ export default function Settings() {
       },
     })
   );
+  const isActorMutationPending =
+    viewerContext.isPending ||
+    setActiveActor.isPending ||
+    activateOrganization.isPending;
+
+  function handleOrganizerModeToggle(isSelected: boolean) {
+    if (isActorMutationPending) {
+      return;
+    }
+
+    if (!isSelected) {
+      setActiveActor.mutate({ actorKind: "player" });
+      return;
+    }
+
+    if (organizationActor) {
+      setActiveActor.mutate({
+        actorKind: "organization",
+        organizationId: organizationActor.id,
+      });
+      return;
+    }
+
+    const fallbackName = activeActor?.displayName.trim() || "BR Open";
+    activateOrganization.mutate({ name: `Organização ${fallbackName}` });
+  }
 
   return (
     <Page>
@@ -83,27 +189,62 @@ export default function Settings() {
         <Page.Header.Right />
       </Page.Header>
       <Page.ScrollView contentContainerClassName="gap-2 px-4 pb-safe-offset-4">
+        <Description>Modo de uso</Description>
+        <ListGroup>
+          <PressableFeedback
+            animation={false}
+            onPress={() => handleOrganizerModeToggle(!isOrganizationActor)}
+          >
+            <ListGroup.Item disabled>
+              <ListGroup.ItemPrefix>
+                <HugeIcons icon={ChampionIcon} />
+              </ListGroup.ItemPrefix>
+              <ListGroup.ItemContent>
+                <ListGroup.ItemTitle>Modo organizador</ListGroup.ItemTitle>
+                <ListGroup.ItemDescription>
+                  Crie e administre competições com sua conta de organizador.
+                </ListGroup.ItemDescription>
+              </ListGroup.ItemContent>
+              <ListGroup.ItemSuffix>
+                <Switch
+                  isDisabled={isActorMutationPending}
+                  isSelected={isOrganizationActor}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onSelectedChange={handleOrganizerModeToggle}
+                />
+              </ListGroup.ItemSuffix>
+            </ListGroup.Item>
+            <PressableFeedback.Highlight />
+          </PressableFeedback>
+        </ListGroup>
         {sections.map((section) => (
           <Fragment key={section.title}>
             <Description>{section.title}</Description>
             <ListGroup>
-              {section.items.map((item, index) => (
-                <Fragment key={item.title}>
-                  {index > 0 ? <Separator className="mx-4" /> : null}
-                  <ListGroup.Item onPress={() => router.navigate(item.href)}>
-                    <ListGroup.ItemPrefix>
-                      <HugeIcons icon={item.icon} />
-                    </ListGroup.ItemPrefix>
-                    <ListGroup.ItemContent>
-                      <ListGroup.ItemTitle>{item.title}</ListGroup.ItemTitle>
-                      <ListGroup.ItemDescription>
-                        {item.description}
-                      </ListGroup.ItemDescription>
-                    </ListGroup.ItemContent>
-                    <ListGroup.ItemSuffix />
-                  </ListGroup.Item>
-                </Fragment>
-              ))}
+              {section.items
+                .filter(
+                  (item) =>
+                    !(item.requiresOrganizer && !canShowOrganizerResources)
+                )
+                .map((item, index) => (
+                  <Fragment key={item.title}>
+                    {index > 0 ? <Separator className="mx-4" /> : null}
+                    <ListGroup.Item onPress={() => router.navigate(item.href)}>
+                      <ListGroup.ItemPrefix>
+                        <HugeIcons icon={item.icon} />
+                      </ListGroup.ItemPrefix>
+                      <ListGroup.ItemContent>
+                        <ListGroup.ItemTitle>{item.title}</ListGroup.ItemTitle>
+                        <ListGroup.ItemDescription>
+                          {item.description}
+                        </ListGroup.ItemDescription>
+                      </ListGroup.ItemContent>
+                      <ListGroup.ItemSuffix />
+                    </ListGroup.Item>
+                  </Fragment>
+                ))}
             </ListGroup>
           </Fragment>
         ))}

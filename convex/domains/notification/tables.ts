@@ -11,6 +11,7 @@ import {
 } from "kitcn/orm";
 
 import * as authTables from "../auth/tables";
+import * as playerTables from "../player/tables";
 
 export const notificationPreference = convexTable(
   "notificationPreference",
@@ -19,7 +20,7 @@ export const notificationPreference = convexTable(
     updatedAt: timestamp().notNull(),
     userId: id("user")
       .notNull()
-      .references(() => authTables.user.id),
+      .references(() => authTables.user.id, { onDelete: "cascade" }),
   },
   (notificationPreference) => [
     index("userId").on(notificationPreference.userId),
@@ -37,7 +38,7 @@ export const notificationDevice = convexTable(
     registeredAt: timestamp().notNull(),
     userId: id("user")
       .notNull()
-      .references(() => authTables.user.id),
+      .references(() => authTables.user.id, { onDelete: "cascade" }),
   },
   (notificationDevice) => [
     index("expoPushToken").on(notificationDevice.expoPushToken),
@@ -48,16 +49,27 @@ export const notificationDevice = convexTable(
 export const notificationFeed = convexTable(
   "notificationFeed",
   {
-    actorUserId: id("user").references(() => authTables.user.id),
+    actorUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
     body: text().notNull(),
     data: json<Record<string, unknown>>().notNull(),
     eventType: text().notNull(),
     isRead: boolean().notNull(),
     occurredAt: timestamp().notNull(),
     readAt: timestamp(),
+    recipientActorKind: text().notNull(),
+    recipientOrganizationId: id("organization").references(
+      () => authTables.organization.id,
+      { onDelete: "cascade" }
+    ),
+    recipientPlayerProfileId: id("playerProfile").references(
+      () => playerTables.playerProfile.id,
+      { onDelete: "cascade" }
+    ),
     recipientUserId: id("user")
       .notNull()
-      .references(() => authTables.user.id),
+      .references(() => authTables.user.id, { onDelete: "cascade" }),
     title: text().notNull(),
   },
   (notificationFeed) => [
@@ -69,6 +81,25 @@ export const notificationFeed = convexTable(
       notificationFeed.recipientUserId,
       notificationFeed.occurredAt
     ),
+    index("recipientUserId_actorKind_isRead").on(
+      notificationFeed.recipientUserId,
+      notificationFeed.recipientActorKind,
+      notificationFeed.isRead
+    ),
+    index("recipientUserId_actorKind_occurredAt").on(
+      notificationFeed.recipientUserId,
+      notificationFeed.recipientActorKind,
+      notificationFeed.occurredAt
+    ),
+    index("recipientPlayerProfileId_occurredAt").on(
+      notificationFeed.recipientPlayerProfileId,
+      notificationFeed.occurredAt
+    ),
+    index("recipientOrganizationId_occurredAt").on(
+      notificationFeed.recipientOrganizationId,
+      notificationFeed.occurredAt
+    ),
+    index("actorUserId").on(notificationFeed.actorUserId),
     index("eventType").on(notificationFeed.eventType),
   ]
 );
@@ -90,12 +121,12 @@ export const notificationDelivery = convexTable(
     deliveredAt: timestamp(),
     deviceId: id("notificationDevice")
       .notNull()
-      .references(() => notificationDevice.id),
+      .references(() => notificationDevice.id, { onDelete: "cascade" }),
     errorMessage: text(),
     expoPushToken: text().notNull(),
     feedId: id("notificationFeed")
       .notNull()
-      .references(() => notificationFeed.id),
+      .references(() => notificationFeed.id, { onDelete: "cascade" }),
     lastAttemptAt: timestamp(),
     responseId: text(),
     state: notificationDeliveryState,

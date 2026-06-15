@@ -5,6 +5,7 @@ import { convex } from "kitcn/auth";
 import { authTranslations } from "../lib/auth-i18n";
 import { buildTrustedOrigins } from "../lib/auth-trusted-origins";
 import { getEnv } from "../lib/get-env";
+import { authTriggers } from "../domains/auth/triggers";
 import { ac, roles } from "../shared/auth-shared";
 import authConfig from "./auth.config";
 import { defineAuth } from "./generated/auth";
@@ -74,5 +75,6 @@ export default defineAuth(() => {
       }),
       "https://appleid.apple.com",
     ],
+    triggers: authTriggers,
   };
 });

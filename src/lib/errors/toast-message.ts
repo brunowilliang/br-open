@@ -1,39 +1,36 @@
 type ErrorWithData = {
   data?: {
-    message?: string;
+    message?: unknown;
   };
-  message?: string;
+  message?: unknown;
 };
 
-const CONVEX_CRPC_WRAPPER_PATTERN = /^\[[^\]]+\]\s*Uncaught CRPCError:\s*/u;
-const UNCAUGHT_CRPC_ERROR_PATTERN = /^Uncaught CRPCError:\s*/u;
-const CRPC_ERROR_PATTERN = /^CRPCError:\s*/u;
-
-function sanitizeErrorMessage(message: string): string {
-  return message
-    .replace(CONVEX_CRPC_WRAPPER_PATTERN, "")
-    .replace(UNCAUGHT_CRPC_ERROR_PATTERN, "")
-    .replace(CRPC_ERROR_PATTERN, "")
-    .trim();
-}
-
-export function getToastErrorMessage(error: unknown, fallback: string): string {
-  const candidate = error as ErrorWithData | null;
-  const dataMessage = candidate?.data?.message;
-
-  if (typeof dataMessage === "string" && dataMessage.trim().length > 0) {
-    return dataMessage.trim();
+function getStringMessage(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
   }
 
-  const message = candidate?.message;
+  const message = value.trim();
+  return message.length > 0 ? message : null;
+}
 
-  if (typeof message === "string" && message.trim().length > 0) {
-    const sanitizedMessage = sanitizeErrorMessage(message);
+export function getErrorMessage(error: unknown, fallback: string): string {
+  const candidate = error as ErrorWithData | null;
+  const dataMessage = getStringMessage(candidate?.data?.message);
 
-    if (sanitizedMessage.length > 0) {
-      return sanitizedMessage;
-    }
+  if (dataMessage) {
+    return dataMessage;
+  }
+
+  const message = getStringMessage(candidate?.message ?? error);
+
+  if (message) {
+    return message;
   }
 
   return fallback;
+}
+
+export function getToastErrorMessage(error: unknown, fallback: string): string {
+  return getErrorMessage(error, fallback);
 }

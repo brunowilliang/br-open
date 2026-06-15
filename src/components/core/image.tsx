@@ -52,13 +52,23 @@ export const ImageBackgroundStyled = styled(withUniwind(ExpoImageBackground), {
 });
 
 const ImageBase = (props: ComponentProps<typeof ImageStyled>) => (
-  <View className={cn("overflow-hidden", props.className)}>
+  <View
+    className={cn("overflow-hidden", props.className)}
+    style={{
+      borderCurve: "continuous",
+    }}
+  >
     <ImageStyled {...props} className="flex-1" />
   </View>
 );
 
 const ImageBackgroundBase = (props: ComponentProps<typeof ImageStyled>) => (
-  <View className={cn("overflow-hidden", props.className)}>
+  <View
+    className={cn("overflow-hidden", props.className)}
+    style={{
+      borderCurve: "continuous",
+    }}
+  >
     <ImageStyled {...props} className="flex-1" />
   </View>
 );

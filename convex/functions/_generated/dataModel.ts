@@ -376,9 +376,12 @@ export type DataModel = {
       createdAt: number;
       description?: null | string;
       locationNotes?: null | string;
-      managerUserId: Id<"user">;
+      maxPlayers?: null | number;
       mode: string;
+      monthlyPriceCents?: null | number;
       name: string;
+      organizationId: Id<"organization">;
+      priceBillingInterval?: null | string;
       ruleConfig: any;
       state: string;
       updatedAt: number;
@@ -397,9 +400,12 @@ export type DataModel = {
       | "createdAt"
       | "description"
       | "locationNotes"
-      | "managerUserId"
+      | "maxPlayers"
       | "mode"
+      | "monthlyPriceCents"
       | "name"
+      | "organizationId"
+      | "priceBillingInterval"
       | "ruleConfig"
       | "state"
       | "updatedAt"
@@ -407,7 +413,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
-      managerUserId: ["managerUserId", "_creationTime"];
+      organizationId: ["organizationId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -463,6 +469,10 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      cancellationRequestedByMembershipId: [
+        "cancellationRequestedByMembershipId",
+        "_creationTime",
+      ];
       challengedMembershipId_status: [
         "challengedMembershipId",
         "status",
@@ -484,7 +494,7 @@ export type DataModel = {
       challengeId: Id<"leagueChallenge">;
       createdAt: number;
       fromStatus: string;
-      performedByUserId: Id<"user">;
+      performedByUserId?: null | Id<"user">;
       reason: string;
       toStatus: string;
       _id: Id<"leagueChallengeAdminAction">;
@@ -504,6 +514,7 @@ export type DataModel = {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       challengeId: ["challengeId", "_creationTime"];
+      performedByUserId: ["performedByUserId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -545,6 +556,7 @@ export type DataModel = {
         "_creationTime",
       ];
       courtId_matchDate: ["courtId", "matchDate", "_creationTime"];
+      proposedByMembershipId: ["proposedByMembershipId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -580,7 +592,11 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      adminReviewedByUserId: ["adminReviewedByUserId", "_creationTime"];
       challengeId_submittedAt: ["challengeId", "submittedAt", "_creationTime"];
+      confirmedByMembershipId: ["confirmedByMembershipId", "_creationTime"];
+      submittedByMembershipId: ["submittedByMembershipId", "_creationTime"];
+      winnerMembershipId: ["winnerMembershipId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -589,11 +605,11 @@ export type DataModel = {
     document: {
       createdAt: number;
       leagueId: Id<"league">;
+      playerProfileId: Id<"playerProfile">;
       rankingPosition?: null | number;
       reviewedAt?: null | number;
       status: string;
       updatedAt: number;
-      userId: Id<"user">;
       _id: Id<"leagueMembership">;
       _creationTime: number;
     };
@@ -602,22 +618,26 @@ export type DataModel = {
       | "_id"
       | "createdAt"
       | "leagueId"
+      | "playerProfileId"
       | "rankingPosition"
       | "reviewedAt"
       | "status"
-      | "updatedAt"
-      | "userId";
+      | "updatedAt";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      leagueId_playerProfileId: [
+        "leagueId",
+        "playerProfileId",
+        "_creationTime",
+      ];
       leagueId_rankingPosition: [
         "leagueId",
         "rankingPosition",
         "_creationTime",
       ];
       leagueId_status: ["leagueId", "status", "_creationTime"];
-      leagueId_userId: ["leagueId", "userId", "_creationTime"];
-      userId_status: ["userId", "status", "_creationTime"];
+      playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -815,6 +835,9 @@ export type DataModel = {
       isRead: boolean;
       occurredAt: number;
       readAt?: null | number;
+      recipientActorKind: string;
+      recipientOrganizationId?: null | Id<"organization">;
+      recipientPlayerProfileId?: null | Id<"playerProfile">;
       recipientUserId: Id<"user">;
       title: string;
       _id: Id<"notificationFeed">;
@@ -830,12 +853,38 @@ export type DataModel = {
       | "isRead"
       | "occurredAt"
       | "readAt"
+      | "recipientActorKind"
+      | "recipientOrganizationId"
+      | "recipientPlayerProfileId"
       | "recipientUserId"
       | "title";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      actorUserId: ["actorUserId", "_creationTime"];
       eventType: ["eventType", "_creationTime"];
+      recipientOrganizationId_occurredAt: [
+        "recipientOrganizationId",
+        "occurredAt",
+        "_creationTime",
+      ];
+      recipientPlayerProfileId_occurredAt: [
+        "recipientPlayerProfileId",
+        "occurredAt",
+        "_creationTime",
+      ];
+      recipientUserId_actorKind_isRead: [
+        "recipientUserId",
+        "recipientActorKind",
+        "isRead",
+        "_creationTime",
+      ];
+      recipientUserId_actorKind_occurredAt: [
+        "recipientUserId",
+        "recipientActorKind",
+        "occurredAt",
+        "_creationTime",
+      ];
       recipientUserId_isRead: ["recipientUserId", "isRead", "_creationTime"];
       recipientUserId_occurredAt: [
         "recipientUserId",
@@ -1058,6 +1107,33 @@ export type DataModel = {
       name: ["name", "_creationTime"];
       personalOrganizationId: ["personalOrganizationId", "_creationTime"];
       user_email_unique: ["email", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  userPreference: {
+    document: {
+      activeActorKind: string;
+      activeOrganizationId?: null | Id<"organization">;
+      createdAt: number;
+      updatedAt: number;
+      userId: Id<"user">;
+      _id: Id<"userPreference">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "activeActorKind"
+      | "activeOrganizationId"
+      | "createdAt"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      activeOrganizationId: ["activeOrganizationId", "_creationTime"];
+      userPreference_userId_unique: ["userId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

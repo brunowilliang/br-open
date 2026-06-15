@@ -34,10 +34,34 @@ export const LEAGUE_MEMBERSHIP_REQUEST_NOTIFICATION_ACTIONS = [
 
 type NotificationResponseData = Record<string, unknown>;
 
+type NotificationFeedResponseItem = {
+  data: Record<string, unknown>;
+  id: string;
+  recipientActorKind: "organization" | "player";
+  recipientOrganizationId?: string | null;
+  recipientPlayerProfileId?: string | null;
+};
+
+type ActiveNotificationActor = {
+  id: string;
+  kind: "organization" | "player";
+};
+
+export type NotificationResponseActor =
+  | {
+      kind: "organization";
+      organizationId: string;
+    }
+  | {
+      kind: "player";
+      playerProfileId?: string;
+    };
+
 export type NotificationResponseIntent =
   | {
       kind: "open";
       notificationId?: string;
+      recipientActor?: NotificationResponseActor;
       url: string | null;
     }
   | {
@@ -45,6 +69,7 @@ export type NotificationResponseIntent =
       leagueId: string;
       membershipId: string;
       notificationId?: string;
+      recipientActor?: NotificationResponseActor;
       url: string;
     }
   | {
@@ -52,6 +77,7 @@ export type NotificationResponseIntent =
       leagueId: string;
       membershipId: string;
       notificationId?: string;
+      recipientActor?: NotificationResponseActor;
     };
 
 type ResolveNotificationResponseIntentInput = {
@@ -63,7 +89,78 @@ const readString = (value: unknown) =>
   typeof value === "string" && value.length > 0 ? value : null;
 
 const getLeagueRankingUrl = (leagueId: string) =>
-  `/leagues/${leagueId}?tab=ranking`;
+  `/leagues/${leagueId}/ranking`;
+
+function getRecipientActor(
+  data: NotificationResponseData
+): NotificationResponseActor | undefined {
+  const actorKind = readString(data.recipientActorKind);
+
+  if (actorKind === "player") {
+    const playerProfileId = readString(data.recipientPlayerProfileId);
+
+    return {
+      kind: "player",
+      ...(playerProfileId ? { playerProfileId } : {}),
+    };
+  }
+
+  if (actorKind === "organization") {
+    const organizationId = readString(data.recipientOrganizationId);
+
+    if (organizationId) {
+      return { kind: "organization", organizationId };
+    }
+  }
+
+  return;
+}
+
+function getRecipientActorPayload(data: NotificationResponseData) {
+  const recipientActor = getRecipientActor(data);
+
+  return recipientActor ? { recipientActor } : {};
+}
+
+export function buildNotificationResponseDataFromFeedItem(
+  notification: NotificationFeedResponseItem
+): NotificationResponseData {
+  return {
+    ...notification.data,
+    notificationId: notification.id,
+    recipientActorKind: notification.recipientActorKind,
+    ...(notification.recipientOrganizationId
+      ? { recipientOrganizationId: notification.recipientOrganizationId }
+      : {}),
+    ...(notification.recipientPlayerProfileId
+      ? { recipientPlayerProfileId: notification.recipientPlayerProfileId }
+      : {}),
+  };
+}
+
+export function isNotificationRecipientActorActive(input: {
+  activeActor?: ActiveNotificationActor | null;
+  recipientActor?: NotificationResponseActor;
+}) {
+  if (!input.recipientActor) {
+    return true;
+  }
+
+  if (
+    !input.activeActor ||
+    input.activeActor.kind !== input.recipientActor.kind
+  ) {
+    return false;
+  }
+
+  if (input.recipientActor.kind === "organization") {
+    return input.activeActor.id === input.recipientActor.organizationId;
+  }
+
+  return input.recipientActor.playerProfileId
+    ? input.activeActor.id === input.recipientActor.playerProfileId
+    : true;
+}
 
 function getOpenIntent(
   data: NotificationResponseData
@@ -73,6 +170,7 @@ function getOpenIntent(
     ...(readString(data.notificationId)
       ? { notificationId: readString(data.notificationId) ?? undefined }
       : {}),
+    ...getRecipientActorPayload(data),
     url: readString(data.url),
   };
 }
@@ -95,6 +193,7 @@ export function resolveNotificationResponseIntent(
         leagueId,
         membershipId,
         ...(notificationId ? { notificationId } : {}),
+        ...getRecipientActorPayload(input.data),
         url: getLeagueRankingUrl(leagueId),
       };
     }
@@ -108,6 +207,7 @@ export function resolveNotificationResponseIntent(
         leagueId,
         membershipId,
         ...(notificationId ? { notificationId } : {}),
+        ...getRecipientActorPayload(input.data),
       };
     }
   }

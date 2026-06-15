@@ -11,13 +11,17 @@ type ScheduleLeagueNotificationInput = {
   recipientUserIds: Id<"user">[];
 };
 
+export function getLeagueNotificationRecipientUserIds<
+  UserId extends string,
+>(input: { actorUserId?: UserId | null; recipientUserIds: UserId[] }) {
+  return Array.from(new Set(input.recipientUserIds));
+}
+
 export async function scheduleLeagueNotification(
   ctx: MutationCtx,
   input: ScheduleLeagueNotificationInput
 ) {
-  const recipientUserIds = Array.from(new Set(input.recipientUserIds)).filter(
-    (recipientUserId) => recipientUserId !== input.actorUserId
-  );
+  const recipientUserIds = getLeagueNotificationRecipientUserIds(input);
 
   if (recipientUserIds.length === 0) {
     return;

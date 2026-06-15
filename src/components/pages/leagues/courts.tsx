@@ -1,6 +1,7 @@
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import {
   Add01Icon,
@@ -17,12 +18,10 @@ import {
   Input,
   Label,
   ListGroup,
-  ScrollShadow,
   Select,
   Separator,
   Tabs,
   TextField,
-  useThemeColor,
 } from "heroui-native";
 import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
@@ -34,7 +33,6 @@ import type {
   LeagueCourt,
   LeagueCourtDay,
 } from "@convex/domains/league/contract";
-import { LinearGradient } from "expo-linear-gradient";
 
 type CourtsProps = {
   isDisabled?: boolean;
@@ -129,7 +127,6 @@ export const Courts = ({ isDisabled }: CourtsProps) => {
     control,
     name: "courts",
   });
-  const dialogSurfaceColor = useThemeColor("surface");
   const value = useWatch({
     control,
     name: "courts",
@@ -734,9 +731,7 @@ export const Courts = ({ isDisabled }: CourtsProps) => {
                           Hora inicial
                         </Select.ListLabel>
                         <ScrollShadow
-                          color={dialogSurfaceColor}
-                          LinearGradientComponent={LinearGradient}
-                          size={56}
+                          color="surface"
                           style={{ maxHeight: 450 }}
                         >
                           <ScrollView showsVerticalScrollIndicator={false}>
@@ -788,9 +783,7 @@ export const Courts = ({ isDisabled }: CourtsProps) => {
                           Hora final
                         </Select.ListLabel>
                         <ScrollShadow
-                          color={dialogSurfaceColor}
-                          LinearGradientComponent={LinearGradient}
-                          size={56}
+                          color="surface"
                           style={{ maxHeight: 450 }}
                         >
                           <ScrollView showsVerticalScrollIndicator={false}>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import { playerProfile } from "../../domains/player/tables";
+import { buildPlayerDisplayName } from "../../domains/player/identity";
 import {
   collectReplacedPlayerAvatarStorageIds,
   playerProfileSchema,
@@ -31,10 +32,21 @@ async function serializePlayerProfile(
   ctx: QueryCtx | MutationCtx,
   record: PlayerProfileRecord
 ) {
+  const fullName = buildPlayerDisplayName({
+    name: record.fullName,
+    userId: record.userId,
+  });
+  const nickname = buildPlayerDisplayName({
+    name: record.nickname ?? record.fullName,
+    userId: record.userId,
+  });
+
   return playerProfileSchema.parse({
     ...record,
     avatarStorageId: record.avatarStorageId ?? null,
     avatarUrl: await resolvePlayerAvatarUrl(ctx, record.avatarStorageId),
+    fullName,
+    nickname,
   });
 }
 

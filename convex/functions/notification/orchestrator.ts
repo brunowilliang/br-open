@@ -38,6 +38,26 @@ const createForRecipientsSchema = z.object({
   recipientUserIds: z.array(z.string().min(1)).min(1),
 });
 
+type RecipientActor =
+  | {
+      kind: "organization";
+      organizationId: Id<"organization">;
+      playerProfileId: null;
+      userId: Id<"user">;
+    }
+  | {
+      kind: "player";
+      organizationId: null;
+      playerProfileId: Id<"playerProfile">;
+      userId: Id<"user">;
+    };
+
+type LeagueNotificationRecord = {
+  id: string;
+  name: string;
+  organizationId: Id<"organization">;
+};
+
 const deliveryResultSchema = z.object({
   deliveryId: z.string().min(1),
   errorMessage: z.string().optional(),
@@ -58,6 +78,37 @@ async function getActorName(ctx: MutationCtx, actorUserId: Id<"user"> | null) {
   return (
     playerProfile?.nickname?.trim() || playerProfile?.fullName || user?.name
   );
+}
+
+async function resolveRecipientActor(input: {
+  ctx: MutationCtx;
+  eventType: z.infer<typeof NotificationEventTypeSchema>;
+  league: LeagueNotificationRecord;
+  recipientUserId: Id<"user">;
+}): Promise<RecipientActor | null> {
+  if (input.eventType === "league.membership.requested") {
+    return {
+      kind: "organization",
+      organizationId: input.league.organizationId as Id<"organization">,
+      playerProfileId: null,
+      userId: input.recipientUserId,
+    };
+  }
+
+  const playerProfile = await input.ctx.orm.query.playerProfile.findFirst({
+    where: { userId: input.recipientUserId },
+  });
+
+  if (!playerProfile) {
+    return null;
+  }
+
+  return {
+    kind: "player",
+    organizationId: null,
+    playerProfileId: playerProfile.id as Id<"playerProfile">,
+    userId: input.recipientUserId,
+  };
 }
 
 async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
@@ -96,7 +147,14 @@ export const createForRecipients = privateMutation
     let hasDeliveries = false;
 
     for (const recipientUserId of new Set(input.recipientUserIds)) {
-      if (recipientUserId === input.actorUserId) {
+      const recipientActor = await resolveRecipientActor({
+        ctx,
+        eventType: input.eventType,
+        league,
+        recipientUserId: recipientUserId as Id<"user">,
+      });
+
+      if (!recipientActor) {
         continue;
       }
 
@@ -107,7 +165,7 @@ export const createForRecipients = privateMutation
         leagueName: league.name,
         metadata: input.metadata,
         recipientRole:
-          recipientUserId === league.managerUserId ? "manager" : "player",
+          recipientActor.kind === "organization" ? "manager" : "player",
       });
 
       const feedId = await ctx.db.insert("notificationFeed", {
@@ -117,11 +175,14 @@ export const createForRecipients = privateMutation
         eventType: input.eventType,
         isRead: false,
         occurredAt: now,
-        recipientUserId: recipientUserId as Id<"user">,
+        recipientActorKind: recipientActor.kind,
+        recipientOrganizationId: recipientActor.organizationId ?? undefined,
+        recipientPlayerProfileId: recipientActor.playerProfileId ?? undefined,
+        recipientUserId: recipientActor.userId,
         title: content.title,
       });
       const preference = await ctx.orm.query.notificationPreference.findFirst({
-        where: { userId: recipientUserId as Id<"user"> },
+        where: { userId: recipientActor.userId },
       });
 
       if (!preference?.pushEnabled) {
@@ -130,7 +191,7 @@ export const createForRecipients = privateMutation
 
       const devices = await ctx.orm.query.notificationDevice.findMany({
         limit: 100,
-        where: { userId: recipientUserId as Id<"user"> },
+        where: { userId: recipientActor.userId },
       });
       const activeDevices = devices.filter(
         (device) => !device.disabledAt && device.permissionStatus === "granted"
@@ -227,6 +288,9 @@ export const claimPendingDeliveries = privateMutation
           data: {
             ...(feed.data as Record<string, unknown>),
             notificationId: feed._id,
+            recipientActorKind: feed.recipientActorKind,
+            recipientOrganizationId: feed.recipientOrganizationId,
+            recipientPlayerProfileId: feed.recipientPlayerProfileId,
           },
           sound: "default" as const,
           title: feed.title,

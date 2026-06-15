@@ -6,11 +6,15 @@ import {
   requiredString,
 } from "../../utils/contract.zod";
 
-export const LeagueVisibilityOptions = [
-  "public",
-  "private",
-  "invite_only",
-] as const;
+export const LeagueVisibilityOptions = ["public", "private"] as const;
+
+export function normalizeLeagueVisibility(value?: null | string) {
+  return value === "invite_only" ? "public" : value;
+}
+
+export function isLeagueDiscoverableVisibility(value?: null | string) {
+  return normalizeLeagueVisibility(value) === "public";
+}
 
 export const LeagueWinBehaviorOptions = [
   "take_opponent_position",
@@ -89,6 +93,15 @@ export const LeagueChallengeProposalStatusOptions = [
   "declined",
   "cancelled",
 ] as const;
+
+export const LeaguePriceBillingIntervalOptions = [
+  "week",
+  "month",
+  "quarter",
+  "year",
+] as const;
+
+export const DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL = "month" as const;
 
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
@@ -408,6 +421,7 @@ export const ChallengeRuleConfigSchema = z
   });
 
 export const DEFAULT_LEAGUE_MODE = "challenges" as const;
+export const DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS = 0;
 
 export const DEFAULT_LEAGUE_STORAGE = {
   avatarStorageId: null,
@@ -459,6 +473,26 @@ const LeagueMediaStorageIdSchema = z
   .min(1, "Imagem inválida.")
   .nullable();
 
+const LeagueMaxPlayersSchema = z
+  .number({
+    error: "Informe uma quantidade de vagas válida.",
+  })
+  .int("Informe uma quantidade de vagas válida.")
+  .positive("Informe pelo menos 1 vaga.")
+  .nullable();
+
+const LeagueMonthlyPriceCentsSchema = z
+  .number({
+    error: "Informe um preço válido.",
+  })
+  .int("Informe um preço válido.")
+  .min(0, "Informe um preço válido.");
+
+const LeaguePriceBillingIntervalSchema = enumField(
+  LeaguePriceBillingIntervalOptions,
+  "Selecione o período de cobrança."
+);
+
 export const CreateLeagueSchema = z.object({
   name: requiredString("Informe o nome da liga.").pipe(
     z.string().min(1, "Informe o nome da liga.")
@@ -479,6 +513,9 @@ export const CreateLeagueSchema = z.object({
     .array(requiredString("Informe a categoria."))
     .min(1, "Informe pelo menos uma categoria."),
   courts: LeagueCourtsSchema,
+  maxPlayers: LeagueMaxPlayersSchema,
+  monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
+  priceBillingInterval: LeaguePriceBillingIntervalSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
   ruleConfig: ChallengeRuleConfigSchema,
@@ -510,6 +547,9 @@ export const UpdateLeagueSchema = z.object({
     .array(requiredString("Informe a categoria."))
     .min(1, "Informe pelo menos uma categoria."),
   courts: LeagueCourtsSchema,
+  maxPlayers: LeagueMaxPlayersSchema,
+  monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
+  priceBillingInterval: LeaguePriceBillingIntervalSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
@@ -539,7 +579,7 @@ export const ReorderLeagueRankingSchema = z.object({
 
 export const leagueSchema = z.object({
   id: leagueIdSchema,
-  managerUserId: z.string().min(1, "Gestor inválido."),
+  organizationId: z.string().min(1, "Organizacao invalida."),
   name: z.string(),
   description: z.string().nullable().optional(),
   city: z.string(),
@@ -549,6 +589,9 @@ export const leagueSchema = z.object({
   categories: z.array(z.string()),
   mode: z.literal(DEFAULT_LEAGUE_MODE),
   courts: LeagueCourtsSchema.default([]).catch([]),
+  maxPlayers: LeagueMaxPlayersSchema,
+  monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
+  priceBillingInterval: LeaguePriceBillingIntervalSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: z.string().nullable(),
   avatarStorageId: z.string().nullable(),
@@ -567,7 +610,7 @@ export const leagueMembershipPlayerSchema = z.object({
 export const leagueMembershipSchema = z.object({
   id: leagueMembershipIdSchema,
   leagueId: leagueIdSchema,
-  userId: z.string().min(1, "Usuário inválido."),
+  playerProfileId: z.string().min(1, "Jogador invalido."),
   status: z.enum(LeagueMembershipStatusOptions),
   rankingPosition: z.number().int().positive().nullable().optional(),
   createdAt: z.number(),
@@ -583,7 +626,7 @@ export const leagueMembershipOverviewSchema = z.object({
 
 export const leagueChallengeParticipantSchema = z.object({
   membershipId: leagueMembershipIdSchema,
-  userId: z.string().min(1, "Usuário inválido."),
+  playerProfileId: z.string().min(1, "Jogador invalido."),
   rankingPosition: z.number().int().positive().nullable().optional(),
   player: leagueMembershipPlayerSchema,
 });
@@ -659,6 +702,7 @@ export const leagueChallengeSchema = z.object({
 });
 
 export const leagueDiscoverySchema = leagueSchema.extend({
+  activePlayerCount: z.number().int().min(0),
   isManagerOwner: z.boolean(),
   viewerMembershipStatus: z
     .enum(LeagueMembershipStatusOptions)

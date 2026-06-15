@@ -56,7 +56,7 @@ export const Location = ({ isDisabled }: LocationProps) => {
           editable={!isDisabled}
           onBlur={locationNotesField.onBlur}
           onChangeText={locationNotesField.onChange}
-          placeholder="Ex: Quadra 3 do clube"
+          placeholder="Ex: Próximo ao supermercado"
           value={locationNotesField.value ?? ""}
         />
         <FieldError>{locationNotesState.error?.message ?? ""}</FieldError>

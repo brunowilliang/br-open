@@ -47,6 +47,9 @@ export const notificationFeedItemSchema = z.object({
   isRead: z.boolean(),
   occurredAt: z.number(),
   readAt: z.number().nullable(),
+  recipientActorKind: z.enum(["player", "organization"]),
+  recipientOrganizationId: z.string().nullable(),
+  recipientPlayerProfileId: z.string().nullable(),
   recipientUserId: z.string(),
   title: z.string(),
 });

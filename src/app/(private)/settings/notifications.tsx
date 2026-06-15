@@ -31,6 +31,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
+import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -40,9 +41,16 @@ import {
   shouldOpenNotificationSettingsAlert,
 } from "@/lib/notifications/expo-notifications";
 import { getNotificationFeedActionState } from "@/lib/notifications/feed-action-state";
+import {
+  buildNotificationResponseDataFromFeedItem,
+  isNotificationRecipientActorActive,
+  type NotificationResponseActor,
+  resolveNotificationResponseIntent,
+} from "@/lib/notifications/response-intent";
 
 type NotificationItem = ApiOutputs["notification"]["feed"]["list"][number];
 type NotificationStatus = ApiOutputs["notification"]["settings"]["status"];
+type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
 
 const NOTIFICATION_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",
@@ -74,12 +82,6 @@ function getPushDescription(status?: NotificationStatus) {
     default:
       return "Pausado. As notificações ficam salvas na central.";
   }
-}
-
-function getNotificationUrl(notification: NotificationItem) {
-  const url = notification.data.url;
-
-  return typeof url === "string" && url.length > 0 ? url : null;
 }
 
 function NotificationRouteMenu(props: {
@@ -215,6 +217,7 @@ export default function SettingsNotificationsRoute() {
   const statusQuery = useQuery(
     crpc.notification.settings.status.queryOptions()
   );
+  const viewerContextQuery = useQuery(crpc.viewer.context.get.queryOptions());
   const notificationsQuery = useQuery(
     crpc.notification.feed.list.queryOptions({ limit: 50 })
   );
@@ -257,6 +260,21 @@ export default function SettingsNotificationsRoute() {
           ),
           id: "notification-device-error",
           label: "Token não registrado",
+          variant: "danger",
+        });
+      },
+    })
+  );
+  const setActiveActor = useMutation(
+    crpc.viewer.context.setActiveActor.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível abrir a notificação no modo correto."
+          ),
+          id: "notification-set-active-actor-error",
+          label: "Modo não alterado",
           variant: "danger",
         });
       },
@@ -389,15 +407,75 @@ export default function SettingsNotificationsRoute() {
     setIsPreferencesDialogOpen(true);
   }
 
+  async function invalidateActorContext(viewerContext?: ViewerContext) {
+    if (viewerContext) {
+      applyViewerContextToClientState({
+        queryClient,
+        viewerContext,
+        viewerContextFilter: crpc.viewer.context.get.queryFilter(),
+      });
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries(crpc.viewer.context.get.queryFilter()),
+      queryClient.invalidateQueries(
+        crpc.notification.settings.status.queryFilter()
+      ),
+      queryClient.invalidateQueries(
+        crpc.notification.feed.list.queryFilter({ limit: 50 })
+      ),
+      queryClient.invalidateQueries(
+        crpc.league.discovery.listParticipating.queryFilter()
+      ),
+      queryClient.invalidateQueries(
+        crpc.league.management.listMine.queryFilter()
+      ),
+    ]);
+  }
+
+  async function activateNotificationActor(actor?: NotificationResponseActor) {
+    if (!actor) {
+      return;
+    }
+
+    if (
+      isNotificationRecipientActorActive({
+        activeActor: viewerContextQuery.data?.activeActor ?? null,
+        recipientActor: actor,
+      })
+    ) {
+      return;
+    }
+
+    const viewerContext =
+      actor.kind === "organization"
+        ? await setActiveActor.mutateAsync({
+            actorKind: "organization",
+            organizationId: actor.organizationId,
+          })
+        : await setActiveActor.mutateAsync({ actorKind: "player" });
+
+    await invalidateActorContext(viewerContext);
+  }
+
   async function handleOpenNotification(notification: NotificationItem) {
+    const intent = resolveNotificationResponseIntent({
+      actionIdentifier: "expo.modules.notifications.actions.DEFAULT",
+      data: buildNotificationResponseDataFromFeedItem(notification),
+    });
+
+    if (intent.kind !== "open") {
+      return;
+    }
+
+    await activateNotificationActor(intent.recipientActor);
+
     if (!notification.isRead) {
       await markRead.mutateAsync({ notificationId: notification.id });
     }
 
-    const url = getNotificationUrl(notification);
-
-    if (url) {
-      router.navigate(url as Href);
+    if (intent.url) {
+      router.navigate(intent.url as Href);
     }
   }
 
@@ -407,7 +485,12 @@ export default function SettingsNotificationsRoute() {
     }
 
     if (notificationsQuery.isError) {
-      return <ErrorState message={notificationsQuery.error.message} />;
+      return (
+        <ErrorState
+          error={notificationsQuery.error}
+          message="Não foi possível carregar as notificações."
+        />
+      );
     }
 
     if (notificationsQuery.data.length === 0) {

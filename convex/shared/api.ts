@@ -31,6 +31,7 @@ export const api = {
     discovery: {
       getById: createApiLeaf<"query", typeof import("../functions/league/discovery").getById>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/discovery").getById>("league/discovery:getById"), { auth: "required", type: "query" }),
       listAvailable: createApiLeaf<"query", typeof import("../functions/league/discovery").listAvailable>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/discovery").listAvailable>("league/discovery:listAvailable"), { auth: "required", type: "query" }),
+      listParticipating: createApiLeaf<"query", typeof import("../functions/league/discovery").listParticipating>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/discovery").listParticipating>("league/discovery:listParticipating"), { auth: "required", type: "query" }),
     },
     management: {
       create: createApiLeaf<"mutation", typeof import("../functions/league/management").create>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/management").create>("league/management:create"), { auth: "required", type: "mutation" }),
@@ -68,6 +69,13 @@ export const api = {
       generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
       get: createApiLeaf<"query", typeof import("../functions/player/profile").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/profile").get>("player/profile:get"), { auth: "required", type: "query" }),
       upsert: createApiLeaf<"mutation", typeof import("../functions/player/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").upsert>("player/profile:upsert"), { auth: "required", type: "mutation" }),
+    },
+  },
+  viewer: {
+    context: {
+      activateOrganization: createApiLeaf<"mutation", typeof import("../functions/viewer/context").activateOrganization>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/viewer/context").activateOrganization>("viewer/context:activateOrganization"), { auth: "required", type: "mutation" }),
+      get: createApiLeaf<"query", typeof import("../functions/viewer/context").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/viewer/context").get>("viewer/context:get"), { auth: "required", type: "query" }),
+      setActiveActor: createApiLeaf<"mutation", typeof import("../functions/viewer/context").setActiveActor>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/viewer/context").setActiveActor>("viewer/context:setActiveActor"), { auth: "required", type: "mutation" }),
     },
   },
   http: undefined as unknown as typeof httpRouter,

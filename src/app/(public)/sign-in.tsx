@@ -78,7 +78,6 @@ export default function SignIn() {
     signInSocial.isPending ||
     form.formState.isSubmitting ||
     isAppleSignInPending;
-
   const handleSubmitPress = form.handleSubmit(async (values) => {
     signIn.reset();
 

@@ -1,4 +1,94 @@
 const NAME_PARTS_SPLIT_REGEX = /\s+/;
+const LIMITED_AVAILABILITY_THRESHOLD = 10;
+
+type LeaguePriceBillingInterval = "month" | "quarter" | "week" | "year";
+
+const leaguePriceBillingIntervalSuffixes: Record<
+  LeaguePriceBillingInterval,
+  string
+> = {
+  month: "/mês",
+  quarter: "/trimestre",
+  week: "/semana",
+  year: "/ano",
+};
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  })
+    .format(value / 100)
+    .replace(/\u00a0/g, " ");
+}
+
+export function getLeagueAvailableSpotCount(input: {
+  activePlayerCount: number;
+  maxPlayers?: null | number;
+}) {
+  if (input.maxPlayers === null || input.maxPlayers === undefined) {
+    return null;
+  }
+
+  return Math.max(0, input.maxPlayers - input.activePlayerCount);
+}
+
+export function hasLeagueAvailableSpots(input: {
+  activePlayerCount: number;
+  maxPlayers?: null | number;
+}) {
+  const availableSpotCount = getLeagueAvailableSpotCount(input);
+
+  return availableSpotCount === null || availableSpotCount > 0;
+}
+
+export function formatLeagueAvailabilityBadge(input: {
+  activePlayerCount: number;
+  maxPlayers?: null | number;
+}) {
+  const availableSpotCount = getLeagueAvailableSpotCount(input);
+
+  if (availableSpotCount === 0) {
+    return null;
+  }
+
+  if (
+    availableSpotCount !== null &&
+    availableSpotCount < LIMITED_AVAILABILITY_THRESHOLD
+  ) {
+    return `${availableSpotCount} ${
+      availableSpotCount === 1 ? "vaga disponível" : "vagas disponíveis"
+    }`;
+  }
+
+  return "Vagas Disponíveis";
+}
+
+export function formatLeaguePriceParts(input: {
+  amountCents: number;
+  billingInterval: LeaguePriceBillingInterval;
+}) {
+  if (input.amountCents <= 0) {
+    return {
+      amount: "Grátis",
+      suffix: null,
+    };
+  }
+
+  return {
+    amount: formatCurrency(input.amountCents),
+    suffix: leaguePriceBillingIntervalSuffixes[input.billingInterval],
+  };
+}
+
+export function formatLeagueMonthlyPrice(value: number) {
+  const priceParts = formatLeaguePriceParts({
+    amountCents: value,
+    billingInterval: "month",
+  });
+
+  return `${priceParts.amount}${priceParts.suffix ?? ""}`;
+}
 
 export function formatLeagueMeta(city?: string | null, state?: string | null) {
   if (city && state) {
@@ -12,8 +102,6 @@ export function formatLeagueVisibility(visibility?: string | null) {
   switch (visibility) {
     case "public":
       return "Pública";
-    case "invite_only":
-      return "Convite";
     case "private":
       return "Privada";
     default:
@@ -23,8 +111,6 @@ export function formatLeagueVisibility(visibility?: string | null) {
 
 export function formatLeagueVisibilityOptionLabel(value: string) {
   switch (value) {
-    case "invite_only":
-      return "Somente convite";
     case "private":
       return "Privada";
     default:
@@ -147,7 +233,7 @@ export function getMembershipActionLabel(
   }
 
   if (status === "pending") {
-    return "Solicitação pendente";
+    return "Pendente";
   }
 
   if (status === "rejected") {

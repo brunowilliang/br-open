@@ -23,9 +23,9 @@ describe("notification content", () => {
       data: {
         eventType: "league.membership.requested",
         leagueId: "league-1",
-        url: "/leagues/league-1?tab=requests",
+        url: "/leagues/league-1/requests",
       },
-      title: "Nova solicitacao de entrada",
+      title: "Nova solicitação de entrada",
     });
   });
 
@@ -39,11 +39,11 @@ describe("notification content", () => {
     });
 
     expect(content).toEqual({
-      body: "Bruno Garcia desafiou voce na liga BR Open.",
+      body: "Bruno Garcia desafiou você na liga BR Open.",
       data: {
         eventType: "league.challenge.created",
         leagueId: "league-2",
-        url: "/leagues/league-2?tab=challenges",
+        url: "/leagues/league-2/challenges",
       },
       title: "Novo desafio recebido",
     });
@@ -63,7 +63,7 @@ describe("notification content", () => {
       challengeId: "challenge-1",
       eventType: "league.challenge.result_submitted",
       leagueId: "league-3",
-      url: "/leagues/league-3?tab=challenges",
+      url: "/leagues/league-3/challenges",
     });
   });
 

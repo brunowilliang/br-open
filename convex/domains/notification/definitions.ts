@@ -42,17 +42,17 @@ const getLeagueUrl = (input: NotificationContentInput) =>
   `/leagues/${input.leagueId}`;
 
 const getLeagueRequestsUrl = (input: NotificationContentInput) =>
-  `/leagues/${input.leagueId}?tab=requests`;
+  `/leagues/${input.leagueId}/requests`;
 
 const getLeagueChallengesUrl = (input: NotificationContentInput) =>
-  `/leagues/${input.leagueId}?tab=challenges`;
+  `/leagues/${input.leagueId}/challenges`;
 
 const definitions: Record<NotificationEventType, NotificationDefinition> = {
   "league.membership.requested": {
     categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],
     getUrl: getLeagueRequestsUrl,
     template: (input) => ({
-      title: "Nova solicitacao de entrada",
+      title: "Nova solicitação de entrada",
       body: `${getActorName(input.actorName)} pediu para entrar na liga ${
         input.leagueName
       }.`,
@@ -60,27 +60,27 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
   },
   "league.membership.approved": {
     template: (input) => ({
-      title: "Solicitacao aprovada",
+      title: "Solicitação aprovada",
       body: `Sua entrada na liga ${input.leagueName} foi aprovada.`,
     }),
   },
   "league.membership.rejected": {
     template: (input) => ({
-      title: "Solicitacao recusada",
+      title: "Solicitação recusada",
       body: `Sua entrada na liga ${input.leagueName} foi recusada.`,
     }),
   },
   "league.membership.removed": {
     template: (input) => ({
-      title: "Voce saiu do ranking",
-      body: `Seu acesso a liga ${input.leagueName} foi removido.`,
+      title: "Você saiu do ranking",
+      body: `Seu acesso à liga ${input.leagueName} foi removido.`,
     }),
   },
   "league.challenge.created": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Novo desafio recebido",
-      body: `${getActorName(input.actorName)} desafiou voce na liga ${
+      body: `${getActorName(input.actorName)} desafiou você na liga ${
         input.leagueName
       }.`,
     }),
@@ -89,7 +89,7 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Contraproposta recebida",
-      body: `${getActorName(input.actorName)} sugeriu outro horario em ${
+      body: `${getActorName(input.actorName)} sugeriu outro horário em ${
         input.leagueName
       }.`,
     }),
@@ -167,8 +167,8 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
   "league.challenge.result_correction_requested": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Correcao de placar",
-      body: `O admin pediu correcao no placar da liga ${input.leagueName}.`,
+      title: "Correção de placar",
+      body: `O organizador pediu correção no placar da liga ${input.leagueName}.`,
     }),
   },
   "league.challenge.result_invalidated": {
@@ -182,14 +182,14 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Desafio aprovado",
-      body: `O admin aprovou o desafio em ${input.leagueName}.`,
+      body: `O organizador aprovou o desafio em ${input.leagueName}.`,
     }),
   },
   "league.challenge.admin_rejected": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Desafio recusado",
-      body: `O admin recusou o desafio em ${input.leagueName}.`,
+      body: `O organizador recusou o desafio em ${input.leagueName}.`,
     }),
   },
 };

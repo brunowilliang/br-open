@@ -2,6 +2,8 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import {
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MATCH_CONFIG,
+  DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
+  DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
   DEFAULT_LEAGUE_STORAGE,
 } from "@convex/domains/league/contract";
@@ -13,9 +15,12 @@ export function buildCreateLeagueDefaultValues(): LeagueScreenValues {
     city: "",
     state: "",
     locationNotes: "",
-    visibility: "private",
+    visibility: "public",
     categories: [],
     courts: [],
+    maxPlayers: null,
+    monthlyPriceCents: DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
+    priceBillingInterval: DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,
     avatarStorageId: DEFAULT_LEAGUE_STORAGE.avatarStorageId,
     ruleConfig: {

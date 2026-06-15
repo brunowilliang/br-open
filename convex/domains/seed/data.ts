@@ -206,10 +206,10 @@ export const seedLeagueTemplates = [
   {
     categories: ["Feminino", "Misto"],
     city: "Campinas",
-    description: "Liga por convite para testar entrada aprovada e pendente.",
+    description: "Liga pública para testar entrada aprovada e pendente.",
     name: "Liga Campineira",
     state: "SP",
-    visibility: "invite_only" as const,
+    visibility: "public" as const,
   },
   {
     categories: ["35+", "40+"],

@@ -2,11 +2,6 @@ const PLAYER_NAME_FALLBACK = "Jogador";
 const PLAYER_IDENTIFIER_LENGTH = 4;
 const PLAYER_IDENTIFIER_MOD = 10 ** PLAYER_IDENTIFIER_LENGTH;
 
-type GetHomePlayerDisplayNameInput = {
-  playerFullName?: null | string;
-  userId?: null | string;
-};
-
 function buildPlayerIdentifier(userId: string) {
   let hash = 0;
 
@@ -17,8 +12,11 @@ function buildPlayerIdentifier(userId: string) {
   return String(hash).padStart(PLAYER_IDENTIFIER_LENGTH, "0");
 }
 
-export function getHomePlayerDisplayName(input: GetHomePlayerDisplayNameInput) {
-  const trimmedName = input.playerFullName?.trim();
+export function buildPlayerDisplayName(input: {
+  name?: null | string;
+  userId?: null | string;
+}) {
+  const trimmedName = input.name?.trim();
 
   if (trimmedName) {
     return trimmedName;

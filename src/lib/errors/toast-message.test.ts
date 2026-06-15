@@ -21,18 +21,15 @@ describe("getToastErrorMessage", () => {
     );
   });
 
-  it("sanitizes raw Convex CRPC wrappers when only error.message is available", () => {
+  it("uses error.message when there is no structured data.message", () => {
     const result = getToastErrorMessage(
       {
-        message:
-          "[CONVEX M(league/challenges:adminManage)] Uncaught CRPCError: O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
+        message: "Não foi possível aplicar a ação.",
       },
       "Não foi possível reabrir o resultado."
     );
 
-    expect(result).toBe(
-      "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente."
-    );
+    expect(result).toBe("Não foi possível aplicar a ação.");
   });
 
   it("falls back when there is no usable error message", () => {

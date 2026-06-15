@@ -5,6 +5,7 @@ import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
+  isLeagueDiscoverableVisibility,
   leagueMembershipOverviewSchema,
   leagueMembershipSchema,
   ReorderLeagueRankingSchema,
@@ -14,10 +15,16 @@ import {
 import { leagueMembership } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
+import {
+  getViewerContext,
+  requireActiveOrganization,
+  requireActivePlayerProfile,
+} from "../viewer/context";
 
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 type OrmCtx = AuthenticatedCtx<QueryCtx | MutationCtx>;
 type OrmMutationCtx = AuthenticatedCtx<MutationCtx>;
+type PlayerSummary = Parameters<typeof serializeLeagueMembership>[1];
 
 function serializeLeagueMembership(
   record: LeagueMembershipRecord,
@@ -30,7 +37,7 @@ function serializeLeagueMembership(
   return leagueMembershipSchema.parse({
     id: record.id,
     leagueId: record.leagueId,
-    userId: record.userId,
+    playerProfileId: record.playerProfileId,
     status: record.status,
     rankingPosition: record.rankingPosition ?? null,
     createdAt: record.createdAt.getTime(),
@@ -56,11 +63,12 @@ async function getLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
 }
 
 async function getManagedLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
+  const organizationId = await requireActiveOrganization(ctx);
   const currentLeague = await ctx.orm.query.league.findFirst({
-    where: { id: leagueId, managerUserId: ctx.userId },
+    where: { id: leagueId },
   });
 
-  if (!currentLeague) {
+  if (!currentLeague || currentLeague.organizationId !== organizationId) {
     throw new CRPCError({
       code: "FORBIDDEN",
       message: "Liga não encontrada para esse gestor.",
@@ -70,13 +78,25 @@ async function getManagedLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
   return currentLeague;
 }
 
-function getMembershipByLeagueAndUser(
+async function canManageLeague(
+  ctx: OrmCtx,
+  organizationId: Id<"organization">
+) {
+  const viewerContext = await getViewerContext(ctx, ctx.userId);
+
+  return (
+    viewerContext.activeActor.kind === "organization" &&
+    viewerContext.activeActor.id === organizationId
+  );
+}
+
+function getMembershipByLeagueAndPlayerProfile(
   ctx: OrmCtx,
   leagueId: Id<"league">,
-  userId: Id<"user">
+  playerProfileId: Id<"playerProfile">
 ) {
   return ctx.orm.query.leagueMembership.findFirst({
-    where: { leagueId, userId },
+    where: { leagueId, playerProfileId },
   });
 }
 
@@ -114,57 +134,138 @@ async function resolvePlayerProfileAvatarUrl(
   }
 }
 
-async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
-  const [user, playerProfile] = await Promise.all([
-    ctx.orm.query.user.findFirst({ where: { id: userId } }),
-    ctx.orm.query.playerProfile.findFirst({ where: { userId } }),
-  ]);
+async function getOptionalPlayerSummary(
+  ctx: OrmCtx,
+  playerProfileId: Id<"playerProfile">
+) {
+  const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: playerProfileId },
+  });
 
-  if (!user) {
+  if (!playerProfile) {
+    return null;
+  }
+
+  const user = await ctx.orm.query.user.findFirst({
+    where: { id: playerProfile.userId },
+  });
+
+  const fullName = playerProfile.fullName?.trim() || user?.name || "Jogador";
+  const nickname =
+    playerProfile.nickname?.trim() ||
+    playerProfile.fullName?.trim() ||
+    user?.name ||
+    "Jogador";
+  const avatarUrl = await resolvePlayerProfileAvatarUrl(
+    ctx,
+    playerProfile.avatarStorageId
+  );
+
+  return {
+    avatarUrl: avatarUrl ?? user?.image ?? null,
+    fullName,
+    nickname,
+  } satisfies PlayerSummary;
+}
+
+async function getPlayerSummary(
+  ctx: OrmCtx,
+  playerProfileId: Id<"playerProfile">
+) {
+  const playerSummary = await getOptionalPlayerSummary(ctx, playerProfileId);
+
+  if (!playerSummary) {
     throw new CRPCError({
       code: "NOT_FOUND",
       message: "Usuário não encontrado.",
     });
   }
 
-  const fullName = playerProfile?.fullName?.trim() || user.name;
-  const nickname =
-    playerProfile?.nickname?.trim() ||
-    playerProfile?.fullName?.trim() ||
-    user.name;
-  const avatarUrl = await resolvePlayerProfileAvatarUrl(
-    ctx,
-    playerProfile?.avatarStorageId
-  );
-
-  return {
-    avatarUrl: avatarUrl ?? user.image ?? null,
-    fullName,
-    nickname,
-  };
+  return playerSummary;
 }
 
-function serializeMembershipList(
+async function serializeMembershipList(
   ctx: OrmCtx,
   records: LeagueMembershipRecord[]
 ) {
-  return Promise.all(
-    records.map(async (record) =>
-      serializeLeagueMembership(
-        record,
-        await getPlayerSummary(ctx, record.userId)
-      )
-    )
+  const serializedRecords = await Promise.all(
+    records.map(async (record) => {
+      const playerSummary = await getOptionalPlayerSummary(
+        ctx,
+        record.playerProfileId as Id<"playerProfile">
+      );
+
+      return playerSummary
+        ? serializeLeagueMembership(record, playerSummary)
+        : null;
+    })
   );
+
+  return serializedRecords.filter((record) => record !== null);
+}
+
+async function getPlayerProfileUserId(
+  ctx: OrmCtx,
+  playerProfileId: Id<"playerProfile">
+) {
+  const currentPlayerProfile = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: playerProfileId },
+  });
+
+  if (!currentPlayerProfile) {
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Jogador nao encontrado.",
+    });
+  }
+
+  return currentPlayerProfile.userId as Id<"user">;
+}
+
+async function getOrganizationMemberUserIds(
+  ctx: OrmCtx,
+  organizationId: Id<"organization">
+) {
+  const members = await ctx.orm.query.member.findMany({
+    limit: 100,
+    where: { organizationId },
+  });
+
+  return members
+    .filter((currentMember) => ["owner", "admin"].includes(currentMember.role))
+    .map((currentMember) => currentMember.userId as Id<"user">);
 }
 
 async function getNextRankingPosition(ctx: OrmCtx, leagueId: Id<"league">) {
+  return (await countActiveLeagueMemberships(ctx, leagueId)) + 1;
+}
+
+async function countActiveLeagueMemberships(
+  ctx: OrmCtx,
+  leagueId: Id<"league">
+) {
   const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
     limit: 500,
     where: { leagueId, status: "active" },
   });
 
-  return activeMemberships.length + 1;
+  return activeMemberships.length;
+}
+
+function assertLeagueHasAvailableSpot(input: {
+  activeMembershipCount: number;
+  maxPlayers?: null | number;
+}) {
+  if (
+    input.maxPlayers !== null &&
+    input.maxPlayers !== undefined &&
+    input.activeMembershipCount >= input.maxPlayers
+  ) {
+    throw new CRPCError({
+      code: "BAD_REQUEST",
+      message: "Essa liga não possui vagas disponíveis.",
+    });
+  }
 }
 
 async function normalizeRankingPositions(
@@ -211,30 +312,40 @@ export const requestJoin = authMutation
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const leagueId = input.leagueId as Id<"league">;
+    const playerProfileId = await requireActivePlayerProfile(ctx);
     const currentLeague = await getLeagueOrThrow(ctx, leagueId);
-    const currentMembership = await getMembershipByLeagueAndUser(
+    const currentMembership = await getMembershipByLeagueAndPlayerProfile(
       ctx,
       leagueId,
-      ctx.userId
+      playerProfileId
     );
 
-    const isManagerOwner = currentLeague.managerUserId === ctx.userId;
-    const isDiscoverable =
-      currentLeague.visibility === "public" ||
-      currentLeague.visibility === "invite_only";
+    if (currentMembership?.status === "pending") {
+      const updatedMembership = await updateMembership(ctx, currentMembership, {
+        rankingPosition: null,
+        reviewedAt: null,
+        status: "left",
+        updatedAt: now,
+      });
 
-    if (!(isManagerOwner || isDiscoverable)) {
+      return serializeLeagueMembership(
+        updatedMembership,
+        await getPlayerSummary(
+          ctx,
+          updatedMembership.playerProfileId as Id<"playerProfile">
+        )
+      );
+    }
+
+    const isDiscoverable = isLeagueDiscoverableVisibility(
+      currentLeague.visibility
+    );
+
+    if (!isDiscoverable) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "Essa liga não está disponível para participação.",
       });
-    }
-
-    if (currentMembership?.status === "pending") {
-      return serializeLeagueMembership(
-        currentMembership,
-        await getPlayerSummary(ctx, currentMembership.userId)
-      );
     }
 
     if (currentMembership?.status === "active") {
@@ -248,40 +359,17 @@ export const requestJoin = authMutation
 
       return serializeLeagueMembership(
         normalizedMembership,
-        await getPlayerSummary(ctx, normalizedMembership.userId)
+        await getPlayerSummary(
+          ctx,
+          normalizedMembership.playerProfileId as Id<"playerProfile">
+        )
       );
     }
 
-    if (isManagerOwner) {
-      const rankingPosition = await getNextRankingPosition(ctx, leagueId);
-
-      const membershipRecord = currentMembership
-        ? await updateMembership(ctx, currentMembership, {
-            rankingPosition,
-            reviewedAt: now,
-            status: "active",
-            updatedAt: now,
-          })
-        : (
-            await ctx.orm
-              .insert(leagueMembership)
-              .values({
-                createdAt: now,
-                leagueId,
-                rankingPosition,
-                reviewedAt: now,
-                status: "active",
-                updatedAt: now,
-                userId: ctx.userId,
-              })
-              .returning()
-          )[0];
-
-      return serializeLeagueMembership(
-        membershipRecord,
-        await getPlayerSummary(ctx, membershipRecord.userId)
-      );
-    }
+    assertLeagueHasAvailableSpot({
+      activeMembershipCount: await countActiveLeagueMemberships(ctx, leagueId),
+      maxPlayers: currentLeague.maxPlayers ?? null,
+    });
 
     const membershipRecord = currentMembership
       ? await updateMembership(ctx, currentMembership, {
@@ -296,26 +384,34 @@ export const requestJoin = authMutation
             .values({
               createdAt: now,
               leagueId,
+              playerProfileId,
               rankingPosition: null,
               reviewedAt: null,
               status: "pending",
               updatedAt: now,
-              userId: ctx.userId,
             })
             .returning()
         )[0];
+
+    const recipientUserIds = await getOrganizationMemberUserIds(
+      ctx,
+      currentLeague.organizationId as Id<"organization">
+    );
 
     await scheduleLeagueNotification(ctx, {
       actorUserId: ctx.userId,
       eventType: "league.membership.requested",
       leagueId,
       metadata: { membershipId: membershipRecord.id },
-      recipientUserIds: [currentLeague.managerUserId],
+      recipientUserIds,
     });
 
     return serializeLeagueMembership(
       membershipRecord,
-      await getPlayerSummary(ctx, membershipRecord.userId)
+      await getPlayerSummary(
+        ctx,
+        membershipRecord.playerProfileId as Id<"playerProfile">
+      )
     );
   });
 
@@ -325,12 +421,27 @@ export const getOverview = authQuery
   .query(async ({ ctx, input }) => {
     const leagueId = input.leagueId as Id<"league">;
     const currentLeague = await getLeagueOrThrow(ctx, leagueId);
-    const isManagerOwner = currentLeague.managerUserId === ctx.userId;
-    const isDiscoverable =
-      currentLeague.visibility === "public" ||
-      currentLeague.visibility === "invite_only";
+    const viewerContext = await getViewerContext(ctx, ctx.userId);
+    const activePlayerProfileId =
+      viewerContext.activeActor.kind === "player"
+        ? (viewerContext.activeActor.id as Id<"playerProfile">)
+        : null;
+    const [currentMembership, canManageCurrentLeague] = await Promise.all([
+      activePlayerProfileId
+        ? getMembershipByLeagueAndPlayerProfile(
+            ctx,
+            leagueId,
+            activePlayerProfileId
+          )
+        : Promise.resolve(null),
+      canManageLeague(ctx, currentLeague.organizationId as Id<"organization">),
+    ]);
+    const isDiscoverable = isLeagueDiscoverableVisibility(
+      currentLeague.visibility
+    );
+    const isAcceptedViewer = currentMembership?.status === "active";
 
-    if (!(isManagerOwner || isDiscoverable)) {
+    if (!(canManageCurrentLeague || isAcceptedViewer || isDiscoverable)) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "Essa liga não está disponível para visualização.",
@@ -338,7 +449,7 @@ export const getOverview = authQuery
     }
 
     const [pendingRequests, ranking] = await Promise.all([
-      isManagerOwner
+      canManageCurrentLeague
         ? ctx.orm.query.leagueMembership.findMany({
             limit: 500,
             orderBy: { createdAt: "asc" },
@@ -365,13 +476,23 @@ export const approve = authMutation
     const now = new Date();
     const leagueId = input.leagueId as Id<"league">;
 
-    await getManagedLeagueOrThrow(ctx, leagueId);
+    const currentLeague = await getManagedLeagueOrThrow(ctx, leagueId);
 
     const currentMembership = await getMembershipByIdOrThrow(
       ctx,
       leagueId,
       input.membershipId as Id<"leagueMembership">
     );
+
+    if (currentMembership.status !== "active") {
+      assertLeagueHasAvailableSpot({
+        activeMembershipCount: await countActiveLeagueMemberships(
+          ctx,
+          leagueId
+        ),
+        maxPlayers: currentLeague.maxPlayers ?? null,
+      });
+    }
 
     const rankingPosition =
       currentMembership.rankingPosition ??
@@ -392,12 +513,20 @@ export const approve = authMutation
       eventType: "league.membership.approved",
       leagueId,
       metadata: { membershipId: updatedMembership.id },
-      recipientUserIds: [updatedMembership.userId],
+      recipientUserIds: [
+        await getPlayerProfileUserId(
+          ctx,
+          updatedMembership.playerProfileId as Id<"playerProfile">
+        ),
+      ],
     });
 
     return serializeLeagueMembership(
       updatedMembership,
-      await getPlayerSummary(ctx, updatedMembership.userId)
+      await getPlayerSummary(
+        ctx,
+        updatedMembership.playerProfileId as Id<"playerProfile">
+      )
     );
   });
 
@@ -428,12 +557,20 @@ export const reject = authMutation
       eventType: "league.membership.rejected",
       leagueId,
       metadata: { membershipId: updatedMembership.id },
-      recipientUserIds: [updatedMembership.userId],
+      recipientUserIds: [
+        await getPlayerProfileUserId(
+          ctx,
+          updatedMembership.playerProfileId as Id<"playerProfile">
+        ),
+      ],
     });
 
     return serializeLeagueMembership(
       updatedMembership,
-      await getPlayerSummary(ctx, updatedMembership.userId)
+      await getPlayerSummary(
+        ctx,
+        updatedMembership.playerProfileId as Id<"playerProfile">
+      )
     );
   });
 
@@ -466,12 +603,20 @@ export const remove = authMutation
       eventType: "league.membership.removed",
       leagueId,
       metadata: { membershipId: updatedMembership.id },
-      recipientUserIds: [updatedMembership.userId],
+      recipientUserIds: [
+        await getPlayerProfileUserId(
+          ctx,
+          updatedMembership.playerProfileId as Id<"playerProfile">
+        ),
+      ],
     });
 
     return serializeLeagueMembership(
       updatedMembership,
-      await getPlayerSummary(ctx, updatedMembership.userId)
+      await getPlayerSummary(
+        ctx,
+        updatedMembership.playerProfileId as Id<"playerProfile">
+      )
     );
   });
 

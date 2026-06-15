@@ -38,7 +38,6 @@ export default function SignUp() {
 
   const signUp = useMutation(
     useSignUpMutationOptions({
-      onSuccess: () => router.replace("/"),
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -69,6 +68,8 @@ export default function SignUp() {
       name: values.name,
       password: values.password,
     });
+
+    router.replace("/");
   });
 
   function handleSubmitPress() {

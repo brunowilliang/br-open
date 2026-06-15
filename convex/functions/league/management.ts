@@ -8,16 +8,20 @@ import {
   CreateLeagueSchema,
   DeleteLeagueSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+  DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_MODE,
+  DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
   LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   LeagueByIdSchema,
   UpdateLeagueSchema,
   collectReplacedLeagueStorageIds,
   leagueSchema,
+  normalizeLeagueVisibility,
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
+import { requireActiveOrganization } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
@@ -50,11 +54,17 @@ async function serializeLeague(
 
   return leagueSchema.parse({
     ...record,
+    visibility: normalizeLeagueVisibility(record.visibility),
     avatarStorageId: record.avatarStorageId ?? null,
     coverStorageId: record.coverStorageId ?? null,
     avatarUrl,
     coverUrl,
     courts: record.courts ?? [],
+    maxPlayers: record.maxPlayers ?? null,
+    monthlyPriceCents:
+      record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
+    priceBillingInterval:
+      record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     ruleConfig: {
       ...record.ruleConfig,
       challengeValidationMode:
@@ -71,10 +81,13 @@ async function serializeLeague(
 
 async function getManagedLeagueOrThrow(
   ctx: AuthenticatedCtx<QueryCtx | MutationCtx>,
-  leagueId: Id<"league">
+  input: {
+    leagueId: Id<"league">;
+    organizationId: Id<"organization">;
+  }
 ) {
   const currentLeague = await ctx.orm.query.league.findFirst({
-    where: { id: leagueId, managerUserId: ctx.userId },
+    where: { id: input.leagueId, organizationId: input.organizationId },
   });
 
   if (!currentLeague) {
@@ -96,10 +109,12 @@ async function deleteLeagueStorageIds(ctx: MutationCtx, storageIds: string[]) {
 export const listMine = authQuery
   .output(leagueSchema.array())
   .query(async ({ ctx }) => {
+    const organizationId = await requireActiveOrganization(ctx);
+
     const leagues = await ctx.orm.query.league.findMany({
       limit: 100,
       orderBy: { createdAt: "desc" },
-      where: { managerUserId: ctx.userId },
+      where: { organizationId },
     });
 
     return Promise.all(
@@ -111,29 +126,37 @@ export const getById = authQuery
   .input(LeagueByIdSchema)
   .output(leagueSchema)
   .query(async ({ ctx, input }) => {
-    const currentLeague = await getManagedLeagueOrThrow(
-      ctx,
-      input.leagueId as Id<"league">
-    );
+    const organizationId = await requireActiveOrganization(ctx);
+
+    const currentLeague = await getManagedLeagueOrThrow(ctx, {
+      leagueId: input.leagueId as Id<"league">,
+      organizationId,
+    });
 
     return serializeLeague(ctx, currentLeague);
   });
 
 export const generateUploadUrl = authMutation
   .output(z.string())
-  .mutation(async ({ ctx }) => ctx.storage.generateUploadUrl());
+  .mutation(async ({ ctx }) => {
+    await requireActiveOrganization(ctx);
+
+    return ctx.storage.generateUploadUrl();
+  });
 
 export const create = authMutation
   .input(CreateLeagueSchema)
   .output(leagueSchema)
   .mutation(async ({ ctx, input }) => {
+    const organizationId = await requireActiveOrganization(ctx);
+
     const now = new Date();
 
     const [createdLeague] = await ctx.orm
       .insert(league)
       .values({
         ...input,
-        managerUserId: ctx.userId,
+        organizationId,
         mode: DEFAULT_LEAGUE_MODE,
         coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,
@@ -149,10 +172,15 @@ export const update = authMutation
   .input(UpdateLeagueSchema)
   .output(leagueSchema)
   .mutation(async ({ ctx, input }) => {
+    const organizationId = await requireActiveOrganization(ctx);
+
     const now = new Date();
     const leagueId = input.leagueId as Id<"league">;
 
-    const currentLeague = await getManagedLeagueOrThrow(ctx, leagueId);
+    const currentLeague = await getManagedLeagueOrThrow(ctx, {
+      leagueId,
+      organizationId,
+    });
     const replacedStorageIds = collectReplacedLeagueStorageIds({
       next: input,
       previous: currentLeague,
@@ -169,6 +197,9 @@ export const update = authMutation
         visibility: input.visibility,
         categories: input.categories,
         courts: input.courts,
+        maxPlayers: input.maxPlayers,
+        monthlyPriceCents: input.monthlyPriceCents,
+        priceBillingInterval: input.priceBillingInterval,
         ruleConfig: input.ruleConfig,
         coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,
@@ -177,7 +208,7 @@ export const update = authMutation
       .where(
         and(
           eq(league.id, currentLeague.id),
-          eq(league.managerUserId, currentLeague.managerUserId)
+          eq(league.organizationId, currentLeague.organizationId)
         )!
       )
       .returning();
@@ -191,9 +222,14 @@ export const remove = authMutation
   .input(DeleteLeagueSchema)
   .output(z.object({ success: z.literal(true) }))
   .mutation(async ({ ctx, input }) => {
+    const organizationId = await requireActiveOrganization(ctx);
+
     const leagueId = input.leagueId as Id<"league">;
 
-    const currentLeague = await getManagedLeagueOrThrow(ctx, leagueId);
+    const currentLeague = await getManagedLeagueOrThrow(ctx, {
+      leagueId,
+      organizationId,
+    });
     const replacedStorageIds = collectReplacedLeagueStorageIds({
       next: {
         avatarStorageId: null,
@@ -207,7 +243,7 @@ export const remove = authMutation
       .where(
         and(
           eq(league.id, currentLeague.id),
-          eq(league.managerUserId, currentLeague.managerUserId)
+          eq(league.organizationId, currentLeague.organizationId)
         )!
       );
 

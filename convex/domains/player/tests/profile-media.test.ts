@@ -43,6 +43,24 @@ describe("player profile media storage", () => {
     });
   });
 
+  it("requires the backend to return a generated player identity", () => {
+    const parsedProfile = contract.playerProfileSchema.parse({
+      avatarStorageId: null,
+      avatarUrl: null,
+      fullName: "Jogador#1234",
+      gender: null,
+      nickname: "Jogador#1234",
+      phone: null,
+    });
+
+    expect(parsedProfile).toMatchObject({
+      avatarStorageId: null,
+      fullName: "Jogador#1234",
+      gender: null,
+      nickname: "Jogador#1234",
+    });
+  });
+
   it("collects previous avatar storage id when the avatar changes", () => {
     expect(
       contract.collectReplacedPlayerAvatarStorageIds?.({

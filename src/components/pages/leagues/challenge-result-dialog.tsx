@@ -219,7 +219,12 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
                       </Text>
                       <View className="flex-row items-center justify-between gap-3">
                         <View className="flex-1 items-center gap-3">
-                          <Text className="text-center" weight="semibold">
+                          <Text
+                            className="text-center"
+                            numberOfLines={1}
+                            size="xs"
+                            weight="semibold"
+                          >
                             {challengerName}
                           </Text>
                           <NumberStepper
@@ -249,7 +254,12 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
                         </Text>
 
                         <View className="flex-1 items-center gap-3">
-                          <Text className="text-center" weight="semibold">
+                          <Text
+                            className="text-center"
+                            numberOfLines={1}
+                            size="xs"
+                            weight="semibold"
+                          >
                             {challengedName}
                           </Text>
                           <NumberStepper

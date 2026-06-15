@@ -7,10 +7,16 @@ import { migration as migration_0 } from './20260504_181921_remove_player_profil
 import { migration as migration_1 } from './20260505_000001_remove_player_profile_category_and_photo_url';
 import { migration as migration_2 } from './20260509_000001_remove_player_profile_legacy_fields';
 import { migration as migration_3 } from './20260520_204606_remove_league_regulation';
+import { migration as migration_4 } from './20260615_083000_backfill_active_actor_league_fields';
+import { migration as migration_5 } from './20260615_083100_backfill_league_membership_player_profiles';
+import { migration as migration_6 } from './20260615_083200_backfill_notification_actor_recipients';
 
 export const migrations = defineMigrationSet([
   migration_0,
   migration_1,
   migration_2,
   migration_3,
+  migration_4,
+  migration_5,
+  migration_6,
 ]);

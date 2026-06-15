@@ -9,13 +9,14 @@ import {
 } from "kitcn/orm";
 
 import * as authTables from "../auth/tables";
+import * as playerTables from "../player/tables";
 
 export const league = convexTable(
   "league",
   {
-    managerUserId: id("user")
+    organizationId: id("organization")
       .notNull()
-      .references(() => authTables.user.id),
+      .references(() => authTables.organization.id, { onDelete: "cascade" }),
     name: text().notNull(),
     description: text(),
     city: text().notNull(),
@@ -24,6 +25,9 @@ export const league = convexTable(
     visibility: text().notNull(),
     categories: json<string[]>().notNull(),
     courts: json<Record<string, unknown>[]>(),
+    maxPlayers: integer(),
+    monthlyPriceCents: integer(),
+    priceBillingInterval: text(),
     mode: text().notNull(),
     ruleConfig: json<Record<string, unknown>>().notNull(),
     coverStorageId: text(),
@@ -31,7 +35,7 @@ export const league = convexTable(
     createdAt: timestamp().notNull(),
     updatedAt: timestamp().notNull(),
   },
-  (league) => [index("managerUserId").on(league.managerUserId)]
+  (league) => [index("organizationId").on(league.organizationId)]
 );
 
 export const leagueMembership = convexTable(
@@ -39,10 +43,12 @@ export const leagueMembership = convexTable(
   {
     leagueId: id("league")
       .notNull()
-      .references(() => league.id),
-    userId: id("user")
+      .references(() => league.id, { onDelete: "cascade" }),
+    playerProfileId: id("playerProfile")
       .notNull()
-      .references(() => authTables.user.id),
+      .references(() => playerTables.playerProfile.id, {
+        onDelete: "cascade",
+      }),
     status: text().notNull(),
     rankingPosition: integer(),
     reviewedAt: timestamp(),
@@ -54,15 +60,18 @@ export const leagueMembership = convexTable(
       leagueMembership.leagueId,
       leagueMembership.status
     ),
-    index("leagueId_userId").on(
+    index("leagueId_playerProfileId").on(
       leagueMembership.leagueId,
-      leagueMembership.userId
+      leagueMembership.playerProfileId
     ),
     index("leagueId_rankingPosition").on(
       leagueMembership.leagueId,
       leagueMembership.rankingPosition
     ),
-    index("userId_status").on(leagueMembership.userId, leagueMembership.status),
+    index("playerProfileId_status").on(
+      leagueMembership.playerProfileId,
+      leagueMembership.status
+    ),
   ]
 );
 
@@ -71,17 +80,18 @@ export const leagueChallenge = convexTable(
   {
     leagueId: id("league")
       .notNull()
-      .references(() => league.id),
+      .references(() => league.id, { onDelete: "cascade" }),
     challengerMembershipId: id("leagueMembership")
       .notNull()
-      .references(() => leagueMembership.id),
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     challengedMembershipId: id("leagueMembership")
       .notNull()
-      .references(() => leagueMembership.id),
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     status: text().notNull(),
     currentProposalId: text(),
     cancellationRequestedByMembershipId: id("leagueMembership").references(
-      () => leagueMembership.id
+      () => leagueMembership.id,
+      { onDelete: "set null" }
     ),
     cancellationRequestedAt: timestamp(),
     challengeValidationMode: text().notNull(),
@@ -111,6 +121,9 @@ export const leagueChallenge = convexTable(
       leagueChallenge.challengedMembershipId,
       leagueChallenge.status
     ),
+    index("cancellationRequestedByMembershipId").on(
+      leagueChallenge.cancellationRequestedByMembershipId
+    ),
   ]
 );
 
@@ -119,18 +132,19 @@ export const leagueChallengeAdminAction = convexTable(
   {
     challengeId: id("leagueChallenge")
       .notNull()
-      .references(() => leagueChallenge.id),
+      .references(() => leagueChallenge.id, { onDelete: "cascade" }),
     action: text().notNull(),
     reason: text().notNull(),
-    performedByUserId: id("user")
-      .notNull()
-      .references(() => authTables.user.id),
+    performedByUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
     fromStatus: text().notNull(),
     toStatus: text().notNull(),
     createdAt: timestamp().notNull(),
   },
   (leagueChallengeAdminAction) => [
     index("challengeId").on(leagueChallengeAdminAction.challengeId),
+    index("performedByUserId").on(leagueChallengeAdminAction.performedByUserId),
   ]
 );
 
@@ -139,10 +153,10 @@ export const leagueChallengeProposal = convexTable(
   {
     challengeId: id("leagueChallenge")
       .notNull()
-      .references(() => leagueChallenge.id),
+      .references(() => leagueChallenge.id, { onDelete: "cascade" }),
     proposedByMembershipId: id("leagueMembership")
       .notNull()
-      .references(() => leagueMembership.id),
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     courtId: text().notNull(),
     matchDate: text().notNull(),
     startMinute: integer().notNull(),
@@ -161,6 +175,9 @@ export const leagueChallengeProposal = convexTable(
       leagueChallengeProposal.courtId,
       leagueChallengeProposal.matchDate
     ),
+    index("proposedByMembershipId").on(
+      leagueChallengeProposal.proposedByMembershipId
+    ),
   ]
 );
 
@@ -169,18 +186,22 @@ export const leagueChallengeResultSubmission = convexTable(
   {
     challengeId: id("leagueChallenge")
       .notNull()
-      .references(() => leagueChallenge.id),
+      .references(() => leagueChallenge.id, { onDelete: "cascade" }),
     submittedByMembershipId: id("leagueMembership")
       .notNull()
-      .references(() => leagueMembership.id),
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     confirmedByMembershipId: id("leagueMembership").references(
-      () => leagueMembership.id
+      () => leagueMembership.id,
+      { onDelete: "set null" }
     ),
-    adminReviewedByUserId: id("user").references(() => authTables.user.id),
+    adminReviewedByUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
     reviewAction: text(),
     score: json<Record<string, unknown>>().notNull(),
     winnerMembershipId: id("leagueMembership").references(
-      () => leagueMembership.id
+      () => leagueMembership.id,
+      { onDelete: "set null" }
     ),
     submittedAt: timestamp().notNull(),
     confirmedAt: timestamp(),
@@ -190,6 +211,18 @@ export const leagueChallengeResultSubmission = convexTable(
     index("challengeId_submittedAt").on(
       leagueChallengeResultSubmission.challengeId,
       leagueChallengeResultSubmission.submittedAt
+    ),
+    index("submittedByMembershipId").on(
+      leagueChallengeResultSubmission.submittedByMembershipId
+    ),
+    index("confirmedByMembershipId").on(
+      leagueChallengeResultSubmission.confirmedByMembershipId
+    ),
+    index("adminReviewedByUserId").on(
+      leagueChallengeResultSubmission.adminReviewedByUserId
+    ),
+    index("winnerMembershipId").on(
+      leagueChallengeResultSubmission.winnerMembershipId
     ),
   ]
 );

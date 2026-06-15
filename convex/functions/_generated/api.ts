@@ -39,8 +39,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -49,8 +49,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -185,8 +185,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -195,8 +195,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -323,8 +323,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -333,8 +333,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -461,8 +461,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -471,8 +471,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -605,8 +605,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -615,8 +615,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -750,8 +750,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -760,8 +760,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -888,8 +888,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -898,8 +898,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1026,8 +1026,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1036,8 +1036,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1164,8 +1164,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1174,8 +1174,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1314,8 +1314,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1324,8 +1324,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1452,8 +1452,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1462,8 +1462,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1590,8 +1590,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1600,8 +1600,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1732,8 +1732,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1742,8 +1742,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -1880,8 +1880,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           challenger: {
             membershipId: string;
@@ -1890,8 +1890,8 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
-            userId: string;
           };
           confirmedAt?: number | null;
           createdAt: number;
@@ -2009,6 +2009,7 @@ export const api: {
         "public",
         { leagueId: string },
         {
+          activePlayerCount: number;
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2033,9 +2034,12 @@ export const api: {
           id: string;
           isManagerOwner: boolean;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2088,7 +2092,7 @@ export const api: {
             | "left"
             | "suspended"
             | null;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         }
       >;
       listAvailable: FunctionReference<
@@ -2119,9 +2123,12 @@ export const api: {
           description?: string | null;
           id: string;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2166,7 +2173,88 @@ export const api: {
           };
           state: string;
           updatedAt: number;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
+        }>
+      >;
+      listParticipating: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          categories: Array<string>;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          maxPlayers: number | null;
+          mode: "challenges";
+          monthlyPriceCents: number;
+          name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          ruleConfig: {
+            challengeValidationMode: "automatic" | "manual";
+            hasInactivityPenalty: boolean;
+            inactivityPenaltyDays?: number;
+            inactivityPenaltyType?: "drop_one_position" | "move_to_ranking_end";
+            lossBehavior: "stay_put" | "drop_one_position";
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                | "same_as_previous"
+                | "custom_set"
+                | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_ad";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakAtGamesAll: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_ad";
+              setMustWinByTwoGames: boolean;
+              tieBreakAtGamesAll: number;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
+            maxActiveChallengesPerPlayer: number;
+            maxChallengeDistance: number;
+            maxChallengesPerMonth: number;
+            newPlayerPlacement: "end_of_ranking";
+            responseDeadlineHours: number;
+            resultValidationMode: "automatic" | "manual";
+            walkoverBehavior:
+              | "automatic_loss"
+              | "automatic_loss_and_move_to_end"
+              | "cancel_challenge";
+            winBehavior: "take_opponent_position" | "climb_one_position";
+          };
+          state: string;
+          updatedAt: number;
+          visibility: "public" | "private";
         }>
       >;
     };
@@ -2194,7 +2282,10 @@ export const api: {
           coverStorageId: string | null;
           description?: string;
           locationNotes?: string;
+          maxPlayers: number | null;
+          monthlyPriceCents: number;
           name: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2238,7 +2329,7 @@ export const api: {
             winBehavior: "take_opponent_position" | "climb_one_position";
           };
           state: string;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         },
         {
           avatarStorageId: string | null;
@@ -2264,9 +2355,12 @@ export const api: {
           description?: string | null;
           id: string;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2311,7 +2405,7 @@ export const api: {
           };
           state: string;
           updatedAt: number;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         }
       >;
       generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
@@ -2343,9 +2437,12 @@ export const api: {
           description?: string | null;
           id: string;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2390,7 +2487,7 @@ export const api: {
           };
           state: string;
           updatedAt: number;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         }
       >;
       listMine: FunctionReference<
@@ -2421,9 +2518,12 @@ export const api: {
           description?: string | null;
           id: string;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2468,7 +2568,7 @@ export const api: {
           };
           state: string;
           updatedAt: number;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         }>
       >;
       remove: FunctionReference<
@@ -2501,7 +2601,10 @@ export const api: {
           description?: string;
           leagueId: string;
           locationNotes?: string;
+          maxPlayers: number | null;
+          monthlyPriceCents: number;
           name: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2545,7 +2648,7 @@ export const api: {
             winBehavior: "take_opponent_position" | "climb_one_position";
           };
           state: string;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         },
         {
           avatarStorageId: string | null;
@@ -2571,9 +2674,12 @@ export const api: {
           description?: string | null;
           id: string;
           locationNotes?: string | null;
-          managerUserId: string;
+          maxPlayers: number | null;
           mode: "challenges";
+          monthlyPriceCents: number;
           name: string;
+          organizationId: string;
+          priceBillingInterval: "week" | "month" | "quarter" | "year";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2618,7 +2724,7 @@ export const api: {
           };
           state: string;
           updatedAt: number;
-          visibility: "public" | "private" | "invite_only";
+          visibility: "public" | "private";
         }
       >;
     };
@@ -2636,6 +2742,7 @@ export const api: {
             fullName: string;
             nickname: string;
           };
+          playerProfileId: string;
           rankingPosition?: number | null;
           reviewedAt?: number | null;
           status:
@@ -2646,7 +2753,6 @@ export const api: {
             | "left"
             | "suspended";
           updatedAt: number;
-          userId: string;
         }
       >;
       getOverview: FunctionReference<
@@ -2663,6 +2769,7 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
             reviewedAt?: number | null;
             status:
@@ -2673,7 +2780,6 @@ export const api: {
               | "left"
               | "suspended";
             updatedAt: number;
-            userId: string;
           }>;
           ranking: Array<{
             createdAt: number;
@@ -2684,6 +2790,7 @@ export const api: {
               fullName: string;
               nickname: string;
             };
+            playerProfileId: string;
             rankingPosition?: number | null;
             reviewedAt?: number | null;
             status:
@@ -2694,7 +2801,6 @@ export const api: {
               | "left"
               | "suspended";
             updatedAt: number;
-            userId: string;
           }>;
         }
       >;
@@ -2711,6 +2817,7 @@ export const api: {
             fullName: string;
             nickname: string;
           };
+          playerProfileId: string;
           rankingPosition?: number | null;
           reviewedAt?: number | null;
           status:
@@ -2721,7 +2828,6 @@ export const api: {
             | "left"
             | "suspended";
           updatedAt: number;
-          userId: string;
         }
       >;
       remove: FunctionReference<
@@ -2737,6 +2843,7 @@ export const api: {
             fullName: string;
             nickname: string;
           };
+          playerProfileId: string;
           rankingPosition?: number | null;
           reviewedAt?: number | null;
           status:
@@ -2747,7 +2854,6 @@ export const api: {
             | "left"
             | "suspended";
           updatedAt: number;
-          userId: string;
         }
       >;
       reorderRanking: FunctionReference<
@@ -2769,6 +2875,7 @@ export const api: {
             fullName: string;
             nickname: string;
           };
+          playerProfileId: string;
           rankingPosition?: number | null;
           reviewedAt?: number | null;
           status:
@@ -2779,7 +2886,6 @@ export const api: {
             | "left"
             | "suspended";
           updatedAt: number;
-          userId: string;
         }
       >;
     };
@@ -2817,6 +2923,9 @@ export const api: {
           isRead: boolean;
           occurredAt: number;
           readAt: number | null;
+          recipientActorKind: "player" | "organization";
+          recipientOrganizationId: string | null;
+          recipientPlayerProfileId: string | null;
           recipientUserId: string;
           title: string;
         }>
@@ -2858,6 +2967,9 @@ export const api: {
           isRead: boolean;
           occurredAt: number;
           readAt: number | null;
+          recipientActorKind: "player" | "organization";
+          recipientOrganizationId: string | null;
+          recipientPlayerProfileId: string | null;
           recipientUserId: string;
           title: string;
         }
@@ -2942,9 +3054,9 @@ export const api: {
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           fullName: string;
-          gender: "Feminino" | "Masculino";
+          gender?: "Feminino" | "Masculino" | null;
           nickname: string;
-          phone: any;
+          phone?: string | null;
         } | null
       >;
       upsert: FunctionReference<
@@ -2955,15 +3067,100 @@ export const api: {
           fullName: string;
           gender: "Feminino" | "Masculino";
           nickname: string;
-          phone?: string;
+          phone?: string | null;
         },
         {
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           fullName: string;
-          gender: "Feminino" | "Masculino";
+          gender?: "Feminino" | "Masculino" | null;
           nickname: string;
-          phone: any;
+          phone?: string | null;
+        }
+      >;
+    };
+  };
+  viewer: {
+    context: {
+      activateOrganization: FunctionReference<
+        "mutation",
+        "public",
+        { name: string },
+        {
+          activeActor: {
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          };
+          availableActors: Array<{
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          }>;
+          capabilities: {
+            canBrowseLeagues: boolean;
+            canCreateLeague: boolean;
+            canJoinLeagues: boolean;
+            canManageLeagues: boolean;
+          };
+        }
+      >;
+      get: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          activeActor: {
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          };
+          availableActors: Array<{
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          }>;
+          capabilities: {
+            canBrowseLeagues: boolean;
+            canCreateLeague: boolean;
+            canJoinLeagues: boolean;
+            canManageLeagues: boolean;
+          };
+        }
+      >;
+      setActiveActor: FunctionReference<
+        "mutation",
+        "public",
+        { actorKind: "player" | "organization"; organizationId?: string },
+        {
+          activeActor: {
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          };
+          availableActors: Array<{
+            avatarUrl?: string | null;
+            displayName: string;
+            id: string;
+            kind: "player" | "organization";
+            role?: "owner" | "admin" | "member";
+          }>;
+          capabilities: {
+            canBrowseLeagues: boolean;
+            canCreateLeague: boolean;
+            canJoinLeagues: boolean;
+            canManageLeagues: boolean;
+          };
         }
       >;
     };

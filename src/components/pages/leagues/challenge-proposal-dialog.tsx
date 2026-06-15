@@ -4,10 +4,8 @@ import {
   Dialog,
   FieldError,
   Label,
-  ScrollShadow,
   Select,
   TextField,
-  useThemeColor,
 } from "heroui-native";
 import { Calendar, DatePicker } from "heroui-native-pro";
 import { useEffect, useMemo, useState } from "react";
@@ -15,13 +13,13 @@ import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { buildChallengeTimeOptions } from "@/lib/leagues/challenge-schedule";
 import type { ApiOutputs } from "@convex/shared/api";
 import type { LeagueCourt } from "@convex/domains/league/contract";
 import type { CalendarDate } from "@internationalized/date";
 import { getLocalTimeZone, today } from "@internationalized/date";
-import { LinearGradient } from "expo-linear-gradient";
 
 type ChallengeProposalDialogValue = {
   courtId: string;
@@ -140,7 +138,6 @@ export const ChallengeProposalDialog = (
     opponentName,
     title,
   } = props;
-  const dialogSurfaceColor = useThemeColor("surface");
   const [matchDate, setMatchDate] = useState<DatePickerOption | undefined>(
     buildDateOption(initialValue?.matchDate)
   );
@@ -434,12 +431,7 @@ export const ChallengeProposalDialog = (
                     <Select.ListLabel className="mb-2">
                       Horário
                     </Select.ListLabel>
-                    <ScrollShadow
-                      color={dialogSurfaceColor}
-                      LinearGradientComponent={LinearGradient}
-                      size={56}
-                      style={{ maxHeight: 450 }}
-                    >
+                    <ScrollShadow color="surface" style={{ maxHeight: 450 }}>
                       <ScrollView showsVerticalScrollIndicator={false}>
                         {startTimeOptions.length === 0 ? (
                           <EmptyState

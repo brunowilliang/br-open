@@ -22,6 +22,8 @@ import {
   CounterProposeLeagueChallengeSchema,
   CreateLeagueChallengeSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+  DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
+  DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
   LeagueByIdSchema,
   leagueChallengeSchema,
@@ -41,6 +43,8 @@ import {
   type LeagueChallengeResultSubmission,
   type LeagueChallengeScore,
   type LeagueCourtDay,
+  LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
+  normalizeLeagueVisibility,
 } from "../../domains/league/contract";
 import {
   leagueChallenge,
@@ -53,6 +57,10 @@ import {
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
+import {
+  getViewerContext,
+  requireActivePlayerProfile,
+} from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 type LeagueChallengeRecord = InferSelectModel<typeof leagueChallenge>;
@@ -81,7 +89,27 @@ const VIEWER_PROPOSAL_RESPONSE_STATUSES = new Set<LeagueChallengeStatus>([
 function serializeLeagueRecord(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
+    visibility: normalizeLeagueVisibility(record.visibility),
+    avatarStorageId:
+      record.avatarStorageId &&
+      !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(
+        record.avatarStorageId
+      )
+        ? record.avatarStorageId
+        : null,
+    coverStorageId:
+      record.coverStorageId &&
+      !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(
+        record.coverStorageId
+      )
+        ? record.coverStorageId
+        : null,
     courts: record.courts ?? [],
+    maxPlayers: record.maxPlayers ?? null,
+    monthlyPriceCents:
+      record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
+    priceBillingInterval:
+      record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     ruleConfig: {
       ...record.ruleConfig,
       challengeValidationMode:
@@ -153,31 +181,37 @@ async function resolvePlayerProfileAvatarUrl(
   }
 }
 
-async function getPlayerSummary(ctx: OrmCtx, userId: Id<"user">) {
-  const [user, playerProfile] = await Promise.all([
-    ctx.orm.query.user.findFirst({ where: { id: userId } }),
-    ctx.orm.query.playerProfile.findFirst({ where: { userId } }),
-  ]);
+async function getPlayerSummary(
+  ctx: OrmCtx,
+  playerProfileId: Id<"playerProfile">
+) {
+  const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: playerProfileId },
+  });
 
-  if (!user) {
+  if (!playerProfile) {
     throw new CRPCError({
       code: "NOT_FOUND",
-      message: "Usuário não encontrado.",
+      message: "Jogador não encontrado.",
     });
   }
 
-  const fullName = playerProfile?.fullName?.trim() || user.name;
+  const user = await ctx.orm.query.user.findFirst({
+    where: { id: playerProfile.userId },
+  });
+  const fullName = playerProfile.fullName?.trim() || user?.name || "Jogador";
   const nickname =
-    playerProfile?.nickname?.trim() ||
-    playerProfile?.fullName?.trim() ||
-    user.name;
+    playerProfile.nickname?.trim() ||
+    playerProfile.fullName?.trim() ||
+    user?.name ||
+    "Jogador";
   const avatarUrl = await resolvePlayerProfileAvatarUrl(
     ctx,
-    playerProfile?.avatarStorageId
+    playerProfile.avatarStorageId
   );
 
   return leagueMembershipPlayerSchema.parse({
-    avatarUrl: avatarUrl ?? user.image ?? null,
+    avatarUrl: avatarUrl ?? user?.image ?? null,
     fullName,
     nickname,
   });
@@ -189,9 +223,12 @@ async function serializeParticipant(
 ) {
   return {
     membershipId: membership.id as Id<"leagueMembership">,
-    userId: membership.userId,
+    playerProfileId: membership.playerProfileId,
     rankingPosition: membership.rankingPosition ?? null,
-    player: await getPlayerSummary(ctx, membership.userId),
+    player: await getPlayerSummary(
+      ctx,
+      membership.playerProfileId as Id<"playerProfile">
+    ),
   };
 }
 
@@ -208,6 +245,30 @@ async function getLeagueRecordOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
   }
 
   return serializeLeagueRecord(currentLeague);
+}
+
+async function canManageLeague(ctx: OrmCtx, currentLeague: League) {
+  const viewerContext = await getViewerContext(ctx, ctx.userId);
+
+  return (
+    viewerContext.activeActor.kind === "organization" &&
+    viewerContext.activeActor.id === currentLeague.organizationId
+  );
+}
+
+async function assertCanManageLeague(
+  ctx: OrmCtx,
+  currentLeague: League,
+  message: string
+) {
+  if (await canManageLeague(ctx, currentLeague)) {
+    return;
+  }
+
+  throw new CRPCError({
+    code: "FORBIDDEN",
+    message,
+  });
 }
 
 async function getChallengeRecordOrThrow(
@@ -246,18 +307,24 @@ async function getMembershipRecordByIdOrThrow(
   return currentMembership;
 }
 
-function getActiveMembershipForUser(
+function getActiveMembershipForPlayerProfile(
   ctx: OrmCtx,
   leagueId: Id<"league">,
-  userId: Id<"user">
+  playerProfileId: Id<"playerProfile">
 ) {
   return ctx.orm.query.leagueMembership.findFirst({
     where: {
       leagueId,
+      playerProfileId,
       status: "active",
-      userId,
     },
   });
+}
+
+async function getActiveViewerMembership(ctx: OrmCtx, leagueId: Id<"league">) {
+  const playerProfileId = await requireActivePlayerProfile(ctx);
+
+  return getActiveMembershipForPlayerProfile(ctx, leagueId, playerProfileId);
 }
 
 async function getActiveMembershipByIdOrThrow(
@@ -285,10 +352,16 @@ async function getActiveMembershipByIdOrThrow(
 
 async function getViewerContextOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
   const currentLeague = await getLeagueRecordOrThrow(ctx, leagueId);
-  const isManagerOwner = currentLeague.managerUserId === ctx.userId;
-  const activeMembership = isManagerOwner
-    ? null
-    : await getActiveMembershipForUser(ctx, leagueId, ctx.userId);
+  const isManagerOwner = await canManageLeague(ctx, currentLeague);
+  const viewerContext = await getViewerContext(ctx, ctx.userId);
+  const activeMembership =
+    isManagerOwner || viewerContext.activeActor.kind !== "player"
+      ? null
+      : await getActiveMembershipForPlayerProfile(
+          ctx,
+          leagueId,
+          viewerContext.activeActor.id as Id<"playerProfile">
+        );
 
   if (!(isManagerOwner || activeMembership)) {
     throw new CRPCError({
@@ -940,6 +1013,18 @@ async function scheduleChallengeNotification(input: {
       getMembershipRecordByIdOrThrow(input.ctx, membershipId)
     )
   );
+  const recipientUserIds = await Promise.all(
+    memberships.map(async (membership) => {
+      const currentPlayerProfile =
+        await input.ctx.orm.query.playerProfile.findFirst({
+          where: {
+            id: membership.playerProfileId as Id<"playerProfile">,
+          },
+        });
+
+      return currentPlayerProfile?.userId as Id<"user"> | undefined;
+    })
+  );
 
   await scheduleLeagueNotification(input.ctx, {
     actorUserId: input.actorUserId,
@@ -949,7 +1034,9 @@ async function scheduleChallengeNotification(input: {
       challengeId: input.challenge.id,
       ...input.metadata,
     },
-    recipientUserIds: memberships.map((membership) => membership.userId),
+    recipientUserIds: recipientUserIds.filter((userId): userId is Id<"user"> =>
+      Boolean(userId)
+    ),
   });
 }
 
@@ -1064,11 +1151,7 @@ export const create = authMutation
     const now = new Date();
     const leagueId = input.leagueId as Id<"league">;
     const currentLeague = await getLeagueRecordOrThrow(ctx, leagueId);
-    const challengerMembership = await getActiveMembershipForUser(
-      ctx,
-      leagueId,
-      ctx.userId
-    );
+    const challengerMembership = await getActiveViewerMembership(ctx, leagueId);
 
     if (!challengerMembership) {
       throw new CRPCError({
@@ -1193,10 +1276,9 @@ export const acceptProposal = authMutation
       ctx,
       syncedChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      syncedChallenge.leagueId as Id<"league">,
-      ctx.userId
+      syncedChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1280,10 +1362,9 @@ export const declineProposal = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      currentChallenge.leagueId as Id<"league">,
-      ctx.userId
+      currentChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1367,10 +1448,9 @@ export const counterPropose = authMutation
       ctx,
       syncedChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      syncedChallenge.leagueId as Id<"league">,
-      ctx.userId
+      syncedChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1485,13 +1565,12 @@ export const cancel = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const isManagerOwner = currentLeague.managerUserId === ctx.userId;
+    const isManagerOwner = await canManageLeague(ctx, currentLeague);
     const viewerMembership = isManagerOwner
       ? null
-      : await getActiveMembershipForUser(
+      : await getActiveViewerMembership(
           ctx,
-          currentChallenge.leagueId as Id<"league">,
-          ctx.userId
+          currentChallenge.leagueId as Id<"league">
         );
 
     assertParticipantAccess({
@@ -1599,10 +1678,9 @@ export const requestCancellation = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      currentChallenge.leagueId as Id<"league">,
-      ctx.userId
+      currentChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1685,10 +1763,9 @@ export const respondCancellationRequest = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      currentChallenge.leagueId as Id<"league">,
-      ctx.userId
+      currentChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1819,10 +1896,9 @@ export const submitResult = authMutation
       ctx,
       syncedChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      syncedChallenge.leagueId as Id<"league">,
-      ctx.userId
+      syncedChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -1919,10 +1995,9 @@ export const confirmResult = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const viewerMembership = await getActiveMembershipForUser(
+    const viewerMembership = await getActiveViewerMembership(
       ctx,
-      currentChallenge.leagueId as Id<"league">,
-      ctx.userId
+      currentChallenge.leagueId as Id<"league">
     );
 
     if (!viewerMembership) {
@@ -2036,12 +2111,11 @@ export const reviewChallenge = authMutation
       currentChallenge.leagueId as Id<"league">
     );
 
-    if (currentLeague.managerUserId !== ctx.userId) {
-      throw new CRPCError({
-        code: "FORBIDDEN",
-        message: "Só o admin da liga pode validar esse desafio.",
-      });
-    }
+    await assertCanManageLeague(
+      ctx,
+      currentLeague,
+      "Só o admin da liga pode validar esse desafio."
+    );
 
     if (currentChallenge.status !== "pending_admin_challenge_validation") {
       throw new CRPCError({
@@ -2115,12 +2189,11 @@ export const reviewResult = authMutation
       currentChallenge.leagueId as Id<"league">
     );
 
-    if (currentLeague.managerUserId !== ctx.userId) {
-      throw new CRPCError({
-        code: "FORBIDDEN",
-        message: "Só o admin da liga pode validar resultados.",
-      });
-    }
+    await assertCanManageLeague(
+      ctx,
+      currentLeague,
+      "Só o admin da liga pode validar resultados."
+    );
 
     const latestResultSubmission = await getLatestResultSubmission(
       ctx,
@@ -2299,12 +2372,11 @@ export const adminManage = authMutation
       currentChallenge.leagueId as Id<"league">
     );
 
-    if (currentLeague.managerUserId !== ctx.userId) {
-      throw new CRPCError({
-        code: "FORBIDDEN",
-        message: "Só o admin da liga pode executar essa ação.",
-      });
-    }
+    await assertCanManageLeague(
+      ctx,
+      currentLeague,
+      "Só o admin da liga pode executar essa ação."
+    );
 
     const currentStatus = currentChallenge.status as LeagueChallengeStatus;
     const reason = input.reason.trim();

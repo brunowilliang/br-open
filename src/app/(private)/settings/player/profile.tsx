@@ -7,7 +7,6 @@ import {
   Label,
   PressableFeedback,
   Select,
-  Tabs,
   TextField,
   useToast,
 } from "heroui-native";
@@ -27,9 +26,9 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   cropImage,
   type CroppedImage,
-  ImageCropper,
   type ImageCropArea,
   type ImageCropAsset,
+  ImageCropper,
   pickImageCropAsset,
 } from "@/lib/uploads/image-crop";
 import {
@@ -79,7 +78,7 @@ const PlayerProfileFormSchema = z
     fullName: playerProfileSchema.shape.fullName,
     gender: playerProfileSchema.shape.gender.optional(),
     nickname: playerProfileSchema.shape.nickname,
-    phone: z.string().optional(),
+    phone: z.string().nullable().optional(),
   })
   .pipe(upsertPlayerProfileSchema);
 
@@ -232,7 +231,6 @@ export default function PlayerProfile() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const playerProfile = useQuery(crpc.player.profile.get.queryOptions());
-  const [activeTab, setActiveTab] = useState("geral");
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [cropAsset, setCropAsset] = useState<ImageCropAsset | null>(null);
   const [isAvatarProcessing, setIsAvatarProcessing] = useState(false);
@@ -467,7 +465,10 @@ export default function PlayerProfile() {
         </Page.Header>
 
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-          <ErrorState message={playerProfile.error.message} />
+          <ErrorState
+            error={playerProfile.error}
+            message="Não foi possível carregar o perfil."
+          />
         </Page.ScrollView>
       </Page>
     );
@@ -485,7 +486,7 @@ export default function PlayerProfile() {
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>
-        <Page.KeyboardAwareScrollView contentContainerClassName="items-center gap-6">
+        <Page.KeyboardAwareScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
           <PressableFeedback
             className="rounded-full"
             isDisabled={isSubmitPending}
@@ -506,133 +507,135 @@ export default function PlayerProfile() {
             <PressableFeedback.Highlight />
           </PressableFeedback>
           <Text className="text-xl">{displayName}</Text>
+          <Controller
+            control={form.control}
+            name="fullName"
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>Nome completo</Label>
+                <Input
+                  autoCapitalize="words"
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="Seu nome completo"
+                  textContentType="name"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-          <Tabs onValueChange={setActiveTab} value={activeTab}>
-            <Tabs.List className="self-center">
-              <Tabs.Indicator />
-              <Tabs.Trigger value="geral">
-                <Tabs.Label>Geral</Tabs.Label>
-              </Tabs.Trigger>
-              <Tabs.Trigger value="informacao">
-                <Tabs.Label>Acesso</Tabs.Label>
-              </Tabs.Trigger>
-            </Tabs.List>
+          <Controller
+            control={form.control}
+            name="nickname"
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>Apelido</Label>
+                <Input
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="Seu apelido"
+                  textContentType="nickname"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-            <Tabs.Content className="min-w-full gap-4 px-4" value="geral">
-              <Controller
-                control={form.control}
-                name="fullName"
-                render={({ field, fieldState }) => (
-                  <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-                    <Label>Nome completo</Label>
-                    <Input
-                      autoCapitalize="words"
-                      editable={!isSubmitPending}
-                      onBlur={field.onBlur}
-                      onChangeText={field.onChange}
-                      placeholder="Seu nome completo"
-                      textContentType="name"
-                      value={field.value ?? ""}
-                    />
-                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </TextField>
-                )}
-              />
+          <Controller
+            control={form.control}
+            name="gender"
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>Gênero</Label>
 
-              <Controller
-                control={form.control}
-                name="nickname"
-                render={({ field, fieldState }) => (
-                  <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-                    <Label>Apelido</Label>
-                    <Input
-                      editable={!isSubmitPending}
-                      onBlur={field.onBlur}
-                      onChangeText={field.onChange}
-                      placeholder="Seu apelido"
-                      textContentType="nickname"
-                      value={field.value ?? ""}
-                    />
-                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </TextField>
-                )}
-              />
-
-              <Controller
-                control={form.control}
-                name="gender"
-                render={({ field, fieldState }) => (
-                  <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-                    <Label>Gênero</Label>
-
-                    <Select
-                      isDisabled={isSubmitPending}
-                      onValueChange={(nextValue) => {
-                        if (nextValue && !Array.isArray(nextValue)) {
-                          field.onChange(nextValue.value);
+                <Select
+                  isDisabled={isSubmitPending}
+                  onValueChange={(nextValue) => {
+                    if (nextValue && !Array.isArray(nextValue)) {
+                      form.setValue(
+                        "gender",
+                        nextValue.value as PlayerProfileFormValues["gender"],
+                        {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
                         }
-                      }}
-                      selectionMode="single"
-                      value={genderOptions.find(
-                        (option) => option.value === field.value
-                      )}
-                    >
-                      <Select.Trigger>
-                        <Select.Value
-                          className="font-normal"
-                          numberOfLines={1}
-                          placeholder="Escolha uma opção"
-                        />
-                        <Select.TriggerIndicator />
-                      </Select.Trigger>
-                      <Select.Portal>
-                        <Select.Overlay />
-                        <Select.Content presentation="popover" width="trigger">
-                          <Select.ListLabel className="mb-2">
-                            Escolha uma opção
-                          </Select.ListLabel>
-                          {genderOptions.map((option) => (
-                            <SelectOptionItem
-                              key={option.value}
-                              label={option.label}
-                              value={option.value}
-                            />
-                          ))}
-                        </Select.Content>
-                      </Select.Portal>
-                    </Select>
-                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </TextField>
-                )}
-              />
-
-              <Controller
-                control={form.control}
-                name="phone"
-                render={({ field, fieldState }) => (
-                  <TextField isInvalid={Boolean(fieldState.error)}>
-                    <Label>Telefone/WhatsApp</Label>
-                    <Input
-                      editable={!isSubmitPending}
-                      onBlur={field.onBlur}
-                      onChangeText={field.onChange}
-                      onSubmitEditing={handleSubmitPress}
-                      placeholder="(00) 00000-0000"
-                      textContentType="telephoneNumber"
-                      value={field.value ?? ""}
+                      );
+                    }
+                  }}
+                  selectionMode="single"
+                  value={genderOptions.find(
+                    (option) => option.value === field.value
+                  )}
+                >
+                  <Select.Trigger>
+                    <Select.Value
+                      className="font-normal"
+                      numberOfLines={1}
+                      placeholder="Escolha uma opção"
                     />
-                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </TextField>
-                )}
-              />
-            </Tabs.Content>
-            <Tabs.Content
-              className="centered min-w-full px-4"
-              value="informacao"
-            >
-              <Text>ainda nao implementado</Text>
-            </Tabs.Content>
-          </Tabs>
+                    <Select.TriggerIndicator />
+                  </Select.Trigger>
+                  <Select.Portal>
+                    <Select.Overlay />
+                    <Select.Content presentation="popover" width="trigger">
+                      <Select.ListLabel className="mb-2">
+                        Escolha uma opção
+                      </Select.ListLabel>
+                      {genderOptions.map((option) => (
+                        <SelectOptionItem
+                          key={option.value}
+                          label={option.label}
+                          value={option.value}
+                        />
+                      ))}
+                    </Select.Content>
+                  </Select.Portal>
+                </Select>
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="phone"
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+              >
+                <Label>Telefone/WhatsApp</Label>
+                <Input
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  onSubmitEditing={handleSubmitPress}
+                  placeholder="(00) 00000-0000"
+                  textContentType="telephoneNumber"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
         </Page.KeyboardAwareScrollView>
         <Page.Footer>
           <Button

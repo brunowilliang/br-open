@@ -15,11 +15,53 @@ import {
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../generated/server";
+import { getViewerContext } from "../viewer/context";
 
 function getPreference(ctx: AuthenticatedCtx<QueryCtx | MutationCtx>) {
   return ctx.orm.query.notificationPreference.findFirst({
     where: { userId: ctx.userId },
   });
+}
+
+function isNotificationForActiveActor(
+  notification: {
+    recipientActorKind?: string;
+    recipientOrganizationId?: Id<"organization"> | null;
+    recipientPlayerProfileId?: Id<"playerProfile"> | null;
+  },
+  activeActor: {
+    id: string;
+    kind: "organization" | "player";
+  }
+) {
+  if (notification.recipientActorKind !== activeActor.kind) {
+    return false;
+  }
+
+  if (activeActor.kind === "organization") {
+    return notification.recipientOrganizationId === activeActor.id;
+  }
+
+  return notification.recipientPlayerProfileId === activeActor.id;
+}
+
+async function getActiveActorUnreadCount(
+  ctx: AuthenticatedCtx<QueryCtx | MutationCtx>
+) {
+  const viewerContext = await getViewerContext(ctx, ctx.userId);
+  const unreadNotifications = await ctx.db
+    .query("notificationFeed")
+    .withIndex("recipientUserId_actorKind_isRead", (q) =>
+      q
+        .eq("recipientUserId", ctx.userId)
+        .eq("recipientActorKind", viewerContext.activeActor.kind)
+        .eq("isRead", false)
+    )
+    .collect();
+
+  return unreadNotifications.filter((notification) =>
+    isNotificationForActiveActor(notification, viewerContext.activeActor)
+  ).length;
 }
 
 async function upsertPreference(
@@ -52,18 +94,13 @@ export const status = authQuery
   .input(z.object({}))
   .output(notificationStatusSchema)
   .query(async ({ ctx }) => {
-    const [preference, devices, unreadNotifications] = await Promise.all([
+    const [preference, devices, unreadCount] = await Promise.all([
       getPreference(ctx),
       ctx.orm.query.notificationDevice.findMany({
         limit: 100,
         where: { userId: ctx.userId },
       }),
-      ctx.db
-        .query("notificationFeed")
-        .withIndex("recipientUserId_isRead", (q) =>
-          q.eq("recipientUserId", ctx.userId).eq("isRead", false)
-        )
-        .collect(),
+      getActiveActorUnreadCount(ctx),
     ]);
     const activeDevices = devices.filter((device) => !device.disabledAt);
     const permissionStatus = NotificationPermissionStatusSchema.parse(
@@ -84,7 +121,7 @@ export const status = authQuery
       permissionStatus,
       pushEnabled: preference?.pushEnabled ?? false,
       readinessReason: readiness.reason,
-      unreadCount: unreadNotifications.length,
+      unreadCount,
     });
   });
 
@@ -97,17 +134,12 @@ export const setPreference = authMutation
       userId: ctx.userId,
     });
 
-    const [devices, unreadNotifications] = await Promise.all([
+    const [devices, unreadCount] = await Promise.all([
       ctx.orm.query.notificationDevice.findMany({
         limit: 100,
         where: { userId: ctx.userId },
       }),
-      ctx.db
-        .query("notificationFeed")
-        .withIndex("recipientUserId_isRead", (q) =>
-          q.eq("recipientUserId", ctx.userId).eq("isRead", false)
-        )
-        .collect(),
+      getActiveActorUnreadCount(ctx),
     ]);
     const activeDevices = devices.filter((device) => !device.disabledAt);
     const permissionStatus = NotificationPermissionStatusSchema.parse(
@@ -128,7 +160,7 @@ export const setPreference = authMutation
       permissionStatus,
       pushEnabled: input.pushEnabled,
       readinessReason: readiness.reason,
-      unreadCount: unreadNotifications.length,
+      unreadCount,
     });
   });
 
@@ -176,12 +208,7 @@ export const upsertDevice = authMutation
       permissionStatus: input.permissionStatus,
       pushEnabled: preference?.pushEnabled ?? false,
     });
-    const unreadNotifications = await ctx.db
-      .query("notificationFeed")
-      .withIndex("recipientUserId_isRead", (q) =>
-        q.eq("recipientUserId", ctx.userId).eq("isRead", false)
-      )
-      .collect();
+    const unreadCount = await getActiveActorUnreadCount(ctx);
 
     return notificationStatusSchema.parse({
       canReceivePush: readiness.canReceivePush,
@@ -189,6 +216,6 @@ export const upsertDevice = authMutation
       permissionStatus: input.permissionStatus,
       pushEnabled: preference?.pushEnabled ?? false,
       readinessReason: readiness.reason,
-      unreadCount: unreadNotifications.length,
+      unreadCount,
     });
   });

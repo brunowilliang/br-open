@@ -12,6 +12,7 @@ import {
   LeagueSchema,
   type LeagueScreenValues,
 } from "@/components/pages/leagues/form-schema";
+import { resolveLeagueFormInvalidSubmission } from "@/components/pages/leagues/form-validation";
 import { Location } from "@/components/pages/leagues/location";
 import { Rules } from "@/components/pages/leagues/rules";
 import { Settings } from "@/components/pages/leagues/settings";
@@ -274,23 +275,36 @@ export function LeagueScreen(props: LeagueScreenProps) {
     ? buildLeagueMediaCropConfig(cropRequest.kind)
     : null;
 
-  const submitForm = form.handleSubmit(async (input) => {
-    let inputWithUploadedMedia: LeagueScreenValues;
+  const submitForm = form.handleSubmit(
+    async (input) => {
+      let inputWithUploadedMedia: LeagueScreenValues;
 
-    try {
-      inputWithUploadedMedia = await uploadPendingMedia(input);
-    } catch (error) {
+      try {
+        inputWithUploadedMedia = await uploadPendingMedia(input);
+      } catch (error) {
+        toast.show({
+          description: formatLeagueMediaUploadError(error),
+          id: "league-media-submit-upload-error",
+          label: "Erro no upload",
+          variant: "danger",
+        });
+        return;
+      }
+
+      await onSubmit(inputWithUploadedMedia);
+    },
+    (errors) => {
+      const invalidSubmission = resolveLeagueFormInvalidSubmission(errors);
+
+      setActiveTab(invalidSubmission.tab);
       toast.show({
-        description: formatLeagueMediaUploadError(error),
-        id: "league-media-submit-upload-error",
-        label: "Erro no upload",
+        description: invalidSubmission.description,
+        id: `league-form-validation-${invalidSubmission.tab}`,
+        label: invalidSubmission.label,
         variant: "danger",
       });
-      return;
     }
-
-    await onSubmit(inputWithUploadedMedia);
-  });
+  );
 
   function handleSubmitPress() {
     submitForm().catch(() => undefined);

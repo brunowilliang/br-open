@@ -36,7 +36,13 @@ const MenuOptions = () => (
 
 export default function SettingsLeaguesIndex() {
   const crpc = useCRPC();
-  const leagues = useQuery(crpc.league.management.listMine.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const canManageLeagues =
+    viewerContext.data?.capabilities?.canManageLeagues ?? false;
+  const leagues = useQuery({
+    ...crpc.league.management.listMine.queryOptions(),
+    enabled: canManageLeagues,
+  });
   const hasLeagues = Boolean(leagues.data?.length);
 
   const items = hasLeagues
@@ -53,12 +59,41 @@ export default function SettingsLeaguesIndex() {
     : [];
 
   function renderListEmptyComponent() {
+    if (viewerContext.isPending) {
+      return <LoadingState />;
+    }
+
+    if (viewerContext.isError) {
+      return (
+        <ErrorState
+          error={viewerContext.error}
+          message="Não foi possível carregar seu modo de acesso."
+        />
+      );
+    }
+
+    if (!canManageLeagues) {
+      return (
+        <EmptyState
+          buttonLabel="Voltar"
+          buttonOnPress={() => router.back()}
+          description="Você está usando o app como jogador. Entre como organizador para criar e administrar ligas."
+          title="Modo jogador"
+        />
+      );
+    }
+
     if (leagues.isPending) {
       return <LoadingState />;
     }
 
     if (leagues.isError) {
-      return <ErrorState message={leagues.error.message} />;
+      return (
+        <ErrorState
+          error={leagues.error}
+          message="Não foi possível carregar suas ligas."
+        />
+      );
     }
 
     return (
@@ -81,7 +116,7 @@ export default function SettingsLeaguesIndex() {
           <Page.Header.Title>Minhas Ligas</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
-          <MenuOptions />
+          {canManageLeagues ? <MenuOptions /> : null}
         </Page.Header.Right>
       </Page.Header>
 

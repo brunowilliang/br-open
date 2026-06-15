@@ -33,10 +33,6 @@ export const defineAuthRelations = (r: RelationsBuilder<typeof tables>) => ({
       from: r.user.id,
       to: r.invitation.inviterId,
     }),
-    managedLeagues: r.many.league({
-      from: r.user.id,
-      to: r.league.managerUserId,
-    }),
     notificationDevices: r.many.notificationDevice({
       from: r.user.id,
       to: r.notificationDevice.userId,
@@ -71,6 +67,12 @@ export const defineAuthRelations = (r: RelationsBuilder<typeof tables>) => ({
       to: r.user.id,
     }),
   },
+  userPreference: {
+    user: r.one.user({
+      from: r.userPreference.userId,
+      to: r.user.id,
+    }),
+  },
   organization: {
     usersAsLastActiveOrganization: r.many.user({
       from: r.organization.id,
@@ -97,6 +99,10 @@ export const defineAuthRelations = (r: RelationsBuilder<typeof tables>) => ({
     invitations: r.many.invitation({
       from: r.organization.id,
       to: r.invitation.organizationId,
+    }),
+    managedLeagues: r.many.league({
+      from: r.organization.id,
+      to: r.league.organizationId,
     }),
   },
   member: {

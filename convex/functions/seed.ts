@@ -17,7 +17,9 @@ import {
 } from "../domains/seed/data";
 import * as leagueTables from "../domains/league/tables";
 import {
+  DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_MODE,
+  DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_STORAGE,
 } from "../domains/league/contract";
 import * as playerTables from "../domains/player/tables";
@@ -36,7 +38,7 @@ type SeedLeagueTemplate = {
   description: string;
   name: string;
   state: string;
-  visibility: "invite_only" | "private" | "public";
+  visibility: "private" | "public";
 };
 
 function buildSeedEmail(localPart: string) {
@@ -123,6 +125,11 @@ async function resetSeedData(ctx: SeedCtx) {
 
   const seedLeagueIds = new Set(seedLeagues.map((league) => league.id));
   const seedUserIds = new Set(seedUsers.map((user) => user.id));
+  const seedPlayerProfileIds = new Set(
+    playerProfiles
+      .filter((profile) => seedUserIds.has(profile.userId))
+      .map((profile) => profile.id)
+  );
 
   await deleteByIds(
     ctx,
@@ -131,7 +138,7 @@ async function resetSeedData(ctx: SeedCtx) {
       .filter(
         (membership) =>
           seedLeagueIds.has(membership.leagueId) ||
-          seedUserIds.has(membership.userId)
+          seedPlayerProfileIds.has(membership.playerProfileId)
       )
       .map((membership) => membership.id)
   );
@@ -155,6 +162,62 @@ async function resetSeedData(ctx: SeedCtx) {
     "user",
     seedUsers.map((user) => user.id)
   );
+}
+
+async function ensureSeedOrganization(ctx: SeedCtx, userId: Id<"user">) {
+  const user = await ctx.orm.query.user.findFirst({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("Usuario gestor nao encontrado.");
+  }
+
+  const slug = `seed-org-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  const existingOrganization = await ctx.orm.query.organization.findFirst({
+    where: { slug },
+  });
+
+  if (existingOrganization) {
+    const existingMember = await ctx.orm.query.member.findFirst({
+      where: {
+        organizationId: existingOrganization.id as Id<"organization">,
+        userId,
+      },
+    });
+
+    if (!existingMember) {
+      await ctx.orm.insert(authTables.member).values({
+        createdAt: new Date(),
+        organizationId: existingOrganization.id as Id<"organization">,
+        role: "owner",
+        userId,
+      });
+    }
+
+    return existingOrganization;
+  }
+
+  const now = new Date();
+  const [createdOrganization] = await ctx.orm
+    .insert(authTables.organization)
+    .values({
+      createdAt: now,
+      metadata: { seed: true },
+      name: `Organizacao ${user.name}`,
+      slug,
+      updatedAt: now,
+    })
+    .returning();
+
+  await ctx.orm.insert(authTables.member).values({
+    createdAt: now,
+    organizationId: createdOrganization.id as Id<"organization">,
+    role: "owner",
+    userId,
+  });
+
+  return createdOrganization;
 }
 
 async function ensureSeedUser(
@@ -218,14 +281,14 @@ async function ensureSeedPlayerProfile(
 
 async function ensureLeague(
   ctx: SeedCtx,
-  managerUserId: Id<"user">,
+  organizationId: Id<"organization">,
   template: SeedLeagueTemplate
 ) {
   const expectedName = buildSeedLeagueName(template.name);
   const managedLeagues = await ctx.orm.query.league.findMany({
     limit: 100,
     orderBy: { createdAt: "asc" },
-    where: { managerUserId },
+    where: { organizationId },
   });
 
   const existingLeague = managedLeagues.find(
@@ -247,9 +310,12 @@ async function ensureLeague(
       createdAt: now,
       description: template.description,
       locationNotes: "",
-      managerUserId,
+      maxPlayers: null,
       mode: DEFAULT_LEAGUE_MODE,
+      monthlyPriceCents: DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
       name: expectedName,
+      organizationId,
+      priceBillingInterval: DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
       ruleConfig: defaultSeedRuleConfig,
       state: template.state,
       updatedAt: now,
@@ -269,10 +335,18 @@ async function ensureMembership(
     userId: Id<"user">;
   }
 ) {
+  const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+    where: { userId: input.userId },
+  });
+
+  if (!playerProfile) {
+    throw new Error("Perfil de jogador seed nao encontrado.");
+  }
+
   const existingMembership = await ctx.orm.query.leagueMembership.findFirst({
     where: {
       leagueId: input.leagueId,
-      userId: input.userId,
+      playerProfileId: playerProfile.id as Id<"playerProfile">,
     },
   });
 
@@ -286,11 +360,11 @@ async function ensureMembership(
     .values({
       createdAt: now,
       leagueId: input.leagueId,
+      playerProfileId: playerProfile.id as Id<"playerProfile">,
       rankingPosition: input.rankingPosition ?? null,
       reviewedAt: input.status === "pending" ? null : now,
       status: input.status,
       updatedAt: now,
-      userId: input.userId,
     })
     .returning();
 
@@ -517,13 +591,18 @@ async function seedLeagueScenarios(
   const leagues: LeagueRecord[] = [];
 
   for (const [index, template] of seedLeagueTemplates.entries()) {
-    const managerUserId = userIds[index];
+    const ownerUserId = userIds[index];
 
-    if (!managerUserId) {
+    if (!ownerUserId) {
       continue;
     }
 
-    const result = await ensureLeague(ctx, managerUserId, template);
+    const organization = await ensureSeedOrganization(ctx, ownerUserId);
+    const result = await ensureLeague(
+      ctx,
+      organization.id as Id<"organization">,
+      template
+    );
 
     if (result.created) {
       leaguesCreated += 1;
@@ -567,14 +646,22 @@ async function seedLeagueScenarios(
   }
 
   if (primaryUserId) {
-    const primaryLeague = await ensureLeague(ctx, primaryUserId, {
-      categories: ["Todas", "A", "B"],
-      city: "São Paulo",
-      description: "Liga seedada para testar gestão como administrador.",
-      name: "Minha Liga de Teste",
-      state: "SP",
-      visibility: "public",
-    });
+    const primaryOrganization = await ensureSeedOrganization(
+      ctx,
+      primaryUserId
+    );
+    const primaryLeague = await ensureLeague(
+      ctx,
+      primaryOrganization.id as Id<"organization">,
+      {
+        categories: ["Todas", "A", "B"],
+        city: "São Paulo",
+        description: "Liga seedada para testar gestão como administrador.",
+        name: "Minha Liga de Teste",
+        state: "SP",
+        visibility: "public",
+      }
+    );
 
     if (primaryLeague.created) {
       leaguesCreated += 1;

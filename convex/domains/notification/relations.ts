@@ -34,6 +34,14 @@ export const defineNotificationRelations = (
       from: r.notificationFeed.recipientUserId,
       to: r.user.id,
     }),
+    recipientOrganization: r.one.organization({
+      from: r.notificationFeed.recipientOrganizationId,
+      to: r.organization.id,
+    }),
+    recipientPlayerProfile: r.one.playerProfile({
+      from: r.notificationFeed.recipientPlayerProfileId,
+      to: r.playerProfile.id,
+    }),
   },
   notificationDelivery: {
     device: r.one.notificationDevice({

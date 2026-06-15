@@ -7,11 +7,11 @@ const ADMIN_PENDING_STATUSES = new Set([
 export type ChallengeTabCountItem = {
   challenged: {
     membershipId?: string | null;
-    userId?: string | null;
+    playerProfileId?: string | null;
   };
   challenger: {
     membershipId?: string | null;
-    userId?: string | null;
+    playerProfileId?: string | null;
   };
   cancellationRequestedByMembershipId?: string | null;
   latestResultSubmission?: {
@@ -22,28 +22,28 @@ export type ChallengeTabCountItem = {
 
 function isViewerParticipant(
   challenge: ChallengeTabCountItem,
-  viewerUserId?: string | null
+  viewerPlayerProfileId?: string | null
 ) {
   return (
-    challenge.challenger.userId === viewerUserId ||
-    challenge.challenged.userId === viewerUserId
+    challenge.challenger.playerProfileId === viewerPlayerProfileId ||
+    challenge.challenged.playerProfileId === viewerPlayerProfileId
   );
 }
 
 function isPlayerActionRequired(
   challenge: ChallengeTabCountItem,
-  viewerUserId?: string | null
+  viewerPlayerProfileId?: string | null
 ) {
-  if (!isViewerParticipant(challenge, viewerUserId)) {
+  if (!isViewerParticipant(challenge, viewerPlayerProfileId)) {
     return false;
   }
 
   if (challenge.status === "pending_opponent_response") {
-    return challenge.challenged.userId === viewerUserId;
+    return challenge.challenged.playerProfileId === viewerPlayerProfileId;
   }
 
   if (challenge.status === "pending_creator_reapproval") {
-    return challenge.challenger.userId === viewerUserId;
+    return challenge.challenger.playerProfileId === viewerPlayerProfileId;
   }
 
   if (challenge.status === "pending_cancellation_acceptance") {
@@ -55,10 +55,10 @@ function isPlayerActionRequired(
       challenge.cancellationRequestedByMembershipId ===
       challenge.challenger.membershipId
     ) {
-      return challenge.challenged.userId === viewerUserId;
+      return challenge.challenged.playerProfileId === viewerPlayerProfileId;
     }
 
-    return challenge.challenger.userId === viewerUserId;
+    return challenge.challenger.playerProfileId === viewerPlayerProfileId;
   }
 
   return [
@@ -72,7 +72,7 @@ function isPlayerActionRequired(
 export function buildChallengeTabCounts(input: {
   canManage?: boolean;
   challenges: ChallengeTabCountItem[];
-  viewerUserId?: string | null;
+  viewerPlayerProfileId?: string | null;
 }) {
   if (input.canManage) {
     const pending = input.challenges.filter((challenge) =>
@@ -91,7 +91,7 @@ export function buildChallengeTabCounts(input: {
   }
 
   const active = input.challenges.filter((challenge) =>
-    isPlayerActionRequired(challenge, input.viewerUserId)
+    isPlayerActionRequired(challenge, input.viewerPlayerProfileId)
   ).length;
 
   return {

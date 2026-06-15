@@ -8,7 +8,7 @@ import { cn, withSlots } from "better-styled";
 import { router } from "expo-router";
 import { Button } from "heroui-native";
 import type { ComponentProps } from "react";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ScrollView as RNScrollView, View } from "react-native";
 import {
   type KeyboardAwareScrollViewProps,
@@ -62,12 +62,19 @@ const PageRoot = (props: PageRootProps) => {
 type PageHeaderProps = ComponentProps<typeof Header>;
 
 const PageHeader = (props: PageHeaderProps) => {
-  const ctx = useContext(PageContext);
+  const { setHeaderHeight } = useContext(PageContext);
+
+  useEffect(
+    () => () => {
+      setHeaderHeight(0);
+    },
+    [setHeaderHeight]
+  );
 
   const handleLayout = (
     e: Parameters<NonNullable<typeof props.onLayout>>[0]
   ) => {
-    ctx.setHeaderHeight(e.nativeEvent.layout.height);
+    setHeaderHeight(e.nativeEvent.layout.height);
     props.onLayout?.(e);
   };
 
@@ -98,7 +105,7 @@ const PageScrollView = (props: PageScrollViewProps) => {
       contentContainerClassName={cn("grow", props.contentContainerClassName)}
       contentContainerStyle={[
         {
-          paddingTop: ctx.headerHeight,
+          ...(ctx.headerHeight > 0 && { paddingTop: ctx.headerHeight }),
           ...(ctx.footerHeight > 0 && { paddingBottom: ctx.footerHeight }),
         },
         props.contentContainerStyle,
@@ -124,7 +131,7 @@ const PageKeyboardAwareScrollView = (props: KeyboardAwareScrollViewProps) => {
       contentContainerClassName={cn("grow", props.contentContainerClassName)}
       contentContainerStyle={[
         {
-          paddingTop: ctx.headerHeight,
+          ...(ctx.headerHeight > 0 && { paddingTop: ctx.headerHeight }),
           ...(ctx.footerHeight > 0 && { paddingBottom: ctx.footerHeight }),
         },
         props.contentContainerStyle,
@@ -195,7 +202,7 @@ const PageView = (props: PageViewProps) => {
 // Page.Header.BackButton
 // --------------------------------------------------
 
-const BackButton = (props: ComponentProps<typeof Button>) => (
+export const BackButton = (props: ComponentProps<typeof Button>) => (
   <Button
     isIconOnly
     onPress={() => router.back()}
@@ -214,12 +221,19 @@ const BackButton = (props: ComponentProps<typeof Button>) => (
 type PageFooterProps = ComponentProps<typeof View>;
 
 const PageFooter = (props: PageFooterProps) => {
-  const ctx = useContext(PageContext);
+  const { setFooterHeight } = useContext(PageContext);
+
+  useEffect(
+    () => () => {
+      setFooterHeight(0);
+    },
+    [setFooterHeight]
+  );
 
   const handleLayout = (
     e: Parameters<NonNullable<typeof props.onLayout>>[0]
   ) => {
-    ctx.setFooterHeight(e.nativeEvent.layout.height);
+    setFooterHeight(e.nativeEvent.layout.height);
     props.onLayout?.(e);
   };
 
@@ -228,8 +242,8 @@ const PageFooter = (props: PageFooterProps) => {
       {...props}
       className={cn(
         "absolute bottom-0 z-50 w-full flex-row gap-3 bg-linear-to-t px-4 pt-4 pb-safe-offset-2",
-        "from-0% from-background",
-        "to-100% to-background/0",
+        "from-background",
+        "to-background/0",
         props.className
       )}
       onLayout={handleLayout}

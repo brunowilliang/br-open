@@ -41,6 +41,9 @@ describe("LeagueSchema", () => {
 
     expect(result.data.avatarStorageId).toBe("avatar-storage-id");
     expect(result.data.coverStorageId).toBe("cover-storage-id");
+    expect(result.data.maxPlayers).toBeNull();
+    expect(result.data.monthlyPriceCents).toBe(0);
+    expect(result.data.priceBillingInterval).toBe("month");
   });
 
   it("accepts null media storage ids when the league uses local fallbacks", () => {
@@ -100,5 +103,28 @@ describe("LeagueSchema", () => {
 
     expect(createLeagueDefaultValues.avatarStorageId).toBeNull();
     expect(createLeagueDefaultValues.coverStorageId).toBeNull();
+  });
+
+  it("uses unlimited spots and the default monthly price in the create-league defaults", () => {
+    const createLeagueDefaultValues = buildCreateLeagueDefaultValues();
+
+    expect(createLeagueDefaultValues.maxPlayers).toBeNull();
+    expect(createLeagueDefaultValues.monthlyPriceCents).toBe(0);
+    expect(createLeagueDefaultValues.priceBillingInterval).toBe("month");
+    expect(createLeagueDefaultValues.visibility).toBe("public");
+  });
+
+  it("rejects invite-only visibility while invitations are not implemented", () => {
+    const createLeagueDefaultValues = buildCreateLeagueDefaultValues();
+    const result = LeagueSchema.safeParse({
+      ...createLeagueDefaultValues,
+      name: "Liga Centro",
+      city: "Florianopolis",
+      state: "SC",
+      categories: ["A"],
+      visibility: "invite_only",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

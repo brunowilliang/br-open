@@ -6,7 +6,7 @@ const playerGenderOptions = ["Feminino", "Masculino"] as const;
 const phoneSchema = z
   .string()
   .trim()
-  .optional()
+  .nullish()
   .refine((value) => {
     if (!value) {
       return true;
@@ -39,8 +39,15 @@ export const upsertPlayerProfileSchema = z.object({
   avatarStorageId: playerAvatarStorageIdSchema,
 });
 
-export const playerProfileSchema = upsertPlayerProfileSchema.extend({
+export const playerProfileSchema = z.object({
+  avatarStorageId: playerAvatarStorageIdSchema,
   avatarUrl: z.string().nullable().optional(),
+  fullName: z.string().min(1),
+  gender: enumField(playerGenderOptions, "Selecione o gênero.")
+    .nullable()
+    .optional(),
+  nickname: z.string().min(1),
+  phone: z.string().nullable().optional(),
 });
 
 export function collectReplacedPlayerAvatarStorageIds(input: {

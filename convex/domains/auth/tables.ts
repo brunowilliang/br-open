@@ -33,6 +33,25 @@ export const user = convexTable(
   ]
 );
 
+export const userPreference = convexTable(
+  "userPreference",
+  {
+    activeActorKind: text().notNull(),
+    activeOrganizationId: id("organization").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp().notNull(),
+    updatedAt: timestamp().notNull(),
+    userId: id("user")
+      .notNull()
+      .unique()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (userPreference) => [
+    index("activeOrganizationId").on(userPreference.activeOrganizationId),
+  ]
+);
+
 export const session = convexTable(
   "session",
   {
@@ -46,7 +65,7 @@ export const session = convexTable(
     activeTeamId: id("team").references(() => team.id),
     userId: id("user")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
   },
   (session) => [
     index("expiresAt").on(session.expiresAt),
@@ -64,7 +83,7 @@ export const account = convexTable(
     providerId: text().notNull(),
     userId: id("user")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     accessToken: text(),
     refreshToken: text(),
     idToken: text(),
@@ -126,7 +145,7 @@ export const member = convexTable(
       .references(() => organization.id),
     userId: id("user")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     role: text().notNull(),
     createdAt: timestamp().notNull(),
   },
@@ -158,7 +177,7 @@ export const teamMember = convexTable(
       .references(() => team.id),
     userId: id("user")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     createdAt: timestamp(),
   },
   (teamMember) => [
@@ -175,7 +194,7 @@ export const invitation = convexTable(
       .references(() => organization.id),
     inviterId: id("user")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     email: text().notNull(),
     role: text().notNull(),
     status: text().notNull(),

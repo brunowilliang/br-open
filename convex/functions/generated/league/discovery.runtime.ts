@@ -16,6 +16,7 @@ import type { OrmTriggerContext } from 'kitcn/orm';
 const procedureRegistry = {
   "getById": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../league/discovery").getById>("league/discovery:getById"), () => (require("../../league/discovery") as Record<string, unknown>)["getById"])],
   "listAvailable": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../league/discovery").listAvailable>("league/discovery:listAvailable"), () => (require("../../league/discovery") as Record<string, unknown>)["listAvailable"])],
+  "listParticipating": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../league/discovery").listParticipating>("league/discovery:listParticipating"), () => (require("../../league/discovery") as Record<string, unknown>)["listParticipating"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;

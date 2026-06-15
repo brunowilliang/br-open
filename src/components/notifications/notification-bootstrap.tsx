@@ -3,6 +3,8 @@ import * as Notifications from "expo-notifications";
 import { type Href, router } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 
+import type { ApiOutputs } from "@convex/shared/api";
+import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import {
   registerForPushNotificationsAsync,
@@ -10,6 +12,7 @@ import {
   shouldRequestPushPermission,
 } from "@/lib/notifications/expo-notifications";
 import {
+  type NotificationResponseActor,
   type NotificationResponseIntent,
   resolveNotificationResponseIntent,
 } from "@/lib/notifications/response-intent";
@@ -17,6 +20,8 @@ import {
 type NotificationBootstrapProps = {
   isEnabled: boolean;
 };
+
+type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
 
 export function NotificationBootstrap(props: NotificationBootstrapProps) {
   const crpc = useCRPC();
@@ -49,6 +54,9 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
   const markRead = useMutation(
     crpc.notification.feed.markRead.mutationOptions()
   );
+  const setActiveActor = useMutation(
+    crpc.viewer.context.setActiveActor.mutationOptions()
+  );
   const approveMembership = useMutation(
     crpc.league.membership.approve.mutationOptions()
   );
@@ -66,6 +74,54 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
       ),
     ]);
   }, [crpc, queryClient]);
+
+  const invalidateActorContext = useCallback(
+    async (viewerContext?: ViewerContext) => {
+      if (viewerContext) {
+        applyViewerContextToClientState({
+          queryClient,
+          viewerContext,
+          viewerContextFilter: crpc.viewer.context.get.queryFilter(),
+        });
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries(crpc.viewer.context.get.queryFilter()),
+        queryClient.invalidateQueries(
+          crpc.notification.settings.status.queryFilter()
+        ),
+        queryClient.invalidateQueries(
+          crpc.notification.feed.list.queryFilter({ limit: 50 })
+        ),
+        queryClient.invalidateQueries(
+          crpc.league.discovery.listParticipating.queryFilter()
+        ),
+        queryClient.invalidateQueries(
+          crpc.league.management.listMine.queryFilter()
+        ),
+      ]);
+    },
+    [crpc, queryClient]
+  );
+
+  const activateNotificationActor = useCallback(
+    async (actor?: NotificationResponseActor) => {
+      if (!actor) {
+        return;
+      }
+
+      const viewerContext =
+        actor.kind === "organization"
+          ? await setActiveActor.mutateAsync({
+              actorKind: "organization",
+              organizationId: actor.organizationId,
+            })
+          : await setActiveActor.mutateAsync({ actorKind: "player" });
+
+      await invalidateActorContext(viewerContext);
+    },
+    [invalidateActorContext, setActiveActor]
+  );
 
   const invalidateLeagueContext = useCallback(
     async (leagueId: string) => {
@@ -112,12 +168,14 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
   const handleIntent = useCallback(
     async (intent: NotificationResponseIntent) => {
       if (intent.kind === "open") {
+        await activateNotificationActor(intent.recipientActor);
         await markNotificationRead(intent.notificationId);
         openNotificationUrl(intent.url);
         return;
       }
 
       if (intent.kind === "approveLeagueMembership") {
+        await activateNotificationActor(intent.recipientActor);
         await approveMembership.mutateAsync({
           leagueId: intent.leagueId,
           membershipId: intent.membershipId,
@@ -128,6 +186,7 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
         return;
       }
 
+      await activateNotificationActor(intent.recipientActor);
       await rejectMembership.mutateAsync({
         leagueId: intent.leagueId,
         membershipId: intent.membershipId,
@@ -136,6 +195,7 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
       await invalidateLeagueContext(intent.leagueId);
     },
     [
+      activateNotificationActor,
       approveMembership,
       invalidateLeagueContext,
       markNotificationRead,

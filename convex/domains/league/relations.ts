@@ -3,9 +3,9 @@ import type { tables } from "../../functions/schema";
 
 export const defineLeagueRelations = (r: RelationsBuilder<typeof tables>) => ({
   league: {
-    manager: r.one.user({
-      from: r.league.managerUserId,
-      to: r.user.id,
+    organization: r.one.organization({
+      from: r.league.organizationId,
+      to: r.organization.id,
     }),
     memberships: r.many.leagueMembership({
       from: r.league.id,
@@ -21,9 +21,9 @@ export const defineLeagueRelations = (r: RelationsBuilder<typeof tables>) => ({
       from: r.leagueMembership.leagueId,
       to: r.league.id,
     }),
-    user: r.one.user({
-      from: r.leagueMembership.userId,
-      to: r.user.id,
+    playerProfile: r.one.playerProfile({
+      from: r.leagueMembership.playerProfileId,
+      to: r.playerProfile.id,
     }),
     challengesAsChallenger: r.many.leagueChallenge({
       alias: "challengerMembership",
