@@ -13,7 +13,7 @@ import {
   UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -26,7 +26,8 @@ import {
   Separator,
   useToast,
 } from "heroui-native";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Badge } from "heroui-native-pro";
+import { Fragment, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
@@ -170,6 +171,22 @@ function buildPreviewFeatures(ruleConfig: RuleConfig): PreviewFeature[] {
 
 function formatListSummary(items: string[], fallback: string) {
   return items.length ? items.join(", ") : fallback;
+}
+
+function formatActionBadgeCount(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
+
+function MenuActionBadge(props: { className?: string; count: number }) {
+  if (props.count <= 0) {
+    return null;
+  }
+
+  return (
+    <Badge className={props.className} color="danger" size="sm">
+      {formatActionBadgeCount(props.count)}
+    </Badge>
+  );
 }
 
 function PreviewIcon(props: { icon: PreviewFeature["icon"] }) {
@@ -327,6 +344,7 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
   const league = useValue(bucket$.data.league);
   const membershipStatus = useValue(bucket$.viewer.membershipStatus);
+  const menuActionCounts = useValue(bucket$.derived.menuActionCounts);
   const rankingItems = useValue(bucket$.derived.rankingItems);
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
   const showJoinFooter = useValue(bucket$.derived.showJoinFooter);
@@ -337,17 +355,6 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
   const [isCancelRequestDialogOpen, setIsCancelRequestDialogOpen] =
     useState(false);
   const isJoinRequestPending = membershipStatus === "pending";
-  const membershipOverviewQuery = useQuery({
-    ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
-    enabled: access.canOpenRanking,
-  });
-
-  useEffect(() => {
-    if (membershipOverviewQuery.data) {
-      bucket$.actions.hydrateMembershipOverview(membershipOverviewQuery.data);
-    }
-  }, [bucket$, membershipOverviewQuery.data]);
-
   async function invalidateLeagueContext() {
     await Promise.all([
       queryClient.invalidateQueries(
@@ -519,6 +526,7 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
                       <HugeIcons icon={MoreVerticalIcon} />
                     </Button>
                   </Menu.Trigger>
+                  <MenuActionBadge count={menuActionCounts.total} />
                   <Menu.Portal>
                     <Menu.Overlay />
                     <Menu.Content presentation="popover">
@@ -549,6 +557,9 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
                           <Menu.ItemTitle className="flex-none">
                             Desafios
                           </Menu.ItemTitle>
+                          <MenuActionBadge
+                            count={menuActionCounts.challenges}
+                          />
                           <HugeIcons icon={Target02Icon} />
                         </Menu.Item>
                       ) : null}
@@ -579,6 +590,7 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
                           <Menu.ItemTitle className="flex-none">
                             Solicitações
                           </Menu.ItemTitle>
+                          <MenuActionBadge count={menuActionCounts.requests} />
                           <HugeIcons icon={UserMultipleIcon} />
                         </Menu.Item>
                       ) : null}

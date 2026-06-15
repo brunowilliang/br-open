@@ -104,6 +104,35 @@ export function buildLeagueDetailsCanOpenLeagueMenu(
   );
 }
 
+function normalizeActionCount(value: number) {
+  return Math.max(0, Math.trunc(value));
+}
+
+export function buildLeagueDetailsMenuActionCounts(input: {
+  access: LeagueDetailsAccess;
+  challengeActionCount: number;
+  requestActionCount: number;
+}) {
+  const challenges = input.access.canOpenChallenges
+    ? normalizeActionCount(input.challengeActionCount)
+    : 0;
+  const requests = input.access.canOpenRequests
+    ? normalizeActionCount(input.requestActionCount)
+    : 0;
+
+  return {
+    challenges,
+    requests,
+    total: challenges + requests,
+  };
+}
+
+export function shouldFetchLeagueDetailsMembershipOverview(
+  access: LeagueDetailsAccess
+) {
+  return access.canOpenRanking || access.canOpenRequests;
+}
+
 export function buildLeagueDetailsCanRequestJoin(input: {
   canJoinLeagues: boolean;
   role: LeagueDetailsRole;

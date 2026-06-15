@@ -15,6 +15,7 @@ import {
   KeyboardAwareScrollView as RNKeyboardAwareScrollView,
 } from "react-native-keyboard-controller";
 import { Header } from "./header";
+import { buildPageInsetStyle } from "./page-insets";
 
 // --------------------------------------------------
 // Context
@@ -104,10 +105,7 @@ const PageScrollView = (props: PageScrollViewProps) => {
       className={cn("bg-background", props.className)}
       contentContainerClassName={cn("grow", props.contentContainerClassName)}
       contentContainerStyle={[
-        {
-          ...(ctx.headerHeight > 0 && { paddingTop: ctx.headerHeight }),
-          ...(ctx.footerHeight > 0 && { paddingBottom: ctx.footerHeight }),
-        },
+        buildPageInsetStyle(ctx),
         props.contentContainerStyle,
       ]}
     >
@@ -130,10 +128,7 @@ const PageKeyboardAwareScrollView = (props: KeyboardAwareScrollViewProps) => {
       className={cn("bg-background", props.className)}
       contentContainerClassName={cn("grow", props.contentContainerClassName)}
       contentContainerStyle={[
-        {
-          ...(ctx.headerHeight > 0 && { paddingTop: ctx.headerHeight }),
-          ...(ctx.footerHeight > 0 && { paddingBottom: ctx.footerHeight }),
-        },
+        buildPageInsetStyle(ctx),
         props.contentContainerStyle,
       ]}
       keyboardShouldPersistTaps="handled"
@@ -183,17 +178,12 @@ const PageAnimatedLegendList = <T,>(
 type PageViewProps = ComponentProps<typeof View>;
 
 const PageView = (props: PageViewProps) => {
+  const { children, style, ...rest } = props;
   const ctx = useContext(PageContext);
 
   return (
-    <View
-      style={{
-        paddingTop: ctx.headerHeight,
-        paddingBottom: ctx.footerHeight,
-      }}
-      {...props}
-    >
-      {props.children}
+    <View {...rest} style={[buildPageInsetStyle(ctx), style]}>
+      {children}
     </View>
   );
 };

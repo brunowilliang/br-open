@@ -6,6 +6,7 @@ import {
   buildLeagueDetailsAccess,
   buildLeagueDetailsCanOpenLeagueMenu,
   buildLeagueDetailsCanRequestJoin,
+  buildLeagueDetailsMenuActionCounts,
   buildLeagueDetailsRankingItems,
   buildLeagueDetailsRequestItems,
   buildLeagueDetailsRole,
@@ -93,6 +94,18 @@ function createLeagueDetailsBucket(leagueId: string) {
       joinActionLabel: () =>
         getMembershipActionLabel(bucket$.viewer.membershipStatus.get(), {
           isManagerOwner: bucket$.derived.canManageLeague.get(),
+        }),
+      menuActionCounts: () =>
+        buildLeagueDetailsMenuActionCounts({
+          access: bucket$.derived.access.get(),
+          challengeActionCount: buildChallengeTabCounts({
+            canManage: bucket$.derived.canManageLeague.get(),
+            challenges: bucket$.data.challenges.get(),
+            viewerPlayerProfileId: bucket$.viewer.viewerPlayerProfileId.get(),
+          }).main,
+          requestActionCount: buildLeagueDetailsRequestItems(
+            bucket$.data.membershipOverview.get()
+          ).length,
         }),
       showJoinFooter: () =>
         buildLeagueDetailsShowJoinFooter({

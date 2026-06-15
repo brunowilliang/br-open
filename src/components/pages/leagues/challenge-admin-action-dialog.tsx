@@ -1,13 +1,5 @@
-import {
-  Button,
-  Description,
-  Dialog,
-  FieldError,
-  Label,
-  TextArea,
-  TextField,
-} from "heroui-native";
-import { useEffect, useState } from "react";
+import { Button, Description, Dialog } from "heroui-native";
+import { View } from "react-native";
 
 type ChallengeAdminActionDialogProps = {
   description: string;
@@ -15,7 +7,7 @@ type ChallengeAdminActionDialogProps = {
   isOpen: boolean;
   isPending?: boolean;
   onOpenChange: (nextOpen: boolean) => void;
-  onSubmit: (reason: string) => Promise<void> | void;
+  onSubmit: () => Promise<void> | void;
   submitLabel: string;
   title: string;
 };
@@ -33,28 +25,9 @@ export const ChallengeAdminActionDialog = (
     submitLabel,
     title,
   } = props;
-  const [errorMessage, setErrorMessage] = useState("");
-  const [reason, setReason] = useState("");
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    setErrorMessage("");
-    setReason("");
-  }, [isOpen]);
 
   async function handleSubmit() {
-    const trimmedReason = reason.trim();
-
-    if (!trimmedReason) {
-      setErrorMessage("Informe o motivo da ação administrativa.");
-      return;
-    }
-
-    setErrorMessage("");
-    await onSubmit(trimmedReason);
+    await onSubmit();
   }
 
   return (
@@ -75,34 +48,28 @@ export const ChallengeAdminActionDialog = (
             <Dialog.Close className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
+          <Description>{description}</Description>
 
-          <TextField isInvalid={Boolean(errorMessage)} isRequired>
-            <Label>Motivo</Label>
-            <TextArea
-              editable={!isPending}
-              onChangeText={(value) => {
-                setReason(value);
-
-                if (errorMessage) {
-                  setErrorMessage("");
-                }
+          <View className="flex-row justify-end gap-2">
+            <Button
+              isDisabled={isPending}
+              onPress={() => {
+                onOpenChange(false);
               }}
-              placeholder="Explique o motivo dessa ação."
-              value={reason}
+              size="sm"
               variant="secondary"
-            />
-            <Description>{description}</Description>
-            <FieldError>{errorMessage}</FieldError>
-          </TextField>
-
-          <Button
-            className="self-end"
-            isDisabled={isPending}
-            onPress={handleSubmit}
-            variant={isDanger ? "danger-soft" : "secondary"}
-          >
-            <Button.Label>{submitLabel}</Button.Label>
-          </Button>
+            >
+              <Button.Label>Não</Button.Label>
+            </Button>
+            <Button
+              isDisabled={isPending}
+              onPress={handleSubmit}
+              size="sm"
+              variant={isDanger ? "danger-soft" : "secondary"}
+            >
+              <Button.Label>{submitLabel}</Button.Label>
+            </Button>
+          </View>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog>

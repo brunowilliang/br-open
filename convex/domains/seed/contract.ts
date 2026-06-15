@@ -5,12 +5,14 @@ export const SEED_EMAIL_DOMAIN = "bropen.local";
 export const SEED_LEAGUE_NAME_PREFIX = "SEED · ";
 
 export const SeedPreviewSchema = z.object({
+  createScenarioLeagues: z.boolean().optional(),
   primaryUserEmail: z.string().email().optional(),
   reset: z.boolean().optional(),
   targetLeagueId: z.string().min(1).optional(),
 });
 
 export const seedPreviewResultSchema = z.object({
+  challengesCreated: z.number().int().nonnegative(),
   leaguesCreated: z.number().int().nonnegative(),
   membershipsCreated: z.number().int().nonnegative(),
   playerProfilesCreated: z.number().int().nonnegative(),

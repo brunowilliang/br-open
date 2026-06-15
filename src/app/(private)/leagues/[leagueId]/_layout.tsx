@@ -4,6 +4,7 @@ import { Stack, useGlobalSearchParams } from "expo-router";
 import { useEffect } from "react";
 
 import { useCRPC } from "@/lib/convex/crpc";
+import { shouldFetchLeagueDetailsMembershipOverview } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 
 export default function LeagueDetailsLayout() {
@@ -23,6 +24,7 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
   const { leagueId } = props;
   const crpc = useCRPC();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
+  const access = useValue(bucket$.derived.access);
   const resetVersion = useValue(bucket$.identity.resetVersion);
 
   const viewerQuery = useQuery(crpc.viewer.context.get.queryOptions());
@@ -30,6 +32,14 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
     ...crpc.league.discovery.getById.queryOptions({
       leagueId,
     }),
+  });
+  const membershipOverviewQuery = useQuery({
+    ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
+    enabled: shouldFetchLeagueDetailsMembershipOverview(access),
+  });
+  const challengesQuery = useQuery({
+    ...crpc.league.challenges.listForLeague.queryOptions({ leagueId }),
+    enabled: access.canOpenChallenges,
   });
 
   useEffect(() => {
@@ -59,6 +69,18 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
           : null,
     });
   }, [bucket$, leagueQuery.data, resetVersion, viewerQuery.data]);
+
+  useEffect(() => {
+    if (membershipOverviewQuery.data) {
+      bucket$.actions.hydrateMembershipOverview(membershipOverviewQuery.data);
+    }
+  }, [bucket$, membershipOverviewQuery.data]);
+
+  useEffect(() => {
+    if (challengesQuery.data) {
+      bucket$.actions.hydrateChallenges(challengesQuery.data);
+    }
+  }, [bucket$, challengesQuery.data]);
 
   useEffect(() => {
     if (!(leagueQuery.isError || viewerQuery.isError)) {

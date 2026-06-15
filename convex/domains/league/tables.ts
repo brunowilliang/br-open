@@ -134,7 +134,7 @@ export const leagueChallengeAdminAction = convexTable(
       .notNull()
       .references(() => leagueChallenge.id, { onDelete: "cascade" }),
     action: text().notNull(),
-    reason: text().notNull(),
+    reason: text(),
     performedByUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
     }),

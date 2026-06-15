@@ -495,7 +495,7 @@ export type DataModel = {
       createdAt: number;
       fromStatus: string;
       performedByUserId?: null | Id<"user">;
-      reason: string;
+      reason?: null | string;
       toStatus: string;
       _id: Id<"leagueChallengeAdminAction">;
       _creationTime: number;

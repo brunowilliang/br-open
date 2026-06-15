@@ -15,18 +15,33 @@ import {
   seedLeagueTemplates,
   seedPlayers,
 } from "../domains/seed/data";
+import {
+  buildTargetLeagueMemberships,
+  buildTargetLeagueChallengePlans,
+  getNextTargetLeagueRankingPosition,
+  shouldSeedScenarioLeagues,
+} from "../domains/seed/plan";
 import * as leagueTables from "../domains/league/tables";
 import {
+  ChallengeRuleConfigSchema,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_MODE,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_STORAGE,
+  LeagueCourtsSchema,
+  type LeagueMatchConfig,
 } from "../domains/league/contract";
 import * as playerTables from "../domains/player/tables";
 import { privateMutation } from "../lib/crpc";
 
 type SeedCtx = MutationCtx;
 type LeagueRecord = InferSelectModel<typeof leagueTables.league>;
+type LeagueMembershipRecord = InferSelectModel<
+  typeof leagueTables.leagueMembership
+>;
+type SeedChallengePlan = ReturnType<
+  typeof buildTargetLeagueChallengePlans<Id<"leagueMembership">>
+>[number];
 type SeedMembershipInput = {
   rankingPosition: number | null;
   status: "active" | "pending" | "rejected";
@@ -40,6 +55,16 @@ type SeedLeagueTemplate = {
   state: string;
   visibility: "private" | "public";
 };
+
+const SEED_COURT_ID = "seed-main-court";
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const CHALLENGE_LOCKED_STATUSES: ReadonlySet<string> = new Set([
+  "confirmed",
+  "finished",
+  "pending_admin_result_validation",
+  "pending_result_confirmation",
+  "pending_result_submission",
+] as const);
 
 function buildSeedEmail(localPart: string) {
   return `${SEED_EMAIL_PREFIX}${localPart}@${SEED_EMAIL_DOMAIN}`;
@@ -55,6 +80,82 @@ function isSeedLeagueName(name?: string | null) {
 
 function isSeedUserEmail(email?: string | null) {
   return email?.startsWith(SEED_EMAIL_PREFIX) ?? false;
+}
+
+function buildSeedCourtAvailability() {
+  const availableDay = [{ endMinute: 22 * 60, startMinute: 8 * 60 }];
+
+  return {
+    fri: availableDay,
+    mon: availableDay,
+    sat: availableDay,
+    sun: availableDay,
+    thu: availableDay,
+    tue: availableDay,
+    wed: availableDay,
+  };
+}
+
+function buildSeedCourt() {
+  return {
+    availability: buildSeedCourtAvailability(),
+    id: SEED_COURT_ID,
+    name: "Quadra Seed",
+  };
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * MILLISECONDS_PER_DAY);
+}
+
+function formatMatchDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function resolvePlanMembershipId(
+  plan: SeedChallengePlan,
+  side: "challenged" | "challenger"
+) {
+  return side === "challenger" ? plan.challenger.id : plan.challenged.id;
+}
+
+function buildSeedScore(input: {
+  challengedMembershipId: Id<"leagueMembership">;
+  challengerMembershipId: Id<"leagueMembership">;
+  matchConfig: LeagueMatchConfig;
+  winnerSide: "challenged" | "challenger";
+}) {
+  const maxSets = Math.max(1, Math.trunc(input.matchConfig.bestOfSets));
+  const requiredSetWins = Math.floor(maxSets / 2) + 1;
+  const winnerMembershipId =
+    input.winnerSide === "challenger"
+      ? input.challengerMembershipId
+      : input.challengedMembershipId;
+
+  return {
+    sets: Array.from({ length: requiredSetWins }, (_, setIndex) => {
+      const isDecidingSet = setIndex === maxSets - 1;
+      const isSuperTieBreak =
+        isDecidingSet && input.matchConfig.finalSetMode === "super_tiebreak";
+      const gamesPerSet =
+        isDecidingSet && input.matchConfig.finalSetMode === "custom_set"
+          ? input.matchConfig.finalSetGamesPerSet
+          : input.matchConfig.gamesPerSet;
+      const winnerScore = isSuperTieBreak
+        ? input.matchConfig.finalSetSuperTieBreakPoints
+        : gamesPerSet;
+      const loserScore = Math.max(0, winnerScore - 2);
+
+      return {
+        challengedGames:
+          input.winnerSide === "challenged" ? winnerScore : loserScore,
+        challengerGames:
+          input.winnerSide === "challenger" ? winnerScore : loserScore,
+        kind: isSuperTieBreak ? "super_tiebreak" : "set",
+      };
+    }),
+    winnerMembershipId,
+  };
 }
 
 async function listSeedLeagues(ctx: SeedCtx) {
@@ -76,7 +177,15 @@ async function listSeedUsers(ctx: SeedCtx) {
 }
 
 async function deleteByIds<
-  T extends "league" | "leagueMembership" | "playerProfile" | "user",
+  T extends
+    | "league"
+    | "leagueChallenge"
+    | "leagueChallengeAdminAction"
+    | "leagueChallengeProposal"
+    | "leagueChallengeResultSubmission"
+    | "leagueMembership"
+    | "playerProfile"
+    | "user",
 >(ctx: SeedCtx, tableName: T, ids: string[]) {
   for (const id of ids) {
     switch (tableName) {
@@ -84,6 +193,43 @@ async function deleteByIds<
         await ctx.orm
           .delete(leagueTables.league)
           .where(eq(leagueTables.league.id, id as Id<"league">)!);
+        break;
+      case "leagueChallenge":
+        await ctx.orm
+          .delete(leagueTables.leagueChallenge)
+          .where(
+            eq(leagueTables.leagueChallenge.id, id as Id<"leagueChallenge">)!
+          );
+        break;
+      case "leagueChallengeAdminAction":
+        await ctx.orm
+          .delete(leagueTables.leagueChallengeAdminAction)
+          .where(
+            eq(
+              leagueTables.leagueChallengeAdminAction.id,
+              id as Id<"leagueChallengeAdminAction">
+            )!
+          );
+        break;
+      case "leagueChallengeProposal":
+        await ctx.orm
+          .delete(leagueTables.leagueChallengeProposal)
+          .where(
+            eq(
+              leagueTables.leagueChallengeProposal.id,
+              id as Id<"leagueChallengeProposal">
+            )!
+          );
+        break;
+      case "leagueChallengeResultSubmission":
+        await ctx.orm
+          .delete(leagueTables.leagueChallengeResultSubmission)
+          .where(
+            eq(
+              leagueTables.leagueChallengeResultSubmission.id,
+              id as Id<"leagueChallengeResultSubmission">
+            )!
+          );
         break;
       case "leagueMembership":
         await ctx.orm
@@ -109,19 +255,43 @@ async function deleteByIds<
 }
 
 async function resetSeedData(ctx: SeedCtx) {
-  const [seedLeagues, seedUsers, memberships, playerProfiles] =
-    await Promise.all([
-      listSeedLeagues(ctx),
-      listSeedUsers(ctx),
-      ctx.orm.query.leagueMembership.findMany({
-        limit: 1500,
-        orderBy: { createdAt: "asc" },
-      }),
-      ctx.orm.query.playerProfile.findMany({
-        limit: 500,
-        orderBy: { createdAt: "asc" },
-      }),
-    ]);
+  const [
+    seedLeagues,
+    seedUsers,
+    memberships,
+    playerProfiles,
+    challenges,
+    challengeAdminActions,
+    challengeProposals,
+    challengeResultSubmissions,
+  ] = await Promise.all([
+    listSeedLeagues(ctx),
+    listSeedUsers(ctx),
+    ctx.orm.query.leagueMembership.findMany({
+      limit: 1500,
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.orm.query.playerProfile.findMany({
+      limit: 500,
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.orm.query.leagueChallenge.findMany({
+      limit: 1500,
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.orm.query.leagueChallengeAdminAction.findMany({
+      limit: 1500,
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.orm.query.leagueChallengeProposal.findMany({
+      limit: 1500,
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.orm.query.leagueChallengeResultSubmission.findMany({
+      limit: 1500,
+      orderBy: { submittedAt: "asc" },
+    }),
+  ]);
 
   const seedLeagueIds = new Set(seedLeagues.map((league) => league.id));
   const seedUserIds = new Set(seedUsers.map((user) => user.id));
@@ -130,17 +300,55 @@ async function resetSeedData(ctx: SeedCtx) {
       .filter((profile) => seedUserIds.has(profile.userId))
       .map((profile) => profile.id)
   );
+  const seedMemberships = memberships.filter(
+    (membership) =>
+      seedLeagueIds.has(membership.leagueId) ||
+      seedPlayerProfileIds.has(membership.playerProfileId)
+  );
+  const seedMembershipIds = new Set(
+    seedMemberships.map((membership) => membership.id)
+  );
+  const seedChallengeIds = new Set(
+    challenges
+      .filter(
+        (challenge) =>
+          seedLeagueIds.has(challenge.leagueId) ||
+          seedMembershipIds.has(challenge.challengerMembershipId) ||
+          seedMembershipIds.has(challenge.challengedMembershipId)
+      )
+      .map((challenge) => challenge.id)
+  );
+
+  await deleteByIds(
+    ctx,
+    "leagueChallengeAdminAction",
+    challengeAdminActions
+      .filter((action) => seedChallengeIds.has(action.challengeId))
+      .map((action) => action.id)
+  );
+
+  await deleteByIds(
+    ctx,
+    "leagueChallengeResultSubmission",
+    challengeResultSubmissions
+      .filter((submission) => seedChallengeIds.has(submission.challengeId))
+      .map((submission) => submission.id)
+  );
+
+  await deleteByIds(
+    ctx,
+    "leagueChallengeProposal",
+    challengeProposals
+      .filter((proposal) => seedChallengeIds.has(proposal.challengeId))
+      .map((proposal) => proposal.id)
+  );
+
+  await deleteByIds(ctx, "leagueChallenge", [...seedChallengeIds]);
 
   await deleteByIds(
     ctx,
     "leagueMembership",
-    memberships
-      .filter(
-        (membership) =>
-          seedLeagueIds.has(membership.leagueId) ||
-          seedPlayerProfileIds.has(membership.playerProfileId)
-      )
-      .map((membership) => membership.id)
+    seedMemberships.map((membership) => membership.id)
   );
 
   await deleteByIds(
@@ -538,6 +746,7 @@ async function ensureLeagueMemberships(
   memberships: SeedMembershipInput[]
 ) {
   let membershipsCreated = 0;
+  const ensuredMemberships: LeagueMembershipRecord[] = [];
 
   for (const membership of memberships) {
     const result = await ensureMembership(ctx, {
@@ -550,9 +759,186 @@ async function ensureLeagueMemberships(
     if (result.created) {
       membershipsCreated += 1;
     }
+
+    ensuredMemberships.push(result.membership);
   }
 
-  return membershipsCreated;
+  return { memberships: ensuredMemberships, membershipsCreated };
+}
+
+async function ensureSeedCourtForLeague(ctx: SeedCtx, league: LeagueRecord) {
+  const parsedCourts = LeagueCourtsSchema.safeParse(league.courts ?? []);
+  const existingCourt = parsedCourts.success ? parsedCourts.data[0] : null;
+
+  if (existingCourt) {
+    return existingCourt.id;
+  }
+
+  const seedCourt = buildSeedCourt();
+
+  await ctx.db.patch(league.id as Id<"league">, {
+    courts: [seedCourt],
+    updatedAt: Date.now(),
+  });
+
+  return seedCourt.id;
+}
+
+async function ensureSeedChallenge(input: {
+  courtId: string;
+  ctx: SeedCtx;
+  league: LeagueRecord;
+  matchConfig: LeagueMatchConfig;
+  plan: SeedChallengePlan;
+  responseDeadlineHours: number;
+}) {
+  const challengerMembershipId = input.plan.challenger
+    .id as Id<"leagueMembership">;
+  const challengedMembershipId = input.plan.challenged
+    .id as Id<"leagueMembership">;
+  const existingChallenge = await input.ctx.orm.query.leagueChallenge.findFirst(
+    {
+      where: {
+        challengedMembershipId,
+        challengerMembershipId,
+        leagueId: input.league.id as Id<"league">,
+        status: input.plan.status,
+      },
+    }
+  );
+
+  if (existingChallenge) {
+    return { created: false };
+  }
+
+  const now = new Date();
+  const matchDate = formatMatchDate(addDays(now, input.plan.dayOffset));
+  const createdAt = addDays(now, Math.min(input.plan.dayOffset - 1, 0));
+  const responseDeadlineAt =
+    input.plan.status === "pending_opponent_response"
+      ? new Date(now.getTime() + input.responseDeadlineHours * 60 * 60 * 1000)
+      : addDays(now, -1);
+  const isLocked = CHALLENGE_LOCKED_STATUSES.has(input.plan.status);
+  const challengeValidationMode =
+    input.plan.status === "pending_admin_decision" ? "manual" : "automatic";
+  const resultValidationMode = input.plan.resultValidationMode ?? "automatic";
+
+  const [createdChallenge] = await input.ctx.orm
+    .insert(leagueTables.leagueChallenge)
+    .values({
+      challengedMembershipId,
+      challengerMembershipId,
+      challengeValidationMode,
+      confirmedAt: isLocked ? createdAt : undefined,
+      createdAt,
+      finishedAt: input.plan.status === "finished" ? addDays(now, -6) : null,
+      leagueId: input.league.id as Id<"league">,
+      lockedAt: isLocked ? createdAt : undefined,
+      matchConfigSnapshot: input.matchConfig,
+      resultValidationMode,
+      status: input.plan.status,
+      updatedAt: now,
+    })
+    .returning();
+
+  const [createdProposal] = await input.ctx.orm
+    .insert(leagueTables.leagueChallengeProposal)
+    .values({
+      challengeId: createdChallenge.id as Id<"leagueChallenge">,
+      courtId: input.courtId,
+      createdAt,
+      endMinute: input.plan.endMinute,
+      matchDate,
+      proposedByMembershipId: challengerMembershipId,
+      responseDeadlineAt,
+      revisionNumber: 1,
+      startMinute: input.plan.startMinute,
+      status: isLocked ? "accepted" : "active",
+    })
+    .returning();
+
+  await input.ctx.db.patch(createdChallenge.id as Id<"leagueChallenge">, {
+    currentProposalId: createdProposal.id,
+    updatedAt: now.getTime(),
+  });
+
+  if (input.plan.result) {
+    const submittedByMembershipId = resolvePlanMembershipId(
+      input.plan,
+      input.plan.result.submittedBy
+    ) as Id<"leagueMembership">;
+    const confirmedByMembershipId = input.plan.result.confirmedBy
+      ? (resolvePlanMembershipId(
+          input.plan,
+          input.plan.result.confirmedBy
+        ) as Id<"leagueMembership">)
+      : null;
+    const submittedAt = addDays(now, Math.min(input.plan.dayOffset, -1));
+    const score = buildSeedScore({
+      challengedMembershipId,
+      challengerMembershipId,
+      matchConfig: input.matchConfig,
+      winnerSide: input.plan.result.winner,
+    });
+
+    await input.ctx.orm
+      .insert(leagueTables.leagueChallengeResultSubmission)
+      .values({
+        challengeId: createdChallenge.id as Id<"leagueChallenge">,
+        confirmedAt: confirmedByMembershipId ? addDays(submittedAt, 1) : null,
+        confirmedByMembershipId,
+        score,
+        submittedAt,
+        submittedByMembershipId,
+        winnerMembershipId: score.winnerMembershipId,
+      })
+      .returning();
+  }
+
+  return { created: true };
+}
+
+async function seedTargetLeagueChallenges(input: {
+  ctx: SeedCtx;
+  league: LeagueRecord;
+  memberships: LeagueMembershipRecord[];
+}) {
+  const activeMemberships = input.memberships.filter(
+    (membership) =>
+      membership.status === "active" &&
+      typeof membership.rankingPosition === "number"
+  );
+  const challengePlans = buildTargetLeagueChallengePlans({
+    activeMemberships: activeMemberships.map((membership) => ({
+      id: membership.id as Id<"leagueMembership">,
+      rankingPosition: membership.rankingPosition,
+    })),
+  });
+
+  if (challengePlans.length === 0) {
+    return 0;
+  }
+
+  const ruleConfig = ChallengeRuleConfigSchema.parse(input.league.ruleConfig);
+  const courtId = await ensureSeedCourtForLeague(input.ctx, input.league);
+  let challengesCreated = 0;
+
+  for (const plan of challengePlans) {
+    const result = await ensureSeedChallenge({
+      courtId,
+      ctx: input.ctx,
+      league: input.league,
+      matchConfig: ruleConfig.matchConfig,
+      plan,
+      responseDeadlineHours: ruleConfig.responseDeadlineHours,
+    });
+
+    if (result.created) {
+      challengesCreated += 1;
+    }
+  }
+
+  return challengesCreated;
 }
 
 async function seedTargetLeague(
@@ -560,7 +946,7 @@ async function seedTargetLeague(
   leagueId: Id<"league">,
   userIds: Id<"user">[]
 ) {
-  await getLeagueByIdOrThrow(ctx, leagueId);
+  const targetLeague = await getLeagueByIdOrThrow(ctx, leagueId);
 
   const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
     limit: 500,
@@ -568,17 +954,26 @@ async function seedTargetLeague(
     where: { leagueId, status: "active" },
   });
 
-  const startingPosition = activeMemberships.length + 1;
-  const memberships = [
-    ...getActiveMemberships(userIds, [0, 1, 2, 3, 4, 5], startingPosition),
-    ...getInactiveMemberships(userIds, [6, 7, 8], "pending"),
-    ...getInactiveMemberships(userIds, [9], "rejected"),
-    ...getActiveMemberships(userIds, [10, 11, 12, 13, 14, 15, 16, 17], 7),
-    ...getInactiveMemberships(userIds, [18], "pending"),
-    ...getInactiveMemberships(userIds, [19], "rejected"),
-  ];
+  const memberships = buildTargetLeagueMemberships({
+    startingPosition: getNextTargetLeagueRankingPosition(activeMemberships),
+    userIds,
+  });
 
-  return ensureLeagueMemberships(ctx, leagueId, memberships);
+  const membershipResult = await ensureLeagueMemberships(
+    ctx,
+    leagueId,
+    memberships
+  );
+  const challengesCreated = await seedTargetLeagueChallenges({
+    ctx,
+    league: targetLeague,
+    memberships: membershipResult.memberships,
+  });
+
+  return {
+    challengesCreated,
+    membershipsCreated: membershipResult.membershipsCreated,
+  };
 }
 
 async function seedLeagueScenarios(
@@ -614,35 +1009,39 @@ async function seedLeagueScenarios(
   const [leagueOne, leagueTwo, leagueThree, leagueFour] = leagues;
 
   if (leagueOne) {
-    membershipsCreated += await ensureLeagueMemberships(
+    const result = await ensureLeagueMemberships(
       ctx,
       leagueOne.id as Id<"league">,
       buildLeagueOneMemberships(userIds, primaryUserId)
     );
+    membershipsCreated += result.membershipsCreated;
   }
 
   if (leagueTwo) {
-    membershipsCreated += await ensureLeagueMemberships(
+    const result = await ensureLeagueMemberships(
       ctx,
       leagueTwo.id as Id<"league">,
       buildLeagueTwoMemberships(userIds, primaryUserId)
     );
+    membershipsCreated += result.membershipsCreated;
   }
 
   if (leagueThree) {
-    membershipsCreated += await ensureLeagueMemberships(
+    const result = await ensureLeagueMemberships(
       ctx,
       leagueThree.id as Id<"league">,
       buildLeagueThreeMemberships(userIds, primaryUserId)
     );
+    membershipsCreated += result.membershipsCreated;
   }
 
   if (leagueFour) {
-    membershipsCreated += await ensureLeagueMemberships(
+    const result = await ensureLeagueMemberships(
       ctx,
       leagueFour.id as Id<"league">,
       buildLeagueFourMemberships(userIds)
     );
+    membershipsCreated += result.membershipsCreated;
   }
 
   if (primaryUserId) {
@@ -667,11 +1066,12 @@ async function seedLeagueScenarios(
       leaguesCreated += 1;
     }
 
-    membershipsCreated += await ensureLeagueMemberships(
+    const result = await ensureLeagueMemberships(
       ctx,
       primaryLeague.league.id as Id<"league">,
       buildPrimaryLeagueMemberships(userIds)
     );
+    membershipsCreated += result.membershipsCreated;
   }
 
   return { leaguesCreated, membershipsCreated };
@@ -694,36 +1094,43 @@ export const preview = privateMutation
 
     let leaguesCreated = 0;
     let membershipsCreated = 0;
+    let challengesCreated = 0;
 
     const { playerProfilesCreated, userIds, usersCreated } =
       await seedCoreUsers(ctx);
-    const leagueSeedResult = await seedLeagueScenarios(
-      ctx,
-      userIds,
-      primaryUser?.id as Id<"user"> | undefined
-    );
-    leaguesCreated += leagueSeedResult.leaguesCreated;
-    membershipsCreated += leagueSeedResult.membershipsCreated;
+    if (shouldSeedScenarioLeagues(input)) {
+      const leagueSeedResult = await seedLeagueScenarios(
+        ctx,
+        userIds,
+        primaryUser?.id as Id<"user"> | undefined
+      );
+      leaguesCreated += leagueSeedResult.leaguesCreated;
+      membershipsCreated += leagueSeedResult.membershipsCreated;
+    }
 
     let targetLeagueLinked = false;
 
     if (input.targetLeagueId) {
-      membershipsCreated += await seedTargetLeague(
+      const targetLeagueSeedResult = await seedTargetLeague(
         ctx,
         input.targetLeagueId as Id<"league">,
         userIds
       );
+      challengesCreated += targetLeagueSeedResult.challengesCreated;
+      membershipsCreated += targetLeagueSeedResult.membershipsCreated;
       targetLeagueLinked = true;
     }
 
     const skipped =
       !input.reset &&
+      challengesCreated === 0 &&
       leaguesCreated === 0 &&
       membershipsCreated === 0 &&
       playerProfilesCreated === 0 &&
       usersCreated === 0;
 
     return {
+      challengesCreated,
       leaguesCreated,
       membershipsCreated,
       playerProfilesCreated,

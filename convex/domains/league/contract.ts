@@ -792,6 +792,9 @@ export const SubmitLeagueChallengeResultSchema = z.object({
   score: leagueChallengeScoreSchema,
 });
 
+export const AdminSubmitLeagueChallengeResultSchema =
+  SubmitLeagueChallengeResultSchema;
+
 export const RequestLeagueChallengeCancellationSchema = z.object({
   challengeId: z.string().min(1, "Desafio inválido."),
 });
@@ -815,7 +818,6 @@ export const ReviewLeagueChallengeResultSchema = z.object({
 export const AdminManageLeagueChallengeSchema = z.object({
   challengeId: z.string().min(1, "Desafio inválido."),
   action: z.enum(LeagueChallengeAdminActionOptions),
-  reason: z.string().trim().min(1, "Informe o motivo da ação administrativa."),
 });
 
 export type CreateLeagueInput = z.infer<typeof CreateLeagueSchema>;
@@ -879,5 +881,8 @@ export type ReviewLeagueMembershipInput = z.infer<
 >;
 export type SubmitLeagueChallengeResultInput = z.infer<
   typeof SubmitLeagueChallengeResultSchema
+>;
+export type AdminSubmitLeagueChallengeResultInput = z.infer<
+  typeof AdminSubmitLeagueChallengeResultSchema
 >;
 export type UpdateLeagueInput = z.infer<typeof UpdateLeagueSchema>;

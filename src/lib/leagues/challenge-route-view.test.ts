@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  buildChallengeAdminMenuActionIds,
   buildChallengeRouteEmptyState,
   buildChallengeRouteInitialTab,
   buildChallengeRouteVisibleChallenges,
@@ -92,6 +93,44 @@ describe("buildChallengeRouteVisibleChallenges", () => {
       "challenge-b",
       "challenge-e",
     ]);
+  });
+});
+
+describe("buildChallengeAdminMenuActionIds", () => {
+  it("lets managers launch a score for challenges waiting on a score", () => {
+    expect(
+      buildChallengeAdminMenuActionIds({
+        latestResultSubmission: null,
+        status: "pending_result_submission",
+      })
+    ).toContain("submit_result");
+  });
+
+  it("lets managers edit score and reopen result for finished challenges", () => {
+    expect(
+      buildChallengeAdminMenuActionIds({
+        latestResultSubmission: { id: "result-1" },
+        status: "finished",
+      })
+    ).toEqual(["submit_result", "reopen_result", "admin_invalidate"]);
+  });
+
+  it("keeps response-only challenges limited to cancellation", () => {
+    expect(
+      buildChallengeAdminMenuActionIds({
+        latestResultSubmission: null,
+        status: "pending_opponent_response",
+      })
+    ).toEqual(["admin_cancel"]);
+  });
+
+  it("keeps cancel as the last danger action when invalidate is also available", () => {
+    expect(
+      buildChallengeAdminMenuActionIds({
+        latestResultSubmission: null,
+        status: "confirmed",
+      }).slice(-2)
+    ).toEqual(["admin_invalidate", "admin_cancel"]);
   });
 });
 

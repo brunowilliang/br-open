@@ -5,11 +5,10 @@ import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
+  Card,
   Description,
   Dialog,
-  ListGroup,
   PressableFeedback,
-  Separator,
   useToast,
 } from "heroui-native";
 import { useEffect, useState, type ReactNode } from "react";
@@ -26,10 +25,16 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import type { LeagueDetailsRankingItem } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
+import {
+  getRankingOrderIds,
+  hasRankingOrderChanged,
+  shouldSyncRankingLocalItems,
+} from "@/lib/leagues/ranking-local-order";
 
 type RankingItem = LeagueDetailsRankingItem;
 
@@ -60,6 +65,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   const rankingItems = useValue(bucket$.derived.rankingItems);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<RankingItem[]>(rankingItems);
+  const [pendingOrderIds, setPendingOrderIds] = useState<string[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [isRemovePending, setIsRemovePending] = useState(false);
@@ -92,6 +98,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
         });
       },
       onError: (error) => {
+        setPendingOrderIds(null);
         toast.show({
           description: getToastErrorMessage(
             error,
@@ -141,12 +148,22 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   }, [bucket$, membershipOverviewQuery.data]);
 
   useEffect(() => {
-    if (activeItemId) {
+    if (
+      !shouldSyncRankingLocalItems({
+        activeItemId,
+        pendingOrderIds,
+        rankingItems,
+      })
+    ) {
       return;
     }
 
+    if (pendingOrderIds) {
+      setPendingOrderIds(null);
+    }
+
     setLocalItems(rankingItems);
-  }, [activeItemId, rankingItems]);
+  }, [activeItemId, pendingOrderIds, rankingItems]);
 
   useEffect(() => {
     if (bootstrapStatus !== "ready") {
@@ -227,34 +244,32 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
 
   function renderViewerActions(item: RankingItem, isChallengeable: boolean) {
     return (
-      <ListGroup.ItemSuffix>
-        <View className="items-end gap-2">
-          <View className="flex-row gap-1">
-            {[0, 1, 2, 3, 4].map((indicator) => (
-              <View
-                className="size-2.5 rounded-full bg-border"
-                key={`${item.id}-indicator-${indicator}`}
-              />
-            ))}
-          </View>
-          {isChallengeable ? (
-            <Button
-              className="h-7.5"
-              onPress={() => {
-                openChallenge(item);
-              }}
-              size="sm"
-              variant="secondary"
-            >
-              <Button.Label>Desafiar</Button.Label>
-            </Button>
-          ) : null}
+      <View className="items-end gap-2">
+        <View className="flex-row gap-1">
+          {[0, 1, 2, 3, 4].map((indicator) => (
+            <View
+              className="size-2.5 rounded-full bg-border"
+              key={`${item.id}-indicator-${indicator}`}
+            />
+          ))}
         </View>
-      </ListGroup.ItemSuffix>
+        {isChallengeable ? (
+          <Button
+            className="h-7.5"
+            onPress={() => {
+              openChallenge(item);
+            }}
+            size="sm"
+            variant="secondary"
+          >
+            <Button.Label>Desafiar</Button.Label>
+          </Button>
+        ) : null}
+      </View>
     );
   }
 
-  function getListItemClassName(isActive: boolean) {
+  function getRankingCardClassName(isActive: boolean) {
     return isActive ? "opacity-70" : "";
   }
 
@@ -318,95 +333,79 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   }
 
   function renderItemSuffix(item: RankingItem, isChallengeable: boolean) {
-    return canManageRanking ? (
-      <ListGroup.ItemSuffix />
-    ) : (
-      renderViewerActions(item, isChallengeable)
-    );
+    return canManageRanking ? null : renderViewerActions(item, isChallengeable);
   }
 
-  function renderItemWrapper(
-    itemContent: ReactNode,
-    item: RankingItem,
-    isActive: boolean
-  ) {
-    if (!canManageRanking) {
-      return itemContent;
-    }
-
-    return (
-      <PressableFeedback
-        animation={false}
-        onPress={
-          isActive
-            ? undefined
-            : () => {
-                setSelectedItem(item);
-              }
-        }
-      >
-        {itemContent}
-        <PressableFeedback.Highlight />
-      </PressableFeedback>
-    );
-  }
-
-  function renderListItemContent(input: {
+  function renderRankingCardContent(input: {
     drag: RenderItemParams<RankingItem>["drag"];
     isActive: boolean;
     isChallengeable: boolean;
     isViewerItem: boolean;
     item: RankingItem;
   }) {
+    const card = (
+      <Card className={cn("p-3", getRankingCardClassName(input.isActive))}>
+        <View className="flex-row items-center gap-3">
+          <View className="centered flex-row gap-2">
+            {renderManageHandle(input.drag, input.isActive)}
+            {renderPlayerMedia(input.item, input.isViewerItem)}
+          </View>
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text
+              className={cn("text-base", getTitleClassName(input.isViewerItem))}
+              numberOfLines={1}
+              weight="semibold"
+            >
+              {input.item.name}
+            </Text>
+            <Text color="muted" numberOfLines={1} variant="description">
+              {input.item.nickname}
+            </Text>
+          </View>
+          {renderItemSuffix(input.item, input.isChallengeable)}
+        </View>
+        {canManageRanking ? <PressableFeedback.Highlight /> : null}
+      </Card>
+    );
+
+    if (!canManageRanking) {
+      return card;
+    }
+
     return (
-      <ListGroup.Item className={getListItemClassName(input.isActive)} disabled>
-        <ListGroup.ItemPrefix className="centered flex-row">
-          {renderManageHandle(input.drag, input.isActive)}
-          {renderPlayerMedia(input.item, input.isViewerItem)}
-        </ListGroup.ItemPrefix>
-        <ListGroup.ItemContent>
-          <ListGroup.ItemTitle
-            className={getTitleClassName(input.isViewerItem)}
-          >
-            {input.item.name}
-          </ListGroup.ItemTitle>
-          <ListGroup.ItemDescription>
-            {input.item.nickname}
-          </ListGroup.ItemDescription>
-        </ListGroup.ItemContent>
-        {renderItemSuffix(input.item, input.isChallengeable)}
-      </ListGroup.Item>
+      <PressableFeedback
+        animation={false}
+        onPress={
+          input.isActive
+            ? undefined
+            : () => {
+                setSelectedItem(input.item);
+              }
+        }
+      >
+        {card}
+      </PressableFeedback>
     );
   }
 
   function renderItem({ drag, isActive, item }: RenderItemParams<RankingItem>) {
     const isViewerItem = item.isViewerItem === true;
     const isChallengeable = item.isChallengeable === true;
-    const itemContent = renderListItemContent({
-      drag,
-      isActive,
-      isChallengeable,
-      isViewerItem,
-      item,
-    });
-
     return (
       <ScaleDecorator activeScale={1.02}>
-        {renderItemWrapper(itemContent, item, isActive)}
+        {renderRankingCardContent({
+          drag,
+          isActive,
+          isChallengeable,
+          isViewerItem,
+          item,
+        })}
       </ScaleDecorator>
     );
   }
 
-  function renderItemSeparator({
-    leadingItem,
-  }: {
-    leadingItem?: RankingItem | null;
-  }) {
-    if (leadingItem?.id === activeItemId) {
-      return null;
-    }
-
-    return <Separator className="mx-5" />;
+  function renderItemGap() {
+    return <View className="h-2" />;
   }
 
   let rankingContent: ReactNode;
@@ -430,11 +429,11 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   } else {
     rankingContent = (
       <>
-        <ListGroup className="overflow-hidden">
+        <ScrollShadow isGesturePassthrough>
           <DraggableFlatList
             activationDistance={12}
             data={listItems}
-            ItemSeparatorComponent={renderItemSeparator}
+            ItemSeparatorComponent={renderItemGap}
             keyExtractor={(item) => item.id}
             onDragBegin={(index) => {
               setActiveItemId(listItems[index]?.id ?? null);
@@ -444,14 +443,26 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
                 ...item,
                 position: index + 1,
               }));
+              const currentMembershipIds = getRankingOrderIds(listItems);
+              const reorderedMembershipIds = getRankingOrderIds(reorderedItems);
 
               setLocalItems(reorderedItems);
               setActiveItemId(null);
 
+              if (
+                !hasRankingOrderChanged({
+                  currentOrderIds: currentMembershipIds,
+                  nextOrderIds: reorderedMembershipIds,
+                })
+              ) {
+                return;
+              }
+
               if (canManageRanking) {
+                setPendingOrderIds(reorderedMembershipIds);
                 reorderRanking.mutate({
                   leagueId,
-                  membershipIds: reorderedItems.map((item) => item.id),
+                  membershipIds: reorderedMembershipIds,
                 });
               }
             }}
@@ -459,7 +470,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
             scrollEnabled
             showsVerticalScrollIndicator={false}
           />
-        </ListGroup>
+        </ScrollShadow>
 
         <Dialog
           isOpen={Boolean(selectedItem) && !isRemoveDialogOpen}
@@ -479,33 +490,35 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
 
               {selectedItem ? (
                 <>
-                  <ListGroup>
-                    <ListGroup.Item className="bg-surface-secondary" disabled>
-                      <ListGroup.ItemPrefix className="centered flex-row">
-                        <View>
-                          <Image
-                            alt={selectedItem.name}
-                            className="size-10 rounded-full"
-                            fallback="green"
-                            source={selectedItem.avatarUrl ?? undefined}
-                          />
-                          <View className="centered absolute -top-1 -left-1 size-5.5 rounded-full border border-separator bg-surface-tertiary">
-                            <Text className="font-bold text-surface-tertiary-foreground text-xs">
-                              {selectedItem.position}
-                            </Text>
-                          </View>
+                  <Card className="p-3" variant="secondary">
+                    <View className="flex-row items-center gap-3">
+                      <View>
+                        <Image
+                          alt={selectedItem.name}
+                          className="size-10 rounded-full"
+                          fallback="green"
+                          source={selectedItem.avatarUrl ?? undefined}
+                        />
+                        <View className="centered absolute -top-1 -left-1 size-5.5 rounded-full border border-separator bg-surface-tertiary">
+                          <Text className="font-bold text-surface-tertiary-foreground text-xs">
+                            {selectedItem.position}
+                          </Text>
                         </View>
-                      </ListGroup.ItemPrefix>
-                      <ListGroup.ItemContent>
-                        <ListGroup.ItemTitle>
+                      </View>
+                      <View className="min-w-0 flex-1 gap-0.5">
+                        <Text numberOfLines={1} weight="semibold">
                           {selectedItem.name}
-                        </ListGroup.ItemTitle>
-                        <ListGroup.ItemDescription>
+                        </Text>
+                        <Text
+                          color="muted"
+                          numberOfLines={1}
+                          variant="description"
+                        >
                           {selectedItem.nickname}
-                        </ListGroup.ItemDescription>
-                      </ListGroup.ItemContent>
-                    </ListGroup.Item>
-                  </ListGroup>
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
 
                   <View className="self-end">
                     <Button

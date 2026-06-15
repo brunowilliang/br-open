@@ -21,6 +21,7 @@ import {
 } from "../../domains/league/challenge-rules";
 import {
   AdminManageLeagueChallengeSchema,
+  AdminSubmitLeagueChallengeResultSchema,
   CounterProposeLeagueChallengeSchema,
   CreateLeagueChallengeSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
@@ -914,7 +915,6 @@ async function recordAdminChallengeAction(input: {
   ctx: OrmMutationCtx;
   fromStatus: LeagueChallengeStatus;
   performedByUserId: Id<"user">;
-  reason: string;
   toStatus: LeagueChallengeStatus;
 }) {
   await input.ctx.orm.insert(leagueChallengeAdminAction).values({
@@ -923,7 +923,6 @@ async function recordAdminChallengeAction(input: {
     createdAt: new Date(),
     fromStatus: input.fromStatus,
     performedByUserId: input.performedByUserId,
-    reason: input.reason,
     toStatus: input.toStatus,
   });
 }
@@ -2308,6 +2307,137 @@ const ADMIN_INVALIDATABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "finished",
 ]);
 
+const ADMIN_SCORE_EDITABLE_STATUSES = new Set<LeagueChallengeStatus>([
+  "confirmed",
+  "pending_result_submission",
+  "pending_result_confirmation",
+  "pending_admin_result_validation",
+  "pending_result_correction",
+  "finished",
+  "invalidated",
+]);
+
+export const adminSubmitResult = authMutation
+  .input(AdminSubmitLeagueChallengeResultSchema)
+  .output(leagueChallengeSchema)
+  .mutation(async ({ ctx, input }) => {
+    const now = new Date();
+    const currentChallenge = await getChallengeRecordOrThrow(
+      ctx,
+      input.challengeId as Id<"leagueChallenge">
+    );
+    const currentLeague = await getLeagueRecordOrThrow(
+      ctx,
+      currentChallenge.leagueId as Id<"league">
+    );
+
+    await assertCanManageLeague(
+      ctx,
+      currentLeague,
+      "Só o admin da liga pode editar o placar."
+    );
+
+    const currentStatus = currentChallenge.status as LeagueChallengeStatus;
+
+    if (!ADMIN_SCORE_EDITABLE_STATUSES.has(currentStatus)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Esse desafio ainda não pode receber placar pelo admin.",
+      });
+    }
+
+    const parsedScore = leagueChallengeScoreSchema.parse(input.score);
+    const matchConfigSnapshot = LeagueMatchConfigSchema.parse(
+      currentChallenge.matchConfigSnapshot
+    );
+    const scoreValidationError = validateChallengeScore({
+      challengedMembershipId: String(currentChallenge.challengedMembershipId),
+      challengerMembershipId: String(currentChallenge.challengerMembershipId),
+      matchConfig: matchConfigSnapshot,
+      score: parsedScore,
+    });
+
+    if (scoreValidationError) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: scoreValidationError,
+      });
+    }
+
+    if (currentChallenge.rankingAppliedAt) {
+      await restoreChallengeRankingSnapshot({
+        challenge: currentChallenge,
+        ctx,
+      });
+    }
+
+    const rankingSnapshots = await applyChallengeRankingResult({
+      challenge: currentChallenge,
+      ctx,
+      currentLeague,
+      score: parsedScore,
+    });
+
+    await ctx.orm
+      .insert(leagueChallengeResultSubmission)
+      .values({
+        adminReviewedByUserId: ctx.userId,
+        challengeId: currentChallenge.id as Id<"leagueChallenge">,
+        confirmedAt: now,
+        confirmedByMembershipId:
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        reviewAction: "approved",
+        reviewedAt: now,
+        score: parsedScore,
+        submittedAt: now,
+        submittedByMembershipId:
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        winnerMembershipId:
+          parsedScore.winnerMembershipId as Id<"leagueMembership">,
+      })
+      .returning();
+
+    await ctx.db.patch(
+      currentChallenge.id as Id<"leagueChallenge">,
+      {
+        cancellationRequestedAt: null,
+        cancellationRequestedByMembershipId: null,
+        finishedAt: now.getTime(),
+        invalidatedAt: null,
+        rankingAppliedAt: now.getTime(),
+        rankingSnapshotAfterResult: rankingSnapshots.rankingSnapshotAfterResult,
+        rankingSnapshotBeforeResult:
+          rankingSnapshots.rankingSnapshotBeforeResult,
+        status: "finished",
+        updatedAt: now.getTime(),
+      } as never
+    );
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: currentChallenge,
+      ctx,
+      eventType: "league.challenge.result_confirmed",
+      recipientMembershipIds: [
+        currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+      ],
+    });
+
+    return serializeChallenge(ctx, currentLeague, {
+      ...currentChallenge,
+      cancellationRequestedAt: null,
+      cancellationRequestedByMembershipId: null,
+      finishedAt: now,
+      invalidatedAt: null,
+      rankingAppliedAt: now,
+      rankingSnapshotAfterResult: rankingSnapshots.rankingSnapshotAfterResult,
+      rankingSnapshotBeforeResult: rankingSnapshots.rankingSnapshotBeforeResult,
+      status: "finished",
+      updatedAt: now,
+    });
+  });
+
 export const adminManage = authMutation
   .input(AdminManageLeagueChallengeSchema)
   .output(leagueChallengeSchema)
@@ -2329,7 +2459,6 @@ export const adminManage = authMutation
     );
 
     const currentStatus = currentChallenge.status as LeagueChallengeStatus;
-    const reason = input.reason.trim();
     const latestResultSubmission = await getLatestResultSubmission(
       ctx,
       currentChallenge.id as Id<"leagueChallenge">
@@ -2367,7 +2496,6 @@ export const adminManage = authMutation
         ctx,
         fromStatus: currentStatus,
         performedByUserId: ctx.userId,
-        reason,
         toStatus: "cancelled",
       });
 
@@ -2437,7 +2565,6 @@ export const adminManage = authMutation
         ctx,
         fromStatus: currentStatus,
         performedByUserId: ctx.userId,
-        reason,
         toStatus: "invalidated",
       });
 
@@ -2521,7 +2648,6 @@ export const adminManage = authMutation
         ctx,
         fromStatus: currentStatus,
         performedByUserId: ctx.userId,
-        reason,
         toStatus: nextStatus,
       });
 
@@ -2578,7 +2704,6 @@ export const adminManage = authMutation
       ctx,
       fromStatus: currentStatus,
       performedByUserId: ctx.userId,
-      reason,
       toStatus: "pending_result_correction",
     });
 

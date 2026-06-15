@@ -8,6 +8,7 @@ import {
 } from "./league-details-store";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
+type MembershipOverview = ApiOutputs["league"]["membership"]["getOverview"];
 
 function makeLeagueOverview(
   overrides: Partial<LeagueOverview> = {}
@@ -66,6 +67,16 @@ function makeLeagueOverview(
     updatedAt: 1,
     viewerMembershipStatus: null,
     visibility: "public",
+    ...overrides,
+  };
+}
+
+function makeMembershipOverview(
+  overrides: Partial<MembershipOverview> = {}
+): MembershipOverview {
+  return {
+    pendingRequests: [],
+    ranking: [],
     ...overrides,
   };
 }
@@ -129,6 +140,61 @@ describe("leagueDetailsStore$", () => {
     expect(bucket$.derived.canOpenLeagueMenu()).toBe(true);
     expect(bucket$.derived.canRequestJoin()).toBe(true);
     expect(bucket$.derived.showJoinFooter()).toBe(true);
+  });
+
+  it("updates menu request badges from hydrated membership overview", () => {
+    const bucket$ = getLeagueDetailsBucket$("league-1");
+
+    bucket$.actions.hydrateOverview({
+      canJoinLeagues: false,
+      canUseOrganizerCapabilities: true,
+      league: makeLeagueOverview({
+        isManagerOwner: true,
+      }),
+      viewerActor: {
+        id: "org-1",
+        kind: "organization",
+      },
+    });
+
+    bucket$.actions.hydrateMembershipOverview(
+      makeMembershipOverview({
+        pendingRequests: [
+          {
+            createdAt: 1,
+            id: "membership-pending-1",
+            leagueId: "league-1",
+            player: {
+              avatarUrl: null,
+              fullName: "Ana",
+              nickname: "ana",
+            },
+            playerProfileId: "player-1",
+            status: "pending",
+            updatedAt: 1,
+          },
+          {
+            createdAt: 1,
+            id: "membership-pending-2",
+            leagueId: "league-1",
+            player: {
+              avatarUrl: null,
+              fullName: "Bia",
+              nickname: "bia",
+            },
+            playerProfileId: "player-2",
+            status: "pending",
+            updatedAt: 1,
+          },
+        ],
+      })
+    );
+
+    expect(bucket$.derived.menuActionCounts()).toEqual({
+      challenges: 0,
+      requests: 2,
+      total: 2,
+    });
   });
 
   it("keeps the join footer visible after a request is pending", () => {

@@ -4,6 +4,7 @@ import {
   buildLeagueDetailsAccess,
   buildLeagueDetailsCanOpenLeagueMenu,
   buildLeagueDetailsCanRequestJoin,
+  buildLeagueDetailsMenuActionCounts,
   buildLeagueDetailsShowJoinFooter,
   buildLeagueDetailsRankingItems,
   buildLeagueDetailsRequestItems,
@@ -12,6 +13,7 @@ import {
   resolveLeagueDetailsVisibleRequestItems,
   buildLeagueRulesView,
   resolveLeagueDetailsViewerPosition,
+  shouldFetchLeagueDetailsMembershipOverview,
 } from "./league-details-derived";
 
 describe("buildLeagueDetailsRole", () => {
@@ -106,6 +108,78 @@ describe("buildLeagueDetailsCanOpenLeagueMenu", () => {
         canOpenRules: true,
       })
     ).toBe(true);
+  });
+});
+
+describe("buildLeagueDetailsMenuActionCounts", () => {
+  it("sums only actionable menu counts from routes the viewer can open", () => {
+    expect(
+      buildLeagueDetailsMenuActionCounts({
+        access: {
+          canOpenChallenges: true,
+          canOpenRanking: true,
+          canOpenRequests: true,
+          canOpenRules: true,
+        },
+        challengeActionCount: 2,
+        requestActionCount: 3,
+      })
+    ).toEqual({
+      challenges: 2,
+      requests: 3,
+      total: 5,
+    });
+  });
+
+  it("hides counts for closed menu routes", () => {
+    expect(
+      buildLeagueDetailsMenuActionCounts({
+        access: {
+          canOpenChallenges: true,
+          canOpenRanking: true,
+          canOpenRequests: false,
+          canOpenRules: true,
+        },
+        challengeActionCount: 1,
+        requestActionCount: 4,
+      })
+    ).toEqual({
+      challenges: 1,
+      requests: 0,
+      total: 1,
+    });
+  });
+});
+
+describe("shouldFetchLeagueDetailsMembershipOverview", () => {
+  it("loads membership overview for ranking and request badges", () => {
+    expect(
+      shouldFetchLeagueDetailsMembershipOverview({
+        canOpenChallenges: false,
+        canOpenRanking: false,
+        canOpenRequests: true,
+        canOpenRules: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldFetchLeagueDetailsMembershipOverview({
+        canOpenChallenges: false,
+        canOpenRanking: true,
+        canOpenRequests: false,
+        canOpenRules: true,
+      })
+    ).toBe(true);
+  });
+
+  it("skips membership overview when the viewer can only open static rules", () => {
+    expect(
+      shouldFetchLeagueDetailsMembershipOverview({
+        canOpenChallenges: false,
+        canOpenRanking: false,
+        canOpenRequests: false,
+        canOpenRules: true,
+      })
+    ).toBe(false);
   });
 });
 

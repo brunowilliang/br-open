@@ -9,23 +9,9 @@ import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Button,
-  Chip,
-  ListGroup,
-  Menu,
-  Separator,
-  Tabs,
-  useToast,
-} from "heroui-native";
+import { Button, Card, Chip, Menu, Tabs, useToast } from "heroui-native";
 import { Badge } from "heroui-native-pro";
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentProps,
-} from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Image } from "@/components/core/image";
@@ -47,6 +33,7 @@ import {
   getCreateChallengeErrorToast,
 } from "@/lib/leagues/challenge-feedback";
 import {
+  buildChallengeAdminMenuActionIds,
   buildChallengeRouteEmptyState,
   buildChallengeRouteInitialTab,
   buildChallengeRouteVisibleChallenges,
@@ -230,33 +217,30 @@ function getAdminActionCopy(action: AdminActionTarget["action"]) {
   switch (action) {
     case "cancel":
       return {
-        description:
-          "Explique por que esse desafio deve ser encerrado administrativamente.",
+        description: "Tem certeza que deseja cancelar este desafio?",
         isDanger: true,
-        submitLabel: "Cancelar desafio",
-        title: "Cancelar administrativamente",
+        submitLabel: "Sim",
+        title: "Cancelar desafio",
       };
     case "invalidate":
       return {
-        description:
-          "Explique por que essa partida ou resultado não deve mais valer.",
+        description: "Tem certeza que deseja invalidar este desafio?",
         isDanger: true,
-        submitLabel: "Invalidar desafio",
-        title: "Invalidar administrativamente",
+        submitLabel: "Sim",
+        title: "Invalidar desafio",
       };
     case "reopen_challenge":
       return {
-        description:
-          "Explique por que o fluxo do desafio precisa ser reaberto.",
+        description: "Tem certeza que deseja reabrir este desafio?",
         isDanger: false,
-        submitLabel: "Reabrir desafio",
+        submitLabel: "Sim",
         title: "Reabrir desafio",
       };
     case "reopen_result":
       return {
-        description: "Explique por que o placar precisa ser reaberto.",
+        description: "Tem certeza que deseja reabrir o resultado?",
         isDanger: false,
-        submitLabel: "Reabrir resultado",
+        submitLabel: "Sim",
         title: "Reabrir resultado",
       };
     default:
@@ -618,6 +602,30 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
       },
     })
   );
+  const adminSubmitChallengeResult = useMutation(
+    crpc.league.challenges.adminSubmitResult.mutationOptions({
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "Placar salvo e ranking atualizado.",
+          id: "admin-submit-challenge-result-success",
+          label: "Placar atualizado",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível salvar o placar pelo admin."
+          ),
+          id: "admin-submit-challenge-result-error",
+          label: "Erro ao salvar placar",
+          variant: "danger",
+        });
+      },
+    })
+  );
 
   const challenges = challengesQuery.data ?? [];
   const courts = league?.courts ?? [];
@@ -637,7 +645,8 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
     confirmChallengeResult.isPending ||
     reviewChallenge.isPending ||
     reviewChallengeResult.isPending ||
-    adminManageChallenge.isPending;
+    adminManageChallenge.isPending ||
+    adminSubmitChallengeResult.isPending;
   const occupiedSlots = occupiedSlotsQuery.data ?? [];
 
   const onAccept = (challengeId: string) => {
@@ -646,7 +655,6 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
   const onAdminManage = async (input: {
     action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
     challengeId: string;
-    reason: string;
   }) => {
     await adminManageChallenge.mutateAsync(input);
   };
@@ -717,6 +725,19 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
     };
   }) => {
     await submitChallengeResult.mutateAsync(input);
+  };
+  const onAdminSubmitResult = async (input: {
+    challengeId: string;
+    score: {
+      sets: Array<{
+        challengedGames: number;
+        challengerGames: number;
+        kind: "set" | "super_tiebreak";
+      }>;
+      winnerMembershipId: string;
+    };
+  }) => {
+    await adminSubmitChallengeResult.mutateAsync(input);
   };
 
   useEffect(() => {
@@ -1006,7 +1027,7 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
 
         <ScrollView
           className="flex-1"
-          contentContainerClassName="gap-4 pt-3 grow pb-safe-offset-4 "
+          contentContainerClassName="grow gap-2 pt-3 pb-safe-offset-4"
           showsVerticalScrollIndicator={false}
         >
           {visibleChallenges.length === 0 ? (
@@ -1015,9 +1036,9 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
               title={emptyState.title}
             />
           ) : (
-            <ListGroup>
+            <View className="gap-2">
               {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this render block intentionally keeps the player/admin challenge actions colocated with each item */}
-              {visibleChallenges.map((challenge, index) => {
+              {visibleChallenges.map((challenge) => {
                 const viewerIsReceiver = isViewerReceiver(challenge);
                 const viewerIsCancellationResponder =
                   isViewerCancellationResponder(challenge);
@@ -1162,196 +1183,156 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
                   });
                 }
 
-                if (
-                  canManage &&
-                  challenge.status === "pending_admin_challenge_validation"
-                ) {
-                  menuActions.push(
-                    {
-                      icon: Tick02Icon,
-                      id: `${challenge.id}-approve-challenge`,
-                      label: "Aprovar desafio",
-                      onPress: () => {
-                        onReviewChallenge({
-                          action: "approve",
-                          challengeId: challenge.id,
+                if (canManage) {
+                  for (const actionId of buildChallengeAdminMenuActionIds(
+                    challenge
+                  )) {
+                    switch (actionId) {
+                      case "approve_challenge":
+                        menuActions.push({
+                          icon: Tick02Icon,
+                          id: `${challenge.id}-approve-challenge`,
+                          label: "Aprovar desafio",
+                          onPress: () => {
+                            onReviewChallenge({
+                              action: "approve",
+                              challengeId: challenge.id,
+                            });
+                          },
                         });
-                      },
-                    },
-                    {
-                      icon: Cancel01Icon,
-                      id: `${challenge.id}-reject-challenge`,
-                      isDanger: true,
-                      label: "Rejeitar",
-                      onPress: () => {
-                        onReviewChallenge({
-                          action: "reject",
-                          challengeId: challenge.id,
+                        break;
+                      case "reject_challenge":
+                        menuActions.push({
+                          icon: Cancel01Icon,
+                          id: `${challenge.id}-reject-challenge`,
+                          isDanger: true,
+                          label: "Rejeitar",
+                          onPress: () => {
+                            onReviewChallenge({
+                              action: "reject",
+                              challengeId: challenge.id,
+                            });
+                          },
                         });
-                      },
+                        break;
+                      case "approve_result":
+                        menuActions.push({
+                          icon: Tick02Icon,
+                          id: `${challenge.id}-approve-result`,
+                          label: "Aprovar resultado",
+                          onPress: () => {
+                            onReviewResult({
+                              action: "approve",
+                              challengeId: challenge.id,
+                              resultSubmissionId:
+                                challenge.latestResultSubmission?.id ?? "",
+                            });
+                          },
+                        });
+                        break;
+                      case "request_result_correction":
+                        menuActions.push({
+                          icon: Edit02Icon,
+                          id: `${challenge.id}-request-correction`,
+                          label: "Solicitar correção",
+                          onPress: () => {
+                            onReviewResult({
+                              action: "request_correction",
+                              challengeId: challenge.id,
+                              resultSubmissionId:
+                                challenge.latestResultSubmission?.id ?? "",
+                            });
+                          },
+                        });
+                        break;
+                      case "submit_result":
+                        menuActions.push({
+                          icon: Edit02Icon,
+                          id: `${challenge.id}-admin-submit-result`,
+                          label: challenge.latestResultSubmission
+                            ? "Editar placar"
+                            : "Lançar placar",
+                          onPress: () => {
+                            setResultTarget(challenge);
+                          },
+                        });
+                        break;
+                      case "admin_cancel":
+                        menuActions.push({
+                          icon: Cancel01Icon,
+                          id: `${challenge.id}-admin-cancel`,
+                          isDanger: true,
+                          label: "Cancelar",
+                          onPress: () => {
+                            setAdminActionTarget({
+                              action: "cancel",
+                              challenge,
+                            });
+                          },
+                        });
+                        break;
+                      case "admin_invalidate":
+                        menuActions.push({
+                          icon: Cancel01Icon,
+                          id: `${challenge.id}-admin-invalidate`,
+                          isDanger: true,
+                          label: "Invalidar",
+                          onPress: () => {
+                            setAdminActionTarget({
+                              action: "invalidate",
+                              challenge,
+                            });
+                          },
+                        });
+                        break;
+                      case "reopen_challenge":
+                        menuActions.push({
+                          icon: Edit02Icon,
+                          id: `${challenge.id}-reopen-challenge`,
+                          label: "Reabrir desafio",
+                          onPress: () => {
+                            setAdminActionTarget({
+                              action: "reopen_challenge",
+                              challenge,
+                            });
+                          },
+                        });
+                        break;
+                      case "reopen_result":
+                        menuActions.push({
+                          icon: Edit02Icon,
+                          id: `${challenge.id}-reopen-result`,
+                          label: "Reabrir resultado",
+                          onPress: () => {
+                            setAdminActionTarget({
+                              action: "reopen_result",
+                              challenge,
+                            });
+                          },
+                        });
+                        break;
+                      default:
+                        break;
                     }
-                  );
-                }
-
-                if (
-                  canManage &&
-                  challenge.status === "pending_admin_result_validation" &&
-                  challenge.latestResultSubmission
-                ) {
-                  menuActions.push(
-                    {
-                      icon: Tick02Icon,
-                      id: `${challenge.id}-approve-result`,
-                      label: "Aprovar resultado",
-                      onPress: () => {
-                        onReviewResult({
-                          action: "approve",
-                          challengeId: challenge.id,
-                          resultSubmissionId:
-                            challenge.latestResultSubmission?.id ?? "",
-                        });
-                      },
-                    },
-                    {
-                      icon: Edit02Icon,
-                      id: `${challenge.id}-request-correction`,
-                      label: "Solicitar correção",
-                      onPress: () => {
-                        onReviewResult({
-                          action: "request_correction",
-                          challengeId: challenge.id,
-                          resultSubmissionId:
-                            challenge.latestResultSubmission?.id ?? "",
-                        });
-                      },
-                    }
-                  );
-                }
-
-                if (
-                  canManage &&
-                  [
-                    "pending_opponent_response",
-                    "pending_creator_reapproval",
-                    "pending_admin_challenge_validation",
-                    "confirmed",
-                    "pending_cancellation_acceptance",
-                    "pending_result_submission",
-                    "pending_result_confirmation",
-                    "pending_admin_result_validation",
-                    "pending_result_correction",
-                    "pending_admin_decision",
-                  ].includes(challenge.status)
-                ) {
-                  menuActions.push({
-                    icon: Cancel01Icon,
-                    id: `${challenge.id}-admin-cancel`,
-                    isDanger: true,
-                    label: "Cancelar",
-                    onPress: () => {
-                      setAdminActionTarget({
-                        action: "cancel",
-                        challenge,
-                      });
-                    },
-                  });
-                }
-
-                if (
-                  canManage &&
-                  [
-                    "confirmed",
-                    "pending_cancellation_acceptance",
-                    "pending_result_submission",
-                    "pending_result_confirmation",
-                    "pending_admin_result_validation",
-                    "pending_result_correction",
-                    "pending_admin_decision",
-                    "finished",
-                  ].includes(challenge.status)
-                ) {
-                  menuActions.push({
-                    icon: Cancel01Icon,
-                    id: `${challenge.id}-admin-invalidate`,
-                    isDanger: true,
-                    label: "Invalidar",
-                    onPress: () => {
-                      setAdminActionTarget({
-                        action: "invalidate",
-                        challenge,
-                      });
-                    },
-                  });
-                }
-
-                if (
-                  canManage &&
-                  ["declined", "cancelled"].includes(challenge.status)
-                ) {
-                  menuActions.push({
-                    icon: Edit02Icon,
-                    id: `${challenge.id}-reopen-challenge`,
-                    label: "Reabrir desafio",
-                    onPress: () => {
-                      setAdminActionTarget({
-                        action: "reopen_challenge",
-                        challenge,
-                      });
-                    },
-                  });
-                }
-
-                if (canManage && challenge.status === "invalidated") {
-                  menuActions.push({
-                    icon: Edit02Icon,
-                    id: `${challenge.id}-reopen-invalidated`,
-                    label: challenge.latestResultSubmission
-                      ? "Reabrir resultado"
-                      : "Reabrir desafio",
-                    onPress: () => {
-                      setAdminActionTarget({
-                        action: challenge.latestResultSubmission
-                          ? "reopen_result"
-                          : "reopen_challenge",
-                        challenge,
-                      });
-                    },
-                  });
-                }
-
-                if (canManage && challenge.status === "finished") {
-                  menuActions.push({
-                    icon: Edit02Icon,
-                    id: `${challenge.id}-reopen-result`,
-                    label: "Reabrir resultado",
-                    onPress: () => {
-                      setAdminActionTarget({
-                        action: "reopen_result",
-                        challenge,
-                      });
-                    },
-                  });
+                  }
                 }
 
                 return (
-                  <Fragment key={challenge.id}>
-                    {index > 0 ? <Separator className="mx-4" /> : null}
-                    <ListGroup.Item disabled>
-                      <ListGroup.ItemPrefix>
-                        <View className="relative h-12 w-10">
-                          <Image
-                            className="absolute top-0 left-0 size-7 rounded-full border border-separator"
-                            fallback="green"
-                            source={challenge.challenger.player.avatarUrl}
-                          />
-                          <Image
-                            className="absolute right-0 bottom-0 size-7 rounded-full border border-separator"
-                            fallback="blue"
-                            source={challenge.challenged.player.avatarUrl}
-                          />
-                        </View>
-                      </ListGroup.ItemPrefix>
-                      <ListGroup.ItemContent>
+                  <Card className="p-3" key={challenge.id}>
+                    <View className="flex-row items-center gap-3">
+                      <View className="relative h-13 w-12">
+                        <Image
+                          className="absolute top-0 left-0 size-8.5 rounded-full border border-separator"
+                          fallback="green"
+                          source={challenge.challenger.player.avatarUrl}
+                        />
+                        <Image
+                          className="absolute right-0 bottom-0 size-8.5 rounded-full border border-separator"
+                          fallback="blue"
+                          source={challenge.challenged.player.avatarUrl}
+                        />
+                      </View>
+                      <View className="min-w-0 flex-1 gap-2">
                         <View className="flex-row items-center justify-between gap-3">
                           <Chip
                             color={statusChip.color}
@@ -1459,15 +1440,19 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
                           ) : null}
                         </View>
 
-                        <ListGroup.ItemDescription>
+                        <Text
+                          color="muted"
+                          numberOfLines={2}
+                          variant="description"
+                        >
                           {formatProposalSummary(challenge)}
-                        </ListGroup.ItemDescription>
-                      </ListGroup.ItemContent>
-                    </ListGroup.Item>
-                  </Fragment>
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
                 );
               })}
-            </ListGroup>
+            </View>
           )}
         </ScrollView>
 
@@ -1546,17 +1531,30 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
               }
             }}
             onSubmit={async (value) => {
-              await onSubmitResult({
-                challengeId: resultTarget.id,
-                score: value,
-              });
+              if (canManage) {
+                await onAdminSubmitResult({
+                  challengeId: resultTarget.id,
+                  score: value,
+                });
+              } else {
+                await onSubmitResult({
+                  challengeId: resultTarget.id,
+                  score: value,
+                });
+              }
               setResultTarget(null);
             }}
-            title={
-              resultTarget.status === "pending_result_confirmation"
+            title={(() => {
+              if (canManage) {
+                return resultTarget.latestResultSubmission
+                  ? "Editar placar"
+                  : "Lançar placar";
+              }
+
+              return resultTarget.status === "pending_result_confirmation"
                 ? "Reeditar placar"
-                : "Enviar placar"
-            }
+                : "Enviar placar";
+            })()}
           />
         ) : null}
 
@@ -1571,11 +1569,10 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
                 setAdminActionTarget(null);
               }
             }}
-            onSubmit={async (reason) => {
+            onSubmit={async () => {
               await onAdminManage({
                 action: adminActionTarget.action,
                 challengeId: adminActionTarget.challenge.id,
-                reason,
               });
               setAdminActionTarget(null);
             }}
