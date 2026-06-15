@@ -83,8 +83,39 @@ type ValidateChallengeScoreInput = {
   score: LeagueChallengeScore;
 };
 
+type ResolveChallengeCreationRuleErrorInput = {
+  challengedActiveChallengeCount: number;
+  challengedMembershipId: string;
+  challengedPosition?: null | number;
+  challengerActiveChallengeCount: number;
+  challengerCreatedThisMonthCount: number;
+  challengerMembershipId: string;
+  challengerPosition?: null | number;
+  maxActiveChallengesPerPlayer: number;
+  maxChallengeDistance: number;
+  maxChallengesPerMonth: number;
+};
+
+type ResolveConfirmedChallengeResultInput = ValidateChallengeScoreInput & {
+  lossBehavior: LeagueChallengeLossBehavior;
+  rankingMembershipIds: string[];
+  resultValidationMode: LeagueResultValidationMode;
+  winBehavior: LeagueChallengeWinBehavior;
+};
+
+type ResolveChallengeRankingRestoreInput = {
+  currentRankingMembershipIds: string[];
+  hasRankingApplied: boolean;
+  rankingSnapshotAfterResult?: unknown;
+  rankingSnapshotBeforeResult?: unknown;
+};
+
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 const SUPPORTED_BEST_OF_SET_COUNTS = [1, 3, 5] as const;
+const MISSING_RANKING_RESTORE_SNAPSHOT_ERROR =
+  "Esse resultado não possui um snapshot seguro para reabrir o ranking.";
+const CHANGED_RANKING_RESTORE_SNAPSHOT_ERROR =
+  "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.";
 
 function moveItem(
   items: string[],
@@ -125,6 +156,20 @@ function getChallengeScoreSetWinner(
   return set.challengerGames > set.challengedGames
     ? "challenger"
     : "challenged";
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isSameOrderedList(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item, index) => item === right[index]);
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: set validation keeps tennis score rules centralized for shared frontend/backend use
@@ -285,6 +330,47 @@ export function canPlayersCancelChallenge(
   input: CanPlayersCancelChallengeInput
 ) {
   return input.now < input.scheduledStartAt;
+}
+
+export function resolveChallengeCreationRuleError(
+  input: ResolveChallengeCreationRuleErrorInput
+) {
+  if (input.challengedMembershipId === input.challengerMembershipId) {
+    return "Você não pode desafiar a si mesmo.";
+  }
+
+  if (!(input.challengerPosition && input.challengedPosition)) {
+    return "O ranking da liga está incompleto para abrir esse desafio.";
+  }
+
+  if (input.challengerPosition <= input.challengedPosition) {
+    return "Você só pode desafiar jogadores acima da sua posição.";
+  }
+
+  if (
+    input.challengerPosition - input.challengedPosition >
+    input.maxChallengeDistance
+  ) {
+    return "Esse desafio ultrapassa a distância máxima permitida.";
+  }
+
+  if (
+    input.challengerActiveChallengeCount >= input.maxActiveChallengesPerPlayer
+  ) {
+    return "Você já atingiu o limite de desafios ativos.";
+  }
+
+  if (
+    input.challengedActiveChallengeCount >= input.maxActiveChallengesPerPlayer
+  ) {
+    return "O adversário já atingiu o limite de desafios ativos.";
+  }
+
+  if (input.challengerCreatedThisMonthCount >= input.maxChallengesPerMonth) {
+    return "Você já atingiu o limite mensal de desafios.";
+  }
+
+  return null;
 }
 
 export function getBestOfSetValidationError(bestOfSets: number) {
@@ -461,6 +547,90 @@ export function validateChallengeScore(input: ValidateChallengeScoreInput) {
   return winnerMembershipId === input.score.winnerMembershipId
     ? null
     : "O vencedor informado não corresponde ao placar.";
+}
+
+export function resolveConfirmedChallengeResult(
+  input: ResolveConfirmedChallengeResultInput
+) {
+  const scoreValidationError = validateChallengeScore(input);
+
+  if (scoreValidationError) {
+    return {
+      error: scoreValidationError,
+      ok: false,
+    } as const;
+  }
+
+  const winnerMembershipId = resolveChallengeScoreWinnerMembershipId({
+    challengedMembershipId: input.challengedMembershipId,
+    challengerMembershipId: input.challengerMembershipId,
+    matchConfig: input.matchConfig,
+    sets: input.score.sets,
+  });
+
+  if (!winnerMembershipId) {
+    return {
+      error: "Esse placar ainda não define o vencedor da partida.",
+      ok: false,
+    } as const;
+  }
+
+  const nextStatus = resolveScoreConfirmationStatus({
+    resultValidationMode: input.resultValidationMode,
+  });
+
+  return {
+    nextStatus,
+    ok: true,
+    rankingMembershipIds:
+      nextStatus === "finished"
+        ? applyChallengeResultToRanking({
+            challengedMembershipId: input.challengedMembershipId,
+            challengerMembershipId: input.challengerMembershipId,
+            lossBehavior: input.lossBehavior,
+            rankingMembershipIds: input.rankingMembershipIds,
+            winBehavior: input.winBehavior,
+            winnerMembershipId,
+          })
+        : null,
+    winnerMembershipId,
+  } as const;
+}
+
+export function resolveChallengeRankingRestore(
+  input: ResolveChallengeRankingRestoreInput
+) {
+  const { rankingSnapshotAfterResult, rankingSnapshotBeforeResult } = input;
+
+  if (
+    !(
+      input.hasRankingApplied &&
+      isStringArray(rankingSnapshotAfterResult) &&
+      isStringArray(rankingSnapshotBeforeResult)
+    )
+  ) {
+    return {
+      error: MISSING_RANKING_RESTORE_SNAPSHOT_ERROR,
+      ok: false,
+    } as const;
+  }
+
+  if (
+    !isSameOrderedList(
+      input.currentRankingMembershipIds,
+      rankingSnapshotAfterResult
+    )
+  ) {
+    return {
+      error: CHANGED_RANKING_RESTORE_SNAPSHOT_ERROR,
+      ok: false,
+    } as const;
+  }
+
+  return {
+    ok: true,
+    rankingMembershipIds: rankingSnapshotBeforeResult,
+  } as const;
 }
 
 export function isChallengeSlotBlocked(status: LeagueChallengeStatus) {

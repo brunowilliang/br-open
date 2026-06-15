@@ -10,6 +10,8 @@ import {
   canPlayersCancelChallenge,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
+  resolveChallengeCreationRuleError,
+  resolveChallengeRankingRestore,
   validateChallengeScore,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
@@ -639,40 +641,6 @@ async function assertChallengeCreationRules(input: {
   ctx: OrmCtx;
   league: League;
 }) {
-  if (input.challengedMembership.id === input.challengerMembership.id) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Você não pode desafiar a si mesmo.",
-    });
-  }
-
-  const challengerPosition = input.challengerMembership.rankingPosition;
-  const challengedPosition = input.challengedMembership.rankingPosition;
-
-  if (!(challengerPosition && challengedPosition)) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "O ranking da liga está incompleto para abrir esse desafio.",
-    });
-  }
-
-  if (challengerPosition <= challengedPosition) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Você só pode desafiar jogadores acima da sua posição.",
-    });
-  }
-
-  if (
-    challengerPosition - challengedPosition >
-    input.league.ruleConfig.maxChallengeDistance
-  ) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Esse desafio ultrapassa a distância máxima permitida.",
-    });
-  }
-
   const activeChallenges = await input.ctx.orm.query.leagueChallenge.findMany({
     limit: 500,
     where: { leagueId: input.league.id as Id<"league"> },
@@ -688,28 +656,6 @@ async function assertChallengeCreationRules(input: {
           challenge.challengedMembershipId === membershipId)
     ).length;
 
-  if (
-    activeChallengeCountForMembership(
-      input.challengerMembership.id as Id<"leagueMembership">
-    ) >= input.league.ruleConfig.maxActiveChallengesPerPlayer
-  ) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Você já atingiu o limite de desafios ativos.",
-    });
-  }
-
-  if (
-    activeChallengeCountForMembership(
-      input.challengedMembership.id as Id<"leagueMembership">
-    ) >= input.league.ruleConfig.maxActiveChallengesPerPlayer
-  ) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "O adversário já atingiu o limite de desafios ativos.",
-    });
-  }
-
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -719,13 +665,28 @@ async function assertChallengeCreationRules(input: {
       challenge.challengerMembershipId === input.challengerMembership.id &&
       challenge.createdAt >= monthStart
   ).length;
+  const ruleError = resolveChallengeCreationRuleError({
+    challengedActiveChallengeCount: activeChallengeCountForMembership(
+      input.challengedMembership.id as Id<"leagueMembership">
+    ),
+    challengedMembershipId: String(input.challengedMembership.id),
+    challengedPosition: input.challengedMembership.rankingPosition,
+    challengerActiveChallengeCount: activeChallengeCountForMembership(
+      input.challengerMembership.id as Id<"leagueMembership">
+    ),
+    challengerCreatedThisMonthCount: challengesCreatedThisMonth,
+    challengerMembershipId: String(input.challengerMembership.id),
+    challengerPosition: input.challengerMembership.rankingPosition,
+    maxActiveChallengesPerPlayer:
+      input.league.ruleConfig.maxActiveChallengesPerPlayer,
+    maxChallengeDistance: input.league.ruleConfig.maxChallengeDistance,
+    maxChallengesPerMonth: input.league.ruleConfig.maxChallengesPerMonth,
+  });
 
-  if (
-    challengesCreatedThisMonth >= input.league.ruleConfig.maxChallengesPerMonth
-  ) {
+  if (ruleError) {
     throw new CRPCError({
       code: "BAD_REQUEST",
-      message: "Você já atingiu o limite mensal de desafios.",
+      message: ruleError,
     });
   }
 }
@@ -908,22 +869,6 @@ async function restoreChallengeRankingSnapshot(input: {
   challenge: LeagueChallengeRecord;
   ctx: OrmMutationCtx;
 }) {
-  const rankingSnapshotAfterResult = input.challenge.rankingSnapshotAfterResult;
-  const rankingSnapshotBeforeResult =
-    input.challenge.rankingSnapshotBeforeResult;
-  const hasRankingSnapshots =
-    Boolean(input.challenge.rankingAppliedAt) &&
-    Array.isArray(rankingSnapshotAfterResult) &&
-    Array.isArray(rankingSnapshotBeforeResult);
-
-  if (!hasRankingSnapshots) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message:
-        "Esse resultado não possui um snapshot seguro para reabrir o ranking.",
-    });
-  }
-
   const activeMemberships = await input.ctx.orm.query.leagueMembership.findMany(
     {
       limit: 500,
@@ -938,19 +883,24 @@ async function restoreChallengeRankingSnapshot(input: {
   const currentRankingMembershipIds = activeMemberships.map((membership) =>
     String(membership.id)
   );
+  const restoreResult = resolveChallengeRankingRestore({
+    currentRankingMembershipIds,
+    hasRankingApplied: Boolean(input.challenge.rankingAppliedAt),
+    rankingSnapshotAfterResult: input.challenge.rankingSnapshotAfterResult,
+    rankingSnapshotBeforeResult: input.challenge.rankingSnapshotBeforeResult,
+  });
 
-  if (
-    JSON.stringify(currentRankingMembershipIds) !==
-    JSON.stringify(rankingSnapshotAfterResult)
-  ) {
+  if (!restoreResult.ok) {
     throw new CRPCError({
       code: "BAD_REQUEST",
-      message:
-        "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
+      message: restoreResult.error,
     });
   }
 
-  for (const [index, membershipId] of rankingSnapshotBeforeResult.entries()) {
+  for (const [
+    index,
+    membershipId,
+  ] of restoreResult.rankingMembershipIds.entries()) {
     await input.ctx.db.patch(membershipId as Id<"leagueMembership">, {
       rankingPosition: index + 1,
       updatedAt: Date.now(),

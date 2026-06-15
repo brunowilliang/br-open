@@ -11,6 +11,8 @@ import {
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
   resolveChallengeScoreWinnerMembershipId,
+  resolveChallengeRankingRestore,
+  resolveConfirmedChallengeResult,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
   resolveReopenedChallengeStatus,
@@ -351,6 +353,223 @@ describe("league challenge rules", () => {
         sets: score.sets,
       })
     ).toBe("membership-1");
+  });
+
+  it("describes the automatic challenge cycle from acceptance to ranking update", () => {
+    const acceptedStatus = resolveAcceptedChallengeStatus({
+      challengeValidationMode: "automatic",
+    });
+    const score = {
+      sets: [
+        {
+          challengedGames: 4,
+          challengerGames: 6,
+          kind: "set" as const,
+        },
+        {
+          challengedGames: 4,
+          challengerGames: 6,
+          kind: "set" as const,
+        },
+      ],
+      winnerMembershipId: "membership-4",
+    };
+
+    expect(acceptedStatus).toBe("confirmed");
+    expect(
+      validateChallengeScore({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-4",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        score,
+      })
+    ).toBeNull();
+    expect(
+      resolveConfirmedChallengeResult({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-4",
+        lossBehavior: "stay_put",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        rankingMembershipIds: [
+          "membership-1",
+          "membership-2",
+          "membership-3",
+          "membership-4",
+        ],
+        resultValidationMode: "automatic",
+        score,
+        winBehavior: "take_opponent_position",
+      })
+    ).toEqual({
+      nextStatus: "finished",
+      ok: true,
+      rankingMembershipIds: [
+        "membership-1",
+        "membership-4",
+        "membership-3",
+        "membership-2",
+      ],
+      winnerMembershipId: "membership-4",
+    });
+  });
+
+  it("finishes an automatically confirmed result and returns the next ranking", () => {
+    expect(
+      resolveConfirmedChallengeResult({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-4",
+        lossBehavior: "stay_put",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        rankingMembershipIds: [
+          "membership-1",
+          "membership-2",
+          "membership-3",
+          "membership-4",
+        ],
+        resultValidationMode: "automatic",
+        score: {
+          sets: [
+            {
+              challengedGames: 4,
+              challengerGames: 6,
+              kind: "set",
+            },
+            {
+              challengedGames: 4,
+              challengerGames: 6,
+              kind: "set",
+            },
+          ],
+          winnerMembershipId: "membership-4",
+        },
+        winBehavior: "take_opponent_position",
+      })
+    ).toEqual({
+      nextStatus: "finished",
+      ok: true,
+      rankingMembershipIds: [
+        "membership-1",
+        "membership-4",
+        "membership-3",
+        "membership-2",
+      ],
+      winnerMembershipId: "membership-4",
+    });
+  });
+
+  it("keeps ranking unchanged until admin approval when result validation is manual", () => {
+    expect(
+      resolveConfirmedChallengeResult({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-4",
+        lossBehavior: "stay_put",
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 3,
+        },
+        rankingMembershipIds: [
+          "membership-1",
+          "membership-2",
+          "membership-3",
+          "membership-4",
+        ],
+        resultValidationMode: "manual",
+        score: {
+          sets: [
+            {
+              challengedGames: 4,
+              challengerGames: 6,
+              kind: "set",
+            },
+            {
+              challengedGames: 4,
+              challengerGames: 6,
+              kind: "set",
+            },
+          ],
+          winnerMembershipId: "membership-4",
+        },
+        winBehavior: "take_opponent_position",
+      })
+    ).toEqual({
+      nextStatus: "pending_admin_result_validation",
+      ok: true,
+      rankingMembershipIds: null,
+      winnerMembershipId: "membership-4",
+    });
+  });
+
+  it("restores the previous ranking only when the current ranking still matches the result snapshot", () => {
+    expect(
+      resolveChallengeRankingRestore({
+        currentRankingMembershipIds: [
+          "membership-1",
+          "membership-4",
+          "membership-3",
+          "membership-2",
+        ],
+        hasRankingApplied: true,
+        rankingSnapshotAfterResult: [
+          "membership-1",
+          "membership-4",
+          "membership-3",
+          "membership-2",
+        ],
+        rankingSnapshotBeforeResult: [
+          "membership-1",
+          "membership-2",
+          "membership-3",
+          "membership-4",
+        ],
+      })
+    ).toEqual({
+      ok: true,
+      rankingMembershipIds: [
+        "membership-1",
+        "membership-2",
+        "membership-3",
+        "membership-4",
+      ],
+    });
+  });
+
+  it("blocks ranking restore when another ranking change already happened", () => {
+    expect(
+      resolveChallengeRankingRestore({
+        currentRankingMembershipIds: [
+          "membership-4",
+          "membership-1",
+          "membership-3",
+          "membership-2",
+        ],
+        hasRankingApplied: true,
+        rankingSnapshotAfterResult: [
+          "membership-1",
+          "membership-4",
+          "membership-3",
+          "membership-2",
+        ],
+        rankingSnapshotBeforeResult: [
+          "membership-1",
+          "membership-2",
+          "membership-3",
+          "membership-4",
+        ],
+      })
+    ).toEqual({
+      error:
+        "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
+      ok: false,
+    });
   });
 
   it("rejects a best-of-three score without the deciding set after a one-set-each split", () => {

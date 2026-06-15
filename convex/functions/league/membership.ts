@@ -12,6 +12,11 @@ import {
   RequestLeagueJoinSchema,
   ReviewLeagueMembershipSchema,
 } from "../../domains/league/contract";
+import {
+  canLeagueAcceptMember,
+  resolveApprovedMembershipRankingPosition,
+  resolveRankingReorderError,
+} from "../../domains/league/membership-rules";
 import { leagueMembership } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
@@ -237,7 +242,9 @@ async function getOrganizationMemberUserIds(
 }
 
 async function getNextRankingPosition(ctx: OrmCtx, leagueId: Id<"league">) {
-  return (await countActiveLeagueMemberships(ctx, leagueId)) + 1;
+  return resolveApprovedMembershipRankingPosition({
+    highestRankingPosition: await getHighestRankingPosition(ctx, leagueId),
+  });
 }
 
 async function countActiveLeagueMemberships(
@@ -252,15 +259,24 @@ async function countActiveLeagueMemberships(
   return activeMemberships.length;
 }
 
+async function getHighestRankingPosition(ctx: OrmCtx, leagueId: Id<"league">) {
+  const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    where: { leagueId, status: "active" },
+  });
+
+  return activeMemberships.reduce(
+    (highestPosition, membership) =>
+      Math.max(highestPosition, membership.rankingPosition ?? 0),
+    0
+  );
+}
+
 function assertLeagueHasAvailableSpot(input: {
   activeMembershipCount: number;
   maxPlayers?: null | number;
 }) {
-  if (
-    input.maxPlayers !== null &&
-    input.maxPlayers !== undefined &&
-    input.activeMembershipCount >= input.maxPlayers
-  ) {
+  if (!canLeagueAcceptMember(input)) {
     throw new CRPCError({
       code: "BAD_REQUEST",
       message: "Essa liga não possui vagas disponíveis.",
@@ -494,9 +510,10 @@ export const approve = authMutation
       });
     }
 
-    const rankingPosition =
-      currentMembership.rankingPosition ??
-      (await getNextRankingPosition(ctx, leagueId));
+    const rankingPosition = resolveApprovedMembershipRankingPosition({
+      currentRankingPosition: currentMembership.rankingPosition,
+      highestRankingPosition: await getHighestRankingPosition(ctx, leagueId),
+    });
 
     const updatedMembership =
       currentMembership.status === "active"
@@ -634,23 +651,22 @@ export const reorderRanking = authMutation
       where: { leagueId, status: "active" },
     });
 
-    const activeMembershipIds = activeMemberships.map(
-      (membership) => membership.id
-    );
-    const requestedIds = input.membershipIds;
-    const hasSameLength = activeMembershipIds.length === requestedIds.length;
-    const hasSameMembers = requestedIds.every((membershipId) =>
-      activeMembershipIds.includes(membershipId as Id<"leagueMembership">)
-    );
+    const requestedMembershipIds = input.membershipIds;
+    const reorderError = resolveRankingReorderError({
+      activeMembershipIds: activeMemberships.map((membership) =>
+        String(membership.id)
+      ),
+      requestedMembershipIds,
+    });
 
-    if (!(hasSameLength && hasSameMembers)) {
+    if (reorderError) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "O ranking enviado não corresponde aos participantes ativos.",
+        message: reorderError,
       });
     }
 
-    for (const [index, membershipId] of requestedIds.entries()) {
+    for (const [index, membershipId] of requestedMembershipIds.entries()) {
       await ctx.db.patch(membershipId as Id<"leagueMembership">, {
         rankingPosition: index + 1,
         updatedAt: now.getTime(),
