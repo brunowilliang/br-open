@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "br-open",
+    "name": "BR Open",
     "slug": "br-open",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,6 +13,9 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
@@ -60,6 +63,9 @@
         "projectId": "5acfd14c-2868-454d-80f5-0d83a2222680"
       }
     },
-    "owner": "brunowilliang"
+    "owner": "brunowilliang",
+    "updates": {
+      "url": "https://u.expo.dev/5acfd14c-2868-454d-80f5-0d83a2222680"
+    }
   }
 }

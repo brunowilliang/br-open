@@ -2,15 +2,18 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, ListGroup, Separator, useToast } from "heroui-native";
-import { Fragment, type ReactNode, useEffect } from "react";
+import { Button, Card, useToast } from "heroui-native";
+import { type ReactNode, useEffect } from "react";
+import { ScrollView, View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -181,27 +184,24 @@ function LeagueRequestsRouteContent(props: { leagueId: string }) {
     );
   } else {
     requestsContent = (
-      <ListGroup>
-        {visibleRequestItems.map((item, index) => (
-          <Fragment key={item.id}>
-            {index > 0 ? <Separator className="mx-4" /> : null}
-            <ListGroup.Item disabled>
-              <ListGroup.ItemPrefix>
-                <Image
-                  className="size-10 rounded-full"
-                  fallback="blue"
-                  source={item.avatarUrl ? { uri: item.avatarUrl } : undefined}
-                />
-              </ListGroup.ItemPrefix>
-              <ListGroup.ItemContent>
-                <ListGroup.ItemTitle numberOfLines={1}>
+      <View className="gap-2">
+        {visibleRequestItems.map((item) => (
+          <Card className="p-3" key={item.id}>
+            <View className="flex-row items-center gap-3">
+              <Image
+                className="size-10 rounded-full"
+                fallback="blue"
+                source={item.avatarUrl ? { uri: item.avatarUrl } : undefined}
+              />
+              <View className="min-w-0 flex-1 gap-0.5">
+                <Text className="text-base" numberOfLines={1} weight="semibold">
                   {item.name}
-                </ListGroup.ItemTitle>
-                <ListGroup.ItemDescription numberOfLines={1}>
+                </Text>
+                <Text color="muted" numberOfLines={1} variant="description">
                   {item.nickname}
-                </ListGroup.ItemDescription>
-              </ListGroup.ItemContent>
-              <ListGroup.ItemSuffix className="flex-row gap-1">
+                </Text>
+              </View>
+              <View className="flex-row gap-1">
                 <Button
                   isDisabled={isMembershipActionPending}
                   isIconOnly
@@ -232,32 +232,31 @@ function LeagueRequestsRouteContent(props: { leagueId: string }) {
                     icon={Tick02Icon}
                   />
                 </Button>
-              </ListGroup.ItemSuffix>
-            </ListGroup.Item>
-          </Fragment>
+              </View>
+            </View>
+          </Card>
         ))}
-      </ListGroup>
+      </View>
     );
   }
 
   return (
     <Page>
       <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
+        <Page.Header.Left />
         <Page.Header.Center>
           <Page.Header.Title>Solicitações</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-4 px-4 pb-safe-offset-4"
-      >
-        {requestsContent}
-      </Page.ScrollView>
+      <Page.View className="flex-1">
+        <ScrollShadow bottomSize={200} className="flex-1">
+          <ScrollView contentContainerClassName="grow gap-4 px-4 pb-safe-offset-23">
+            {requestsContent}
+          </ScrollView>
+        </ScrollShadow>
+      </Page.View>
     </Page>
   );
 }

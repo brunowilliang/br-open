@@ -1,0 +1,493 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useValue } from "@legendapp/state/react";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "heroui-native";
+import { useCallback, useEffect, type ReactNode } from "react";
+import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
+
+import {
+  LeagueSchema,
+  type LeagueScreenValues,
+} from "@/components/pages/leagues/form-schema";
+import { resolveLeagueFormInvalidSubmission } from "@/components/pages/leagues/form-validation";
+import {
+  getLeagueFormBucket$,
+  type LeagueFormMode,
+  type LeagueMediaKind,
+} from "@/lib/leagues/league-form-store";
+import { useCRPC } from "@/lib/convex/crpc";
+import {
+  cropImage,
+  type CroppedImage,
+  ImageCropper,
+  type ImageCropArea,
+  type ImageCropperProps,
+  pickImageCropAsset,
+} from "@/lib/uploads/image-crop";
+import type { LeagueFormTabValue } from "@/lib/leagues/league-form-navigation";
+
+type LeagueMediaCropConfig = {
+  aspectRatio: number;
+  height: number;
+  width: number;
+};
+
+type UploadedLeagueMedia = {
+  previewUri: string;
+  storageId: string;
+};
+
+type LeagueMediaUploadPhase = "parse_response" | "post_upload" | "read_file";
+
+type LeagueMediaUploadErrorOptions = {
+  cause?: unknown;
+  details?: string;
+  status?: number;
+};
+
+type LeagueFormControllerOptions = {
+  defaultValues: LeagueScreenValues;
+  isPending?: boolean;
+  isRulesLocked?: boolean;
+  mediaUrls?: {
+    avatarUrl?: string | null;
+    coverUrl?: string | null;
+  };
+  mode: LeagueFormMode;
+  onDelete?: () => Promise<void>;
+  onSubmit: (values: LeagueScreenValues) => Promise<void>;
+  onValidationTabRequest: (tab: LeagueFormTabValue) => void;
+  sessionKey: string;
+  showDelete?: boolean;
+  title: string;
+};
+
+type LeagueFormController = {
+  form: UseFormReturn<LeagueScreenValues>;
+  cropper: Pick<
+    ImageCropperProps,
+    | "asset"
+    | "aspectRatio"
+    | "description"
+    | "isProcessing"
+    | "onCancel"
+    | "onConfirm"
+    | "title"
+  >;
+};
+
+class LeagueMediaUploadError extends Error {
+  readonly cause?: unknown;
+  readonly details?: string;
+  readonly phase: LeagueMediaUploadPhase;
+  readonly status?: number;
+
+  constructor(
+    phase: LeagueMediaUploadPhase,
+    message: string,
+    options: LeagueMediaUploadErrorOptions = {}
+  ) {
+    super(message);
+    this.name = "LeagueMediaUploadError";
+    this.cause = options.cause;
+    this.details = options.details;
+    this.phase = phase;
+    this.status = options.status;
+  }
+}
+
+const LEAGUE_MEDIA_CROP_CONFIG = {
+  cover: {
+    aspectRatio: 16 / 9,
+    height: 900,
+    width: 1600,
+  },
+  avatar: {
+    aspectRatio: 1,
+    height: 900,
+    width: 900,
+  },
+} as const satisfies Record<LeagueMediaKind, LeagueMediaCropConfig>;
+
+const DEFAULT_UPLOAD_ERROR_MESSAGE = "Não foi possível enviar a imagem.";
+const LEAGUE_MEDIA_KINDS: LeagueMediaKind[] = ["avatar", "cover"];
+
+function buildLeagueMediaCropConfig(
+  kind: LeagueMediaKind
+): LeagueMediaCropConfig {
+  return LEAGUE_MEDIA_CROP_CONFIG[kind];
+}
+
+function parseConvexUploadStorageId(response: unknown): string {
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "storageId" in response &&
+    typeof response.storageId === "string" &&
+    response.storageId.trim()
+  ) {
+    return response.storageId;
+  }
+
+  throw new Error("Convex upload response did not include a storage id.");
+}
+
+function formatLeagueMediaUploadError(error: unknown): string {
+  if (!(error instanceof LeagueMediaUploadError)) {
+    return DEFAULT_UPLOAD_ERROR_MESSAGE;
+  }
+
+  if (typeof error.status === "number") {
+    return `${error.message} Código HTTP: ${error.status}.`;
+  }
+
+  return error.message;
+}
+
+async function buildLeagueMediaUploadFile(fileUri: string) {
+  try {
+    const { File: ExpoFile } = await import("expo-file-system");
+    return new ExpoFile(fileUri);
+  } catch (error) {
+    throw new LeagueMediaUploadError(
+      "read_file",
+      "Não foi possível ler o arquivo recortado no aparelho.",
+      {
+        cause: error,
+      }
+    );
+  }
+}
+
+function readUploadErrorDetails(response: { body: string }) {
+  return response.body.trim() || undefined;
+}
+
+async function uploadLeagueMedia(input: {
+  file: CroppedImage;
+  uploadUrl: string;
+}): Promise<UploadedLeagueMedia> {
+  const uploadFile = await buildLeagueMediaUploadFile(input.file.uri);
+  const { UploadType } = await import("expo-file-system");
+  const contentType = input.file.mimeType || "image/jpeg";
+
+  let uploadResponse: Awaited<ReturnType<typeof uploadFile.upload>>;
+
+  try {
+    uploadResponse = await uploadFile.upload(input.uploadUrl, {
+      headers: {
+        "Content-Type": contentType,
+      },
+      httpMethod: "POST",
+      mimeType: contentType,
+      uploadType: UploadType.BINARY_CONTENT,
+    });
+  } catch (error) {
+    throw new LeagueMediaUploadError(
+      "post_upload",
+      "Não foi possível enviar a imagem para o Convex Storage.",
+      {
+        cause: error,
+      }
+    );
+  }
+
+  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+    const details = readUploadErrorDetails(uploadResponse);
+    throw new LeagueMediaUploadError(
+      "post_upload",
+      "O Convex Storage recusou o upload.",
+      {
+        details,
+        status: uploadResponse.status,
+      }
+    );
+  }
+
+  let uploadResponseBody: unknown;
+
+  try {
+    uploadResponseBody = JSON.parse(uploadResponse.body);
+  } catch (error) {
+    throw new LeagueMediaUploadError(
+      "parse_response",
+      "O Convex Storage respondeu com um payload inválido.",
+      {
+        cause: error,
+      }
+    );
+  }
+
+  let storageId: string;
+
+  try {
+    storageId = parseConvexUploadStorageId(uploadResponseBody);
+  } catch (error) {
+    throw new LeagueMediaUploadError(
+      "parse_response",
+      "O Convex Storage respondeu sem um storageId válido.",
+      {
+        cause: error,
+      }
+    );
+  }
+
+  return {
+    previewUri: input.file.uri,
+    storageId,
+  };
+}
+
+export function useLeagueFormController(
+  options: LeagueFormControllerOptions
+): LeagueFormController {
+  const {
+    defaultValues,
+    isPending,
+    isRulesLocked,
+    mediaUrls,
+    mode,
+    onDelete,
+    onSubmit,
+    onValidationTabRequest,
+    sessionKey,
+    showDelete,
+    title,
+  } = options;
+  const crpc = useCRPC();
+  const { toast } = useToast();
+  const bucket$ = getLeagueFormBucket$(sessionKey);
+  const form = useForm<LeagueScreenValues>({
+    defaultValues,
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    resolver: zodResolver(LeagueSchema),
+  });
+  const generateUploadUrl = useMutation(
+    crpc.league.management.generateUploadUrl.mutationOptions()
+  );
+  const isFormSubmitting = form.formState.isSubmitting;
+  const cropRequest = useValue(bucket$.crop.request);
+  const isMediaBusy = useValue(bucket$.derived.isMediaBusy);
+  const cropConfig = cropRequest
+    ? buildLeagueMediaCropConfig(cropRequest.kind)
+    : null;
+
+  useEffect(() => {
+    bucket$.actions.configure({
+      avatarUrl: mediaUrls?.avatarUrl,
+      coverUrl: mediaUrls?.coverUrl,
+      externalPending: isPending,
+      isRulesLocked,
+      mode,
+      showDelete,
+      title,
+    });
+  }, [
+    bucket$,
+    isPending,
+    isRulesLocked,
+    mediaUrls?.avatarUrl,
+    mediaUrls?.coverUrl,
+    mode,
+    showDelete,
+    title,
+  ]);
+
+  useEffect(() => {
+    form.reset(defaultValues);
+    bucket$.actions.clearMedia();
+  }, [bucket$, defaultValues, form]);
+
+  useEffect(() => {
+    bucket$.actions.setFormSubmitting(isFormSubmitting);
+  }, [bucket$, isFormSubmitting]);
+
+  const uploadPendingMedia = useCallback(
+    async (input: LeagueScreenValues): Promise<LeagueScreenValues> => {
+      let nextValues = input;
+
+      for (const kind of LEAGUE_MEDIA_KINDS) {
+        const pendingFile = bucket$.media.pendingFiles[kind].get();
+
+        if (!pendingFile) {
+          continue;
+        }
+
+        const formField =
+          kind === "avatar" ? "avatarStorageId" : "coverStorageId";
+
+        bucket$.actions.setUploadingMediaKind(kind);
+
+        try {
+          const uploadUrl = await generateUploadUrl.mutateAsync({});
+          const uploadedMedia = await uploadLeagueMedia({
+            file: pendingFile,
+            uploadUrl,
+          });
+
+          nextValues = {
+            ...nextValues,
+            [formField]: uploadedMedia.storageId,
+          };
+          form.setValue(formField, uploadedMedia.storageId, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+          });
+          bucket$.actions.setPendingMediaFile(kind, null);
+        } finally {
+          bucket$.actions.setUploadingMediaKind(null);
+        }
+      }
+
+      return nextValues;
+    },
+    [bucket$, form, generateUploadUrl]
+  );
+
+  const submitForm = form.handleSubmit(
+    async (input) => {
+      let inputWithUploadedMedia: LeagueScreenValues;
+
+      try {
+        inputWithUploadedMedia = await uploadPendingMedia(input);
+      } catch (error) {
+        toast.show({
+          description: formatLeagueMediaUploadError(error),
+          id: "league-media-submit-upload-error",
+          label: "Erro no upload",
+          variant: "danger",
+        });
+        return;
+      }
+
+      await onSubmit(inputWithUploadedMedia);
+    },
+    (errors) => {
+      const invalidSubmission = resolveLeagueFormInvalidSubmission(errors);
+
+      onValidationTabRequest(invalidSubmission.tab);
+      toast.show({
+        description: invalidSubmission.description,
+        id: `league-form-validation-${invalidSubmission.tab}`,
+        label: invalidSubmission.label,
+        variant: "danger",
+      });
+    }
+  );
+
+  const handleSubmitPress = useCallback(() => {
+    submitForm().catch(() => undefined);
+  }, [submitForm]);
+
+  const handleMediaPress = useCallback(
+    async (kind: LeagueMediaKind) => {
+      if (bucket$.derived.isSubmitPending.get()) {
+        return;
+      }
+
+      try {
+        const asset = await pickImageCropAsset();
+
+        if (!asset) {
+          return;
+        }
+
+        bucket$.actions.setCropRequest({ asset, kind });
+      } catch {
+        toast.show({
+          description: "Não foi possível abrir a biblioteca de imagens.",
+          id: `league-${kind}-picker-error`,
+          label: "Erro ao selecionar imagem",
+          variant: "danger",
+        });
+      }
+    },
+    [bucket$, toast]
+  );
+
+  const handleCropConfirm = useCallback(
+    async (cropArea: ImageCropArea) => {
+      const currentCropRequest = bucket$.crop.request.get();
+
+      if (!currentCropRequest) {
+        return;
+      }
+
+      const { asset, kind } = currentCropRequest;
+
+      bucket$.actions.setUploadingMediaKind(kind);
+
+      try {
+        const croppedFile = await cropImage({
+          cropArea,
+          sourceUri: asset.uri,
+          target: buildLeagueMediaCropConfig(kind),
+        });
+
+        bucket$.actions.setPendingMediaFile(kind, croppedFile);
+        bucket$.actions.setMediaPreviewUrl(kind, croppedFile.uri);
+        bucket$.actions.setCropRequest(null);
+        toast.show({
+          description: "A imagem será enviada quando você salvar a liga.",
+          id: `league-${kind}-crop-success`,
+          label: kind === "avatar" ? "Avatar pronto" : "Banner pronto",
+          variant: "success",
+        });
+      } catch {
+        toast.show({
+          description: "Não foi possível recortar a imagem.",
+          id: `league-${kind}-crop-error`,
+          label: "Erro ao recortar imagem",
+          variant: "danger",
+        });
+      } finally {
+        bucket$.actions.setUploadingMediaKind(null);
+      }
+    },
+    [bucket$, toast]
+  );
+
+  useEffect(() => {
+    bucket$.actions.registerCallbacks({
+      onDelete,
+      onMediaPress: handleMediaPress,
+      onSubmitPress: handleSubmitPress,
+    });
+
+    return () => {
+      bucket$.actions.unregisterCallbacks();
+    };
+  }, [bucket$, handleMediaPress, handleSubmitPress, onDelete]);
+
+  return {
+    form,
+    cropper: {
+      aspectRatio: cropConfig?.aspectRatio ?? null,
+      asset: cropRequest?.asset ?? null,
+      description: "Arraste a foto e pince para dar zoom.",
+      isProcessing: isMediaBusy,
+      onCancel: () => {
+        if (!bucket$.derived.isMediaBusy.get()) {
+          bucket$.actions.setCropRequest(null);
+        }
+      },
+      onConfirm: handleCropConfirm,
+      title:
+        cropRequest?.kind === "avatar" ? "Ajustar avatar" : "Ajustar banner",
+    },
+  };
+}
+
+export function LeagueFormHost(props: {
+  children: ReactNode;
+  controller: LeagueFormController;
+}) {
+  return (
+    <FormProvider {...props.controller.form}>
+      {props.children}
+      <ImageCropper {...props.controller.cropper} />
+    </FormProvider>
+  );
+}

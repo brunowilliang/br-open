@@ -24,6 +24,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/ui/page";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { buildChallengeCardScoreSummary } from "@/lib/leagues/challenge-card-score-summary";
@@ -1025,436 +1026,445 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
           </Tabs.List>
         </Tabs>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="grow gap-2 pt-3 pb-safe-offset-4"
-          showsVerticalScrollIndicator={false}
-        >
-          {visibleChallenges.length === 0 ? (
-            <EmptyState
-              description={emptyState.description}
-              title={emptyState.title}
-            />
-          ) : (
-            <View className="gap-2">
-              {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this render block intentionally keeps the player/admin challenge actions colocated with each item */}
-              {visibleChallenges.map((challenge) => {
-                const viewerIsReceiver = isViewerReceiver(challenge);
-                const viewerIsCancellationResponder =
-                  isViewerCancellationResponder(challenge);
-                const statusChip = formatStatus(challenge.status);
-                const scoreSummary = formatScoreSummary(challenge);
-                const winnerMembershipId =
-                  challenge.latestResultSubmission?.winnerMembershipId ?? null;
-                const challengerScoreClass = getScoreValueClassName({
-                  hasScoreSummary: Boolean(scoreSummary),
-                  isWinner:
-                    winnerMembershipId === challenge.challenger.membershipId,
-                });
-                const challengedScoreClass = getScoreValueClassName({
-                  hasScoreSummary: Boolean(scoreSummary),
-                  isWinner:
-                    winnerMembershipId === challenge.challenged.membershipId,
-                });
-                const menuActions: Array<{
-                  icon: ComponentProps<typeof HugeIcons>["icon"];
-                  id: string;
-                  isDanger?: boolean;
-                  label: string;
-                  onPress: () => void;
-                }> = [];
+        <ScrollShadow bottomSize={200} className="flex-1">
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="grow gap-2 pt-3 pb-safe-offset-23"
+            showsVerticalScrollIndicator={false}
+          >
+            {visibleChallenges.length === 0 ? (
+              <EmptyState
+                description={emptyState.description}
+                title={emptyState.title}
+              />
+            ) : (
+              <View className="gap-2">
+                {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this render block intentionally keeps the player/admin challenge actions colocated with each item */}
+                {visibleChallenges.map((challenge) => {
+                  const viewerIsReceiver = isViewerReceiver(challenge);
+                  const viewerIsCancellationResponder =
+                    isViewerCancellationResponder(challenge);
+                  const statusChip = formatStatus(challenge.status);
+                  const scoreSummary = formatScoreSummary(challenge);
+                  const winnerMembershipId =
+                    challenge.latestResultSubmission?.winnerMembershipId ??
+                    null;
+                  const challengerScoreClass = getScoreValueClassName({
+                    hasScoreSummary: Boolean(scoreSummary),
+                    isWinner:
+                      winnerMembershipId === challenge.challenger.membershipId,
+                  });
+                  const challengedScoreClass = getScoreValueClassName({
+                    hasScoreSummary: Boolean(scoreSummary),
+                    isWinner:
+                      winnerMembershipId === challenge.challenged.membershipId,
+                  });
+                  const menuActions: Array<{
+                    icon: ComponentProps<typeof HugeIcons>["icon"];
+                    id: string;
+                    isDanger?: boolean;
+                    label: string;
+                    onPress: () => void;
+                  }> = [];
 
-                if (!canManage && viewerIsReceiver) {
-                  menuActions.push(
-                    {
-                      icon: Tick02Icon,
-                      id: `${challenge.id}-accept`,
-                      label: "Aceitar",
-                      onPress: () => {
-                        onAccept(challenge.id);
+                  if (!canManage && viewerIsReceiver) {
+                    menuActions.push(
+                      {
+                        icon: Tick02Icon,
+                        id: `${challenge.id}-accept`,
+                        label: "Aceitar",
+                        onPress: () => {
+                          onAccept(challenge.id);
+                        },
                       },
-                    },
-                    {
+                      {
+                        icon: Edit02Icon,
+                        id: `${challenge.id}-counter-propose`,
+                        label: "Reenviar",
+                        onPress: () => {
+                          setCounterProposalTarget(challenge);
+                        },
+                      },
+                      {
+                        icon: Cancel01Icon,
+                        id: `${challenge.id}-decline`,
+                        isDanger: true,
+                        label: "Recusar",
+                        onPress: () => {
+                          onDecline(challenge.id);
+                        },
+                      }
+                    );
+                  }
+
+                  if (!canManage && viewerIsCancellationResponder) {
+                    menuActions.push(
+                      {
+                        icon: Tick02Icon,
+                        id: `${challenge.id}-accept-cancellation`,
+                        label: "Aceitar cancelamento",
+                        onPress: () => {
+                          onRespondCancellation({
+                            action: "accept",
+                            challengeId: challenge.id,
+                          });
+                        },
+                      },
+                      {
+                        icon: Cancel01Icon,
+                        id: `${challenge.id}-reject-cancellation`,
+                        isDanger: true,
+                        label: "Recusar cancelamento",
+                        onPress: () => {
+                          onRespondCancellation({
+                            action: "reject",
+                            challengeId: challenge.id,
+                          });
+                        },
+                      }
+                    );
+                  }
+
+                  if (
+                    !(
+                      canManage ||
+                      viewerIsReceiver ||
+                      viewerIsCancellationResponder ||
+                      canRequestCancellation(challenge) ||
+                      challenge.status === "pending_result_confirmation" ||
+                      challenge.status === "pending_result_correction" ||
+                      challenge.status === "confirmed" ||
+                      challenge.status === "pending_cancellation_acceptance" ||
+                      CLOSED_STATUSES.has(challenge.status)
+                    )
+                  ) {
+                    menuActions.push({
+                      icon: Cancel01Icon,
+                      id: `${challenge.id}-cancel`,
+                      isDanger: true,
+                      label: "Cancelar",
+                      onPress: () => {
+                        onCancel(challenge.id);
+                      },
+                    });
+                  }
+
+                  if (canRequestCancellation(challenge)) {
+                    menuActions.push({
+                      icon: Cancel01Icon,
+                      id: `${challenge.id}-request-cancellation`,
+                      isDanger: true,
+                      label: "Solicitar cancelamento",
+                      onPress: () => {
+                        onRequestCancellation(challenge.id);
+                      },
+                    });
+                  }
+
+                  if (canSubmitScore(challenge)) {
+                    menuActions.push({
                       icon: Edit02Icon,
-                      id: `${challenge.id}-counter-propose`,
-                      label: "Reenviar",
+                      id: `${challenge.id}-submit-result`,
+                      label:
+                        challenge.status === "pending_result_confirmation"
+                          ? "Reeditar placar"
+                          : "Enviar placar",
                       onPress: () => {
-                        setCounterProposalTarget(challenge);
+                        setResultTarget(challenge);
                       },
-                    },
-                    {
-                      icon: Cancel01Icon,
-                      id: `${challenge.id}-decline`,
-                      isDanger: true,
-                      label: "Recusar",
-                      onPress: () => {
-                        onDecline(challenge.id);
-                      },
-                    }
-                  );
-                }
+                    });
+                  }
 
-                if (!canManage && viewerIsCancellationResponder) {
-                  menuActions.push(
-                    {
+                  if (canConfirmScore(challenge)) {
+                    menuActions.push({
                       icon: Tick02Icon,
-                      id: `${challenge.id}-accept-cancellation`,
-                      label: "Aceitar cancelamento",
+                      id: `${challenge.id}-confirm-result`,
+                      label: "Confirmar placar",
                       onPress: () => {
-                        onRespondCancellation({
-                          action: "accept",
-                          challengeId: challenge.id,
-                        });
+                        onConfirmResult(challenge.id);
                       },
-                    },
-                    {
-                      icon: Cancel01Icon,
-                      id: `${challenge.id}-reject-cancellation`,
-                      isDanger: true,
-                      label: "Recusar cancelamento",
-                      onPress: () => {
-                        onRespondCancellation({
-                          action: "reject",
-                          challengeId: challenge.id,
-                        });
-                      },
-                    }
-                  );
-                }
+                    });
+                  }
 
-                if (
-                  !(
-                    canManage ||
-                    viewerIsReceiver ||
-                    viewerIsCancellationResponder ||
-                    canRequestCancellation(challenge) ||
-                    challenge.status === "pending_result_confirmation" ||
-                    challenge.status === "pending_result_correction" ||
-                    challenge.status === "confirmed" ||
-                    challenge.status === "pending_cancellation_acceptance" ||
-                    CLOSED_STATUSES.has(challenge.status)
-                  )
-                ) {
-                  menuActions.push({
-                    icon: Cancel01Icon,
-                    id: `${challenge.id}-cancel`,
-                    isDanger: true,
-                    label: "Cancelar",
-                    onPress: () => {
-                      onCancel(challenge.id);
-                    },
-                  });
-                }
-
-                if (canRequestCancellation(challenge)) {
-                  menuActions.push({
-                    icon: Cancel01Icon,
-                    id: `${challenge.id}-request-cancellation`,
-                    isDanger: true,
-                    label: "Solicitar cancelamento",
-                    onPress: () => {
-                      onRequestCancellation(challenge.id);
-                    },
-                  });
-                }
-
-                if (canSubmitScore(challenge)) {
-                  menuActions.push({
-                    icon: Edit02Icon,
-                    id: `${challenge.id}-submit-result`,
-                    label:
-                      challenge.status === "pending_result_confirmation"
-                        ? "Reeditar placar"
-                        : "Enviar placar",
-                    onPress: () => {
-                      setResultTarget(challenge);
-                    },
-                  });
-                }
-
-                if (canConfirmScore(challenge)) {
-                  menuActions.push({
-                    icon: Tick02Icon,
-                    id: `${challenge.id}-confirm-result`,
-                    label: "Confirmar placar",
-                    onPress: () => {
-                      onConfirmResult(challenge.id);
-                    },
-                  });
-                }
-
-                if (canManage) {
-                  for (const actionId of buildChallengeAdminMenuActionIds(
-                    challenge
-                  )) {
-                    switch (actionId) {
-                      case "approve_challenge":
-                        menuActions.push({
-                          icon: Tick02Icon,
-                          id: `${challenge.id}-approve-challenge`,
-                          label: "Aprovar desafio",
-                          onPress: () => {
-                            onReviewChallenge({
-                              action: "approve",
-                              challengeId: challenge.id,
-                            });
-                          },
-                        });
-                        break;
-                      case "reject_challenge":
-                        menuActions.push({
-                          icon: Cancel01Icon,
-                          id: `${challenge.id}-reject-challenge`,
-                          isDanger: true,
-                          label: "Rejeitar",
-                          onPress: () => {
-                            onReviewChallenge({
-                              action: "reject",
-                              challengeId: challenge.id,
-                            });
-                          },
-                        });
-                        break;
-                      case "approve_result":
-                        menuActions.push({
-                          icon: Tick02Icon,
-                          id: `${challenge.id}-approve-result`,
-                          label: "Aprovar resultado",
-                          onPress: () => {
-                            onReviewResult({
-                              action: "approve",
-                              challengeId: challenge.id,
-                              resultSubmissionId:
-                                challenge.latestResultSubmission?.id ?? "",
-                            });
-                          },
-                        });
-                        break;
-                      case "request_result_correction":
-                        menuActions.push({
-                          icon: Edit02Icon,
-                          id: `${challenge.id}-request-correction`,
-                          label: "Solicitar correção",
-                          onPress: () => {
-                            onReviewResult({
-                              action: "request_correction",
-                              challengeId: challenge.id,
-                              resultSubmissionId:
-                                challenge.latestResultSubmission?.id ?? "",
-                            });
-                          },
-                        });
-                        break;
-                      case "submit_result":
-                        menuActions.push({
-                          icon: Edit02Icon,
-                          id: `${challenge.id}-admin-submit-result`,
-                          label: challenge.latestResultSubmission
-                            ? "Editar placar"
-                            : "Lançar placar",
-                          onPress: () => {
-                            setResultTarget(challenge);
-                          },
-                        });
-                        break;
-                      case "admin_cancel":
-                        menuActions.push({
-                          icon: Cancel01Icon,
-                          id: `${challenge.id}-admin-cancel`,
-                          isDanger: true,
-                          label: "Cancelar",
-                          onPress: () => {
-                            setAdminActionTarget({
-                              action: "cancel",
-                              challenge,
-                            });
-                          },
-                        });
-                        break;
-                      case "admin_invalidate":
-                        menuActions.push({
-                          icon: Cancel01Icon,
-                          id: `${challenge.id}-admin-invalidate`,
-                          isDanger: true,
-                          label: "Invalidar",
-                          onPress: () => {
-                            setAdminActionTarget({
-                              action: "invalidate",
-                              challenge,
-                            });
-                          },
-                        });
-                        break;
-                      case "reopen_challenge":
-                        menuActions.push({
-                          icon: Edit02Icon,
-                          id: `${challenge.id}-reopen-challenge`,
-                          label: "Reabrir desafio",
-                          onPress: () => {
-                            setAdminActionTarget({
-                              action: "reopen_challenge",
-                              challenge,
-                            });
-                          },
-                        });
-                        break;
-                      case "reopen_result":
-                        menuActions.push({
-                          icon: Edit02Icon,
-                          id: `${challenge.id}-reopen-result`,
-                          label: "Reabrir resultado",
-                          onPress: () => {
-                            setAdminActionTarget({
-                              action: "reopen_result",
-                              challenge,
-                            });
-                          },
-                        });
-                        break;
-                      default:
-                        break;
+                  if (canManage) {
+                    for (const actionId of buildChallengeAdminMenuActionIds(
+                      challenge
+                    )) {
+                      switch (actionId) {
+                        case "approve_challenge":
+                          menuActions.push({
+                            icon: Tick02Icon,
+                            id: `${challenge.id}-approve-challenge`,
+                            label: "Aprovar desafio",
+                            onPress: () => {
+                              onReviewChallenge({
+                                action: "approve",
+                                challengeId: challenge.id,
+                              });
+                            },
+                          });
+                          break;
+                        case "reject_challenge":
+                          menuActions.push({
+                            icon: Cancel01Icon,
+                            id: `${challenge.id}-reject-challenge`,
+                            isDanger: true,
+                            label: "Rejeitar",
+                            onPress: () => {
+                              onReviewChallenge({
+                                action: "reject",
+                                challengeId: challenge.id,
+                              });
+                            },
+                          });
+                          break;
+                        case "approve_result":
+                          menuActions.push({
+                            icon: Tick02Icon,
+                            id: `${challenge.id}-approve-result`,
+                            label: "Aprovar resultado",
+                            onPress: () => {
+                              onReviewResult({
+                                action: "approve",
+                                challengeId: challenge.id,
+                                resultSubmissionId:
+                                  challenge.latestResultSubmission?.id ?? "",
+                              });
+                            },
+                          });
+                          break;
+                        case "request_result_correction":
+                          menuActions.push({
+                            icon: Edit02Icon,
+                            id: `${challenge.id}-request-correction`,
+                            label: "Solicitar correção",
+                            onPress: () => {
+                              onReviewResult({
+                                action: "request_correction",
+                                challengeId: challenge.id,
+                                resultSubmissionId:
+                                  challenge.latestResultSubmission?.id ?? "",
+                              });
+                            },
+                          });
+                          break;
+                        case "submit_result":
+                          menuActions.push({
+                            icon: Edit02Icon,
+                            id: `${challenge.id}-admin-submit-result`,
+                            label: challenge.latestResultSubmission
+                              ? "Editar placar"
+                              : "Lançar placar",
+                            onPress: () => {
+                              setResultTarget(challenge);
+                            },
+                          });
+                          break;
+                        case "admin_cancel":
+                          menuActions.push({
+                            icon: Cancel01Icon,
+                            id: `${challenge.id}-admin-cancel`,
+                            isDanger: true,
+                            label: "Cancelar",
+                            onPress: () => {
+                              setAdminActionTarget({
+                                action: "cancel",
+                                challenge,
+                              });
+                            },
+                          });
+                          break;
+                        case "admin_invalidate":
+                          menuActions.push({
+                            icon: Cancel01Icon,
+                            id: `${challenge.id}-admin-invalidate`,
+                            isDanger: true,
+                            label: "Invalidar",
+                            onPress: () => {
+                              setAdminActionTarget({
+                                action: "invalidate",
+                                challenge,
+                              });
+                            },
+                          });
+                          break;
+                        case "reopen_challenge":
+                          menuActions.push({
+                            icon: Edit02Icon,
+                            id: `${challenge.id}-reopen-challenge`,
+                            label: "Reabrir desafio",
+                            onPress: () => {
+                              setAdminActionTarget({
+                                action: "reopen_challenge",
+                                challenge,
+                              });
+                            },
+                          });
+                          break;
+                        case "reopen_result":
+                          menuActions.push({
+                            icon: Edit02Icon,
+                            id: `${challenge.id}-reopen-result`,
+                            label: "Reabrir resultado",
+                            onPress: () => {
+                              setAdminActionTarget({
+                                action: "reopen_result",
+                                challenge,
+                              });
+                            },
+                          });
+                          break;
+                        default:
+                          break;
+                      }
                     }
                   }
-                }
 
-                return (
-                  <Card className="p-3" key={challenge.id}>
-                    <View className="flex-row items-center gap-3">
-                      <View className="relative h-13 w-12">
-                        <Image
-                          className="absolute top-0 left-0 size-8.5 rounded-full border border-separator"
-                          fallback="green"
-                          source={challenge.challenger.player.avatarUrl}
-                        />
-                        <Image
-                          className="absolute right-0 bottom-0 size-8.5 rounded-full border border-separator"
-                          fallback="blue"
-                          source={challenge.challenged.player.avatarUrl}
-                        />
-                      </View>
-                      <View className="min-w-0 flex-1 gap-2">
-                        <View className="flex-row items-center justify-between gap-3">
-                          <Chip
-                            color={statusChip.color}
-                            variant={statusChip.variant}
-                          >
-                            {statusChip.label}
-                          </Chip>
-                          {/* Menu com as opções */}
-                          {menuActions.length > 0 ? (
-                            <Menu>
-                              <Menu.Trigger asChild>
-                                <Button
-                                  className="size-7"
-                                  isDisabled={isPending}
-                                  isIconOnly
-                                  size="sm"
-                                  variant="tertiary"
-                                >
-                                  <HugeIcons
-                                    className="size-4.5"
-                                    icon={MoreVerticalIcon}
-                                  />
-                                </Button>
-                              </Menu.Trigger>
-                              <Menu.Portal>
-                                <Menu.Overlay />
-                                <Menu.Content presentation="popover">
-                                  {menuActions.map((action) => (
-                                    <Menu.Item
-                                      key={action.id}
-                                      onPress={action.onPress}
-                                    >
-                                      <Menu.ItemTitle
-                                        className={
-                                          action.isDanger
-                                            ? "flex-none text-danger"
-                                            : "flex-none"
-                                        }
+                  return (
+                    <Card className="p-3" key={challenge.id}>
+                      <View className="flex-row items-center gap-3">
+                        <View className="relative h-13 w-12">
+                          <Image
+                            className="absolute top-0 left-0 size-8.5 rounded-full border border-separator"
+                            fallback="green"
+                            source={challenge.challenger.player.avatarUrl}
+                          />
+                          <Image
+                            className="absolute right-0 bottom-0 size-8.5 rounded-full border border-separator"
+                            fallback="blue"
+                            source={challenge.challenged.player.avatarUrl}
+                          />
+                        </View>
+                        <View className="min-w-0 flex-1 gap-2">
+                          <View className="flex-row items-center justify-between gap-3">
+                            <Chip
+                              color={statusChip.color}
+                              variant={statusChip.variant}
+                            >
+                              {statusChip.label}
+                            </Chip>
+                            {/* Menu com as opções */}
+                            {menuActions.length > 0 ? (
+                              <Menu>
+                                <Menu.Trigger asChild>
+                                  <Button
+                                    className="size-7"
+                                    isDisabled={isPending}
+                                    isIconOnly
+                                    size="sm"
+                                    variant="tertiary"
+                                  >
+                                    <HugeIcons
+                                      className="size-4.5"
+                                      icon={MoreVerticalIcon}
+                                    />
+                                  </Button>
+                                </Menu.Trigger>
+                                <Menu.Portal>
+                                  <Menu.Overlay />
+                                  <Menu.Content presentation="popover">
+                                    {menuActions.map((action) => (
+                                      <Menu.Item
+                                        key={action.id}
+                                        onPress={action.onPress}
                                       >
-                                        {action.label}
-                                      </Menu.ItemTitle>
-                                      <HugeIcons
-                                        className={cn(
-                                          "size-4.5",
-                                          action.isDanger ? "text-danger" : ""
-                                        )}
-                                        icon={action.icon}
-                                      />
-                                    </Menu.Item>
-                                  ))}
-                                </Menu.Content>
-                              </Menu.Portal>
-                            </Menu>
-                          ) : null}
-                        </View>
-
-                        <View className="gap-1">
-                          <View className="flex-row items-center gap-1">
-                            <Text
-                              className={cn(
-                                "max-w-[40%]",
-                                winnerMembershipId ===
-                                  challenge.challenger.membershipId
-                                  ? "font-semibold text-accent"
-                                  : ""
-                              )}
-                              numberOfLines={1}
-                              variant="description"
-                            >
-                              {challenge.challenger.player.fullName}
-                            </Text>
-                            <Text
-                              className={cn(challengerScoreClass)}
-                              variant="description"
-                            >
-                              {scoreSummary?.challengerScore ?? "-"}
-                            </Text>
-                            <Text className="text-muted" variant="description">
-                              x
-                            </Text>
-                            <Text
-                              className={cn(challengedScoreClass)}
-                              variant="description"
-                            >
-                              {scoreSummary?.challengedScore ?? "-"}
-                            </Text>
-                            <Text
-                              className={cn(
-                                "max-w-[40%]",
-                                winnerMembershipId ===
-                                  challenge.challenged.membershipId
-                                  ? "font-semibold text-accent"
-                                  : ""
-                              )}
-                              numberOfLines={1}
-                              variant="description"
-                            >
-                              {challenge.challenged.player.fullName}
-                            </Text>
+                                        <Menu.ItemTitle
+                                          className={
+                                            action.isDanger
+                                              ? "flex-none text-danger"
+                                              : "flex-none"
+                                          }
+                                        >
+                                          {action.label}
+                                        </Menu.ItemTitle>
+                                        <HugeIcons
+                                          className={cn(
+                                            "size-4.5",
+                                            action.isDanger ? "text-danger" : ""
+                                          )}
+                                          icon={action.icon}
+                                        />
+                                      </Menu.Item>
+                                    ))}
+                                  </Menu.Content>
+                                </Menu.Portal>
+                              </Menu>
+                            ) : null}
                           </View>
-                          {scoreSummary?.setsSummary ? (
-                            <Text className="text-muted" variant="description">
-                              {scoreSummary.setsSummary}
-                            </Text>
-                          ) : null}
-                        </View>
 
-                        <Text
-                          color="muted"
-                          numberOfLines={2}
-                          variant="description"
-                        >
-                          {formatProposalSummary(challenge)}
-                        </Text>
+                          <View className="gap-1">
+                            <View className="flex-row items-center gap-1">
+                              <Text
+                                className={cn(
+                                  "max-w-[40%]",
+                                  winnerMembershipId ===
+                                    challenge.challenger.membershipId
+                                    ? "font-semibold text-accent"
+                                    : ""
+                                )}
+                                numberOfLines={1}
+                                variant="description"
+                              >
+                                {challenge.challenger.player.fullName}
+                              </Text>
+                              <Text
+                                className={cn(challengerScoreClass)}
+                                variant="description"
+                              >
+                                {scoreSummary?.challengerScore ?? "-"}
+                              </Text>
+                              <Text
+                                className="text-muted"
+                                variant="description"
+                              >
+                                x
+                              </Text>
+                              <Text
+                                className={cn(challengedScoreClass)}
+                                variant="description"
+                              >
+                                {scoreSummary?.challengedScore ?? "-"}
+                              </Text>
+                              <Text
+                                className={cn(
+                                  "max-w-[40%]",
+                                  winnerMembershipId ===
+                                    challenge.challenged.membershipId
+                                    ? "font-semibold text-accent"
+                                    : ""
+                                )}
+                                numberOfLines={1}
+                                variant="description"
+                              >
+                                {challenge.challenged.player.fullName}
+                              </Text>
+                            </View>
+                            {scoreSummary?.setsSummary ? (
+                              <Text
+                                className="text-muted"
+                                variant="description"
+                              >
+                                {scoreSummary.setsSummary}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <Text
+                            color="muted"
+                            numberOfLines={2}
+                            variant="description"
+                          >
+                            {formatProposalSummary(challenge)}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  </Card>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
+                    </Card>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        </ScrollShadow>
 
         {createTarget ? (
           <ChallengeProposalDialog
@@ -1615,9 +1625,7 @@ function LeagueChallengesRouteContent(props: { leagueId: string }) {
   return (
     <Page>
       <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
+        <Page.Header.Left />
         <Page.Header.Center>
           <Page.Header.Title>Desafios</Page.Header.Title>
         </Page.Header.Center>

@@ -15,8 +15,25 @@
   --font-bold: "Outfit_700Bold";
 }
 
+@theme static {
+  --floating-tab-bar-height: 0px;
+  --floating-tab-bar-bottom-offset: 0px;
+  --spacing-floating-tab-bar: 0px;
+}
+
 @utility centered {
   @apply items-center justify-center;
+}
+
+@utility pb-floating-tab-bar-offset-* {
+  padding-bottom: calc(
+    var(--spacing-floating-tab-bar) +
+    --spacing(--value(integer))
+  );
+  padding-bottom: calc(
+    var(--spacing-floating-tab-bar) +
+    --value([length], --spacing-*)
+  );
 }
 
 @layer theme {

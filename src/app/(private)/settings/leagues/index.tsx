@@ -25,7 +25,14 @@ const MenuOptions = () => (
     <Menu.Portal>
       <Menu.Overlay />
       <Menu.Content presentation="popover">
-        <Menu.Item onPress={() => router.navigate("/settings/leagues/new")}>
+        <Menu.Item
+          onPress={() => {
+            router.navigate({
+              params: { mode: "new" },
+              pathname: "/settings/leagues/[mode]",
+            });
+          }}
+        >
           <Menu.ItemTitle className="flex-none">Criar nova liga</Menu.ItemTitle>
           <HugeIcons icon={Add01Icon} />
         </Menu.Item>
@@ -99,7 +106,12 @@ export default function SettingsLeaguesIndex() {
     return (
       <EmptyState
         buttonLabel="Criar nova liga"
-        buttonOnPress={() => router.navigate("/settings/leagues/new")}
+        buttonOnPress={() => {
+          router.navigate({
+            params: { mode: "new" },
+            pathname: "/settings/leagues/[mode]",
+          });
+        }}
         description="Crie a primeira liga para começar a receber participantes"
         title="Nenhuma liga criada"
       />
@@ -139,8 +151,8 @@ export default function SettingsLeaguesIndex() {
               name={item.name}
               onEditPress={() => {
                 router.navigate({
-                  pathname: "/settings/leagues/[leagueId]/edit",
-                  params: { leagueId: item.id },
+                  params: { leagueId: item.id, mode: "edit" },
+                  pathname: "/settings/leagues/[mode]",
                 });
               }}
               onPress={() => {

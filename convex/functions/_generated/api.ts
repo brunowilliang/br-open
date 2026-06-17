@@ -3571,6 +3571,7 @@ export const internal: {
         primaryUserEmail?: string;
         reset?: boolean;
         targetLeagueId?: string;
+        targetPendingRequests?: number;
       },
       {
         challengesCreated: number;

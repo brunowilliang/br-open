@@ -10,7 +10,6 @@ import {
   RankingIcon,
   Target02Icon,
   UserGroupIcon,
-  UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +25,6 @@ import {
   Separator,
   useToast,
 } from "heroui-native";
-import { Badge } from "heroui-native-pro";
 import { Fragment, useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -171,22 +169,6 @@ function buildPreviewFeatures(ruleConfig: RuleConfig): PreviewFeature[] {
 
 function formatListSummary(items: string[], fallback: string) {
   return items.length ? items.join(", ") : fallback;
-}
-
-function formatActionBadgeCount(count: number) {
-  return count > 99 ? "99+" : String(count);
-}
-
-function MenuActionBadge(props: { className?: string; count: number }) {
-  if (props.count <= 0) {
-    return null;
-  }
-
-  return (
-    <Badge className={props.className} color="danger" size="sm">
-      {formatActionBadgeCount(props.count)}
-    </Badge>
-  );
 }
 
 function PreviewIcon(props: { icon: PreviewFeature["icon"] }) {
@@ -340,11 +322,9 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
   const access = useValue(bucket$.derived.access);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
   const canManageLeague = useValue(bucket$.derived.canManageLeague);
-  const canOpenLeagueMenu = useValue(bucket$.derived.canOpenLeagueMenu);
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
   const league = useValue(bucket$.data.league);
   const membershipStatus = useValue(bucket$.viewer.membershipStatus);
-  const menuActionCounts = useValue(bucket$.derived.menuActionCounts);
   const rankingItems = useValue(bucket$.derived.rankingItems);
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
   const showJoinFooter = useValue(bucket$.derived.showJoinFooter);
@@ -505,12 +485,17 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
   });
   const rankingCount = rankingItems.length;
   const setSummary = formatSetSummary(league.ruleConfig);
+  const hasLeagueTabs =
+    access.canOpenRanking || access.canOpenChallenges || access.canOpenRequests;
 
   return (
     <Page>
       <Page.ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-4 py-safe-offset-4"
+        contentContainerClassName={cn(
+          "gap-4 px-4 pt-safe-offset-4",
+          hasLeagueTabs ? "pb-safe-offset-23" : "pb-safe-offset-4"
+        )}
       >
         <View className="gap-4">
           <View>
@@ -519,50 +504,16 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
               variant="secondary"
             />
             <View className="absolute top-2 right-2 z-10 flex-row gap-2">
-              {canOpenLeagueMenu ? (
+              {access.canOpenRules || canManageLeague ? (
                 <Menu>
                   <Menu.Trigger asChild>
                     <Button isIconOnly size="sm" variant="secondary">
                       <HugeIcons icon={MoreVerticalIcon} />
                     </Button>
                   </Menu.Trigger>
-                  <MenuActionBadge count={menuActionCounts.total} />
                   <Menu.Portal>
                     <Menu.Overlay />
                     <Menu.Content presentation="popover">
-                      {access.canOpenRanking ? (
-                        <Menu.Item
-                          onPress={() => {
-                            router.navigate({
-                              params: { leagueId },
-                              pathname: "/leagues/[leagueId]/ranking",
-                            });
-                          }}
-                        >
-                          <Menu.ItemTitle className="flex-none">
-                            Ranking
-                          </Menu.ItemTitle>
-                          <HugeIcons icon={RankingIcon} />
-                        </Menu.Item>
-                      ) : null}
-                      {access.canOpenChallenges ? (
-                        <Menu.Item
-                          onPress={() => {
-                            router.navigate({
-                              params: { leagueId },
-                              pathname: "/leagues/[leagueId]/challenges",
-                            });
-                          }}
-                        >
-                          <Menu.ItemTitle className="flex-none">
-                            Desafios
-                          </Menu.ItemTitle>
-                          <MenuActionBadge
-                            count={menuActionCounts.challenges}
-                          />
-                          <HugeIcons icon={Target02Icon} />
-                        </Menu.Item>
-                      ) : null}
                       {access.canOpenRules ? (
                         <Menu.Item
                           onPress={() => {
@@ -578,28 +529,12 @@ function LeagueOverviewRouteContent(props: { leagueId: string }) {
                           <HugeIcons icon={BookOpenCheckIcon} />
                         </Menu.Item>
                       ) : null}
-                      {access.canOpenRequests ? (
-                        <Menu.Item
-                          onPress={() => {
-                            router.navigate({
-                              params: { leagueId },
-                              pathname: "/leagues/[leagueId]/requests",
-                            });
-                          }}
-                        >
-                          <Menu.ItemTitle className="flex-none">
-                            Solicitações
-                          </Menu.ItemTitle>
-                          <MenuActionBadge count={menuActionCounts.requests} />
-                          <HugeIcons icon={UserMultipleIcon} />
-                        </Menu.Item>
-                      ) : null}
                       {canManageLeague ? (
                         <Menu.Item
                           onPress={() => {
                             router.navigate({
-                              params: { leagueId },
-                              pathname: "/settings/leagues/[leagueId]/edit",
+                              params: { leagueId, mode: "edit" },
+                              pathname: "/settings/leagues/[mode]",
                             });
                           }}
                         >

@@ -1,6 +1,7 @@
 import { expo } from "@better-auth/expo";
 import { i18n } from "@better-auth/i18n";
 import { organization } from "better-auth/plugins/organization";
+import { importPKCS8, SignJWT } from "jose";
 import { convex } from "kitcn/auth";
 import { authTranslations } from "../lib/auth-i18n";
 import { buildTrustedOrigins } from "../lib/auth-trusted-origins";
@@ -10,17 +11,63 @@ import { ac, roles } from "../shared/auth-shared";
 import authConfig from "./auth.config";
 import { defineAuth } from "./generated/auth";
 
+const APPLE_CLIENT_SECRET_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+
+type AppleClientSecretOptions = {
+  clientId: string;
+  keyId: string;
+  privateKey: string;
+  teamId: string;
+};
+
+async function generateAppleClientSecret({
+  clientId,
+  keyId,
+  privateKey,
+  teamId,
+}: AppleClientSecretOptions) {
+  const key = await importPKCS8(privateKey.replace(/\\n/g, "\n"), "ES256");
+  const now = Math.floor(Date.now() / 1000);
+
+  return new SignJWT({})
+    .setProtectedHeader({ alg: "ES256", kid: keyId })
+    .setIssuer(teamId)
+    .setSubject(clientId)
+    .setAudience("https://appleid.apple.com")
+    .setIssuedAt(now)
+    .setExpirationTime(now + APPLE_CLIENT_SECRET_MAX_AGE_SECONDS)
+    .sign(key);
+}
+
 export default defineAuth(() => {
   const env = getEnv();
+  const appleAppBundleIdentifier = env.APPLE_APP_BUNDLE_IDENTIFIER;
+  const appleClientId = env.APPLE_CLIENT_ID;
+  const appleClientSecret = env.APPLE_CLIENT_SECRET;
+  const appleKeyId = env.APPLE_KEY_ID;
+  const applePrivateKey = env.APPLE_PRIVATE_KEY;
+  const appleTeamId = env.APPLE_TEAM_ID;
   const appleProvider =
-    env.APPLE_CLIENT_ID &&
-    env.APPLE_CLIENT_SECRET &&
-    env.APPLE_APP_BUNDLE_IDENTIFIER
+    appleClientId && appleAppBundleIdentifier
       ? {
-          apple: {
-            appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
-            clientId: env.APPLE_CLIENT_ID,
-            clientSecret: env.APPLE_CLIENT_SECRET,
+          apple: async () => {
+            const generatedClientSecret =
+              appleTeamId && appleKeyId && applePrivateKey
+                ? await generateAppleClientSecret({
+                    clientId: appleClientId,
+                    keyId: appleKeyId,
+                    privateKey: applePrivateKey,
+                    teamId: appleTeamId,
+                  })
+                : "";
+
+            return {
+              appBundleIdentifier: appleAppBundleIdentifier,
+              clientId: appleClientId,
+              // Native iOS idToken sign-in does not use this, but Better Auth
+              // requires the option to exist on the Apple provider.
+              clientSecret: appleClientSecret ?? generatedClientSecret,
+            };
           },
         }
       : {};

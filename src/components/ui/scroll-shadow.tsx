@@ -8,17 +8,22 @@ import {
 import { colorKit } from "heroui-native/utils";
 import {
   cloneElement,
+  createElement,
   isValidElement,
+  type ComponentType,
   type ReactElement,
   useCallback,
   useState,
 } from "react";
-import { StyleSheet, View } from "react-native";
+import { type LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
+  type ScrollHandlerProcessed,
   type SharedValue,
   useAnimatedStyle,
+  useAnimatedScrollHandler,
+  useComposedEventHandler,
   useSharedValue,
 } from "react-native-reanimated";
 
@@ -26,12 +31,17 @@ type ScrollShadowProps = Omit<
   HeroScrollShadowProps,
   "LinearGradientComponent" | "color"
 > & {
+  bottomSize?: number;
   color?: ThemeColor;
   isGesturePassthrough?: boolean;
+  leftSize?: number;
+  rightSize?: number;
+  topSize?: number;
 };
 
 const DEFAULT_SCROLL_SHADOW_COLOR = "background";
 const DEFAULT_SCROLL_SHADOW_SIZE = 56;
+const DEFAULT_SCROLL_EVENT_THROTTLE = 16;
 
 type ScrollShadowOrientation = NonNullable<
   HeroScrollShadowProps["orientation"]
@@ -49,7 +59,10 @@ type ScrollShadowChildProps = {
   onAnimValInit?: (params: ScrollShadowAnimValues) => void;
   onContainerLayout?: (params: ContainerLayoutParams) => void;
   onContentSizeChange?: (width: number, height: number) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  onScroll?: ScrollHandlerProcessed<Record<string, unknown>>;
   onScrollOffsetChange?: (offset: number) => void;
+  scrollEventThrottle?: number;
 };
 
 type ScrollShadowAnimValues = {
@@ -65,6 +78,35 @@ type PassthroughScrollShadowProps = Omit<
   child: ReactElement<ScrollShadowChildProps>;
   resolvedColor: string;
 };
+
+type StandardScrollShadowProps = Omit<
+  ScrollShadowProps,
+  "animation" | "children" | "color" | "isGesturePassthrough"
+> & {
+  child: ReactElement<ScrollShadowChildProps>;
+  resolvedColor: string;
+};
+
+type ScrollShadowComponentType = ComponentType<ScrollShadowChildProps>;
+
+type ScrollShadowSizeOptions = {
+  bottomSize?: number;
+  leftSize?: number;
+  orientation: ScrollShadowOrientation;
+  rightSize?: number;
+  size: number;
+  topSize?: number;
+};
+
+type MaybeAnimatedComponentType = {
+  __isAnimatedComponent?: boolean;
+  displayName?: string;
+};
+
+const animatedComponentCache = new WeakMap<
+  ScrollShadowComponentType,
+  ScrollShadowComponentType
+>();
 
 const scrollShadowStyles = StyleSheet.create({
   bottomShadow: {
@@ -110,6 +152,46 @@ const getContentDimension = (
   height: number,
   orientation: ScrollShadowOrientation
 ) => (orientation === "vertical" ? height : width);
+
+const getAnimatedComponent = (component: ScrollShadowComponentType) => {
+  const cachedComponent = animatedComponentCache.get(component);
+
+  if (cachedComponent) {
+    return cachedComponent;
+  }
+
+  const animatedComponent = Animated.createAnimatedComponent(component);
+
+  animatedComponentCache.set(component, animatedComponent);
+
+  return animatedComponent;
+};
+
+const getScrollShadowSizes = (options: ScrollShadowSizeOptions) => {
+  const { bottomSize, leftSize, orientation, rightSize, size, topSize } =
+    options;
+
+  if (orientation === "vertical") {
+    return {
+      endSize: bottomSize ?? size,
+      startSize: topSize ?? size,
+    };
+  }
+
+  return {
+    endSize: rightSize ?? size,
+    startSize: leftSize ?? size,
+  };
+};
+
+const isAnimatedComponentType = (component: unknown) => {
+  const componentMeta = component as MaybeAnimatedComponentType;
+
+  return (
+    componentMeta.__isAnimatedComponent === true ||
+    componentMeta.displayName?.includes("AnimatedComponent") === true
+  );
+};
 
 const getStartShadowOpacity = (
   offset: number,
@@ -191,16 +273,28 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
     child,
     className,
     isEnabled = true,
+    bottomSize,
+    leftSize,
     orientation: orientationProp,
     resolvedColor,
+    rightSize,
     size = DEFAULT_SCROLL_SHADOW_SIZE,
     style,
+    topSize,
     visibility = "auto",
     ...rest
   } = props;
   const childProps = child.props;
   const orientation =
     orientationProp ?? (childProps.horizontal ? "horizontal" : "vertical");
+  const { endSize, startSize } = getScrollShadowSizes({
+    bottomSize,
+    leftSize,
+    orientation,
+    rightSize,
+    size,
+    topSize,
+  });
   const containerSize = useSharedValue(0);
   const contentSize = useSharedValue(0);
   const scrollOffset = useSharedValue(0);
@@ -257,7 +351,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
   const startShadowStyle = useAnimatedStyle(() => {
     const normalOpacity = getStartShadowOpacity(
       scrollOffset.value,
-      size,
+      startSize,
       canShowStartShadow
     );
     const dragOpacity =
@@ -267,7 +361,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             animValues.activeIndexAnim.value,
             animValues.hoverOffset.value,
             scrollOffset.value,
-            size
+            startSize
           )
         : 0;
 
@@ -282,7 +376,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
       containerSize.value,
       contentSize.value,
       scrollOffset.value,
-      size,
+      endSize,
       canShowEndShadow,
       contentOverflows
     );
@@ -294,7 +388,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             containerSize.value,
             animValues.hoverOffset.value,
             scrollOffset.value,
-            size
+            endSize
           )
         : 0;
 
@@ -324,7 +418,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             pointerEvents="none"
             style={[
               scrollShadowStyles.topShadow,
-              { height: size },
+              { height: startSize },
               startShadowStyle,
             ]}
           >
@@ -337,7 +431,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             pointerEvents="none"
             style={[
               scrollShadowStyles.bottomShadow,
-              { height: size },
+              { height: endSize },
               endShadowStyle,
             ]}
           >
@@ -353,7 +447,7 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             pointerEvents="none"
             style={[
               scrollShadowStyles.leftShadow,
-              { width: size },
+              { width: startSize },
               startShadowStyle,
             ]}
           >
@@ -368,7 +462,212 @@ const PassthroughScrollShadow = (props: PassthroughScrollShadowProps) => {
             pointerEvents="none"
             style={[
               scrollShadowStyles.rightShadow,
-              { width: size },
+              { width: endSize },
+              endShadowStyle,
+            ]}
+          >
+            <LinearGradient
+              colors={endColors}
+              end={{ x: 1, y: 0 }}
+              start={{ x: 0, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        </>
+      )}
+    </View>
+  );
+};
+
+const StandardScrollShadow = (props: StandardScrollShadowProps) => {
+  const {
+    child,
+    className,
+    isEnabled = true,
+    bottomSize,
+    leftSize,
+    orientation: orientationProp,
+    resolvedColor,
+    rightSize,
+    size = DEFAULT_SCROLL_SHADOW_SIZE,
+    style,
+    topSize,
+    visibility = "auto",
+    ...rest
+  } = props;
+  const childProps = child.props;
+  const orientation =
+    orientationProp ?? (childProps.horizontal ? "horizontal" : "vertical");
+  const { endSize, startSize } = getScrollShadowSizes({
+    bottomSize,
+    leftSize,
+    orientation,
+    rightSize,
+    size,
+    topSize,
+  });
+  const containerSize = useSharedValue(0);
+  const contentSize = useSharedValue(0);
+  const scrollOffset = useSharedValue(0);
+  const opaqueColor = colorKit.setAlpha(resolvedColor, 1).hex();
+  const transparentColor = colorKit.setAlpha(resolvedColor, 0).hex();
+  const startColors = [opaqueColor, transparentColor] as const;
+  const endColors = [transparentColor, opaqueColor] as const;
+  const canShowStartShadow =
+    isEnabled &&
+    visibility !== "none" &&
+    visibility !== "bottom" &&
+    visibility !== "right";
+  const canShowEndShadow =
+    isEnabled &&
+    visibility !== "none" &&
+    visibility !== "top" &&
+    visibility !== "left";
+
+  const handleContentSizeChange = useCallback(
+    (width: number, height: number) => {
+      contentSize.value = getContentDimension(width, height, orientation);
+      childProps.onContentSizeChange?.(width, height);
+    },
+    [childProps, contentSize, orientation]
+  );
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      containerSize.value = getLayoutDimension(
+        event.nativeEvent.layout,
+        orientation
+      );
+      childProps.onLayout?.(event);
+    },
+    [childProps, containerSize, orientation]
+  );
+
+  const localScrollHandler = useAnimatedScrollHandler(
+    {
+      onScroll: (event) => {
+        scrollOffset.value =
+          orientation === "vertical"
+            ? event.contentOffset.y
+            : event.contentOffset.x;
+      },
+    },
+    [orientation]
+  );
+  const onScroll = useComposedEventHandler([
+    localScrollHandler,
+    childProps.onScroll ?? null,
+  ]);
+  const scrollEventThrottle =
+    childProps.scrollEventThrottle ?? DEFAULT_SCROLL_EVENT_THROTTLE;
+
+  const startShadowStyle = useAnimatedStyle(() => {
+    const normalOpacity = getStartShadowOpacity(
+      scrollOffset.value,
+      startSize,
+      canShowStartShadow
+    );
+
+    return {
+      opacity: normalOpacity,
+    };
+  });
+
+  const endShadowStyle = useAnimatedStyle(() => {
+    const contentOverflows = contentSize.value > containerSize.value;
+    const normalOpacity = getEndShadowOpacity(
+      containerSize.value,
+      contentSize.value,
+      scrollOffset.value,
+      endSize,
+      canShowEndShadow,
+      contentOverflows
+    );
+
+    return {
+      opacity: normalOpacity,
+    };
+  });
+
+  const isAnimatedComponent = isAnimatedComponentType(child.type);
+
+  const enhancedChild = isAnimatedComponent
+    ? cloneElement(child, {
+        onContentSizeChange: handleContentSizeChange,
+        onLayout: handleLayout,
+        onScroll,
+        scrollEventThrottle,
+      })
+    : createElement(
+        getAnimatedComponent(child.type as ScrollShadowComponentType),
+        {
+          ...childProps,
+          onContentSizeChange: handleContentSizeChange,
+          onLayout: handleLayout,
+          onScroll,
+          scrollEventThrottle,
+        }
+      );
+
+  return (
+    <View
+      className={className}
+      style={[scrollShadowStyles.root, style]}
+      {...rest}
+    >
+      {enhancedChild}
+
+      {orientation === "vertical" ? (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              scrollShadowStyles.topShadow,
+              { height: startSize },
+              startShadowStyle,
+            ]}
+          >
+            <LinearGradient
+              colors={startColors}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              scrollShadowStyles.bottomShadow,
+              { height: endSize },
+              endShadowStyle,
+            ]}
+          >
+            <LinearGradient
+              colors={endColors}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        </>
+      ) : (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              scrollShadowStyles.leftShadow,
+              { width: startSize },
+              startShadowStyle,
+            ]}
+          >
+            <LinearGradient
+              colors={startColors}
+              end={{ x: 1, y: 0 }}
+              start={{ x: 0, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              scrollShadowStyles.rightShadow,
+              { width: endSize },
               endShadowStyle,
             ]}
           >
@@ -391,11 +690,15 @@ export const ScrollShadow = (props: ScrollShadowProps) => {
     children,
     className,
     color = DEFAULT_SCROLL_SHADOW_COLOR,
+    bottomSize,
     isEnabled = true,
     isGesturePassthrough = false,
+    leftSize,
     orientation: orientationProp,
+    rightSize,
     size = DEFAULT_SCROLL_SHADOW_SIZE,
     style,
+    topSize,
     visibility = "auto",
     ...rest
   } = props;
@@ -403,17 +706,46 @@ export const ScrollShadow = (props: ScrollShadowProps) => {
   const child = isValidElement(children)
     ? (children as ReactElement<ScrollShadowChildProps>)
     : null;
+  const hasCustomShadowSize =
+    typeof bottomSize === "number" ||
+    typeof leftSize === "number" ||
+    typeof rightSize === "number" ||
+    typeof topSize === "number";
 
   if (isGesturePassthrough && child) {
     return (
       <PassthroughScrollShadow
+        bottomSize={bottomSize}
         child={child}
         className={className}
         isEnabled={isEnabled}
+        leftSize={leftSize}
         orientation={orientationProp}
         resolvedColor={resolvedColor}
+        rightSize={rightSize}
         size={size}
         style={style}
+        topSize={topSize}
+        visibility={visibility}
+        {...rest}
+      />
+    );
+  }
+
+  if (hasCustomShadowSize && child) {
+    return (
+      <StandardScrollShadow
+        bottomSize={bottomSize}
+        child={child}
+        className={className}
+        isEnabled={isEnabled}
+        leftSize={leftSize}
+        orientation={orientationProp}
+        resolvedColor={resolvedColor}
+        rightSize={rightSize}
+        size={size}
+        style={style}
+        topSize={topSize}
         visibility={visibility}
         {...rest}
       />

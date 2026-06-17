@@ -55,7 +55,14 @@ export const LeagueCard = (props: LeagueCardProps) => (
 );
 
 export const CreateLeagueCard = () => (
-  <PressableFeedback onPress={() => router.navigate("/settings/leagues/new")}>
+  <PressableFeedback
+    onPress={() => {
+      router.navigate({
+        params: { mode: "new" },
+        pathname: "/settings/leagues/[mode]",
+      });
+    }}
+  >
     <Card className="flex-1 p-2" variant="tertiary">
       <View className="aspect-16/12 w-full opacity-0" />
       <Card.Body className="px-3 py-2 opacity-0">

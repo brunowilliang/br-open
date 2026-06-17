@@ -1,14 +1,10 @@
 import type { FieldErrors } from "react-hook-form";
 
+import type { LeagueFormTabValue } from "@/lib/leagues/league-form-navigation";
+
 import type { LeagueScreenValues } from "./form-schema";
 
-export type LeagueScreenTab =
-  | "categories"
-  | "courts"
-  | "details"
-  | "location"
-  | "rules"
-  | "settings";
+export type LeagueScreenTab = LeagueFormTabValue;
 
 type LeagueFormInvalidSubmission = {
   description: string;

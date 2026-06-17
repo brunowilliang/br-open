@@ -5,11 +5,16 @@ import { EmptyState } from "heroui-native-pro";
 
 import { getErrorMessage } from "@/lib/errors/toast-message";
 
+import { View } from "react-native";
 import { Text } from "../core/text";
 import { HugeIcons } from "./huge-icons";
 
 type ErrorStateProps = {
   error?: unknown;
+  message?: string;
+};
+
+type ErrorMessageProps = {
   message?: string;
 };
 
@@ -43,5 +48,17 @@ export const ErrorState = (props: ErrorStateProps) => {
         </Button>
       </EmptyState.Content>
     </EmptyState>
+  );
+};
+
+export const ErrorMessage = (props: ErrorMessageProps) => {
+  const fallbackMessage = props.message ?? "Erro Desconhecido";
+
+  return (
+    <View className="centered">
+      <Text className="text-center" color="danger" variant="description">
+        {fallbackMessage}
+      </Text>
+    </View>
   );
 };

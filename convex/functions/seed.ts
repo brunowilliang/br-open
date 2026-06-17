@@ -47,6 +47,13 @@ type SeedMembershipInput = {
   status: "active" | "pending" | "rejected";
   userId: Id<"user">;
 };
+type SeedPlayerInput = {
+  emailLocalPart: string;
+  fullName: string;
+  gender: "Feminino" | "Masculino";
+  image: string;
+  nickname: string;
+};
 type SeedLeagueTemplate = {
   categories: readonly string[];
   city: string;
@@ -72,6 +79,30 @@ function buildSeedEmail(localPart: string) {
 
 function buildSeedLeagueName(name: string) {
   return `${SEED_LEAGUE_NAME_PREFIX}${name}`;
+}
+
+function buildSeedLeagueKey(leagueId: Id<"league">) {
+  return String(leagueId)
+    .replaceAll(/[^a-zA-Z0-9]/g, "-")
+    .slice(0, 12);
+}
+
+function buildPendingRequestSeedPlayer(input: {
+  index: number;
+  leagueId: Id<"league">;
+}): SeedPlayerInput {
+  const serial = String(input.index).padStart(3, "0");
+  const isFemaleProfile = input.index % 2 === 0;
+
+  return {
+    emailLocalPart: `request-${buildSeedLeagueKey(input.leagueId)}-${serial}`,
+    fullName: `Solicitante Seed ${serial}`,
+    gender: isFemaleProfile ? "Feminino" : "Masculino",
+    image: isFemaleProfile
+      ? "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
+      : "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
+    nickname: `Req ${serial}`,
+  };
 }
 
 function isSeedLeagueName(name?: string | null) {
@@ -428,10 +459,7 @@ async function ensureSeedOrganization(ctx: SeedCtx, userId: Id<"user">) {
   return createdOrganization;
 }
 
-async function ensureSeedUser(
-  ctx: SeedCtx,
-  input: (typeof seedPlayers)[number]
-) {
+async function ensureSeedUser(ctx: SeedCtx, input: SeedPlayerInput) {
   const email = buildSeedEmail(input.emailLocalPart);
   const existingUser = await ctx.orm.query.user.findFirst({
     where: { email },
@@ -460,7 +488,7 @@ async function ensureSeedUser(
 async function ensureSeedPlayerProfile(
   ctx: SeedCtx,
   userId: Id<"user">,
-  input: (typeof seedPlayers)[number]
+  input: SeedPlayerInput
 ) {
   const existingProfile = await ctx.orm.query.playerProfile.findFirst({
     where: { userId },
@@ -976,6 +1004,82 @@ async function seedTargetLeague(
   };
 }
 
+async function countTargetLeaguePendingRequests(
+  ctx: SeedCtx,
+  leagueId: Id<"league">
+) {
+  const pendingRequests = await ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    where: { leagueId, status: "pending" },
+  });
+
+  return pendingRequests.length;
+}
+
+async function ensureTargetLeaguePendingRequests(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  targetCount: number;
+}) {
+  const { ctx, leagueId, targetCount } = input;
+  let pendingRequestCount = await countTargetLeaguePendingRequests(
+    ctx,
+    leagueId
+  );
+  let membershipsCreated = 0;
+  let playerProfilesCreated = 0;
+  let usersCreated = 0;
+  let seedIndex = 1;
+  const maxAttempts = targetCount + 200;
+
+  while (pendingRequestCount < targetCount && seedIndex <= maxAttempts) {
+    const seedPlayer = buildPendingRequestSeedPlayer({
+      index: seedIndex,
+      leagueId,
+    });
+    const userResult = await ensureSeedUser(ctx, seedPlayer);
+    const profileResult = await ensureSeedPlayerProfile(
+      ctx,
+      userResult.user.id as Id<"user">,
+      seedPlayer
+    );
+    const membershipResult = await ensureMembership(ctx, {
+      leagueId,
+      rankingPosition: null,
+      status: "pending",
+      userId: userResult.user.id as Id<"user">,
+    });
+
+    if (userResult.created) {
+      usersCreated += 1;
+    }
+
+    if (profileResult.created) {
+      playerProfilesCreated += 1;
+    }
+
+    if (
+      membershipResult.created &&
+      membershipResult.membership.status === "pending"
+    ) {
+      membershipsCreated += 1;
+      pendingRequestCount += 1;
+    }
+
+    seedIndex += 1;
+  }
+
+  if (pendingRequestCount < targetCount) {
+    throw new Error("Nao foi possivel criar as solicitacoes pendentes.");
+  }
+
+  return {
+    membershipsCreated,
+    playerProfilesCreated,
+    usersCreated,
+  };
+}
+
 async function seedLeagueScenarios(
   ctx: SeedCtx,
   userIds: Id<"user">[],
@@ -1081,6 +1185,10 @@ export const preview = privateMutation
   .input(SeedPreviewSchema)
   .output(seedPreviewResultSchema)
   .mutation(async ({ ctx, input }) => {
+    if (input.targetPendingRequests && !input.targetLeagueId) {
+      throw new Error("Informe targetLeagueId para criar solicitacoes.");
+    }
+
     if (input.reset) {
       await resetSeedData(ctx);
     }
@@ -1096,8 +1204,10 @@ export const preview = privateMutation
     let membershipsCreated = 0;
     let challengesCreated = 0;
 
-    const { playerProfilesCreated, userIds, usersCreated } =
-      await seedCoreUsers(ctx);
+    const seedCoreResult = await seedCoreUsers(ctx);
+    let playerProfilesCreated = seedCoreResult.playerProfilesCreated;
+    let usersCreated = seedCoreResult.usersCreated;
+    const { userIds } = seedCoreResult;
     if (shouldSeedScenarioLeagues(input)) {
       const leagueSeedResult = await seedLeagueScenarios(
         ctx,
@@ -1118,6 +1228,19 @@ export const preview = privateMutation
       );
       challengesCreated += targetLeagueSeedResult.challengesCreated;
       membershipsCreated += targetLeagueSeedResult.membershipsCreated;
+
+      if (typeof input.targetPendingRequests === "number") {
+        const pendingRequestSeedResult =
+          await ensureTargetLeaguePendingRequests({
+            ctx,
+            leagueId: input.targetLeagueId as Id<"league">,
+            targetCount: input.targetPendingRequests,
+          });
+        membershipsCreated += pendingRequestSeedResult.membershipsCreated;
+        playerProfilesCreated += pendingRequestSeedResult.playerProfilesCreated;
+        usersCreated += pendingRequestSeedResult.usersCreated;
+      }
+
       targetLeagueLinked = true;
     }
 

@@ -1,3 +1,7 @@
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from "@/components/ui/draggable-flatlist";
 import { Cancel01Icon, DragDropVerticalIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,10 +17,6 @@ import {
 } from "heroui-native";
 import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
-import DraggableFlatList, {
-  ScaleDecorator,
-  type RenderItemParams,
-} from "react-native-draggable-flatlist";
 
 import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
@@ -429,9 +429,10 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   } else {
     rankingContent = (
       <>
-        <ScrollShadow isGesturePassthrough>
+        <ScrollShadow bottomSize={200} isGesturePassthrough>
           <DraggableFlatList
             activationDistance={12}
+            contentContainerClassName="grow px-4 pb-safe-offset-23"
             data={listItems}
             ItemSeparatorComponent={renderItemGap}
             keyExtractor={(item) => item.id}
@@ -596,18 +597,14 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   return (
     <Page>
       <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
+        <Page.Header.Left />
         <Page.Header.Center>
           <Page.Header.Title>Ranking</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.View className="flex-1 bg-background px-4 pb-safe-offset-4">
-        {rankingContent}
-      </Page.View>
+      <Page.View className="flex-1 bg-background">{rankingContent}</Page.View>
     </Page>
   );
 }

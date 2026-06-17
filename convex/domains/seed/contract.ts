@@ -9,6 +9,7 @@ export const SeedPreviewSchema = z.object({
   primaryUserEmail: z.string().email().optional(),
   reset: z.boolean().optional(),
   targetLeagueId: z.string().min(1).optional(),
+  targetPendingRequests: z.number().int().min(0).max(200).optional(),
 });
 
 export const seedPreviewResultSchema = z.object({

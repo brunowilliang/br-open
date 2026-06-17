@@ -74,7 +74,10 @@ export default function Home() {
           buttonIcon={Add01Icon}
           buttonLabel="Criar liga"
           buttonOnPress={() => {
-            router.navigate("/settings/leagues/new");
+            router.navigate({
+              params: { mode: "new" },
+              pathname: "/settings/leagues/[mode]",
+            });
           }}
           description="As ligas criadas por esta organizacao serao exibidas aqui."
           title="Nenhuma liga criada"

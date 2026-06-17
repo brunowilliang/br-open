@@ -42,7 +42,7 @@ registerProcedureNameLookup(
   "notification/orchestrator.ts": [{ column: 3, line: 241, name: "notification/orchestrator:claimPendingDeliveries" }, { column: 3, line: 135, name: "notification/orchestrator:createForRecipients" }, { column: 3, line: 307, name: "notification/orchestrator:markDeliveryResults" }, { column: 3, line: 351, name: "notification/orchestrator:sendPending" }],
   "notification/settings.ts": [{ column: 3, line: 131, name: "notification/settings:setPreference" }, { column: 3, line: 96, name: "notification/settings:status" }, { column: 3, line: 170, name: "notification/settings:upsertDevice" }],
   "player/profile.ts": [{ column: 3, line: 78, name: "player/profile:generateUploadUrl" }, { column: 3, line: 64, name: "player/profile:get" }, { column: 3, line: 83, name: "player/profile:upsert" }],
-  "seed.ts": [{ column: 3, line: 1083, name: "seed:preview" }],
+  "seed.ts": [{ column: 3, line: 1187, name: "seed:preview" }],
   "viewer/context.ts": [{ column: 3, line: 263, name: "viewer/context:activateOrganization" }, { column: 3, line: 234, name: "viewer/context:get" }, { column: 3, line: 239, name: "viewer/context:setActiveActor" }],
 },
   "convex/functions"

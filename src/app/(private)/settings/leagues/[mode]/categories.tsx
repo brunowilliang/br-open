@@ -1,31 +1,36 @@
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { BackButton } from "@/components/ui/page";
+import { SortableCardList } from "@/components/ui/sortable-card-list";
+import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import {
   Add01Icon,
+  CheckmarkCircle02Icon,
   DragDropVerticalIcon,
   Edit02Icon,
+  MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import {
   Button,
+  Card,
   Description,
   Dialog,
   FieldError,
   Input,
   Label,
-  ListGroup,
-  Separator,
+  Menu,
   TextField,
 } from "heroui-native";
-import { useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, View } from "react-native";
-import DraggableFlatList, {
-  ScaleDecorator,
-  type RenderItemParams,
-} from "react-native-draggable-flatlist";
+import Animated, { LinearTransition } from "react-native-reanimated";
 
-import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+const CATEGORY_ITEM_HEIGHT = 76;
 
 type CategoryItem = {
   id: string;
@@ -36,17 +41,46 @@ type CategoryListItem = CategoryItem & {
   index: number;
 };
 
-type CategoriesProps = {
-  isDisabled?: boolean;
-};
+function buildCategoryItemId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
-export const Categories = ({ isDisabled }: CategoriesProps) => {
+function syncCategoryItemIds(currentIds: string[], itemCount: number) {
+  if (currentIds.length === itemCount) {
+    return currentIds;
+  }
+
+  if (currentIds.length > itemCount) {
+    return currentIds.slice(0, itemCount);
+  }
+
+  return [
+    ...currentIds,
+    ...Array.from({ length: itemCount - currentIds.length }, () =>
+      buildCategoryItemId()
+    ),
+  ];
+}
+
+export default function LeagueCategoriesRoute() {
+  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const isDisabled = isSubmitPending;
+
+  function handleSubmitPress() {
+    if (isSubmitPending) {
+      return;
+    }
+
+    onSubmitPress();
+  }
   const { control, getValues, setValue } = useFormContext<LeagueScreenValues>();
   const { errors } = useFormState({
     control,
     name: "categories",
   });
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [categoryItemIds, setCategoryItemIds] = useState(() =>
+    getValues("categories").map(() => buildCategoryItemId())
+  );
   const [draftName, setDraftName] = useState("");
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<
     number | null
@@ -65,11 +99,11 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
   const categoryItems = useMemo(
     () =>
       categories.map((category, index) => ({
-        id: String(index + 1),
+        id: categoryItemIds[index] ?? `${category}-${index}`,
         name: category,
         index,
       })),
-    [categories]
+    [categories, categoryItemIds]
   );
 
   const editingCategory =
@@ -110,6 +144,7 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
   }
 
   function updateCategories(nextCategories: CategoryItem[]) {
+    setCategoryItemIds(nextCategories.map((category) => category.id));
     setValue(
       "categories",
       nextCategories.map((category) => category.name),
@@ -120,6 +155,16 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
       }
     );
   }
+
+  function handleOrderChange(nextCategories: CategoryListItem[]) {
+    updateCategories(nextCategories);
+  }
+
+  useEffect(() => {
+    setCategoryItemIds((currentIds) =>
+      syncCategoryItemIds(currentIds, categories.length)
+    );
+  }, [categories.length]);
 
   function handleSaveCategory() {
     const trimmedName = draftName.trim();
@@ -144,12 +189,7 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
     updateCategories([
       ...categoryItems,
       {
-        id: String(
-          Math.max(
-            0,
-            ...categoryItems.map((category) => Number(category.id) || 0)
-          ) + 1
-        ),
+        id: buildCategoryItemId(),
         name: trimmedName,
       },
     ]);
@@ -167,29 +207,35 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
     closeDialog();
   }
 
-  function renderCategoryItem({
-    drag,
-    isActive,
-    item,
-  }: RenderItemParams<CategoryListItem>) {
+  function renderCategoryItem(props: {
+    dragHandle: (children: ReactNode) => ReactNode;
+    isActive: boolean;
+    item: CategoryListItem;
+  }) {
+    const { dragHandle, isActive, item } = props;
+
     return (
-      <ScaleDecorator activeScale={1.02}>
-        <ListGroup.Item className={isActive ? "opacity-90" : undefined}>
-          <ListGroup.ItemPrefix>
-            <Button
-              isDisabled={isActive || isDisabled}
-              isIconOnly
-              onLongPress={drag}
-              size="sm"
-              variant="ghost"
-            >
-              <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
-            </Button>
-          </ListGroup.ItemPrefix>
-          <ListGroup.ItemContent>
-            <ListGroup.ItemTitle>{item.name}</ListGroup.ItemTitle>
-          </ListGroup.ItemContent>
-          <ListGroup.ItemSuffix>
+      <View className="pb-2">
+        <Card className={isActive ? "p-3 opacity-70" : "p-3"}>
+          <View className="flex-row items-center gap-3">
+            {dragHandle(
+              <Button
+                isDisabled={isActive || isDisabled}
+                isIconOnly
+                size="sm"
+                variant="ghost"
+              >
+                <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
+              </Button>
+            )}
+            <View className="min-w-0 flex-1 gap-0.5">
+              <Text className="text-base" numberOfLines={1} weight="semibold">
+                {item.name}
+              </Text>
+              <Text color="muted" numberOfLines={1} variant="description">
+                Categoria {item.index + 1}
+              </Text>
+            </View>
             <Button
               isDisabled={isActive || isDisabled}
               isIconOnly
@@ -199,87 +245,75 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
             >
               <HugeIcons className="size-4.5" icon={Edit02Icon} />
             </Button>
-          </ListGroup.ItemSuffix>
-        </ListGroup.Item>
-      </ScaleDecorator>
+          </View>
+        </Card>
+      </View>
     );
   }
 
-  function renderItemSeparator({
-    leadingItem,
-  }: {
-    leadingItem?: CategoryListItem | null;
-  }) {
-    if (leadingItem?.id === activeCategoryId) {
-      return null;
-    }
-
-    return <Separator className="mx-10" />;
-  }
-
   return (
-    <>
-      {categories.length === 0 ? (
-        <EmptyState
-          buttonIsDisabled={isDisabled}
-          buttonLabel="Criar Categoria"
-          buttonOnPress={openCreateDialog}
-          description="Crie suas categorias"
-          title="Nenhuma categoria criada"
-        >
-          {error ? (
-            <Text className="text-center" color="danger" variant="description">
-              {error}
-            </Text>
-          ) : null}
-        </EmptyState>
-      ) : (
-        <View className="gap-5">
-          {error ? (
-            <Text
-              className="px-4 text-center"
-              color="danger"
-              variant="description"
-            >
-              {error}
-            </Text>
-          ) : null}
-          <ListGroup className="overflow-hidden">
-            <DraggableFlatList
-              data={categoryItems}
-              ItemSeparatorComponent={renderItemSeparator}
-              keyboardShouldPersistTaps="handled"
-              keyExtractor={(item) => item.id}
-              onDragBegin={(index) => {
-                setActiveCategoryId(categoryItems[index]?.id ?? null);
-              }}
-              onDragEnd={({ data }) => {
-                updateCategories(
-                  data.map(({ id, name }) => ({
-                    id,
-                    name,
-                  }))
-                );
-                setActiveCategoryId(null);
-              }}
-              renderItem={renderCategoryItem}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </ListGroup>
+    <Page>
+      <Page.Header className="pt-safe-offset-4">
+        <Page.Header.Left>
+          <BackButton />
+        </Page.Header.Left>
+        <Page.Header.Center>
+          <Page.Header.Title>{title}</Page.Header.Title>
+        </Page.Header.Center>
+        <Page.Header.Right>
+          <Menu>
+            <Menu.Trigger asChild>
+              <Button isIconOnly size="sm" variant="ghost">
+                <HugeIcons icon={MoreVerticalIcon} />
+              </Button>
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Overlay />
+              <Menu.Content presentation="popover">
+                <Menu.Item onPress={handleSubmitPress}>
+                  <Menu.ItemTitle className="flex-none">Salvar</Menu.ItemTitle>
+                  <HugeIcons icon={CheckmarkCircle02Icon} />
+                </Menu.Item>
+              </Menu.Content>
+            </Menu.Portal>
+          </Menu>
+        </Page.Header.Right>
+      </Page.Header>
 
-          <Button
-            className="self-center"
-            isDisabled={isDisabled}
-            onPress={openCreateDialog}
-            variant="secondary"
-          >
-            <Button.Label>Adicionar Nova Categoria</Button.Label>
-            <HugeIcons className="text-accent" icon={Add01Icon} />
-          </Button>
-        </View>
-      )}
+      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
+        {categories.length === 0 && (
+          <EmptyState
+            buttonIsDisabled={isDisabled}
+            buttonLabel="Adicionar Categoria"
+            buttonOnPress={openCreateDialog}
+            description="Crie suas categorias"
+            title="Nenhuma categoria criada"
+          />
+        )}
+        {error && <ErrorMessage message="Informe pelo menos uma categoria" />}
 
+        <Animated.View className="gap-5">
+          <SortableCardList
+            data={categoryItems}
+            itemHeight={CATEGORY_ITEM_HEIGHT}
+            onOrderChange={handleOrderChange}
+            renderItem={renderCategoryItem}
+          />
+
+          {categories.length > 0 && (
+            <Animated.View className="self-center" layout={LinearTransition}>
+              <Button
+                isDisabled={isDisabled}
+                onPress={openCreateDialog}
+                variant="secondary"
+              >
+                <Button.Label>Adicionar Nova Categoria</Button.Label>
+                <HugeIcons className="text-accent" icon={Add01Icon} />
+              </Button>
+            </Animated.View>
+          )}
+        </Animated.View>
+      </Page.ScrollView>
       <Dialog
         isOpen={isOpen}
         onOpenChange={(nextOpen) => {
@@ -345,6 +379,6 @@ export const Categories = ({ isDisabled }: CategoriesProps) => {
           </KeyboardAvoidingView>
         </Dialog.Portal>
       </Dialog>
-    </>
+    </Page>
   );
-};
+}
