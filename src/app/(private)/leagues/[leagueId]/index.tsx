@@ -33,7 +33,7 @@ import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { BackButton, Page } from "@/components/ui/page";
+import { BackButton, Page } from "@/components/core/page";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";

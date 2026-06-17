@@ -3,17 +3,16 @@ import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, useToast } from "heroui-native";
-import { type ReactNode, useEffect } from "react";
-import { ScrollView, View } from "react-native";
+import { useEffect } from "react";
+import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/ui/page";
-import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -23,20 +22,9 @@ import {
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 
 export default function LeagueRequestsRoute() {
-  const { leagueId: rawLeagueId } = useLocalSearchParams<{
-    leagueId?: string | string[];
+  const { leagueId } = useLocalSearchParams<{
+    leagueId: string;
   }>();
-  const leagueId = Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
-
-  if (!leagueId) {
-    return <ErrorState message="Liga inválida." />;
-  }
-
-  return <LeagueRequestsRouteContent leagueId={leagueId} />;
-}
-
-function LeagueRequestsRouteContent(props: { leagueId: string }) {
-  const { leagueId } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -135,23 +123,6 @@ function LeagueRequestsRouteContent(props: { leagueId: string }) {
     }
   }, [access.canOpenRequests, bootstrapStatus, leagueId, router]);
 
-  if (bootstrapStatus === "error") {
-    return <ErrorState message="Não foi possível carregar a liga." />;
-  }
-
-  if (bootstrapStatus !== "ready") {
-    return (
-      <Page>
-        <Page.ScrollView
-          className="flex-1"
-          contentContainerClassName="grow px-4 py-6"
-        >
-          <LoadingState />
-        </Page.ScrollView>
-      </Page>
-    );
-  }
-
   const isMembershipActionPending =
     approveMembership.isPending || rejectMembership.isPending;
   const visibleRequestItems = resolveLeagueDetailsVisibleRequestItems({
@@ -164,26 +135,35 @@ function LeagueRequestsRouteContent(props: { leagueId: string }) {
     isPending: membershipOverviewQuery.isPending,
     requestCount: visibleRequestItems.length,
   });
-  let requestsContent: ReactNode;
 
-  if (requestContentState === "loading") {
-    requestsContent = <LoadingState />;
-  } else if (requestContentState === "error") {
-    requestsContent = (
-      <ErrorState
-        error={membershipOverviewQuery.error}
-        message="Não foi possível carregar as solicitações."
-      />
-    );
-  } else if (requestContentState === "empty") {
-    requestsContent = (
-      <EmptyState
-        description="Quando alguém solicitar entrada, ela aparecerá aqui."
-        title="Nenhuma solicitação pendente"
-      />
-    );
-  } else {
-    requestsContent = (
+  function renderRequestsContent() {
+    if (bootstrapStatus === "error") {
+      return <ErrorState message="Não foi possível carregar a liga." />;
+    }
+
+    if (bootstrapStatus !== "ready" || requestContentState === "loading") {
+      return <LoadingState />;
+    }
+
+    if (requestContentState === "error") {
+      return (
+        <ErrorState
+          error={membershipOverviewQuery.error}
+          message="Não foi possível carregar as solicitações."
+        />
+      );
+    }
+
+    if (requestContentState === "empty") {
+      return (
+        <EmptyState
+          description="Quando alguém solicitar entrada, ela aparecerá aqui."
+          title="Nenhuma solicitação pendente"
+        />
+      );
+    }
+
+    return (
       <View className="gap-2">
         {visibleRequestItems.map((item) => (
           <Card className="p-3" key={item.id}>
@@ -250,13 +230,10 @@ function LeagueRequestsRouteContent(props: { leagueId: string }) {
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.View className="flex-1">
-        <ScrollShadow bottomSize={200} className="flex-1">
-          <ScrollView contentContainerClassName="grow gap-4 px-4 pb-safe-offset-23">
-            {requestsContent}
-          </ScrollView>
-        </ScrollShadow>
-      </Page.View>
+      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
+        {renderRequestsContent()}
+      </Page.ScrollView>
+      <Page.Footer className="pb-floating-tab-bar-4" />
     </Page>
   );
 }

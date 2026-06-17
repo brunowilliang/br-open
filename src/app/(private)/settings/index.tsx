@@ -1,5 +1,5 @@
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { Page } from "@/components/ui/page";
+import { Page } from "@/components/core/page";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";

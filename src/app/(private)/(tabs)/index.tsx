@@ -4,7 +4,7 @@ import { LeagueCard } from "@/components/pages/home/league-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/ui/page";
+import { Page } from "@/components/core/page";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import {

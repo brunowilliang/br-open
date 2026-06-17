@@ -19,7 +19,7 @@ import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/ui/page";
+import { Page } from "@/components/core/page";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -486,7 +486,7 @@ export default function PlayerProfile() {
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>
-        <Page.KeyboardAwareScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
+        <Page.ScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
           <PressableFeedback
             className="rounded-full"
             isDisabled={isSubmitPending}
@@ -636,7 +636,7 @@ export default function PlayerProfile() {
               </TextField>
             )}
           />
-        </Page.KeyboardAwareScrollView>
+        </Page.ScrollView>
         <Page.Footer>
           <Button
             className="w-full"

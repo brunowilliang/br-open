@@ -1,12 +1,27 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import type { LegendListRef } from "@legendapp/list/react-native";
+import {
+  AnimatedLegendList,
+  type AnimatedLegendListProps,
+} from "@legendapp/list/reanimated";
 import { ProgressiveBlurView } from "@sbaiahmed1/react-native-blur";
 import { cn, withSlots } from "better-styled";
 import { router } from "expo-router";
 import { Button, useThemeColor } from "heroui-native";
 import { colorKit } from "heroui-native/utils";
 import type { ComponentProps } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  AppState,
+  type AppStateStatus,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -17,11 +32,14 @@ import {
   KeyboardAwareScrollView as RNKeyboardAwareScrollView,
 } from "react-native-keyboard-controller";
 import Animated, {
+  cancelAnimation,
   Extrapolation,
   interpolate,
+  runOnJS,
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { withUniwind } from "uniwind";
 import { Header } from "./header";
@@ -29,13 +47,17 @@ import { Header } from "./header";
 const DEFAULT_SCROLL_EVENT_THROTTLE = 16;
 const DEFAULT_HEADER_BLUR_DISTANCE = 64;
 const DEFAULT_FOOTER_BLUR_DISTANCE = 64;
+const BLUR_RESTORE_FADE_DURATION = 140;
 
 const PageProgressiveBlurView = withUniwind(ProgressiveBlurView);
 
 type PageContextValue = {
+  blurOpacity: SharedValue<number>;
+  blurViewKey: number;
   contentHeight: SharedValue<number>;
   footerHeight: number;
   headerHeight: number;
+  isBlurMounted: boolean;
   scrollY: SharedValue<number>;
   setFooterHeight: (height: number) => void;
   setHeaderHeight: (height: number) => void;
@@ -54,6 +76,10 @@ function usePageContext() {
   return context;
 }
 
+function isBackgroundAppState(status: AppStateStatus) {
+  return status === "background" || status === "inactive";
+}
+
 type PageRootProps = {
   children: React.ReactNode;
 };
@@ -62,19 +88,104 @@ const PageRoot = (props: PageRootProps) => {
   const scrollY = useSharedValue(0);
   const contentHeight = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
+  const blurOpacity = useSharedValue(
+    isBackgroundAppState(AppState.currentState) ? 0 : 1
+  );
+  const appState = useRef(AppState.currentState);
+  const [blurViewKey, setBlurViewKey] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
+  const [isBlurMounted, setIsBlurMounted] = useState(
+    !isBackgroundAppState(AppState.currentState)
+  );
+  const [isBlurRestorePending, setIsBlurRestorePending] = useState(false);
+  const unmountBlur = useCallback(() => {
+    setIsBlurMounted(false);
+  }, []);
+
+  // Temporary workaround for @sbaiahmed1/react-native-blur#111.
+  // Remove this remount flow when the library preserves ProgressiveBlurView
+  // masks correctly across app background/foreground transitions.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      const previousAppState = appState.current;
+      appState.current = nextAppState;
+
+      if (isBackgroundAppState(nextAppState)) {
+        setIsBlurRestorePending(false);
+        cancelAnimation(blurOpacity);
+        blurOpacity.value = withTiming(
+          0,
+          { duration: BLUR_RESTORE_FADE_DURATION },
+          (finished) => {
+            if (finished) {
+              runOnJS(unmountBlur)();
+            }
+          }
+        );
+        return;
+      }
+
+      cancelAnimation(blurOpacity);
+      if (isBackgroundAppState(previousAppState)) {
+        blurOpacity.value = 0;
+        setBlurViewKey((currentValue) => currentValue + 1);
+        setIsBlurRestorePending(true);
+        setIsBlurMounted(true);
+        return;
+      }
+
+      setIsBlurMounted(true);
+      blurOpacity.value = withTiming(1, {
+        duration: BLUR_RESTORE_FADE_DURATION,
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [blurOpacity, unmountBlur]);
+
+  useEffect(() => {
+    if (!(isBlurMounted && isBlurRestorePending)) {
+      return;
+    }
+
+    const animationFrame = requestAnimationFrame(() => {
+      blurOpacity.value = withTiming(1, {
+        duration: BLUR_RESTORE_FADE_DURATION,
+      });
+      setIsBlurRestorePending(false);
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [blurOpacity, isBlurMounted, isBlurRestorePending]);
+
   const value = useMemo(
     () => ({
+      blurOpacity,
+      blurViewKey,
       contentHeight,
       footerHeight,
       headerHeight,
+      isBlurMounted,
       scrollY,
       setFooterHeight,
       setHeaderHeight,
       viewportHeight,
     }),
-    [contentHeight, footerHeight, headerHeight, scrollY, viewportHeight]
+    [
+      blurOpacity,
+      blurViewKey,
+      contentHeight,
+      footerHeight,
+      headerHeight,
+      isBlurMounted,
+      scrollY,
+      viewportHeight,
+    ]
   );
 
   return (
@@ -131,6 +242,9 @@ const PageHeader = (props: PageHeaderProps) => {
       Extrapolation.CLAMP
     ),
   }));
+  const blurRestoreAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: context.blurOpacity.value,
+  }));
 
   return (
     <Header
@@ -144,14 +258,22 @@ const PageHeader = (props: PageHeaderProps) => {
         pointerEvents="none"
         style={[blurAnimatedStyle]}
       >
-        <PageProgressiveBlurView
-          blurAmount={10}
-          blurType="systemChromeMaterial"
-          className="absolute inset-0"
-          direction="blurredTopClearBottom"
-          overlayColor={overlayColor}
-          reducedTransparencyFallbackColor={fallbackColor}
-        />
+        {context.isBlurMounted ? (
+          <Animated.View
+            className="absolute inset-0"
+            style={[blurRestoreAnimatedStyle]}
+          >
+            <PageProgressiveBlurView
+              blurAmount={10}
+              blurType="systemChromeMaterial"
+              className="absolute inset-0"
+              direction="blurredTopClearBottom"
+              key={`header-blur-${context.blurViewKey}`}
+              overlayColor={overlayColor}
+              reducedTransparencyFallbackColor={fallbackColor}
+            />
+          </Animated.View>
+        ) : null}
       </Animated.View>
 
       {props.children}
@@ -210,7 +332,57 @@ const PageView = (props: ComponentProps<typeof View>) => {
   );
 };
 
-const BackButton = (props: ComponentProps<typeof Button>) => (
+const PageAnimatedLegendList = <T,>(
+  props: AnimatedLegendListProps<T> & { ref?: React.Ref<LegendListRef> }
+) => {
+  const {
+    ListFooterComponent,
+    ListHeaderComponent,
+    onContentSizeChange,
+    onScroll,
+    ref,
+    ...rest
+  } = props;
+  const context = usePageContext();
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    context.scrollY.value = event.nativeEvent.contentOffset.y;
+    context.contentHeight.value = event.nativeEvent.contentSize.height;
+    context.viewportHeight.value = event.nativeEvent.layoutMeasurement.height;
+    onScroll?.(event);
+  }
+
+  function handleContentSizeChange(width: number, height: number) {
+    context.contentHeight.value = height;
+    onContentSizeChange?.(width, height);
+  }
+
+  return (
+    <AnimatedLegendList<T>
+      ListFooterComponent={
+        <>
+          <View style={{ height: context.footerHeight }} />
+          {ListFooterComponent}
+        </>
+      }
+      ListHeaderComponent={
+        <>
+          <View style={{ height: context.headerHeight }} />
+          {ListHeaderComponent}
+        </>
+      }
+      maintainVisibleContentPosition={false}
+      onContentSizeChange={handleContentSizeChange}
+      onScroll={handleScroll}
+      ref={ref}
+      {...rest}
+      className={cn("bg-background", rest.className)}
+      contentContainerClassName={cn("grow", rest.contentContainerClassName)}
+    />
+  );
+};
+
+export const BackButton = (props: ComponentProps<typeof Button>) => (
   <Button
     isIconOnly
     onPress={() => router.back()}
@@ -222,7 +394,12 @@ const BackButton = (props: ComponentProps<typeof Button>) => (
   </Button>
 );
 
-const PageFooter = (props: ComponentProps<typeof View>) => {
+type PageFooterProps = ComponentProps<typeof View> & {
+  isBlurred?: boolean;
+};
+
+const PageFooter = (props: PageFooterProps) => {
+  const { isBlurred = false, ...viewProps } = props;
   const context = usePageContext();
   const fallbackColor = useThemeColor("background");
   const overlayColor = colorKit.setAlpha(fallbackColor, 0).hex();
@@ -235,10 +412,10 @@ const PageFooter = (props: ComponentProps<typeof View>) => {
   );
 
   const handleLayout = (
-    event: Parameters<NonNullable<typeof props.onLayout>>[0]
+    event: Parameters<NonNullable<typeof viewProps.onLayout>>[0]
   ) => {
     context.setFooterHeight(event.nativeEvent.layout.height);
-    props.onLayout?.(event);
+    viewProps.onLayout?.(event);
   };
 
   const blurAnimatedStyle = useAnimatedStyle(() => {
@@ -258,32 +435,48 @@ const PageFooter = (props: ComponentProps<typeof View>) => {
       ),
     };
   });
+  const blurRestoreAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: context.blurOpacity.value,
+  }));
 
   return (
     <View
-      {...props}
+      {...viewProps}
       className={cn(
-        "absolute bottom-0 z-50 w-full flex-row gap-3 overflow-visible px-4 pt-4 pb-safe-offset-2",
-        props.className
+        "absolute bottom-0 z-50 w-full flex-row gap-3 px-4 pt-4",
+        isBlurred
+          ? "overflow-visible"
+          : "bg-linear-to-t from-background to-background/0",
+        viewProps.className
       )}
       onLayout={handleLayout}
     >
-      <Animated.View
-        className="absolute -top-12 right-0 bottom-0 left-0"
-        pointerEvents="none"
-        style={[blurAnimatedStyle]}
-      >
-        <PageProgressiveBlurView
-          blurAmount={10}
-          blurType="systemChromeMaterial"
-          className="absolute inset-0"
-          direction="blurredBottomClearTop"
-          overlayColor={overlayColor}
-          reducedTransparencyFallbackColor={fallbackColor}
-        />
-      </Animated.View>
+      {isBlurred ? (
+        <Animated.View
+          className="absolute -top-12 right-0 bottom-0 left-0"
+          pointerEvents="none"
+          style={[blurAnimatedStyle]}
+        >
+          {context.isBlurMounted ? (
+            <Animated.View
+              className="absolute inset-0"
+              style={[blurRestoreAnimatedStyle]}
+            >
+              <PageProgressiveBlurView
+                blurAmount={10}
+                blurType="systemChromeMaterial"
+                className="absolute inset-0"
+                direction="blurredBottomClearTop"
+                key={`footer-blur-${context.blurViewKey}`}
+                overlayColor={overlayColor}
+                reducedTransparencyFallbackColor={fallbackColor}
+              />
+            </Animated.View>
+          ) : null}
+        </Animated.View>
+      ) : null}
 
-      {props.children}
+      {viewProps.children}
     </View>
   );
 };
@@ -294,6 +487,7 @@ export const Page = withSlots(PageRoot, {
     ...Header,
     BackButton,
   }),
+  LegendList: PageAnimatedLegendList,
   View: PageView,
   ScrollView: PageKeyboardAwareScrollView,
 });

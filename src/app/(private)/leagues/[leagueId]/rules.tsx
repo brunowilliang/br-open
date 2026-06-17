@@ -14,7 +14,7 @@ import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/ui/page";
+import { Page } from "@/components/core/page";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 
 type RulesIconType = typeof Target02Icon;

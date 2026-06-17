@@ -4,7 +4,7 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { BackButton } from "@/components/ui/page";
+import { BackButton } from "@/components/core/page";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import {

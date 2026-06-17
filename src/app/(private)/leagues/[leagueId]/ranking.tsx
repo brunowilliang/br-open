@@ -1,7 +1,3 @@
-import DraggableFlatList, {
-  ScaleDecorator,
-  type RenderItemParams,
-} from "@/components/ui/draggable-flatlist";
 import { Cancel01Icon, DragDropVerticalIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,17 +11,17 @@ import {
   PressableFeedback,
   useToast,
 } from "heroui-native";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/ui/page";
-import { ScrollShadow } from "@/components/ui/scroll-shadow";
+import { SortableCardList } from "@/components/ui/sortable-card-list";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import type { LeagueDetailsRankingItem } from "@/lib/leagues/league-details-derived";
@@ -38,21 +34,12 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
+const RANKING_ITEM_HEIGHT = 80;
+
 export default function LeagueRankingRoute() {
-  const { leagueId: rawLeagueId } = useLocalSearchParams<{
-    leagueId?: string | string[];
+  const { leagueId } = useLocalSearchParams<{
+    leagueId: string;
   }>();
-  const leagueId = Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
-
-  if (!leagueId) {
-    return <ErrorState message="Liga inválida." />;
-  }
-
-  return <LeagueRankingRouteContent leagueId={leagueId} />;
-}
-
-function LeagueRankingRouteContent(props: { leagueId: string }) {
-  const { leagueId } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -63,7 +50,6 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   const canManageRanking = useValue(bucket$.derived.canManageLeague);
   const league = useValue(bucket$.data.league);
   const rankingItems = useValue(bucket$.derived.rankingItems);
-  const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<RankingItem[]>(rankingItems);
   const [pendingOrderIds, setPendingOrderIds] = useState<string[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null);
@@ -150,7 +136,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   useEffect(() => {
     if (
       !shouldSyncRankingLocalItems({
-        activeItemId,
+        activeItemId: null,
         pendingOrderIds,
         rankingItems,
       })
@@ -163,7 +149,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
     }
 
     setLocalItems(rankingItems);
-  }, [activeItemId, pendingOrderIds, rankingItems]);
+  }, [pendingOrderIds, rankingItems]);
 
   useEffect(() => {
     if (bootstrapStatus !== "ready") {
@@ -177,23 +163,6 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
       });
     }
   }, [access.canOpenRanking, bootstrapStatus, leagueId, router]);
-
-  if (bootstrapStatus === "error") {
-    return <ErrorState message="Não foi possível carregar a liga." />;
-  }
-
-  if (!league) {
-    return (
-      <Page>
-        <Page.ScrollView
-          className="flex-1"
-          contentContainerClassName="grow px-4 py-6"
-        >
-          <LoadingState />
-        </Page.ScrollView>
-      </Page>
-    );
-  }
 
   const isRankingDisabled = !canManageRanking || reorderRanking.isPending;
   const listItems = localItems.length > 0 ? localItems : rankingItems;
@@ -277,19 +246,18 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
     return isViewerItem ? "text-accent" : "";
   }
 
-  function renderManageHandle(
-    drag: RenderItemParams<RankingItem>["drag"],
-    isActive: boolean
-  ) {
+  function renderManageHandle(input: {
+    dragHandle: (children: ReactNode) => ReactNode;
+    isActive: boolean;
+  }) {
     if (!canManageRanking) {
       return null;
     }
 
-    return (
+    return input.dragHandle(
       <Button
-        isDisabled={isRankingDisabled || isActive}
+        isDisabled={isRankingDisabled || input.isActive}
         isIconOnly
-        onLongPress={isRankingDisabled ? undefined : drag}
         size="sm"
         variant="ghost"
       >
@@ -337,7 +305,7 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
   }
 
   function renderRankingCardContent(input: {
-    drag: RenderItemParams<RankingItem>["drag"];
+    dragHandle: (children: ReactNode) => ReactNode;
     isActive: boolean;
     isChallengeable: boolean;
     isViewerItem: boolean;
@@ -347,7 +315,10 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
       <Card className={cn("p-3", getRankingCardClassName(input.isActive))}>
         <View className="flex-row items-center gap-3">
           <View className="centered flex-row gap-2">
-            {renderManageHandle(input.drag, input.isActive)}
+            {renderManageHandle({
+              dragHandle: input.dragHandle,
+              isActive: input.isActive,
+            })}
             {renderPlayerMedia(input.item, input.isViewerItem)}
           </View>
           <View className="min-w-0 flex-1 gap-0.5">
@@ -388,90 +359,95 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
     );
   }
 
-  function renderItem({ drag, isActive, item }: RenderItemParams<RankingItem>) {
+  function renderItem(props: {
+    dragHandle: (children: ReactNode) => ReactNode;
+    isActive: boolean;
+    item: RankingItem;
+  }) {
+    const { dragHandle, isActive, item } = props;
     const isViewerItem = item.isViewerItem === true;
     const isChallengeable = item.isChallengeable === true;
+
     return (
-      <ScaleDecorator activeScale={1.02}>
+      <View className="pb-2">
         {renderRankingCardContent({
-          drag,
+          dragHandle,
           isActive,
           isChallengeable,
           isViewerItem,
           item,
         })}
-      </ScaleDecorator>
+      </View>
     );
   }
 
-  function renderItemGap() {
-    return <View className="h-2" />;
+  function handleOrderChange(reorderedItems: RankingItem[]) {
+    const nextItems = reorderedItems.map((item, index) => ({
+      ...item,
+      position: index + 1,
+    }));
+    const currentMembershipIds = getRankingOrderIds(listItems);
+    const nextMembershipIds = getRankingOrderIds(nextItems);
+
+    setLocalItems(nextItems);
+
+    if (
+      !hasRankingOrderChanged({
+        currentOrderIds: currentMembershipIds,
+        nextOrderIds: nextMembershipIds,
+      })
+    ) {
+      return;
+    }
+
+    if (canManageRanking) {
+      setPendingOrderIds(nextMembershipIds);
+      reorderRanking.mutate({
+        leagueId,
+        membershipIds: nextMembershipIds,
+      });
+    }
   }
 
-  let rankingContent: ReactNode;
+  function renderContent() {
+    if (bootstrapStatus === "error") {
+      return <ErrorState message="Não foi possível carregar a liga." />;
+    }
 
-  if (membershipOverviewQuery.isPending) {
-    rankingContent = <LoadingState />;
-  } else if (membershipOverviewQuery.isError) {
-    rankingContent = (
-      <ErrorState
-        error={membershipOverviewQuery.error}
-        message="Não foi possível carregar o ranking."
-      />
-    );
-  } else if (listItems.length === 0) {
-    rankingContent = (
-      <EmptyState
-        description="Aprove solicitações para começar a montar a classificação."
-        title="Nenhum jogador no ranking"
-      />
-    );
-  } else {
-    rankingContent = (
+    if (!(bootstrapStatus === "ready" && league)) {
+      return <LoadingState />;
+    }
+
+    if (membershipOverviewQuery.isPending) {
+      return <LoadingState />;
+    }
+
+    if (membershipOverviewQuery.isError) {
+      return (
+        <ErrorState
+          error={membershipOverviewQuery.error}
+          message="Não foi possível carregar o ranking."
+        />
+      );
+    }
+
+    if (listItems.length === 0) {
+      return (
+        <EmptyState
+          description="Aprove solicitações para começar a montar a classificação."
+          title="Nenhum jogador no ranking"
+        />
+      );
+    }
+
+    return (
       <>
-        <ScrollShadow bottomSize={200} isGesturePassthrough>
-          <DraggableFlatList
-            activationDistance={12}
-            contentContainerClassName="grow px-4 pb-safe-offset-23"
-            data={listItems}
-            ItemSeparatorComponent={renderItemGap}
-            keyExtractor={(item) => item.id}
-            onDragBegin={(index) => {
-              setActiveItemId(listItems[index]?.id ?? null);
-            }}
-            onDragEnd={({ data }) => {
-              const reorderedItems = data.map((item, index) => ({
-                ...item,
-                position: index + 1,
-              }));
-              const currentMembershipIds = getRankingOrderIds(listItems);
-              const reorderedMembershipIds = getRankingOrderIds(reorderedItems);
-
-              setLocalItems(reorderedItems);
-              setActiveItemId(null);
-
-              if (
-                !hasRankingOrderChanged({
-                  currentOrderIds: currentMembershipIds,
-                  nextOrderIds: reorderedMembershipIds,
-                })
-              ) {
-                return;
-              }
-
-              if (canManageRanking) {
-                setPendingOrderIds(reorderedMembershipIds);
-                reorderRanking.mutate({
-                  leagueId,
-                  membershipIds: reorderedMembershipIds,
-                });
-              }
-            }}
-            renderItem={renderItem}
-            scrollEnabled
-            showsVerticalScrollIndicator={false}
-          />
-        </ScrollShadow>
+        <SortableCardList
+          data={listItems}
+          itemHeight={RANKING_ITEM_HEIGHT}
+          onOrderChange={handleOrderChange}
+          renderItem={renderItem}
+        />
 
         <Dialog
           isOpen={Boolean(selectedItem) && !isRemoveDialogOpen}
@@ -604,7 +580,10 @@ function LeagueRankingRouteContent(props: { leagueId: string }) {
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.View className="flex-1 bg-background">{rankingContent}</Page.View>
+      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
+        {renderContent()}
+      </Page.ScrollView>
+      <Page.Footer className="pb-floating-tab-bar-4" />
     </Page>
   );
 }
