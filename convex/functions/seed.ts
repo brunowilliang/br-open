@@ -47,6 +47,7 @@ type SeedMembershipInput = {
   status: "active" | "pending" | "rejected";
   userId: Id<"user">;
 };
+type TargetMembershipStatus = SeedMembershipInput["status"];
 type SeedPlayerInput = {
   emailLocalPart: string;
   fullName: string;
@@ -72,6 +73,39 @@ const CHALLENGE_LOCKED_STATUSES: ReadonlySet<string> = new Set([
   "pending_result_confirmation",
   "pending_result_submission",
 ] as const);
+const TARGET_CHALLENGE_STATUS_CYCLE = [
+  "pending_opponent_response",
+  "confirmed",
+  "pending_result_submission",
+  "pending_result_confirmation",
+  "pending_admin_result_validation",
+  "pending_admin_decision",
+  "finished",
+] as const;
+const TARGET_MEMBERSHIP_LABELS = {
+  active: {
+    emailSegment: "ranked",
+    fullName: "Rankeado Seed",
+    nickname: "Rank",
+  },
+  pending: {
+    emailSegment: "request",
+    fullName: "Solicitante Seed",
+    nickname: "Req",
+  },
+  rejected: {
+    emailSegment: "rejected",
+    fullName: "Rejeitado Seed",
+    nickname: "Rej",
+  },
+} as const satisfies Record<
+  TargetMembershipStatus,
+  {
+    emailSegment: string;
+    fullName: string;
+    nickname: string;
+  }
+>;
 
 function buildSeedEmail(localPart: string) {
   return `${SEED_EMAIL_PREFIX}${localPart}@${SEED_EMAIL_DOMAIN}`;
@@ -87,21 +121,23 @@ function buildSeedLeagueKey(leagueId: Id<"league">) {
     .slice(0, 12);
 }
 
-function buildPendingRequestSeedPlayer(input: {
+function buildTargetMembershipSeedPlayer(input: {
   index: number;
   leagueId: Id<"league">;
+  status: TargetMembershipStatus;
 }): SeedPlayerInput {
   const serial = String(input.index).padStart(3, "0");
   const isFemaleProfile = input.index % 2 === 0;
+  const labels = TARGET_MEMBERSHIP_LABELS[input.status];
 
   return {
-    emailLocalPart: `request-${buildSeedLeagueKey(input.leagueId)}-${serial}`,
-    fullName: `Solicitante Seed ${serial}`,
+    emailLocalPart: `${labels.emailSegment}-${buildSeedLeagueKey(input.leagueId)}-${serial}`,
+    fullName: `${labels.fullName} ${serial}`,
     gender: isFemaleProfile ? "Feminino" : "Masculino",
     image: isFemaleProfile
       ? "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg"
       : "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
-    nickname: `Req ${serial}`,
+    nickname: `${labels.nickname} ${serial}`,
   };
 }
 
@@ -186,6 +222,96 @@ function buildSeedScore(input: {
       };
     }),
     winnerMembershipId,
+  };
+}
+
+function getTargetChallengeDayOffset(
+  status: (typeof TARGET_CHALLENGE_STATUS_CYCLE)[number],
+  attempt: number
+) {
+  const cycleIndex = Math.floor(attempt / TARGET_CHALLENGE_STATUS_CYCLE.length);
+
+  if (status === "pending_opponent_response" || status === "confirmed") {
+    return cycleIndex + 1;
+  }
+
+  if (status === "finished") {
+    return -(cycleIndex + 7);
+  }
+
+  return -(cycleIndex + 1);
+}
+
+function buildTargetChallengeResult(
+  status: (typeof TARGET_CHALLENGE_STATUS_CYCLE)[number],
+  attempt: number
+): SeedChallengePlan["result"] {
+  const winner = attempt % 2 === 0 ? "challenger" : "challenged";
+
+  switch (status) {
+    case "pending_result_confirmation":
+      return {
+        submittedBy: "challenger",
+        winner,
+      };
+    case "pending_admin_result_validation":
+    case "finished":
+      return {
+        confirmedBy: "challenged",
+        submittedBy: "challenger",
+        winner,
+      };
+    default:
+      return;
+  }
+}
+
+function buildAdditionalTargetChallengePlan(input: {
+  activeMemberships: LeagueMembershipRecord[];
+  attempt: number;
+}): SeedChallengePlan {
+  const rankedMemberships = input.activeMemberships
+    .filter(
+      (
+        membership
+      ): membership is LeagueMembershipRecord & { rankingPosition: number } =>
+        typeof membership.rankingPosition === "number"
+    )
+    .toSorted((left, right) => left.rankingPosition - right.rankingPosition);
+
+  if (rankedMemberships.length < 2) {
+    throw new Error(
+      "A liga alvo precisa ter pelo menos dois jogadores ativos."
+    );
+  }
+
+  const challengerIndex = 1 + (input.attempt % (rankedMemberships.length - 1));
+  const maxDistance = Math.min(4, challengerIndex);
+  const distance = 1 + (input.attempt % maxDistance);
+  const challengedIndex = challengerIndex - distance;
+  const status =
+    TARGET_CHALLENGE_STATUS_CYCLE[
+      input.attempt % TARGET_CHALLENGE_STATUS_CYCLE.length
+    ]!;
+  const startMinute = 8 * 60 + (input.attempt % 8) * 60;
+
+  return {
+    challenged: {
+      id: rankedMemberships[challengedIndex]!.id as Id<"leagueMembership">,
+      rankingPosition: rankedMemberships[challengedIndex]!.rankingPosition,
+    },
+    challenger: {
+      id: rankedMemberships[challengerIndex]!.id as Id<"leagueMembership">,
+      rankingPosition: rankedMemberships[challengerIndex]!.rankingPosition,
+    },
+    dayOffset: getTargetChallengeDayOffset(status, input.attempt),
+    endMinute: startMinute + 90,
+    key: `extra-${input.attempt}`,
+    result: buildTargetChallengeResult(status, input.attempt),
+    resultValidationMode:
+      status === "pending_admin_result_validation" ? "manual" : "automatic",
+    startMinute,
+    status,
   };
 }
 
@@ -1004,38 +1130,54 @@ async function seedTargetLeague(
   };
 }
 
-async function countTargetLeaguePendingRequests(
-  ctx: SeedCtx,
-  leagueId: Id<"league">
-) {
-  const pendingRequests = await ctx.orm.query.leagueMembership.findMany({
-    limit: 500,
-    where: { leagueId, status: "pending" },
-  });
-
-  return pendingRequests.length;
-}
-
-async function ensureTargetLeaguePendingRequests(input: {
+async function countTargetLeagueMemberships(input: {
   ctx: SeedCtx;
   leagueId: Id<"league">;
+  status: TargetMembershipStatus;
+}) {
+  const memberships = await input.ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    where: { leagueId: input.leagueId, status: input.status },
+  });
+
+  return memberships.length;
+}
+
+async function ensureTargetLeagueMembershipCount(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  status: TargetMembershipStatus;
   targetCount: number;
 }) {
-  const { ctx, leagueId, targetCount } = input;
-  let pendingRequestCount = await countTargetLeaguePendingRequests(
+  const { ctx, leagueId, status, targetCount } = input;
+  const activeMemberships =
+    status === "active"
+      ? await ctx.orm.query.leagueMembership.findMany({
+          limit: 500,
+          orderBy: { rankingPosition: "asc" },
+          where: { leagueId, status: "active" },
+        })
+      : [];
+  let membershipCount = await countTargetLeagueMemberships({
     ctx,
-    leagueId
-  );
+    leagueId,
+    status,
+  });
   let membershipsCreated = 0;
+  let nextRankingPosition =
+    status === "active"
+      ? getNextTargetLeagueRankingPosition(activeMemberships)
+      : null;
   let playerProfilesCreated = 0;
   let usersCreated = 0;
   let seedIndex = 1;
   const maxAttempts = targetCount + 200;
 
-  while (pendingRequestCount < targetCount && seedIndex <= maxAttempts) {
-    const seedPlayer = buildPendingRequestSeedPlayer({
+  while (membershipCount < targetCount && seedIndex <= maxAttempts) {
+    const seedPlayer = buildTargetMembershipSeedPlayer({
       index: seedIndex,
       leagueId,
+      status,
     });
     const userResult = await ensureSeedUser(ctx, seedPlayer);
     const profileResult = await ensureSeedPlayerProfile(
@@ -1045,8 +1187,8 @@ async function ensureTargetLeaguePendingRequests(input: {
     );
     const membershipResult = await ensureMembership(ctx, {
       leagueId,
-      rankingPosition: null,
-      status: "pending",
+      rankingPosition: nextRankingPosition,
+      status,
       userId: userResult.user.id as Id<"user">,
     });
 
@@ -1060,17 +1202,20 @@ async function ensureTargetLeaguePendingRequests(input: {
 
     if (
       membershipResult.created &&
-      membershipResult.membership.status === "pending"
+      membershipResult.membership.status === status
     ) {
       membershipsCreated += 1;
-      pendingRequestCount += 1;
+      membershipCount += 1;
+      if (typeof nextRankingPosition === "number") {
+        nextRankingPosition += 1;
+      }
     }
 
     seedIndex += 1;
   }
 
-  if (pendingRequestCount < targetCount) {
-    throw new Error("Nao foi possivel criar as solicitacoes pendentes.");
+  if (membershipCount < targetCount) {
+    throw new Error("Nao foi possivel completar os jogadores da liga alvo.");
   }
 
   return {
@@ -1078,6 +1223,70 @@ async function ensureTargetLeaguePendingRequests(input: {
     playerProfilesCreated,
     usersCreated,
   };
+}
+
+async function countTargetLeagueChallenges(
+  ctx: SeedCtx,
+  leagueId: Id<"league">
+) {
+  const challenges = await ctx.orm.query.leagueChallenge.findMany({
+    limit: 500,
+    where: { leagueId },
+  });
+
+  return challenges.length;
+}
+
+async function ensureTargetLeagueChallengeCount(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  targetCount: number;
+}) {
+  const league = await getLeagueByIdOrThrow(input.ctx, input.leagueId);
+  const activeMemberships = await input.ctx.orm.query.leagueMembership.findMany(
+    {
+      limit: 500,
+      orderBy: { rankingPosition: "asc" },
+      where: { leagueId: input.leagueId, status: "active" },
+    }
+  );
+  const ruleConfig = ChallengeRuleConfigSchema.parse(league.ruleConfig);
+  const courtId = await ensureSeedCourtForLeague(input.ctx, league);
+  let challengeCount = await countTargetLeagueChallenges(
+    input.ctx,
+    input.leagueId
+  );
+  let challengesCreated = 0;
+  let attempt = 0;
+  const maxAttempts = input.targetCount * 30 + 200;
+
+  while (challengeCount < input.targetCount && attempt <= maxAttempts) {
+    const plan = buildAdditionalTargetChallengePlan({
+      activeMemberships,
+      attempt,
+    });
+    const result = await ensureSeedChallenge({
+      courtId,
+      ctx: input.ctx,
+      league,
+      matchConfig: ruleConfig.matchConfig,
+      plan,
+      responseDeadlineHours: ruleConfig.responseDeadlineHours,
+    });
+
+    if (result.created) {
+      challengeCount += 1;
+      challengesCreated += 1;
+    }
+
+    attempt += 1;
+  }
+
+  if (challengeCount < input.targetCount) {
+    throw new Error("Nao foi possivel completar os desafios da liga alvo.");
+  }
+
+  return challengesCreated;
 }
 
 async function seedLeagueScenarios(
@@ -1185,8 +1394,14 @@ export const preview = privateMutation
   .input(SeedPreviewSchema)
   .output(seedPreviewResultSchema)
   .mutation(async ({ ctx, input }) => {
-    if (input.targetPendingRequests && !input.targetLeagueId) {
-      throw new Error("Informe targetLeagueId para criar solicitacoes.");
+    const hasTargetLeagueCounts =
+      typeof input.targetActiveMemberships === "number" ||
+      typeof input.targetChallengeCount === "number" ||
+      typeof input.targetPendingRequests === "number" ||
+      typeof input.targetRejectedRequests === "number";
+
+    if (hasTargetLeagueCounts && !input.targetLeagueId) {
+      throw new Error("Informe targetLeagueId para criar dados na liga alvo.");
     }
 
     if (input.reset) {
@@ -1229,16 +1444,51 @@ export const preview = privateMutation
       challengesCreated += targetLeagueSeedResult.challengesCreated;
       membershipsCreated += targetLeagueSeedResult.membershipsCreated;
 
+      if (typeof input.targetActiveMemberships === "number") {
+        const activeSeedResult = await ensureTargetLeagueMembershipCount({
+          ctx,
+          leagueId: input.targetLeagueId as Id<"league">,
+          status: "active",
+          targetCount: input.targetActiveMemberships,
+        });
+        membershipsCreated += activeSeedResult.membershipsCreated;
+        playerProfilesCreated += activeSeedResult.playerProfilesCreated;
+        usersCreated += activeSeedResult.usersCreated;
+      }
+
       if (typeof input.targetPendingRequests === "number") {
         const pendingRequestSeedResult =
-          await ensureTargetLeaguePendingRequests({
+          await ensureTargetLeagueMembershipCount({
             ctx,
             leagueId: input.targetLeagueId as Id<"league">,
+            status: "pending",
             targetCount: input.targetPendingRequests,
           });
         membershipsCreated += pendingRequestSeedResult.membershipsCreated;
         playerProfilesCreated += pendingRequestSeedResult.playerProfilesCreated;
         usersCreated += pendingRequestSeedResult.usersCreated;
+      }
+
+      if (typeof input.targetRejectedRequests === "number") {
+        const rejectedRequestSeedResult =
+          await ensureTargetLeagueMembershipCount({
+            ctx,
+            leagueId: input.targetLeagueId as Id<"league">,
+            status: "rejected",
+            targetCount: input.targetRejectedRequests,
+          });
+        membershipsCreated += rejectedRequestSeedResult.membershipsCreated;
+        playerProfilesCreated +=
+          rejectedRequestSeedResult.playerProfilesCreated;
+        usersCreated += rejectedRequestSeedResult.usersCreated;
+      }
+
+      if (typeof input.targetChallengeCount === "number") {
+        challengesCreated += await ensureTargetLeagueChallengeCount({
+          ctx,
+          leagueId: input.targetLeagueId as Id<"league">,
+          targetCount: input.targetChallengeCount,
+        });
       }
 
       targetLeagueLinked = true;

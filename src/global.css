@@ -25,6 +25,21 @@
   @apply items-center justify-center;
 }
 
+@utility pb-floating-tab-bar {
+  padding-bottom: var(--spacing-floating-tab-bar);
+}
+
+@utility pb-floating-tab-bar-* {
+  padding-bottom: calc(
+    var(--spacing-floating-tab-bar) +
+    --spacing(--value(integer))
+  );
+  padding-bottom: calc(
+    var(--spacing-floating-tab-bar) +
+    --value([length], --spacing-*)
+  );
+}
+
 @utility pb-floating-tab-bar-offset-* {
   padding-bottom: calc(
     var(--spacing-floating-tab-bar) +

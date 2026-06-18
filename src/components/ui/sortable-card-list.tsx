@@ -34,6 +34,7 @@ type SortableCardListRenderItemProps<TItem extends SortableCardListItem> = {
 
 type SortableCardListProps<TItem extends SortableCardListItem> = {
   data: TItem[];
+  fillAvailableHeight?: boolean;
   itemHeight: number;
   onOrderChange: (data: TItem[]) => void;
   renderItem: (props: SortableCardListRenderItemProps<TItem>) => ReactNode;
@@ -267,7 +268,14 @@ function SortableCardListContent<TItem extends SortableCardListItem>(
 export function SortableCardList<TItem extends SortableCardListItem>(
   props: SortableCardListProps<TItem>
 ) {
-  const { data, itemHeight, onOrderChange, renderItem, style } = props;
+  const {
+    data,
+    fillAvailableHeight = false,
+    itemHeight,
+    onOrderChange,
+    renderItem,
+    style,
+  } = props;
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const transitionRef = useRef(createListTransition(data));
   const sortableIdentityKeyRef = useRef(buildSortableIdentityKey(data));
@@ -375,7 +383,12 @@ export function SortableCardList<TItem extends SortableCardListItem>(
   return (
     <Animated.View
       layout={LinearTransition}
-      style={[{ height: listHeight, overflow: "visible" }, style]}
+      style={[
+        fillAvailableHeight
+          ? { flex: 1, overflow: "visible" }
+          : { height: listHeight, overflow: "visible" },
+        style,
+      ]}
     >
       <SortableCardListContent
         contentHeight={listHeight}

@@ -450,6 +450,7 @@ const PageFooter = (props: PageFooterProps) => {
         viewProps.className
       )}
       onLayout={handleLayout}
+      pointerEvents="none"
     >
       {isBlurred ? (
         <Animated.View

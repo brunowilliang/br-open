@@ -12,11 +12,12 @@ import {
   useToast,
 } from "heroui-native";
 import { type ReactNode, useEffect, useState } from "react";
-import { View } from "react-native";
+import { type LayoutChangeEvent, View } from "react-native";
 
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -24,6 +25,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { getCreateChallengeErrorToast } from "@/lib/leagues/challenge-feedback";
 import type { LeagueDetailsRankingItem } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
@@ -34,7 +36,7 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
-const RANKING_ITEM_HEIGHT = 80;
+const RANKING_ITEM_GAP = 8;
 
 export default function LeagueRankingRoute() {
   const { leagueId } = useLocalSearchParams<{
@@ -48,6 +50,7 @@ export default function LeagueRankingRoute() {
   const access = useValue(bucket$.derived.access);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
   const canManageRanking = useValue(bucket$.derived.canManageLeague);
+  const createTarget = useValue(bucket$.ui.challengeCreateTarget);
   const league = useValue(bucket$.data.league);
   const rankingItems = useValue(bucket$.derived.rankingItems);
   const [localItems, setLocalItems] = useState<RankingItem[]>(rankingItems);
@@ -55,10 +58,17 @@ export default function LeagueRankingRoute() {
   const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [isRemovePending, setIsRemovePending] = useState(false);
+  const [rankingCardHeight, setRankingCardHeight] = useState<number | null>(
+    null
+  );
 
   const membershipOverviewQuery = useQuery({
     ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
     enabled: access.canOpenRanking,
+  });
+  const occupiedSlotsQuery = useQuery({
+    ...crpc.league.challenges.listOccupiedSlots.queryOptions({ leagueId }),
+    enabled: access.canOpenChallenges,
   });
 
   async function invalidateLeagueContext() {
@@ -69,8 +79,35 @@ export default function LeagueRankingRoute() {
       queryClient.invalidateQueries(
         crpc.league.membership.getOverview.queryFilter({ leagueId })
       ),
+      queryClient.invalidateQueries(
+        crpc.league.challenges.listForLeague.queryFilter({ leagueId })
+      ),
+      queryClient.invalidateQueries(
+        crpc.league.challenges.listOccupiedSlots.queryFilter({ leagueId })
+      ),
     ]);
   }
+
+  const createChallenge = useMutation(
+    crpc.league.challenges.create.mutationOptions({
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "Desafio enviado com sucesso.",
+          id: "create-challenge-success",
+          label: "Desafio criado",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show(
+          getCreateChallengeErrorToast(
+            getToastErrorMessage(error, "Não foi possível criar o desafio.")
+          )
+        );
+      },
+    })
+  );
 
   const removeMembership = useMutation(
     crpc.league.membership.remove.mutationOptions({
@@ -165,7 +202,23 @@ export default function LeagueRankingRoute() {
   }, [access.canOpenRanking, bootstrapStatus, leagueId, router]);
 
   const isRankingDisabled = !canManageRanking || reorderRanking.isPending;
+  const isContentLoading =
+    bootstrapStatus !== "ready" || !league || membershipOverviewQuery.isPending;
+  const isCreateChallengePending =
+    createChallenge.isPending || occupiedSlotsQuery.isPending;
   const listItems = localItems.length > 0 ? localItems : rankingItems;
+  const rankingItemHeight =
+    rankingCardHeight === null ? null : rankingCardHeight + RANKING_ITEM_GAP;
+  const shouldRenderSortableRanking =
+    canManageRanking &&
+    rankingItemHeight !== null &&
+    !isContentLoading &&
+    !membershipOverviewQuery.isError &&
+    listItems.length > 0;
+  const courts = league?.courts ?? [];
+  const defaultDurationMinutes =
+    league?.ruleConfig.matchConfig.defaultDurationMinutes ?? 0;
+  const occupiedSlots = occupiedSlotsQuery.data ?? [];
 
   function closeDetailsDialog() {
     if (isRemovePending) {
@@ -205,10 +258,16 @@ export default function LeagueRankingRoute() {
       membershipId: item.id,
       name: item.name,
     });
-    router.navigate({
-      params: { leagueId },
-      pathname: "/leagues/[leagueId]/challenges",
-    });
+  }
+
+  function handleRankingCardLayout(event: LayoutChangeEvent) {
+    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+
+    if (nextHeight <= 0 || nextHeight === rankingCardHeight) {
+      return;
+    }
+
+    setRankingCardHeight(nextHeight);
   }
 
   function renderViewerActions(item: RankingItem, isChallengeable: boolean) {
@@ -236,14 +295,6 @@ export default function LeagueRankingRoute() {
         ) : null}
       </View>
     );
-  }
-
-  function getRankingCardClassName(isActive: boolean) {
-    return isActive ? "opacity-70" : "";
-  }
-
-  function getTitleClassName(isViewerItem: boolean) {
-    return isViewerItem ? "text-accent" : "";
   }
 
   function renderManageHandle(input: {
@@ -310,9 +361,13 @@ export default function LeagueRankingRoute() {
     isChallengeable: boolean;
     isViewerItem: boolean;
     item: RankingItem;
+    onLayout?: (event: LayoutChangeEvent) => void;
   }) {
     const card = (
-      <Card className={cn("p-3", getRankingCardClassName(input.isActive))}>
+      <Card
+        className={cn("p-3", input.isActive ? "opacity-70" : "")}
+        onLayout={input.onLayout}
+      >
         <View className="flex-row items-center gap-3">
           <View className="centered flex-row gap-2">
             {renderManageHandle({
@@ -323,7 +378,10 @@ export default function LeagueRankingRoute() {
           </View>
           <View className="min-w-0 flex-1 gap-0.5">
             <Text
-              className={cn("text-base", getTitleClassName(input.isViewerItem))}
+              className={cn(
+                "text-base",
+                input.isViewerItem ? "text-accent" : ""
+              )}
               numberOfLines={1}
               weight="semibold"
             >
@@ -361,6 +419,7 @@ export default function LeagueRankingRoute() {
 
   function renderItem(props: {
     dragHandle: (children: ReactNode) => ReactNode;
+    index: number;
     isActive: boolean;
     item: RankingItem;
   }) {
@@ -369,13 +428,14 @@ export default function LeagueRankingRoute() {
     const isChallengeable = item.isChallengeable === true;
 
     return (
-      <View className="pb-2">
+      <View style={{ paddingBottom: RANKING_ITEM_GAP }}>
         {renderRankingCardContent({
           dragHandle,
           isActive,
           isChallengeable,
           isViewerItem,
           item,
+          onLayout: props.index === 0 ? handleRankingCardLayout : undefined,
         })}
       </View>
     );
@@ -414,11 +474,7 @@ export default function LeagueRankingRoute() {
       return <ErrorState message="Não foi possível carregar a liga." />;
     }
 
-    if (!(bootstrapStatus === "ready" && league)) {
-      return <LoadingState />;
-    }
-
-    if (membershipOverviewQuery.isPending) {
+    if (isContentLoading) {
       return <LoadingState />;
     }
 
@@ -441,132 +497,20 @@ export default function LeagueRankingRoute() {
     }
 
     return (
-      <>
-        <SortableCardList
-          data={listItems}
-          itemHeight={RANKING_ITEM_HEIGHT}
-          onOrderChange={handleOrderChange}
-          renderItem={renderItem}
-        />
-
-        <Dialog
-          isOpen={Boolean(selectedItem) && !isRemoveDialogOpen}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              closeDetailsDialog();
-            }
-          }}
-        >
-          <Dialog.Portal>
-            <Dialog.Overlay />
-            <Dialog.Content className="gap-4 p-5">
-              {isRemovePending ? null : (
-                <Dialog.Close className="absolute top-4 right-4 z-100" />
-              )}
-              <Dialog.Title>Detalhes do jogador</Dialog.Title>
-
-              {selectedItem ? (
-                <>
-                  <Card className="p-3" variant="secondary">
-                    <View className="flex-row items-center gap-3">
-                      <View>
-                        <Image
-                          alt={selectedItem.name}
-                          className="size-10 rounded-full"
-                          fallback="green"
-                          source={selectedItem.avatarUrl ?? undefined}
-                        />
-                        <View className="centered absolute -top-1 -left-1 size-5.5 rounded-full border border-separator bg-surface-tertiary">
-                          <Text className="font-bold text-surface-tertiary-foreground text-xs">
-                            {selectedItem.position}
-                          </Text>
-                        </View>
-                      </View>
-                      <View className="min-w-0 flex-1 gap-0.5">
-                        <Text numberOfLines={1} weight="semibold">
-                          {selectedItem.name}
-                        </Text>
-                        <Text
-                          color="muted"
-                          numberOfLines={1}
-                          variant="description"
-                        >
-                          {selectedItem.nickname}
-                        </Text>
-                      </View>
-                    </View>
-                  </Card>
-
-                  <View className="self-end">
-                    <Button
-                      isDisabled={isRemovePending}
-                      onPress={() => {
-                        setIsRemoveDialogOpen(true);
-                      }}
-                      size="sm"
-                      variant="danger-soft"
-                    >
-                      <Button.Label>Remover</Button.Label>
-                      <HugeIcons className="text-danger" icon={Cancel01Icon} />
-                    </Button>
-                  </View>
-                </>
-              ) : null}
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog>
-
-        <Dialog
-          isOpen={isRemoveDialogOpen}
-          onOpenChange={(nextOpen) => {
-            if (isRemovePending) {
-              return;
-            }
-
-            setIsRemoveDialogOpen(nextOpen);
-          }}
-        >
-          <Dialog.Portal>
-            <Dialog.Overlay />
-            <Dialog.Content className="gap-4 p-5">
-              {isRemovePending ? null : (
-                <Dialog.Close className="absolute top-4 right-4 z-100" />
-              )}
-              <Dialog.Title>Remover jogador</Dialog.Title>
-              <Description>
-                Tem certeza que deseja remover{" "}
-                <Text weight="semibold">
-                  {selectedItem?.name ?? "este jogador"}
-                </Text>{" "}
-                da liga?
-              </Description>
-
-              <View className="flex-row gap-2 self-end">
-                <Button
-                  isDisabled={isRemovePending}
-                  onPress={() => {
-                    setIsRemoveDialogOpen(false);
-                  }}
-                  size="sm"
-                  variant="secondary"
-                >
-                  <Button.Label>Cancelar</Button.Label>
-                </Button>
-                <Button
-                  isDisabled={isRemovePending}
-                  onPress={() => {
-                    handleConfirmRemove().catch(() => undefined);
-                  }}
-                  size="sm"
-                  variant="danger-soft"
-                >
-                  <Button.Label>Remover</Button.Label>
-                </Button>
-              </View>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog>
-      </>
+      <View>
+        {listItems.map((item, index) => (
+          <View key={item.id} style={{ paddingBottom: RANKING_ITEM_GAP }}>
+            {renderRankingCardContent({
+              dragHandle: (children) => children,
+              isActive: false,
+              isChallengeable: item.isChallengeable === true,
+              isViewerItem: item.isViewerItem === true,
+              item,
+              onLayout: index === 0 ? handleRankingCardLayout : undefined,
+            })}
+          </View>
+        ))}
+      </View>
     );
   }
 
@@ -580,10 +524,169 @@ export default function LeagueRankingRoute() {
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
-        {renderContent()}
-      </Page.ScrollView>
-      <Page.Footer className="pb-floating-tab-bar-4" />
+      {shouldRenderSortableRanking && rankingItemHeight !== null ? (
+        <Page.View className="flex-1 bg-background px-4 pb-floating-tab-bar-offset-4">
+          <SortableCardList
+            data={listItems}
+            fillAvailableHeight
+            itemHeight={rankingItemHeight}
+            onOrderChange={handleOrderChange}
+            renderItem={renderItem}
+          />
+        </Page.View>
+      ) : (
+        <Page.ScrollView contentContainerClassName="grow gap-4 p-4">
+          {renderContent()}
+        </Page.ScrollView>
+      )}
+      <Dialog
+        isOpen={Boolean(selectedItem) && !isRemoveDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            closeDetailsDialog();
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className="gap-4 p-5">
+            {isRemovePending ? null : (
+              <Dialog.Close className="absolute top-4 right-4 z-100" />
+            )}
+            <Dialog.Title>Detalhes do jogador</Dialog.Title>
+
+            {selectedItem ? (
+              <>
+                <Card className="p-3" variant="secondary">
+                  <View className="flex-row items-center gap-3">
+                    <View>
+                      <Image
+                        alt={selectedItem.name}
+                        className="size-10 rounded-full"
+                        fallback="green"
+                        source={selectedItem.avatarUrl ?? undefined}
+                      />
+                      <View className="centered absolute -top-1 -left-1 size-5.5 rounded-full border border-separator bg-surface-tertiary">
+                        <Text className="font-bold text-surface-tertiary-foreground text-xs">
+                          {selectedItem.position}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="min-w-0 flex-1 gap-0.5">
+                      <Text numberOfLines={1} weight="semibold">
+                        {selectedItem.name}
+                      </Text>
+                      <Text
+                        color="muted"
+                        numberOfLines={1}
+                        variant="description"
+                      >
+                        {selectedItem.nickname}
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+
+                <View className="self-end">
+                  <Button
+                    isDisabled={isRemovePending}
+                    onPress={() => {
+                      setIsRemoveDialogOpen(true);
+                    }}
+                    size="sm"
+                    variant="danger-soft"
+                  >
+                    <Button.Label>Remover</Button.Label>
+                    <HugeIcons className="text-danger" icon={Cancel01Icon} />
+                  </Button>
+                </View>
+              </>
+            ) : null}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+
+      <Dialog
+        isOpen={isRemoveDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (isRemovePending) {
+            return;
+          }
+
+          setIsRemoveDialogOpen(nextOpen);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className="gap-4 p-5">
+            {isRemovePending ? null : (
+              <Dialog.Close className="absolute top-4 right-4 z-100" />
+            )}
+            <Dialog.Title>Remover jogador</Dialog.Title>
+            <Description>
+              Tem certeza que deseja remover{" "}
+              <Text weight="semibold">
+                {selectedItem?.name ?? "este jogador"}
+              </Text>{" "}
+              da liga?
+            </Description>
+
+            <View className="flex-row gap-2 self-end">
+              <Button
+                isDisabled={isRemovePending}
+                onPress={() => {
+                  setIsRemoveDialogOpen(false);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                <Button.Label>Cancelar</Button.Label>
+              </Button>
+              <Button
+                isDisabled={isRemovePending}
+                onPress={() => {
+                  handleConfirmRemove().catch(() => undefined);
+                }}
+                size="sm"
+                variant="danger-soft"
+              >
+                <Button.Label>Remover</Button.Label>
+              </Button>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+
+      {createTarget ? (
+        <ChallengeProposalDialog
+          actionLabel="Enviar desafio"
+          courts={courts}
+          defaultDurationMinutes={defaultDurationMinutes}
+          isOpen
+          isPending={isCreateChallengePending}
+          occupiedSlots={occupiedSlots}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              bucket$.actions.setChallengeCreateTarget(null);
+            }
+          }}
+          onSubmit={async (value) => {
+            await createChallenge.mutateAsync({
+              challengedMembershipId: createTarget.membershipId,
+              leagueId,
+              ...value,
+            });
+            bucket$.actions.setChallengeCreateTarget(null);
+            router.navigate({
+              params: { leagueId },
+              pathname: "/leagues/[leagueId]/challenges",
+            });
+          }}
+          opponentName={createTarget.name}
+          title="Novo desafio"
+        />
+      ) : null}
+      <Page.Footer className="pb-floating-tab-bar-offset-4" />
     </Page>
   );
 }

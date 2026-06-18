@@ -8,8 +8,11 @@ export const SeedPreviewSchema = z.object({
   createScenarioLeagues: z.boolean().optional(),
   primaryUserEmail: z.string().email().optional(),
   reset: z.boolean().optional(),
+  targetActiveMemberships: z.number().int().min(0).max(200).optional(),
+  targetChallengeCount: z.number().int().min(0).max(200).optional(),
   targetLeagueId: z.string().min(1).optional(),
   targetPendingRequests: z.number().int().min(0).max(200).optional(),
+  targetRejectedRequests: z.number().int().min(0).max(200).optional(),
 });
 
 export const seedPreviewResultSchema = z.object({
