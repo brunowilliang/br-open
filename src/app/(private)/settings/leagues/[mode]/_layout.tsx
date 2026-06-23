@@ -290,7 +290,7 @@ export default function LeagueFormLayout() {
   });
   const createLeague = useMutation(
     crpc.league.management.create.mutationOptions({
-      onSuccess: async (createdLeague) => {
+      onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.league.management.listMine.queryFilter()
         );
@@ -300,10 +300,7 @@ export default function LeagueFormLayout() {
           label: "Liga criada",
           variant: "success",
         });
-        router.replace({
-          params: { leagueId: createdLeague.id },
-          pathname: "/leagues/[leagueId]",
-        });
+        router.replace("/settings/leagues");
       },
       onError: (error) => {
         toast.show({
@@ -337,7 +334,6 @@ export default function LeagueFormLayout() {
           label: "Liga atualizada",
           variant: "success",
         });
-        router.back();
       },
       onError: (error) => {
         toast.show({
