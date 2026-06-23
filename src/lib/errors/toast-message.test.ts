@@ -1,18 +1,19 @@
+import { CRPCClientError } from "kitcn/crpc";
 import { describe, expect, it } from "bun:test";
 
 import { getToastErrorMessage } from "./toast-message";
 
 describe("getToastErrorMessage", () => {
-  it("prefers the structured CRPC data.message when present", () => {
+  it("surfaces the backend message for a CRPC error with a custom message", () => {
+    const error = new CRPCClientError({
+      code: "NOT_FOUND",
+      functionName: "league/challenges:adminManage",
+      message:
+        "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
+    });
+
     const result = getToastErrorMessage(
-      {
-        data: {
-          message:
-            "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
-        },
-        message:
-          "[CONVEX M(league/challenges:adminManage)] Uncaught CRPCError: O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
-      },
+      error,
       "Não foi possível reabrir o resultado."
     );
 
@@ -21,26 +22,30 @@ describe("getToastErrorMessage", () => {
     );
   });
 
-  it("uses error.message when there is no structured data.message", () => {
+  it("falls back when the CRPC error has no custom message (generic code:fn form)", () => {
+    const error = new CRPCClientError({
+      code: "BAD_REQUEST",
+      functionName: "league/management:create",
+    });
+
     const result = getToastErrorMessage(
-      {
-        message: "Não foi possível aplicar a ação.",
-      },
-      "Não foi possível reabrir o resultado."
+      error,
+      "Não foi possível criar a liga."
     );
 
-    expect(result).toBe("Não foi possível aplicar a ação.");
+    expect(result).toBe("Não foi possível criar a liga.");
   });
 
-  it("falls back when there is no usable error message", () => {
-    const result = getToastErrorMessage(
-      {
-        data: {},
-        message: "",
-      },
-      "Não foi possível reabrir o resultado."
+  it("falls back for non-CRPC errors (Convex internals, transport errors)", () => {
+    const error = new Error(
+      "[CONVEX M(league/management:create)] Server Error\nArgumentValidationError: Value does not match validator.\nPath: .ruleConfig.maxActiveChallengesPerPlayer\nValue: {enabled: false, value: 1.0}\nValidator: v.float64()"
     );
 
-    expect(result).toBe("Não foi possível reabrir o resultado.");
+    const result = getToastErrorMessage(
+      error,
+      "Não foi possível criar a liga."
+    );
+
+    expect(result).toBe("Não foi possível criar a liga.");
   });
 });
