@@ -60,9 +60,10 @@ const SETTINGS_RULE_INFO = {
 } as const;
 
 export default function LeagueSettingsRoute() {
-  const { isSubmitPending, onDelete, onSubmitPress, showDelete, title } =
+  const { isSubmitPending, mode, onDelete, onSubmitPress, showDelete } =
     useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -141,7 +142,8 @@ export default function LeagueSettingsRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Ajustes</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -164,59 +166,58 @@ export default function LeagueSettingsRoute() {
       </Page.Header>
 
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
-        <Animated.View className="gap-6" layout={AccordionLayoutTransition}>
-          <TextField isInvalid={Boolean(visibilityError)} isRequired>
-            <Label>Visibilidade</Label>
-            <Select
-              isDisabled={isDisabled}
-              onValueChange={(nextValue) => {
-                if (nextValue && !Array.isArray(nextValue)) {
-                  setValue(
-                    "visibility",
-                    nextValue.value as LeagueScreenValues["visibility"],
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    }
-                  );
-                }
-              }}
-              selectionMode="single"
-              value={visibilityOptions.find(
-                (option) => option.value === visibility
-              )}
-            >
-              <Select.Trigger>
-                <Select.Value
-                  className="font-normal"
-                  numberOfLines={1}
-                  placeholder="Escolha uma opção"
-                />
-                <Select.TriggerIndicator />
-              </Select.Trigger>
-              <Select.Portal>
-                <Select.Overlay />
-                <Select.Content presentation="popover" width="trigger">
-                  <Select.ListLabel className="mb-2">
-                    Escolha uma opção
-                  </Select.ListLabel>
-                  {visibilityOptions.map((option) => (
-                    <SelectOptionItem
-                      key={option.value}
-                      label={option.label}
-                      value={option.value}
-                    />
-                  ))}
-                </Select.Content>
-              </Select.Portal>
-            </Select>
-            <Description>
-              Define quem pode encontrar e entrar na liga.
-            </Description>
-            <FieldError>{visibilityError ?? ""}</FieldError>
-          </TextField>
-
+        <TextField isInvalid={Boolean(visibilityError)} isRequired>
+          <Label>Visibilidade</Label>
+          <Select
+            isDisabled={isDisabled}
+            onValueChange={(nextValue) => {
+              if (nextValue && !Array.isArray(nextValue)) {
+                setValue(
+                  "visibility",
+                  nextValue.value as LeagueScreenValues["visibility"],
+                  {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  }
+                );
+              }
+            }}
+            selectionMode="single"
+            value={visibilityOptions.find(
+              (option) => option.value === visibility
+            )}
+          >
+            <Select.Trigger>
+              <Select.Value
+                className="font-normal"
+                numberOfLines={1}
+                placeholder="Escolha uma opção"
+              />
+              <Select.TriggerIndicator />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Overlay />
+              <Select.Content presentation="popover" width="trigger">
+                <Select.ListLabel className="mb-2">
+                  Escolha uma opção
+                </Select.ListLabel>
+                {visibilityOptions.map((option) => (
+                  <SelectOptionItem
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Select.Content>
+            </Select.Portal>
+          </Select>
+          <Description>
+            Define quem pode encontrar e entrar na liga.
+          </Description>
+          <FieldError>{visibilityError ?? ""}</FieldError>
+        </TextField>
+        <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
           <ToggleableRuleCard
             description="Ative para definir quantos jogadores podem entrar na liga."
             enabled={hasLimitedSpots}

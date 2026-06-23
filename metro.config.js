@@ -48,7 +48,7 @@ const startServeSim = () => {
 
   const serveSimScript = path.join(
     path.dirname(require.resolve("serve-sim/middleware")),
-    "serve-sim.js",
+    "serve-sim.js"
   );
 
   isPortOpen(simPreviewServerPort, (isOpen) => {

@@ -59,6 +59,7 @@ export function RuleCard(props: RuleCardProps) {
         layout={AccordionLayoutTransition}
         variant={props.variant ?? "default"}
       >
+        {props.children}
         {props.info ? (
           <RuleInfoTrigger
             onPress={() => {
@@ -67,7 +68,6 @@ export function RuleCard(props: RuleCardProps) {
             title={props.info.title}
           />
         ) : null}
-        {props.children}
       </AnimatedSurface>
 
       {props.info ? (
@@ -217,14 +217,13 @@ export function RuleToggleRow(props: RuleToggleRowProps) {
       }}
     >
       <Checkbox
-        className="mt-0.5"
         isDisabled={props.isDisabled}
         isSelected={props.enabled}
         pointerEvents="none"
       />
       <View className="flex-1" pointerEvents="none">
         <Label>{props.label}</Label>
-        <Description className="-mt-1.5 mb-1">{props.description}</Description>
+        <Description>{props.description}</Description>
       </View>
     </PressableFeedback>
   );

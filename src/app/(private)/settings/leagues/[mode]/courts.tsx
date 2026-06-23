@@ -145,9 +145,15 @@ function getCourtAvailabilityDescription(court: LeagueCourt) {
   return `${rangeCount} horários disponíveis.`;
 }
 
+const LEAGUE_FORM_SUBTITLES = {
+  create: "Criar Liga",
+  edit: "Editar Liga",
+} as const;
+
 export default function LeagueCourtsRoute() {
-  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const { isSubmitPending, mode, onSubmitPress } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = LEAGUE_FORM_SUBTITLES[mode];
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -428,7 +434,8 @@ export default function LeagueCourtsRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Quadras</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>

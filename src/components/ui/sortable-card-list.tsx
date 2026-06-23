@@ -45,7 +45,7 @@ type SortableCardListProps<TItem extends SortableCardListItem> = {
 };
 
 const DEFAULT_ESTIMATED_ITEM_HEIGHT = 60;
-const DEFAULT_ITEM_GAP = 8;
+const DEFAULT_ITEM_GAP = 12;
 
 function buildDragHandle(children: ReactNode) {
   return <SortableItem.Handle>{children}</SortableItem.Handle>;

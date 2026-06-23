@@ -1,10 +1,9 @@
-import { Page } from "@/components/core/page";
+import { BackButton, Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { BackButton } from "@/components/core/page";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import {
@@ -69,8 +68,9 @@ function syncCategoryItemIds(currentIds: string[], itemCount: number) {
 }
 
 export default function LeagueCategoriesRoute() {
-  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const { isSubmitPending, mode, onSubmitPress } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -262,7 +262,8 @@ export default function LeagueCategoriesRoute() {
           <BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Categorias</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -284,7 +285,7 @@ export default function LeagueCategoriesRoute() {
         </Page.Header.Right>
       </Page.Header>
 
-      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
+      <Page.ScrollView contentContainerClassName="grow gap-5 px-4 pb-floating-tab-bar-offset-4">
         {categories.length === 0 && (
           <EmptyState
             buttonIsDisabled={isDisabled}
@@ -296,7 +297,7 @@ export default function LeagueCategoriesRoute() {
         )}
         {error && <ErrorMessage message="Informe pelo menos uma categoria" />}
 
-        <Animated.View className="gap-5">
+        <Animated.View className="gap-2">
           <SortableCardList
             data={categoryItems}
             onOrderChange={handleOrderChange}

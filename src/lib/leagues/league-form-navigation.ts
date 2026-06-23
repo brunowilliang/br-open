@@ -134,3 +134,16 @@ export function resolveLeagueFormTabValueFromRouteName(
 
   return item?.value ?? null;
 }
+
+/**
+ * Display title for a league form tab, resolved from the Expo Router route
+ * name (e.g. "categories" -> "Categorias"). Used as the header title on each
+ * league form screen instead of the shared bucket title ("Criar/Editar Liga").
+ */
+export function getLeagueFormTabTitle(routeName: string): string {
+  const item = LEAGUE_FORM_TAB_ITEMS.find(
+    (tabItem) => tabItem.routeName === routeName
+  );
+
+  return item?.label ?? "Liga";
+}

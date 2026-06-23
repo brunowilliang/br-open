@@ -19,8 +19,9 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 
 export default function LeagueLocationRoute() {
-  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const { isSubmitPending, mode, onSubmitPress } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -51,7 +52,8 @@ export default function LeagueLocationRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Local</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>

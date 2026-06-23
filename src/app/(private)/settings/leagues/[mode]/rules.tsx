@@ -1690,10 +1690,11 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
 };
 
 export default function LeagueRulesRoute() {
-  const { isRulesLocked, isSubmitPending, onSubmitPress, title } =
+  const { isRulesLocked, isSubmitPending, mode, onSubmitPress } =
     useLeagueFormRoute();
   const [activeTab, setActiveTab] = useState("desafios");
   const isDisabled = isSubmitPending || isRulesLocked;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -1710,7 +1711,8 @@ export default function LeagueRulesRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Regras</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -1756,19 +1758,19 @@ export default function LeagueRulesRoute() {
                 </Tabs.Trigger>
               </Tabs.ScrollView>
             </Tabs.List>
-            <Tabs.Content className="gap-4 pt-2" value="desafios">
+            <Tabs.Content className="gap-2 pt-2" value="desafios">
               <ChallengeRulesSection isDisabled={isDisabled} />
             </Tabs.Content>
 
-            <Tabs.Content className="gap-4 pt-2" value="resultado">
+            <Tabs.Content className="gap-2 pt-2" value="resultado">
               <ResultRulesSection isDisabled={isDisabled} />
             </Tabs.Content>
 
-            <Tabs.Content className="gap-4 pt-2" value="ranking">
+            <Tabs.Content className="gap-2 pt-2" value="ranking">
               <RankingRulesSection isDisabled={isDisabled} />
             </Tabs.Content>
 
-            <Tabs.Content className="gap-4 pt-2" value="partidas">
+            <Tabs.Content className="gap-2 pt-2" value="partidas">
               <MatchRulesSection isDisabled={isDisabled} />
             </Tabs.Content>
           </Tabs>

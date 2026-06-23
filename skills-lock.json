@@ -36,6 +36,12 @@
       "sourceType": "github",
       "skillPath": "skills/convex-setup-auth/SKILL.md",
       "computedHash": "b1a940758751c5b2fdc6ced105b19927a1655f0c1d4bd2fd5536dc3264202c00"
+    },
+    "serve-sim": {
+      "source": "evanbacon/serve-sim",
+      "sourceType": "github",
+      "skillPath": "skills/serve-sim/SKILL.md",
+      "computedHash": "f36989794356ed42ce288b292f825c2b6261e9cbf4aba2ebdccefd672ffdc47f"
     }
   }
 }
