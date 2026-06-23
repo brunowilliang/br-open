@@ -1430,417 +1430,407 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
   });
 
   return (
-    <>
-      <RuleCard>
-        <TextField
-          isInvalid={Boolean(errors.ruleConfig?.matchConfig?.finalSetMode)}
+    <RuleCard>
+      <TextField
+        isInvalid={Boolean(errors.ruleConfig?.matchConfig?.finalSetMode)}
+      >
+        <Label>Formato do último set</Label>
+        <Description className="-mt-1.5 mb-1">
+          Escolha se o último set segue igual, vira um set próprio ou um super
+          tie-break.
+        </Description>
+        <Select
+          isDisabled={isDisabled}
+          onValueChange={(nextValue) => {
+            if (nextValue && !Array.isArray(nextValue)) {
+              setValue(
+                "ruleConfig.matchConfig.finalSetMode",
+                nextValue.value as MatchConfig["finalSetMode"],
+                fieldUpdateOptions
+              );
+            }
+          }}
+          selectionMode={"single"}
+          value={getSelectedOption(finalSetModeOptions, finalSetMode)}
         >
-          <Label>Formato do último set</Label>
-          <Description className="-mt-1.5 mb-1">
-            Escolha se o último set segue igual, vira um set próprio ou um super
-            tie-break.
-          </Description>
-          <Select
-            isDisabled={isDisabled}
-            onValueChange={(nextValue) => {
-              if (nextValue && !Array.isArray(nextValue)) {
-                setValue(
-                  "ruleConfig.matchConfig.finalSetMode",
-                  nextValue.value as MatchConfig["finalSetMode"],
-                  fieldUpdateOptions
-                );
-              }
-            }}
-            selectionMode={"single"}
-            value={getSelectedOption(finalSetModeOptions, finalSetMode)}
-          >
-            <Select.Trigger className="bg-surface-secondary">
-              <Select.Value
-                className="font-normal"
-                numberOfLines={1}
-                placeholder="Escolha uma opção"
-              />
-              <Select.TriggerIndicator />
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Overlay />
-              <Select.Content presentation="popover" width="trigger">
-                <Select.ListLabel className="mb-2">
-                  Escolha uma opção
-                </Select.ListLabel>
-                {finalSetModeOptions.map((option) => (
-                  <SelectOptionItem
-                    key={option.value}
-                    label={option.label}
-                    value={option.value}
-                  />
-                ))}
-              </Select.Content>
-            </Select.Portal>
-          </Select>
-          <FieldError>
-            {errors.ruleConfig?.matchConfig?.finalSetMode?.message ?? ""}
-          </FieldError>
-        </TextField>
-      </RuleCard>
+          <Select.Trigger className="bg-surface-secondary">
+            <Select.Value
+              className="font-normal"
+              numberOfLines={1}
+              placeholder="Escolha uma opção"
+            />
+            <Select.TriggerIndicator />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Overlay />
+            <Select.Content presentation="popover" width="trigger">
+              <Select.ListLabel className="mb-2">
+                Escolha uma opção
+              </Select.ListLabel>
+              {finalSetModeOptions.map((option) => (
+                <SelectOptionItem
+                  key={option.value}
+                  label={option.label}
+                  value={option.value}
+                />
+              ))}
+            </Select.Content>
+          </Select.Portal>
+        </Select>
+        <FieldError>
+          {errors.ruleConfig?.matchConfig?.finalSetMode?.message ?? ""}
+        </FieldError>
+      </TextField>
 
       {finalSetMode === "custom_set" ? (
         <RuleExpandableContent>
-          <RuleCard variant="secondary">
-            <TextField
-              isInvalid={Boolean(
-                errors.ruleConfig?.matchConfig?.finalSetGamesPerSet
-              )}
-              isRequired
+          <TextField
+            isInvalid={Boolean(
+              errors.ruleConfig?.matchConfig?.finalSetGamesPerSet
+            )}
+            isRequired
+          >
+            <Label>Quantos games no último set?</Label>
+            <Description className="-mt-1.5 mb-1">
+              Quantidade padrão de games para o último set.
+            </Description>
+            <NumberStepper
+              className="self-start"
+              defaultValue={finalSetGamesPerSet}
+              isDisabled={isDisabled}
+              maxValue={12}
+              minValue={1}
+              onValueChange={(nextValue) => {
+                setValue(
+                  "ruleConfig.matchConfig.finalSetGamesPerSet",
+                  nextValue,
+                  fieldUpdateOptions
+                );
+              }}
+              step={1}
+              value={finalSetGamesPerSet}
             >
-              <Label>Quantos games no último set?</Label>
-              <Description className="-mt-1.5 mb-1">
-                Quantidade padrão de games para o último set.
-              </Description>
-              <NumberStepper
-                className="self-start"
-                defaultValue={finalSetGamesPerSet}
-                isDisabled={isDisabled}
-                maxValue={12}
-                minValue={1}
-                onValueChange={(nextValue) => {
+              <NumberStepper.DecrementButton />
+              <NumberStepper.Value />
+              <NumberStepper.IncrementButton />
+            </NumberStepper>
+            <FieldError>
+              {errors.ruleConfig?.matchConfig?.finalSetGamesPerSet?.message ??
+                ""}
+            </FieldError>
+          </TextField>
+
+          <TextField
+            isInvalid={Boolean(
+              errors.ruleConfig?.matchConfig?.finalSetScoringMode
+            )}
+          >
+            <Label>Pontuação do último set</Label>
+            <Description className="-mt-1.5 mb-1">
+              Escolha se o último set usa vantagem ou no-ad.
+            </Description>
+            <Select
+              isDisabled={isDisabled}
+              onValueChange={(nextValue) => {
+                if (nextValue && !Array.isArray(nextValue)) {
                   setValue(
-                    "ruleConfig.matchConfig.finalSetGamesPerSet",
-                    nextValue,
+                    "ruleConfig.matchConfig.finalSetScoringMode",
+                    nextValue.value as MatchConfig["finalSetScoringMode"],
+                    fieldUpdateOptions
+                  );
+                }
+              }}
+              selectionMode={"single"}
+              value={getSelectedOption(scoringModeOptions, finalSetScoringMode)}
+            >
+              <Select.Trigger className="bg-surface-secondary">
+                <Select.Value
+                  className="font-normal"
+                  numberOfLines={1}
+                  placeholder="Escolha uma opção"
+                />
+                <Select.TriggerIndicator />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Overlay />
+                <Select.Content presentation="popover" width="trigger">
+                  <Select.ListLabel className="mb-2">
+                    Escolha uma opção
+                  </Select.ListLabel>
+                  {scoringModeOptions.map((option) => (
+                    <SelectOptionItem
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                    />
+                  ))}
+                </Select.Content>
+              </Select.Portal>
+            </Select>
+            <FieldError>
+              {errors.ruleConfig?.matchConfig?.finalSetScoringMode?.message ??
+                ""}
+            </FieldError>
+          </TextField>
+
+          <PressableFeedback
+            accessibilityLabel="Vencer o último set por 2 games"
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: finalSetMustWinByTwoGames,
+              disabled: isDisabled,
+            }}
+            className="flex-row items-center gap-3"
+            isDisabled={isDisabled}
+            onPress={() => {
+              setValue(
+                "ruleConfig.matchConfig.finalSetMustWinByTwoGames",
+                !finalSetMustWinByTwoGames,
+                fieldUpdateOptions
+              );
+            }}
+          >
+            <Checkbox
+              className="mt-0.5"
+              isDisabled={isDisabled}
+              isSelected={finalSetMustWinByTwoGames}
+              pointerEvents="none"
+            />
+            <View className="flex-1 gap-0" pointerEvents="none">
+              <Label>Vencer o último set por 2 games</Label>
+              <Description className="-mt-1.5 mb-1">
+                Ative para exigir dois games de diferença no último set.
+              </Description>
+            </View>
+          </PressableFeedback>
+          <FieldError>
+            {errors.ruleConfig?.matchConfig?.finalSetMustWinByTwoGames
+              ?.message ?? ""}
+          </FieldError>
+
+          <PressableFeedback
+            accessibilityLabel="Tie-break no último set"
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: finalSetHasTieBreak,
+              disabled: isDisabled,
+            }}
+            className="flex-row items-center gap-3"
+            isDisabled={isDisabled}
+            onPress={() => {
+              setValue(
+                "ruleConfig.matchConfig.finalSetHasTieBreak",
+                !finalSetHasTieBreak,
+                fieldUpdateOptions
+              );
+            }}
+          >
+            <Checkbox
+              className="mt-0.5"
+              isDisabled={isDisabled}
+              isSelected={finalSetHasTieBreak}
+              pointerEvents="none"
+            />
+            <View className="flex-1 gap-0" pointerEvents="none">
+              <Label>Tie-break no último set</Label>
+              <Description className="-mt-1.5 mb-1">
+                Ative para configurar tie-break também no último set.
+              </Description>
+            </View>
+          </PressableFeedback>
+          <FieldError>
+            {errors.ruleConfig?.matchConfig?.finalSetHasTieBreak?.message ?? ""}
+          </FieldError>
+
+          {finalSetHasTieBreak ? (
+            <RuleExpandableContent>
+              <TextField
+                isInvalid={Boolean(
+                  errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
+                )}
+                isRequired
+              >
+                <Label>Em qual placar entra o tie-break final?</Label>
+                <Description className="-mt-1.5 mb-1">
+                  Exemplo: informe 6 para tie-break final em 6x6.
+                </Description>
+                <NumberStepper
+                  className="self-start"
+                  defaultValue={finalSetTieBreakAtGamesAll}
+                  isDisabled={isDisabled}
+                  maxValue={12}
+                  minValue={1}
+                  onValueChange={(nextValue) => {
+                    setValue(
+                      "ruleConfig.matchConfig.finalSetTieBreakAtGamesAll",
+                      nextValue,
+                      fieldUpdateOptions
+                    );
+                  }}
+                  step={1}
+                  value={finalSetTieBreakAtGamesAll}
+                >
+                  <NumberStepper.DecrementButton />
+                  <NumberStepper.Value />
+                  <NumberStepper.IncrementButton />
+                </NumberStepper>
+                <FieldError>
+                  {errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
+                    ?.message ?? ""}
+                </FieldError>
+              </TextField>
+
+              <TextField
+                isInvalid={Boolean(
+                  errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
+                )}
+                isRequired
+              >
+                <Label>Quantos pontos no tie-break final?</Label>
+                <Description className="-mt-1.5 mb-1">
+                  Pontuação padrão do tie-break no último set.
+                </Description>
+                <NumberStepper
+                  className="self-start"
+                  defaultValue={finalSetTieBreakPoints}
+                  isDisabled={isDisabled}
+                  maxValue={30}
+                  minValue={1}
+                  onValueChange={(nextValue) => {
+                    setValue(
+                      "ruleConfig.matchConfig.finalSetTieBreakPoints",
+                      nextValue,
+                      fieldUpdateOptions
+                    );
+                  }}
+                  step={1}
+                  value={finalSetTieBreakPoints}
+                >
+                  <NumberStepper.DecrementButton />
+                  <NumberStepper.Value />
+                  <NumberStepper.IncrementButton />
+                </NumberStepper>
+                <FieldError>
+                  {errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
+                    ?.message ?? ""}
+                </FieldError>
+              </TextField>
+
+              <PressableFeedback
+                accessibilityLabel="Vencer o tie-break do último set por 2 pontos"
+                accessibilityRole="checkbox"
+                accessibilityState={{
+                  checked: finalSetTieBreakMustWinByTwo,
+                  disabled: isDisabled,
+                }}
+                className="flex-row items-center gap-3"
+                isDisabled={isDisabled}
+                onPress={() => {
+                  setValue(
+                    "ruleConfig.matchConfig.finalSetTieBreakMustWinByTwo",
+                    !finalSetTieBreakMustWinByTwo,
                     fieldUpdateOptions
                   );
                 }}
-                step={1}
-                value={finalSetGamesPerSet}
               >
-                <NumberStepper.DecrementButton />
-                <NumberStepper.Value />
-                <NumberStepper.IncrementButton />
-              </NumberStepper>
-              <FieldError>
-                {errors.ruleConfig?.matchConfig?.finalSetGamesPerSet?.message ??
-                  ""}
-              </FieldError>
-            </TextField>
-
-            <TextField
-              isInvalid={Boolean(
-                errors.ruleConfig?.matchConfig?.finalSetScoringMode
-              )}
-            >
-              <Label>Pontuação do último set</Label>
-              <Description className="-mt-1.5 mb-1">
-                Escolha se o último set usa vantagem ou no-ad.
-              </Description>
-              <Select
-                isDisabled={isDisabled}
-                onValueChange={(nextValue) => {
-                  if (nextValue && !Array.isArray(nextValue)) {
-                    setValue(
-                      "ruleConfig.matchConfig.finalSetScoringMode",
-                      nextValue.value as MatchConfig["finalSetScoringMode"],
-                      fieldUpdateOptions
-                    );
-                  }
-                }}
-                selectionMode={"single"}
-                value={getSelectedOption(
-                  scoringModeOptions,
-                  finalSetScoringMode
-                )}
-              >
-                <Select.Trigger className="bg-surface-secondary">
-                  <Select.Value
-                    className="font-normal"
-                    numberOfLines={1}
-                    placeholder="Escolha uma opção"
-                  />
-                  <Select.TriggerIndicator />
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Overlay />
-                  <Select.Content presentation="popover" width="trigger">
-                    <Select.ListLabel className="mb-2">
-                      Escolha uma opção
-                    </Select.ListLabel>
-                    {scoringModeOptions.map((option) => (
-                      <SelectOptionItem
-                        key={option.value}
-                        label={option.label}
-                        value={option.value}
-                      />
-                    ))}
-                  </Select.Content>
-                </Select.Portal>
-              </Select>
-              <FieldError>
-                {errors.ruleConfig?.matchConfig?.finalSetScoringMode?.message ??
-                  ""}
-              </FieldError>
-            </TextField>
-
-            <PressableFeedback
-              accessibilityLabel="Vencer o último set por 2 games"
-              accessibilityRole="checkbox"
-              accessibilityState={{
-                checked: finalSetMustWinByTwoGames,
-                disabled: isDisabled,
-              }}
-              className="flex-row items-center gap-3"
-              isDisabled={isDisabled}
-              onPress={() => {
-                setValue(
-                  "ruleConfig.matchConfig.finalSetMustWinByTwoGames",
-                  !finalSetMustWinByTwoGames,
-                  fieldUpdateOptions
-                );
-              }}
-            >
-              <Checkbox
-                className="mt-0.5"
-                isDisabled={isDisabled}
-                isSelected={finalSetMustWinByTwoGames}
-                pointerEvents="none"
-              />
-              <View className="flex-1 gap-0" pointerEvents="none">
-                <Label>Vencer o último set por 2 games</Label>
-                <Description className="-mt-1.5 mb-1">
-                  Ative para exigir dois games de diferença no último set.
-                </Description>
-              </View>
-            </PressableFeedback>
-            <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetMustWinByTwoGames
-                ?.message ?? ""}
-            </FieldError>
-
-            <PressableFeedback
-              accessibilityLabel="Tie-break no último set"
-              accessibilityRole="checkbox"
-              accessibilityState={{
-                checked: finalSetHasTieBreak,
-                disabled: isDisabled,
-              }}
-              className="flex-row items-center gap-3"
-              isDisabled={isDisabled}
-              onPress={() => {
-                setValue(
-                  "ruleConfig.matchConfig.finalSetHasTieBreak",
-                  !finalSetHasTieBreak,
-                  fieldUpdateOptions
-                );
-              }}
-            >
-              <Checkbox
-                className="mt-0.5"
-                isDisabled={isDisabled}
-                isSelected={finalSetHasTieBreak}
-                pointerEvents="none"
-              />
-              <View className="flex-1 gap-0" pointerEvents="none">
-                <Label>Tie-break no último set</Label>
-                <Description className="-mt-1.5 mb-1">
-                  Ative para configurar tie-break também no último set.
-                </Description>
-              </View>
-            </PressableFeedback>
-            <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetHasTieBreak?.message ??
-                ""}
-            </FieldError>
-
-            {finalSetHasTieBreak ? (
-              <RuleExpandableContent>
-                <TextField
-                  isInvalid={Boolean(
-                    errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
-                  )}
-                  isRequired
-                >
-                  <Label>Em qual placar entra o tie-break final?</Label>
-                  <Description className="-mt-1.5 mb-1">
-                    Exemplo: informe 6 para tie-break final em 6x6.
-                  </Description>
-                  <NumberStepper
-                    className="self-start"
-                    defaultValue={finalSetTieBreakAtGamesAll}
-                    isDisabled={isDisabled}
-                    maxValue={12}
-                    minValue={1}
-                    onValueChange={(nextValue) => {
-                      setValue(
-                        "ruleConfig.matchConfig.finalSetTieBreakAtGamesAll",
-                        nextValue,
-                        fieldUpdateOptions
-                      );
-                    }}
-                    step={1}
-                    value={finalSetTieBreakAtGamesAll}
-                  >
-                    <NumberStepper.DecrementButton />
-                    <NumberStepper.Value />
-                    <NumberStepper.IncrementButton />
-                  </NumberStepper>
-                  <FieldError>
-                    {errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
-                      ?.message ?? ""}
-                  </FieldError>
-                </TextField>
-
-                <TextField
-                  isInvalid={Boolean(
-                    errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
-                  )}
-                  isRequired
-                >
-                  <Label>Quantos pontos no tie-break final?</Label>
-                  <Description className="-mt-1.5 mb-1">
-                    Pontuação padrão do tie-break no último set.
-                  </Description>
-                  <NumberStepper
-                    className="self-start"
-                    defaultValue={finalSetTieBreakPoints}
-                    isDisabled={isDisabled}
-                    maxValue={30}
-                    minValue={1}
-                    onValueChange={(nextValue) => {
-                      setValue(
-                        "ruleConfig.matchConfig.finalSetTieBreakPoints",
-                        nextValue,
-                        fieldUpdateOptions
-                      );
-                    }}
-                    step={1}
-                    value={finalSetTieBreakPoints}
-                  >
-                    <NumberStepper.DecrementButton />
-                    <NumberStepper.Value />
-                    <NumberStepper.IncrementButton />
-                  </NumberStepper>
-                  <FieldError>
-                    {errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
-                      ?.message ?? ""}
-                  </FieldError>
-                </TextField>
-
-                <PressableFeedback
-                  accessibilityLabel="Vencer o tie-break do último set por 2 pontos"
-                  accessibilityRole="checkbox"
-                  accessibilityState={{
-                    checked: finalSetTieBreakMustWinByTwo,
-                    disabled: isDisabled,
-                  }}
-                  className="flex-row items-center gap-3"
+                <Checkbox
+                  className="mt-0.5"
                   isDisabled={isDisabled}
-                  onPress={() => {
-                    setValue(
-                      "ruleConfig.matchConfig.finalSetTieBreakMustWinByTwo",
-                      !finalSetTieBreakMustWinByTwo,
-                      fieldUpdateOptions
-                    );
-                  }}
-                >
-                  <Checkbox
-                    className="mt-0.5"
-                    isDisabled={isDisabled}
-                    isSelected={finalSetTieBreakMustWinByTwo}
-                    pointerEvents="none"
-                  />
-                  <View className="flex-1 gap-0" pointerEvents="none">
-                    <Label>Vencer o tie-break final por 2 pontos</Label>
-                    <Description className="-mt-1.5 mb-1">
-                      Ative para exigir dois pontos de diferença no tie-break do
-                      último set.
-                    </Description>
-                  </View>
-                </PressableFeedback>
-                <FieldError>
-                  {errors.ruleConfig?.matchConfig?.finalSetTieBreakMustWinByTwo
-                    ?.message ?? ""}
-                </FieldError>
-              </RuleExpandableContent>
-            ) : null}
-          </RuleCard>
+                  isSelected={finalSetTieBreakMustWinByTwo}
+                  pointerEvents="none"
+                />
+                <View className="flex-1 gap-0" pointerEvents="none">
+                  <Label>Vencer o tie-break final por 2 pontos</Label>
+                  <Description className="-mt-1.5 mb-1">
+                    Ative para exigir dois pontos de diferença no tie-break do
+                    último set.
+                  </Description>
+                </View>
+              </PressableFeedback>
+              <FieldError>
+                {errors.ruleConfig?.matchConfig?.finalSetTieBreakMustWinByTwo
+                  ?.message ?? ""}
+              </FieldError>
+            </RuleExpandableContent>
+          ) : null}
         </RuleExpandableContent>
       ) : null}
 
       {finalSetMode === "super_tiebreak" ? (
         <RuleExpandableContent>
-          <RuleCard variant="secondary">
-            <TextField
-              isInvalid={Boolean(
-                errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
-              )}
-              isRequired
-            >
-              <Label>Quantos pontos no super tie-break?</Label>
-              <Description className="-mt-1.5 mb-1">
-                Pontuação padrão do super tie-break no lugar do último set.
-              </Description>
-              <NumberStepper
-                className="self-start"
-                defaultValue={finalSetSuperTieBreakPoints}
-                isDisabled={isDisabled}
-                maxValue={30}
-                minValue={1}
-                onValueChange={(nextValue) => {
-                  setValue(
-                    "ruleConfig.matchConfig.finalSetSuperTieBreakPoints",
-                    nextValue,
-                    fieldUpdateOptions
-                  );
-                }}
-                step={1}
-                value={finalSetSuperTieBreakPoints}
-              >
-                <NumberStepper.DecrementButton />
-                <NumberStepper.Value />
-                <NumberStepper.IncrementButton />
-              </NumberStepper>
-              <FieldError>
-                {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
-                  ?.message ?? ""}
-              </FieldError>
-            </TextField>
-
-            <PressableFeedback
-              accessibilityLabel="Vencer o super tie-break por 2 pontos"
-              accessibilityRole="checkbox"
-              accessibilityState={{
-                checked: finalSetSuperTieBreakMustWinByTwo,
-                disabled: isDisabled,
-              }}
-              className="flex-row items-center gap-3"
+          <TextField
+            isInvalid={Boolean(
+              errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
+            )}
+            isRequired
+          >
+            <Label>Quantos pontos no super tie-break?</Label>
+            <Description className="-mt-1.5 mb-1">
+              Pontuação padrão do super tie-break no lugar do último set.
+            </Description>
+            <NumberStepper
+              className="self-start"
+              defaultValue={finalSetSuperTieBreakPoints}
               isDisabled={isDisabled}
-              onPress={() => {
+              maxValue={30}
+              minValue={1}
+              onValueChange={(nextValue) => {
                 setValue(
-                  "ruleConfig.matchConfig.finalSetSuperTieBreakMustWinByTwo",
-                  !finalSetSuperTieBreakMustWinByTwo,
+                  "ruleConfig.matchConfig.finalSetSuperTieBreakPoints",
+                  nextValue,
                   fieldUpdateOptions
                 );
               }}
+              step={1}
+              value={finalSetSuperTieBreakPoints}
             >
-              <Checkbox
-                className="mt-0.5"
-                isDisabled={isDisabled}
-                isSelected={finalSetSuperTieBreakMustWinByTwo}
-                pointerEvents="none"
-              />
-              <View className="flex-1 gap-0" pointerEvents="none">
-                <Label>Vencer o super tie-break por 2 pontos</Label>
-                <Description className="-mt-1.5 mb-1">
-                  Ative para exigir dois pontos de diferença no super tie-break.
-                </Description>
-              </View>
-            </PressableFeedback>
+              <NumberStepper.DecrementButton />
+              <NumberStepper.Value />
+              <NumberStepper.IncrementButton />
+            </NumberStepper>
             <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakMustWinByTwo
+              {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
                 ?.message ?? ""}
             </FieldError>
-          </RuleCard>
+          </TextField>
+
+          <PressableFeedback
+            accessibilityLabel="Vencer o super tie-break por 2 pontos"
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: finalSetSuperTieBreakMustWinByTwo,
+              disabled: isDisabled,
+            }}
+            className="flex-row items-center gap-3"
+            isDisabled={isDisabled}
+            onPress={() => {
+              setValue(
+                "ruleConfig.matchConfig.finalSetSuperTieBreakMustWinByTwo",
+                !finalSetSuperTieBreakMustWinByTwo,
+                fieldUpdateOptions
+              );
+            }}
+          >
+            <Checkbox
+              className="mt-0.5"
+              isDisabled={isDisabled}
+              isSelected={finalSetSuperTieBreakMustWinByTwo}
+              pointerEvents="none"
+            />
+            <View className="flex-1 gap-0" pointerEvents="none">
+              <Label>Vencer o super tie-break por 2 pontos</Label>
+              <Description className="-mt-1.5 mb-1">
+                Ative para exigir dois pontos de diferença no super tie-break.
+              </Description>
+            </View>
+          </PressableFeedback>
+          <FieldError>
+            {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakMustWinByTwo
+              ?.message ?? ""}
+          </FieldError>
         </RuleExpandableContent>
       ) : null}
-    </>
+    </RuleCard>
   );
 };
 
