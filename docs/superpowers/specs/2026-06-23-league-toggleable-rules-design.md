@@ -406,6 +406,37 @@ it. Disabled rules do not show a `FieldError`.
 `resultValidationMode` is rendered on the `Resultado` tab instead of the
 `Desafios` tab. The card itself is unchanged (still a required `Segment`).
 
+### Final-set format card fix
+
+The `FinalSetSection` on the `Partidas` tab is structurally inconsistent with
+the other expandable cards (`InactivityPenaltySection`, `TieBreakSection`).
+Today the expandable content is rendered as a sibling of the `RuleCard`, and the
+expanded fields live inside a nested `RuleCard variant="secondary"`. This causes
+two visible problems:
+
+1. The accordion layout animation does not own the expanded content, so the
+   card does not grow/shrink as a single unit like the other toggle cards.
+2. The nested card uses `variant="secondary"`, which does not match the default
+   surface used by the other cards.
+
+The fix restructures `FinalSetSection` to mirror `TieBreakSection`: a single
+`RuleCard` (default variant) that contains both the `finalSetMode` select and
+the conditional `RuleExpandableContent`. The nested `RuleCard variant="secondary"`
+is removed. The `custom_set` and `super_tiebreak` branches each render their
+fields directly inside the `RuleExpandableContent`, exactly as `TieBreakSection`
+renders its expanded fields.
+
+Target structure:
+
+```
+RuleCard (default)
+ ├─ Select (finalSetMode)
+ └─ RuleExpandableContent (when finalSetMode is custom_set | super_tiebreak)
+      └─ fields directly, no nested card
+```
+
+No behavior change beyond layout/animation and the surface variant.
+
 ## Validation Rules
 
 ### Toggleable value validation
@@ -512,6 +543,9 @@ If a document already has the new shape and the new scoring value
   default values.
 - `Validação do resultado` appears on the `Resultado` tab.
 - The existing animated checkbox card pattern is reused, not reinvented.
+- The final-set format card expands/collapses with the same accordion animation
+  as the other expandable cards, on the default surface variant (no nested
+  `secondary` card).
 - The scoring option previously shown as "No-ad" (`no_ad`) is shown and stored
   as "Sem vantagem" (`sem_vantagem`); legacy `"no_ad"` documents are migrated.
 - Seed leagues conform to the new shape and boot without validation errors.
