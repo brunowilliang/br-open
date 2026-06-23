@@ -86,9 +86,13 @@ No other card changes tab.
 ## Scoring Mode Rename
 
 The match scoring option `no_ad` is shown in the UI as "No-ad", which is tennis
-jargon unfamiliar to most organizers. This slice renames both the displayed
-label and the stored value to `sem_vantagem` ("Sem vantagem") so the data model
-stays self-explanatory.
+jargon unfamiliar to most organizers. This slice renames the stored value from
+`no_ad` to `no_advantage` and the displayed label from "No-ad" to "Sem
+vantagem".
+
+The stored value stays in English to match the rest of the contract (which uses
+`advantage`, `take_opponent_position`, `automatic`, etc.). Only the user-facing
+label is Portuguese.
 
 Because dev and prod have no active users, the rename ships as a label-plus-value
 change with a data migration.
@@ -97,7 +101,7 @@ change with a data migration.
 
 - `convex/domains/league/contract.ts`:
   - `LeagueScoringModeOptions`: `["advantage", "no_ad"]` →
-    `["advantage", "sem_vantagem"]`.
+    `["advantage", "no_advantage"]`.
   - `DEFAULT_LEAGUE_MATCH_CONFIG.scoringMode`: stays `"advantage"` (no change
     needed; the default is unaffected).
 - `convex/domains/seed/data.ts`: seed default stays `"advantage"`.
@@ -112,12 +116,12 @@ no manual edit beyond running codegen.
 
 - `src/app/(private)/settings/leagues/[mode]/rules.tsx`:
   - `scoringModeOptions`: change the `no_ad` option label from "No-ad" to "Sem
-    vantagem" and its `value` from `"no_ad"` to `"sem_vantagem"`. This option is
+    vantagem" and its `value` from `"no_ad"` to `"no_advantage"`. This option is
     reused for both the regular and final-set scoring selects.
 - `src/app/(private)/leagues/[leagueId]/index.tsx` and
   `src/lib/leagues/league-details-derived.ts`:
   - `formatScoringMode`: update the branch that maps the stored value to the
-    display string so `sem_vantagem` renders as "Sem vantagem".
+    display string so `no_advantage` renders as "Sem vantagem".
 
 ### Migration
 
@@ -131,7 +135,7 @@ value in two places:
 3. `leagueChallenge.matchConfigSnapshot.scoringMode`
 4. `leagueChallenge.matchConfigSnapshot.finalSetScoringMode`
 
-Transform rule: `"no_ad"` → `"sem_vantagem"`. Leave `"advantage"` untouched.
+Transform rule: `"no_ad"` → `"no_advantage"`. Leave `"advantage"` untouched.
 The migration must be idempotent (skip values already migrated).
 
 ## Data Design
@@ -483,7 +487,7 @@ The migration rewrites rule config in two document types:
    `true` because today every rule is active.
 2. Apply the scoring rename (see Scoring Mode Rename): rewrite
    `matchConfig.scoringMode` and `matchConfig.finalSetScoringMode` from
-   `"no_ad"` to `"sem_vantagem"`.
+   `"no_ad"` to `"no_advantage"`.
 3. Leave all other `ruleConfig` fields untouched.
 4. Leave `challengeValidationMode` / `resultValidationMode` handling alone if
    a legacy document is missing them; the existing fallback logic in
@@ -506,7 +510,7 @@ Example transform (league):
 // becomes
 {
   maxChallengeDistance: { enabled: true, value: 4 },
-  matchConfig: { scoringMode: "sem_vantagem", /* ... */ },
+  matchConfig: { scoringMode: "no_advantage", /* ... */ },
   // ...
 }
 ```
@@ -526,7 +530,7 @@ If a document already has the new shape and the new scoring value
   - required rules still reject missing values
   - the `resultValidationMode` move is covered by the schema staying a single
     source of truth.
-- Add a test asserting `LeagueScoringModeOptions` contains `sem_vantagem`
+- Add a test asserting `LeagueScoringModeOptions` contains `no_advantage`
   (not `no_ad`) and that `formatScoringMode` renders "Sem vantagem" for it.
 
 ## Success Criteria
@@ -547,6 +551,6 @@ If a document already has the new shape and the new scoring value
   as the other expandable cards, on the default surface variant (no nested
   `secondary` card).
 - The scoring option previously shown as "No-ad" (`no_ad`) is shown and stored
-  as "Sem vantagem" (`sem_vantagem`); legacy `"no_ad"` documents are migrated.
+  as "Sem vantagem" (`no_advantage`); legacy `"no_ad"` documents are migrated.
 - Seed leagues conform to the new shape and boot without validation errors.
 - `bun run typecheck` and `bun test` pass after the change.
