@@ -441,6 +441,88 @@ RuleCard (default)
 
 No behavior change beyond layout/animation and the surface variant.
 
+## Settings Card Consolidation
+
+The league settings screen (`src/app/(private)/settings/leagues/[mode]/settings.tsx`)
+has two expandable cards that are structurally inconsistent with the rules
+screen pattern. Each card renders a redundant section title + description above
+the toggle row, so the organizer reads the same idea twice.
+
+### Entrada na liga (player spots) card
+
+Today:
+
+```
+AnimatedSurface
+ ├─ [Section title] "Entrada na liga" + "Defina quantos jogadores podem entrar na liga."
+ ├─ PressableFeedback toggle "Sem limite de vagas" + "Desative para limitar quantos jogadores podem entrar."
+ └─ when limited → NumberStepper "Quantidade de vagas"
+```
+
+The section title and the toggle description say the same thing. The toggle is
+also inverted: the checkbox is checked when spots are *unlimited* (rule off).
+
+Consolidated structure (toggle = rule active, matching the rules screen cards):
+
+```
+AnimatedSurface
+ ├─ PressableFeedback toggle "Limitar vagas" + "Ative para definir quantos jogadores podem entrar na liga."
+ └─ when active → NumberStepper "Quantidade de vagas" (inside the expandable content)
+```
+
+Changes:
+
+- Remove the section title `View` with "Entrada na liga".
+- Rename the toggle to "Limitar vagas" with description "Ative para definir
+  quantos jogadores podem entrar na liga."
+- Invert the toggle semantics: checked = limited (rule active), unchecked =
+  unlimited (`maxPlayers = null`). `toggleUnlimitedSpots` becomes a
+  `toggleLimitedSpots` that sets `maxPlayers` to `20` when activating and
+  `null` when deactivating.
+- The `NumberStepper` renders inside the expandable content only when the
+  toggle is active.
+- Keep the default new-league behavior (unlimited spots, toggle unchecked).
+
+### Preço (price) card
+
+Today:
+
+```
+AnimatedSurface
+ ├─ [Section title] "Preço" + "Defina se a entrada é gratuita ou possui cobrança."
+ ├─ PressableFeedback toggle "Gratuito" + "Ative quando a liga não tiver mensalidade."
+ └─ when paid → NumberField "Valor" + Segment "Cobrança"
+```
+
+Same redundancy and the same inverted toggle (checked = free = rule off).
+
+Consolidated structure (toggle = rule active):
+
+```
+AnimatedSurface
+ ├─ PressableFeedback toggle "Cobrança" + "Ative para definir uma mensalidade para a liga."
+ └─ when active → NumberField "Valor" + Segment "Cobrança" (inside the expandable content)
+```
+
+Changes:
+
+- Remove the section title `View` with "Preço".
+- Rename the toggle to "Cobrança" with description "Ative para definir uma
+  mensalidade para a liga."
+- Invert the toggle semantics: checked = paid (rule active), unchecked = free
+  (`monthlyPriceCents = 0`). `toggleFreePrice` becomes a `togglePaidPrice`
+  that sets `monthlyPriceCents` to `DEFAULT_PAID_PRICE_CENTS` when activating
+  and `0` when deactivating.
+- The `NumberField` and `Segment` render inside the expandable content only
+  when the toggle is active.
+- Keep the default new-league behavior (free, toggle unchecked).
+
+### No data migration
+
+This change is UI-only. The stored shape (`maxPlayers` nullable, `monthlyPriceCents`
+number) is unchanged — only the toggle direction and labels change. No migration
+is needed.
+
 ## Validation Rules
 
 ### Toggleable value validation
@@ -552,5 +634,8 @@ If a document already has the new shape and the new scoring value
   `secondary` card).
 - The scoring option previously shown as "No-ad" (`no_ad`) is shown and stored
   as "Sem vantagem" (`no_advantage`); legacy `"no_ad"` documents are migrated.
+- The settings cards "Entrada na liga" and "Preço" each show a single title and
+  description on the toggle row (no redundant section header), with the toggle
+  meaning "rule active" (Limitar vagas / Cobrança).
 - Seed leagues conform to the new shape and boot without validation errors.
 - `bun run typecheck` and `bun test` pass after the change.
