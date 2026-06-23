@@ -80,4 +80,36 @@ describe("challenge creation rules", () => {
       })
     ).toBe("Você já atingiu o limite mensal de desafios.");
   });
+
+  it("allows any distance when maxChallengeDistance is Infinity", () => {
+    expect(
+      resolveChallengeCreationRuleError({
+        ...baseInput,
+        challengedPosition: 1,
+        challengerPosition: 500,
+        maxChallengeDistance: Number.POSITIVE_INFINITY,
+      })
+    ).toBeNull();
+  });
+
+  it("allows any active challenge count when maxActiveChallengesPerPlayer is Infinity", () => {
+    expect(
+      resolveChallengeCreationRuleError({
+        ...baseInput,
+        challengerActiveChallengeCount: 99,
+        challengedActiveChallengeCount: 99,
+        maxActiveChallengesPerPlayer: Number.POSITIVE_INFINITY,
+      })
+    ).toBeNull();
+  });
+
+  it("allows any monthly count when maxChallengesPerMonth is Infinity", () => {
+    expect(
+      resolveChallengeCreationRuleError({
+        ...baseInput,
+        challengerCreatedThisMonthCount: 99,
+        maxChallengesPerMonth: Number.POSITIVE_INFINITY,
+      })
+    ).toBeNull();
+  });
 });

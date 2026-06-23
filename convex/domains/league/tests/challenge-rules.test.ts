@@ -16,6 +16,7 @@ import {
   resolveMissingResultStatus,
   resolveNoResponseStatus,
   resolveReopenedChallengeStatus,
+  resolveResponseDeadline,
   resolveScoreConfirmationStatus,
   validateChallengeScore,
 } from "../challenge-rules";
@@ -29,6 +30,25 @@ describe("league challenge rules", () => {
     });
 
     expect(nextDeadline.toISOString()).toBe("2026-05-23T12:00:00.000Z");
+  });
+
+  it("builds a real deadline when the response deadline rule is enabled", () => {
+    const deadline = resolveResponseDeadline({
+      now: new Date("2026-06-23T12:00:00.000Z"),
+      rule: { enabled: true, value: 48 },
+    });
+
+    expect(deadline.toISOString()).toBe("2026-06-25T12:00:00.000Z");
+  });
+
+  it("builds a far-future deadline when the response deadline rule is disabled", () => {
+    const now = new Date("2026-06-23T12:00:00.000Z");
+    const deadline = resolveResponseDeadline({
+      now,
+      rule: { enabled: false, value: 48 },
+    });
+
+    expect(deadline.getUTCFullYear()).toBe(now.getUTCFullYear() + 100);
   });
 
   it("locks into pending admin validation when both players agree and the league is manual", () => {
