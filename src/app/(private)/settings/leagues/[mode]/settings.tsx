@@ -98,8 +98,8 @@ export default function LeagueSettingsRoute() {
   const maxPlayersError = errors.maxPlayers?.message;
   const monthlyPriceCentsError = errors.monthlyPriceCents?.message;
   const priceBillingIntervalError = errors.priceBillingInterval?.message;
-  const hasUnlimitedSpots = maxPlayers === null;
-  const isFree = (monthlyPriceCents ?? 0) <= 0;
+  const hasLimitedSpots = maxPlayers !== null;
+  const hasPaidPrice = (monthlyPriceCents ?? 0) > 0;
 
   async function handleConfirmDelete() {
     if (!onDelete) {
@@ -114,14 +114,14 @@ export default function LeagueSettingsRoute() {
     }
   }
 
-  function toggleUnlimitedSpots() {
-    setValue("maxPlayers", hasUnlimitedSpots ? 20 : null, fieldUpdateOptions);
+  function toggleLimitedSpots() {
+    setValue("maxPlayers", hasLimitedSpots ? null : 20, fieldUpdateOptions);
   }
 
-  function toggleFreePrice() {
+  function togglePaidPrice() {
     setValue(
       "monthlyPriceCents",
-      isFree ? DEFAULT_PAID_PRICE_CENTS : 0,
+      hasPaidPrice ? 0 : DEFAULT_PAID_PRICE_CENTS,
       fieldUpdateOptions
     );
   }
@@ -210,39 +210,32 @@ export default function LeagueSettingsRoute() {
           </TextField>
 
           <AnimatedSurface className="gap-4" layout={AccordionLayoutTransition}>
-            <View>
-              <Text weight="medium">Entrada na liga</Text>
-              <Description>
-                Defina quantos jogadores podem entrar na liga.
-              </Description>
-            </View>
-
             <PressableFeedback
-              accessibilityLabel="Sem limite de vagas"
+              accessibilityLabel="Limitar vagas"
               accessibilityRole="checkbox"
               accessibilityState={{
-                checked: hasUnlimitedSpots,
+                checked: hasLimitedSpots,
                 disabled: isDisabled,
               }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
-              onPress={toggleUnlimitedSpots}
+              onPress={toggleLimitedSpots}
             >
               <Checkbox
                 className="mt-0.5"
                 isDisabled={isDisabled}
-                isSelected={hasUnlimitedSpots}
+                isSelected={hasLimitedSpots}
                 pointerEvents="none"
               />
-              <View className="flex-1" pointerEvents="none">
-                <Label>Sem limite de vagas</Label>
+              <View className="flex-1 gap-0" pointerEvents="none">
+                <Label>Limitar vagas</Label>
                 <Description className="-mt-1.5">
-                  Desative para limitar quantos jogadores podem entrar.
+                  Ative para definir quantos jogadores podem entrar na liga.
                 </Description>
               </View>
             </PressableFeedback>
 
-            {hasUnlimitedSpots ? null : (
+            {hasLimitedSpots ? (
               <Animated.View
                 entering={SETTINGS_CONTENT_ENTERING}
                 exiting={SETTINGS_CONTENT_EXITING}
@@ -272,43 +265,36 @@ export default function LeagueSettingsRoute() {
                   <FieldError>{maxPlayersError ?? ""}</FieldError>
                 </TextField>
               </Animated.View>
-            )}
+            ) : null}
           </AnimatedSurface>
 
           <AnimatedSurface className="gap-4" layout={AccordionLayoutTransition}>
-            <View>
-              <Text weight="medium">Preço</Text>
-              <Description>
-                Defina se a entrada é gratuita ou possui cobrança.
-              </Description>
-            </View>
-
             <PressableFeedback
-              accessibilityLabel="Gratuito"
+              accessibilityLabel="Cobrança"
               accessibilityRole="checkbox"
               accessibilityState={{
-                checked: isFree,
+                checked: hasPaidPrice,
                 disabled: isDisabled,
               }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
-              onPress={toggleFreePrice}
+              onPress={togglePaidPrice}
             >
               <Checkbox
                 className="mt-0.5"
                 isDisabled={isDisabled}
-                isSelected={isFree}
+                isSelected={hasPaidPrice}
                 pointerEvents="none"
               />
-              <View className="flex-1" pointerEvents="none">
-                <Label>Gratuito</Label>
+              <View className="flex-1 gap-0" pointerEvents="none">
+                <Label>Cobrança</Label>
                 <Description className="-mt-1.5">
-                  Ative quando a liga não tiver mensalidade.
+                  Ative para definir uma mensalidade para a liga.
                 </Description>
               </View>
             </PressableFeedback>
 
-            {isFree ? null : (
+            {hasPaidPrice ? (
               <Animated.View
                 className="gap-4"
                 entering={SETTINGS_CONTENT_ENTERING}
@@ -348,7 +334,7 @@ export default function LeagueSettingsRoute() {
                   isInvalid={Boolean(priceBillingIntervalError)}
                   isRequired
                 >
-                  <Label>Cobrança</Label>
+                  <Label>Período de cobrança</Label>
                   <Segment
                     isDisabled={isDisabled}
                     onValueChange={(nextValue) => {
@@ -376,7 +362,7 @@ export default function LeagueSettingsRoute() {
                   <FieldError>{priceBillingIntervalError ?? ""}</FieldError>
                 </TextField>
               </Animated.View>
-            )}
+            ) : null}
           </AnimatedSurface>
 
           {showDelete ? (
