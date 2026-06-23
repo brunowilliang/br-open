@@ -27,6 +27,11 @@ const RULE_CONTENT_ENTERING = FadeIn.duration(180);
 const RULE_CONTENT_EXITING = FadeOut.duration(120);
 const AnimatedSurface = Animated.createAnimatedComponent(Surface);
 
+export type RuleInfo = {
+  description: string;
+  title: string;
+};
+
 type RuleCardProps = {
   children: ReactNode;
   className?: string;
@@ -37,20 +42,42 @@ type RuleCardProps = {
 /**
  * Surface wrapper shared by every rule/settings card. Applies the accordion
  * layout transition so children can expand/collapse smoothly. Optionally
- * renders a {@link RuleInfoButton} in the top-right corner.
+ * renders an info trigger in the top-right corner.
+ *
+ * The info dialog is rendered as a sibling of the surface (not a child)
+ * because `Dialog` always reserves layout space for its root view, which would
+ * push the card content down. The open state lives here so the trigger (inside
+ * the surface) and the dialog (outside) can share it.
  */
 export function RuleCard(props: RuleCardProps) {
-  const { children, className = "gap-4", info, variant = "default" } = props;
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   return (
-    <AnimatedSurface
-      className={`relative ${className}`}
-      layout={AccordionLayoutTransition}
-      variant={variant}
-    >
-      {info ? <RuleInfoButton info={info} /> : null}
-      {children}
-    </AnimatedSurface>
+    <>
+      <AnimatedSurface
+        className={`relative ${props.className ?? "gap-4"}`}
+        layout={AccordionLayoutTransition}
+        variant={props.variant ?? "default"}
+      >
+        {props.info ? (
+          <RuleInfoTrigger
+            onPress={() => {
+              setIsInfoOpen(true);
+            }}
+            title={props.info.title}
+          />
+        ) : null}
+        {props.children}
+      </AnimatedSurface>
+
+      {props.info ? (
+        <RuleInfoDialog
+          info={props.info}
+          isOpen={isInfoOpen}
+          onOpenChange={setIsInfoOpen}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -64,73 +91,70 @@ type RuleExpandableContentProps = {
  * shared fade timing.
  */
 export function RuleExpandableContent(props: RuleExpandableContentProps) {
-  const { children, className = "gap-4" } = props;
-
   return (
     <Animated.View
-      className={className}
+      className={props.className ?? "gap-4"}
       entering={RULE_CONTENT_ENTERING}
       exiting={RULE_CONTENT_EXITING}
       layout={AccordionLayoutTransition}
     >
-      {children}
+      {props.children}
     </Animated.View>
   );
 }
 
-export type RuleInfo = {
-  description: string;
+type RuleInfoTriggerProps = {
+  onPress: () => void;
   title: string;
 };
 
-type RuleInfoButtonProps = {
+/**
+ * Icon-only pressable that opens the info dialog. Positioned in the top-right
+ * corner of a {@link RuleCard}. Does not own any dialog — the card wires the
+ * open state to a sibling {@link RuleInfoDialog}.
+ */
+function RuleInfoTrigger(props: RuleInfoTriggerProps) {
+  return (
+    <PressableFeedback
+      accessibilityHint="Abre uma explicação sobre esta regra."
+      accessibilityLabel={`Detalhes: ${props.title}`}
+      accessibilityRole="button"
+      className="absolute top-2 right-2 p-1"
+      onPress={props.onPress}
+    >
+      <HugeIcons className="size-5 text-muted" icon={InformationCircleIcon} />
+    </PressableFeedback>
+  );
+}
+
+type RuleInfoDialogProps = {
   info: RuleInfo;
+  isOpen: boolean;
+  onOpenChange: (nextOpen: boolean) => void;
 };
 
 /**
- * Icon-only pressable that opens an explanatory dialog. Positioned in the
- * top-right corner of a {@link RuleCard}. Self-contained: manages its own open
- * state.
+ * Read-only explanatory dialog rendered as a sibling of the card surface so it
+ * never affects the card layout.
  */
-function RuleInfoButton(props: RuleInfoButtonProps) {
-  const { info } = props;
-  const [isOpen, setIsOpen] = useState(false);
-
+function RuleInfoDialog(props: RuleInfoDialogProps) {
   return (
-    <>
-      <PressableFeedback
-        accessibilityHint="Abre uma explicação sobre esta regra."
-        accessibilityLabel={`Detalhes: ${info.title}`}
-        accessibilityRole="button"
-        className="absolute top-2 right-2 p-1"
-        onPress={() => setIsOpen(true)}
-      >
-        <HugeIcons className="size-5 text-muted" icon={InformationCircleIcon} />
-      </PressableFeedback>
-
-      <Dialog
-        isOpen={isOpen}
-        onOpenChange={(nextOpen) => {
-          setIsOpen(nextOpen);
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>{info.title}</Dialog.Title>
-            <Description>{info.description}</Description>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    </>
+    <Dialog isOpen={props.isOpen} onOpenChange={props.onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content className="gap-4 p-5">
+          <Dialog.Close className="absolute top-4 right-4 z-100" />
+          <Dialog.Title>{props.info.title}</Dialog.Title>
+          <Description>{props.info.description}</Description>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog>
   );
 }
 
 type ToggleableRuleCardProps = {
   children?: ReactNode;
   description: string;
-  descriptionClassName?: string;
   enabled: boolean;
   error?: ReactNode;
   info?: RuleInfo;
@@ -145,32 +169,19 @@ type ToggleableRuleCardProps = {
  * be turned on/off while preserving their last configured value.
  */
 export function ToggleableRuleCard(props: ToggleableRuleCardProps) {
-  const {
-    children,
-    description,
-    descriptionClassName = "-mt-1.5",
-    enabled,
-    error,
-    info,
-    isDisabled,
-    label,
-    onToggle,
-  } = props;
-
   return (
-    <RuleCard info={info}>
+    <RuleCard info={props.info}>
       <RuleToggleRow
-        description={description}
-        descriptionClassName={descriptionClassName}
-        enabled={enabled}
-        isDisabled={isDisabled}
-        label={label}
-        onToggle={onToggle}
+        description={props.description}
+        enabled={props.enabled}
+        isDisabled={props.isDisabled}
+        label={props.label}
+        onToggle={props.onToggle}
       />
-      {error}
+      {props.error}
 
-      {enabled && children ? (
-        <RuleExpandableContent>{children}</RuleExpandableContent>
+      {props.enabled && props.children ? (
+        <RuleExpandableContent>{props.children}</RuleExpandableContent>
       ) : null}
     </RuleCard>
   );
@@ -178,7 +189,6 @@ export function ToggleableRuleCard(props: ToggleableRuleCardProps) {
 
 type RuleToggleRowProps = {
   description: string;
-  descriptionClassName?: string;
   enabled: boolean;
   isDisabled?: boolean;
   label: string;
@@ -192,35 +202,29 @@ type RuleToggleRowProps = {
  * "toggleable card" pattern prefer {@link ToggleableRuleCard}.
  */
 export function RuleToggleRow(props: RuleToggleRowProps) {
-  const {
-    description,
-    descriptionClassName = "-mt-1.5 mb-1",
-    enabled,
-    isDisabled,
-    label,
-    onToggle,
-  } = props;
-
   return (
     <PressableFeedback
-      accessibilityLabel={label}
+      accessibilityLabel={props.label}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: enabled, disabled: isDisabled }}
+      accessibilityState={{
+        checked: props.enabled,
+        disabled: props.isDisabled,
+      }}
       className="flex-row items-center gap-3"
-      isDisabled={isDisabled}
-      onPress={() => onToggle(!enabled)}
+      isDisabled={props.isDisabled}
+      onPress={() => {
+        props.onToggle(!props.enabled);
+      }}
     >
       <Checkbox
         className="mt-0.5"
-        isDisabled={isDisabled}
-        isSelected={enabled}
+        isDisabled={props.isDisabled}
+        isSelected={props.enabled}
         pointerEvents="none"
       />
-      <View className="flex-1 gap-0" pointerEvents="none">
-        <Label>{label}</Label>
-        <Description className={descriptionClassName}>
-          {description}
-        </Description>
+      <View className="flex-1" pointerEvents="none">
+        <Label>{props.label}</Label>
+        <Description className="-mt-1.5 mb-1">{props.description}</Description>
       </View>
     </PressableFeedback>
   );
