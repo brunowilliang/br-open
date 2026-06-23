@@ -52,7 +52,7 @@ export const LeagueResultValidationModeOptions = [
 export const DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE = "automatic" as const;
 export const DEFAULT_LEAGUE_RESULT_VALIDATION_MODE = "automatic" as const;
 
-export const LeagueScoringModeOptions = ["advantage", "no_ad"] as const;
+export const LeagueScoringModeOptions = ["advantage", "no_advantage"] as const;
 
 export function toggleableRule<T>(value: z.ZodType<T>) {
   return z.object({

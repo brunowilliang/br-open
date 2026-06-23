@@ -103,8 +103,8 @@ const scoringModeOptions = [
     value: "advantage" as const,
   },
   {
-    label: "No-ad",
-    value: "no_ad" as const,
+    label: "Sem vantagem",
+    value: "no_advantage" as const,
   },
 ];
 

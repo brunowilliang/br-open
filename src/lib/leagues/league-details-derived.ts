@@ -322,8 +322,8 @@ function formatNewPlayerPlacement(value: RuleConfig["newPlayerPlacement"]) {
 
 function formatScoringMode(value: RuleConfig["matchConfig"]["scoringMode"]) {
   switch (value) {
-    case "no_ad":
-      return "No-ad";
+    case "no_advantage":
+      return "Sem vantagem";
     default:
       return "Com vantagem";
   }
