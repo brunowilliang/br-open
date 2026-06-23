@@ -83,6 +83,57 @@ This slice moves only that one card:
 
 No other card changes tab.
 
+## Scoring Mode Rename
+
+The match scoring option `no_ad` is shown in the UI as "No-ad", which is tennis
+jargon unfamiliar to most organizers. This slice renames both the displayed
+label and the stored value to `sem_vantagem` ("Sem vantagem") so the data model
+stays self-explanatory.
+
+Because dev and prod have no active users, the rename ships as a label-plus-value
+change with a data migration.
+
+### Source of truth
+
+- `convex/domains/league/contract.ts`:
+  - `LeagueScoringModeOptions`: `["advantage", "no_ad"]` →
+    `["advantage", "sem_vantagem"]`.
+  - `DEFAULT_LEAGUE_MATCH_CONFIG.scoringMode`: stays `"advantage"` (no change
+    needed; the default is unaffected).
+- `convex/domains/seed/data.ts`: seed default stays `"advantage"`.
+
+### Generated code
+
+`convex/functions/_generated/api.ts` references the option across ~26 type
+positions. It regenerates from the contract via `bun run codegen`, so it needs
+no manual edit beyond running codegen.
+
+### UI consumers
+
+- `src/app/(private)/settings/leagues/[mode]/rules.tsx`:
+  - `scoringModeOptions`: change the `no_ad` option label from "No-ad" to "Sem
+    vantagem" and its `value` from `"no_ad"` to `"sem_vantagem"`. This option is
+    reused for both the regular and final-set scoring selects.
+- `src/app/(private)/leagues/[leagueId]/index.tsx` and
+  `src/lib/leagues/league-details-derived.ts`:
+  - `formatScoringMode`: update the branch that maps the stored value to the
+    display string so `sem_vantagem` renders as "Sem vantagem".
+
+### Migration
+
+The same migration file as the toggleable rules
+(`20260623_000001_toggleable_rule_config.ts`) handles the scoring rename, since
+both rewrite `ruleConfig`. The migration must transform every stored scoring
+value in two places:
+
+1. `league.ruleConfig.matchConfig.scoringMode`
+2. `league.ruleConfig.matchConfig.finalSetScoringMode`
+3. `leagueChallenge.matchConfigSnapshot.scoringMode`
+4. `leagueChallenge.matchConfigSnapshot.finalSetScoringMode`
+
+Transform rule: `"no_ad"` → `"sem_vantagem"`. Leave `"advantage"` untouched.
+The migration must be idempotent (skip values already migrated).
+
 ## Data Design
 
 ### Shape
@@ -392,32 +443,45 @@ correct path per repo conventions so stored documents conform to the new shape.
 
 ### Migration behavior
 
-For every `league` document, transform `ruleConfig`:
+The migration rewrites rule config in two document types:
+
+**`league` documents** — transform `ruleConfig`:
 
 1. For each of the four toggleable rules, read the existing scalar value and
    wrap it as `{ enabled: true, value: <existing> }`. `enabled` defaults to
    `true` because today every rule is active.
-2. Leave all other `ruleConfig` fields untouched.
-3. Leave `challengeValidationMode` / `resultValidationMode` handling alone if
+2. Apply the scoring rename (see Scoring Mode Rename): rewrite
+   `matchConfig.scoringMode` and `matchConfig.finalSetScoringMode` from
+   `"no_ad"` to `"sem_vantagem"`.
+3. Leave all other `ruleConfig` fields untouched.
+4. Leave `challengeValidationMode` / `resultValidationMode` handling alone if
    a legacy document is missing them; the existing fallback logic in
    `serializeLeague` already provides defaults.
 
-Example transform:
+**`leagueChallenge` documents** — transform `matchConfigSnapshot`:
+
+1. Apply the scoring rename to `matchConfigSnapshot.scoringMode` and
+   `matchConfigSnapshot.finalSetScoringMode`. The snapshot is frozen per
+   challenge, so it must be migrated independently of the league.
+
+Example transform (league):
 
 ```ts
 {
   maxChallengeDistance: 4,
+  matchConfig: { scoringMode: "no_ad", /* ... */ },
   // ...
 }
 // becomes
 {
   maxChallengeDistance: { enabled: true, value: 4 },
+  matchConfig: { scoringMode: "sem_vantagem", /* ... */ },
   // ...
 }
 ```
 
-If a document already has the new shape (idempotency), the migration must skip
-it.
+If a document already has the new shape and the new scoring value
+(idempotency), the migration must skip it.
 
 ## Testing
 
@@ -431,6 +495,8 @@ it.
   - required rules still reject missing values
   - the `resultValidationMode` move is covered by the schema staying a single
     source of truth.
+- Add a test asserting `LeagueScoringModeOptions` contains `sem_vantagem`
+  (not `no_ad`) and that `formatScoringMode` renders "Sem vantagem" for it.
 
 ## Success Criteria
 
@@ -446,5 +512,7 @@ it.
   default values.
 - `Validação do resultado` appears on the `Resultado` tab.
 - The existing animated checkbox card pattern is reused, not reinvented.
+- The scoring option previously shown as "No-ad" (`no_ad`) is shown and stored
+  as "Sem vantagem" (`sem_vantagem`); legacy `"no_ad"` documents are migrated.
 - Seed leagues conform to the new shape and boot without validation errors.
 - `bun run typecheck` and `bun test` pass after the change.
