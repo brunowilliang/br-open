@@ -54,6 +54,24 @@ export const DEFAULT_LEAGUE_RESULT_VALIDATION_MODE = "automatic" as const;
 
 export const LeagueScoringModeOptions = ["advantage", "no_ad"] as const;
 
+export function toggleableRule<T>(value: z.ZodType<T>) {
+  return z.object({
+    enabled: z.boolean(),
+    value,
+  });
+}
+
+export type ToggleableRule<T> = {
+  enabled: boolean;
+  value: T;
+};
+
+export function resolveRuleValue<T>(rule: ToggleableRule<T>, fallback: T): T {
+  return rule.enabled ? rule.value : fallback;
+}
+
+export const NO_RESPONSE_DEADLINE_HORIZON_YEARS = 100;
+
 export const LeagueFinalSetModeOptions = [
   "same_as_previous",
   "custom_set",
@@ -154,6 +172,22 @@ export const DEFAULT_LEAGUE_MATCH_CONFIG = {
   tieBreakAtGamesAll: 6,
   tieBreakMustWinByTwo: true,
   tieBreakPoints: 7,
+} as const;
+
+export const DEFAULT_LEAGUE_RULE_CONFIG = {
+  maxChallengeDistance: { enabled: true, value: 4 } as ToggleableRule<number>,
+  maxActiveChallengesPerPlayer: {
+    enabled: true,
+    value: 1,
+  } as ToggleableRule<number>,
+  maxChallengesPerMonth: {
+    enabled: true,
+    value: 4,
+  } as ToggleableRule<number>,
+  responseDeadlineHours: {
+    enabled: true,
+    value: 48,
+  } as ToggleableRule<number>,
 } as const;
 
 type LeagueCourtDayKey = (typeof LeagueCourtDayKeys)[number];
