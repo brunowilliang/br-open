@@ -1,5 +1,6 @@
 import { observable } from "@legendapp/state";
 import type { ApiOutputs } from "@convex/shared/api";
+import { resolveRuleValue } from "@convex/domains/league/contract";
 
 import { buildChallengeTabCounts } from "./challenge-tab-counts";
 import {
@@ -121,7 +122,10 @@ function createLeagueDetailsBucket(leagueId: string) {
         }
 
         return buildLeagueDetailsRankingItems({
-          maxChallengeDistance: league.ruleConfig.maxChallengeDistance,
+          maxChallengeDistance: resolveRuleValue(
+            league.ruleConfig.maxChallengeDistance,
+            Number.POSITIVE_INFINITY
+          ),
           ranking: membershipOverview.ranking,
           role: bucket$.viewer.role.get(),
           viewerPlayerProfileId: bucket$.viewer.viewerPlayerProfileId.get(),

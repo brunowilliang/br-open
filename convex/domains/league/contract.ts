@@ -55,10 +55,20 @@ export const DEFAULT_LEAGUE_RESULT_VALIDATION_MODE = "automatic" as const;
 export const LeagueScoringModeOptions = ["advantage", "no_advantage"] as const;
 
 export function toggleableRule<T>(value: z.ZodType<T>) {
-  return z.object({
+  const schema = z.object({
     enabled: z.boolean(),
     value,
   });
+
+  // Cast the input type to match the output. The wrapped value schema (e.g.
+  // requiredNumber) widens its z.input to `unknown` because of the `error`
+  // handler it carries, which breaks the react-hook-form resolver inference
+  // (it derives field values from z.input). Both shapes are identical in
+  // practice, so we assert symmetry here.
+  return schema as z.ZodType<
+    { enabled: boolean; value: T },
+    { enabled: boolean; value: T }
+  >;
 }
 
 export type ToggleableRule<T> = {
@@ -383,21 +393,29 @@ export const LeagueMatchConfigSchema = z.object({
 
 export const ChallengeRuleConfigSchema = z
   .object({
-    maxChallengeDistance: requiredNumber(
-      "Informe a distancia maxima do desafio.",
-      "Informe uma distancia maxima valida."
+    maxChallengeDistance: toggleableRule(
+      requiredNumber(
+        "Informe a distancia maxima do desafio.",
+        "Informe uma distancia maxima valida."
+      )
     ),
-    maxActiveChallengesPerPlayer: requiredNumber(
-      "Informe o limite de desafios ativos por jogador.",
-      "Informe um limite de desafios ativos valido."
+    maxActiveChallengesPerPlayer: toggleableRule(
+      requiredNumber(
+        "Informe o limite de desafios ativos por jogador.",
+        "Informe um limite de desafios ativos valido."
+      )
     ),
-    maxChallengesPerMonth: requiredNumber(
-      "Informe o limite mensal de desafios.",
-      "Informe um limite mensal de desafios valido."
+    maxChallengesPerMonth: toggleableRule(
+      requiredNumber(
+        "Informe o limite mensal de desafios.",
+        "Informe um limite mensal de desafios valido."
+      )
     ),
-    responseDeadlineHours: requiredNumber(
-      "Informe o prazo de resposta em horas.",
-      "Informe um prazo de resposta valido."
+    responseDeadlineHours: toggleableRule(
+      requiredNumber(
+        "Informe o prazo de resposta em horas.",
+        "Informe um prazo de resposta valido."
+      )
     ),
     winBehavior: z.enum(LeagueWinBehaviorOptions),
     lossBehavior: z.enum(LeagueLossBehaviorOptions),

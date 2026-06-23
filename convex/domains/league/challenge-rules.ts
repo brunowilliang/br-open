@@ -1,4 +1,9 @@
-import type { LeagueChallengeScore, LeagueMatchConfig } from "./contract";
+import {
+  NO_RESPONSE_DEADLINE_HORIZON_YEARS,
+  type LeagueChallengeScore,
+  type LeagueMatchConfig,
+  type ToggleableRule,
+} from "./contract";
 
 export const ACTIVE_CHALLENGE_BLOCKING_STATUSES = new Set([
   "pending_opponent_response",
@@ -294,6 +299,28 @@ export function buildResponseDeadline(input: BuildResponseDeadlineInput) {
   return new Date(
     input.now.getTime() + input.responseDeadlineHours * MILLISECONDS_PER_HOUR
   );
+}
+
+type ResolveResponseDeadlineInput = {
+  now: Date;
+  rule: ToggleableRule<number>;
+};
+
+export function resolveResponseDeadline(
+  input: ResolveResponseDeadlineInput
+): Date {
+  if (!input.rule.enabled) {
+    const farFuture = new Date(input.now);
+    farFuture.setUTCFullYear(
+      farFuture.getUTCFullYear() + NO_RESPONSE_DEADLINE_HORIZON_YEARS
+    );
+    return farFuture;
+  }
+
+  return buildResponseDeadline({
+    now: input.now,
+    responseDeadlineHours: input.rule.value,
+  });
 }
 
 export function resolveAcceptedChallengeStatus(

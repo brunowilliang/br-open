@@ -175,6 +175,47 @@ function RuleExpandableContent({ children }: { children: ReactNode }) {
   );
 }
 
+type ToggleableRuleCardProps = {
+  children: ReactNode;
+  description: string;
+  enabled: boolean;
+  isDisabled?: boolean;
+  label: string;
+  onToggle: (nextEnabled: boolean) => void;
+};
+
+function ToggleableRuleCard(props: ToggleableRuleCardProps) {
+  const { children, description, enabled, isDisabled, label, onToggle } = props;
+
+  return (
+    <RuleCard>
+      <PressableFeedback
+        accessibilityLabel={label}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: enabled, disabled: isDisabled }}
+        className="flex-row items-center gap-3"
+        isDisabled={isDisabled}
+        onPress={() => onToggle(!enabled)}
+      >
+        <Checkbox
+          className="mt-0.5"
+          isDisabled={isDisabled}
+          isSelected={enabled}
+          pointerEvents="none"
+        />
+        <View className="flex-1 gap-0" pointerEvents="none">
+          <Label>{label}</Label>
+          <Description className="-mt-1.5 mb-1">{description}</Description>
+        </View>
+      </PressableFeedback>
+
+      {enabled ? (
+        <RuleExpandableContent>{children}</RuleExpandableContent>
+      ) : null}
+    </RuleCard>
+  );
+}
+
 type RuleSectionProps = {
   isDisabled?: boolean;
 };
@@ -189,7 +230,6 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
       "ruleConfig.maxChallengesPerMonth",
       "ruleConfig.responseDeadlineHours",
       "ruleConfig.challengeValidationMode",
-      "ruleConfig.resultValidationMode",
     ],
   });
   const [
@@ -198,7 +238,6 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
     maxChallengesPerMonth,
     responseDeadlineHours,
     challengeValidationMode,
-    resultValidationMode,
   ] = useWatch({
     control,
     name: [
@@ -207,15 +246,26 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
       "ruleConfig.maxChallengesPerMonth",
       "ruleConfig.responseDeadlineHours",
       "ruleConfig.challengeValidationMode",
-      "ruleConfig.resultValidationMode",
     ],
   });
 
   return (
     <>
-      <RuleCard>
+      <ToggleableRuleCard
+        description="Ative para definir quantas posições acima um jogador pode desafiar."
+        enabled={maxChallengeDistance.enabled}
+        isDisabled={isDisabled}
+        label="Pode desafiar quantas posições acima?"
+        onToggle={(nextEnabled) => {
+          setValue(
+            "ruleConfig.maxChallengeDistance.enabled",
+            nextEnabled,
+            fieldUpdateOptions
+          );
+        }}
+      >
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.maxChallengeDistance)}
+          isInvalid={Boolean(errors.ruleConfig?.maxChallengeDistance?.value)}
           isRequired
         >
           <Label>Pode desafiar quantas posições acima?</Label>
@@ -224,33 +274,47 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
           </Description>
           <NumberStepper
             className="self-start"
-            defaultValue={maxChallengeDistance}
+            defaultValue={maxChallengeDistance.value}
             isDisabled={isDisabled}
             maxValue={100}
             minValue={1}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.maxChallengeDistance",
+                "ruleConfig.maxChallengeDistance.value",
                 nextValue,
                 fieldUpdateOptions
               );
             }}
             step={1}
-            value={maxChallengeDistance}
+            value={maxChallengeDistance.value}
           >
             <NumberStepper.DecrementButton />
             <NumberStepper.Value />
             <NumberStepper.IncrementButton />
           </NumberStepper>
           <FieldError>
-            {errors.ruleConfig?.maxChallengeDistance?.message ?? ""}
+            {errors.ruleConfig?.maxChallengeDistance?.value?.message ?? ""}
           </FieldError>
         </TextField>
-      </RuleCard>
+      </ToggleableRuleCard>
 
-      <RuleCard>
+      <ToggleableRuleCard
+        description="Ative para limitar quantos desafios em aberto cada jogador pode ter."
+        enabled={maxActiveChallengesPerPlayer.enabled}
+        isDisabled={isDisabled}
+        label="Máx. desafios ativos por jogador?"
+        onToggle={(nextEnabled) => {
+          setValue(
+            "ruleConfig.maxActiveChallengesPerPlayer.enabled",
+            nextEnabled,
+            fieldUpdateOptions
+          );
+        }}
+      >
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.maxActiveChallengesPerPlayer)}
+          isInvalid={Boolean(
+            errors.ruleConfig?.maxActiveChallengesPerPlayer?.value
+          )}
           isRequired
         >
           <Label>Máx. desafios ativos por jogador?</Label>
@@ -259,33 +323,46 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
           </Description>
           <NumberStepper
             className="self-start"
-            defaultValue={maxActiveChallengesPerPlayer}
+            defaultValue={maxActiveChallengesPerPlayer.value}
             isDisabled={isDisabled}
             maxValue={100}
             minValue={1}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.maxActiveChallengesPerPlayer",
+                "ruleConfig.maxActiveChallengesPerPlayer.value",
                 nextValue,
                 fieldUpdateOptions
               );
             }}
             step={1}
-            value={maxActiveChallengesPerPlayer}
+            value={maxActiveChallengesPerPlayer.value}
           >
             <NumberStepper.DecrementButton />
             <NumberStepper.Value />
             <NumberStepper.IncrementButton />
           </NumberStepper>
           <FieldError>
-            {errors.ruleConfig?.maxActiveChallengesPerPlayer?.message ?? ""}
+            {errors.ruleConfig?.maxActiveChallengesPerPlayer?.value?.message ??
+              ""}
           </FieldError>
         </TextField>
-      </RuleCard>
+      </ToggleableRuleCard>
 
-      <RuleCard>
+      <ToggleableRuleCard
+        description="Ative para limitar quantos desafios cada jogador pode abrir por mês."
+        enabled={maxChallengesPerMonth.enabled}
+        isDisabled={isDisabled}
+        label="Máx. desafios por mês?"
+        onToggle={(nextEnabled) => {
+          setValue(
+            "ruleConfig.maxChallengesPerMonth.enabled",
+            nextEnabled,
+            fieldUpdateOptions
+          );
+        }}
+      >
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.maxChallengesPerMonth)}
+          isInvalid={Boolean(errors.ruleConfig?.maxChallengesPerMonth?.value)}
           isRequired
         >
           <Label>Máx. desafios por mês?</Label>
@@ -294,33 +371,45 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
           </Description>
           <NumberStepper
             className="self-start"
-            defaultValue={maxChallengesPerMonth}
+            defaultValue={maxChallengesPerMonth.value}
             isDisabled={isDisabled}
             maxValue={100}
             minValue={1}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.maxChallengesPerMonth",
+                "ruleConfig.maxChallengesPerMonth.value",
                 nextValue,
                 fieldUpdateOptions
               );
             }}
             step={1}
-            value={maxChallengesPerMonth}
+            value={maxChallengesPerMonth.value}
           >
             <NumberStepper.DecrementButton />
             <NumberStepper.Value />
             <NumberStepper.IncrementButton />
           </NumberStepper>
           <FieldError>
-            {errors.ruleConfig?.maxChallengesPerMonth?.message ?? ""}
+            {errors.ruleConfig?.maxChallengesPerMonth?.value?.message ?? ""}
           </FieldError>
         </TextField>
-      </RuleCard>
+      </ToggleableRuleCard>
 
-      <RuleCard>
+      <ToggleableRuleCard
+        description="Ative para definir um prazo para o adversário responder o desafio."
+        enabled={responseDeadlineHours.enabled}
+        isDisabled={isDisabled}
+        label="Prazo para responder desafio"
+        onToggle={(nextEnabled) => {
+          setValue(
+            "ruleConfig.responseDeadlineHours.enabled",
+            nextEnabled,
+            fieldUpdateOptions
+          );
+        }}
+      >
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.responseDeadlineHours)}
+          isInvalid={Boolean(errors.ruleConfig?.responseDeadlineHours?.value)}
           isRequired
         >
           <Label>Prazo para responder desafio</Label>
@@ -331,12 +420,12 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
             isDisabled={isDisabled}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.responseDeadlineHours",
+                "ruleConfig.responseDeadlineHours.value",
                 Number(nextValue),
                 fieldUpdateOptions
               );
             }}
-            value={String(responseDeadlineHours)}
+            value={String(responseDeadlineHours.value)}
           >
             <Segment.Group>
               <Segment.ScrollView>
@@ -363,10 +452,10 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
             </Segment.Group>
           </Segment>
           <FieldError>
-            {errors.ruleConfig?.responseDeadlineHours?.message ?? ""}
+            {errors.ruleConfig?.responseDeadlineHours?.value?.message ?? ""}
           </FieldError>
         </TextField>
-      </RuleCard>
+      </ToggleableRuleCard>
 
       <RuleCard>
         <TextField
@@ -405,44 +494,6 @@ const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
           </FieldError>
         </TextField>
       </RuleCard>
-
-      <RuleCard>
-        <TextField
-          isInvalid={Boolean(errors.ruleConfig?.resultValidationMode)}
-          isRequired
-        >
-          <Label>Validação do resultado</Label>
-          <Description className="-mt-1.5 mb-1">
-            Define se o resultado confirmado entre os jogadores já vale ou
-            precisa da aprovação do admin.
-          </Description>
-          <Segment
-            isDisabled={isDisabled}
-            onValueChange={(nextValue) => {
-              setValue(
-                "ruleConfig.resultValidationMode",
-                nextValue as RuleConfig["resultValidationMode"],
-                fieldUpdateOptions
-              );
-            }}
-            value={resultValidationMode}
-          >
-            <Segment.Group>
-              <Segment.ScrollView>
-                <Segment.Indicator />
-                {validationModeOptions.map((option) => (
-                  <Segment.Item key={option.value} value={option.value}>
-                    <Segment.Label>{option.label}</Segment.Label>
-                  </Segment.Item>
-                ))}
-              </Segment.ScrollView>
-            </Segment.Group>
-          </Segment>
-          <FieldError>
-            {errors.ruleConfig?.resultValidationMode?.message ?? ""}
-          </FieldError>
-        </TextField>
-      </RuleCard>
     </>
   );
 };
@@ -455,16 +506,19 @@ const ResultRulesSection = ({ isDisabled }: RuleSectionProps) => {
       "ruleConfig.winBehavior",
       "ruleConfig.lossBehavior",
       "ruleConfig.walkoverBehavior",
+      "ruleConfig.resultValidationMode",
     ],
   });
-  const [winBehavior, lossBehavior, walkoverBehavior] = useWatch({
-    control,
-    name: [
-      "ruleConfig.winBehavior",
-      "ruleConfig.lossBehavior",
-      "ruleConfig.walkoverBehavior",
-    ],
-  });
+  const [winBehavior, lossBehavior, walkoverBehavior, resultValidationMode] =
+    useWatch({
+      control,
+      name: [
+        "ruleConfig.winBehavior",
+        "ruleConfig.lossBehavior",
+        "ruleConfig.walkoverBehavior",
+        "ruleConfig.resultValidationMode",
+      ],
+    });
 
   return (
     <>
@@ -623,6 +677,44 @@ const ResultRulesSection = ({ isDisabled }: RuleSectionProps) => {
           </Select>
           <FieldError>
             {errors.ruleConfig?.walkoverBehavior?.message ?? ""}
+          </FieldError>
+        </TextField>
+      </RuleCard>
+
+      <RuleCard>
+        <TextField
+          isInvalid={Boolean(errors.ruleConfig?.resultValidationMode)}
+          isRequired
+        >
+          <Label>Validação do resultado</Label>
+          <Description className="-mt-1.5 mb-1">
+            Define se o resultado confirmado entre os jogadores já vale ou
+            precisa da aprovação do admin.
+          </Description>
+          <Segment
+            isDisabled={isDisabled}
+            onValueChange={(nextValue) => {
+              setValue(
+                "ruleConfig.resultValidationMode",
+                nextValue as RuleConfig["resultValidationMode"],
+                fieldUpdateOptions
+              );
+            }}
+            value={resultValidationMode}
+          >
+            <Segment.Group>
+              <Segment.ScrollView>
+                <Segment.Indicator />
+                {validationModeOptions.map((option) => (
+                  <Segment.Item key={option.value} value={option.value}>
+                    <Segment.Label>{option.label}</Segment.Label>
+                  </Segment.Item>
+                ))}
+              </Segment.ScrollView>
+            </Segment.Group>
+          </Segment>
+          <FieldError>
+            {errors.ruleConfig?.resultValidationMode?.message ?? ""}
           </FieldError>
         </TextField>
       </RuleCard>

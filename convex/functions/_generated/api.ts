@@ -2217,11 +2217,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2306,11 +2306,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2387,11 +2387,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2463,11 +2463,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2538,11 +2538,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2620,11 +2620,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2701,11 +2701,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2782,11 +2782,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"
@@ -2857,11 +2857,11 @@ export const api: {
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
-            maxActiveChallengesPerPlayer: number;
-            maxChallengeDistance: number;
-            maxChallengesPerMonth: number;
+            maxActiveChallengesPerPlayer: { enabled: boolean; value: number };
+            maxChallengeDistance: { enabled: boolean; value: number };
+            maxChallengesPerMonth: { enabled: boolean; value: number };
             newPlayerPlacement: "end_of_ranking";
-            responseDeadlineHours: number;
+            responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
             walkoverBehavior:
               | "automatic_loss"

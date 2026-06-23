@@ -6,12 +6,12 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
   applyChallengeResultToRanking,
-  buildResponseDeadline,
   canPlayersCancelChallenge,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
   resolveChallengeCreationRuleError,
   resolveChallengeRankingRestore,
+  resolveResponseDeadline,
   validateChallengeScore,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
@@ -46,6 +46,7 @@ import {
   type LeagueChallengeScore,
   LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   normalizeLeagueVisibility,
+  resolveRuleValue,
 } from "../../domains/league/contract";
 import {
   buildScheduledDate,
@@ -641,10 +642,18 @@ async function assertChallengeCreationRules(input: {
     challengerCreatedThisMonthCount: challengesCreatedThisMonth,
     challengerMembershipId: String(input.challengerMembership.id),
     challengerPosition: input.challengerMembership.rankingPosition,
-    maxActiveChallengesPerPlayer:
+    maxActiveChallengesPerPlayer: resolveRuleValue(
       input.league.ruleConfig.maxActiveChallengesPerPlayer,
-    maxChallengeDistance: input.league.ruleConfig.maxChallengeDistance,
-    maxChallengesPerMonth: input.league.ruleConfig.maxChallengesPerMonth,
+      Number.POSITIVE_INFINITY
+    ),
+    maxChallengeDistance: resolveRuleValue(
+      input.league.ruleConfig.maxChallengeDistance,
+      Number.POSITIVE_INFINITY
+    ),
+    maxChallengesPerMonth: resolveRuleValue(
+      input.league.ruleConfig.maxChallengesPerMonth,
+      Number.POSITIVE_INFINITY
+    ),
   });
 
   if (ruleError) {
@@ -1128,9 +1137,9 @@ export const create = authMutation
         matchDate: input.matchDate,
         startMinute: input.startMinute,
         endMinute: input.endMinute,
-        responseDeadlineAt: buildResponseDeadline({
+        responseDeadlineAt: resolveResponseDeadline({
           now,
-          responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+          rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: 1,
         status: "active",
@@ -1419,9 +1428,9 @@ export const counterPropose = authMutation
         matchDate: input.matchDate,
         startMinute: input.startMinute,
         endMinute: input.endMinute,
-        responseDeadlineAt: buildResponseDeadline({
+        responseDeadlineAt: resolveResponseDeadline({
           now,
-          responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+          rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: currentProposal.revisionNumber + 1,
         status: "active",
@@ -2579,9 +2588,9 @@ export const adminManage = authMutation
         challengerMembershipId: String(currentChallenge.challengerMembershipId),
         proposedByMembershipId: String(currentProposal.proposedByMembershipId),
       });
-      const responseDeadlineAt = buildResponseDeadline({
+      const responseDeadlineAt = resolveResponseDeadline({
         now,
-        responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+        rule: currentLeague.ruleConfig.responseDeadlineHours,
       });
 
       await Promise.all([
