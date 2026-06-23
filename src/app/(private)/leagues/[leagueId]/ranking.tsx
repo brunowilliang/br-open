@@ -12,7 +12,7 @@ import {
   useToast,
 } from "heroui-native";
 import { type ReactNode, useEffect, useState } from "react";
-import { type LayoutChangeEvent, View } from "react-native";
+import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
@@ -36,8 +36,6 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
-const RANKING_ITEM_GAP = 8;
-
 export default function LeagueRankingRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;
@@ -56,11 +54,9 @@ export default function LeagueRankingRoute() {
   const [localItems, setLocalItems] = useState<RankingItem[]>(rankingItems);
   const [pendingOrderIds, setPendingOrderIds] = useState<string[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null);
+  const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [isRemovePending, setIsRemovePending] = useState(false);
-  const [rankingCardHeight, setRankingCardHeight] = useState<number | null>(
-    null
-  );
 
   const membershipOverviewQuery = useQuery({
     ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
@@ -173,7 +169,7 @@ export default function LeagueRankingRoute() {
   useEffect(() => {
     if (
       !shouldSyncRankingLocalItems({
-        activeItemId: null,
+        activeItemId: activeDragItemId,
         pendingOrderIds,
         rankingItems,
       })
@@ -186,7 +182,7 @@ export default function LeagueRankingRoute() {
     }
 
     setLocalItems(rankingItems);
-  }, [pendingOrderIds, rankingItems]);
+  }, [activeDragItemId, pendingOrderIds, rankingItems]);
 
   useEffect(() => {
     if (bootstrapStatus !== "ready") {
@@ -207,11 +203,8 @@ export default function LeagueRankingRoute() {
   const isCreateChallengePending =
     createChallenge.isPending || occupiedSlotsQuery.isPending;
   const listItems = localItems.length > 0 ? localItems : rankingItems;
-  const rankingItemHeight =
-    rankingCardHeight === null ? null : rankingCardHeight + RANKING_ITEM_GAP;
   const shouldRenderSortableRanking =
     canManageRanking &&
-    rankingItemHeight !== null &&
     !isContentLoading &&
     !membershipOverviewQuery.isError &&
     listItems.length > 0;
@@ -258,16 +251,6 @@ export default function LeagueRankingRoute() {
       membershipId: item.id,
       name: item.name,
     });
-  }
-
-  function handleRankingCardLayout(event: LayoutChangeEvent) {
-    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-
-    if (nextHeight <= 0 || nextHeight === rankingCardHeight) {
-      return;
-    }
-
-    setRankingCardHeight(nextHeight);
   }
 
   function renderViewerActions(item: RankingItem, isChallengeable: boolean) {
@@ -361,13 +344,9 @@ export default function LeagueRankingRoute() {
     isChallengeable: boolean;
     isViewerItem: boolean;
     item: RankingItem;
-    onLayout?: (event: LayoutChangeEvent) => void;
   }) {
     const card = (
-      <Card
-        className={cn("p-3", input.isActive ? "opacity-70" : "")}
-        onLayout={input.onLayout}
-      >
+      <Card className={cn("w-full p-3", input.isActive ? "opacity-70" : "")}>
         <View className="flex-row items-center gap-3">
           <View className="centered flex-row gap-2">
             {renderManageHandle({
@@ -404,6 +383,7 @@ export default function LeagueRankingRoute() {
     return (
       <PressableFeedback
         animation={false}
+        className="w-full"
         onPress={
           input.isActive
             ? undefined
@@ -419,7 +399,6 @@ export default function LeagueRankingRoute() {
 
   function renderItem(props: {
     dragHandle: (children: ReactNode) => ReactNode;
-    index: number;
     isActive: boolean;
     item: RankingItem;
   }) {
@@ -427,18 +406,13 @@ export default function LeagueRankingRoute() {
     const isViewerItem = item.isViewerItem === true;
     const isChallengeable = item.isChallengeable === true;
 
-    return (
-      <View style={{ paddingBottom: RANKING_ITEM_GAP }}>
-        {renderRankingCardContent({
-          dragHandle,
-          isActive,
-          isChallengeable,
-          isViewerItem,
-          item,
-          onLayout: props.index === 0 ? handleRankingCardLayout : undefined,
-        })}
-      </View>
-    );
+    return renderRankingCardContent({
+      dragHandle,
+      isActive,
+      isChallengeable,
+      isViewerItem,
+      item,
+    });
   }
 
   function handleOrderChange(reorderedItems: RankingItem[]) {
@@ -497,16 +471,15 @@ export default function LeagueRankingRoute() {
     }
 
     return (
-      <View>
-        {listItems.map((item, index) => (
-          <View key={item.id} style={{ paddingBottom: RANKING_ITEM_GAP }}>
+      <View className="gap-2">
+        {listItems.map((item) => (
+          <View key={item.id}>
             {renderRankingCardContent({
               dragHandle: (children) => children,
               isActive: false,
               isChallengeable: item.isChallengeable === true,
               isViewerItem: item.isViewerItem === true,
               item,
-              onLayout: index === 0 ? handleRankingCardLayout : undefined,
             })}
           </View>
         ))}
@@ -524,12 +497,12 @@ export default function LeagueRankingRoute() {
         <Page.Header.Right />
       </Page.Header>
 
-      {shouldRenderSortableRanking && rankingItemHeight !== null ? (
+      {shouldRenderSortableRanking ? (
         <Page.View className="flex-1 bg-background px-4 pb-floating-tab-bar-offset-4">
           <SortableCardList
             data={listItems}
             fillAvailableHeight
-            itemHeight={rankingItemHeight}
+            onDragStateChange={setActiveDragItemId}
             onOrderChange={handleOrderChange}
             renderItem={renderItem}
           />

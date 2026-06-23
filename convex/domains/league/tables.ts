@@ -124,6 +124,7 @@ export const leagueChallenge = convexTable(
     index("cancellationRequestedByMembershipId").on(
       leagueChallenge.cancellationRequestedByMembershipId
     ),
+    index("currentProposalId").on(leagueChallenge.currentProposalId),
   ]
 );
 

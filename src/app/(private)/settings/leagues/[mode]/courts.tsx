@@ -78,8 +78,16 @@ function buildEmptyAvailability() {
   } satisfies LeagueCourt["availability"];
 }
 
-function buildCourtId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let courtIdCounter = 0;
+function buildCourtId(): string {
+  // Monotonic counter + timestamp + random suffix. Avoids the collision risk
+  // of Date.now()+Math.random() under fast double-tap (same millisecond +
+  // short random suffix) without needing the `crypto` global, which is not
+  // available in the Hermes runtime by default.
+  courtIdCounter += 1;
+  return `court-${Date.now()}-${courtIdCounter}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function formatMinutes(totalMinutes: number) {

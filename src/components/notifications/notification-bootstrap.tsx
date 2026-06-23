@@ -9,8 +9,8 @@ import { useCRPC } from "@/lib/convex/crpc";
 import {
   registerForPushNotificationsAsync,
   registerNotificationCategoriesAsync,
-  shouldRequestPushPermission,
 } from "@/lib/notifications/expo-notifications";
+import { shouldRequestPushPermission } from "@/lib/notifications/notification-permission-rules";
 import {
   type NotificationResponseActor,
   type NotificationResponseIntent,
@@ -281,7 +281,9 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
         return;
       }
 
-      lastSyncedToken.current = registration.expoPushToken;
+      // Persist the token to the backend BEFORE caching it locally, so a
+      // transient failure (network blip, 5xx) leaves lastSyncedToken untouched
+      // and the next effect run retries the upsert.
       await upsertDevice.mutateAsync({
         expoPushToken: registration.expoPushToken,
         permissionStatus: registration.permissionStatus,
@@ -291,9 +293,13 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
       if (requestPermission && !statusQuery.data?.pushEnabled) {
         await setPreference.mutateAsync({ pushEnabled: true });
       }
+
+      lastSyncedToken.current = registration.expoPushToken;
     }
 
-    syncDevice().catch(() => undefined);
+    syncDevice().catch((error) => {
+      console.warn("notification-bootstrap: device sync failed", error);
+    });
 
     return () => {
       isCancelled = true;

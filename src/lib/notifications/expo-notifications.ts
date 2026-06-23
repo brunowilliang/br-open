@@ -3,15 +3,17 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+import type { NotificationPermissionStatus } from "./notification-permission-rules";
 import {
   LEAGUE_MEMBERSHIP_REQUEST_NOTIFICATION_ACTIONS,
   NOTIFICATION_CATEGORY_IDENTIFIERS,
 } from "./response-intent";
 
-export type NotificationPermissionStatus =
-  | "denied"
-  | "granted"
-  | "undetermined";
+// Pure permission predicates live in ./notification-permission-rules so they
+// can be unit-tested without importing react-native. The status type is
+// re-exported from there as the canonical definition.
+export type { NotificationPermissionStatus };
+
 export type PushDevicePlatform = "android" | "ios" | "web";
 
 export type PushDeviceRegistration = {
@@ -19,23 +21,6 @@ export type PushDeviceRegistration = {
   permissionStatus: NotificationPermissionStatus;
   platform: PushDevicePlatform;
 };
-
-type PushPermissionBootstrapStatus = {
-  deviceCount: number;
-  permissionStatus: NotificationPermissionStatus;
-};
-
-export function shouldRequestPushPermission(
-  status: PushPermissionBootstrapStatus
-) {
-  return status.deviceCount === 0 && status.permissionStatus === "undetermined";
-}
-
-export function shouldOpenNotificationSettingsAlert(
-  permissionStatus: NotificationPermissionStatus
-) {
-  return permissionStatus !== "granted";
-}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

@@ -30,8 +30,6 @@ import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, View } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
-const CATEGORY_ITEM_HEIGHT = 76;
-
 type CategoryItem = {
   id: string;
   name: string;
@@ -41,8 +39,16 @@ type CategoryListItem = CategoryItem & {
   index: number;
 };
 
-function buildCategoryItemId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let categoryIdCounter = 0;
+function buildCategoryItemId(): string {
+  // Monotonic counter + timestamp + random suffix. Avoids the collision risk
+  // of Date.now()+Math.random() under fast double-tap (same millisecond +
+  // short random suffix) without needing the `crypto` global, which is not
+  // available in the Hermes runtime by default.
+  categoryIdCounter += 1;
+  return `cat-${Date.now()}-${categoryIdCounter}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function syncCategoryItemIds(currentIds: string[], itemCount: number) {
@@ -215,39 +221,37 @@ export default function LeagueCategoriesRoute() {
     const { dragHandle, isActive, item } = props;
 
     return (
-      <View className="pb-2">
-        <Card className={isActive ? "p-3 opacity-70" : "p-3"}>
-          <View className="flex-row items-center gap-3">
-            {dragHandle(
-              <Button
-                isDisabled={isActive || isDisabled}
-                isIconOnly
-                size="sm"
-                variant="ghost"
-              >
-                <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
-              </Button>
-            )}
-            <View className="min-w-0 flex-1 gap-0.5">
-              <Text className="text-base" numberOfLines={1} weight="semibold">
-                {item.name}
-              </Text>
-              <Text color="muted" numberOfLines={1} variant="description">
-                Categoria {item.index + 1}
-              </Text>
-            </View>
+      <Card className={isActive ? "w-full p-3 opacity-70" : "w-full p-3"}>
+        <View className="flex-row items-center gap-3">
+          {dragHandle(
             <Button
               isDisabled={isActive || isDisabled}
               isIconOnly
-              onPress={() => openEditDialog(item)}
               size="sm"
               variant="ghost"
             >
-              <HugeIcons className="size-4.5" icon={Edit02Icon} />
+              <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
             </Button>
+          )}
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text className="text-base" numberOfLines={1} weight="semibold">
+              {item.name}
+            </Text>
+            <Text color="muted" numberOfLines={1} variant="description">
+              Categoria {item.index + 1}
+            </Text>
           </View>
-        </Card>
-      </View>
+          <Button
+            isDisabled={isActive || isDisabled}
+            isIconOnly
+            onPress={() => openEditDialog(item)}
+            size="sm"
+            variant="ghost"
+          >
+            <HugeIcons className="size-4.5" icon={Edit02Icon} />
+          </Button>
+        </View>
+      </Card>
     );
   }
 
@@ -295,7 +299,6 @@ export default function LeagueCategoriesRoute() {
         <Animated.View className="gap-5">
           <SortableCardList
             data={categoryItems}
-            itemHeight={CATEGORY_ITEM_HEIGHT}
             onOrderChange={handleOrderChange}
             renderItem={renderCategoryItem}
           />

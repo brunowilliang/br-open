@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   FadeIn,
@@ -34,12 +34,18 @@ type SortableCardListRenderItemProps<TItem extends SortableCardListItem> = {
 
 type SortableCardListProps<TItem extends SortableCardListItem> = {
   data: TItem[];
+  estimatedItemHeight?: number;
   fillAvailableHeight?: boolean;
-  itemHeight: number;
+  itemGap?: number;
+  itemHeight?: number;
+  onDragStateChange?: (activeItemId: string | null) => void;
   onOrderChange: (data: TItem[]) => void;
   renderItem: (props: SortableCardListRenderItemProps<TItem>) => ReactNode;
   style?: StyleProp<ViewStyle>;
 };
+
+const DEFAULT_ESTIMATED_ITEM_HEIGHT = 60;
+const DEFAULT_ITEM_GAP = 8;
 
 function buildDragHandle(children: ReactNode) {
   return <SortableItem.Handle>{children}</SortableItem.Handle>;
@@ -171,12 +177,13 @@ type SortableCardItemShellProps = {
   children: ReactNode;
   isEntering: boolean;
   isLeaving: boolean;
+  itemGap: number;
   itemId: string;
   onExitEnd: (itemId: string) => void;
 };
 
 function SortableCardItemShell(props: SortableCardItemShellProps) {
-  const { children, itemId, onExitEnd, isEntering, isLeaving } = props;
+  const { children, itemGap, itemId, onExitEnd, isEntering, isLeaving } = props;
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: withTiming(
       isLeaving ? 0 : 1,
@@ -195,9 +202,11 @@ function SortableCardItemShell(props: SortableCardItemShellProps) {
     <Animated.View
       entering={isEntering ? FadeIn : undefined}
       pointerEvents={isLeaving ? "none" : "auto"}
-      style={{ overflow: "visible" }}
+      style={{ overflow: "visible", paddingBottom: itemGap, width: "100%" }}
     >
-      <Animated.View style={animatedStyle}>{children}</Animated.View>
+      <Animated.View style={[animatedStyle, { width: "100%" }]}>
+        {children}
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -270,13 +279,20 @@ export function SortableCardList<TItem extends SortableCardListItem>(
 ) {
   const {
     data,
+    estimatedItemHeight = DEFAULT_ESTIMATED_ITEM_HEIGHT,
     fillAvailableHeight = false,
+    itemGap = DEFAULT_ITEM_GAP,
     itemHeight,
+    onDragStateChange,
     onOrderChange,
     renderItem,
     style,
   } = props;
+  const estimatedItemSlotHeight = estimatedItemHeight + itemGap;
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [measuredItemHeight, setMeasuredItemHeight] = useState<number | null>(
+    null
+  );
   const transitionRef = useRef(createListTransition(data));
   const sortableIdentityKeyRef = useRef(buildSortableIdentityKey(data));
   const [, rerenderAfterExit] = useState(0);
@@ -289,7 +305,9 @@ export function SortableCardList<TItem extends SortableCardListItem>(
   }
 
   const transition = transitionRef.current;
-  const listHeight = transition.items.length * itemHeight;
+  const resolvedItemHeight =
+    itemHeight ?? measuredItemHeight ?? estimatedItemSlotHeight;
+  const listHeight = transition.items.length * resolvedItemHeight;
 
   if (transition.enteringItemIds.size > 0) {
     sortableIdentityKeyRef.current = buildSortableIdentityKey(transition.items);
@@ -306,12 +324,31 @@ export function SortableCardList<TItem extends SortableCardListItem>(
     rerenderAfterExit((version) => version + 1);
   }, []);
 
+  // Keep the latest callback in a ref so beginDrag/endDrag can stay stable
+  // (their identity is what the SortableItem gesture handlers bind to).
+  const onDragStateChangeRef = useRef(onDragStateChange);
+  onDragStateChangeRef.current = onDragStateChange;
+
   const beginDrag = useCallback((itemId: string) => {
     setActiveItemId(itemId);
+    onDragStateChangeRef.current?.(itemId);
   }, []);
 
   const endDrag = useCallback(() => {
     setActiveItemId(null);
+    onDragStateChangeRef.current?.(null);
+  }, []);
+
+  const handleMeasuredItemLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+
+    if (nextHeight <= 0) {
+      return;
+    }
+
+    setMeasuredItemHeight((currentHeight) =>
+      currentHeight === nextHeight ? currentHeight : nextHeight
+    );
   }, []);
 
   const handleDrop = useCallback(
@@ -349,12 +386,17 @@ export function SortableCardList<TItem extends SortableCardListItem>(
           key={id}
           onDragStart={beginDrag}
           onDrop={handleDrop}
-          style={{ height: itemHeight, overflow: "visible" }}
+          style={{
+            height: resolvedItemHeight,
+            overflow: "visible",
+            width: "100%",
+          }}
           {...sortableItemProps}
         >
           <SortableCardItemShell
             isEntering={transition.enteringItemIds.has(id)}
             isLeaving={isLeaving}
+            itemGap={itemGap}
             itemId={id}
             onExitEnd={finishLeavingItem}
           >
@@ -373,12 +415,16 @@ export function SortableCardList<TItem extends SortableCardListItem>(
       beginDrag,
       finishLeavingItem,
       handleDrop,
-      itemHeight,
+      itemGap,
       renderItem,
+      resolvedItemHeight,
       transition.enteringItemIds,
       transition.leavingItemIds,
     ]
   );
+
+  const measurementItem = transition.items[0];
+  const shouldMeasureItem = itemHeight === undefined && measurementItem;
 
   return (
     <Animated.View
@@ -390,13 +436,45 @@ export function SortableCardList<TItem extends SortableCardListItem>(
         style,
       ]}
     >
-      <SortableCardListContent
-        contentHeight={listHeight}
-        data={transition.items}
-        itemHeight={itemHeight}
-        key={sortableIdentityKeyRef.current}
-        renderItem={renderSortableItem}
-      />
+      {shouldMeasureItem ? (
+        <Animated.View
+          onLayout={handleMeasuredItemLayout}
+          pointerEvents="none"
+          style={{
+            left: 0,
+            opacity: 0,
+            position: "absolute",
+            right: 0,
+            top: 0,
+            zIndex: -1,
+          }}
+        >
+          <SortableCardItemShell
+            isEntering={false}
+            isLeaving={false}
+            itemGap={itemGap}
+            itemId={measurementItem.id}
+            onExitEnd={finishLeavingItem}
+          >
+            {renderItem({
+              dragHandle: (children) => children,
+              index: 0,
+              isActive: false,
+              item: measurementItem,
+            })}
+          </SortableCardItemShell>
+        </Animated.View>
+      ) : null}
+
+      {itemHeight !== undefined || measuredItemHeight !== null ? (
+        <SortableCardListContent
+          contentHeight={listHeight}
+          data={transition.items}
+          itemHeight={resolvedItemHeight}
+          key={sortableIdentityKeyRef.current}
+          renderItem={renderSortableItem}
+        />
+      ) : null}
     </Animated.View>
   );
 }

@@ -483,6 +483,7 @@ export type DataModel = {
         "status",
         "_creationTime",
       ];
+      currentProposalId: ["currentProposalId", "_creationTime"];
       leagueId_status: ["leagueId", "status", "_creationTime"];
     };
     searchIndexes: {};
@@ -795,6 +796,23 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  notificationDeliveryLock: {
+    document: {
+      claimedAt: number;
+      expiresAt: number;
+      key: string;
+      _id: Id<"notificationDeliveryLock">;
+      _creationTime: number;
+    };
+    fieldPaths: "_creationTime" | "_id" | "claimedAt" | "expiresAt" | "key";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   notificationDevice: {
     document: {
       disabledAt?: null | number;
@@ -948,42 +966,28 @@ export type DataModel = {
   };
   playerProfile: {
     document: {
-      address?: null | string;
       avatarStorageId?: null | string;
-      birthDate?: null | string;
-      city?: null | string;
-      country?: null | string;
-      cpf?: null | string;
       createdAt: number;
       fullName?: null | string;
       gender?: null | string;
       nickname?: null | string;
       phone?: null | string;
-      state?: null | string;
       updatedAt: number;
       userId: Id<"user">;
-      zipCode?: null | string;
       _id: Id<"playerProfile">;
       _creationTime: number;
     };
     fieldPaths:
       | "_creationTime"
       | "_id"
-      | "address"
       | "avatarStorageId"
-      | "birthDate"
-      | "city"
-      | "country"
-      | "cpf"
       | "createdAt"
       | "fullName"
       | "gender"
       | "nickname"
       | "phone"
-      | "state"
       | "updatedAt"
-      | "userId"
-      | "zipCode";
+      | "userId";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];

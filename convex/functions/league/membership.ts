@@ -18,11 +18,12 @@ import {
   resolveRankingReorderError,
 } from "../../domains/league/membership-rules";
 import { leagueMembership } from "../../domains/league/tables";
+import { isActiveActorManager } from "../../domains/auth/actor-context";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
 import {
   getViewerContext,
-  requireActiveOrganization,
+  requireActiveManager,
   requireActivePlayerProfile,
 } from "../viewer/context";
 
@@ -68,7 +69,7 @@ async function getLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
 }
 
 async function getManagedLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
-  const organizationId = await requireActiveOrganization(ctx);
+  const organizationId = await requireActiveManager(ctx);
   const currentLeague = await ctx.orm.query.league.findFirst({
     where: { id: leagueId },
   });
@@ -88,10 +89,12 @@ async function canManageLeague(
   organizationId: Id<"organization">
 ) {
   const viewerContext = await getViewerContext(ctx, ctx.userId);
+  const { activeActor } = viewerContext;
 
   return (
-    viewerContext.activeActor.kind === "organization" &&
-    viewerContext.activeActor.id === organizationId
+    activeActor.kind === "organization" &&
+    activeActor.id === organizationId &&
+    isActiveActorManager(activeActor)
   );
 }
 

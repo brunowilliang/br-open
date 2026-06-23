@@ -137,3 +137,18 @@ export const notificationDelivery = convexTable(
     index("state").on(notificationDelivery.state),
   ]
 );
+
+// Single-row lock used to dedupe `sendPending` scheduler invocations. Without
+// it, concurrent `createForRecipients` calls and the self-chaining
+// `scheduleNextBatch` each enqueue a redundant `sendPending` runner, wasting
+// scheduler budget. The lock is keyed by `key` (only "sendPending" today) and
+// expires after `expiresAt`, so a crashed runner can't wedge the pipeline.
+export const notificationDeliveryLock = convexTable(
+  "notificationDeliveryLock",
+  {
+    key: text().notNull(),
+    claimedAt: timestamp().notNull(),
+    expiresAt: timestamp().notNull(),
+  },
+  (notificationDeliveryLock) => [index("key").on(notificationDeliveryLock.key)]
+);

@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useValue } from "@legendapp/state/react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "heroui-native";
-import { useCallback, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
 
 import {
@@ -294,7 +294,17 @@ export function useLeagueFormController(
     title,
   ]);
 
+  // Reset the form + clear pending media only when defaultValues actually
+  // change by value, not on every parent re-render (callers rebuild the
+  // defaultValues object each render, which would wipe in-progress edits).
+  // Genuine league changes are also handled by the key-based remount in the
+  // settings layout, so this only needs to cover the content-change case.
+  const previousDefaultValuesRef = useRef(defaultValues);
   useEffect(() => {
+    if (previousDefaultValuesRef.current === defaultValues) {
+      return;
+    }
+    previousDefaultValuesRef.current = defaultValues;
     form.reset(defaultValues);
     bucket$.actions.clearMedia();
   }, [bucket$, defaultValues, form]);
@@ -460,6 +470,16 @@ export function useLeagueFormController(
       bucket$.actions.unregisterCallbacks();
     };
   }, [bucket$, handleMediaPress, handleSubmitPress, onDelete]);
+
+  // Free the bucket + its callback closures on unmount so they don't leak in
+  // the module-scoped maps (they capture form/toast props). A remount will
+  // recreate the bucket lazily.
+  useEffect(
+    () => () => {
+      bucket$.actions.dispose();
+    },
+    [bucket$]
+  );
 
   return {
     form,

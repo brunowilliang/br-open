@@ -3559,6 +3559,7 @@ export const internal: {
         },
         any
       >;
+      releaseLock: FunctionReference<"mutation", "internal", {}, any>;
       sendPending: FunctionReference<"action", "internal", {}, any>;
     };
   };
@@ -3570,8 +3571,11 @@ export const internal: {
         createScenarioLeagues?: boolean;
         primaryUserEmail?: string;
         reset?: boolean;
+        targetActiveMemberships?: number;
+        targetChallengeCount?: number;
         targetLeagueId?: string;
         targetPendingRequests?: number;
+        targetRejectedRequests?: number;
       },
       {
         challengesCreated: number;

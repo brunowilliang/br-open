@@ -756,6 +756,12 @@ const InactivityPenaltySection = ({ isDisabled }: RuleSectionProps) => {
   return (
     <RuleCard>
       <PressableFeedback
+        accessibilityLabel="Penalidade por inatividade"
+        accessibilityRole="checkbox"
+        accessibilityState={{
+          checked: hasInactivityPenalty,
+          disabled: isDisabled,
+        }}
         className="flex-row items-center gap-3"
         isDisabled={isDisabled}
         onPress={toggleInactivityPenalty}
@@ -1076,6 +1082,12 @@ const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
 
       <RuleCard>
         <PressableFeedback
+          accessibilityLabel="Vencer o set por 2 games"
+          accessibilityRole="checkbox"
+          accessibilityState={{
+            checked: setMustWinByTwoGames,
+            disabled: isDisabled,
+          }}
           className="flex-row items-center gap-3"
           isDisabled={isDisabled}
           onPress={() => {
@@ -1136,6 +1148,12 @@ const TieBreakSection = ({ isDisabled }: RuleSectionProps) => {
   return (
     <RuleCard>
       <PressableFeedback
+        accessibilityLabel="Tie-break"
+        accessibilityRole="checkbox"
+        accessibilityState={{
+          checked: hasTieBreak,
+          disabled: isDisabled,
+        }}
         className="flex-row items-center gap-3"
         isDisabled={isDisabled}
         onPress={() => {
@@ -1236,6 +1254,12 @@ const TieBreakSection = ({ isDisabled }: RuleSectionProps) => {
           </TextField>
 
           <PressableFeedback
+            accessibilityLabel="Vencer o tie-break por 2 pontos"
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: tieBreakMustWinByTwo,
+              disabled: isDisabled,
+            }}
             className="flex-row items-center gap-3"
             isDisabled={isDisabled}
             onPress={() => {
@@ -1464,6 +1488,12 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             </TextField>
 
             <PressableFeedback
+              accessibilityLabel="Vencer o último set por 2 games"
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: finalSetMustWinByTwoGames,
+                disabled: isDisabled,
+              }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
               onPress={() => {
@@ -1493,6 +1523,12 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             </FieldError>
 
             <PressableFeedback
+              accessibilityLabel="Tie-break no último set"
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: finalSetHasTieBreak,
+                disabled: isDisabled,
+              }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
               onPress={() => {
@@ -1596,6 +1632,12 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
                 </TextField>
 
                 <PressableFeedback
+                  accessibilityLabel="Vencer o tie-break do último set por 2 pontos"
+                  accessibilityRole="checkbox"
+                  accessibilityState={{
+                    checked: finalSetTieBreakMustWinByTwo,
+                    disabled: isDisabled,
+                  }}
                   className="flex-row items-center gap-3"
                   isDisabled={isDisabled}
                   onPress={() => {
@@ -1670,6 +1712,12 @@ const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             </TextField>
 
             <PressableFeedback
+              accessibilityLabel="Vencer o super tie-break por 2 pontos"
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: finalSetSuperTieBreakMustWinByTwo,
+                disabled: isDisabled,
+              }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
               onPress={() => {

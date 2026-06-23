@@ -431,61 +431,30 @@ export default function PlayerProfile() {
     }
   }
 
-  if (playerProfile.isPending) {
-    return (
-      <Page>
-        <Page.Header>
-          <Page.Header.Left>
-            <Page.Header.BackButton />
-          </Page.Header.Left>
-          <Page.Header.Center>
-            <Page.Header.Title>Perfil</Page.Header.Title>
-          </Page.Header.Center>
-          <Page.Header.Right />
-        </Page.Header>
+  const isProfileLoaded = !(playerProfile.isPending || playerProfile.isError);
 
+  function renderProfileBody() {
+    if (playerProfile.isPending) {
+      return (
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           <LoadingState />
         </Page.ScrollView>
-      </Page>
-    );
-  }
+      );
+    }
 
-  if (playerProfile.isError) {
-    return (
-      <Page>
-        <Page.Header>
-          <Page.Header.Left>
-            <Page.Header.BackButton />
-          </Page.Header.Left>
-          <Page.Header.Center>
-            <Page.Header.Title>Perfil</Page.Header.Title>
-          </Page.Header.Center>
-          <Page.Header.Right />
-        </Page.Header>
-
+    if (playerProfile.isError) {
+      return (
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           <ErrorState
             error={playerProfile.error}
             message="Não foi possível carregar o perfil."
           />
         </Page.ScrollView>
-      </Page>
-    );
-  }
+      );
+    }
 
-  return (
-    <>
-      <Page>
-        <Page.Header>
-          <Page.Header.Left>
-            <Page.Header.BackButton />
-          </Page.Header.Left>
-          <Page.Header.Center>
-            <Page.Header.Title>Perfil</Page.Header.Title>
-          </Page.Header.Center>
-          <Page.Header.Right />
-        </Page.Header>
+    return (
+      <>
         <Page.ScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
           <PressableFeedback
             className="rounded-full"
@@ -648,20 +617,39 @@ export default function PlayerProfile() {
             </Button.Label>
           </Button>
         </Page.Footer>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Page>
+        <Page.Header>
+          <Page.Header.Left>
+            <Page.Header.BackButton />
+          </Page.Header.Left>
+          <Page.Header.Center>
+            <Page.Header.Title>Perfil</Page.Header.Title>
+          </Page.Header.Center>
+          <Page.Header.Right />
+        </Page.Header>
+        {renderProfileBody()}
       </Page>
-      <ImageCropper
-        aspectRatio={1}
-        asset={cropAsset}
-        description="Arraste a foto e pince para dar zoom."
-        isProcessing={isAvatarProcessing}
-        onCancel={() => {
-          if (!isAvatarProcessing) {
-            setCropAsset(null);
-          }
-        }}
-        onConfirm={handleCropConfirm}
-        title="Ajustar avatar"
-      />
+      {isProfileLoaded ? (
+        <ImageCropper
+          aspectRatio={1}
+          asset={cropAsset}
+          description="Arraste a foto e pince para dar zoom."
+          isProcessing={isAvatarProcessing}
+          onCancel={() => {
+            if (!isAvatarProcessing) {
+              setCropAsset(null);
+            }
+          }}
+          onConfirm={handleCropConfirm}
+          title="Ajustar avatar"
+        />
+      ) : null}
     </>
   );
 }

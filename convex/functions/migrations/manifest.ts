@@ -5,11 +5,11 @@
 import { defineMigrationSet } from 'kitcn/orm';
 import { migration as migration_0 } from './20260504_181921_remove_player_profile_display_name';
 import { migration as migration_1 } from './20260505_000001_remove_player_profile_category_and_photo_url';
-import { migration as migration_2 } from './20260509_000001_remove_player_profile_legacy_fields';
-import { migration as migration_3 } from './20260520_204606_remove_league_regulation';
-import { migration as migration_4 } from './20260615_083000_backfill_active_actor_league_fields';
-import { migration as migration_5 } from './20260615_083100_backfill_league_membership_player_profiles';
-import { migration as migration_6 } from './20260615_083200_backfill_notification_actor_recipients';
+import { migration as migration_2 } from './20260520_204606_remove_league_regulation';
+import { migration as migration_3 } from './20260615_083000_backfill_active_actor_league_fields';
+import { migration as migration_4 } from './20260615_083100_backfill_league_membership_player_profiles';
+import { migration as migration_5 } from './20260615_083200_backfill_notification_actor_recipients';
+import { migration as migration_6 } from './20260619_000001_purge_player_profile_pii';
 
 export const migrations = defineMigrationSet([
   migration_0,

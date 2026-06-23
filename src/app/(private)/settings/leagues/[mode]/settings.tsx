@@ -218,6 +218,12 @@ export default function LeagueSettingsRoute() {
             </View>
 
             <PressableFeedback
+              accessibilityLabel="Sem limite de vagas"
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: hasUnlimitedSpots,
+                disabled: isDisabled,
+              }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
               onPress={toggleUnlimitedSpots}
@@ -278,6 +284,12 @@ export default function LeagueSettingsRoute() {
             </View>
 
             <PressableFeedback
+              accessibilityLabel="Gratuito"
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: isFree,
+                disabled: isDisabled,
+              }}
               className="flex-row items-center gap-3"
               isDisabled={isDisabled}
               onPress={toggleFreePrice}

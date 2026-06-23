@@ -65,8 +65,8 @@ export default function SignIn() {
 
   const form = useForm({
     defaultValues: {
-      email: "bruno@bruno.com",
-      password: "123123123",
+      email: "",
+      password: "",
     },
     mode: "onBlur",
     reValidateMode: "onChange",

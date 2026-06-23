@@ -75,29 +75,6 @@ export function canMarkNotificationReadForUser(input: {
   return input.notification.recipientUserId === input.userId;
 }
 
-async function getUserNotificationOrThrow(
-  ctx: AuthenticatedCtx<MutationCtx>,
-  notificationId: Id<"notificationFeed">
-) {
-  const notification = await ctx.db.get(notificationId);
-
-  if (!notification) {
-    throw new CRPCError({
-      code: "NOT_FOUND",
-      message: "Notificacao nao encontrada.",
-    });
-  }
-
-  if (!canMarkNotificationReadForUser({ notification, userId: ctx.userId })) {
-    throw new CRPCError({
-      code: "NOT_FOUND",
-      message: "Notificacao nao encontrada.",
-    });
-  }
-
-  return notification;
-}
-
 async function getActiveActorNotificationOrThrow(
   ctx: AuthenticatedCtx<MutationCtx>,
   notificationId: Id<"notificationFeed">
@@ -149,7 +126,10 @@ export const markRead = authMutation
   .output(notificationFeedItemSchema)
   .mutation(async ({ ctx, input }) => {
     const notificationId = input.notificationId as Id<"notificationFeed">;
-    const notification = await getUserNotificationOrThrow(ctx, notificationId);
+    const notification = await getActiveActorNotificationOrThrow(
+      ctx,
+      notificationId
+    );
 
     const readAt = notification.readAt ?? Date.now();
 

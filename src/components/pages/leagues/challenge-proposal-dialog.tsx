@@ -54,9 +54,14 @@ type ChallengeProposalDialogProps = {
 const MATCH_DATE_LOCALE = "pt-BR";
 
 function formatMatchDate(date: CalendarDate) {
+  // Anchored to UTC so the displayed label matches the weekday key used by
+  // getDayKeyFromMatchDate (which drives court availability). Mixing the device
+  // local zone here would render a date that disagrees with the availability
+  // filter for users west of UTC.
   return new Intl.DateTimeFormat(MATCH_DATE_LOCALE, {
     dateStyle: "medium",
-  }).format(date.toDate(getLocalTimeZone()));
+    timeZone: "UTC",
+  }).format(date.toDate("UTC"));
 }
 
 function getSelectedOption(

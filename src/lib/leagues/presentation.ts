@@ -187,43 +187,6 @@ export function getMembershipStatusColor(status?: string | null) {
   }
 }
 
-export function formatChallengeStatus(status?: string | null) {
-  switch (status) {
-    case "pending_response":
-      return "Aguardando resposta";
-    case "accepted":
-      return "Aceito";
-    case "scheduled":
-      return "Agendado";
-    case "declined":
-      return "Recusado";
-    case "expired_response":
-      return "Expirado";
-    case "finished":
-      return "Finalizado";
-    case "walkover":
-      return "W.O.";
-    case "cancelled":
-      return "Cancelado";
-    default:
-      return "Desafio";
-  }
-}
-
-export function getChallengeStatusColor(status?: string | null) {
-  switch (status) {
-    case "finished":
-      return "success";
-    case "declined":
-    case "cancelled":
-      return "danger";
-    case "pending_response":
-      return "warning";
-    default:
-      return "accent";
-  }
-}
-
 export function getMembershipActionLabel(
   status?: string | null,
   options?: { isManagerOwner?: boolean }
@@ -251,14 +214,14 @@ export function getGreetingLabel(now = new Date()) {
   const hour = now.getHours();
 
   if (hour < 12) {
-    return "GOOD MORNING";
+    return "Bom dia";
   }
 
   if (hour < 18) {
-    return "GOOD AFTERNOON";
+    return "Boa tarde";
   }
 
-  return "GOOD NIGHT";
+  return "Boa noite";
 }
 
 export function getUserInitials(

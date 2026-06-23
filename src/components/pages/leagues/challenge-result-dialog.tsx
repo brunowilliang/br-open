@@ -163,9 +163,17 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
   }
 
   async function handleSubmit() {
+    if (!winnerMembershipId) {
+      // No decisive winner from the entered score — refuse rather than
+      // silently biasing toward the challenger (the previous `?? challenger`
+      // fallback would award ambiguous/blank submissions to the challenger).
+      setErrorMessage("Preencha o placar até definir um vencedor.");
+      return;
+    }
+
     const score = {
       sets: trimmedDraftSets,
-      winnerMembershipId: winnerMembershipId ?? challengerMembershipId,
+      winnerMembershipId,
     } satisfies ChallengeResultDialogValue;
     const validationError = validateChallengeScore({
       challengedMembershipId,
@@ -294,7 +302,7 @@ export const ChallengeResultDialog = (props: ChallengeResultDialogProps) => {
 
           <View className="self-end">
             <Button
-              isDisabled={isPending}
+              isDisabled={isPending || !winnerMembershipId}
               onPress={() => {
                 handleSubmit().catch(() => undefined);
               }}

@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import {
   activateOrganizationSchema,
   buildViewerCapabilities,
+  isActiveActorManager,
   resolveActorKind,
   setActiveActorSchema,
   viewerContextSchema,
@@ -199,7 +200,10 @@ export async function getViewerContext(
   return viewerContextSchema.parse({
     activeActor,
     availableActors: [playerActor, ...organizationActors],
-    capabilities: buildViewerCapabilities({ actorKind: activeActor.kind }),
+    capabilities: buildViewerCapabilities({
+      actorKind: activeActor.kind,
+      role: activeActor.role,
+    }),
   });
 }
 
@@ -227,6 +231,27 @@ export async function requireActiveOrganization(ctx: ViewerCtx) {
   }
 
   return viewerContext.activeActor.id as Id<"organization">;
+}
+
+/**
+ * Requires the viewer to be acting as an organization owner/admin. Bare
+ * `member` actors are rejected — they must not mutate league data.
+ */
+export async function requireActiveManager(ctx: ViewerCtx) {
+  const viewerContext = await getViewerContext(ctx, ctx.userId);
+  const { activeActor } = viewerContext;
+
+  if (
+    activeActor.kind !== "organization" ||
+    !isActiveActorManager(activeActor)
+  ) {
+    throw new CRPCError({
+      code: "FORBIDDEN",
+      message: "Voce precisa ser gestor da organizacao para isso.",
+    });
+  }
+
+  return activeActor.id as Id<"organization">;
 }
 
 export const get = authQuery

@@ -130,7 +130,7 @@ export default function LeagueDetailsRoute() {
             editable={!isDisabled}
             onBlur={nameField.onBlur}
             onChangeText={nameField.onChange}
-            placeholder="Placeholder"
+            placeholder="Ex.: Liga de Tênis do Clube"
             value={nameField.value}
           />
           <FieldError>{nameState.error?.message ?? ""}</FieldError>
@@ -141,7 +141,7 @@ export default function LeagueDetailsRoute() {
             editable={!isDisabled}
             onBlur={descriptionField.onBlur}
             onChangeText={descriptionField.onChange}
-            placeholder="Enter your message"
+            placeholder="Conte um pouco sobre a liga, regras e público."
             value={descriptionField.value ?? ""}
           />
           <FieldError>{descriptionState.error?.message ?? ""}</FieldError>
