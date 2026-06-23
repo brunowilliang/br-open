@@ -1,6 +1,12 @@
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+import {
+  RuleCard,
+  RuleExpandableContent,
+  ToggleableRuleCard,
+  fieldUpdateOptions,
+} from "@/components/pages/leagues/rule-card";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
@@ -12,22 +18,19 @@ import {
 import {
   AccordionLayoutTransition,
   Button,
-  Checkbox,
   Description,
   Dialog,
   FieldError,
   Label,
   Menu,
-  PressableFeedback,
   Select,
-  Surface,
   TextField,
 } from "heroui-native";
 import { NumberField, NumberStepper, Segment } from "heroui-native-pro";
 import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 
 const visibilityOptions = [
   { label: "Pública", value: "public" as const },
@@ -41,20 +44,26 @@ const priceBillingIntervalOptions = [
   { label: "Anual", value: "year" as const },
 ];
 
-const fieldUpdateOptions = {
-  shouldDirty: true,
-  shouldTouch: true,
-  shouldValidate: true,
-} as const;
 const DEFAULT_PAID_PRICE_CENTS = 9000;
-const SETTINGS_CONTENT_ENTERING = FadeIn.duration(180);
-const SETTINGS_CONTENT_EXITING = FadeOut.duration(120);
-const AnimatedSurface = Animated.createAnimatedComponent(Surface);
+
+const SETTINGS_RULE_INFO = {
+  limitedSpots: {
+    description:
+      "Controla quantos jogadores podem entrar na liga. Ativo: novos jogadores só entram até atingir o limite. Desativo: a liga aceita jogadores sem limite.",
+    title: "Limitar vagas",
+  },
+  paidPrice: {
+    description:
+      "Define se a liga cobra mensalidade dos jogadores. Ao ativar, configure o valor e o período (semanal, mensal, etc.).",
+    title: "Cobrança",
+  },
+} as const;
 
 export default function LeagueSettingsRoute() {
-  const { isSubmitPending, onDelete, onSubmitPress, showDelete, title } =
+  const { isSubmitPending, mode, onDelete, onSubmitPress, showDelete } =
     useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -98,8 +107,8 @@ export default function LeagueSettingsRoute() {
   const maxPlayersError = errors.maxPlayers?.message;
   const monthlyPriceCentsError = errors.monthlyPriceCents?.message;
   const priceBillingIntervalError = errors.priceBillingInterval?.message;
-  const hasUnlimitedSpots = maxPlayers === null;
-  const isFree = (monthlyPriceCents ?? 0) <= 0;
+  const hasLimitedSpots = maxPlayers !== null;
+  const hasPaidPrice = (monthlyPriceCents ?? 0) > 0;
 
   async function handleConfirmDelete() {
     if (!onDelete) {
@@ -114,14 +123,14 @@ export default function LeagueSettingsRoute() {
     }
   }
 
-  function toggleUnlimitedSpots() {
-    setValue("maxPlayers", hasUnlimitedSpots ? 20 : null, fieldUpdateOptions);
+  function toggleLimitedSpots() {
+    setValue("maxPlayers", hasLimitedSpots ? null : 20, fieldUpdateOptions);
   }
 
-  function toggleFreePrice() {
+  function togglePaidPrice() {
     setValue(
       "monthlyPriceCents",
-      isFree ? DEFAULT_PAID_PRICE_CENTS : 0,
+      hasPaidPrice ? 0 : DEFAULT_PAID_PRICE_CENTS,
       fieldUpdateOptions
     );
   }
@@ -133,7 +142,8 @@ export default function LeagueSettingsRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Ajustes</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -156,222 +166,161 @@ export default function LeagueSettingsRoute() {
       </Page.Header>
 
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
-        <Animated.View className="gap-6" layout={AccordionLayoutTransition}>
-          <TextField isInvalid={Boolean(visibilityError)} isRequired>
-            <Label>Visibilidade</Label>
-            <Select
-              isDisabled={isDisabled}
-              onValueChange={(nextValue) => {
-                if (nextValue && !Array.isArray(nextValue)) {
-                  setValue(
-                    "visibility",
-                    nextValue.value as LeagueScreenValues["visibility"],
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    }
-                  );
-                }
-              }}
-              selectionMode="single"
-              value={visibilityOptions.find(
-                (option) => option.value === visibility
-              )}
-            >
-              <Select.Trigger>
-                <Select.Value
-                  className="font-normal"
-                  numberOfLines={1}
-                  placeholder="Escolha uma opção"
-                />
-                <Select.TriggerIndicator />
-              </Select.Trigger>
-              <Select.Portal>
-                <Select.Overlay />
-                <Select.Content presentation="popover" width="trigger">
-                  <Select.ListLabel className="mb-2">
-                    Escolha uma opção
-                  </Select.ListLabel>
-                  {visibilityOptions.map((option) => (
-                    <SelectOptionItem
-                      key={option.value}
-                      label={option.label}
-                      value={option.value}
-                    />
-                  ))}
-                </Select.Content>
-              </Select.Portal>
-            </Select>
-            <Description>
-              Define quem pode encontrar e entrar na liga.
-            </Description>
-            <FieldError>{visibilityError ?? ""}</FieldError>
-          </TextField>
-
-          <AnimatedSurface className="gap-4" layout={AccordionLayoutTransition}>
-            <View>
-              <Text weight="medium">Entrada na liga</Text>
-              <Description>
-                Defina quantos jogadores podem entrar na liga.
-              </Description>
-            </View>
-
-            <PressableFeedback
-              className="flex-row items-center gap-3"
-              isDisabled={isDisabled}
-              onPress={toggleUnlimitedSpots}
-            >
-              <Checkbox
-                className="mt-0.5"
-                isDisabled={isDisabled}
-                isSelected={hasUnlimitedSpots}
-                pointerEvents="none"
-              />
-              <View className="flex-1" pointerEvents="none">
-                <Label>Sem limite de vagas</Label>
-                <Description className="-mt-1.5">
-                  Desative para limitar quantos jogadores podem entrar.
-                </Description>
-              </View>
-            </PressableFeedback>
-
-            {hasUnlimitedSpots ? null : (
-              <Animated.View
-                entering={SETTINGS_CONTENT_ENTERING}
-                exiting={SETTINGS_CONTENT_EXITING}
-                layout={AccordionLayoutTransition}
-              >
-                <TextField isInvalid={Boolean(maxPlayersError)} isRequired>
-                  <Label>Quantidade de vagas</Label>
-                  <Description className="-mt-1.5 mb-1">
-                    Número máximo de jogadores ativos na liga.
-                  </Description>
-                  <NumberStepper
-                    className="self-start"
-                    defaultValue={maxPlayers ?? 20}
-                    isDisabled={isDisabled}
-                    maxValue={500}
-                    minValue={1}
-                    onValueChange={(nextValue) => {
-                      setValue("maxPlayers", nextValue, fieldUpdateOptions);
-                    }}
-                    step={1}
-                    value={maxPlayers ?? 20}
-                  >
-                    <NumberStepper.DecrementButton />
-                    <NumberStepper.Value />
-                    <NumberStepper.IncrementButton />
-                  </NumberStepper>
-                  <FieldError>{maxPlayersError ?? ""}</FieldError>
-                </TextField>
-              </Animated.View>
+        <TextField isInvalid={Boolean(visibilityError)} isRequired>
+          <Label>Visibilidade</Label>
+          <Select
+            isDisabled={isDisabled}
+            onValueChange={(nextValue) => {
+              if (nextValue && !Array.isArray(nextValue)) {
+                setValue(
+                  "visibility",
+                  nextValue.value as LeagueScreenValues["visibility"],
+                  {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  }
+                );
+              }
+            }}
+            selectionMode="single"
+            value={visibilityOptions.find(
+              (option) => option.value === visibility
             )}
-          </AnimatedSurface>
-
-          <AnimatedSurface className="gap-4" layout={AccordionLayoutTransition}>
-            <View>
-              <Text weight="medium">Preço</Text>
-              <Description>
-                Defina se a entrada é gratuita ou possui cobrança.
-              </Description>
-            </View>
-
-            <PressableFeedback
-              className="flex-row items-center gap-3"
-              isDisabled={isDisabled}
-              onPress={toggleFreePrice}
-            >
-              <Checkbox
-                className="mt-0.5"
-                isDisabled={isDisabled}
-                isSelected={isFree}
-                pointerEvents="none"
+          >
+            <Select.Trigger>
+              <Select.Value
+                className="font-normal"
+                numberOfLines={1}
+                placeholder="Escolha uma opção"
               />
-              <View className="flex-1" pointerEvents="none">
-                <Label>Gratuito</Label>
-                <Description className="-mt-1.5">
-                  Ative quando a liga não tiver mensalidade.
-                </Description>
-              </View>
-            </PressableFeedback>
-
-            {isFree ? null : (
-              <Animated.View
-                className="gap-4"
-                entering={SETTINGS_CONTENT_ENTERING}
-                exiting={SETTINGS_CONTENT_EXITING}
-                layout={AccordionLayoutTransition}
-              >
-                <NumberField
-                  formatOptions={{
-                    currency: "BRL",
-                    style: "currency",
-                  }}
+              <Select.TriggerIndicator />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Overlay />
+              <Select.Content presentation="popover" width="trigger">
+                <Select.ListLabel className="mb-2">
+                  Escolha uma opção
+                </Select.ListLabel>
+                {visibilityOptions.map((option) => (
+                  <SelectOptionItem
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Select.Content>
+            </Select.Portal>
+          </Select>
+          <Description>
+            Define quem pode encontrar e entrar na liga.
+          </Description>
+          <FieldError>{visibilityError ?? ""}</FieldError>
+        </TextField>
+        <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
+          <ToggleableRuleCard
+            description="Ative para definir quantos jogadores podem entrar na liga."
+            enabled={hasLimitedSpots}
+            info={SETTINGS_RULE_INFO.limitedSpots}
+            isDisabled={isDisabled}
+            label="Limitar vagas"
+            onToggle={toggleLimitedSpots}
+          >
+            <RuleExpandableContent className="">
+              <TextField isInvalid={Boolean(maxPlayersError)} isRequired>
+                <NumberStepper
+                  className="self-start"
+                  defaultValue={maxPlayers ?? 20}
                   isDisabled={isDisabled}
-                  isInvalid={Boolean(monthlyPriceCentsError)}
-                  isRequired
-                  minValue={0}
-                  onChange={(nextValue) => {
+                  maxValue={500}
+                  minValue={1}
+                  onValueChange={(nextValue) => {
+                    setValue("maxPlayers", nextValue, fieldUpdateOptions);
+                  }}
+                  step={1}
+                  value={maxPlayers ?? 20}
+                >
+                  <NumberStepper.DecrementButton />
+                  <NumberStepper.Value />
+                  <NumberStepper.IncrementButton />
+                </NumberStepper>
+                <FieldError>{maxPlayersError ?? ""}</FieldError>
+              </TextField>
+            </RuleExpandableContent>
+          </ToggleableRuleCard>
+
+          <ToggleableRuleCard
+            description="Ative para definir uma mensalidade para a liga."
+            enabled={hasPaidPrice}
+            info={SETTINGS_RULE_INFO.paidPrice}
+            isDisabled={isDisabled}
+            label="Cobrança"
+            onToggle={togglePaidPrice}
+          >
+            <NumberField
+              formatOptions={{
+                currency: "BRL",
+                style: "currency",
+              }}
+              isDisabled={isDisabled}
+              isInvalid={Boolean(monthlyPriceCentsError)}
+              isRequired
+              minValue={0}
+              onChange={(nextValue) => {
+                setValue(
+                  "monthlyPriceCents",
+                  Math.max(0, Math.round(nextValue * 100)),
+                  fieldUpdateOptions
+                );
+              }}
+              step={5}
+              value={(monthlyPriceCents ?? 0) / 100}
+            >
+              <Label>Valor</Label>
+              <NumberField.Group>
+                <NumberField.DecrementButton />
+                <NumberField.Input keyboardType="decimal-pad" />
+                <NumberField.IncrementButton />
+              </NumberField.Group>
+              <Description>Valor cobrado no período escolhido.</Description>
+              <FieldError>{monthlyPriceCentsError ?? ""}</FieldError>
+            </NumberField>
+
+            <TextField
+              isInvalid={Boolean(priceBillingIntervalError)}
+              isRequired
+            >
+              <Label>Período de cobrança</Label>
+              <Segment
+                isDisabled={isDisabled}
+                onValueChange={(nextValue) => {
+                  if (nextValue) {
                     setValue(
-                      "monthlyPriceCents",
-                      Math.max(0, Math.round(nextValue * 100)),
+                      "priceBillingInterval",
+                      nextValue as LeagueScreenValues["priceBillingInterval"],
                       fieldUpdateOptions
                     );
-                  }}
-                  step={5}
-                  value={(monthlyPriceCents ?? 0) / 100}
-                >
-                  <Label>Valor</Label>
-                  <NumberField.Group>
-                    <NumberField.DecrementButton />
-                    <NumberField.Input keyboardType="decimal-pad" />
-                    <NumberField.IncrementButton />
-                  </NumberField.Group>
-                  <Description>Valor cobrado no período escolhido.</Description>
-                  <FieldError>{monthlyPriceCentsError ?? ""}</FieldError>
-                </NumberField>
-
-                <TextField
-                  isInvalid={Boolean(priceBillingIntervalError)}
-                  isRequired
-                >
-                  <Label>Cobrança</Label>
-                  <Segment
-                    isDisabled={isDisabled}
-                    onValueChange={(nextValue) => {
-                      if (nextValue) {
-                        setValue(
-                          "priceBillingInterval",
-                          nextValue as LeagueScreenValues["priceBillingInterval"],
-                          fieldUpdateOptions
-                        );
-                      }
-                    }}
-                    value={priceBillingInterval}
-                  >
-                    <Segment.Group>
-                      <Segment.ScrollView>
-                        <Segment.Indicator />
-                        {priceBillingIntervalOptions.map((option) => (
-                          <Segment.Item key={option.value} value={option.value}>
-                            <Segment.Label>{option.label}</Segment.Label>
-                          </Segment.Item>
-                        ))}
-                      </Segment.ScrollView>
-                    </Segment.Group>
-                  </Segment>
-                  <FieldError>{priceBillingIntervalError ?? ""}</FieldError>
-                </TextField>
-              </Animated.View>
-            )}
-          </AnimatedSurface>
+                  }
+                }}
+                value={priceBillingInterval}
+              >
+                <Segment.Group>
+                  <Segment.ScrollView>
+                    <Segment.Indicator />
+                    {priceBillingIntervalOptions.map((option) => (
+                      <Segment.Item key={option.value} value={option.value}>
+                        <Segment.Label>{option.label}</Segment.Label>
+                      </Segment.Item>
+                    ))}
+                  </Segment.ScrollView>
+                </Segment.Group>
+              </Segment>
+              <FieldError>{priceBillingIntervalError ?? ""}</FieldError>
+            </TextField>
+          </ToggleableRuleCard>
 
           {showDelete ? (
-            <AnimatedSurface
-              className="gap-3 border border-danger-soft bg-danger-soft"
-              layout={AccordionLayoutTransition}
-            >
+            <RuleCard className="gap-3 border border-danger-soft bg-danger-soft">
               <View className="flex-row items-center gap-2">
                 <HugeIcons className="text-danger" icon={Alert02Icon} />
                 <Text className="text-danger">Deletar liga</Text>
@@ -390,7 +339,7 @@ export default function LeagueSettingsRoute() {
               >
                 <Button.Label>Deletar liga</Button.Label>
               </Button>
-            </AnimatedSurface>
+            </RuleCard>
           ) : null}
         </Animated.View>
 

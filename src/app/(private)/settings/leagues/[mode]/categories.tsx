@@ -1,10 +1,9 @@
-import { Page } from "@/components/core/page";
+import { BackButton, Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { BackButton } from "@/components/core/page";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import {
@@ -30,8 +29,6 @@ import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, View } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
-const CATEGORY_ITEM_HEIGHT = 76;
-
 type CategoryItem = {
   id: string;
   name: string;
@@ -41,8 +38,16 @@ type CategoryListItem = CategoryItem & {
   index: number;
 };
 
-function buildCategoryItemId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let categoryIdCounter = 0;
+function buildCategoryItemId(): string {
+  // Monotonic counter + timestamp + random suffix. Avoids the collision risk
+  // of Date.now()+Math.random() under fast double-tap (same millisecond +
+  // short random suffix) without needing the `crypto` global, which is not
+  // available in the Hermes runtime by default.
+  categoryIdCounter += 1;
+  return `cat-${Date.now()}-${categoryIdCounter}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function syncCategoryItemIds(currentIds: string[], itemCount: number) {
@@ -63,8 +68,9 @@ function syncCategoryItemIds(currentIds: string[], itemCount: number) {
 }
 
 export default function LeagueCategoriesRoute() {
-  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const { isSubmitPending, mode, onSubmitPress } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -215,39 +221,37 @@ export default function LeagueCategoriesRoute() {
     const { dragHandle, isActive, item } = props;
 
     return (
-      <View className="pb-2">
-        <Card className={isActive ? "p-3 opacity-70" : "p-3"}>
-          <View className="flex-row items-center gap-3">
-            {dragHandle(
-              <Button
-                isDisabled={isActive || isDisabled}
-                isIconOnly
-                size="sm"
-                variant="ghost"
-              >
-                <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
-              </Button>
-            )}
-            <View className="min-w-0 flex-1 gap-0.5">
-              <Text className="text-base" numberOfLines={1} weight="semibold">
-                {item.name}
-              </Text>
-              <Text color="muted" numberOfLines={1} variant="description">
-                Categoria {item.index + 1}
-              </Text>
-            </View>
+      <Card className={isActive ? "w-full p-3 opacity-70" : "w-full p-3"}>
+        <View className="flex-row items-center gap-3">
+          {dragHandle(
             <Button
               isDisabled={isActive || isDisabled}
               isIconOnly
-              onPress={() => openEditDialog(item)}
               size="sm"
               variant="ghost"
             >
-              <HugeIcons className="size-4.5" icon={Edit02Icon} />
+              <HugeIcons className="text-muted" icon={DragDropVerticalIcon} />
             </Button>
+          )}
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text className="text-base" numberOfLines={1} weight="semibold">
+              {item.name}
+            </Text>
+            <Text color="muted" numberOfLines={1} variant="description">
+              Categoria {item.index + 1}
+            </Text>
           </View>
-        </Card>
-      </View>
+          <Button
+            isDisabled={isActive || isDisabled}
+            isIconOnly
+            onPress={() => openEditDialog(item)}
+            size="sm"
+            variant="ghost"
+          >
+            <HugeIcons className="size-4.5" icon={Edit02Icon} />
+          </Button>
+        </View>
+      </Card>
     );
   }
 
@@ -258,7 +262,8 @@ export default function LeagueCategoriesRoute() {
           <BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Categorias</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -280,7 +285,7 @@ export default function LeagueCategoriesRoute() {
         </Page.Header.Right>
       </Page.Header>
 
-      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
+      <Page.ScrollView contentContainerClassName="grow gap-5 px-4 pb-floating-tab-bar-offset-4">
         {categories.length === 0 && (
           <EmptyState
             buttonIsDisabled={isDisabled}
@@ -292,10 +297,9 @@ export default function LeagueCategoriesRoute() {
         )}
         {error && <ErrorMessage message="Informe pelo menos uma categoria" />}
 
-        <Animated.View className="gap-5">
+        <Animated.View className="gap-2">
           <SortableCardList
             data={categoryItems}
-            itemHeight={CATEGORY_ITEM_HEIGHT}
             onOrderChange={handleOrderChange}
             renderItem={renderCategoryItem}
           />

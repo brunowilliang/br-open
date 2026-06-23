@@ -5,6 +5,7 @@ import {
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  DEFAULT_LEAGUE_RULE_CONFIG,
   DEFAULT_LEAGUE_STORAGE,
 } from "@convex/domains/league/contract";
 
@@ -24,10 +25,7 @@ export function buildCreateLeagueDefaultValues(): LeagueScreenValues {
     coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,
     avatarStorageId: DEFAULT_LEAGUE_STORAGE.avatarStorageId,
     ruleConfig: {
-      maxChallengeDistance: 4,
-      maxActiveChallengesPerPlayer: 1,
-      maxChallengesPerMonth: 4,
-      responseDeadlineHours: 48,
+      ...DEFAULT_LEAGUE_RULE_CONFIG,
       winBehavior: "take_opponent_position",
       lossBehavior: "stay_put",
       walkoverBehavior: "automatic_loss",

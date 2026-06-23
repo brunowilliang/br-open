@@ -10,8 +10,10 @@ Domain code is organized under `convex/domains/*` and composed in
 - Start app: `bun run dev`
 - Start Convex/codegen loop: `bun convex:dev`
 - Regenerate kitcn artifacts: `bun run codegen`
-- Typecheck: `bun run typecheck` ou `bun run check`
+- Typecheck: `bun run typecheck`
+- Lint/format check: `bun run check` (also runs typecheck)
 - Repo checks: `bun run check`
+- Tests: `bun test`
 - Diff hygiene: `git diff --check`
 
 ## Convex and kitcn
@@ -73,6 +75,7 @@ Before saying work is ready, run the relevant checks for the touched scope:
 
 - minimum: `git diff --check`
 - usually: `bun run typecheck`
+- when logic/contracts changed: `bun test`
 - when Convex schema/contracts changed: `bun run codegen` and then
   `bun run typecheck`
 
@@ -90,9 +93,9 @@ quality standards through automated formatting and linting.
 
 ## Quick Reference
 
-- **Format code**: `npm exec -- ultracite fix`
-- **Check for issues**: `npm exec -- ultracite check`
-- **Diagnose setup**: `npm exec -- ultracite doctor`
+- **Format code**: `bun x ultracite fix`
+- **Check for issues**: `bun x ultracite check`
+- **Diagnose setup**: `bun x ultracite doctor`
 
 Biome (the underlying engine) provides robust linting and formatting. Most
 issues are automatically fixable.
@@ -221,4 +224,4 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 ---
 
 Most formatting and common issues are automatically fixed by Biome. Run
-`npm exec -- ultracite fix` before committing to ensure compliance.
+`bun x ultracite fix` before committing to ensure compliance.

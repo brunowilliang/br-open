@@ -123,7 +123,7 @@ function formatRankingEntry(value: RuleConfig["newPlayerPlacement"]) {
 
 function formatScoringMode(value: RuleConfig["matchConfig"]["scoringMode"]) {
   switch (value) {
-    case "no_ad":
+    case "no_advantage":
       return "sem vantagem";
     default:
       return "com vantagem";
@@ -155,7 +155,19 @@ function buildPreviewFeatures(ruleConfig: RuleConfig): PreviewFeature[] {
       title: "Comece no ranking",
     },
     {
-      description: `Você pode desafiar até ${formatCount(ruleConfig.maxChallengeDistance, "posição", "posições")} acima e o adversário tem ${formatResponseDeadlineHours(ruleConfig.responseDeadlineHours)} para responder.`,
+      description: `Você pode desafiar ${
+        ruleConfig.maxChallengeDistance.enabled
+          ? formatCount(
+              ruleConfig.maxChallengeDistance.value,
+              "posição",
+              "posições"
+            )
+          : "qualquer posição"
+      } acima e o adversário tem ${
+        ruleConfig.responseDeadlineHours.enabled
+          ? formatResponseDeadlineHours(ruleConfig.responseDeadlineHours.value)
+          : "sem prazo"
+      } para responder.`,
       icon: Target02Icon,
       title: "Faça/Receba Desafios",
     },

@@ -78,8 +78,16 @@ function buildEmptyAvailability() {
   } satisfies LeagueCourt["availability"];
 }
 
-function buildCourtId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let courtIdCounter = 0;
+function buildCourtId(): string {
+  // Monotonic counter + timestamp + random suffix. Avoids the collision risk
+  // of Date.now()+Math.random() under fast double-tap (same millisecond +
+  // short random suffix) without needing the `crypto` global, which is not
+  // available in the Hermes runtime by default.
+  courtIdCounter += 1;
+  return `court-${Date.now()}-${courtIdCounter}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function formatMinutes(totalMinutes: number) {
@@ -137,9 +145,15 @@ function getCourtAvailabilityDescription(court: LeagueCourt) {
   return `${rangeCount} horários disponíveis.`;
 }
 
+const LEAGUE_FORM_SUBTITLES = {
+  create: "Criar Liga",
+  edit: "Editar Liga",
+} as const;
+
 export default function LeagueCourtsRoute() {
-  const { isSubmitPending, onSubmitPress, title } = useLeagueFormRoute();
+  const { isSubmitPending, mode, onSubmitPress } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
+  const subtitle = LEAGUE_FORM_SUBTITLES[mode];
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -420,7 +434,8 @@ export default function LeagueCourtsRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Quadras</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>

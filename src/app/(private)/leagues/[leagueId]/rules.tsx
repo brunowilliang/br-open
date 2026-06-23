@@ -10,11 +10,11 @@ import { Card } from "heroui-native";
 import { useEffect, type ReactNode } from "react";
 import { View } from "react-native";
 
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 
 type RulesIconType = typeof Target02Icon;
@@ -158,7 +158,7 @@ function LeagueRulesRouteContent(props: { leagueId: string }) {
     ];
 
     content = (
-      <View className="gap-4">
+      <View className="gap-0">
         {sections.map((section) => (
           <RulesSection key={section.title} {...section} />
         ))}

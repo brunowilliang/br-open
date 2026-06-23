@@ -137,6 +137,14 @@ function createLeagueFormBucket(sessionKey: string) {
         }
         leagueFormCallbacks.delete(sessionKey);
       },
+      // Drop this session from the module-scoped buckets/callbacks maps.
+      // reset() keeps the bucket around so a remount finds it; dispose()
+      // fully frees memory (callbacks capture form/toast props and would
+      // otherwise leak if the screen unmounts without an explicit reset).
+      dispose: () => {
+        leagueFormBuckets.delete(sessionKey);
+        leagueFormCallbacks.delete(sessionKey);
+      },
       setCropRequest: (
         request: null | {
           asset: ImageCropAsset;

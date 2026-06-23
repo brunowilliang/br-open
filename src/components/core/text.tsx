@@ -5,10 +5,11 @@ import { Text as RNText } from "react-native";
 export const Text = styled(RNText, {
   base: {
     className: "text-foreground font-normal",
-    allowFontScaling: false,
-    adjustsFontSizeToFit: false,
+    // allowFontScaling defaults to true on RN; we keep Dynamic Type enabled
+    // (accessibility) and cap growth so layouts don't break at the largest
+    // accessibility sizes. The previous `allowFontScaling: false` silently
+    // ignored the user's font-size preference, which is an a11y regression.
     maxFontSizeMultiplier: 1.5,
-    minimumFontScale: 0.5,
   },
   variants: {
     variant: {

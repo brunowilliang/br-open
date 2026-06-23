@@ -322,8 +322,8 @@ function formatNewPlayerPlacement(value: RuleConfig["newPlayerPlacement"]) {
 
 function formatScoringMode(value: RuleConfig["matchConfig"]["scoringMode"]) {
   switch (value) {
-    case "no_ad":
-      return "No-ad";
+    case "no_advantage":
+      return "Sem vantagem";
     default:
       return "Com vantagem";
   }
@@ -373,12 +373,18 @@ export function buildLeagueRulesView(
 ): LeagueDetailsRulesView {
   return {
     challenge: {
-      activeLimit: `${ruleConfig.maxActiveChallengesPerPlayer} ativos`,
-      maxDistance: `${ruleConfig.maxChallengeDistance} posições acima`,
-      monthlyLimit: `${ruleConfig.maxChallengesPerMonth} por mês`,
-      responseDeadline: formatResponseDeadlineHours(
-        ruleConfig.responseDeadlineHours
-      ),
+      activeLimit: ruleConfig.maxActiveChallengesPerPlayer.enabled
+        ? `${ruleConfig.maxActiveChallengesPerPlayer.value} ativos`
+        : "Sem limite de ativos",
+      maxDistance: ruleConfig.maxChallengeDistance.enabled
+        ? `${ruleConfig.maxChallengeDistance.value} posições acima`
+        : "Sem limite de distância",
+      monthlyLimit: ruleConfig.maxChallengesPerMonth.enabled
+        ? `${ruleConfig.maxChallengesPerMonth.value} por mês`
+        : "Sem limite mensal",
+      responseDeadline: ruleConfig.responseDeadlineHours.enabled
+        ? formatResponseDeadlineHours(ruleConfig.responseDeadlineHours.value)
+        : "Sem prazo de resposta",
     },
     inactivity: formatInactivity(ruleConfig),
     match: {

@@ -6,12 +6,12 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
   applyChallengeResultToRanking,
-  buildResponseDeadline,
   canPlayersCancelChallenge,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
   resolveChallengeCreationRuleError,
   resolveChallengeRankingRestore,
+  resolveResponseDeadline,
   validateChallengeScore,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
@@ -31,7 +31,6 @@ import {
   LeagueByIdSchema,
   leagueChallengeSchema,
   leagueChallengeScoreSchema,
-  LeagueCourtDayKeys,
   LeagueMatchConfigSchema,
   leagueMembershipPlayerSchema,
   leagueSchema,
@@ -45,10 +44,15 @@ import {
   type LeagueChallengeProposal,
   type LeagueChallengeResultSubmission,
   type LeagueChallengeScore,
-  type LeagueCourtDay,
   LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   normalizeLeagueVisibility,
+  resolveRuleValue,
 } from "../../domains/league/contract";
+import {
+  buildScheduledDate,
+  getDayKeyFromMatchDate,
+  rangesOverlap,
+} from "../../domains/league/challenge-scheduling-rules";
 import {
   leagueChallenge,
   leagueChallengeAdminAction,
@@ -58,6 +62,7 @@ import {
   type leagueMembership,
 } from "../../domains/league/tables";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
+import { isActiveActorManager } from "../../domains/auth/actor-context";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
 import {
@@ -125,48 +130,6 @@ function serializeLeagueRecord(record: LeagueRecord) {
     createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
   });
-}
-
-function getDayKeyFromMatchDate(matchDate: string): LeagueCourtDay {
-  const parsedDate = new Date(`${matchDate}T00:00:00.000Z`);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Data da partida inválida.",
-    });
-  }
-
-  return LeagueCourtDayKeys[
-    parsedDate.getUTCDay() === 0 ? 6 : parsedDate.getUTCDay() - 1
-  ];
-}
-
-function buildScheduledDate(matchDate: string, minute: number) {
-  const baseDate = new Date(`${matchDate}T00:00:00.000Z`);
-
-  if (Number.isNaN(baseDate.getTime())) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "Data da partida inválida.",
-    });
-  }
-
-  baseDate.setUTCMinutes(minute, 0, 0);
-
-  return baseDate;
-}
-
-function rangesOverlap(input: {
-  leftEndMinute: number;
-  leftStartMinute: number;
-  rightEndMinute: number;
-  rightStartMinute: number;
-}) {
-  return (
-    input.leftStartMinute < input.rightEndMinute &&
-    input.rightStartMinute < input.leftEndMinute
-  );
 }
 
 async function resolvePlayerProfileAvatarUrl(
@@ -252,10 +215,12 @@ async function getLeagueRecordOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
 
 async function canManageLeague(ctx: OrmCtx, currentLeague: League) {
   const viewerContext = await getViewerContext(ctx, ctx.userId);
+  const { activeActor } = viewerContext;
 
   return (
-    viewerContext.activeActor.kind === "organization" &&
-    viewerContext.activeActor.id === currentLeague.organizationId
+    activeActor.kind === "organization" &&
+    activeActor.id === currentLeague.organizationId &&
+    isActiveActorManager(activeActor)
   );
 }
 
@@ -410,15 +375,14 @@ async function getCurrentProposalOrThrow(
   challenge: LeagueChallengeRecord
 ) {
   if (challenge.currentProposalId) {
+    const proposalId =
+      challenge.currentProposalId as Id<"leagueChallengeProposal">;
     const currentProposal =
       await ctx.orm.query.leagueChallengeProposal.findFirst({
-        where: {
-          id: challenge.currentProposalId as Id<"leagueChallengeProposal">,
-          challengeId: challenge.id as Id<"leagueChallenge">,
-        },
+        where: { id: proposalId },
       });
 
-    if (currentProposal) {
+    if (currentProposal && currentProposal.challengeId === challenge.id) {
       return currentProposal;
     }
   }
@@ -678,10 +642,18 @@ async function assertChallengeCreationRules(input: {
     challengerCreatedThisMonthCount: challengesCreatedThisMonth,
     challengerMembershipId: String(input.challengerMembership.id),
     challengerPosition: input.challengerMembership.rankingPosition,
-    maxActiveChallengesPerPlayer:
+    maxActiveChallengesPerPlayer: resolveRuleValue(
       input.league.ruleConfig.maxActiveChallengesPerPlayer,
-    maxChallengeDistance: input.league.ruleConfig.maxChallengeDistance,
-    maxChallengesPerMonth: input.league.ruleConfig.maxChallengesPerMonth,
+      Number.POSITIVE_INFINITY
+    ),
+    maxChallengeDistance: resolveRuleValue(
+      input.league.ruleConfig.maxChallengeDistance,
+      Number.POSITIVE_INFINITY
+    ),
+    maxChallengesPerMonth: resolveRuleValue(
+      input.league.ruleConfig.maxChallengesPerMonth,
+      Number.POSITIVE_INFINITY
+    ),
   });
 
   if (ruleError) {
@@ -1045,15 +1017,16 @@ export const listOccupiedSlots = authQuery
           return null;
         }
 
+        if (!challenge.currentProposalId) {
+          return null;
+        }
+        const proposalId =
+          challenge.currentProposalId as Id<"leagueChallengeProposal">;
         const currentProposal =
           await ctx.orm.query.leagueChallengeProposal.findFirst({
-            where: {
-              id: challenge.currentProposalId as Id<"leagueChallengeProposal">,
-              challengeId: challenge.id as Id<"leagueChallenge">,
-            },
+            where: { id: proposalId },
           });
-
-        if (!currentProposal) {
+        if (!currentProposal || currentProposal.challengeId !== challenge.id) {
           return null;
         }
 
@@ -1164,9 +1137,9 @@ export const create = authMutation
         matchDate: input.matchDate,
         startMinute: input.startMinute,
         endMinute: input.endMinute,
-        responseDeadlineAt: buildResponseDeadline({
+        responseDeadlineAt: resolveResponseDeadline({
           now,
-          responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+          rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: 1,
         status: "active",
@@ -1455,9 +1428,9 @@ export const counterPropose = authMutation
         matchDate: input.matchDate,
         startMinute: input.startMinute,
         endMinute: input.endMinute,
-        responseDeadlineAt: buildResponseDeadline({
+        responseDeadlineAt: resolveResponseDeadline({
           now,
-          responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+          rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: currentProposal.revisionNumber + 1,
         status: "active",
@@ -2615,9 +2588,9 @@ export const adminManage = authMutation
         challengerMembershipId: String(currentChallenge.challengerMembershipId),
         proposedByMembershipId: String(currentProposal.proposedByMembershipId),
       });
-      const responseDeadlineAt = buildResponseDeadline({
+      const responseDeadlineAt = resolveResponseDeadline({
         now,
-        responseDeadlineHours: currentLeague.ruleConfig.responseDeadlineHours,
+        rule: currentLeague.ruleConfig.responseDeadlineHours,
       });
 
       await Promise.all([

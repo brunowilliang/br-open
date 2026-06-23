@@ -121,7 +121,13 @@ function FloatingTabBarContent(props: FloatingTabBarContentProps) {
         <Tabs.Indicator className="rounded-full bg-accent" />
         {props.items.map((item) => (
           <Tabs.Trigger
-            accessibilityLabel={item.label}
+            accessibilityLabel={
+              item.badgeCount && item.badgeCount > 0
+                ? `${item.label}, ${item.badgeCount} novos`
+                : item.label
+            }
+            accessibilityRole="tab"
+            accessibilityState={{ selected: props.value === item.value }}
             className={cn("h-11 w-14 rounded-full", props.triggerClassName)}
             hitSlop={6}
             key={item.value}

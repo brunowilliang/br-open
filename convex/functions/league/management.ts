@@ -21,7 +21,10 @@ import {
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
-import { requireActiveOrganization } from "../viewer/context";
+import {
+  requireActiveManager,
+  requireActiveOrganization,
+} from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
@@ -139,7 +142,7 @@ export const getById = authQuery
 export const generateUploadUrl = authMutation
   .output(z.string())
   .mutation(async ({ ctx }) => {
-    await requireActiveOrganization(ctx);
+    await requireActiveManager(ctx);
 
     return ctx.storage.generateUploadUrl();
   });
@@ -148,7 +151,7 @@ export const create = authMutation
   .input(CreateLeagueSchema)
   .output(leagueSchema)
   .mutation(async ({ ctx, input }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const now = new Date();
 
@@ -172,7 +175,7 @@ export const update = authMutation
   .input(UpdateLeagueSchema)
   .output(leagueSchema)
   .mutation(async ({ ctx, input }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const now = new Date();
     const leagueId = input.leagueId as Id<"league">;
@@ -222,7 +225,7 @@ export const remove = authMutation
   .input(DeleteLeagueSchema)
   .output(z.object({ success: z.literal(true) }))
   .mutation(async ({ ctx, input }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const leagueId = input.leagueId as Id<"league">;
 

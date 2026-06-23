@@ -1084,7 +1084,7 @@ async function seedTargetLeagueChallenges(input: {
       league: input.league,
       matchConfig: ruleConfig.matchConfig,
       plan,
-      responseDeadlineHours: ruleConfig.responseDeadlineHours,
+      responseDeadlineHours: ruleConfig.responseDeadlineHours.value,
     });
 
     if (result.created) {
@@ -1271,7 +1271,7 @@ async function ensureTargetLeagueChallengeCount(input: {
       league,
       matchConfig: ruleConfig.matchConfig,
       plan,
-      responseDeadlineHours: ruleConfig.responseDeadlineHours,
+      responseDeadlineHours: ruleConfig.responseDeadlineHours.value,
     });
 
     if (result.created) {

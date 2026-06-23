@@ -38,8 +38,8 @@ import {
   getPushPermissionStatusAsync,
   type NotificationPermissionStatus,
   registerForPushNotificationsAsync,
-  shouldOpenNotificationSettingsAlert,
 } from "@/lib/notifications/expo-notifications";
+import { shouldOpenNotificationSettingsAlert } from "@/lib/notifications/notification-permission-rules";
 import { getNotificationFeedActionState } from "@/lib/notifications/feed-action-state";
 import {
   buildNotificationResponseDataFromFeedItem,
@@ -137,12 +137,6 @@ function NotificationFeedItem(props: {
       onPress={() => props.onOpen(props.notification)}
     >
       <ListGroup.Item disabled>
-        {/* <ListGroup.ItemPrefix>
-          <HugeIcons
-            className={props.notification.isRead ? "text-muted" : "text-accent"}
-            icon={BellDotIcon}
-          />
-        </ListGroup.ItemPrefix> */}
         <ListGroup.ItemContent>
           <View className="flex-row items-center gap-1">
             {props.notification.isRead ? null : (

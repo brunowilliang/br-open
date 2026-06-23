@@ -16,6 +16,11 @@ import {
 const EXPO_PUSH_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const MAX_DELIVERIES_PER_BATCH = 100;
 const MAX_RETRY_ATTEMPTS = 5;
+const SEND_PENDING_LOCK_KEY = "sendPending";
+// Long enough that a crashed runner releases the pipeline without manual
+// intervention, short enough that a normal batch (claim -> fetch -> mark) of
+// 100 deliveries always completes well within the window.
+const SEND_PENDING_LOCK_TTL_MS = 60_000;
 
 type ClaimedDelivery = {
   deliveryId: Id<"notificationDelivery">;
@@ -111,6 +116,13 @@ async function resolveRecipientActor(input: {
   };
 }
 
+/**
+ * Acquires the `sendPending` lock and schedules a runner, but only when there
+ * is pending work AND no other runner currently holds an unexpired lock. The
+ * lock prevents `createForRecipients` (one kickoff per recipient batch) and
+ * the self-chaining `markDeliveryResults -> scheduleNextBatch` from each
+ * enqueueing redundant `sendPending` runs.
+ */
 async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
   const pendingDelivery = await ctx.db
     .query("notificationDelivery")
@@ -121,12 +133,52 @@ async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
     .withIndex("state", (q) => q.eq("state", "needs_retry"))
     .first();
 
-  if (pendingDelivery || retryDelivery) {
-    await ctx.scheduler.runAfter(
-      delayMs,
-      internal.notification.orchestrator.sendPending,
-      {}
-    );
+  if (!(pendingDelivery || retryDelivery)) {
+    return;
+  }
+
+  const now = Date.now();
+  const existingLock = await ctx.db
+    .query("notificationDeliveryLock")
+    .withIndex("key", (q) => q.eq("key", SEND_PENDING_LOCK_KEY))
+    .first();
+
+  if (existingLock && existingLock.expiresAt > now) {
+    // Another runner owns the pipeline; it will self-chain via
+    // markDeliveryResults when it finishes.
+    return;
+  }
+
+  const expiresAt = now + SEND_PENDING_LOCK_TTL_MS;
+  if (existingLock) {
+    await ctx.db.patch(existingLock._id, { claimedAt: now, expiresAt });
+  } else {
+    await ctx.db.insert("notificationDeliveryLock", {
+      key: SEND_PENDING_LOCK_KEY,
+      claimedAt: now,
+      expiresAt,
+    });
+  }
+
+  await ctx.scheduler.runAfter(
+    delayMs,
+    internal.notification.orchestrator.sendPending,
+    {}
+  );
+}
+
+/**
+ * Releases the `sendPending` lock so the next `scheduleNextBatch` can acquire
+ * it immediately instead of waiting for the TTL. Called by the runner when it
+ * has drained its batch (success or empty).
+ */
+async function releaseSendPendingLock(ctx: MutationCtx) {
+  const existingLock = await ctx.db
+    .query("notificationDeliveryLock")
+    .withIndex("key", (q) => q.eq("key", SEND_PENDING_LOCK_KEY))
+    .first();
+  if (existingLock) {
+    await ctx.db.delete(existingLock._id);
   }
 }
 
@@ -342,7 +394,17 @@ export const markDeliveryResults = privateMutation
       });
     }
 
+    // Release this runner's lock before re-scheduling, so a legitimate
+    // follow-up batch can acquire it immediately.
+    await releaseSendPendingLock(ctx);
     await scheduleNextBatch(ctx, 1000);
+    return null;
+  });
+
+export const releaseLock = privateMutation
+  .input(z.object({}))
+  .mutation(async ({ ctx }) => {
+    await releaseSendPendingLock(ctx);
     return null;
   });
 
@@ -355,6 +417,8 @@ export const sendPending = privateAction
     );
 
     if (deliveries.length === 0) {
+      // Nothing to send: release the lock so the next schedule isn't blocked.
+      await ctx.runMutation(internal.notification.orchestrator.releaseLock, {});
       return null;
     }
 

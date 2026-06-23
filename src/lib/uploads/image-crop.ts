@@ -91,7 +91,7 @@ function getImageCropRuntime() {
   };
 }
 
-function clamp(value: number, minimum: number, maximum: number) {
+export function clamp(value: number, minimum: number, maximum: number) {
   if (maximum < minimum) {
     return minimum;
   }
@@ -99,7 +99,7 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function getMaskWidthBounds(input: {
+export function getMaskWidthBounds(input: {
   aspectRatio: number;
   screenWidth: number;
   stageHeight: number;
@@ -121,7 +121,7 @@ function getMaskWidthBounds(input: {
   };
 }
 
-function getMaskFrame(input: {
+export function getMaskFrame(input: {
   aspectRatio: number;
   maskWidth: number;
   stageHeight: number;
@@ -141,7 +141,7 @@ function getMaskFrame(input: {
   };
 }
 
-function getImageDisplay(input: {
+export function getImageDisplay(input: {
   asset: ImageCropAsset;
   maskFrame: ImageCropFrame;
   zoom: number;
@@ -172,7 +172,7 @@ function getImageFrame(input: {
   };
 }
 
-function clampImageOffset(input: {
+export function clampImageOffset(input: {
   display: { height: number; width: number };
   maskFrame: ImageCropFrame;
   offset: Offset;
@@ -204,7 +204,7 @@ function isSameOffset(firstOffset: Offset, secondOffset: Offset) {
   return firstOffset.x === secondOffset.x && firstOffset.y === secondOffset.y;
 }
 
-function getTouchDistance(touches: TouchPoint[]) {
+export function getTouchDistance(touches: TouchPoint[]) {
   const [firstTouch, secondTouch] = touches;
 
   if (!(firstTouch && secondTouch)) {

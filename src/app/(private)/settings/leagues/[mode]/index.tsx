@@ -29,12 +29,13 @@ export default function LeagueDetailsRoute() {
     coverUrl,
     isMediaBusy,
     isSubmitPending,
+    mode,
     onMediaPress,
     onSubmitPress,
-    title,
   } = useLeagueFormRoute();
   const isDisabled = isSubmitPending;
   const isMediaUploading = isMediaBusy;
+  const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -61,7 +62,8 @@ export default function LeagueDetailsRoute() {
           <Page.Header.BackButton />
         </Page.Header.Left>
         <Page.Header.Center>
-          <Page.Header.Title>{title}</Page.Header.Title>
+          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
+          <Page.Header.Title>Detalhes</Page.Header.Title>
         </Page.Header.Center>
         <Page.Header.Right>
           <Menu>
@@ -130,7 +132,7 @@ export default function LeagueDetailsRoute() {
             editable={!isDisabled}
             onBlur={nameField.onBlur}
             onChangeText={nameField.onChange}
-            placeholder="Placeholder"
+            placeholder="Ex.: Liga de Tênis do Clube"
             value={nameField.value}
           />
           <FieldError>{nameState.error?.message ?? ""}</FieldError>
@@ -141,7 +143,7 @@ export default function LeagueDetailsRoute() {
             editable={!isDisabled}
             onBlur={descriptionField.onBlur}
             onChangeText={descriptionField.onChange}
-            placeholder="Enter your message"
+            placeholder="Conte um pouco sobre a liga, regras e público."
             value={descriptionField.value ?? ""}
           />
           <FieldError>{descriptionState.error?.message ?? ""}</FieldError>
