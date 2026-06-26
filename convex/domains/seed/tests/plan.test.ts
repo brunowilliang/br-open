@@ -76,7 +76,7 @@ describe("seed plan", () => {
 
     // Os cenários de agenda adicionam muitos desafios confirmados.
     expect(statuses.filter((status) => status === "confirmed").length).toBe(
-      15
+      26
     );
 
     // O desafiante sempre desafia alguém com posição melhor (menor índice).
