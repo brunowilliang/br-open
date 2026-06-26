@@ -58,8 +58,10 @@ describe("seed plan", () => {
     const challengePlans = buildTargetLeagueChallengePlans({
       activeMemberships,
     });
+    const statuses = challengePlans.map((plan) => plan.status);
 
-    expect(challengePlans.map((plan) => plan.status)).toEqual([
+    // Os cenários originais (de fluxo de desafio) continuam presentes.
+    const expectedStatuses = [
       "pending_opponent_response",
       "confirmed",
       "pending_result_submission",
@@ -67,7 +69,17 @@ describe("seed plan", () => {
       "pending_admin_result_validation",
       "pending_admin_decision",
       "finished",
-    ]);
+    ] as const;
+    for (const expectedStatus of expectedStatuses) {
+      expect(statuses).toContain(expectedStatus);
+    }
+
+    // Os cenários de agenda adicionam muitos desafios confirmados.
+    expect(statuses.filter((status) => status === "confirmed").length).toBe(
+      15
+    );
+
+    // O desafiante sempre desafia alguém com posição melhor (menor índice).
     expect(
       challengePlans.every(
         (plan) =>
@@ -80,7 +92,7 @@ describe("seed plan", () => {
           .filter((plan) => plan.status !== "finished")
           .flatMap((plan) => [plan.challenger.id, plan.challenged.id])
       ).size
-    ).toBe(12);
+    ).toBe(14);
   });
 
   it("skips target league challenges until enough ranking memberships exist", () => {
