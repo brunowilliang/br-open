@@ -35,6 +35,7 @@ import {
   leagueChallengeScoreSchema,
   LeagueMatchConfigSchema,
   leagueMembershipPlayerSchema,
+  leagueScheduleItemSchema,
   leagueSchema,
   RequestLeagueChallengeCancellationSchema,
   RespondLeagueChallengeCancellationSchema,
@@ -966,6 +967,14 @@ async function scheduleChallengeNotification(input: {
   });
 }
 
+function buildTodayUtcKey(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export const listForLeague = authQuery
   .input(LeagueByIdSchema)
   .output(z.array(leagueChallengeSchema))
@@ -996,6 +1005,96 @@ export const listForLeague = authQuery
         serializeChallenge(ctx, currentLeague, challenge)
       )
     );
+  });
+
+export const listScheduled = authQuery
+  .input(LeagueByIdSchema)
+  .output(z.array(leagueScheduleItemSchema))
+  .query(async ({ ctx, input }) => {
+    const leagueId = input.leagueId as Id<"league">;
+    const currentLeague = await getLeagueRecordOrThrow(ctx, leagueId);
+    const scheduleVisibility =
+      currentLeague.ruleConfig.scheduleVisibility ?? "public";
+
+    // Acesso público (qualquer usuário autenticado) quando a agenda é pública.
+    // Caso contrário, exige owner ou participante ativo.
+    if (scheduleVisibility !== "public") {
+      await getViewerContextOrThrow(ctx, leagueId);
+    }
+
+    const challengeRecords = await ctx.orm.query.leagueChallenge.findMany({
+      limit: 500,
+      where: { leagueId },
+    });
+
+    const todayUtc = buildTodayUtcKey();
+    const scheduledItems = await Promise.all(
+      challengeRecords.map(async (challenge) => {
+        if (challenge.status !== "confirmed") {
+          return null;
+        }
+
+        const currentProposal = await getCurrentProposalOrThrow(
+          ctx,
+          challenge
+        );
+
+        if (currentProposal.matchDate < todayUtc) {
+          return null;
+        }
+
+        const [challengerMembership, challengedMembership] = await Promise.all([
+          getMembershipRecordByIdOrThrow(
+            ctx,
+            challenge.challengerMembershipId as Id<"leagueMembership">
+          ),
+          getMembershipRecordByIdOrThrow(
+            ctx,
+            challenge.challengedMembershipId as Id<"leagueMembership">
+          ),
+        ]);
+
+        const [challenger, challenged] = await Promise.all([
+          getPlayerSummary(
+            ctx,
+            challengerMembership.playerProfileId as Id<"playerProfile">
+          ),
+          getPlayerSummary(
+            ctx,
+            challengedMembership.playerProfileId as Id<"playerProfile">
+          ),
+        ]);
+
+        const courtName = getCourtNameOrThrow(
+          currentLeague,
+          currentProposal.courtId
+        );
+
+        return leagueScheduleItemSchema.parse({
+          challenged: {
+            avatarUrl: challenged.avatarUrl ?? null,
+            fullName: challenged.fullName,
+          },
+          challenger: {
+            avatarUrl: challenger.avatarUrl ?? null,
+            fullName: challenger.fullName,
+          },
+          courtName,
+          id: challenge.id,
+          matchDate: currentProposal.matchDate,
+          startMinute: currentProposal.startMinute,
+        });
+      })
+    );
+
+    return scheduledItems
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((a, b) => {
+        if (a.matchDate !== b.matchDate) {
+          return a.matchDate < b.matchDate ? -1 : 1;
+        }
+        return a.startMinute - b.startMinute;
+      });
   });
 
 export const listOccupiedSlots = authQuery
