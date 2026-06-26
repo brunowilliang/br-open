@@ -7,6 +7,8 @@ import {
   SEED_EMAIL_DOMAIN,
   SEED_EMAIL_PREFIX,
   SEED_LEAGUE_NAME_PREFIX,
+  participantScenarioResultSchema,
+  ParticipantScenarioSchema,
   seedPreviewResultSchema,
   SeedPreviewSchema,
 } from "../domains/seed/contract";
@@ -1511,6 +1513,514 @@ export const preview = privateMutation
       resetApplied: Boolean(input.reset),
       skipped,
       targetLeagueLinked,
+      usersCreated,
+    };
+  });
+
+async function findViewerMembership(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  playerProfileId: Id<"playerProfile">;
+}) {
+  const membership = await input.ctx.orm.query.leagueMembership.findFirst({
+    where: {
+      leagueId: input.leagueId,
+      playerProfileId: input.playerProfileId,
+    },
+  });
+
+  if (!membership) {
+    throw new Error("Viewer não possui membership nessa liga.");
+  }
+
+  return membership;
+}
+
+async function resolveViewerAsParticipant(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  playerProfileId: Id<"playerProfile">;
+}) {
+  let membership = await findViewerMembership(input);
+
+  // Garante status active + posição de ranking para que o participant overview
+  // tenha dados (posição, desafios) para exibir.
+  if (membership.status !== "active") {
+    const activeCount = await input.ctx.orm.query.leagueMembership.findMany({
+      limit: 500,
+      where: { leagueId: input.leagueId, status: "active" },
+    });
+
+    const nextPosition =
+      activeCount.reduce(
+        (max, item) => Math.max(max, item.rankingPosition ?? 0),
+        0
+      ) + 1;
+
+    await input.ctx.db.patch(membership.id as Id<"leagueMembership">, {
+      rankingPosition: nextPosition,
+      reviewedAt: Date.now(),
+      status: "active",
+      updatedAt: Date.now(),
+    });
+
+    membership = await findViewerMembership(input);
+  }
+
+  if (membership.rankingPosition === null) {
+    const activeCount = await input.ctx.orm.query.leagueMembership.findMany({
+      limit: 500,
+      where: { leagueId: input.leagueId, status: "active" },
+    });
+
+    const nextPosition =
+      activeCount.reduce(
+        (max, item) => Math.max(max, item.rankingPosition ?? 0),
+        0
+      ) + 1;
+
+    await input.ctx.db.patch(membership.id as Id<"leagueMembership">, {
+      rankingPosition: nextPosition,
+      updatedAt: Date.now(),
+    });
+
+    membership = await findViewerMembership(input);
+  }
+
+  return membership as LeagueMembershipRecord & {
+    rankingPosition: number;
+    status: "active";
+  };
+}
+
+async function ensureOpponentsForViewer(input: {
+  ctx: SeedCtx;
+  leagueId: Id<"league">;
+  viewerPosition: number;
+}): Promise<{
+  opponents: LeagueMembershipRecord[];
+  playerProfilesCreated: number;
+  usersCreated: number;
+}> {
+  const existingActive = await input.ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    orderBy: { rankingPosition: "asc" },
+    where: { leagueId: input.leagueId, status: "active" },
+  });
+
+  // Precisamos de oponentes ACIMA do viewer (menor posição) e ABAIXO.
+  // Se já há jogadores suficientes, reutiliza; senão cria novos.
+  const needed = Math.max(0, 6 - existingActive.length);
+  let nextPosition =
+    existingActive.reduce(
+      (max, item) => Math.max(max, item.rankingPosition ?? 0),
+      0
+    ) + 1;
+  let usersCreated = 0;
+  let playerProfilesCreated = 0;
+
+  for (let index = 0; index < needed; index += 1) {
+    const seedPlayer = buildTargetMembershipSeedPlayer({
+      index: index + 100,
+      leagueId: input.leagueId,
+      status: "active",
+    });
+    const userResult = await ensureSeedUser(input.ctx, seedPlayer);
+
+    if (userResult.created) {
+      usersCreated += 1;
+    }
+
+    const profileResult = await ensureSeedPlayerProfile(
+      input.ctx,
+      userResult.user.id as Id<"user">,
+      seedPlayer
+    );
+
+    if (profileResult.created) {
+      playerProfilesCreated += 1;
+    }
+
+    await ensureMembership(input.ctx, {
+      leagueId: input.leagueId,
+      rankingPosition: nextPosition,
+      status: "active",
+      userId: userResult.user.id as Id<"user">,
+    });
+
+    nextPosition += 1;
+  }
+
+  const opponents = await input.ctx.orm.query.leagueMembership.findMany({
+    limit: 500,
+    orderBy: { rankingPosition: "asc" },
+    where: { leagueId: input.leagueId, status: "active" },
+  });
+
+  return {
+    opponents,
+    playerProfilesCreated,
+    usersCreated,
+  };
+}
+
+function buildViewerChallengePlans(input: {
+  opponents: LeagueMembershipRecord[];
+  viewer: LeagueMembershipRecord & {
+    rankingPosition: number;
+    status: "active";
+  };
+}): SeedChallengePlan[] {
+  const viewerId = input.viewer.id as Id<"leagueMembership">;
+  const viewerPosition = input.viewer.rankingPosition;
+  const above = input.opponents
+    .filter(
+      (m): m is LeagueMembershipRecord & { rankingPosition: number } =>
+        m.id !== viewerId &&
+        typeof m.rankingPosition === "number" &&
+        m.rankingPosition < viewerPosition
+    )
+    .toSorted((a, b) => b.rankingPosition - a.rankingPosition); // mais perto primeiro
+  const below = input.opponents
+    .filter(
+      (m): m is LeagueMembershipRecord & { rankingPosition: number } =>
+        m.id !== viewerId &&
+        typeof m.rankingPosition === "number" &&
+        m.rankingPosition > viewerPosition
+    )
+    .toSorted((a, b) => a.rankingPosition - b.rankingPosition);
+
+  const plans: SeedChallengePlan[] = [];
+
+  // 1. Vitória finalizada (no mês) — viewer desafiou alguém acima e venceu.
+  if (above[0]) {
+    plans.push({
+      challenged: {
+        id: above[0].id as Id<"leagueMembership">,
+        rankingPosition: above[0].rankingPosition,
+      },
+      challenger: { id: viewerId, rankingPosition: viewerPosition },
+      dayOffset: -3,
+      endMinute: 690,
+      key: "viewer-finished-win",
+      result: {
+        confirmedBy: "challenged",
+        submittedBy: "challenger",
+        winner: "challenger",
+      },
+      startMinute: 600,
+      status: "finished",
+    });
+  }
+
+  // 2. Derrota finalizada (no mês) — viewer foi desafiado por alguém abaixo e perdeu.
+  if (below[0]) {
+    plans.push({
+      challenged: { id: viewerId, rankingPosition: viewerPosition },
+      challenger: {
+        id: below[0].id as Id<"leagueMembership">,
+        rankingPosition: below[0].rankingPosition,
+      },
+      dayOffset: -5,
+      endMinute: 750,
+      key: "viewer-finished-loss",
+      result: {
+        confirmedBy: "challenged",
+        submittedBy: "challenger",
+        winner: "challenger",
+      },
+      startMinute: 660,
+      status: "finished",
+    });
+  }
+
+  // 3. Pendente: viewer precisa registrar placar (jogo já passou, sem placar).
+  if (above[1]) {
+    plans.push({
+      challenged: {
+        id: above[1].id as Id<"leagueMembership">,
+        rankingPosition: above[1].rankingPosition,
+      },
+      challenger: { id: viewerId, rankingPosition: viewerPosition },
+      dayOffset: -1,
+      endMinute: 810,
+      key: "viewer-pending-submission",
+      startMinute: 720,
+      status: "pending_result_submission",
+    });
+  }
+
+  // 4. Pendente: adversário lançou placar, viewer precisa confirmar.
+  if (below[1]) {
+    plans.push({
+      challenged: { id: viewerId, rankingPosition: viewerPosition },
+      challenger: {
+        id: below[1].id as Id<"leagueMembership">,
+        rankingPosition: below[1].rankingPosition,
+      },
+      dayOffset: -2,
+      endMinute: 870,
+      key: "viewer-pending-confirmation",
+      result: { submittedBy: "challenger", winner: "challenger" },
+      startMinute: 780,
+      status: "pending_result_confirmation",
+    });
+  }
+
+  // 5..N. Agenda: desafios confirmados nos próximos 7 dias para testar a tela
+  // de Agenda. Combina jogos do viewer contra oponentes e jogos entre outros
+  // oponentes (pra a agenda ficar cheia mesmo sem o viewer). Horários no
+  // mesmo dia nunca se sobrepõem (todos usam a mesma quadra).
+  const allRanked = [...above, ...below];
+
+  const scheduleSeeds: Array<{
+    challenged: LeagueMembershipRecord & { rankingPosition: number };
+    challenger: LeagueMembershipRecord & { rankingPosition: number };
+    dayOffset: number;
+    endMinute: number;
+    key: string;
+    startMinute: number;
+  }> = [];
+
+  const pushSchedule = (
+    challenged: (typeof allRanked)[number] | undefined,
+    challenger: (typeof allRanked)[number] | undefined,
+    window: {
+      dayOffset: number;
+      endMinute: number;
+      key: string;
+      startMinute: number;
+    }
+  ) => {
+    if (
+      !(
+        challenged &&
+        challenger &&
+        challenger.rankingPosition > challenged.rankingPosition
+      )
+    ) {
+      return;
+    }
+    scheduleSeeds.push({ challenged, challenger, ...window });
+  };
+
+  // Hoje (offset 0): manhã, tarde e noite.
+  pushSchedule(above[0], below[0], {
+    dayOffset: 0,
+    endMinute: 510,
+    key: "viewer-agenda-d0-m1",
+    startMinute: 420,
+  });
+  pushSchedule(above[2], below[2], {
+    dayOffset: 0,
+    endMinute: 660,
+    key: "viewer-agenda-d0-m2",
+    startMinute: 570,
+  });
+  pushSchedule(allRanked[1], allRanked[4], {
+    dayOffset: 0,
+    endMinute: 810,
+    key: "viewer-agenda-d0-a1",
+    startMinute: 720,
+  });
+  pushSchedule(allRanked[3], allRanked[6], {
+    dayOffset: 0,
+    endMinute: 960,
+    key: "viewer-agenda-d0-e1",
+    startMinute: 870,
+  });
+  // Amanhã (offset 1): manhã, tarde, noite.
+  pushSchedule(allRanked[0], allRanked[5], {
+    dayOffset: 1,
+    endMinute: 480,
+    key: "viewer-agenda-d1-m1",
+    startMinute: 390,
+  });
+  pushSchedule(allRanked[2], allRanked[7], {
+    dayOffset: 1,
+    endMinute: 780,
+    key: "viewer-agenda-d1-a1",
+    startMinute: 690,
+  });
+  pushSchedule(allRanked[4], allRanked[8], {
+    dayOffset: 1,
+    endMinute: 1080,
+    key: "viewer-agenda-d1-e1",
+    startMinute: 990,
+  });
+  // +2 dias (offset 2): tarde e noite.
+  pushSchedule(allRanked[1], allRanked[6], {
+    dayOffset: 2,
+    endMinute: 750,
+    key: "viewer-agenda-d2-a1",
+    startMinute: 660,
+  });
+  pushSchedule(allRanked[3], allRanked[9], {
+    dayOffset: 2,
+    endMinute: 1140,
+    key: "viewer-agenda-d2-e1",
+    startMinute: 1050,
+  });
+  // +3 dias (offset 3): manhã.
+  pushSchedule(allRanked[0], allRanked[7], {
+    dayOffset: 3,
+    endMinute: 540,
+    key: "viewer-agenda-d3-m1",
+    startMinute: 450,
+  });
+  // +4 dias (offset 4): tarde e noite.
+  pushSchedule(allRanked[2], allRanked[8], {
+    dayOffset: 4,
+    endMinute: 840,
+    key: "viewer-agenda-d4-a1",
+    startMinute: 750,
+  });
+  pushSchedule(allRanked[5], allRanked[9], {
+    dayOffset: 4,
+    endMinute: 1170,
+    key: "viewer-agenda-d4-e1",
+    startMinute: 1080,
+  });
+  // +5 dias (offset 5): manhã.
+  pushSchedule(allRanked[1], allRanked[7], {
+    dayOffset: 5,
+    endMinute: 570,
+    key: "viewer-agenda-d5-m1",
+    startMinute: 480,
+  });
+  // +6 dias (offset 6): tarde.
+  pushSchedule(allRanked[4], allRanked[8], {
+    dayOffset: 6,
+    endMinute: 900,
+    key: "viewer-agenda-d6-a1",
+    startMinute: 810,
+  });
+
+  for (const seed of scheduleSeeds) {
+    plans.push({
+      challenged: {
+        id: seed.challenged.id as Id<"leagueMembership">,
+        rankingPosition: seed.challenged.rankingPosition,
+      },
+      challenger: {
+        id: seed.challenger.id as Id<"leagueMembership">,
+        rankingPosition: seed.challenger.rankingPosition,
+      },
+      dayOffset: seed.dayOffset,
+      endMinute: seed.endMinute,
+      key: seed.key,
+      startMinute: seed.startMinute,
+      status: "confirmed",
+    });
+  }
+
+  return plans;
+}
+
+export const participantScenario = privateMutation
+  .input(ParticipantScenarioSchema)
+  .output(participantScenarioResultSchema)
+  .mutation(async ({ ctx, input }) => {
+    const profile = await ctx.orm.query.playerProfile.findFirst({
+      where: { id: input.playerProfileId as Id<"playerProfile"> },
+    });
+
+    if (!profile) {
+      throw new Error("Player profile não encontrado.");
+    }
+
+    // Busca a liga pelo nome dentro das organizações do player.
+    const playerUser = await ctx.orm.query.user.findFirst({
+      where: { id: profile.userId as Id<"user"> },
+    });
+
+    if (!playerUser) {
+      throw new Error("Usuário do player não encontrado.");
+    }
+
+    const playerOrgs = await ctx.orm.query.member.findMany({
+      limit: 50,
+      where: { userId: playerUser.id as Id<"user"> },
+    });
+
+    const leagueName = input.leagueName ?? "Liga do Bruno";
+
+    let targetLeague: LeagueRecord | undefined;
+
+    for (const org of playerOrgs) {
+      const orgLeagues = await ctx.orm.query.league.findMany({
+        limit: 100,
+        where: { organizationId: org.organizationId },
+      });
+
+      const found = orgLeagues.find((l) => l.name === leagueName);
+      if (found) {
+        targetLeague = found;
+        break;
+      }
+    }
+
+    if (!targetLeague) {
+      throw new Error(
+        `Liga "${leagueName}" não encontrada nas organizações do player.`
+      );
+    }
+
+    // Atualiza a liga para ter penalidade por inatividade (testa o alerta).
+    const currentRuleConfig = ChallengeRuleConfigSchema.parse(
+      targetLeague.ruleConfig
+    );
+
+    if (!currentRuleConfig.hasInactivityPenalty) {
+      await ctx.db.patch(targetLeague.id as Id<"league">, {
+        ruleConfig: {
+          ...currentRuleConfig,
+          hasInactivityPenalty: true,
+          inactivityPenaltyDays: 30,
+          inactivityPenaltyType: "drop_one_position",
+        },
+        updatedAt: Date.now(),
+      });
+    }
+
+    const viewer = await resolveViewerAsParticipant({
+      ctx,
+      leagueId: targetLeague.id as Id<"league">,
+      playerProfileId: profile.id as Id<"playerProfile">,
+    });
+
+    const { opponents, playerProfilesCreated, usersCreated } =
+      await ensureOpponentsForViewer({
+        ctx,
+        leagueId: targetLeague.id as Id<"league">,
+        viewerPosition: viewer.rankingPosition,
+      });
+
+    const courtId = await ensureSeedCourtForLeague(ctx, targetLeague);
+    const plans = buildViewerChallengePlans({ opponents, viewer });
+
+    let challengesCreated = 0;
+    const membershipsCreated = 0;
+
+    for (const plan of plans) {
+      const result = await ensureSeedChallenge({
+        courtId,
+        ctx,
+        league: targetLeague,
+        matchConfig: currentRuleConfig.matchConfig,
+        plan,
+        responseDeadlineHours: currentRuleConfig.responseDeadlineHours.value,
+      });
+
+      if (result.created) {
+        challengesCreated += 1;
+      }
+    }
+
+    return {
+      challengesCreated,
+      membershipsCreated,
+      playerProfilesCreated,
       usersCreated,
     };
   });
