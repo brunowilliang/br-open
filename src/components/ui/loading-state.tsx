@@ -1,11 +1,17 @@
+import { cn } from "better-styled";
 import { Spinner } from "heroui-native";
 import { View } from "react-native";
 
-export const LoadingState = () => (
+type LoadingStateProps = {
+  isFull?: boolean;
+  className?: string;
+};
+
+export const LoadingState = (props: LoadingStateProps) => (
   <View
     accessibilityLabel="Carregando"
     accessibilityRole="progressbar"
-    className="centered w-full bg-transparent p-4"
+    className={cn("centered w-full p-4", props.className)}
   >
     <Spinner />
   </View>

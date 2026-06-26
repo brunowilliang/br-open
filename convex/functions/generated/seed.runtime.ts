@@ -14,6 +14,7 @@ import type { ActionCtx, MutationCtx, QueryCtx } from './server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "participantScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").participantScenario>("seed:participantScenario"), () => (require("../seed") as Record<string, unknown>)["participantScenario"])],
   "preview": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").preview>("seed:preview"), () => (require("../seed") as Record<string, unknown>)["preview"])],
 } as const;
 

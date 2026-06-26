@@ -136,89 +136,16 @@ export default function LeagueRequestsRoute() {
     requestCount: visibleRequestItems.length,
   });
 
-  function renderRequestsContent() {
-    if (bootstrapStatus === "error") {
-      return <ErrorState message="Não foi possível carregar a liga." />;
-    }
-
-    if (bootstrapStatus !== "ready" || requestContentState === "loading") {
-      return <LoadingState />;
-    }
-
-    if (requestContentState === "error") {
-      return (
-        <ErrorState
-          error={membershipOverviewQuery.error}
-          message="Não foi possível carregar as solicitações."
-        />
-      );
-    }
-
-    if (requestContentState === "empty") {
-      return (
-        <EmptyState
-          description="Quando alguém solicitar entrada, ela aparecerá aqui."
-          title="Nenhuma solicitação pendente"
-        />
-      );
-    }
-
-    return (
-      <View className="gap-2">
-        {visibleRequestItems.map((item) => (
-          <Card className="p-3" key={item.id}>
-            <View className="flex-row items-center gap-3">
-              <Image
-                className="size-10 rounded-full"
-                fallback="blue"
-                source={item.avatarUrl ? { uri: item.avatarUrl } : undefined}
-              />
-              <View className="min-w-0 flex-1 gap-0.5">
-                <Text className="text-base" numberOfLines={1} weight="semibold">
-                  {item.name}
-                </Text>
-                <Text color="muted" numberOfLines={1} variant="description">
-                  {item.nickname}
-                </Text>
-              </View>
-              <View className="flex-row gap-1">
-                <Button
-                  isDisabled={isMembershipActionPending}
-                  isIconOnly
-                  onPress={() => {
-                    rejectMembership.mutate({
-                      leagueId,
-                      membershipId: item.id,
-                    });
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  <HugeIcons icon={Cancel01Icon} />
-                </Button>
-                <Button
-                  isDisabled={isMembershipActionPending}
-                  isIconOnly
-                  onPress={() => {
-                    approveMembership.mutate({
-                      leagueId,
-                      membershipId: item.id,
-                    });
-                  }}
-                  size="sm"
-                >
-                  <HugeIcons
-                    className="text-accent-foreground"
-                    icon={Tick02Icon}
-                  />
-                </Button>
-              </View>
-            </View>
-          </Card>
-        ))}
-      </View>
-    );
-  }
+  const isError = bootstrapStatus === "error";
+  const isLoading =
+    !isError &&
+    (bootstrapStatus !== "ready" || requestContentState === "loading");
+  const isRequestsError =
+    !(isError || isLoading) && requestContentState === "error";
+  const isEmpty =
+    !(isError || isLoading || isRequestsError) &&
+    requestContentState === "empty";
+  const showStatusState = isError || isLoading || isRequestsError || isEmpty;
 
   return (
     <Page>
@@ -230,8 +157,82 @@ export default function LeagueRequestsRoute() {
         <Page.Header.Right />
       </Page.Header>
 
-      <Page.ScrollView contentContainerClassName="grow gap-4 px-4 pb-floating-tab-bar-offset-4">
-        {renderRequestsContent()}
+      <Page.ScrollView contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4">
+        {isError && <ErrorState message="Não foi possível carregar a liga." />}
+        {isLoading && <LoadingState />}
+        {isRequestsError && (
+          <ErrorState
+            error={membershipOverviewQuery.error}
+            message="Não foi possível carregar as solicitações."
+          />
+        )}
+        {isEmpty && (
+          <EmptyState
+            description="Quando alguém solicitar entrada, ela aparecerá aqui."
+            title="Nenhuma solicitação pendente"
+          />
+        )}
+        {!showStatusState && (
+          <View className="gap-2">
+            {visibleRequestItems.map((item) => (
+              <Card className="p-3" key={item.id}>
+                <View className="flex-row items-center gap-3">
+                  <Image
+                    className="size-10 rounded-full"
+                    fallback="blue"
+                    source={
+                      item.avatarUrl ? { uri: item.avatarUrl } : undefined
+                    }
+                  />
+                  <View className="min-w-0 flex-1 gap-0.5">
+                    <Text
+                      className="text-base"
+                      numberOfLines={1}
+                      weight="semibold"
+                    >
+                      {item.name}
+                    </Text>
+                    <Text color="muted" numberOfLines={1} variant="description">
+                      {item.nickname}
+                    </Text>
+                  </View>
+                  <View className="flex-row gap-1">
+                    <Button
+                      isDisabled={isMembershipActionPending}
+                      isIconOnly
+                      onPress={() => {
+                        rejectMembership.mutate({
+                          leagueId,
+                          membershipId: item.id,
+                        });
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <HugeIcons icon={Cancel01Icon} />
+                    </Button>
+                    <Button
+                      isDisabled={isMembershipActionPending}
+                      isIconOnly
+                      onPress={() => {
+                        approveMembership.mutate({
+                          leagueId,
+                          membershipId: item.id,
+                        });
+                      }}
+                      size="sm"
+                    >
+                      <HugeIcons
+                        className="text-accent-foreground"
+                        icon={Tick02Icon}
+                      />
+                    </Button>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
       </Page.ScrollView>
       <Page.Footer className="pb-floating-tab-bar-4" />
     </Page>

@@ -15,6 +15,7 @@ export const NOTIFICATION_EVENT_TYPES = [
   "league.challenge.result_confirmed",
   "league.challenge.result_correction_requested",
   "league.challenge.result_invalidated",
+  "league.challenge.result_reminder_requested",
   "league.challenge.admin_approved",
   "league.challenge.admin_rejected",
 ] as const;

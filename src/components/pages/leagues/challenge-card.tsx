@@ -75,7 +75,7 @@ function ChallengeCardImpl(props: ChallengeCardProps) {
                   </Button>
                 </Menu.Trigger>
                 <Menu.Portal>
-                  <Menu.Overlay />
+                  <Menu.Overlay className="bg-backdrop" />
                   <Menu.Content presentation="popover">
                     {props.menuActions.map((action) => (
                       <Menu.Item key={action.id} onPress={action.onPress}>

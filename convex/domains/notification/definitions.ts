@@ -178,6 +178,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       body: `O placar do desafio em ${input.leagueName} foi invalidado.`,
     }),
   },
+  "league.challenge.result_reminder_requested": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      title: "Lembrete do organizador",
+      body: `O organizador da liga ${input.leagueName} está aguardando o placar do seu desafio.`,
+    }),
+  },
   "league.challenge.admin_approved": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({

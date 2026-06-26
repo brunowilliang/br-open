@@ -2,6 +2,7 @@ import type { ApiOutputs } from "@convex/shared/api";
 import {
   Cancel01Icon,
   Edit02Icon,
+  Megaphone01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 
@@ -41,6 +42,7 @@ export type ChallengeMenuCallbacks = {
     challengeId: string;
     resultSubmissionId: string;
   }) => void;
+  onRequestResultReminder: (challengeId: string) => void;
   setCounterProposalTarget: (challenge: ChallengeItem) => void;
   setResultTarget: (challenge: ChallengeItem) => void;
 };
@@ -387,6 +389,16 @@ function pushAdminMenuActions(
             : "Lançar placar",
           onPress: () => {
             callbacks.setResultTarget(challenge);
+          },
+        });
+        break;
+      case "request_result_reminder":
+        actions.push({
+          icon: Megaphone01Icon,
+          id: `${challenge.id}-request-result-reminder`,
+          label: "Pedir placar",
+          onPress: () => {
+            callbacks.onRequestResultReminder(challenge.id);
           },
         });
         break;

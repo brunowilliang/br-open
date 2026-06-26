@@ -79,7 +79,9 @@ export default function LeagueScheduleRoute() {
       <Page.Header>
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row items-center">
-            <Page.Header.Left />
+            <Page.Header.Left>
+              <Page.Header.BackButton />
+            </Page.Header.Left>
             <Page.Header.Center>
               <Page.Header.Title>Agenda</Page.Header.Title>
             </Page.Header.Center>
@@ -115,7 +117,6 @@ export default function LeagueScheduleRoute() {
             </Page.Header.Right>
           </View>
           <Tabs
-            key={windowDays}
             onValueChange={(value) => {
               setActiveDate(value);
             }}

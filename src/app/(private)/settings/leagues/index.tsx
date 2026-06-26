@@ -1,3 +1,4 @@
+import { Page } from "@/components/core/page";
 import {
   CreateLeagueCard,
   LeagueCard,
@@ -6,7 +7,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
 import { useCRPC } from "@/lib/convex/crpc";
 import { Add01Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ const MenuOptions = () => (
       </Button>
     </Menu.Trigger>
     <Menu.Portal>
-      <Menu.Overlay />
+      <Menu.Overlay className="bg-backdrop" />
       <Menu.Content presentation="popover">
         <Menu.Item
           onPress={() => {

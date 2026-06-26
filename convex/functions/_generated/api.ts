@@ -306,6 +306,144 @@ export const api: {
           updatedAt: number;
         }
       >;
+      adminRequestResultReminder: FunctionReference<
+        "mutation",
+        "public",
+        { challengeId: string },
+        {
+          cancellationRequestedAt?: number | null;
+          cancellationRequestedByMembershipId?: string | null;
+          cancelledAt?: number | null;
+          challengeValidationMode: "automatic" | "manual";
+          challenged: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          challenger: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          confirmedAt?: number | null;
+          createdAt: number;
+          currentProposal: {
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          };
+          finishedAt?: number | null;
+          id: string;
+          invalidatedAt?: number | null;
+          latestResultSubmission?: {
+            adminReviewedByUserId?: string | null;
+            challengeId: string;
+            confirmedAt?: number | null;
+            confirmedByMembershipId?: string | null;
+            id: string;
+            reviewAction?:
+              | "approved"
+              | "correction_requested"
+              | "invalidated"
+              | null;
+            reviewedAt?: number | null;
+            score: {
+              sets: Array<{
+                challengedGames: number;
+                challengerGames: number;
+                kind: "set" | "super_tiebreak";
+              }>;
+              winnerMembershipId: string;
+            };
+            submittedAt: number;
+            submittedByMembershipId: string;
+            winnerMembershipId?: string | null;
+          } | null;
+          leagueId: string;
+          lockedAt?: number | null;
+          matchConfigSnapshot: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakAtGamesAll: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakAtGamesAll: number;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          proposals: Array<{
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          }>;
+          resultValidationMode: "automatic" | "manual";
+          status:
+            | "pending_opponent_response"
+            | "pending_creator_reapproval"
+            | "pending_admin_challenge_validation"
+            | "confirmed"
+            | "pending_cancellation_acceptance"
+            | "pending_result_submission"
+            | "pending_result_confirmation"
+            | "pending_admin_result_validation"
+            | "pending_result_correction"
+            | "pending_admin_decision"
+            | "finished"
+            | "declined"
+            | "cancelled"
+            | "invalidated";
+          updatedAt: number;
+        }
+      >;
       adminSubmitResult: FunctionReference<
         "mutation",
         "public",
@@ -1445,6 +1583,19 @@ export const api: {
           startMinute: number;
         }>
       >;
+      listScheduled: FunctionReference<
+        "query",
+        "public",
+        { leagueId: string },
+        Array<{
+          challenged: { avatarUrl?: string | null; fullName: string };
+          challenger: { avatarUrl?: string | null; fullName: string };
+          courtName: string;
+          id: string;
+          matchDate: string;
+          startMinute: number;
+        }>
+      >;
       requestCancellation: FunctionReference<
         "mutation",
         "public",
@@ -2223,6 +2374,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2312,6 +2464,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2393,6 +2546,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2469,6 +2623,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2544,6 +2699,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2626,6 +2782,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2707,6 +2864,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2788,6 +2946,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -2863,6 +3022,7 @@ export const api: {
             newPlayerPlacement: "end_of_ranking";
             responseDeadlineHours: { enabled: boolean; value: number };
             resultValidationMode: "automatic" | "manual";
+            scheduleVisibility: "public" | "members_only";
             walkoverBehavior:
               | "automatic_loss"
               | "automatic_loss_and_move_to_end"
@@ -3064,6 +3224,7 @@ export const api: {
             | "league.challenge.result_confirmed"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
+            | "league.challenge.result_reminder_requested"
             | "league.challenge.admin_approved"
             | "league.challenge.admin_rejected";
           id: string;
@@ -3108,6 +3269,7 @@ export const api: {
             | "league.challenge.result_confirmed"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
+            | "league.challenge.result_reminder_requested"
             | "league.challenge.admin_approved"
             | "league.challenge.admin_rejected";
           id: string;
@@ -3531,6 +3693,7 @@ export const internal: {
             | "league.challenge.result_confirmed"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
+            | "league.challenge.result_reminder_requested"
             | "league.challenge.admin_approved"
             | "league.challenge.admin_rejected";
           leagueId: string;
@@ -3564,6 +3727,17 @@ export const internal: {
     };
   };
   seed: {
+    participantScenario: FunctionReference<
+      "mutation",
+      "internal",
+      { leagueName?: string; playerProfileId: string },
+      {
+        challengesCreated: number;
+        membershipsCreated: number;
+        playerProfilesCreated: number;
+        usersCreated: number;
+      }
+    >;
     preview: FunctionReference<
       "mutation",
       "internal",

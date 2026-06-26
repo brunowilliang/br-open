@@ -73,7 +73,7 @@ export default function LeagueDetailsRoute() {
               </Button>
             </Menu.Trigger>
             <Menu.Portal>
-              <Menu.Overlay />
+              <Menu.Overlay className="bg-backdrop" />
               <Menu.Content presentation="popover">
                 <Menu.Item onPress={handleSubmitPress}>
                   <Menu.ItemTitle className="flex-none">Salvar</Menu.ItemTitle>

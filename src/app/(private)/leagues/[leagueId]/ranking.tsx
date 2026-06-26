@@ -36,6 +36,7 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tela de ranking aglutina mutations, dialogs e reorder; estados renderizados inline
 export default function LeagueRankingRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;
@@ -443,49 +444,11 @@ export default function LeagueRankingRoute() {
     }
   }
 
-  function renderContent() {
-    if (bootstrapStatus === "error") {
-      return <ErrorState message="Não foi possível carregar a liga." />;
-    }
-
-    if (isContentLoading) {
-      return <LoadingState />;
-    }
-
-    if (membershipOverviewQuery.isError) {
-      return (
-        <ErrorState
-          error={membershipOverviewQuery.error}
-          message="Não foi possível carregar o ranking."
-        />
-      );
-    }
-
-    if (listItems.length === 0) {
-      return (
-        <EmptyState
-          description="Aprove solicitações para começar a montar a classificação."
-          title="Nenhum jogador no ranking"
-        />
-      );
-    }
-
-    return (
-      <View className="gap-2">
-        {listItems.map((item) => (
-          <View key={item.id}>
-            {renderRankingCardContent({
-              dragHandle: (children) => children,
-              isActive: false,
-              isChallengeable: item.isChallengeable === true,
-              isViewerItem: item.isViewerItem === true,
-              item,
-            })}
-          </View>
-        ))}
-      </View>
-    );
-  }
+  const isBootstrapError = bootstrapStatus === "error";
+  const isRankingError = membershipOverviewQuery.isError;
+  const isEmpty = listItems.length === 0;
+  const showStatusState =
+    isBootstrapError || isContentLoading || isRankingError || isEmpty;
 
   return (
     <Page>
@@ -502,14 +465,45 @@ export default function LeagueRankingRoute() {
           <SortableCardList
             data={listItems}
             fillAvailableHeight
+            itemGap={8}
             onDragStateChange={setActiveDragItemId}
             onOrderChange={handleOrderChange}
             renderItem={renderItem}
           />
         </Page.View>
       ) : (
-        <Page.ScrollView contentContainerClassName="grow gap-4 p-4">
-          {renderContent()}
+        <Page.ScrollView contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4">
+          {isBootstrapError && (
+            <ErrorState message="Não foi possível carregar a liga." />
+          )}
+          {isContentLoading && <LoadingState />}
+          {isRankingError && (
+            <ErrorState
+              error={membershipOverviewQuery.error}
+              message="Não foi possível carregar o ranking."
+            />
+          )}
+          {isEmpty && (
+            <EmptyState
+              description="Aprove solicitações para começar a montar a classificação."
+              title="Nenhum jogador no ranking"
+            />
+          )}
+          {!showStatusState && (
+            <View className="gap-2">
+              {listItems.map((item) => (
+                <View key={item.id}>
+                  {renderRankingCardContent({
+                    dragHandle: (children) => children,
+                    isActive: false,
+                    isChallengeable: item.isChallengeable === true,
+                    isViewerItem: item.isViewerItem === true,
+                    item,
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
         </Page.ScrollView>
       )}
       <Dialog

@@ -254,6 +254,7 @@ function resolveChallengesError(input: {
   return null;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tela de desafios aglutina mutations, dialogs e tabs; estados renderizados inline
 export default function LeagueChallengesRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;
@@ -616,6 +617,32 @@ export default function LeagueChallengesRoute() {
     })
   );
 
+  const adminRequestResultReminder = useMutation(
+    crpc.league.challenges.adminRequestResultReminder.mutationOptions({
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description:
+            "Os jogadores foram notificados para registrar o placar.",
+          id: "admin-request-result-reminder-success",
+          label: "Lembrete enviado",
+          variant: "success",
+        });
+      },
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível enviar o lembrete."
+          ),
+          id: "admin-request-result-reminder-error",
+          label: "Erro ao enviar lembrete",
+          variant: "danger",
+        });
+      },
+    })
+  );
+
   const challenges = challengesQuery.data ?? [];
   const courts = league?.courts ?? [];
   const defaultDurationMinutes =
@@ -635,7 +662,8 @@ export default function LeagueChallengesRoute() {
     reviewChallenge.isPending ||
     reviewChallengeResult.isPending ||
     adminManageChallenge.isPending ||
-    adminSubmitChallengeResult.isPending;
+    adminSubmitChallengeResult.isPending ||
+    adminRequestResultReminder.isPending;
   const occupiedSlots = occupiedSlotsQuery.data ?? [];
 
   const onAccept = (challengeId: string) => {
@@ -695,6 +723,9 @@ export default function LeagueChallengesRoute() {
     resultSubmissionId: string;
   }) => {
     reviewChallengeResult.mutate(input);
+  };
+  const onRequestResultReminder = (challengeId: string) => {
+    adminRequestResultReminder.mutate({ challengeId });
   };
   const onRespondCancellation = (input: {
     action: "accept" | "reject";
@@ -757,7 +788,7 @@ export default function LeagueChallengesRoute() {
   const [activeTab, setActiveTab] = useState(() =>
     buildChallengeRouteInitialTab({
       canManage: Boolean(canManage),
-      pendingCount: tabCounts.pending,
+      pendingCount: tabCounts.attention,
     })
   );
   const [counterProposalTarget, setCounterProposalTarget] =
@@ -765,15 +796,19 @@ export default function LeagueChallengesRoute() {
   const [resultTarget, setResultTarget] = useState<ChallengeItem | null>(null);
   const [adminActionTarget, setAdminActionTarget] =
     useState<AdminActionTarget | null>(null);
-  const showAdminPendingTab = canManage && tabCounts.pending > 0;
 
+  // Se a aba "Atenção" (antiga "Pendentes") ficar vazia após uma ação (ex.:
+  // admin resolveu todos os pendentes), caímos para "Em andamento" para não
+  // exibir uma aba vazia.
   useEffect(() => {
-    if (!(canManage && !showAdminPendingTab && activeTab === "pending")) {
+    if (
+      !(canManage && tabCounts.attention === 0 && activeTab === "attention")
+    ) {
       return;
     }
 
-    setActiveTab("active");
-  }, [activeTab, canManage, showAdminPendingTab]);
+    setActiveTab("ongoing");
+  }, [activeTab, canManage, tabCounts.attention]);
 
   const visibleChallenges = useMemo(
     () =>
@@ -806,6 +841,7 @@ export default function LeagueChallengesRoute() {
     onConfirmResult,
     onDecline,
     onRequestCancellation,
+    onRequestResultReminder,
     onRespondCancellation,
     onReviewChallenge,
     onReviewResult,
@@ -870,177 +906,15 @@ export default function LeagueChallengesRoute() {
     );
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: the guard ladder (bootstrap/league/loading/error) plus the dialogs block is the natural shape of this screen body
-  function renderChallengesContent() {
-    if (bootstrapStatus === "error") {
-      return <ErrorState message="Não foi possível carregar a liga." />;
-    }
-
-    if (!league) {
-      return <LoadingState />;
-    }
-
-    if (isLoading) {
-      return <LoadingState />;
-    }
-
-    if (error) {
-      return (
-        <ErrorState
-          error={error}
-          message="Não foi possível carregar os desafios."
-        />
-      );
-    }
-
-    return (
-      <>
-        {visibleChallenges.length === 0 ? (
-          <EmptyState
-            description={emptyState.description}
-            title={emptyState.title}
-          />
-        ) : (
-          <View className="gap-2">
-            {visibleChallenges.map(renderChallengeItem)}
-          </View>
-        )}
-
-        {createTarget ? (
-          <ChallengeProposalDialog
-            actionLabel="Enviar desafio"
-            courts={courts}
-            defaultDurationMinutes={defaultDurationMinutes}
-            isOpen
-            isPending={isPending}
-            occupiedSlots={occupiedSlots}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                onCloseCreateTarget();
-              }
-            }}
-            onSubmit={async (value) => {
-              await onCreate({
-                challengedMembershipId: createTarget.membershipId,
-                ...value,
-              });
-              onCloseCreateTarget();
-            }}
-            opponentName={createTarget.name}
-            title="Novo desafio"
-          />
-        ) : null}
-
-        {counterProposalTarget ? (
-          <ChallengeProposalDialog
-            actionLabel="Reenviar proposta"
-            challengeIdToIgnore={counterProposalTarget.id}
-            courts={courts}
-            defaultDurationMinutes={
-              counterProposalTarget.matchConfigSnapshot.defaultDurationMinutes
-            }
-            initialValue={{
-              courtId: counterProposalTarget.currentProposal.courtId,
-              endMinute: counterProposalTarget.currentProposal.endMinute,
-              matchDate: counterProposalTarget.currentProposal.matchDate,
-              startMinute: counterProposalTarget.currentProposal.startMinute,
-            }}
-            isOpen
-            isPending={isPending}
-            occupiedSlots={occupiedSlots}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setCounterProposalTarget(null);
-              }
-            }}
-            onSubmit={async (value) => {
-              await onCounterPropose({
-                challengeId: counterProposalTarget.id,
-                ...value,
-              });
-              setCounterProposalTarget(null);
-            }}
-            opponentName={
-              (counterProposalTarget.challenger.playerProfileId ===
-              viewerPlayerProfileId
-                ? counterProposalTarget.challenged
-                : counterProposalTarget.challenger
-              ).player.fullName
-            }
-            title="Contraproposta"
-          />
-        ) : null}
-
-        {resultTarget ? (
-          <ChallengeResultDialog
-            challengedMembershipId={resultTarget.challenged.membershipId}
-            challengedName={resultTarget.challenged.player.fullName}
-            challengerMembershipId={resultTarget.challenger.membershipId}
-            challengerName={resultTarget.challenger.player.fullName}
-            initialScore={resultTarget.latestResultSubmission?.score.sets}
-            isOpen
-            isPending={isPending}
-            matchConfig={resultTarget.matchConfigSnapshot}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setResultTarget(null);
-              }
-            }}
-            onSubmit={async (value) => {
-              if (canManage) {
-                await onAdminSubmitResult({
-                  challengeId: resultTarget.id,
-                  score: value,
-                });
-              } else {
-                await onSubmitResult({
-                  challengeId: resultTarget.id,
-                  score: value,
-                });
-              }
-              setResultTarget(null);
-            }}
-            title={(() => {
-              if (canManage) {
-                return resultTarget.latestResultSubmission
-                  ? "Editar placar"
-                  : "Lançar placar";
-              }
-
-              return resultTarget.status === "pending_result_confirmation"
-                ? "Reeditar placar"
-                : "Enviar placar";
-            })()}
-          />
-        ) : null}
-
-        {adminActionTarget ? (
-          <ChallengeAdminActionDialog
-            description={`${getAdminActionCopy(adminActionTarget.action).description} ${adminActionTarget.challenge.challenger.player.fullName} x ${adminActionTarget.challenge.challenged.player.fullName}.`}
-            isDanger={getAdminActionCopy(adminActionTarget.action).isDanger}
-            isOpen
-            isPending={isPending}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setAdminActionTarget(null);
-              }
-            }}
-            onSubmit={async () => {
-              await onAdminManage({
-                action: adminActionTarget.action,
-                challengeId: adminActionTarget.challenge.id,
-              });
-              setAdminActionTarget(null);
-            }}
-            submitLabel={
-              getAdminActionCopy(adminActionTarget.action).submitLabel
-            }
-            title={getAdminActionCopy(adminActionTarget.action).title}
-          />
-        ) : null}
-      </>
-    );
-  }
+  const isBootstrapError = bootstrapStatus === "error";
+  const isLeagueLoading = !league;
+  const isChallengesLoading = isLoading;
+  const isChallengesError = Boolean(error);
+  const showStatusState =
+    isBootstrapError ||
+    isLeagueLoading ||
+    isChallengesLoading ||
+    isChallengesError;
 
   return (
     <Page>
@@ -1064,41 +938,27 @@ export default function LeagueChallengesRoute() {
                 <Tabs.Indicator />
                 {canManage ? (
                   <>
-                    {showAdminPendingTab ? (
-                      <Tabs.Trigger value="pending">
-                        <Tabs.Label>Pendentes</Tabs.Label>
-                        {tabCounts.pending > 0 ? (
-                          <Badge
-                            className="absolute top-1 right-1"
-                            color="danger"
-                            size="sm"
-                          >
-                            {tabCounts.pending}
-                          </Badge>
-                        ) : null}
-                      </Tabs.Trigger>
-                    ) : null}
-                    <Tabs.Trigger value="active">
-                      <Tabs.Label>Ativos</Tabs.Label>
-                      {tabCounts.active > 0 ? (
+                    <Tabs.Trigger value="attention">
+                      <Tabs.Label>Atenção</Tabs.Label>
+                      {tabCounts.attention > 0 ? (
                         <Badge
                           className="absolute top-1 right-1"
                           color="danger"
                           size="sm"
                         >
-                          {tabCounts.active}
+                          {tabCounts.attention}
                         </Badge>
                       ) : null}
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="corrections">
-                      <Tabs.Label>Correções</Tabs.Label>
-                      {tabCounts.corrections > 0 ? (
+                    <Tabs.Trigger value="ongoing">
+                      <Tabs.Label>Em andamento</Tabs.Label>
+                      {tabCounts.ongoing > 0 ? (
                         <Badge
                           className="absolute top-1 right-1"
-                          color="danger"
+                          color="accent"
                           size="sm"
                         >
-                          {tabCounts.corrections}
+                          {tabCounts.ongoing}
                         </Badge>
                       ) : null}
                     </Tabs.Trigger>
@@ -1108,23 +968,29 @@ export default function LeagueChallengesRoute() {
                   </>
                 ) : (
                   <>
-                    <Tabs.Trigger value="active">
-                      <Tabs.Label>Ativos</Tabs.Label>
-                      {tabCounts.active > 0 ? (
+                    <Tabs.Trigger value="attention">
+                      <Tabs.Label>Atenção</Tabs.Label>
+                      {tabCounts.attention > 0 ? (
                         <Badge
                           className="absolute top-1 right-1"
                           color="danger"
                           size="sm"
                         >
-                          {tabCounts.active}
+                          {tabCounts.attention}
                         </Badge>
                       ) : null}
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="outgoing">
-                      <Tabs.Label>Enviados</Tabs.Label>
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="incoming">
-                      <Tabs.Label>Recebidos</Tabs.Label>
+                    <Tabs.Trigger value="ongoing">
+                      <Tabs.Label>Aguardando</Tabs.Label>
+                      {tabCounts.ongoing > 0 ? (
+                        <Badge
+                          className="absolute top-1 right-1"
+                          color="accent"
+                          size="sm"
+                        >
+                          {tabCounts.ongoing}
+                        </Badge>
+                      ) : null}
                     </Tabs.Trigger>
                     <Tabs.Trigger value="history">
                       <Tabs.Label>Histórico</Tabs.Label>
@@ -1141,7 +1007,165 @@ export default function LeagueChallengesRoute() {
         contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4"
         showsVerticalScrollIndicator={false}
       >
-        {renderChallengesContent()}
+        {isBootstrapError && (
+          <ErrorState message="Não foi possível carregar a liga." />
+        )}
+        {(isLeagueLoading || isChallengesLoading) && <LoadingState />}
+        {isChallengesError && (
+          <ErrorState
+            error={error}
+            message="Não foi possível carregar os desafios."
+          />
+        )}
+        {!showStatusState && (
+          <>
+            {visibleChallenges.length === 0 ? (
+              <EmptyState
+                description={emptyState.description}
+                title={emptyState.title}
+              />
+            ) : (
+              <View className="gap-2">
+                {visibleChallenges.map(renderChallengeItem)}
+              </View>
+            )}
+
+            {createTarget ? (
+              <ChallengeProposalDialog
+                actionLabel="Enviar desafio"
+                courts={courts}
+                defaultDurationMinutes={defaultDurationMinutes}
+                isOpen
+                isPending={isPending}
+                occupiedSlots={occupiedSlots}
+                onOpenChange={(nextOpen) => {
+                  if (!nextOpen) {
+                    onCloseCreateTarget();
+                  }
+                }}
+                onSubmit={async (value) => {
+                  await onCreate({
+                    challengedMembershipId: createTarget.membershipId,
+                    ...value,
+                  });
+                  onCloseCreateTarget();
+                }}
+                opponentName={createTarget.name}
+                title="Novo desafio"
+              />
+            ) : null}
+
+            {counterProposalTarget ? (
+              <ChallengeProposalDialog
+                actionLabel="Reenviar proposta"
+                challengeIdToIgnore={counterProposalTarget.id}
+                courts={courts}
+                defaultDurationMinutes={
+                  counterProposalTarget.matchConfigSnapshot
+                    .defaultDurationMinutes
+                }
+                initialValue={{
+                  courtId: counterProposalTarget.currentProposal.courtId,
+                  endMinute: counterProposalTarget.currentProposal.endMinute,
+                  matchDate: counterProposalTarget.currentProposal.matchDate,
+                  startMinute:
+                    counterProposalTarget.currentProposal.startMinute,
+                }}
+                isOpen
+                isPending={isPending}
+                occupiedSlots={occupiedSlots}
+                onOpenChange={(nextOpen) => {
+                  if (!nextOpen) {
+                    setCounterProposalTarget(null);
+                  }
+                }}
+                onSubmit={async (value) => {
+                  await onCounterPropose({
+                    challengeId: counterProposalTarget.id,
+                    ...value,
+                  });
+                  setCounterProposalTarget(null);
+                }}
+                opponentName={
+                  (counterProposalTarget.challenger.playerProfileId ===
+                  viewerPlayerProfileId
+                    ? counterProposalTarget.challenged
+                    : counterProposalTarget.challenger
+                  ).player.fullName
+                }
+                title="Contraproposta"
+              />
+            ) : null}
+
+            {resultTarget ? (
+              <ChallengeResultDialog
+                challengedMembershipId={resultTarget.challenged.membershipId}
+                challengedName={resultTarget.challenged.player.fullName}
+                challengerMembershipId={resultTarget.challenger.membershipId}
+                challengerName={resultTarget.challenger.player.fullName}
+                initialScore={resultTarget.latestResultSubmission?.score.sets}
+                isOpen
+                isPending={isPending}
+                matchConfig={resultTarget.matchConfigSnapshot}
+                onOpenChange={(nextOpen) => {
+                  if (!nextOpen) {
+                    setResultTarget(null);
+                  }
+                }}
+                onSubmit={async (value) => {
+                  if (canManage) {
+                    await onAdminSubmitResult({
+                      challengeId: resultTarget.id,
+                      score: value,
+                    });
+                  } else {
+                    await onSubmitResult({
+                      challengeId: resultTarget.id,
+                      score: value,
+                    });
+                  }
+                  setResultTarget(null);
+                }}
+                title={(() => {
+                  if (canManage) {
+                    return resultTarget.latestResultSubmission
+                      ? "Editar placar"
+                      : "Lançar placar";
+                  }
+
+                  return resultTarget.status === "pending_result_confirmation"
+                    ? "Reeditar placar"
+                    : "Enviar placar";
+                })()}
+              />
+            ) : null}
+
+            {adminActionTarget ? (
+              <ChallengeAdminActionDialog
+                description={`${getAdminActionCopy(adminActionTarget.action).description} ${adminActionTarget.challenge.challenger.player.fullName} x ${adminActionTarget.challenge.challenged.player.fullName}.`}
+                isDanger={getAdminActionCopy(adminActionTarget.action).isDanger}
+                isOpen
+                isPending={isPending}
+                onOpenChange={(nextOpen) => {
+                  if (!nextOpen) {
+                    setAdminActionTarget(null);
+                  }
+                }}
+                onSubmit={async () => {
+                  await onAdminManage({
+                    action: adminActionTarget.action,
+                    challengeId: adminActionTarget.challenge.id,
+                  });
+                  setAdminActionTarget(null);
+                }}
+                submitLabel={
+                  getAdminActionCopy(adminActionTarget.action).submitLabel
+                }
+                title={getAdminActionCopy(adminActionTarget.action).title}
+              />
+            ) : null}
+          </>
+        )}
       </Page.ScrollView>
       <Page.Footer className="pb-floating-tab-bar-4" />
     </Page>

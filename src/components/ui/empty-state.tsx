@@ -1,5 +1,6 @@
 import { Add01Icon, ListChevronsDownUpIcon } from "@hugeicons/core-free-icons";
 import type { HugeiconsProps } from "@hugeicons/react-native";
+import { cn } from "better-styled";
 import { Button } from "heroui-native";
 import { EmptyState as HEmptyState } from "heroui-native-pro";
 import type { ComponentProps, ReactNode } from "react";
@@ -7,6 +8,7 @@ import { View } from "react-native";
 import { HugeIcons } from "./huge-icons";
 
 type EmptyStateProps = {
+  className?: string;
   buttonIcon?: ComponentProps<typeof HugeIcons>["icon"] | null;
   buttonIsDisabled?: boolean;
   buttonLabel?: string;
@@ -34,7 +36,7 @@ export const EmptyState = (props: EmptyStateProps) => {
   } = props;
 
   return (
-    <HEmptyState className="gap-3.5 p-2">
+    <HEmptyState className={cn("gap-3.5 p-2", props.className)}>
       {icon ? (
         <HEmptyState.Media variant="icon">
           <HugeIcons icon={icon} />

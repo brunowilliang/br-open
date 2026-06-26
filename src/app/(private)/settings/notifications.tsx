@@ -12,25 +12,25 @@ import { type Href, router } from "expo-router";
 import {
   Alert,
   Button,
+  Card,
   Chip,
   Description,
   Dialog,
   ListGroup,
   Menu,
   PressableFeedback,
-  Separator,
   Switch,
   useToast,
 } from "heroui-native";
-import { Fragment, useEffect, useState } from "react";
-import { Alert as RNAlert, AppState, Linking, View } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -39,8 +39,8 @@ import {
   type NotificationPermissionStatus,
   registerForPushNotificationsAsync,
 } from "@/lib/notifications/expo-notifications";
-import { shouldOpenNotificationSettingsAlert } from "@/lib/notifications/notification-permission-rules";
 import { getNotificationFeedActionState } from "@/lib/notifications/feed-action-state";
+import { shouldOpenNotificationSettingsAlert } from "@/lib/notifications/notification-permission-rules";
 import {
   buildNotificationResponseDataFromFeedItem,
   isNotificationRecipientActorActive,
@@ -99,7 +99,7 @@ function NotificationRouteMenu(props: {
         </Button>
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Overlay />
+        <Menu.Overlay className="bg-backdrop" />
         <Menu.Content presentation="popover">
           <Menu.Item onPress={props.onOpenPreferences}>
             <Menu.ItemTitle className="flex-none">Preferências</Menu.ItemTitle>
@@ -136,66 +136,66 @@ function NotificationFeedItem(props: {
       animation={false}
       onPress={() => props.onOpen(props.notification)}
     >
-      <ListGroup.Item disabled>
-        <ListGroup.ItemContent>
+      <Card className="flex-row items-start gap-3">
+        <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-1">
             {props.notification.isRead ? null : (
-              <View className="size-1.5 rounded-full bg-accent" />
+              <View className="size-2 rounded-full bg-accent" />
             )}
-            <ListGroup.ItemTitle
+            <Text
               className={
                 props.notification.isRead ? "text-muted" : "text-accent"
               }
+              numberOfLines={1}
+              variant="title"
             >
               {props.notification.title}
-            </ListGroup.ItemTitle>
+            </Text>
           </View>
-          <ListGroup.ItemDescription>
+          <Text color="muted" numberOfLines={2} variant="description">
             {props.notification.body}
-          </ListGroup.ItemDescription>
+          </Text>
           <Text color="muted" size="xs">
             {NOTIFICATION_DATE_FORMATTER.format(
               new Date(props.notification.occurredAt)
             )}
           </Text>
-        </ListGroup.ItemContent>
-        <ListGroup.ItemSuffix>
-          <Menu>
-            <Menu.Trigger asChild>
-              <Button
-                isIconOnly
-                onPress={(event) => {
-                  event.stopPropagation();
+        </View>
+        <Menu className="absolute top-2 right-2">
+          <Menu.Trigger asChild>
+            <Button
+              isIconOnly
+              onPress={(event) => {
+                event.stopPropagation();
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
+            </Button>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Overlay className="bg-backdrop" />
+            <Menu.Content presentation="popover">
+              <Menu.Item
+                onPress={() => {
+                  props.onRemove(props.notification);
                 }}
-                size="sm"
-                variant="ghost"
+                variant="danger"
               >
-                <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
-              </Button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Overlay />
-              <Menu.Content presentation="popover">
-                <Menu.Item
-                  onPress={() => {
-                    props.onRemove(props.notification);
-                  }}
-                  variant="danger"
-                >
-                  <Menu.ItemTitle className="flex-none text-danger">
-                    Remover
-                  </Menu.ItemTitle>
-                  <HugeIcons
-                    className="size-4.5 text-danger"
-                    icon={Delete02Icon}
-                  />
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu>
-        </ListGroup.ItemSuffix>
-      </ListGroup.Item>
-      <PressableFeedback.Highlight />
+                <Menu.ItemTitle className="flex-none text-danger">
+                  Remover
+                </Menu.ItemTitle>
+                <HugeIcons
+                  className="size-4.5 text-danger"
+                  icon={Delete02Icon}
+                />
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Portal>
+        </Menu>
+        <PressableFeedback.Highlight />
+      </Card>
     </PressableFeedback>
   );
 }
@@ -473,94 +473,13 @@ export default function SettingsNotificationsRoute() {
     }
   }
 
-  function renderFeed() {
-    if (notificationsQuery.isPending) {
-      return <LoadingState />;
-    }
-
-    if (notificationsQuery.isError) {
-      return (
-        <ErrorState
-          error={notificationsQuery.error}
-          message="Não foi possível carregar as notificações."
-        />
-      );
-    }
-
-    if (notificationsQuery.data.length === 0) {
-      return (
-        <EmptyState
-          description="Solicitações, desafios e resultados vão aparecer aqui."
-          icon={Notification02Icon}
-          title="Nenhuma notificação"
-        />
-      );
-    }
-
-    return (
-      <ListGroup>
-        {notificationsQuery.data.map((notification, index) => (
-          <Fragment key={notification.id}>
-            {index > 0 ? <Separator className="mx-4" /> : null}
-            <NotificationFeedItem
-              notification={notification}
-              onOpen={handleOpenNotification}
-              onRemove={(nextNotification) => {
-                removeNotification.mutate({
-                  notificationId: nextNotification.id,
-                });
-              }}
-            />
-          </Fragment>
-        ))}
-      </ListGroup>
-    );
-  }
-
-  function renderAllNotifications() {
-    const hasNotifications = Boolean(notificationsQuery.data?.length);
-    const shouldShowNotificationSettingsAlert = systemPermissionStatus
-      ? shouldOpenNotificationSettingsAlert(systemPermissionStatus)
-      : false;
-
-    return (
-      <View className="gap-2">
-        {hasNotifications ? (
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Description>Central</Description>
-              {statusQuery.data?.unreadCount ? (
-                <Chip color="accent" size="sm" variant="soft">
-                  <Chip.Label>{statusQuery.data.unreadCount} novas</Chip.Label>
-                </Chip>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-        {shouldShowNotificationSettingsAlert ? (
-          <Alert status="warning">
-            <Alert.Indicator />
-            <Alert.Content>
-              <Alert.Title>Notificações bloqueadas</Alert.Title>
-              <Alert.Description>
-                Habilite as notificações nos ajustes do app para receber push.
-              </Alert.Description>
-            </Alert.Content>
-            <Button
-              onPress={() => {
-                Linking.openSettings().catch(() => undefined);
-              }}
-              size="sm"
-              variant="primary"
-            >
-              <Button.Label>Abrir ajustes</Button.Label>
-            </Button>
-          </Alert>
-        ) : null}
-        {renderFeed()}
-      </View>
-    );
-  }
+  const hasNotifications = Boolean(notificationsQuery.data?.length);
+  const shouldShowNotificationSettingsAlert = systemPermissionStatus
+    ? shouldOpenNotificationSettingsAlert(systemPermissionStatus)
+    : false;
+  const isFeedLoading = notificationsQuery.isPending;
+  const isFeedError = notificationsQuery.isError;
+  const isFeedEmpty = !(isFeedLoading || isFeedError || hasNotifications);
 
   return (
     <Page>
@@ -608,7 +527,72 @@ export default function SettingsNotificationsRoute() {
       </Page.Header>
 
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-safe-offset-4">
-        {renderAllNotifications()}
+        <View className="gap-2">
+          {hasNotifications ? (
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Description>Central</Description>
+                {statusQuery.data?.unreadCount ? (
+                  <Chip color="accent" size="sm" variant="soft">
+                    <Chip.Label>
+                      {statusQuery.data.unreadCount} novas
+                    </Chip.Label>
+                  </Chip>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+          {shouldShowNotificationSettingsAlert ? (
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Notificações bloqueadas</Alert.Title>
+                <Alert.Description>
+                  Habilite as notificações nos ajustes do app para receber push.
+                </Alert.Description>
+              </Alert.Content>
+              <Button
+                onPress={() => {
+                  Linking.openSettings().catch(() => undefined);
+                }}
+                size="sm"
+                variant="primary"
+              >
+                <Button.Label>Abrir ajustes</Button.Label>
+              </Button>
+            </Alert>
+          ) : null}
+          {isFeedLoading && <LoadingState />}
+          {isFeedError && (
+            <ErrorState
+              error={notificationsQuery.error}
+              message="Não foi possível carregar as notificações."
+            />
+          )}
+          {isFeedEmpty && (
+            <EmptyState
+              description="Solicitações, desafios e resultados vão aparecer aqui."
+              icon={Notification02Icon}
+              title="Nenhuma notificação"
+            />
+          )}
+          {!(isFeedLoading || isFeedError || isFeedEmpty) && (
+            <View className="gap-2">
+              {notificationsQuery.data.map((notification) => (
+                <NotificationFeedItem
+                  key={notification.id}
+                  notification={notification}
+                  onOpen={handleOpenNotification}
+                  onRemove={(nextNotification) => {
+                    removeNotification.mutate({
+                      notificationId: nextNotification.id,
+                    });
+                  }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </Page.ScrollView>
 
       <Dialog
