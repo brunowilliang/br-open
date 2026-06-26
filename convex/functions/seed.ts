@@ -26,11 +26,15 @@ import {
 import * as leagueTables from "../domains/league/tables";
 import {
   ChallengeRuleConfigSchema,
+  DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_MODE,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+  DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
   DEFAULT_LEAGUE_STORAGE,
   LeagueCourtsSchema,
+  type ChallengeRuleConfig,
   type LeagueMatchConfig,
 } from "../domains/league/contract";
 import * as playerTables from "../domains/player/tables";
@@ -41,6 +45,29 @@ type LeagueRecord = InferSelectModel<typeof leagueTables.league>;
 type LeagueMembershipRecord = InferSelectModel<
   typeof leagueTables.leagueMembership
 >;
+
+/**
+ * Aplica defaults de ruleConfig ausentes em documentos legados antes de
+ * validar com ChallengeRuleConfigSchema. Campos novos (ex.: scheduleVisibility)
+ * e modos de validação ausentes em ligas antigas são preenchidos aqui, evitando
+ * ZodError ao ler ruleConfig do banco.
+ */
+function parseLeagueRuleConfig(raw: unknown): ChallengeRuleConfig {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const ruleConfig = (source.ruleConfig ?? source) as Record<string, unknown>;
+  return ChallengeRuleConfigSchema.parse({
+    ...ruleConfig,
+    challengeValidationMode:
+      (ruleConfig.challengeValidationMode as string) ??
+      DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+    resultValidationMode:
+      (ruleConfig.resultValidationMode as string) ??
+      DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+    scheduleVisibility:
+      (ruleConfig.scheduleVisibility as string) ??
+      DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
+  });
+}
 type SeedChallengePlan = ReturnType<
   typeof buildTargetLeagueChallengePlans<Id<"leagueMembership">>
 >[number];
@@ -1075,7 +1102,7 @@ async function seedTargetLeagueChallenges(input: {
     return 0;
   }
 
-  const ruleConfig = ChallengeRuleConfigSchema.parse(input.league.ruleConfig);
+  const ruleConfig = parseLeagueRuleConfig(input.league.ruleConfig);
   const courtId = await ensureSeedCourtForLeague(input.ctx, input.league);
   let challengesCreated = 0;
 
@@ -1252,7 +1279,7 @@ async function ensureTargetLeagueChallengeCount(input: {
       where: { leagueId: input.leagueId, status: "active" },
     }
   );
-  const ruleConfig = ChallengeRuleConfigSchema.parse(league.ruleConfig);
+  const ruleConfig = parseLeagueRuleConfig(league.ruleConfig);
   const courtId = await ensureSeedCourtForLeague(input.ctx, league);
   let challengeCount = await countTargetLeagueChallenges(
     input.ctx,
@@ -1967,9 +1994,7 @@ export const participantScenario = privateMutation
     }
 
     // Atualiza a liga para ter penalidade por inatividade (testa o alerta).
-    const currentRuleConfig = ChallengeRuleConfigSchema.parse(
-      targetLeague.ruleConfig
-    );
+    const currentRuleConfig = parseLeagueRuleConfig(targetLeague.ruleConfig);
 
     if (!currentRuleConfig.hasInactivityPenalty) {
       await ctx.db.patch(targetLeague.id as Id<"league">, {
