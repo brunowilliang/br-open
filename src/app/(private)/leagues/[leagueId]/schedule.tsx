@@ -49,15 +49,15 @@ export default function LeagueScheduleRoute() {
     () => dateTabs[0]?.matchDate ?? ""
   );
 
-  // Quando a janela muda, as tabs mudam; mantém "Hoje" selecionada.
+  // Quando a janela muda, as tabs mudam; volta para "Hoje" de forma síncrona
+  // antes de re-renderizar os novos Triggers, evitando que o Tabs controlado
+  // receba uma lista de triggers diferente com um value possivelmente
+  // inconsistente entre renders.
   useEffect(() => {
-    if (
-      dateTabs.length > 0 &&
-      !dateTabs.some((tab) => tab.matchDate === activeDate)
-    ) {
+    if (dateTabs.length > 0) {
       setActiveDate(dateTabs[0].matchDate);
     }
-  }, [activeDate, dateTabs]);
+  }, [dateTabs]);
 
   useEffect(() => {
     bucket$.actions.setActiveRoute("schedule");
@@ -86,7 +86,7 @@ export default function LeagueScheduleRoute() {
             <Page.Header.Right>
               <Menu>
                 <Menu.Trigger asChild>
-                  <Button size="sm" variant="secondary">
+                  <Button className="w-20" size="sm" variant="tertiary">
                     <Button.Label>
                       {SCHEDULE_WINDOW_OPTIONS.find(
                         (item) => item.value === windowDays
@@ -115,6 +115,7 @@ export default function LeagueScheduleRoute() {
             </Page.Header.Right>
           </View>
           <Tabs
+            key={windowDays}
             onValueChange={(value) => {
               setActiveDate(value);
             }}
