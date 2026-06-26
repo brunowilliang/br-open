@@ -18,31 +18,18 @@ import {
 import { useCRPC } from "@/lib/convex/crpc";
 import {
   cropImage,
-  type CroppedImage,
   ImageCropper,
   type ImageCropArea,
   type ImageCropperProps,
   pickImageCropAsset,
 } from "@/lib/uploads/image-crop";
+import { uploadImageToStorage } from "@/lib/uploads/convex-storage-upload";
 import type { LeagueFormTabValue } from "@/lib/leagues/league-form-navigation";
 
 type LeagueMediaCropConfig = {
   aspectRatio: number;
   height: number;
   width: number;
-};
-
-type UploadedLeagueMedia = {
-  previewUri: string;
-  storageId: string;
-};
-
-type LeagueMediaUploadPhase = "parse_response" | "post_upload" | "read_file";
-
-type LeagueMediaUploadErrorOptions = {
-  cause?: unknown;
-  details?: string;
-  status?: number;
 };
 
 type LeagueFormControllerOptions = {
@@ -76,26 +63,6 @@ type LeagueFormController = {
   >;
 };
 
-class LeagueMediaUploadError extends Error {
-  readonly cause?: unknown;
-  readonly details?: string;
-  readonly phase: LeagueMediaUploadPhase;
-  readonly status?: number;
-
-  constructor(
-    phase: LeagueMediaUploadPhase,
-    message: string,
-    options: LeagueMediaUploadErrorOptions = {}
-  ) {
-    super(message);
-    this.name = "LeagueMediaUploadError";
-    this.cause = options.cause;
-    this.details = options.details;
-    this.phase = phase;
-    this.status = options.status;
-  }
-}
-
 const LEAGUE_MEDIA_CROP_CONFIG = {
   cover: {
     aspectRatio: 16 / 9,
@@ -109,133 +76,12 @@ const LEAGUE_MEDIA_CROP_CONFIG = {
   },
 } as const satisfies Record<LeagueMediaKind, LeagueMediaCropConfig>;
 
-const DEFAULT_UPLOAD_ERROR_MESSAGE = "Não foi possível enviar a imagem.";
 const LEAGUE_MEDIA_KINDS: LeagueMediaKind[] = ["avatar", "cover"];
 
 function buildLeagueMediaCropConfig(
   kind: LeagueMediaKind
 ): LeagueMediaCropConfig {
   return LEAGUE_MEDIA_CROP_CONFIG[kind];
-}
-
-function parseConvexUploadStorageId(response: unknown): string {
-  if (
-    typeof response === "object" &&
-    response !== null &&
-    "storageId" in response &&
-    typeof response.storageId === "string" &&
-    response.storageId.trim()
-  ) {
-    return response.storageId;
-  }
-
-  throw new Error("Convex upload response did not include a storage id.");
-}
-
-function formatLeagueMediaUploadError(error: unknown): string {
-  if (!(error instanceof LeagueMediaUploadError)) {
-    return DEFAULT_UPLOAD_ERROR_MESSAGE;
-  }
-
-  if (typeof error.status === "number") {
-    return `${error.message} Código HTTP: ${error.status}.`;
-  }
-
-  return error.message;
-}
-
-async function buildLeagueMediaUploadFile(fileUri: string) {
-  try {
-    const { File: ExpoFile } = await import("expo-file-system");
-    return new ExpoFile(fileUri);
-  } catch (error) {
-    throw new LeagueMediaUploadError(
-      "read_file",
-      "Não foi possível ler o arquivo recortado no aparelho.",
-      {
-        cause: error,
-      }
-    );
-  }
-}
-
-function readUploadErrorDetails(response: { body: string }) {
-  return response.body.trim() || undefined;
-}
-
-async function uploadLeagueMedia(input: {
-  file: CroppedImage;
-  uploadUrl: string;
-}): Promise<UploadedLeagueMedia> {
-  const uploadFile = await buildLeagueMediaUploadFile(input.file.uri);
-  const { UploadType } = await import("expo-file-system");
-  const contentType = input.file.mimeType || "image/jpeg";
-
-  let uploadResponse: Awaited<ReturnType<typeof uploadFile.upload>>;
-
-  try {
-    uploadResponse = await uploadFile.upload(input.uploadUrl, {
-      headers: {
-        "Content-Type": contentType,
-      },
-      httpMethod: "POST",
-      mimeType: contentType,
-      uploadType: UploadType.BINARY_CONTENT,
-    });
-  } catch (error) {
-    throw new LeagueMediaUploadError(
-      "post_upload",
-      "Não foi possível enviar a imagem para o Convex Storage.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
-    const details = readUploadErrorDetails(uploadResponse);
-    throw new LeagueMediaUploadError(
-      "post_upload",
-      "O Convex Storage recusou o upload.",
-      {
-        details,
-        status: uploadResponse.status,
-      }
-    );
-  }
-
-  let uploadResponseBody: unknown;
-
-  try {
-    uploadResponseBody = JSON.parse(uploadResponse.body);
-  } catch (error) {
-    throw new LeagueMediaUploadError(
-      "parse_response",
-      "O Convex Storage respondeu com um payload inválido.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  let storageId: string;
-
-  try {
-    storageId = parseConvexUploadStorageId(uploadResponseBody);
-  } catch (error) {
-    throw new LeagueMediaUploadError(
-      "parse_response",
-      "O Convex Storage respondeu sem um storageId válido.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  return {
-    previewUri: input.file.uri,
-    storageId,
-  };
 }
 
 export function useLeagueFormController(
@@ -331,7 +177,7 @@ export function useLeagueFormController(
 
         try {
           const uploadUrl = await generateUploadUrl.mutateAsync({});
-          const uploadedMedia = await uploadLeagueMedia({
+          const uploadedMedia = await uploadImageToStorage({
             file: pendingFile,
             uploadUrl,
           });
@@ -362,9 +208,9 @@ export function useLeagueFormController(
 
       try {
         inputWithUploadedMedia = await uploadPendingMedia(input);
-      } catch (error) {
+      } catch {
         toast.show({
-          description: formatLeagueMediaUploadError(error),
+          description: "Não foi possível enviar a imagem.",
           id: "league-media-submit-upload-error",
           label: "Erro no upload",
           variant: "danger",
