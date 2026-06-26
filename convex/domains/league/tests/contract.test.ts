@@ -80,6 +80,28 @@ describe("ChallengeRuleConfigSchema", () => {
     const result = ChallengeRuleConfigSchema.safeParse(rest);
     expect(result.success).toBe(false);
   });
+
+  it("rejects when scheduleVisibility is missing (required enum)", () => {
+    const { scheduleVisibility: _omit, ...rest } = validRuleConfig;
+    const result = ChallengeRuleConfigSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts members_only for scheduleVisibility", () => {
+    const result = ChallengeRuleConfigSchema.safeParse({
+      ...validRuleConfig,
+      scheduleVisibility: "members_only",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an invalid scheduleVisibility value", () => {
+    const result = ChallengeRuleConfigSchema.safeParse({
+      ...validRuleConfig,
+      scheduleVisibility: "secret",
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("LeagueScoringModeOptions", () => {
