@@ -27,6 +27,7 @@ export const defaultSeedRuleConfig = {
   maxChallengesPerMonth: { enabled: true, value: 4 } as const,
   newPlayerPlacement: "end_of_ranking" as const,
   responseDeadlineHours: { enabled: true, value: 48 } as const,
+  scheduleVisibility: "public" as const,
   walkoverBehavior: "automatic_loss" as const,
   winBehavior: "take_opponent_position" as const,
 };

@@ -8,6 +8,7 @@ import {
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
   LEGACY_DEFAULT_LEAGUE_STORAGE_IDS,
   LeagueByIdSchema,
   leagueDiscoverySchema,
@@ -59,6 +60,9 @@ async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     ruleConfig: {
       ...record.ruleConfig,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
