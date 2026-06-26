@@ -37,6 +37,11 @@ const visibilityOptions = [
   { label: "Privada", value: "private" as const },
 ];
 
+const scheduleVisibilityOptions = [
+  { label: "Aberta para todos", value: "public" as const },
+  { label: "Somente membros", value: "members_only" as const },
+];
+
 const priceBillingIntervalOptions = [
   { label: "Semanal", value: "week" as const },
   { label: "Mensal", value: "month" as const },
@@ -103,6 +108,12 @@ export default function LeagueSettingsRoute() {
     name: "priceBillingInterval",
     defaultValue: getValues("priceBillingInterval"),
   });
+  const scheduleVisibility = useWatch({
+    control,
+    name: "ruleConfig.scheduleVisibility",
+    defaultValue:
+      getValues("ruleConfig.scheduleVisibility") ?? "public",
+  });
   const visibilityError = errors.visibility?.message;
   const maxPlayersError = errors.maxPlayers?.message;
   const monthlyPriceCentsError = errors.monthlyPriceCents?.message;
@@ -153,7 +164,7 @@ export default function LeagueSettingsRoute() {
               </Button>
             </Menu.Trigger>
             <Menu.Portal>
-              <Menu.Overlay />
+              <Menu.Overlay className="bg-backdrop" />
               <Menu.Content presentation="popover">
                 <Menu.Item onPress={handleSubmitPress}>
                   <Menu.ItemTitle className="flex-none">Salvar</Menu.ItemTitle>
@@ -167,7 +178,7 @@ export default function LeagueSettingsRoute() {
 
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
         <TextField isInvalid={Boolean(visibilityError)} isRequired>
-          <Label>Visibilidade</Label>
+          <Label>Visibilidade da liga</Label>
           <Select
             isDisabled={isDisabled}
             onValueChange={(nextValue) => {
@@ -216,6 +227,56 @@ export default function LeagueSettingsRoute() {
             Define quem pode encontrar e entrar na liga.
           </Description>
           <FieldError>{visibilityError ?? ""}</FieldError>
+        </TextField>
+        <TextField isRequired>
+          <Label>Visibilidade da agenda</Label>
+          <Select
+            isDisabled={isDisabled}
+            onValueChange={(nextValue) => {
+              if (nextValue && !Array.isArray(nextValue)) {
+                setValue(
+                  "ruleConfig.scheduleVisibility",
+                  nextValue.value as LeagueScreenValues["ruleConfig"]["scheduleVisibility"],
+                  {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  }
+                );
+              }
+            }}
+            selectionMode="single"
+            value={scheduleVisibilityOptions.find(
+              (option) => option.value === scheduleVisibility
+            )}
+          >
+            <Select.Trigger>
+              <Select.Value
+                className="font-normal"
+                numberOfLines={1}
+                placeholder="Escolha uma opção"
+              />
+              <Select.TriggerIndicator />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Overlay />
+              <Select.Content presentation="popover" width="trigger">
+                <Select.ListLabel className="mb-2">
+                  Escolha uma opção
+                </Select.ListLabel>
+                {scheduleVisibilityOptions.map((option) => (
+                  <SelectOptionItem
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Select.Content>
+            </Select.Portal>
+          </Select>
+          <Description>
+            Define quem pode ver os jogos agendados da liga.
+          </Description>
         </TextField>
         <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
           <ToggleableRuleCard
