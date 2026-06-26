@@ -24,6 +24,7 @@ const validRuleConfig = {
   responseDeadlineHours: { enabled: true, value: 48 },
   challengeValidationMode: "automatic",
   resultValidationMode: "automatic",
+  scheduleVisibility: "public",
   winBehavior: "take_opponent_position",
   lossBehavior: "stay_put",
   walkoverBehavior: "automatic_loss",

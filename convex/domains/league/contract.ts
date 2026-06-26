@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { FORM_MAX_ENTRIES } from "./challenge-form";
 import {
   enumField,
   requiredNumber,
@@ -49,8 +50,14 @@ export const LeagueResultValidationModeOptions = [
   "manual",
 ] as const;
 
+export const LeagueScheduleVisibilityOptions = [
+  "public",
+  "members_only",
+] as const;
+
 export const DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE = "automatic" as const;
 export const DEFAULT_LEAGUE_RESULT_VALIDATION_MODE = "automatic" as const;
+export const DEFAULT_LEAGUE_SCHEDULE_VISIBILITY = "public" as const;
 
 export const LeagueScoringModeOptions = ["advantage", "no_advantage"] as const;
 
@@ -198,6 +205,7 @@ export const DEFAULT_LEAGUE_RULE_CONFIG = {
     enabled: true,
     value: 48,
   } as ToggleableRule<number>,
+  scheduleVisibility: "public",
 } as const;
 
 type LeagueCourtDayKey = (typeof LeagueCourtDayKeys)[number];
@@ -423,6 +431,7 @@ export const ChallengeRuleConfigSchema = z
     newPlayerPlacement: z.enum(LeagueNewPlayerPlacementOptions),
     challengeValidationMode: z.enum(LeagueChallengeValidationModeOptions),
     resultValidationMode: z.enum(LeagueResultValidationModeOptions),
+    scheduleVisibility: z.enum(LeagueScheduleVisibilityOptions),
     matchConfig: LeagueMatchConfigSchema.default(
       DEFAULT_LEAGUE_MATCH_CONFIG
     ).catch(DEFAULT_LEAGUE_MATCH_CONFIG),
@@ -676,6 +685,16 @@ export const leagueMembershipOverviewSchema = z.object({
   ranking: z.array(leagueMembershipSchema),
 });
 
+export const leagueFormEntrySchema = z.object({
+  isWin: z.boolean(),
+  finishedAt: z.number(),
+});
+
+export const leagueMembershipFormSchema = z.object({
+  membershipId: leagueMembershipIdSchema,
+  form: z.array(leagueFormEntrySchema).max(FORM_MAX_ENTRIES),
+});
+
 export const leagueChallengeParticipantSchema = z.object({
   membershipId: leagueMembershipIdSchema,
   playerProfileId: z.string().min(1, "Jogador invalido."),
@@ -751,6 +770,21 @@ export const leagueChallengeSchema = z.object({
   invalidatedAt: z.number().nullable().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
+});
+
+export const leagueScheduleItemSchema = z.object({
+  id: z.string().min(1, "Desafio inválido."),
+  matchDate: z.string().min(1, "Data inválida."),
+  startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
+  courtName: z.string().min(1, "Quadra inválida."),
+  challenger: z.object({
+    fullName: z.string(),
+    avatarUrl: z.string().nullable().optional(),
+  }),
+  challenged: z.object({
+    fullName: z.string(),
+    avatarUrl: z.string().nullable().optional(),
+  }),
 });
 
 export const leagueDiscoverySchema = leagueSchema.extend({
@@ -884,6 +918,7 @@ export type DeleteLeagueInput = z.infer<typeof DeleteLeagueSchema>;
 export type LeagueByIdInput = z.infer<typeof LeagueByIdSchema>;
 export type League = z.infer<typeof leagueSchema>;
 export type LeagueChallenge = z.infer<typeof leagueChallengeSchema>;
+export type LeagueScheduleItem = z.infer<typeof leagueScheduleItemSchema>;
 export type LeagueChallengeParticipant = z.infer<
   typeof leagueChallengeParticipantSchema
 >;
@@ -906,6 +941,8 @@ export type LeagueMembership = z.infer<typeof leagueMembershipSchema>;
 export type LeagueMembershipOverview = z.infer<
   typeof leagueMembershipOverviewSchema
 >;
+export type LeagueFormEntry = z.infer<typeof leagueFormEntrySchema>;
+export type LeagueMembershipForm = z.infer<typeof leagueMembershipFormSchema>;
 export type LeagueMembershipStatus = z.infer<
   typeof leagueMembershipSchema.shape.status
 >;

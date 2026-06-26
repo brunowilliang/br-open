@@ -33,6 +33,7 @@ function makeLeagueOverview(
       challengeValidationMode: "manual",
       hasInactivityPenalty: false,
       lossBehavior: "stay_put",
+      scheduleVisibility: "public",
       matchConfig: {
         bestOfSets: 3,
         defaultDurationMinutes: 90,

@@ -430,6 +430,7 @@ describe("buildLeagueRulesView", () => {
       inactivityPenaltyDays: 21,
       inactivityPenaltyType: "drop_one_position",
       lossBehavior: "stay_put",
+      scheduleVisibility: "public",
       matchConfig: {
         bestOfSets: 3,
         defaultDurationMinutes: 90,
