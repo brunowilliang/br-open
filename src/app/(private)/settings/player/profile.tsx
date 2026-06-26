@@ -15,11 +15,11 @@ import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -31,45 +31,13 @@ import {
   ImageCropper,
   pickImageCropAsset,
 } from "@/lib/uploads/image-crop";
+import { uploadImageToStorage } from "@/lib/uploads/convex-storage-upload";
 import {
   playerProfileSchema,
   upsertPlayerProfileSchema,
 } from "@convex/domains/player/contract";
 import { ImageUploadIcon } from "@hugeicons/core-free-icons";
 import { z } from "zod";
-
-type UploadedPlayerAvatar = {
-  previewUri: string;
-  storageId: string;
-};
-
-type PlayerAvatarUploadPhase = "parse_response" | "post_upload" | "read_file";
-
-type PlayerAvatarUploadErrorOptions = {
-  cause?: unknown;
-  details?: string;
-  status?: number;
-};
-
-class PlayerAvatarUploadError extends Error {
-  readonly cause?: unknown;
-  readonly details?: string;
-  readonly phase: PlayerAvatarUploadPhase;
-  readonly status?: number;
-
-  constructor(
-    phase: PlayerAvatarUploadPhase,
-    message: string,
-    options: PlayerAvatarUploadErrorOptions = {}
-  ) {
-    super(message);
-    this.name = "PlayerAvatarUploadError";
-    this.cause = options.cause;
-    this.details = options.details;
-    this.phase = phase;
-    this.status = options.status;
-  }
-}
 
 const PlayerProfileFormSchema = z
   .object({
@@ -99,132 +67,9 @@ const genderOptions = [
   { label: "Feminino", value: "Feminino" as const },
 ];
 
-const DEFAULT_AVATAR_UPLOAD_ERROR_MESSAGE = "Não foi possível enviar o avatar.";
 const PLAYER_AVATAR_CROP_TARGET = {
   width: 900,
 } as const;
-
-function parseConvexUploadStorageId(response: unknown): string {
-  if (
-    typeof response === "object" &&
-    response !== null &&
-    "storageId" in response &&
-    typeof response.storageId === "string" &&
-    response.storageId.trim()
-  ) {
-    return response.storageId;
-  }
-
-  throw new Error("Convex upload response did not include a storage id.");
-}
-
-function formatPlayerAvatarUploadError(error: unknown): string {
-  if (!(error instanceof PlayerAvatarUploadError)) {
-    return DEFAULT_AVATAR_UPLOAD_ERROR_MESSAGE;
-  }
-
-  if (typeof error.status === "number") {
-    return `${error.message} Código HTTP: ${error.status}.`;
-  }
-
-  return error.message;
-}
-
-async function buildPlayerAvatarUploadFile(fileUri: string) {
-  try {
-    const { File: ExpoFile } = await import("expo-file-system");
-
-    return new ExpoFile(fileUri);
-  } catch (error) {
-    throw new PlayerAvatarUploadError(
-      "read_file",
-      "Não foi possível ler o avatar recortado no aparelho.",
-      {
-        cause: error,
-      }
-    );
-  }
-}
-
-function readUploadErrorDetails(response: { body: string }) {
-  return response.body.trim() || undefined;
-}
-
-async function uploadPlayerAvatar(input: {
-  file: CroppedImage;
-  uploadUrl: string;
-}): Promise<UploadedPlayerAvatar> {
-  const uploadFile = await buildPlayerAvatarUploadFile(input.file.uri);
-  const { UploadType } = await import("expo-file-system");
-  const contentType = input.file.mimeType || "image/jpeg";
-
-  let uploadResponse: Awaited<ReturnType<typeof uploadFile.upload>>;
-
-  try {
-    uploadResponse = await uploadFile.upload(input.uploadUrl, {
-      headers: {
-        "Content-Type": contentType,
-      },
-      httpMethod: "POST",
-      mimeType: contentType,
-      uploadType: UploadType.BINARY_CONTENT,
-    });
-  } catch (error) {
-    throw new PlayerAvatarUploadError(
-      "post_upload",
-      "Não foi possível enviar o avatar para o Convex Storage.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
-    const details = readUploadErrorDetails(uploadResponse);
-
-    throw new PlayerAvatarUploadError(
-      "post_upload",
-      "O Convex Storage recusou o upload.",
-      {
-        details,
-        status: uploadResponse.status,
-      }
-    );
-  }
-
-  let uploadResponseBody: unknown;
-
-  try {
-    uploadResponseBody = JSON.parse(uploadResponse.body);
-  } catch (error) {
-    throw new PlayerAvatarUploadError(
-      "parse_response",
-      "O Convex Storage respondeu com um payload inválido.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  let storageId: string;
-
-  try {
-    storageId = parseConvexUploadStorageId(uploadResponseBody);
-  } catch (error) {
-    throw new PlayerAvatarUploadError(
-      "parse_response",
-      "O Convex Storage respondeu sem um storageId válido.",
-      {
-        cause: error,
-      }
-    );
-  }
-
-  return {
-    previewUri: input.file.uri,
-    storageId,
-  };
-}
 
 export default function PlayerProfile() {
   const crpc = useCRPC();
@@ -314,9 +159,9 @@ export default function PlayerProfile() {
 
     try {
       valuesWithAvatar = await uploadPendingAvatar(values);
-    } catch (error) {
+    } catch {
       toast.show({
-        description: formatPlayerAvatarUploadError(error),
+        description: "Não foi possível enviar o avatar.",
         id: "player-avatar-submit-upload-error",
         label: "Erro no upload",
         variant: "danger",
@@ -404,7 +249,7 @@ export default function PlayerProfile() {
 
     try {
       const uploadUrl = await generateUploadUrl.mutateAsync({});
-      const uploadedAvatar = await uploadPlayerAvatar({
+      const uploadedAvatar = await uploadImageToStorage({
         file: pendingAvatarFile,
         uploadUrl,
       });
@@ -431,195 +276,9 @@ export default function PlayerProfile() {
     }
   }
 
-  const isProfileLoaded = !(playerProfile.isPending || playerProfile.isError);
-
-  function renderProfileBody() {
-    if (playerProfile.isPending) {
-      return (
-        <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-          <LoadingState />
-        </Page.ScrollView>
-      );
-    }
-
-    if (playerProfile.isError) {
-      return (
-        <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-          <ErrorState
-            error={playerProfile.error}
-            message="Não foi possível carregar o perfil."
-          />
-        </Page.ScrollView>
-      );
-    }
-
-    return (
-      <>
-        <Page.ScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
-          <PressableFeedback
-            className="rounded-full"
-            isDisabled={isSubmitPending}
-            onPress={handleAvatarPress}
-          >
-            <Image
-              alt={displayName}
-              className="size-30 rounded-full"
-              fallback="green"
-              source={avatarSource}
-            />
-            <View className="centered absolute inset-0 bg-black/45">
-              <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-              <Text className="text-white" variant="description">
-                {isSubmitPending ? "Salvando..." : "Alterar Avatar"}
-              </Text>
-            </View>
-            <PressableFeedback.Highlight />
-          </PressableFeedback>
-          <Text className="text-xl">{displayName}</Text>
-          <Controller
-            control={form.control}
-            name="fullName"
-            render={({ field, fieldState }) => (
-              <TextField
-                className="w-full"
-                isInvalid={Boolean(fieldState.error)}
-                isRequired
-              >
-                <Label>Nome completo</Label>
-                <Input
-                  autoCapitalize="words"
-                  editable={!isSubmitPending}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  placeholder="Seu nome completo"
-                  textContentType="name"
-                  value={field.value ?? ""}
-                />
-                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-              </TextField>
-            )}
-          />
-
-          <Controller
-            control={form.control}
-            name="nickname"
-            render={({ field, fieldState }) => (
-              <TextField
-                className="w-full"
-                isInvalid={Boolean(fieldState.error)}
-                isRequired
-              >
-                <Label>Apelido</Label>
-                <Input
-                  editable={!isSubmitPending}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  placeholder="Seu apelido"
-                  textContentType="nickname"
-                  value={field.value ?? ""}
-                />
-                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-              </TextField>
-            )}
-          />
-
-          <Controller
-            control={form.control}
-            name="gender"
-            render={({ field, fieldState }) => (
-              <TextField
-                className="w-full"
-                isInvalid={Boolean(fieldState.error)}
-                isRequired
-              >
-                <Label>Gênero</Label>
-
-                <Select
-                  isDisabled={isSubmitPending}
-                  onValueChange={(nextValue) => {
-                    if (nextValue && !Array.isArray(nextValue)) {
-                      form.setValue(
-                        "gender",
-                        nextValue.value as PlayerProfileFormValues["gender"],
-                        {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        }
-                      );
-                    }
-                  }}
-                  selectionMode="single"
-                  value={genderOptions.find(
-                    (option) => option.value === field.value
-                  )}
-                >
-                  <Select.Trigger>
-                    <Select.Value
-                      className="font-normal"
-                      numberOfLines={1}
-                      placeholder="Escolha uma opção"
-                    />
-                    <Select.TriggerIndicator />
-                  </Select.Trigger>
-                  <Select.Portal>
-                    <Select.Overlay />
-                    <Select.Content presentation="popover" width="trigger">
-                      <Select.ListLabel className="mb-2">
-                        Escolha uma opção
-                      </Select.ListLabel>
-                      {genderOptions.map((option) => (
-                        <SelectOptionItem
-                          key={option.value}
-                          label={option.label}
-                          value={option.value}
-                        />
-                      ))}
-                    </Select.Content>
-                  </Select.Portal>
-                </Select>
-                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-              </TextField>
-            )}
-          />
-
-          <Controller
-            control={form.control}
-            name="phone"
-            render={({ field, fieldState }) => (
-              <TextField
-                className="w-full"
-                isInvalid={Boolean(fieldState.error)}
-              >
-                <Label>Telefone/WhatsApp</Label>
-                <Input
-                  editable={!isSubmitPending}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  onSubmitEditing={handleSubmitPress}
-                  placeholder="(00) 00000-0000"
-                  textContentType="telephoneNumber"
-                  value={field.value ?? ""}
-                />
-                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-              </TextField>
-            )}
-          />
-        </Page.ScrollView>
-        <Page.Footer>
-          <Button
-            className="w-full"
-            isDisabled={!canSubmit}
-            onPress={handleSubmitPress}
-          >
-            <Button.Label>
-              {isSubmitPending ? "Salvando..." : "Salvar alterações"}
-            </Button.Label>
-          </Button>
-        </Page.Footer>
-      </>
-    );
-  }
+  const isProfileError = playerProfile.isError;
+  const isProfileLoading = playerProfile.isPending;
+  const isProfileLoaded = !(isProfileLoading || isProfileError);
 
   return (
     <>
@@ -633,7 +292,189 @@ export default function PlayerProfile() {
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>
-        {renderProfileBody()}
+
+        {isProfileLoading && (
+          <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
+            <LoadingState />
+          </Page.ScrollView>
+        )}
+        {isProfileError && (
+          <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
+            <ErrorState
+              error={playerProfile.error}
+              message="Não foi possível carregar o perfil."
+            />
+          </Page.ScrollView>
+        )}
+        {isProfileLoaded && (
+          <>
+            <Page.ScrollView contentContainerClassName="items-center gap-2 px-4 w-full">
+              <PressableFeedback
+                className="rounded-full"
+                isDisabled={isSubmitPending}
+                onPress={handleAvatarPress}
+              >
+                <Image
+                  alt={displayName}
+                  className="size-30 rounded-full"
+                  fallback="green"
+                  source={avatarSource}
+                />
+                <View className="centered absolute inset-0 bg-black/45">
+                  <HugeIcons
+                    className="size-6 text-white"
+                    icon={ImageUploadIcon}
+                  />
+                  <Text className="text-white" variant="description">
+                    {isSubmitPending ? "Salvando..." : "Alterar Avatar"}
+                  </Text>
+                </View>
+                <PressableFeedback.Highlight />
+              </PressableFeedback>
+              <Text className="text-xl">{displayName}</Text>
+              <Controller
+                control={form.control}
+                name="fullName"
+                render={({ field, fieldState }) => (
+                  <TextField
+                    className="w-full"
+                    isInvalid={Boolean(fieldState.error)}
+                    isRequired
+                  >
+                    <Label>Nome completo</Label>
+                    <Input
+                      autoCapitalize="words"
+                      editable={!isSubmitPending}
+                      onBlur={field.onBlur}
+                      onChangeText={field.onChange}
+                      placeholder="Seu nome completo"
+                      textContentType="name"
+                      value={field.value ?? ""}
+                    />
+                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+                  </TextField>
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="nickname"
+                render={({ field, fieldState }) => (
+                  <TextField
+                    className="w-full"
+                    isInvalid={Boolean(fieldState.error)}
+                    isRequired
+                  >
+                    <Label>Apelido</Label>
+                    <Input
+                      editable={!isSubmitPending}
+                      onBlur={field.onBlur}
+                      onChangeText={field.onChange}
+                      placeholder="Seu apelido"
+                      textContentType="nickname"
+                      value={field.value ?? ""}
+                    />
+                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+                  </TextField>
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="gender"
+                render={({ field, fieldState }) => (
+                  <TextField
+                    className="w-full"
+                    isInvalid={Boolean(fieldState.error)}
+                    isRequired
+                  >
+                    <Label>Gênero</Label>
+
+                    <Select
+                      isDisabled={isSubmitPending}
+                      onValueChange={(nextValue) => {
+                        if (nextValue && !Array.isArray(nextValue)) {
+                          form.setValue(
+                            "gender",
+                            nextValue.value as PlayerProfileFormValues["gender"],
+                            {
+                              shouldDirty: true,
+                              shouldTouch: true,
+                              shouldValidate: true,
+                            }
+                          );
+                        }
+                      }}
+                      selectionMode="single"
+                      value={genderOptions.find(
+                        (option) => option.value === field.value
+                      )}
+                    >
+                      <Select.Trigger>
+                        <Select.Value
+                          className="font-normal"
+                          numberOfLines={1}
+                          placeholder="Escolha uma opção"
+                        />
+                        <Select.TriggerIndicator />
+                      </Select.Trigger>
+                      <Select.Portal>
+                        <Select.Overlay />
+                        <Select.Content presentation="popover" width="trigger">
+                          <Select.ListLabel className="mb-2">
+                            Escolha uma opção
+                          </Select.ListLabel>
+                          {genderOptions.map((option) => (
+                            <SelectOptionItem
+                              key={option.value}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Select.Content>
+                      </Select.Portal>
+                    </Select>
+                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+                  </TextField>
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="phone"
+                render={({ field, fieldState }) => (
+                  <TextField
+                    className="w-full"
+                    isInvalid={Boolean(fieldState.error)}
+                  >
+                    <Label>Telefone/WhatsApp</Label>
+                    <Input
+                      editable={!isSubmitPending}
+                      onBlur={field.onBlur}
+                      onChangeText={field.onChange}
+                      onSubmitEditing={handleSubmitPress}
+                      placeholder="(00) 00000-0000"
+                      textContentType="telephoneNumber"
+                      value={field.value ?? ""}
+                    />
+                    <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+                  </TextField>
+                )}
+              />
+            </Page.ScrollView>
+            <Page.Footer className="px-4 pb-safe-offset-4">
+              <Button
+                className="w-full"
+                isDisabled={!canSubmit}
+                onPress={handleSubmitPress}
+              >
+                <Button.Label>
+                  {isSubmitPending ? "Salvando..." : "Salvar alterações"}
+                </Button.Label>
+              </Button>
+            </Page.Footer>
+          </>
+        )}
       </Page>
       {isProfileLoaded ? (
         <ImageCropper
