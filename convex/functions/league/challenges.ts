@@ -28,7 +28,9 @@ import {
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
   DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+  DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
   LeagueByIdSchema,
+  LeagueChallengeByIdSchema,
   leagueChallengeSchema,
   leagueChallengeScoreSchema,
   LeagueMatchConfigSchema,
@@ -120,6 +122,9 @@ function serializeLeagueRecord(record: LeagueRecord) {
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     ruleConfig: {
       ...record.ruleConfig,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
@@ -2286,6 +2291,7 @@ const ADMIN_SCORE_EDITABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "pending_result_confirmation",
   "pending_admin_result_validation",
   "pending_result_correction",
+  "pending_admin_decision",
   "finished",
   "invalidated",
 ]);
@@ -2310,7 +2316,26 @@ export const adminSubmitResult = authMutation
       "Só o admin da liga pode editar o placar."
     );
 
-    const currentStatus = currentChallenge.status as LeagueChallengeStatus;
+    // Sincroniza status derivados do tempo (ex.: proposta sem resposta após o
+    // deadline vira pending_admin_decision) antes de validar, para que o
+    // status refletido na UI (derivado) seja o mesmo usado aqui.
+    const currentProposal = await getCurrentProposalOrThrow(
+      ctx,
+      currentChallenge
+    );
+    const latestResultSubmission = await getLatestResultSubmission(
+      ctx,
+      currentChallenge.id as Id<"leagueChallenge">
+    );
+    const syncedChallenge = await syncTimeDrivenChallengeStatus(
+      ctx,
+      currentChallenge,
+      currentProposal,
+      latestResultSubmission,
+      now
+    );
+
+    const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
 
     if (!ADMIN_SCORE_EDITABLE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
@@ -2697,6 +2722,86 @@ export const adminManage = authMutation
       finishedAt: null,
       invalidatedAt: null,
       rankingAppliedAt: null,
+      updatedAt: now,
+    });
+  });
+
+/**
+ * Status em que o admin pode enviar um lembrete aos jogadores pedindo que
+ * registrem o placar. São os status onde o placar ainda está pendente de
+ * ação de um jogador e o desafio não está finalizado/cancelado.
+ */
+const ADMIN_RESULT_REMINDER_STATUSES = new Set<LeagueChallengeStatus>([
+  "pending_result_submission",
+  "pending_result_confirmation",
+  "pending_admin_decision",
+]);
+
+export const adminRequestResultReminder = authMutation
+  .input(LeagueChallengeByIdSchema)
+  .output(leagueChallengeSchema)
+  .mutation(async ({ ctx, input }) => {
+    const now = new Date();
+    const currentChallenge = await getChallengeRecordOrThrow(
+      ctx,
+      input.challengeId as Id<"leagueChallenge">
+    );
+    const currentLeague = await getLeagueRecordOrThrow(
+      ctx,
+      currentChallenge.leagueId as Id<"league">
+    );
+
+    await assertCanManageLeague(
+      ctx,
+      currentLeague,
+      "Só o admin da liga pode enviar lembretes de placar."
+    );
+
+    // Sincroniza status derivados do tempo antes de validar, alinhando o
+    // status usado aqui com o exibido na UI.
+    const currentProposal = await getCurrentProposalOrThrow(
+      ctx,
+      currentChallenge
+    );
+    const latestResultSubmission = await getLatestResultSubmission(
+      ctx,
+      currentChallenge.id as Id<"leagueChallenge">
+    );
+    const syncedChallenge = await syncTimeDrivenChallengeStatus(
+      ctx,
+      currentChallenge,
+      currentProposal,
+      latestResultSubmission,
+      now
+    );
+
+    const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
+
+    if (!ADMIN_RESULT_REMINDER_STATUSES.has(currentStatus)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Esse desafio não está aguardando placar dos jogadores.",
+      });
+    }
+
+    await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
+      updatedAt: now.getTime(),
+    });
+
+    await scheduleChallengeNotification({
+      actorUserId: ctx.userId,
+      challenge: syncedChallenge,
+      ctx,
+      eventType: "league.challenge.result_reminder_requested",
+      recipientMembershipIds: [
+        currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+        currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+      ],
+    });
+
+    return serializeChallenge(ctx, currentLeague, {
+      ...currentChallenge,
+      status: currentStatus,
       updatedAt: now,
     });
   });
