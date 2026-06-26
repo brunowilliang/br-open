@@ -73,7 +73,15 @@ function createLeagueDetailsBucket(leagueId: string) {
       challengeCreateTarget: null as LeagueDetailsChallengeCreateTarget | null,
     },
     derived: {
-      access: () => buildLeagueDetailsAccess(bucket$.viewer.role.get()),
+      access: () => {
+        const league = bucket$.data.league.get();
+        const scheduleVisibility =
+          league?.ruleConfig.scheduleVisibility ?? "public";
+        return buildLeagueDetailsAccess({
+          role: bucket$.viewer.role.get(),
+          scheduleVisibility,
+        });
+      },
       canManageLeague: () => bucket$.viewer.role.get() === "owner",
       canOpenChallenges: () => bucket$.derived.access.get().canOpenChallenges,
       canOpenLeagueMenu: () =>

@@ -60,30 +60,60 @@ describe("buildLeagueDetailsRole", () => {
 
 describe("buildLeagueDetailsAccess", () => {
   it("opens all operational routes for owner", () => {
-    expect(buildLeagueDetailsAccess("owner")).toEqual({
+    expect(
+      buildLeagueDetailsAccess({ role: "owner", scheduleVisibility: "public" })
+    ).toEqual({
       canOpenChallenges: true,
       canOpenRanking: true,
       canOpenRequests: true,
       canOpenRules: true,
+      canOpenSchedule: true,
     });
   });
 
   it("keeps requests closed for participants", () => {
-    expect(buildLeagueDetailsAccess("participant")).toEqual({
+    expect(
+      buildLeagueDetailsAccess({
+        role: "participant",
+        scheduleVisibility: "public",
+      })
+    ).toEqual({
       canOpenChallenges: true,
       canOpenRanking: true,
       canOpenRequests: false,
       canOpenRules: true,
+      canOpenSchedule: true,
     });
   });
 
   it("keeps ranking and challenges closed for visitors", () => {
-    expect(buildLeagueDetailsAccess("visitor")).toEqual({
+    expect(
+      buildLeagueDetailsAccess({
+        role: "visitor",
+        scheduleVisibility: "public",
+      })
+    ).toEqual({
       canOpenChallenges: false,
       canOpenRanking: false,
       canOpenRequests: false,
       canOpenRules: true,
+      canOpenSchedule: true,
     });
+  });
+
+  it("restricts schedule to members when visibility is members_only", () => {
+    expect(
+      buildLeagueDetailsAccess({
+        role: "visitor",
+        scheduleVisibility: "members_only",
+      })
+    ).toMatchObject({ canOpenSchedule: false });
+    expect(
+      buildLeagueDetailsAccess({
+        role: "participant",
+        scheduleVisibility: "members_only",
+      })
+    ).toMatchObject({ canOpenSchedule: true });
   });
 });
 
@@ -95,6 +125,7 @@ describe("buildLeagueDetailsCanOpenLeagueMenu", () => {
         canOpenRanking: true,
         canOpenRequests: false,
         canOpenRules: true,
+        canOpenSchedule: false,
       })
     ).toBe(true);
   });
@@ -106,6 +137,7 @@ describe("buildLeagueDetailsCanOpenLeagueMenu", () => {
         canOpenRanking: false,
         canOpenRequests: false,
         canOpenRules: true,
+        canOpenSchedule: false,
       })
     ).toBe(true);
   });
@@ -120,6 +152,7 @@ describe("buildLeagueDetailsMenuActionCounts", () => {
           canOpenRanking: true,
           canOpenRequests: true,
           canOpenRules: true,
+          canOpenSchedule: true,
         },
         challengeActionCount: 2,
         requestActionCount: 3,
@@ -139,6 +172,7 @@ describe("buildLeagueDetailsMenuActionCounts", () => {
           canOpenRanking: true,
           canOpenRequests: false,
           canOpenRules: true,
+          canOpenSchedule: true,
         },
         challengeActionCount: 1,
         requestActionCount: 4,
@@ -159,6 +193,7 @@ describe("shouldFetchLeagueDetailsMembershipOverview", () => {
         canOpenRanking: false,
         canOpenRequests: true,
         canOpenRules: true,
+        canOpenSchedule: false,
       })
     ).toBe(true);
     expect(
@@ -167,6 +202,7 @@ describe("shouldFetchLeagueDetailsMembershipOverview", () => {
         canOpenRanking: true,
         canOpenRequests: false,
         canOpenRules: true,
+        canOpenSchedule: false,
       })
     ).toBe(true);
   });
@@ -178,6 +214,7 @@ describe("shouldFetchLeagueDetailsMembershipOverview", () => {
         canOpenRanking: false,
         canOpenRequests: false,
         canOpenRules: true,
+        canOpenSchedule: false,
       })
     ).toBe(false);
   });

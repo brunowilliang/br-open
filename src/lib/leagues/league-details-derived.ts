@@ -12,6 +12,7 @@ export type LeagueDetailsAccess = {
   canOpenRanking: boolean;
   canOpenRequests: boolean;
   canOpenRules: boolean;
+  canOpenSchedule: boolean;
 };
 
 export type LeagueDetailsRankingItem = {
@@ -82,14 +83,18 @@ export function buildLeagueDetailsRole(input: {
   return "visitor";
 }
 
-export function buildLeagueDetailsAccess(
-  role: LeagueDetailsRole
-): LeagueDetailsAccess {
+export function buildLeagueDetailsAccess(input: {
+  role: LeagueDetailsRole;
+  scheduleVisibility: "members_only" | "public";
+}): LeagueDetailsAccess {
+  const isMember = input.role === "participant" || input.role === "owner";
   return {
-    canOpenChallenges: role === "participant" || role === "owner",
-    canOpenRanking: role === "participant" || role === "owner",
-    canOpenRequests: role === "owner",
+    canOpenChallenges: isMember,
+    canOpenRanking: isMember,
+    canOpenRequests: input.role === "owner",
     canOpenRules: true,
+    canOpenSchedule:
+      input.scheduleVisibility === "public" ? true : isMember,
   };
 }
 
@@ -100,7 +105,8 @@ export function buildLeagueDetailsCanOpenLeagueMenu(
     access.canOpenRanking ||
     access.canOpenChallenges ||
     access.canOpenRules ||
-    access.canOpenRequests
+    access.canOpenRequests ||
+    access.canOpenSchedule
   );
 }
 

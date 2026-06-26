@@ -11,6 +11,7 @@ const visitorAccess = {
   canOpenRanking: false,
   canOpenRequests: false,
   canOpenRules: true,
+  canOpenSchedule: true,
 };
 
 const participantAccess = {
@@ -18,6 +19,7 @@ const participantAccess = {
   canOpenRanking: true,
   canOpenRequests: false,
   canOpenRules: true,
+  canOpenSchedule: true,
 };
 
 const ownerAccess = {
@@ -25,6 +27,7 @@ const ownerAccess = {
   canOpenRanking: true,
   canOpenRequests: true,
   canOpenRules: true,
+  canOpenSchedule: true,
 };
 
 describe("buildLeagueNavigationTabItems", () => {
