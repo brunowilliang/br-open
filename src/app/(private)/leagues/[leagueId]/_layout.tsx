@@ -42,6 +42,7 @@ const LEAGUE_DETAIL_SCREEN_NAMES = [
   "challenges",
   "requests",
   "rules",
+  "schedule",
 ] as const;
 
 export default function LeagueDetailsLayout() {

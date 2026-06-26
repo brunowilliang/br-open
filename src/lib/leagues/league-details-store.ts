@@ -35,7 +35,8 @@ export type LeagueDetailsRoute =
   | "ranking"
   | "challenges"
   | "requests"
-  | "rules";
+  | "rules"
+  | "schedule";
 
 export type LeagueDetailsChallengeCreateTarget = {
   membershipId: string;
@@ -136,6 +137,10 @@ function createLeagueDetailsBucket(leagueId: string) {
       rulesView: () => {
         const league = bucket$.data.league.get();
         return league ? buildLeagueRulesView(league.ruleConfig) : null;
+      },
+      viewerMembershipId: () => {
+        const items = bucket$.derived.rankingItems.get();
+        return items.find((item) => item.isViewerItem)?.id ?? null;
       },
       viewerPosition: () =>
         resolveLeagueDetailsViewerPosition({
