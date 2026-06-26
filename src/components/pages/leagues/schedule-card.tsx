@@ -36,21 +36,13 @@ function ScheduleCardImpl(props: ScheduleCardProps) {
       </View>
       <View className="min-w-0 flex-1 gap-1">
         <View className="flex-row items-center gap-1">
-          <Text
-            className="max-w-[40%]"
-            numberOfLines={1}
-            variant="description"
-          >
+          <Text className="max-w-[40%]" numberOfLines={1} variant="description">
             {props.challengerFullName}
           </Text>
           <Text className="text-muted" variant="description">
             x
           </Text>
-          <Text
-            className="max-w-[40%]"
-            numberOfLines={1}
-            variant="description"
-          >
+          <Text className="max-w-[40%]" numberOfLines={1} variant="description">
             {props.challengedFullName}
           </Text>
         </View>

@@ -93,8 +93,7 @@ export function buildLeagueDetailsAccess(input: {
     canOpenRanking: isMember,
     canOpenRequests: input.role === "owner",
     canOpenRules: true,
-    canOpenSchedule:
-      input.scheduleVisibility === "public" ? true : isMember,
+    canOpenSchedule: input.scheduleVisibility === "public" ? true : isMember,
   };
 }
 

@@ -111,8 +111,7 @@ export default function LeagueSettingsRoute() {
   const scheduleVisibility = useWatch({
     control,
     name: "ruleConfig.scheduleVisibility",
-    defaultValue:
-      getValues("ruleConfig.scheduleVisibility") ?? "public",
+    defaultValue: getValues("ruleConfig.scheduleVisibility") ?? "public",
   });
   const visibilityError = errors.visibility?.message;
   const maxPlayersError = errors.maxPlayers?.message;

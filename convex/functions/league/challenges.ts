@@ -1034,10 +1034,7 @@ export const listScheduled = authQuery
           return null;
         }
 
-        const currentProposal = await getCurrentProposalOrThrow(
-          ctx,
-          challenge
-        );
+        const currentProposal = await getCurrentProposalOrThrow(ctx, challenge);
 
         if (currentProposal.matchDate < todayUtc) {
           return null;

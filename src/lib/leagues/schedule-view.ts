@@ -87,15 +87,13 @@ function buildDateTabLabel(input: {
     return "Amanhã";
   }
 
-  return DAY_LABEL_FORMATTER
-    .format(
-      Date.UTC(
-        input.date.getUTCFullYear(),
-        input.date.getUTCMonth(),
-        input.date.getUTCDate()
-      )
+  return DAY_LABEL_FORMATTER.format(
+    Date.UTC(
+      input.date.getUTCFullYear(),
+      input.date.getUTCMonth(),
+      input.date.getUTCDate()
     )
-    .replace(".", "");
+  ).replace(".", "");
 }
 
 export function formatDateToUtcKey(date: Date): string {
