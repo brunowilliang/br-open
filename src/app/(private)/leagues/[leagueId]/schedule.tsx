@@ -2,7 +2,7 @@ import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams } from "expo-router";
-import { Select, Tabs } from "heroui-native";
+import { Button, Menu, Tabs } from "heroui-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
@@ -12,7 +12,6 @@ import { ScheduleCard } from "@/components/pages/leagues/schedule-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
@@ -85,41 +84,34 @@ export default function LeagueScheduleRoute() {
               <Page.Header.Title>Agenda</Page.Header.Title>
             </Page.Header.Center>
             <Page.Header.Right>
-              <Select
-                onValueChange={(nextValue) => {
-                  if (nextValue && !Array.isArray(nextValue)) {
-                    setWindowDays(
-                      Number(nextValue.value) as ScheduleWindowDays
-                    );
-                  }
-                }}
-                selectionMode="single"
-                value={(() => {
-                  const option = SCHEDULE_WINDOW_OPTIONS.find(
-                    (item) => item.value === windowDays
-                  );
-                  return option
-                    ? { label: option.label, value: String(option.value) }
-                    : undefined;
-                })()}
-              >
-                <Select.Trigger>
-                  <Select.Value numberOfLines={1} placeholder="Janela" />
-                  <Select.TriggerIndicator />
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Overlay />
-                  <Select.Content presentation="popover" width="trigger">
+              <Menu>
+                <Menu.Trigger asChild>
+                  <Button size="sm" variant="secondary">
+                    <Button.Label>
+                      {SCHEDULE_WINDOW_OPTIONS.find(
+                        (item) => item.value === windowDays
+                      )?.label ?? "7 dias"}
+                    </Button.Label>
+                  </Button>
+                </Menu.Trigger>
+                <Menu.Portal>
+                  <Menu.Overlay className="bg-backdrop" />
+                  <Menu.Content presentation="popover">
                     {SCHEDULE_WINDOW_OPTIONS.map((option) => (
-                      <SelectOptionItem
+                      <Menu.Item
                         key={option.value}
-                        label={option.label}
-                        value={String(option.value)}
-                      />
+                        onPress={() => {
+                          setWindowDays(option.value);
+                        }}
+                      >
+                        <Menu.ItemTitle className="flex-none">
+                          {option.label}
+                        </Menu.ItemTitle>
+                      </Menu.Item>
                     ))}
-                  </Select.Content>
-                </Select.Portal>
-              </Select>
+                  </Menu.Content>
+                </Menu.Portal>
+              </Menu>
             </Page.Header.Right>
           </View>
           <Tabs
