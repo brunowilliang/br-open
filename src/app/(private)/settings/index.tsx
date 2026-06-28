@@ -189,9 +189,7 @@ export default function Settings() {
                 <ListGroup.ItemContent>
                   <ListGroup.ItemTitle>Modo organizador</ListGroup.ItemTitle>
                   <ListGroup.ItemDescription>
-                    {isOrganizationActor
-                      ? "Você está gerenciando como organizador. Toque para voltar ao modo jogador."
-                      : "Toque para gerenciar suas competições como organizador."}
+                    Alterne entre os modos organizador e jogador.
                   </ListGroup.ItemDescription>
                 </ListGroup.ItemContent>
                 <ListGroup.ItemSuffix>

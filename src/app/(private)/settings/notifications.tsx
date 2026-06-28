@@ -606,7 +606,7 @@ export default function SettingsNotificationsRoute() {
           <Dialog.Content className="gap-4 p-5">
             <Dialog.Close className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Preferências</Dialog.Title>
-            <ListGroup>
+            <ListGroup variant="secondary">
               <PressableFeedback animation={false} onPress={handlePushRowPress}>
                 <ListGroup.Item disabled>
                   <ListGroup.ItemPrefix>
