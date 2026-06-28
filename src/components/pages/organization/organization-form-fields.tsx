@@ -462,7 +462,6 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
 
       {/* ---- Modalidades ---- */}
       <ExpandableSection
-        defaultExpanded
         description="Selecione os esportes oferecidos."
         title="Modalidades"
       >

@@ -177,12 +177,19 @@ export default function OrganizationProfile() {
     }
 
     const payload: UpsertOrganizationInput = {
-      ...values,
+      address: values.address,
+      contactEmail: values.contactEmail,
+      description: values.description,
       logoStorageId,
+      name: values.name,
       organizerType: values.organizerType!,
+      organizerTypeLabel: values.organizerTypeLabel,
+      phone: values.phone,
       sports: values.sports?.length
         ? (values.sports as UpsertOrganizationInput["sports"])
         : undefined,
+      sportsLabel: values.sportsLabel,
+      website: values.website,
     };
 
     await updateProfile.mutateAsync(payload);
