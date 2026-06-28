@@ -1,5 +1,6 @@
-import { HugeIcons } from "@/components/ui/huge-icons";
 import { Page } from "@/components/core/page";
+import { Text } from "@/components/core/text";
+import { HugeIcons } from "@/components/ui/huge-icons";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -13,6 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
 import {
+  Card,
   Description,
   ListGroup,
   PressableFeedback,
@@ -22,6 +24,7 @@ import {
 } from "heroui-native";
 import type { ComponentProps } from "react";
 import { Fragment } from "react";
+import { View } from "react-native";
 
 type SettingsItem = {
   description: string;
@@ -40,12 +43,6 @@ const sections: SettingsSection[] = [
   {
     title: "Menus",
     items: [
-      {
-        title: "Perfil do jogador",
-        description: "Gerencie seu perfil como jogador",
-        icon: TennisRacketIcon,
-        href: "/settings/player/profile",
-      },
       {
         title: "Ligas",
         description: "Crie e administre suas ligas",
@@ -118,23 +115,6 @@ export default function Settings() {
     })
   );
 
-  const activateOrganization = useMutation(
-    crpc.viewer.context.activateOrganization.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível ativar o organizador."
-          ),
-          id: "settings-activate-organization-error",
-          label: "Organizador não ativado",
-          variant: "danger",
-        });
-      },
-      onSuccess: invalidateActorScopedQueries,
-    })
-  );
-
   const handleSignOutPress = useMutation(
     useSignOutMutationOptions({
       onError: (error) => {
@@ -151,12 +131,10 @@ export default function Settings() {
     })
   );
   const isActorMutationPending =
-    viewerContext.isPending ||
-    setActiveActor.isPending ||
-    activateOrganization.isPending;
+    viewerContext.isPending || setActiveActor.isPending;
 
   function handleOrganizerModeToggle(isSelected: boolean) {
-    if (isActorMutationPending) {
+    if (isActorMutationPending || !organizationActor) {
       return;
     }
 
@@ -165,25 +143,25 @@ export default function Settings() {
       return;
     }
 
-    if (organizationActor) {
-      setActiveActor.mutate({
-        actorKind: "organization",
-        organizationId: organizationActor.id,
-      });
-      return;
-    }
-
-    // TODO: remove in Task 9 — replaced by onboarding navigation
-    activateOrganization.mutate({
-      acceptedTerms: {
-        acceptedAt: new Date().toISOString(),
-        userId: "",
-        version: "1.0.0",
-      },
-      name: `Organização ${activeActor?.displayName.trim() || "BR Open"}`,
-      organizerType: "outro",
+    setActiveActor.mutate({
+      actorKind: "organization",
+      organizationId: organizationActor.id,
     });
   }
+
+  const profileItem: SettingsItem = isOrganizationActor
+    ? {
+        description: "Gerencie o perfil da sua organização",
+        href: "/settings/organization/profile" as Href,
+        icon: ChampionIcon,
+        title: "Perfil da organização",
+      }
+    : {
+        description: "Gerencie seu perfil como jogador",
+        href: "/settings/player/profile",
+        icon: TennisRacketIcon,
+        title: "Perfil do jogador",
+      };
 
   return (
     <Page>
@@ -198,34 +176,71 @@ export default function Settings() {
       </Page.Header>
       <Page.ScrollView contentContainerClassName="gap-2 px-4 pb-safe-offset-4">
         <Description>Modo de uso</Description>
-        <ListGroup>
+        {organizationActor ? (
+          <ListGroup>
+            <PressableFeedback
+              animation={false}
+              onPress={() => handleOrganizerModeToggle(!isOrganizationActor)}
+            >
+              <ListGroup.Item disabled>
+                <ListGroup.ItemPrefix>
+                  <HugeIcons icon={ChampionIcon} />
+                </ListGroup.ItemPrefix>
+                <ListGroup.ItemContent>
+                  <ListGroup.ItemTitle>Modo organizador</ListGroup.ItemTitle>
+                  <ListGroup.ItemDescription>
+                    {isOrganizationActor
+                      ? "Você está gerenciando como organizador. Toque para voltar ao modo jogador."
+                      : "Toque para gerenciar suas competições como organizador."}
+                  </ListGroup.ItemDescription>
+                </ListGroup.ItemContent>
+                <ListGroup.ItemSuffix>
+                  <Switch
+                    isDisabled={isActorMutationPending}
+                    isSelected={isOrganizationActor}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onSelectedChange={handleOrganizerModeToggle}
+                  />
+                </ListGroup.ItemSuffix>
+              </ListGroup.Item>
+              <PressableFeedback.Highlight />
+            </PressableFeedback>
+          </ListGroup>
+        ) : (
           <PressableFeedback
-            animation={false}
-            onPress={() => handleOrganizerModeToggle(!isOrganizationActor)}
+            isDisabled={isActorMutationPending}
+            onPress={() => router.navigate("/settings/organization/onboarding")}
           >
-            <ListGroup.Item disabled>
-              <ListGroup.ItemPrefix>
-                <HugeIcons icon={ChampionIcon} />
-              </ListGroup.ItemPrefix>
-              <ListGroup.ItemContent>
-                <ListGroup.ItemTitle>Modo organizador</ListGroup.ItemTitle>
-                <ListGroup.ItemDescription>
-                  Crie e administre competições com sua conta de organizador.
-                </ListGroup.ItemDescription>
-              </ListGroup.ItemContent>
-              <ListGroup.ItemSuffix>
-                <Switch
-                  isDisabled={isActorMutationPending}
-                  isSelected={isOrganizationActor}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onSelectedChange={handleOrganizerModeToggle}
-                />
-              </ListGroup.ItemSuffix>
-            </ListGroup.Item>
-            <PressableFeedback.Highlight />
+            <Card className="flex-1 flex-row items-center gap-3">
+              <View className="centered size-12 rounded-2xl bg-accent-soft">
+                <HugeIcons className="size-6 text-accent" icon={ChampionIcon} />
+              </View>
+              <Card.Body className="flex-1">
+                <Text weight="semibold">Seja um organizador</Text>
+                <Text className="flex-1" color="muted" variant="description">
+                  Crie e administre competições com seu clube, academia ou liga.
+                </Text>
+              </Card.Body>
+              <PressableFeedback.Highlight />
+            </Card>
           </PressableFeedback>
+        )}
+        <Description>Perfil</Description>
+        <ListGroup>
+          <ListGroup.Item onPress={() => router.navigate(profileItem.href)}>
+            <ListGroup.ItemPrefix>
+              <HugeIcons icon={profileItem.icon} />
+            </ListGroup.ItemPrefix>
+            <ListGroup.ItemContent>
+              <ListGroup.ItemTitle>{profileItem.title}</ListGroup.ItemTitle>
+              <ListGroup.ItemDescription>
+                {profileItem.description}
+              </ListGroup.ItemDescription>
+            </ListGroup.ItemContent>
+            <ListGroup.ItemSuffix />
+          </ListGroup.Item>
         </ListGroup>
         {sections.map((section) => (
           <Fragment key={section.title}>

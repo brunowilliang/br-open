@@ -34,7 +34,7 @@ const ormSchema = schema;
 
 registerProcedureNameLookup(
   {
-  "organization/profile.ts": [{ column: 3, line: 87, name: "organization/profile:generateUploadUrl" }, { column: 3, line: 67, name: "organization/profile:get" }, { column: 3, line: 92, name: "organization/profile:upsert" }],
+  "organization/profile.ts": [{ column: 3, line: 90, name: "organization/profile:generateUploadUrl" }, { column: 3, line: 70, name: "organization/profile:get" }, { column: 3, line: 95, name: "organization/profile:upsert" }],
   "notification/settings.ts": [{ column: 3, line: 131, name: "notification/settings:setPreference" }, { column: 3, line: 96, name: "notification/settings:status" }, { column: 3, line: 170, name: "notification/settings:upsertDevice" }],
   "notification/orchestrator.ts": [{ column: 3, line: 293, name: "notification/orchestrator:claimPendingDeliveries" }, { column: 3, line: 187, name: "notification/orchestrator:createForRecipients" }, { column: 3, line: 359, name: "notification/orchestrator:markDeliveryResults" }, { column: 3, line: 406, name: "notification/orchestrator:releaseLock" }, { column: 3, line: 413, name: "notification/orchestrator:sendPending" }],
   "notification/feed.ts": [{ column: 3, line: 104, name: "notification/feed:list" }, { column: 3, line: 153, name: "notification/feed:markAllRead" }, { column: 3, line: 127, name: "notification/feed:markRead" }, { column: 3, line: 185, name: "notification/feed:remove" }, { column: 3, line: 206, name: "notification/feed:removeAll" }],

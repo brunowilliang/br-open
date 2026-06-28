@@ -93,6 +93,7 @@ export default function LeagueLocationRoute() {
           <Input
             autoCapitalize="characters"
             editable={!isDisabled}
+            maxLength={2}
             onBlur={stateField.onBlur}
             onChangeText={stateField.onChange}
             placeholder="Ex: SC"

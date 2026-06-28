@@ -3383,14 +3383,17 @@ export const api: {
           organizerType?:
             | "academia"
             | "clube"
-            | "liga"
             | "condominio"
-            | "escola"
-            | "federacao"
             | "confederacao"
             | "centro_de_treinamento"
+            | "escola"
+            | "federacao"
+            | "liga"
+            | "particular"
             | "outro"
             | null;
+          organizerTypeLabel?: string | null;
+          phone?: string | null;
           slug: string;
           sports?: Array<
             | "tenis"
@@ -3407,6 +3410,7 @@ export const api: {
             | "volei_de_quadra"
             | "outro"
           > | null;
+          sportsLabel?: string | null;
           website?: string | null;
         } | null
       >;
@@ -3423,20 +3427,23 @@ export const api: {
             state: string;
             street: string;
           } | null;
-          contactEmail?: string;
+          contactEmail: string;
           description?: string;
           logoStorageId?: string | null;
           name: string;
           organizerType:
             | "academia"
             | "clube"
-            | "liga"
             | "condominio"
-            | "escola"
-            | "federacao"
             | "confederacao"
             | "centro_de_treinamento"
+            | "escola"
+            | "federacao"
+            | "liga"
+            | "particular"
             | "outro";
+          organizerTypeLabel?: string;
+          phone: string;
           sports?: Array<
             | "tenis"
             | "beach_tennis"
@@ -3452,6 +3459,7 @@ export const api: {
             | "volei_de_quadra"
             | "outro"
           >;
+          sportsLabel?: string;
           website?: string;
         },
         {
@@ -3478,14 +3486,17 @@ export const api: {
           organizerType?:
             | "academia"
             | "clube"
-            | "liga"
             | "condominio"
-            | "escola"
-            | "federacao"
             | "confederacao"
             | "centro_de_treinamento"
+            | "escola"
+            | "federacao"
+            | "liga"
+            | "particular"
             | "outro"
             | null;
+          organizerTypeLabel?: string | null;
+          phone?: string | null;
           slug: string;
           sports?: Array<
             | "tenis"
@@ -3502,6 +3513,7 @@ export const api: {
             | "volei_de_quadra"
             | "outro"
           > | null;
+          sportsLabel?: string | null;
           website?: string | null;
         }
       >;
@@ -3564,20 +3576,23 @@ export const api: {
             state: string;
             street: string;
           } | null;
-          contactEmail?: string;
+          contactEmail: string;
           description?: string;
           logoStorageId?: string | null;
           name: string;
           organizerType:
             | "academia"
             | "clube"
-            | "liga"
             | "condominio"
-            | "escola"
-            | "federacao"
             | "confederacao"
             | "centro_de_treinamento"
+            | "escola"
+            | "federacao"
+            | "liga"
+            | "particular"
             | "outro";
+          organizerTypeLabel?: string;
+          phone: string;
           sports?: Array<
             | "tenis"
             | "beach_tennis"
@@ -3593,6 +3608,7 @@ export const api: {
             | "volei_de_quadra"
             | "outro"
           >;
+          sportsLabel?: string;
           website?: string;
         },
         {

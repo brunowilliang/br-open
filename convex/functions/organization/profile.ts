@@ -47,8 +47,11 @@ function serializeOrganization(
     logoUrl,
     name: record.name,
     organizerType: parsedMetadata.organizerType ?? null,
+    organizerTypeLabel: parsedMetadata.organizerTypeLabel ?? null,
+    phone: parsedMetadata.phone ?? null,
     slug: record.slug,
     sports: parsedMetadata.sports ?? null,
+    sportsLabel: parsedMetadata.sportsLabel ?? null,
     website: parsedMetadata.website ?? null,
   });
 }
@@ -119,7 +122,10 @@ export const upsert = authMutation
           contactEmail: input.contactEmail ?? null,
           description: input.description ?? null,
           organizerType: input.organizerType,
+          organizerTypeLabel: input.organizerTypeLabel ?? null,
+          phone: input.phone ?? null,
           sports: input.sports ?? null,
+          sportsLabel: input.sportsLabel ?? null,
           website: input.website ?? null,
         },
         name: input.name,

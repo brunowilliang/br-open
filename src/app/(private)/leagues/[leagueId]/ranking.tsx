@@ -15,7 +15,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { EmptyState } from "@/components/ui/empty-state";

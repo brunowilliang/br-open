@@ -296,7 +296,10 @@ export const activateOrganization = authMutation
       contactEmail: input.contactEmail || undefined,
       description: input.description || undefined,
       organizerType: input.organizerType,
+      organizerTypeLabel: input.organizerTypeLabel || undefined,
+      phone: input.phone || undefined,
       sports: input.sports,
+      sportsLabel: input.sportsLabel || undefined,
       website: input.website || undefined,
     };
     const [createdOrganization] = await ctx.orm

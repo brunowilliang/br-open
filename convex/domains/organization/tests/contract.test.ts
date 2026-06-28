@@ -14,8 +14,10 @@ const validActivation = {
     userId: "user_123",
     version: "1.0.0",
   },
+  contactEmail: "contato@bropen.com",
   name: "Clube BR Open",
   organizerType: "clube" as const,
+  phone: "11999999999",
 };
 
 const fullAddress = {
@@ -65,6 +67,7 @@ describe("physical organizer type", () => {
     expect(isPhysicalOrganizationType("federacao")).toBe(false);
     expect(isPhysicalOrganizationType("confederacao")).toBe(false);
     expect(isPhysicalOrganizationType("outro")).toBe(false);
+    expect(isPhysicalOrganizationType("particular")).toBe(false);
   });
 });
 
@@ -129,12 +132,18 @@ describe("activate organization schema", () => {
   });
 });
 
+const validContact = {
+  contactEmail: "contato@bropen.com",
+  phone: "11999999999",
+};
+
 describe("upsert organization schema", () => {
   it("does not accept accepted terms on edit", () => {
     const result = upsertOrganizationSchema.safeParse({
       acceptedTerms: { acceptedAt: "x", userId: "y", version: "1" },
       name: "Clube",
       organizerType: "clube",
+      ...validContact,
     });
 
     expect(result.success).toBe(false);
@@ -145,6 +154,7 @@ describe("upsert organization schema", () => {
       address: fullAddress,
       name: "Liga",
       organizerType: "liga",
+      ...validContact,
     });
 
     expect(result.success).toBe(false);
@@ -157,10 +167,56 @@ describe("upsert organization schema", () => {
       organizerType: "clube",
       address: fullAddress,
       website: "https://bropen.com",
-      contactEmail: "contato@bropen.com",
+      ...validContact,
     });
 
     expect(parsed.description).toBe("Bio");
+  });
+
+  it("rejects 'outro' type without organizerTypeLabel", () => {
+    const result = upsertOrganizationSchema.safeParse({
+      name: "Minha Org",
+      organizerType: "outro",
+      ...validContact,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts 'outro' type with organizerTypeLabel", () => {
+    const parsed = upsertOrganizationSchema.parse({
+      name: "Minha Org",
+      organizerType: "outro",
+      organizerTypeLabel: "Associação de bairro",
+      ...validContact,
+    });
+
+    expect(parsed.organizerType).toBe("outro");
+    expect(parsed.organizerTypeLabel).toBe("Associação de bairro");
+  });
+
+  it("rejects sports containing 'outro' without sportsLabel", () => {
+    const result = upsertOrganizationSchema.safeParse({
+      name: "Minha Org",
+      organizerType: "liga",
+      sports: ["tenis", "outro"],
+      ...validContact,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts sports containing 'outro' with sportsLabel", () => {
+    const parsed = upsertOrganizationSchema.parse({
+      name: "Minha Org",
+      organizerType: "liga",
+      sports: ["tenis", "outro"],
+      sportsLabel: "Frescobol",
+      ...validContact,
+    });
+
+    expect(parsed.sports).toEqual(["tenis", "outro"]);
+    expect(parsed.sportsLabel).toBe("Frescobol");
   });
 });
 

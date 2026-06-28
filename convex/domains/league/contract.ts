@@ -562,8 +562,8 @@ export const CreateLeagueSchema = z.object({
   city: requiredString("Informe a cidade.").pipe(
     z.string().min(1, "Informe a cidade.")
   ),
-  state: requiredString("Informe o estado.").pipe(
-    z.string().min(1, "Informe o estado.")
+  state: requiredString("Informe o estado (UF).").pipe(
+    z.string().trim().toUpperCase().length(2, "Use a sigla do estado (ex: SP).")
   ),
   locationNotes: z.string().trim().optional(),
   visibility: enumField(
@@ -596,8 +596,8 @@ export const UpdateLeagueSchema = z.object({
   city: requiredString("Informe a cidade.").pipe(
     z.string().min(1, "Informe a cidade.")
   ),
-  state: requiredString("Informe o estado.").pipe(
-    z.string().min(1, "Informe o estado.")
+  state: requiredString("Informe o estado (UF).").pipe(
+    z.string().trim().toUpperCase().length(2, "Use a sigla do estado (ex: SP).")
   ),
   locationNotes: z.string().trim().optional(),
   visibility: enumField(

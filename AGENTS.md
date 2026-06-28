@@ -1,227 +1,127 @@
-## Project Overview
+# AGENTS.md
 
-`br-open` is an Expo Router + React Native app backed by Convex and `kitcn`.
-Domain code is organized under `convex/domains/*` and composed in
-`convex/functions/schema.ts`.
+`br-open` is an Expo Router + React Native app (Expo SDK 56, React 19, RN 0.85)
+backed by Convex via the `kitcn` ORM/CRPC layer. The UI uses Uniwind (Tailwind
+v4 for RN) and HeroUI Native (OSS + Pro).
 
-## Core Commands
+## Commands
 
-- Install deps: `bun install`
-- Start app: `bun run dev`
-- Start Convex/codegen loop: `bun convex:dev`
+- Install: `bun install`
+- Start app: `bun run dev` (Expo) — for native, build a dev client: `bun run dev:client`
+- Convex + kitcn codegen loop: `bun convex:dev` (alias for `bunx kitcn dev`)
 - Regenerate kitcn artifacts: `bun run codegen`
-- Typecheck: `bun run typecheck`
-- Lint/format check: `bun run check` (also runs typecheck)
-- Repo checks: `bun run check`
-- Tests: `bun test`
+- Typecheck (app **and** convex): `bun run typecheck`
+  - app only: `bun run typecheck` minus convex, i.e. `tsc --noEmit`
+  - convex only: `bun run typecheck:convex`
+- Lint/format: `bun run check` (runs `ultracite check` **then** `typecheck`) — this is the full gate
+- Auto-fix formatting: `bun run fix` (`ultracite fix`)
+- Tests: `bun test` (all) · `bun test convex` (`bun run test:convex`) · `bun test src`
+  - Tests are co-located as `*.test.ts` next to the file under test.
 - Diff hygiene: `git diff --check`
 
-## Convex and kitcn
+CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun 1.2.x.
 
-- `convex/functions/schema.ts` is the composition root only. Keep it importing
-  and combining domain tables/relations from `convex/domains/*`.
-- Domain tables and relations are the source of truth:
-  - auth: `convex/domains/auth/*`
-  - league: `convex/domains/league/*`
-  - player: `convex/domains/player/*`
+## Setup gotchas
 
-## Auth Schema Workflow
+- `bun install` **requires `HEROUI_AUTH_TOKEN`** (HeroUI Pro is a paid/trusted
+  dep: `heroui-native-pro`, `@heroui-pro/react`). CI passes it as a secret;
+  locally it must be exported in the environment or a `.npmrc`/env hook.
+- Two env files: `.env.local` (client: `CONVEX_DEPLOYMENT`,
+  `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`) and `convex/.env`
+  (server: `SITE_URL`, `BETTER_AUTH_SECRET`, plus Apple OAuth vars). Both are
+  gitignored and must exist for `bun convex:dev` to run.
+- `convex/functions/generated/` (kitcn CRPC layer) and
+  `convex/functions/_generated/` (raw Convex codegen) are generated. Never
+  hand-edit; regenerate via `bun run codegen` / `bun convex:dev`.
 
-- The preferred auth ownership path in this repo is `convex/domains/auth/`.
-- If `kitcn` auth scaffolding is needed, the CLI command is:
-  - `bunx kitcn add auth --schema --yes`
-- Important: this command may inject auth tables and relations directly into
-  `convex/functions/schema.ts`.
-- When that happens, do not keep the inline generated auth blocks there.
+## Architecture
 
-Required reconciliation flow:
+### Frontend (`src/`)
+- Routes live in `src/app/`, **not** a root `app/` dir. Split into route groups:
+  `src/app/(public)/` and `src/app/(private)/`, with `src/app/_layout.tsx` as
+  the root layout and `src/app/+not-found.tsx`.
+- `src/components/` (UI, incl. HeroUI-based screens), `src/lib/` (domain logic
+  + stores, e.g. `src/lib/leagues/`).
+- TS path aliases (`tsconfig.json`): `@/*` -> `src/*`, `@/assets/*` -> `assets/*`,
+  `@convex/*` -> `convex/*` (also `convex/shared/*`). Use these, not relative
+  paths, when crossing top-level dirs.
 
-1. Compare generated auth tables/relations in `convex/functions/schema.ts`
-   against:
-   - `convex/domains/auth/tables.ts`
-   - `convex/domains/auth/relations.ts`
-2. Copy only the useful differences into the domain files. Examples:
-   - useful new indexes
-   - useful new relations for org/team flows
-3. Do not blindly accept generated regressions. Watch for:
-   - `text().references(...)` replacing `id(...).references(...)`
-   - weaker/nullability-changed fields
-   - `json(...)` fields downgraded to `text()`
-   - duplicate auth tables in `schema.ts`
-4. After reconciling, delete the inline generated auth tables/relations from
-   `convex/functions/schema.ts`.
-5. Leave `convex/functions/schema.ts` back in composition-only form.
+### Backend (`convex/`)
+- **Functions** live in `convex/functions/<domain>/*.ts` and are written with
+  the kitcn **CRPC** builders from `convex/lib/crpc.ts`, not raw Convex
+  `query`/`mutation`. Available builders: `authQuery`/`authMutation`/`authAction`
+  (require login, inject `ctx.user`/`ctx.userId`), `optionalAuthQuery`/
+  `optionalAuthMutation`, `publicQuery`/`publicMutation`/`publicAction`, and
+  HTTP routes `publicRoute`/`authRoute`/`optionalAuthRoute`. Throw `CRPCError`
+  for auth/expected errors.
+- **Domains** (`convex/domains/*`) are the source of truth for data and rules.
+  Each owns at minimum `tables.ts` + `relations.ts`, plus domain logic
+  (commonly `contract.ts` with zod schemas + rules) and a `tests/` dir. Current
+  domains: `auth`, `league`, `notification`, `player`, `seed`.
+- `convex/functions/schema.ts` is **composition-only**: it imports domain
+  tables/relations and combines them. Keep it that way.
+- `convex/lib/` (env, CRPC, auth helpers), `convex/shared/` (cross-domain
+  shared code), `convex/utils/` (e.g. `contract.zod.ts`).
+- **Auth**: Better Auth wired through kitcn (`defineAuth` from
+  `convex/functions/generated/auth`, configured in `convex/functions/auth.ts`),
+  with `@better-auth/expo`, the organization plugin (orgs + teams), and
+  Apple/Google social login. Default locale `pt-BR`.
 
-## plugins.lock.json
+## Convex schema & kitcn auth workflow
 
-- `convex/functions/plugins.lock.json` can still point auth ownership at
-  `convex/functions/schema.ts`.
-- Treat it as a generated/internal file.
-- Do not assume its ownership metadata matches the preferred repo structure.
-- If codegen drifts because of it, preserve the domain-first structure and
-  verify generated outputs after cleanup.
+- The preferred auth ownership path is `convex/domains/auth/`.
+- `bunx kitcn add auth --schema --yes` may inject auth tables/relations
+  directly into `convex/functions/schema.ts`. Do **not** keep that inline block.
+- Reconciliation flow:
+  1. Diff generated auth tables/relations in `schema.ts` against
+     `convex/domains/auth/tables.ts` and `relations.ts`.
+  2. Copy only useful deltas (new indexes, org/team relations) into the domain
+     files.
+  3. Reject generated regressions: `text().references(...)` replacing
+     `id(...).references(...)`, weakened nullability, `json(...)` downgraded to
+     `text()`, duplicate auth tables.
+  4. Delete the inline generated block; leave `schema.ts` composition-only.
+  5. Re-run `bun run codegen` then `bun run typecheck`.
+- `convex/functions/plugins.lock.json` may still claim auth ownership lives at
+  `convex/functions/schema.ts`. Treat it as generated/internal; preserve the
+  domain-first structure and verify outputs after cleanup.
 
-## Data and Migrations
+## Data & migrations
 
-- When changing Convex table shapes, account for legacy documents already in the
-  deployment.
-- Prefer migrations for field removal/renames/data reshaping.
-- If old docs would fail schema validation during boot, temporarily keep schema
-  compatibility until the migration can clear old fields.
+- Migrations live in `convex/functions/migrations/` (filenaming convention is
+  relaxed for these in `biome.jsonc`).
+- When changing table shapes, account for legacy documents already in the
+  deployment. Prefer migrations for field removal/renames/data reshaping.
+- If old docs would fail schema validation on boot, keep schema compatibility
+  temporarily until a migration clears the old fields.
 
-## Validation Before Handoff
+## Style & linting (Ultracite / Biome)
 
-Before saying work is ready, run the relevant checks for the touched scope:
+- Formatting/linting is enforced by **Ultracite** (a Biome preset): `bun run fix`
+  auto-fixes; `bun run check` verifies. Lefthook (`lefthook.yml`) auto-runs
+  `ultracite fix` (with `stage_fixed`) + `typecheck` + `bun test` on pre-commit.
+- Repo-specific Biome overrides (`biome.jsonc`) that differ from defaults:
+  - `useConsistentTypeDefinitions` = **`type`** (use `type` aliases, not `interface`).
+  - `noNonNullAssertion` = **off**, `noArrayIndexKey` = **off**,
+    `noEmptyBlockStatements` = **off**, `noUselessSwitchCase` = **off**,
+    `noNamespaceImport` = **off**, `noExportedImports` = **off**.
+  - `src/uniwind-types.d.ts` is generated — formatter disabled there.
+- TS: `strict: true` but **`strictFunctionTypes: false`**; `bun-types`.
 
-- minimum: `git diff --check`
-- usually: `bun run typecheck`
-- when logic/contracts changed: `bun test`
-- when Convex schema/contracts changed: `bun run codegen` and then
-  `bun run typecheck`
-
-## Repo-Specific Notes
+## Working notes
 
 - Use the names/routes that exist in the current tree. Do not reuse stale
   feature names.
 - For UI/form work, preserve the patterns already used in this repo unless
   explicitly changing them.
+- Feature plans and design specs are tracked under `docs/superpowers/`
+  (`plans/` and `specs/`, dated). Check there before starting a feature slice.
 
-# Ultracite Code Standards
+## Validation before handoff
 
-This project uses **Ultracite**, a zero-config preset that enforces strict code
-quality standards through automated formatting and linting.
+Run the checks appropriate to the touched scope:
 
-## Quick Reference
-
-- **Format code**: `bun x ultracite fix`
-- **Check for issues**: `bun x ultracite check`
-- **Diagnose setup**: `bun x ultracite doctor`
-
-Biome (the underlying engine) provides robust linting and formatting. Most
-issues are automatically fixable.
-
----
-
-## Core Principles
-
-Write code that is **accessible, performant, type-safe, and maintainable**.
-Focus on clarity and explicit intent over brevity.
-
-### Type Safety & Explicitness
-
-- Use explicit types for function parameters and return values when they enhance
-  clarity
-- Prefer `unknown` over `any` when the type is genuinely unknown
-- Use const assertions (`as const`) for immutable values and literal types
-- Leverage TypeScript's type narrowing instead of type assertions
-- Use meaningful variable names instead of magic numbers - extract constants
-  with descriptive names
-
-### Modern JavaScript/TypeScript
-
-- Use arrow functions for callbacks and short functions
-- Prefer `for...of` loops over `.forEach()` and indexed `for` loops
-- Use optional chaining (`?.`) and nullish coalescing (`??`) for safer property
-  access
-- Prefer template literals over string concatenation
-- Use destructuring for object and array assignments
-- Use `const` by default, `let` only when reassignment is needed, never `var`
-
-### Async & Promises
-
-- Always `await` promises in async functions - don't forget to use the return
-  value
-- Use `async/await` syntax instead of promise chains for better readability
-- Handle errors appropriately in async code with try-catch blocks
-- Don't use async functions as Promise executors
-
-### React & JSX
-
-- Use function components over class components
-- Call hooks at the top level only, never conditionally
-- Specify all dependencies in hook dependency arrays correctly
-- Use the `key` prop for elements in iterables (prefer unique IDs over array
-  indices)
-- Nest children between opening and closing tags instead of passing as props
-- Don't define components inside other components
-- Use semantic HTML and ARIA attributes for accessibility:
-  - Provide meaningful alt text for images
-  - Use proper heading hierarchy
-  - Add labels for form inputs
-  - Include keyboard event handlers alongside mouse events
-  - Use semantic elements (`<button>`, `<nav>`, etc.) instead of divs with roles
-
-### Error Handling & Debugging
-
-- Remove `console.log`, `debugger`, and `alert` statements from production code
-- Throw `Error` objects with descriptive messages, not strings or other values
-- Use `try-catch` blocks meaningfully - don't catch errors just to rethrow them
-- Prefer early returns over nested conditionals for error cases
-
-### Code Organization
-
-- Keep functions focused and under reasonable cognitive complexity limits
-- Extract complex conditions into well-named boolean variables
-- Use early returns to reduce nesting
-- Prefer simple conditionals over nested ternary operators
-- Group related code together and separate concerns
-
-### Security
-
-- Add `rel="noopener"` when using `target="_blank"` on links
-- Avoid `dangerouslySetInnerHTML` unless absolutely necessary
-- Don't use `eval()` or assign directly to `document.cookie`
-- Validate and sanitize user input
-
-### Performance
-
-- Avoid spread syntax in accumulators within loops
-- Use top-level regex literals instead of creating them in loops
-- Prefer specific imports over namespace imports
-- Avoid barrel files (index files that re-export everything)
-- Use proper image components (e.g., Next.js `<Image>`) over `<img>` tags
-
-### Framework-Specific Guidance
-
-**Next.js:**
-
-- Use Next.js `<Image>` component for images
-- Use `next/head` or App Router metadata API for head elements
-- Use Server Components for async data fetching instead of async Client
-  Components
-
-**React 19+:**
-
-- Use ref as a prop instead of `React.forwardRef`
-
-**Solid/Svelte/Vue/Qwik:**
-
-- Use `class` and `for` attributes (not `className` or `htmlFor`)
-
----
-
-## Testing
-
-- Write assertions inside `it()` or `test()` blocks
-- Avoid done callbacks in async tests - use async/await instead
-- Don't use `.only` or `.skip` in committed code
-- Keep test suites reasonably flat - avoid excessive `describe` nesting
-
-## When Biome Can't Help
-
-Biome's linter will catch most issues automatically. Focus your attention on:
-
-1. **Business logic correctness** - Biome can't validate your algorithms
-2. **Meaningful naming** - Use descriptive names for functions, variables, and
-   types
-3. **Architecture decisions** - Component structure, data flow, and API design
-4. **Edge cases** - Handle boundary conditions and error states
-5. **User experience** - Accessibility, performance, and usability
-   considerations
-6. **Documentation** - Add comments for complex logic, but prefer
-   self-documenting code
-
----
-
-Most formatting and common issues are automatically fixed by Biome. Run
-`bun x ultracite fix` before committing to ensure compliance.
+- minimum: `git diff --check`
+- usually: `bun run check` (lint + typecheck)
+- when logic/contracts changed: `bun test`
+- when Convex schema/contracts changed: `bun run codegen` then `bun run check`
