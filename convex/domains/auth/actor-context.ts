@@ -40,10 +40,6 @@ export const setActiveActorSchema = z
     });
   });
 
-export const activateOrganizationSchema = z.object({
-  name: z.string().trim().min(2, "Informe o nome da organizacao."),
-});
-
 export const viewerContextSchema = z.object({
   activeActor: viewerActorSchema,
   availableActors: z.array(viewerActorSchema),

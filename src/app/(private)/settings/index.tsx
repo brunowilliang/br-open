@@ -173,8 +173,16 @@ export default function Settings() {
       return;
     }
 
-    const fallbackName = activeActor?.displayName.trim() || "BR Open";
-    activateOrganization.mutate({ name: `Organização ${fallbackName}` });
+    // TODO: remove in Task 9 — replaced by onboarding navigation
+    activateOrganization.mutate({
+      acceptedTerms: {
+        acceptedAt: new Date().toISOString(),
+        userId: "",
+        version: "1.0.0",
+      },
+      name: `Organização ${activeActor?.displayName.trim() || "BR Open"}`,
+      organizerType: "outro",
+    });
   }
 
   return (

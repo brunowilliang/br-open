@@ -1,8 +1,8 @@
 import { CRPCError } from "kitcn/server";
 import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
+import { activateOrganizationSchema } from "../../domains/organization/contract";
 import {
-  activateOrganizationSchema,
   buildViewerCapabilities,
   isActiveActorManager,
   resolveActorKind,
@@ -288,11 +288,23 @@ export const activateOrganization = authMutation
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const organizationName = input.name.trim();
+    const metadata = {
+      // The client sends userId as "" (it has no ctx); the server is the
+      // source of truth for who accepted. Overwrite with the authenticated id.
+      acceptedTerms: { ...input.acceptedTerms, userId: ctx.userId },
+      address: input.address ?? undefined,
+      contactEmail: input.contactEmail || undefined,
+      description: input.description || undefined,
+      organizerType: input.organizerType,
+      sports: input.sports,
+      website: input.website || undefined,
+    };
     const [createdOrganization] = await ctx.orm
       .insert(organization)
       .values({
         createdAt: now,
-        metadata: {},
+        logo: input.logoStorageId ?? null,
+        metadata,
         name: organizationName,
         slug: createOrganizationSlug({
           name: organizationName,
