@@ -3352,6 +3352,161 @@ export const api: {
       >;
     };
   };
+  organization: {
+    profile: {
+      generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
+      get: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          acceptedTerms?: {
+            acceptedAt: string;
+            userId: string;
+            version: string;
+          } | null;
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
+          contactEmail?: string | null;
+          description?: string | null;
+          id: string;
+          logoStorageId: string | null;
+          logoUrl?: string | null;
+          name: string;
+          organizerType?:
+            | "academia"
+            | "clube"
+            | "liga"
+            | "condominio"
+            | "escola"
+            | "federacao"
+            | "confederacao"
+            | "centro_de_treinamento"
+            | "outro"
+            | null;
+          slug: string;
+          sports?: Array<
+            | "tenis"
+            | "beach_tennis"
+            | "futevolei"
+            | "volei_de_praia"
+            | "padel"
+            | "squash"
+            | "futebol_society"
+            | "pickleball"
+            | "tenis_de_mesa"
+            | "raquetinha"
+            | "badminton"
+            | "volei_de_quadra"
+            | "outro"
+          > | null;
+          website?: string | null;
+        } | null
+      >;
+      upsert: FunctionReference<
+        "mutation",
+        "public",
+        {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
+          contactEmail?: string;
+          description?: string;
+          logoStorageId?: string | null;
+          name: string;
+          organizerType:
+            | "academia"
+            | "clube"
+            | "liga"
+            | "condominio"
+            | "escola"
+            | "federacao"
+            | "confederacao"
+            | "centro_de_treinamento"
+            | "outro";
+          sports?: Array<
+            | "tenis"
+            | "beach_tennis"
+            | "futevolei"
+            | "volei_de_praia"
+            | "padel"
+            | "squash"
+            | "futebol_society"
+            | "pickleball"
+            | "tenis_de_mesa"
+            | "raquetinha"
+            | "badminton"
+            | "volei_de_quadra"
+            | "outro"
+          >;
+          website?: string;
+        },
+        {
+          acceptedTerms?: {
+            acceptedAt: string;
+            userId: string;
+            version: string;
+          } | null;
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
+          contactEmail?: string | null;
+          description?: string | null;
+          id: string;
+          logoStorageId: string | null;
+          logoUrl?: string | null;
+          name: string;
+          organizerType?:
+            | "academia"
+            | "clube"
+            | "liga"
+            | "condominio"
+            | "escola"
+            | "federacao"
+            | "confederacao"
+            | "centro_de_treinamento"
+            | "outro"
+            | null;
+          slug: string;
+          sports?: Array<
+            | "tenis"
+            | "beach_tennis"
+            | "futevolei"
+            | "volei_de_praia"
+            | "padel"
+            | "squash"
+            | "futebol_society"
+            | "pickleball"
+            | "tenis_de_mesa"
+            | "raquetinha"
+            | "badminton"
+            | "volei_de_quadra"
+            | "outro"
+          > | null;
+          website?: string | null;
+        }
+      >;
+    };
+  };
   player: {
     profile: {
       generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
@@ -3394,7 +3549,52 @@ export const api: {
       activateOrganization: FunctionReference<
         "mutation",
         "public",
-        { name: string },
+        {
+          acceptedTerms: {
+            acceptedAt: string;
+            userId: string;
+            version: string;
+          };
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
+          contactEmail?: string;
+          description?: string;
+          logoStorageId?: string | null;
+          name: string;
+          organizerType:
+            | "academia"
+            | "clube"
+            | "liga"
+            | "condominio"
+            | "escola"
+            | "federacao"
+            | "confederacao"
+            | "centro_de_treinamento"
+            | "outro";
+          sports?: Array<
+            | "tenis"
+            | "beach_tennis"
+            | "futevolei"
+            | "volei_de_praia"
+            | "padel"
+            | "squash"
+            | "futebol_society"
+            | "pickleball"
+            | "tenis_de_mesa"
+            | "raquetinha"
+            | "badminton"
+            | "volei_de_quadra"
+            | "outro"
+          >;
+          website?: string;
+        },
         {
           activeActor: {
             avatarUrl?: string | null;

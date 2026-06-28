@@ -67,6 +67,13 @@ export const api = {
       upsertDevice: createApiLeaf<"mutation", typeof import("../functions/notification/settings").upsertDevice>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/notification/settings").upsertDevice>("notification/settings:upsertDevice"), { auth: "required", type: "mutation" }),
     },
   },
+  organization: {
+    profile: {
+      generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/organization/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/organization/profile").generateUploadUrl>("organization/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
+      get: createApiLeaf<"query", typeof import("../functions/organization/profile").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/organization/profile").get>("organization/profile:get"), { auth: "required", type: "query" }),
+      upsert: createApiLeaf<"mutation", typeof import("../functions/organization/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/organization/profile").upsert>("organization/profile:upsert"), { auth: "required", type: "mutation" }),
+    },
+  },
   player: {
     profile: {
       generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
