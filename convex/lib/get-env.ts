@@ -15,6 +15,10 @@ const envSchema = z.object({
   APPLE_TEAM_ID: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  WOOVI_APP_ID: z.string().optional(),
+  WOOVI_BASE_URL: z.string().default("https://api.woovi-sandbox.com"),
+  WOOVI_WEBHOOK_SECRET: z.string().optional(),
+  WOOVI_PLATFORM_FEE_PERCENT: z.string().default("10"),
 });
 
 export const getEnv = createEnv({
@@ -30,6 +34,8 @@ export const getEnv = createEnv({
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "JWKS",
+    "WOOVI_APP_ID",
+    "WOOVI_WEBHOOK_SECRET",
   ],
   schema: envSchema,
 });
