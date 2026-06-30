@@ -643,6 +643,58 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  leaguePayment: {
+    document: {
+      amountCents: number;
+      billingInterval: string;
+      correlationId: string;
+      createdAt: number;
+      expiresAt?: null | number;
+      leagueId: Id<"league">;
+      leagueMembershipId: Id<"leagueMembership">;
+      organizationId: Id<"organization">;
+      paidAt?: null | number;
+      pixBrCode?: null | string;
+      pixQrCodeUrl?: null | string;
+      playerProfileId: Id<"playerProfile">;
+      splitConfig: any;
+      status: string;
+      updatedAt: number;
+      _id: Id<"leaguePayment">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "amountCents"
+      | "billingInterval"
+      | "correlationId"
+      | "createdAt"
+      | "expiresAt"
+      | "leagueId"
+      | "leagueMembershipId"
+      | "organizationId"
+      | "paidAt"
+      | "pixBrCode"
+      | "pixQrCodeUrl"
+      | "playerProfileId"
+      | "splitConfig"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      correlationId: ["correlationId", "_creationTime"];
+      leagueMembershipId_status: [
+        "leagueMembershipId",
+        "status",
+        "_creationTime",
+      ];
+      playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   member: {
     document: {
       createdAt: number;
@@ -960,6 +1012,34 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       name: ["name", "_creationTime"];
       organization_slug_unique: ["slug", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  organizationWooviAccount: {
+    document: {
+      createdAt: number;
+      name: string;
+      organizationId: Id<"organization">;
+      pixKey: string;
+      status: string;
+      updatedAt: number;
+      _id: Id<"organizationWooviAccount">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "name"
+      | "organizationId"
+      | "pixKey"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      organizationId: ["organizationId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
