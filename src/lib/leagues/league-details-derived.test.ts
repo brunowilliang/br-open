@@ -241,6 +241,16 @@ describe("buildLeagueDetailsCanRequestJoin", () => {
     ).toBe(false);
   });
 
+  it("blocks requests when the viewer is awaiting payment", () => {
+    expect(
+      buildLeagueDetailsCanRequestJoin({
+        canJoinLeagues: true,
+        role: "visitor",
+        viewerMembershipStatus: "awaiting_payment",
+      })
+    ).toBe(false);
+  });
+
   it("blocks requests for members and managers", () => {
     expect(
       buildLeagueDetailsCanRequestJoin({

@@ -7,6 +7,7 @@ import {
   SetNotificationPreferenceSchema,
   UpsertNotificationDeviceSchema,
 } from "../../domains/notification/contract";
+import { isNotificationForActiveActor } from "../../domains/notification/feed-rules";
 import { resolvePushReadiness } from "../../domains/notification/state";
 import {
   notificationDevice,
@@ -21,28 +22,6 @@ function getPreference(ctx: AuthenticatedCtx<QueryCtx | MutationCtx>) {
   return ctx.orm.query.notificationPreference.findFirst({
     where: { userId: ctx.userId },
   });
-}
-
-function isNotificationForActiveActor(
-  notification: {
-    recipientActorKind?: string;
-    recipientOrganizationId?: Id<"organization"> | null;
-    recipientPlayerProfileId?: Id<"playerProfile"> | null;
-  },
-  activeActor: {
-    id: string;
-    kind: "organization" | "player";
-  }
-) {
-  if (notification.recipientActorKind !== activeActor.kind) {
-    return false;
-  }
-
-  if (activeActor.kind === "organization") {
-    return notification.recipientOrganizationId === activeActor.id;
-  }
-
-  return notification.recipientPlayerProfileId === activeActor.id;
 }
 
 async function getActiveActorUnreadCount(

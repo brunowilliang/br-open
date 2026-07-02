@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { getLeagueNotificationRecipientUserIds } from "./events";
+import { getLeagueNotificationRecipientUserIds } from "../recipients";
 
 describe("league notification recipients", () => {
   it("keeps same-user recipients because actor context can differ", () => {

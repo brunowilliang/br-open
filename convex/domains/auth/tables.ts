@@ -131,6 +131,8 @@ export const organization = convexTable(
     slug: text().notNull().unique(),
     logo: text(),
     metadata: json<Record<string, unknown>>(),
+    pixKey: text(),
+    pixKeyType: text(),
     createdAt: timestamp().notNull(),
     updatedAt: timestamp(),
   },

@@ -64,6 +64,18 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       body: `Sua entrada na liga ${input.leagueName} foi aprovada.`,
     }),
   },
+  "league.membership.payment_confirmed": {
+    template: (input) => ({
+      title: "Pagamento confirmado",
+      body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
+    }),
+  },
+  "league.membership.payment_refunded": {
+    template: (input) => ({
+      title: "Inscrição não concluída",
+      body: `A liga ${input.leagueName} atingiu o limite de jogadores enquanto você pagava. O reembolso será processado.`,
+    }),
+  },
   "league.membership.rejected": {
     template: (input) => ({
       title: "Solicitação recusada",

@@ -143,11 +143,21 @@ export function buildLeagueDetailsCanRequestJoin(input: {
   role: LeagueDetailsRole;
   viewerMembershipStatus: null | string | undefined;
 }) {
-  return (
-    input.canJoinLeagues &&
-    input.role === "visitor" &&
-    input.viewerMembershipStatus !== "pending"
-  );
+  const isAwaitingAction =
+    input.viewerMembershipStatus === "pending" ||
+    input.viewerMembershipStatus === "awaiting_payment";
+  return input.canJoinLeagues && input.role === "visitor" && !isAwaitingAction;
+}
+
+/**
+ * When the viewer is `awaiting_payment`, the join button becomes a shortcut
+ * to the checkout screen (not a new request). This is independent of
+ * `canRequestJoin` which gates the *initial* join request.
+ */
+export function buildLeagueDetailsCanResumeCheckout(input: {
+  viewerMembershipStatus: null | string | undefined;
+}) {
+  return input.viewerMembershipStatus === "awaiting_payment";
 }
 
 export function buildLeagueDetailsShowJoinFooter(input: {

@@ -74,6 +74,20 @@ export const api = {
       upsert: createApiLeaf<"mutation", typeof import("../functions/organization/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/organization/profile").upsert>("organization/profile:upsert"), { auth: "required", type: "mutation" }),
     },
   },
+  payment: {
+    charge: {
+      createCharge: createApiLeaf<"action", typeof import("../functions/payment/charge").createCharge>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").createCharge>("payment/charge:createCharge"), { auth: "required", type: "action" }),
+      getChargeForMembership: createApiLeaf<"query", typeof import("../functions/payment/charge").getChargeForMembership>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getChargeForMembership>("payment/charge:getChargeForMembership"), { auth: "required", type: "query" }),
+      simulatePayment: createApiLeaf<"action", typeof import("../functions/payment/charge").simulatePayment>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").simulatePayment>("payment/charge:simulatePayment"), { auth: "required", type: "action" }),
+    },
+    onboarding: {
+      getCurrent: createApiLeaf<"query", typeof import("../functions/payment/onboarding").getCurrent>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/onboarding").getCurrent>("payment/onboarding:getCurrent"), { auth: "required", type: "query" }),
+      start: createApiLeaf<"mutation", typeof import("../functions/payment/onboarding").start>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/onboarding").start>("payment/onboarding:start"), { auth: "required", type: "mutation" }),
+    },
+    webhook: {
+      handleAbacatepayWebhook: createApiLeaf<"mutation", typeof import("../functions/payment/webhook").handleAbacatepayWebhook>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/webhook").handleAbacatepayWebhook>("payment/webhook:handleAbacatepayWebhook"), { type: "mutation" }),
+    },
+  },
   player: {
     profile: {
       generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),

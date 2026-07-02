@@ -36,7 +36,6 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tela de ranking aglutina mutations, dialogs e reorder; estados renderizados inline
 export default function LeagueRankingRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;

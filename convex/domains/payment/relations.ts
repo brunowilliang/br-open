@@ -2,28 +2,22 @@ import type { RelationsBuilder } from "kitcn/orm";
 import type { tables } from "../../functions/schema";
 
 export const definePaymentRelations = (r: RelationsBuilder<typeof tables>) => ({
-  organization: {
-    wooviAccount: r.one.organizationWooviAccount({
-      from: r.organization.id,
-      to: r.organizationWooviAccount.organizationId,
-    }),
-  },
-  leaguePayment: {
-    league: r.one.league({
-      from: r.leaguePayment.leagueId,
-      to: r.league.id,
-    }),
-    membership: r.one.leagueMembership({
-      from: r.leaguePayment.leagueMembershipId,
-      to: r.leagueMembership.id,
-    }),
+  paymentCharge: {
     organization: r.one.organization({
-      from: r.leaguePayment.organizationId,
+      from: r.paymentCharge.organizationId,
       to: r.organization.id,
     }),
+    league: r.one.league({
+      from: r.paymentCharge.leagueId,
+      to: r.league.id,
+    }),
     playerProfile: r.one.playerProfile({
-      from: r.leaguePayment.playerProfileId,
+      from: r.paymentCharge.playerProfileId,
       to: r.playerProfile.id,
+    }),
+    membership: r.one.leagueMembership({
+      from: r.paymentCharge.membershipId,
+      to: r.leagueMembership.id,
     }),
   },
 });

@@ -1,6 +1,7 @@
 import { eq, type InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
+import { internal } from "../_generated/api";
 import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
@@ -14,6 +15,7 @@ import {
 } from "../../domains/league/contract";
 import {
   canLeagueAcceptMember,
+  isLeaguePaid,
   resolveApprovedMembershipRankingPosition,
   resolveRankingReorderError,
 } from "../../domains/league/membership-rules";
@@ -339,7 +341,21 @@ export const requestJoin = authMutation
       playerProfileId
     );
 
-    if (currentMembership?.status === "pending") {
+    if (
+      currentMembership?.status === "pending" ||
+      currentMembership?.status === "awaiting_payment"
+    ) {
+      // If the user was awaiting payment, expire the pending charge so the
+      // checkout doesn't show a stale PIX that can never activate.
+      if (currentMembership.status === "awaiting_payment") {
+        await ctx.runMutation(
+          internal.payment.charge.expireChargeForMembership,
+          {
+            membershipId: currentMembership.id,
+          }
+        );
+      }
+
       const updatedMembership = await updateMembership(ctx, currentMembership, {
         rankingPosition: null,
         reviewedAt: null,
@@ -390,11 +406,17 @@ export const requestJoin = authMutation
       maxPlayers: currentLeague.maxPlayers ?? null,
     });
 
+    // Paid leagues go straight to `awaiting_payment` — the PIX payment is the
+    // gate, no manager approval needed. Free leagues keep the `pending` ->
+    // manager approval flow.
+    const isPaidLeague = isLeaguePaid(currentLeague);
+    const joinStatus = isPaidLeague ? "awaiting_payment" : "pending";
+
     const membershipRecord = currentMembership
       ? await updateMembership(ctx, currentMembership, {
           rankingPosition: null,
           reviewedAt: null,
-          status: "pending",
+          status: joinStatus,
           updatedAt: now,
         })
       : (
@@ -406,24 +428,30 @@ export const requestJoin = authMutation
               playerProfileId,
               rankingPosition: null,
               reviewedAt: null,
-              status: "pending",
+              status: joinStatus,
               updatedAt: now,
             })
             .returning()
         )[0];
 
-    const recipientUserIds = await getOrganizationMemberUserIds(
-      ctx,
-      currentLeague.organizationId as Id<"organization">
-    );
+    // Free leagues need manual manager approval — notify the managers so they
+    // can review. Paid leagues are gated by the PIX payment itself, so the
+    // "requested" notification is meaningless (managers have nothing to do);
+    // the player is notified automatically once payment is confirmed.
+    if (!isPaidLeague) {
+      const recipientUserIds = await getOrganizationMemberUserIds(
+        ctx,
+        currentLeague.organizationId as Id<"organization">
+      );
 
-    await scheduleLeagueNotification(ctx, {
-      actorUserId: ctx.userId,
-      eventType: "league.membership.requested",
-      leagueId,
-      metadata: { membershipId: membershipRecord.id },
-      recipientUserIds,
-    });
+      await scheduleLeagueNotification(ctx, {
+        actorUserId: ctx.userId,
+        eventType: "league.membership.requested",
+        leagueId,
+        metadata: { membershipId: membershipRecord.id },
+        recipientUserIds,
+      });
+    }
 
     return serializeLeagueMembership(
       membershipRecord,

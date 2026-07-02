@@ -1,6 +1,8 @@
 export const NOTIFICATION_EVENT_TYPES = [
   "league.membership.requested",
   "league.membership.approved",
+  "league.membership.payment_confirmed",
+  "league.membership.payment_refunded",
   "league.membership.rejected",
   "league.membership.removed",
   "league.challenge.created",

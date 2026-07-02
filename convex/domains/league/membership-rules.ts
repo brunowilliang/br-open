@@ -54,3 +54,16 @@ export function resolveRankingReorderError(input: RankingReorderInput) {
 
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Payment-related helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when the league requires payment (has a positive price).
+ */
+export function isLeaguePaid(league: {
+  monthlyPriceCents?: number | null;
+}): boolean {
+  return (league.monthlyPriceCents ?? 0) > 0;
+}

@@ -89,6 +89,7 @@ async function serializeLeagueDiscovery(
   record: LeagueRecord,
   options: {
     isManagerOwner: boolean;
+    viewerMembershipId?: LeagueMembershipRecord["id"] | null;
     viewerMembershipStatus?: LeagueMembershipRecord["status"] | null;
   }
 ) {
@@ -99,6 +100,7 @@ async function serializeLeagueDiscovery(
       record.id as Id<"league">
     ),
     isManagerOwner: options.isManagerOwner,
+    viewerMembershipId: options.viewerMembershipId ?? null,
     viewerMembershipStatus: options.viewerMembershipStatus ?? null,
   });
 }
@@ -146,6 +148,7 @@ export const getById = authQuery
 
     return serializeLeagueDiscovery(ctx, currentLeague, {
       isManagerOwner,
+      viewerMembershipId: currentMembership?.id ?? null,
       viewerMembershipStatus: currentMembership?.status ?? null,
     });
   });

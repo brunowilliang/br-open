@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "javascript": {
+    "globals": ["__DEV__"]
+  },
   "assist": {
     "actions": {
       "source": {
@@ -17,7 +20,8 @@
         "noGlobalDirnameFilename": "off"
       },
       "complexity": {
-        "noUselessSwitchCase": "off"
+        "noUselessSwitchCase": "off",
+        "noExcessiveCognitiveComplexity": "off"
       },
       "style": {
         "noExportedImports": "off",
@@ -41,7 +45,10 @@
   },
   "overrides": [
     {
-      "includes": ["convex/functions/migrations/*.ts"],
+      "includes": [
+        "convex/functions/migrations/*.ts",
+        "convex/functions/**/*.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

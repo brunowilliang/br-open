@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../generated/server";
+import { getLeagueNotificationRecipientUserIds } from "../../domains/notification/recipients";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 
 type ScheduleLeagueNotificationInput = {
@@ -10,12 +11,6 @@ type ScheduleLeagueNotificationInput = {
   metadata?: Record<string, unknown>;
   recipientUserIds: Id<"user">[];
 };
-
-export function getLeagueNotificationRecipientUserIds<
-  UserId extends string,
->(input: { actorUserId?: UserId | null; recipientUserIds: UserId[] }) {
-  return Array.from(new Set(input.recipientUserIds));
-}
 
 export async function scheduleLeagueNotification(
   ctx: MutationCtx,

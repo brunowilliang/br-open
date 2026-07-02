@@ -7,6 +7,7 @@ import {
   buildLeagueDetailsAccess,
   buildLeagueDetailsCanOpenLeagueMenu,
   buildLeagueDetailsCanRequestJoin,
+  buildLeagueDetailsCanResumeCheckout,
   buildLeagueDetailsMenuActionCounts,
   buildLeagueDetailsRankingItems,
   buildLeagueDetailsRequestItems,
@@ -59,6 +60,7 @@ function createLeagueDetailsBucket(leagueId: string) {
       actorId: null as null | string,
       actorKind: null as null | ViewerActor["kind"],
       canJoinLeagues: false,
+      membershipId: null as null | string,
       membershipStatus: null as LeagueOverview["viewerMembershipStatus"],
       role: "visitor" as LeagueDetailsRole,
       viewerPlayerProfileId: null as null | string,
@@ -93,6 +95,10 @@ function createLeagueDetailsBucket(leagueId: string) {
         buildLeagueDetailsCanRequestJoin({
           canJoinLeagues: bucket$.viewer.canJoinLeagues.get(),
           role: bucket$.viewer.role.get(),
+          viewerMembershipStatus: bucket$.viewer.membershipStatus.get(),
+        }),
+      canResumeCheckout: () =>
+        buildLeagueDetailsCanResumeCheckout({
           viewerMembershipStatus: bucket$.viewer.membershipStatus.get(),
         }),
       challengeCounts: () =>
@@ -180,6 +186,9 @@ function createLeagueDetailsBucket(leagueId: string) {
         bucket$.viewer.actorId.set(input.viewerActor?.id ?? null);
         bucket$.viewer.actorKind.set(input.viewerActor?.kind ?? null);
         bucket$.viewer.canJoinLeagues.set(input.canJoinLeagues);
+        bucket$.viewer.membershipId.set(
+          input.league.viewerMembershipId ?? null
+        );
         bucket$.viewer.membershipStatus.set(
           input.league.viewerMembershipStatus ?? null
         );
@@ -218,6 +227,32 @@ function createLeagueDetailsBucket(leagueId: string) {
           );
         }
       },
+      setViewerMembership: (input: {
+        membershipId: null | string;
+        status: LeagueOverview["viewerMembershipStatus"];
+      }) => {
+        const nextStatus = input.status ?? null;
+        const nextMembershipId = input.membershipId ?? null;
+
+        bucket$.viewer.membershipId.set(nextMembershipId);
+        bucket$.viewer.membershipStatus.set(nextStatus);
+
+        const league = bucket$.data.league.get();
+
+        if (league) {
+          bucket$.data.league.set({
+            ...league,
+            viewerMembershipId: nextMembershipId,
+            viewerMembershipStatus: nextStatus,
+          });
+        }
+
+        if (bucket$.viewer.role.get() !== "owner") {
+          bucket$.viewer.role.set(
+            nextStatus === "active" ? "participant" : "visitor"
+          );
+        }
+      },
       reset: () => {
         bucket$.data.assign({
           challenges: [],
@@ -235,6 +270,7 @@ function createLeagueDetailsBucket(leagueId: string) {
           actorId: null,
           actorKind: null,
           canJoinLeagues: false,
+          membershipId: null,
           membershipStatus: null,
           role: "visitor",
           viewerPlayerProfileId: null,

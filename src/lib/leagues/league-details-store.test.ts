@@ -66,6 +66,7 @@ function makeLeagueOverview(
     },
     state: "active",
     updatedAt: 1,
+    viewerMembershipId: null,
     viewerMembershipStatus: null,
     visibility: "public",
     ...overrides,

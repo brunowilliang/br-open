@@ -1,114 +1,84 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  BILLING_INTERVALS,
-  LeaguePaymentStatusOptions,
-  OrganizationWooviAccountStatusOptions,
-  buildPaymentCorrelationId,
-  computeSplit,
+  PAYMENT_CHARGE_STATUSES,
+  PIX_KEY_TYPES,
+  pixKeyTypeSchema,
+  paymentChargeStatusSchema,
+  createChargeOutputSchema,
 } from "../contract";
 
 describe("payment contract", () => {
-  describe("computeSplit", () => {
-    it("splits the amount by the platform fee percent, rounding to cents", () => {
-      expect(
-        computeSplit({ amountCents: 5000, platformFeePercent: 10 })
-      ).toEqual({
-        brOpenCents: 500,
-        organizerCents: 4500,
-      });
-    });
-
-    it("floors the platform cut to avoid overcharging the organizer", () => {
-      // 33% of 1001 = 330.33 -> 330, organizer gets 671
-      expect(
-        computeSplit({ amountCents: 1001, platformFeePercent: 33 })
-      ).toEqual({
-        brOpenCents: 330,
-        organizerCents: 671,
-      });
-    });
-
-    it("assigns the whole amount to the organizer when the fee is 0%", () => {
-      expect(
-        computeSplit({ amountCents: 5000, platformFeePercent: 0 })
-      ).toEqual({
-        brOpenCents: 0,
-        organizerCents: 5000,
-      });
-    });
-
-    it("assigns the whole amount to the platform when the fee is 100%", () => {
-      expect(
-        computeSplit({ amountCents: 5000, platformFeePercent: 100 })
-      ).toEqual({
-        brOpenCents: 5000,
-        organizerCents: 0,
-      });
-    });
-
-    it("throws on a negative amount or percent", () => {
-      expect(() =>
-        computeSplit({ amountCents: -1, platformFeePercent: 10 })
-      ).toThrow();
-      expect(() =>
-        computeSplit({ amountCents: 100, platformFeePercent: -1 })
-      ).toThrow();
-    });
-
-    it("throws on a percent above 100", () => {
-      expect(() =>
-        computeSplit({ amountCents: 100, platformFeePercent: 101 })
-      ).toThrow();
+  describe("PIX_KEY_TYPES", () => {
+    it("lists the six valid PIX key types", () => {
+      expect(PIX_KEY_TYPES).toEqual([
+        "cpf",
+        "cnpj",
+        "email",
+        "phone",
+        "random",
+        "evp",
+      ]);
     });
   });
 
-  describe("buildPaymentCorrelationId", () => {
-    it("is deterministic for a membership + cycle anchor", () => {
-      expect(
-        buildPaymentCorrelationId({
-          leagueMembershipId: "mem-1",
-          cycleAnchor: "2026-07-01",
+  describe("pixKeyTypeSchema", () => {
+    it("accepts valid PIX key types", () => {
+      for (const type of PIX_KEY_TYPES) {
+        expect(pixKeyTypeSchema.parse(type)).toBe(type);
+      }
+    });
+
+    it("rejects invalid types", () => {
+      expect(() => pixKeyTypeSchema.parse("invalid")).toThrow();
+    });
+  });
+
+  describe("PAYMENT_CHARGE_STATUSES", () => {
+    it("lists the charge lifecycle states", () => {
+      expect(PAYMENT_CHARGE_STATUSES).toEqual([
+        "PENDING",
+        "PAID",
+        "EXPIRED",
+        "REFUNDED",
+        "FAILED",
+      ]);
+    });
+  });
+
+  describe("paymentChargeStatusSchema", () => {
+    it("accepts valid statuses", () => {
+      expect(paymentChargeStatusSchema.parse("PENDING")).toBe("PENDING");
+      expect(paymentChargeStatusSchema.parse("PAID")).toBe("PAID");
+    });
+
+    it("rejects invalid statuses", () => {
+      expect(() => paymentChargeStatusSchema.parse("PROCESSING")).toThrow();
+    });
+  });
+
+  describe("createChargeOutputSchema", () => {
+    it("accepts a valid charge output", () => {
+      const result = createChargeOutputSchema.parse({
+        brCode: "pix-br-code",
+        brCodeBase64: "base64-string",
+        chargeId: "charge-123",
+        expiresAt: "2026-07-01T12:00:00Z",
+        status: "PENDING",
+      });
+      expect(result.status).toBe("PENDING");
+    });
+
+    it("requires brCode and status", () => {
+      expect(() =>
+        createChargeOutputSchema.parse({
+          brCode: "",
+          brCodeBase64: "",
+          chargeId: "",
+          expiresAt: null,
+          status: "INVALID",
         })
-      ).toBe("mem:mem-1:2026-07-01");
-    });
-
-    it("produces different ids for different cycles of the same membership", () => {
-      const a = buildPaymentCorrelationId({
-        leagueMembershipId: "mem-1",
-        cycleAnchor: "2026-07-01",
-      });
-      const b = buildPaymentCorrelationId({
-        leagueMembershipId: "mem-1",
-        cycleAnchor: "2026-08-01",
-      });
-      expect(a).not.toBe(b);
-    });
-  });
-
-  describe("LeaguePaymentStatusOptions", () => {
-    it("lists the four lifecycle states", () => {
-      expect(LeaguePaymentStatusOptions).toEqual([
-        "pending_payment",
-        "paid",
-        "expired",
-        "failed",
-      ]);
-    });
-  });
-
-  describe("OrganizationWooviAccountStatusOptions", () => {
-    it("lists active and rejected (no KYC pending)", () => {
-      expect(OrganizationWooviAccountStatusOptions).toEqual([
-        "active",
-        "rejected",
-      ]);
-    });
-  });
-
-  describe("BILLING_INTERVALS", () => {
-    it("lists the four billing intervals", () => {
-      expect(BILLING_INTERVALS).toEqual(["week", "month", "quarter", "year"]);
+      ).toThrow();
     });
   });
 });

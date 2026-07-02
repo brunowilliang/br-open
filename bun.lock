@@ -5,6 +5,8 @@
     "": {
       "name": "br-open",
       "dependencies": {
+        "@abacatepay/rest": "^0.0.3",
+        "@abacatepay/types": "^2.0.3",
         "@better-auth/expo": "1.6.9",
         "@better-auth/i18n": "1.6.9",
         "@expo-google-fonts/outfit": "^0.4.3",
@@ -25,6 +27,7 @@
         "convex": "1.39.1",
         "expo": "~56.0.12",
         "expo-apple-authentication": "~56.0.4",
+        "expo-clipboard": "~56.0.4",
         "expo-constants": "~56.0.18",
         "expo-dev-client": "~56.0.20",
         "expo-device": "~56.0.4",
@@ -88,6 +91,10 @@
     "heroui-native-pro",
   ],
   "packages": {
+    "@abacatepay/rest": ["@abacatepay/rest@0.0.3", "", {}, "sha512-s1yXEZ+EiGYPvvZX6QcZyfIOdrgpLG8fh2cghEaU0kBZoOfYS7ik2zAja1NvfnFsL7PRNtY/tXQF3euf4zdvIA=="],
+
+    "@abacatepay/types": ["@abacatepay/types@2.0.3", "", {}, "sha512-JWi6cH9n86BMgCF4TUu09gN6LmJQP35q4w305+zt23KLALtiWwsFgxejexaTffamkXWDOgJJ8sCgcxh6x9iuMw=="],
+
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.0", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw=="],
@@ -879,6 +886,8 @@
     "expo-application": ["expo-application@56.0.3", "", { "peerDependencies": { "expo": "*" } }, "sha512-DdGGPlMuM6cSTeKhbvh6OeLr2O/+EI5BHKYrD+Do8sJPYgLwzGrgESELfyjJCpEhFzT+TgKIdmLmWXhNUQnHiw=="],
 
     "expo-asset": ["expo-asset@56.0.17", "", { "dependencies": { "@expo/image-utils": "^0.10.1", "expo-constants": "~56.0.18" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-GFN5j+8SPkyv0nfsiFHewmdB/D0tL237TsBE/gSfFOFy/J3a52py7IulcSqkA3sQE/u/UlD5BmvP5ssS4//nUg=="],
+
+    "expo-clipboard": ["expo-clipboard@56.0.4", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-qb4DYlkiowHYHaUYVT2FN9nk/nI1xShXOUYsI7J9dVpQCOHcGFjCBPX1VAvEW4Ye4/Aagd6IuhOVAq/+scBOiA=="],
 
     "expo-constants": ["expo-constants@56.0.18", "", { "dependencies": { "@expo/env": "~2.3.0" }, "peerDependencies": { "expo": "*", "react-native": "*" } }, "sha512-8AMtbDGl/WVPnWlmbpGmvcdnNCy9E4PFnwdVwj600vljkMDPSxcAcjw8GVXEPk3PpZ+ngTqsrkltWyj0UKYAxw=="],
 

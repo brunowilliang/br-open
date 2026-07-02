@@ -2383,8 +2383,10 @@ export const api: {
           };
           state: string;
           updatedAt: number;
+          viewerMembershipId?: string | null;
           viewerMembershipStatus?:
             | "pending"
+            | "awaiting_payment"
             | "active"
             | "rejected"
             | "removed"
@@ -3054,6 +3056,7 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
             | "rejected"
             | "removed"
@@ -3081,6 +3084,7 @@ export const api: {
             reviewedAt?: number | null;
             status:
               | "pending"
+              | "awaiting_payment"
               | "active"
               | "rejected"
               | "removed"
@@ -3102,6 +3106,7 @@ export const api: {
             reviewedAt?: number | null;
             status:
               | "pending"
+              | "awaiting_payment"
               | "active"
               | "rejected"
               | "removed"
@@ -3129,6 +3134,7 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
             | "rejected"
             | "removed"
@@ -3155,6 +3161,7 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
             | "rejected"
             | "removed"
@@ -3187,6 +3194,7 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
             | "rejected"
             | "removed"
@@ -3210,6 +3218,8 @@ export const api: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
             | "league.membership.removed"
             | "league.challenge.created"
@@ -3255,6 +3265,8 @@ export const api: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
             | "league.membership.removed"
             | "league.challenge.created"
@@ -3515,6 +3527,70 @@ export const api: {
           > | null;
           sportsLabel?: string | null;
           website?: string | null;
+        }
+      >;
+    };
+  };
+  payment: {
+    charge: {
+      createCharge: FunctionReference<
+        "action",
+        "public",
+        { leagueId: string; membershipId: string },
+        {
+          brCode: string;
+          brCodeBase64: string;
+          chargeId: string;
+          expiresAt: string | null;
+          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+        }
+      >;
+      getChargeForMembership: FunctionReference<
+        "query",
+        "public",
+        { membershipId: string },
+        {
+          brCode: string;
+          brCodeBase64: string;
+          chargeId: string;
+          expiresAt: string | null;
+          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+        } | null
+      >;
+      simulatePayment: FunctionReference<
+        "action",
+        "public",
+        { membershipId: string },
+        { success: boolean }
+      >;
+    };
+    onboarding: {
+      getCurrent: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          pixKey: string | null;
+          pixKeyType:
+            | "cpf"
+            | "cnpj"
+            | "email"
+            | "phone"
+            | "random"
+            | "evp"
+            | null;
+        }
+      >;
+      start: FunctionReference<
+        "mutation",
+        "public",
+        {
+          pixKey: string;
+          pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | "evp";
+        },
+        {
+          pixKey: string;
+          pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | "evp";
         }
       >;
     };
@@ -3895,6 +3971,8 @@ export const internal: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
             | "league.membership.removed"
             | "league.challenge.created"
@@ -3940,6 +4018,64 @@ export const internal: {
       >;
       releaseLock: FunctionReference<"mutation", "internal", {}, any>;
       sendPending: FunctionReference<"action", "internal", {}, any>;
+    };
+  };
+  payment: {
+    charge: {
+      activateMembership: FunctionReference<
+        "mutation",
+        "internal",
+        { membershipId: string },
+        any
+      >;
+      expireChargeForMembership: FunctionReference<
+        "mutation",
+        "internal",
+        { membershipId: string },
+        any
+      >;
+      getPendingChargeForSimulation: FunctionReference<
+        "mutation",
+        "internal",
+        { membershipId: string },
+        any
+      >;
+      markChargePaid: FunctionReference<
+        "mutation",
+        "internal",
+        { platformFee: number | null; providerChargeId: string },
+        any
+      >;
+      markChargeRefunded: FunctionReference<
+        "mutation",
+        "internal",
+        { providerChargeId: string },
+        any
+      >;
+      saveCharge: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amountCents: number;
+          brCode: string;
+          brCodeBase64: string;
+          externalId: string;
+          leagueId: string;
+          membershipId: string;
+          organizationId: string;
+          platformFee: number | null;
+          playerProfileId: string;
+          providerChargeId: string | null;
+          status: string;
+        },
+        any
+      >;
+      validateMembershipForCharge: FunctionReference<
+        "mutation",
+        "internal",
+        { leagueId: string; membershipId: string; userId: string },
+        any
+      >;
     };
   };
   seed: {

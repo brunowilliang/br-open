@@ -10,6 +10,7 @@ import {
   Dialog,
   useToast,
 } from "heroui-native";
+import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -28,6 +29,28 @@ import {
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type ViewerMembershipStatus = LeagueOverview["viewerMembershipStatus"];
 
+function getJoinSuccessToast(status: ViewerMembershipStatus): {
+  description: string;
+  label: string;
+} {
+  if (status === "active") {
+    return {
+      description: "Você entrou como jogador na liga.",
+      label: "Entrada confirmada",
+    };
+  }
+  if (status === "awaiting_payment") {
+    return {
+      description: "Você será redirecionado para o pagamento via PIX.",
+      label: "Quase lá!",
+    };
+  }
+  return {
+    description: "Solicitação enviada para aprovação.",
+    label: "Solicitação enviada",
+  };
+}
+
 function getJoinFooterActionLabel(input: {
   hasAvailableSpots: boolean;
   isJoinRequestPending: boolean;
@@ -43,15 +66,19 @@ function getJoinFooterActionLabel(input: {
 export function LeagueJoinFooter(props: { leagueId: string }) {
   const { leagueId } = props;
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { toast } = useToast();
   const crpc = useCRPC();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
+  const canResumeCheckout = useValue(bucket$.derived.canResumeCheckout);
   const league = useValue(bucket$.data.league);
+  const membershipId = useValue(bucket$.viewer.membershipId);
   const membershipStatus = useValue(bucket$.viewer.membershipStatus);
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
   const joinMutationIntentRef = useRef<"cancel" | "request">("request");
   const previousMembershipStatusRef = useRef<{
+    membershipId: null | string;
     status: ViewerMembershipStatus;
   } | null>(null);
   const [isCancelRequestDialogOpen, setIsCancelRequestDialogOpen] =
@@ -81,9 +108,12 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
         joinMutationIntentRef.current = "request";
         previousMembershipStatusRef.current = null;
 
-        bucket$.actions.setViewerMembershipStatus(membership.status);
-
         if (intent === "cancel") {
+          bucket$.actions.setViewerMembership({
+            membershipId: membership.status === "left" ? null : membership.id,
+            status: membership.status,
+          });
+
           setIsCancelRequestDialogOpen(false);
 
           toast.show({
@@ -97,20 +127,28 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           return;
         }
 
+        bucket$.actions.setViewerMembership({
+          membershipId: membership.id,
+          status: membership.status,
+        });
+
+        const joinToast = getJoinSuccessToast(membership.status);
         toast.show({
-          description:
-            membership.status === "active"
-              ? "Você entrou como jogador na liga."
-              : "Solicitação enviada para aprovação.",
+          description: joinToast.description,
           id: "request-join-success",
-          label:
-            membership.status === "active"
-              ? "Entrada confirmada"
-              : "Solicitação enviada",
+          label: joinToast.label,
           variant: "success",
         });
 
         await invalidateLeagueContext();
+
+        // Paid leagues route straight to checkout after requesting to join.
+        if (membership.status === "awaiting_payment") {
+          router.navigate({
+            params: { leagueId, membershipId: membership.id },
+            pathname: "/leagues/[leagueId]/checkout",
+          });
+        }
       },
       onError: (error) => {
         const intent = joinMutationIntentRef.current;
@@ -120,9 +158,10 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
         const isCancelAction = intent === "cancel";
 
         if (previousMembershipStatus) {
-          bucket$.actions.setViewerMembershipStatus(
-            previousMembershipStatus.status
-          );
+          bucket$.actions.setViewerMembership({
+            membershipId: previousMembershipStatus.membershipId,
+            status: previousMembershipStatus.status,
+          });
         }
 
         toast.show({
@@ -148,7 +187,8 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     return null;
   }
 
-  const isJoinRequestPending = membershipStatus === "pending";
+  const isJoinRequestPending =
+    membershipStatus === "pending" || membershipStatus === "awaiting_payment";
   const hasAvailableSpots = hasLeagueAvailableSpots({
     activePlayerCount: league.activePlayerCount,
     maxPlayers: league.maxPlayers,
@@ -169,10 +209,24 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
 
   function mutateJoinRequest(intent: "cancel" | "request") {
     joinMutationIntentRef.current = intent;
-    previousMembershipStatusRef.current = { status: membershipStatus };
-    bucket$.actions.setViewerMembershipStatus(
-      intent === "cancel" ? "left" : "pending"
-    );
+    previousMembershipStatusRef.current = {
+      membershipId,
+      status: membershipStatus,
+    };
+    let optimisticStatus: ViewerMembershipStatus;
+    if (intent === "cancel") {
+      optimisticStatus = "left";
+    } else if ((league?.monthlyPriceCents ?? 0) > 0) {
+      optimisticStatus = "awaiting_payment";
+    } else {
+      optimisticStatus = "pending";
+    }
+    bucket$.actions.setViewerMembership({
+      // Keep the existing membershipId during optimistic updates; the real id
+      // is reconciled when the mutation resolves.
+      membershipId,
+      status: optimisticStatus,
+    });
     requestJoin.mutate({ leagueId });
   }
 
@@ -208,16 +262,30 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
             </View>
           </View>
           <View className="flex-row items-center gap-2">
-            <Button
-              isDisabled={
-                requestJoin.isPending || !canRequestJoin || !hasAvailableSpots
-              }
-              onPress={() => {
-                mutateJoinRequest("request");
-              }}
-            >
-              <Button.Label>{joinFooterActionLabel}</Button.Label>
-            </Button>
+            {canResumeCheckout && membershipId ? (
+              <Button
+                isDisabled={requestJoin.isPending}
+                onPress={() => {
+                  router.navigate({
+                    params: { leagueId, membershipId },
+                    pathname: "/leagues/[leagueId]/checkout",
+                  });
+                }}
+              >
+                <Button.Label>{joinFooterActionLabel}</Button.Label>
+              </Button>
+            ) : (
+              <Button
+                isDisabled={
+                  requestJoin.isPending || !canRequestJoin || !hasAvailableSpots
+                }
+                onPress={() => {
+                  mutateJoinRequest("request");
+                }}
+              >
+                <Button.Label>{joinFooterActionLabel}</Button.Label>
+              </Button>
+            )}
             {isJoinRequestPending ? (
               <Button
                 isDisabled={requestJoin.isPending}

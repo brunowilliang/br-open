@@ -7,6 +7,7 @@ import {
   notificationFeedItemSchema,
   RemoveNotificationSchema,
 } from "../../domains/notification/contract";
+import { isNotificationForActiveActor } from "../../domains/notification/feed-rules";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../generated/server";
@@ -44,35 +45,6 @@ function serializeNotificationFeedItem(record: {
     recipientUserId: record.recipientUserId,
     title: record.title,
   });
-}
-
-function isNotificationForActiveActor(
-  notification: {
-    recipientActorKind?: string;
-    recipientOrganizationId?: Id<"organization"> | null;
-    recipientPlayerProfileId?: Id<"playerProfile"> | null;
-  },
-  activeActor: {
-    id: string;
-    kind: "organization" | "player";
-  }
-) {
-  if (notification.recipientActorKind !== activeActor.kind) {
-    return false;
-  }
-
-  if (activeActor.kind === "organization") {
-    return notification.recipientOrganizationId === activeActor.id;
-  }
-
-  return notification.recipientPlayerProfileId === activeActor.id;
-}
-
-export function canMarkNotificationReadForUser(input: {
-  notification: { recipientUserId: string };
-  userId: string;
-}) {
-  return input.notification.recipientUserId === input.userId;
 }
 
 async function getActiveActorNotificationOrThrow(

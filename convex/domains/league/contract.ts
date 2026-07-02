@@ -97,6 +97,7 @@ export const LeagueFinalSetModeOptions = [
 
 export const LeagueMembershipStatusOptions = [
   "pending",
+  "awaiting_payment",
   "active",
   "rejected",
   "removed",
@@ -790,6 +791,7 @@ export const leagueScheduleItemSchema = z.object({
 export const leagueDiscoverySchema = leagueSchema.extend({
   activePlayerCount: z.number().int().min(0),
   isManagerOwner: z.boolean(),
+  viewerMembershipId: z.string().min(1).nullable().optional(),
   viewerMembershipStatus: z
     .enum(LeagueMembershipStatusOptions)
     .nullable()

@@ -4,6 +4,8 @@ import { z } from "zod";
 const envSchema = z.object({
   DEPLOY_ENV: z.string().default("production"),
   SITE_URL: z.string().default("http://localhost:3000"),
+  ABACATEPAY_API_KEY: z.string().optional(),
+  ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
   BETTER_AUTH_URL: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().optional(),
   JWKS: z.string().optional(),
@@ -15,14 +17,12 @@ const envSchema = z.object({
   APPLE_TEAM_ID: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  WOOVI_APP_ID: z.string().optional(),
-  WOOVI_BASE_URL: z.string().default("https://api.woovi-sandbox.com"),
-  WOOVI_WEBHOOK_SECRET: z.string().optional(),
-  WOOVI_PLATFORM_FEE_PERCENT: z.string().default("10"),
 });
 
 export const getEnv = createEnv({
   readOptionalRuntimeEnv: [
+    "ABACATEPAY_API_KEY",
+    "ABACATEPAY_WEBHOOK_SECRET",
     "APPLE_APP_BUNDLE_IDENTIFIER",
     "APPLE_CLIENT_ID",
     "APPLE_CLIENT_SECRET",
@@ -34,8 +34,6 @@ export const getEnv = createEnv({
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "JWKS",
-    "WOOVI_APP_ID",
-    "WOOVI_WEBHOOK_SECRET",
   ],
   schema: envSchema,
 });

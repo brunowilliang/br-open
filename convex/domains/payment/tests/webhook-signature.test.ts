@@ -1,46 +1,76 @@
-import { createHmac } from "node:crypto";
 import { describe, expect, it } from "bun:test";
 
-import { verifyWooviWebhookSignature } from "../../../functions/payment/woovi-client";
+// Import the verification helpers from the payment domain.
+// We test the pure functions directly since they don't depend on Convex.
+import {
+  ABACATEPAY_PUBLIC_KEY,
+  verifyWebhookSignature,
+} from "../webhook-signature";
 
-const SECRET = "test-secret";
+/**
+ * Signs a body with the AbacatePay public key the same way AbacatePay does
+ * on the wire — HMAC-SHA256, base64-encoded.
+ */
+async function sign(body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ABACATEPAY_PUBLIC_KEY);
+  const bodyData = encoder.encode(body);
 
-function sign(body: string): string {
-  // Woovi encodes the HMAC-SHA256 digest as BASE64 (not hex).
-  return createHmac("sha256", SECRET).update(body).digest("base64");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const sig = await crypto.subtle.sign("HMAC", key, bodyData);
+  const bytes = new Uint8Array(sig);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
 }
 
-describe("verifyWooviWebhookSignature", () => {
-  it("accepts a valid base64 HMAC signature over the raw body", () => {
-    const body = JSON.stringify({ event: "OPENPIX:CHARGE_COMPLETED" });
-    expect(verifyWooviWebhookSignature(body, sign(body), SECRET)).toBe(true);
+describe("verifyWebhookSignature", () => {
+  it("accepts a valid HMAC-SHA256 signature over the raw body", async () => {
+    const body = JSON.stringify({ event: "transparent.completed" });
+    const sig = await sign(body);
+    expect(await verifyWebhookSignature(body, sig)).toBe(true);
   });
 
-  it("rejects a signature computed over a different body", () => {
+  it("rejects a signature computed over a different body", async () => {
+    const sig = await sign(JSON.stringify({ original: true }));
     expect(
-      verifyWooviWebhookSignature(
-        JSON.stringify({ event: "tampered" }),
-        sign(JSON.stringify({ original: true })),
-        SECRET
-      )
+      await verifyWebhookSignature(JSON.stringify({ event: "tampered" }), sig)
     ).toBe(false);
   });
 
-  it("rejects an empty or malformed signature", () => {
-    expect(verifyWooviWebhookSignature("{}", "", SECRET)).toBe(false);
+  it("rejects an empty signature", async () => {
+    expect(await verifyWebhookSignature("{}", "")).toBe(false);
   });
 
-  it("returns false when the secret is empty", () => {
+  it("rejects a signature computed with the wrong key", async () => {
     const body = "{}";
-    expect(verifyWooviWebhookSignature(body, sign(body), "")).toBe(false);
-  });
 
-  it("returns false (never throws) on a non-base64 signature", () => {
-    expect(() =>
-      verifyWooviWebhookSignature("{}", "not-base64!!", SECRET)
-    ).not.toThrow();
-    expect(verifyWooviWebhookSignature("{}", "not-base64!!", SECRET)).toBe(
-      false
+    // Sign with a key that is NOT the AbacatePay public key.
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode("wrong-key"),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
     );
+    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+    const bytes = new Uint8Array(sig);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    const wrongSig = btoa(binary);
+
+    expect(await verifyWebhookSignature(body, wrongSig)).toBe(false);
   });
 });

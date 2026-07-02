@@ -24,6 +24,9 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
       green: {
         placeholder: greenFallback,
       },
+      none: {
+        placeholder: undefined,
+      },
     },
   },
   defaultVariants: {

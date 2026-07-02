@@ -5,6 +5,7 @@ import { createHttpRouter } from "kitcn/server";
 import { router } from "../lib/crpc";
 import { getEnv } from "../lib/get-env";
 import { getAuth } from "./generated/auth";
+import { paymentWebhookRouter } from "./payment/webhook";
 
 // __KITCN_HTTP_IMPORTS__
 
@@ -23,6 +24,7 @@ app.use(
 app.use(authMiddleware(getAuth));
 
 export const httpRouter = router({
+  payment: paymentWebhookRouter,
   // __KITCN_HTTP_ROUTES__
 });
 

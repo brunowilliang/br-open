@@ -158,6 +158,8 @@ export function formatMembershipStatus(status?: string | null) {
   switch (status) {
     case "active":
       return "Ativo";
+    case "awaiting_payment":
+      return "Aguardando pagamento";
     case "pending":
       return "Pendente";
     case "rejected":
@@ -177,6 +179,7 @@ export function getMembershipStatusColor(status?: string | null) {
   switch (status) {
     case "active":
       return "success";
+    case "awaiting_payment":
     case "pending":
       return "warning";
     case "removed":
@@ -193,6 +196,10 @@ export function getMembershipActionLabel(
 ) {
   if (status === "active") {
     return "Abrir";
+  }
+
+  if (status === "awaiting_payment") {
+    return "Pagar inscrição";
   }
 
   if (status === "pending") {
