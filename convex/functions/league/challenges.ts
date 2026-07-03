@@ -76,6 +76,7 @@ import type { NotificationEventType } from "../../shared/notifications/protocol"
 import { isActiveActorManager } from "../../domains/auth/actor-context";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
+import { internal } from "../_generated/api";
 import {
   getViewerContext,
   requireActivePlayerProfile,
@@ -960,7 +961,29 @@ async function scheduleChallengeNotification(input: {
     recipientUserIds: recipientUserIds.filter((userId): userId is Id<"user"> =>
       Boolean(userId)
     ),
+    sourceEntityId: input.challenge.id,
+    sourceEntityType: "leagueChallenge",
   });
+}
+
+/**
+ * Retracts prior feed rows tied to this challenge before emitting a
+ * superseding event (cancel, reschedule via counter-propose, admin
+ * cancel/reopen). Prevents stale "Novo desafio" / "Proposta recebida"
+ * notifications from lingering in the in-app feed after the challenge has
+ * moved on.
+ */
+async function retractChallengeNotifications(
+  ctx: OrmMutationCtx,
+  challengeId: Id<"leagueChallenge"> | string
+) {
+  await ctx.runMutation(
+    internal.notification.orchestrator.retractNotifications,
+    {
+      sourceEntityId: challengeId,
+      sourceEntityType: "leagueChallenge",
+    }
+  );
 }
 
 function buildTodayUtcKey(): string {
@@ -1546,6 +1569,7 @@ export const counterPropose = authMutation
       }),
     ]);
 
+    await retractChallengeNotifications(ctx, syncedChallenge.id);
     await scheduleChallengeNotification({
       actorUserId: ctx.userId,
       challenge: syncedChallenge,
@@ -1655,6 +1679,7 @@ export const cancel = authMutation
       }),
     ]);
 
+    await retractChallengeNotifications(ctx, currentChallenge.id);
     await scheduleChallengeNotification({
       actorUserId: ctx.userId,
       challenge: currentChallenge,
@@ -2554,6 +2579,7 @@ export const adminManage = authMutation
         toStatus: "cancelled",
       });
 
+      await retractChallengeNotifications(ctx, currentChallenge.id);
       await scheduleChallengeNotification({
         actorUserId: ctx.userId,
         challenge: currentChallenge,
@@ -2706,6 +2732,7 @@ export const adminManage = authMutation
         toStatus: nextStatus,
       });
 
+      await retractChallengeNotifications(ctx, currentChallenge.id);
       await scheduleChallengeNotification({
         actorUserId: ctx.userId,
         challenge: currentChallenge,
