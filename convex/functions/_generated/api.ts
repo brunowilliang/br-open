@@ -3248,6 +3248,10 @@ export const api: {
           recipientOrganizationId: string | null;
           recipientPlayerProfileId: string | null;
           recipientUserId: string;
+          retractedAt: number | null;
+          sourceEntityId: string | null;
+          sourceEntityType: string | null;
+          status: "active" | "retracted";
           title: string;
         }>
       >;
@@ -3298,6 +3302,10 @@ export const api: {
           recipientOrganizationId: string | null;
           recipientPlayerProfileId: string | null;
           recipientUserId: string;
+          retractedAt: number | null;
+          sourceEntityId: string | null;
+          sourceEntityType: string | null;
+          status: "active" | "retracted";
           title: string;
         }
       >;
@@ -3988,6 +3996,8 @@ export const internal: {
           leagueId: string;
           metadata?: Record<string, any>;
           recipientUserIds: Array<string>;
+          sourceEntityId?: string;
+          sourceEntityType?: string;
         },
         any
       >;
@@ -4012,6 +4022,16 @@ export const internal: {
         any
       >;
       releaseLock: FunctionReference<"mutation", "internal", {}, any>;
+      retractNotifications: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          exceptEventTypes?: Array<string>;
+          sourceEntityId: string;
+          sourceEntityType: string;
+        },
+        { retractedCount: number }
+      >;
       sendPending: FunctionReference<"action", "internal", {}, any>;
     };
   };

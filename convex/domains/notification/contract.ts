@@ -52,6 +52,10 @@ export const notificationFeedItemSchema = z.object({
   recipientOrganizationId: z.string().nullable(),
   recipientPlayerProfileId: z.string().nullable(),
   recipientUserId: z.string(),
+  retractedAt: z.number().nullable(),
+  sourceEntityId: z.string().nullable(),
+  sourceEntityType: z.string().nullable(),
+  status: z.enum(["active", "retracted"]).default("active"),
   title: z.string(),
 });
 

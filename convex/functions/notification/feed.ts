@@ -28,6 +28,10 @@ function serializeNotificationFeedItem(record: {
   recipientOrganizationId?: Id<"organization"> | null;
   recipientPlayerProfileId?: Id<"playerProfile"> | null;
   recipientUserId: Id<"user">;
+  retractedAt?: number | null;
+  sourceEntityId?: null | string;
+  sourceEntityType?: string | null;
+  status?: "active" | "retracted" | null;
   title: string;
 }) {
   return notificationFeedItemSchema.parse({
@@ -43,6 +47,10 @@ function serializeNotificationFeedItem(record: {
     recipientOrganizationId: record.recipientOrganizationId ?? null,
     recipientPlayerProfileId: record.recipientPlayerProfileId ?? null,
     recipientUserId: record.recipientUserId,
+    retractedAt: record.retractedAt ?? null,
+    sourceEntityId: record.sourceEntityId ?? null,
+    sourceEntityType: record.sourceEntityType ?? null,
+    status: record.status ?? "active",
     title: record.title,
   });
 }
@@ -89,6 +97,12 @@ export const list = authQuery
       .filter((notification) =>
         isNotificationForActiveActor(notification, viewerContext.activeActor)
       )
+      .filter((notification) => {
+        // Hide retracted rows from the feed. Rows without a status (legacy,
+        // predates the retraction feature) are treated as "active".
+        const status = (notification as { status?: string }).status;
+        return status !== "retracted";
+      })
       .slice(0, input.limit ?? DEFAULT_FEED_LIMIT)
       .map(serializeNotificationFeedItem);
   });

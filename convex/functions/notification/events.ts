@@ -10,6 +10,8 @@ type ScheduleLeagueNotificationInput = {
   leagueId: Id<"league">;
   metadata?: Record<string, unknown>;
   recipientUserIds: Id<"user">[];
+  sourceEntityId?: Id<"leagueChallenge"> | string;
+  sourceEntityType?: "leagueChallenge" | "leagueMembership" | string;
 };
 
 export async function scheduleLeagueNotification(
@@ -31,6 +33,12 @@ export async function scheduleLeagueNotification(
       leagueId: input.leagueId,
       metadata: input.metadata ?? {},
       recipientUserIds,
+      ...(input.sourceEntityType && input.sourceEntityId
+        ? {
+            sourceEntityId: input.sourceEntityId,
+            sourceEntityType: input.sourceEntityType,
+          }
+        : {}),
     }
   );
 }

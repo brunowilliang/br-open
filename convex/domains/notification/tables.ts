@@ -59,6 +59,12 @@ export const notificationFeed = convexTable(
     occurredAt: timestamp().notNull(),
     readAt: timestamp(),
     recipientActorKind: text().notNull(),
+    // Retraction: when a challenge is cancelled/rescheduled, prior
+    // notifications about it should be retracted rather than orphaned.
+    retractedAt: timestamp(),
+    sourceEntityId: text(),
+    sourceEntityType: text(),
+    status: textEnum(["active", "retracted"]).default("active"),
     recipientOrganizationId: id("organization").references(
       () => authTables.organization.id,
       { onDelete: "cascade" }
@@ -101,6 +107,10 @@ export const notificationFeed = convexTable(
     ),
     index("actorUserId").on(notificationFeed.actorUserId),
     index("eventType").on(notificationFeed.eventType),
+    index("sourceEntity").on(
+      notificationFeed.sourceEntityType,
+      notificationFeed.sourceEntityId
+    ),
   ]
 );
 

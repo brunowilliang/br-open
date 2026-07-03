@@ -907,6 +907,10 @@ export type DataModel = {
       recipientOrganizationId?: null | Id<"organization">;
       recipientPlayerProfileId?: null | Id<"playerProfile">;
       recipientUserId: Id<"user">;
+      retractedAt?: null | number;
+      sourceEntityId?: null | string;
+      sourceEntityType?: null | string;
+      status?: null | "active" | "retracted";
       title: string;
       _id: Id<"notificationFeed">;
       _creationTime: number;
@@ -925,6 +929,10 @@ export type DataModel = {
       | "recipientOrganizationId"
       | "recipientPlayerProfileId"
       | "recipientUserId"
+      | "retractedAt"
+      | "sourceEntityId"
+      | "sourceEntityType"
+      | "status"
       | "title";
     indexes: {
       by_id: ["_id"];
@@ -959,6 +967,7 @@ export type DataModel = {
         "occurredAt",
         "_creationTime",
       ];
+      sourceEntity: ["sourceEntityType", "sourceEntityId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

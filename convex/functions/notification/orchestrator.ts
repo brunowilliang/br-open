@@ -8,10 +8,15 @@ import {
   NotificationDeliveryStateSchema,
   NotificationEventTypeSchema,
 } from "../../domains/notification/contract";
+import { eq } from "kitcn/orm";
 import {
   buildNotificationContent,
   getNotificationPushCategoryId,
 } from "../../domains/notification/definitions";
+import {
+  notificationDelivery,
+  notificationFeed,
+} from "../../domains/notification/tables";
 
 const EXPO_PUSH_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const MAX_DELIVERIES_PER_BATCH = 100;
@@ -41,6 +46,8 @@ const createForRecipientsSchema = z.object({
   leagueId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).optional(),
   recipientUserIds: z.array(z.string().min(1)).min(1),
+  sourceEntityId: z.string().min(1).optional(),
+  sourceEntityType: z.string().min(1).optional(),
 });
 
 type RecipientActor =
@@ -231,6 +238,9 @@ export const createForRecipients = privateMutation
         recipientOrganizationId: recipientActor.organizationId ?? undefined,
         recipientPlayerProfileId: recipientActor.playerProfileId ?? undefined,
         recipientUserId: recipientActor.userId,
+        sourceEntityId: input.sourceEntityId,
+        sourceEntityType: input.sourceEntityType,
+        status: "active",
         title: content.title,
       });
       const preference = await ctx.orm.query.notificationPreference.findFirst({
@@ -496,4 +506,84 @@ export const sendPending = privateAction
     );
 
     return null;
+  });
+
+const retractNotificationsSchema = z.object({
+  exceptEventTypes: z.array(z.string()).optional(),
+  sourceEntityId: z.string().min(1),
+  sourceEntityType: z.string().min(1),
+});
+
+/**
+ * Retracts feed rows tied to a source entity (e.g. a challenge that was
+ * cancelled/rescheduled). Sets their `status` to "retracted" and aborts any
+ * pending deliveries by flipping them to "failed".
+ *
+ * Typical caller: `challenges.ts` cancel/counterPropose/admin branches,
+ * invoked via `internal.notification.orchestrator.retractNotifications`
+ * BEFORE emitting the new superseding event.
+ */
+export const retractNotifications = privateMutation
+  .input(retractNotificationsSchema)
+  .output(z.object({ retractedCount: z.number().int().nonnegative() }))
+  .mutation(async ({ ctx, input }) => {
+    // Query by sourceEntityType (more selective than sourceEntityId), then
+    // filter in JS by sourceEntityId. kitcn's findMany where-clause is an
+    // object literal of column -> value; compound and()/eq() is only wired
+    // for update/delete in this ORM. With the sourceEntity index on
+    // (sourceEntityType, sourceEntityId), the JS filter is cheap.
+    const candidateRows = await ctx.orm.query.notificationFeed.findMany({
+      limit: 500,
+      where: { sourceEntityType: input.sourceEntityType },
+    });
+    const feedRows = candidateRows.filter(
+      (row) => row.sourceEntityId === input.sourceEntityId
+    );
+
+    const targetRows = input.exceptEventTypes
+      ? feedRows.filter(
+          (row) => !input.exceptEventTypes?.includes(row.eventType)
+        )
+      : feedRows;
+
+    if (targetRows.length === 0) {
+      return { retractedCount: 0 };
+    }
+
+    const now = new Date();
+    const feedIds = targetRows.map((row) => row.id as Id<"notificationFeed">);
+
+    for (const row of targetRows) {
+      await ctx.orm
+        .update(notificationFeed)
+        .set({
+          retractedAt: now,
+          status: "retracted",
+        })
+        .where(eq(notificationFeed.id, row.id));
+    }
+
+    // Abort pending deliveries tied to the retracted feed rows.
+    const deliveries = await ctx.orm.query.notificationDelivery.findMany({
+      where: { feedId: { in: feedIds } },
+    });
+    const reclamationStates = new Set([
+      "awaiting_delivery",
+      "in_progress",
+      "maybe_delivered",
+      "needs_retry",
+    ]);
+    for (const delivery of deliveries) {
+      if (reclamationStates.has(delivery.state)) {
+        await ctx.orm
+          .update(notificationDelivery)
+          .set({
+            errorMessage: "retracted",
+            state: "failed",
+          })
+          .where(eq(notificationDelivery.id, delivery.id));
+      }
+    }
+
+    return { retractedCount: targetRows.length };
   });
