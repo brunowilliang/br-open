@@ -128,7 +128,7 @@ export default function PaymentsRoute() {
             <Card.Body className="items-center gap-3 py-6">
               <Spinner />
               <Text variant="title" weight="semibold">
-                Validando conta na Woovi…
+                Validando conta…
               </Text>
               <Description className="text-center">
                 A validação da conta leva alguns instantes. Mantenha o app

@@ -496,8 +496,8 @@ export default function LeagueSettingsRoute() {
               )}
               <Dialog.Title>Configure sua conta de pagamento</Dialog.Title>
               <Description>
-                Para ativar a cobrança na liga, conecte sua conta Woovi para
-                receber os pagamentos via PIX.
+                Para ativar a cobrança na liga, conecte sua conta de pagamento
+                para receber os pagamentos via PIX.
               </Description>
 
               <View className="flex-row gap-2 self-end">

@@ -66,7 +66,7 @@ export const start = authAction
     } catch (error) {
       throw new CRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: `Falha ao conectar conta Woovi: ${
+        message: `Falha ao conectar conta de pagamento: ${
           error instanceof Error ? error.message : "erro desconhecido"
         }`,
       });

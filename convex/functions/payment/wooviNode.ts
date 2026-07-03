@@ -58,7 +58,22 @@ export const createSubaccountAction = privateAction
       name: input.name,
       pixKey: input.pixKey,
     });
-    const sub = response.SubAccount;
+
+    // The Woovi SDK returns the raw API body. On error (bad APP_ID, invalid
+    // pix key, rate limit, etc.) the body has no `SubAccount` field — it has
+    // `{ error: "..." }` instead. The SDK does not throw, so we guard here.
+    const sub = response?.SubAccount;
+    if (!sub) {
+      const apiError =
+        response && typeof response === "object" && "error" in response
+          ? String((response as Record<string, unknown>).error)
+          : "resposta inválida do provedor de pagamento";
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: apiError,
+      });
+    }
+
     return {
       name: sub.name,
       pixKey: sub.pixKey,
