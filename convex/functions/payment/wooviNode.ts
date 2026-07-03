@@ -59,18 +59,19 @@ export const createSubaccountAction = privateAction
       pixKey: input.pixKey,
     });
 
-    // The Woovi SDK returns the raw API body without throwing on API errors.
-    // Log the full response so we can diagnose what the provider returned.
-    const sub = response?.SubAccount;
+    // The Woovi SDK types declare `response.SubAccount` (PascalCase), but the
+    // live API actually returns `response.subAccount` (camelCase). Accept both.
+    const sub =
+      response?.SubAccount ??
+      ((response as Record<string, unknown>)?.subAccount as
+        | { name: string; pixKey: string }
+        | undefined);
     if (!sub) {
       const body = JSON.stringify(response);
-      console.error(
-        "[wooviNode] subAccount.create failed — full response:",
-        body
-      );
+      console.error("[wooviNode] subAccount.create unexpected response:", body);
       throw new CRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: `Não foi possível conectar a conta de pagamento. Resposta: ${body}`,
+        message: "Não foi possível conectar a conta de pagamento.",
       });
     }
 
