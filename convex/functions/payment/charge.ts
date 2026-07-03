@@ -559,6 +559,9 @@ export const validateMembershipForCharge = privateMutation
   });
 
 export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
+  if (getEnv().DEPLOY_ENV !== "production") {
+    return { expiredCount: 0 };
+  }
   const now = new Date();
   const stale = await ctx.orm.query.leaguePayment.findMany({
     limit: 100,
@@ -649,6 +652,9 @@ const BILLING_INTERVAL_MS: Record<string, number> = {
 
 export const sendRenewalReminders = privateMutation.mutation(
   async ({ ctx }) => {
+    if (getEnv().DEPLOY_ENV !== "production") {
+      return { processed: 0 };
+    }
     const now = Date.now();
     // Sweep PAID charges in batches of 100.
     const paid = await ctx.orm.query.leaguePayment.findMany({
@@ -692,6 +698,8 @@ export const sendRenewalReminders = privateMutation.mutation(
           const membership = await ctx.orm.query.leagueMembership.findFirst({
             where: { id: charge.membershipId as Id<"leagueMembership"> },
           });
+          // Only suspend + notify on the active->suspended transition. Once
+          // suspended, subsequent daily runs skip (no spam).
           if (membership && membership.status === "active") {
             await ctx.orm
               .update(leagueMembership)
@@ -700,8 +708,6 @@ export const sendRenewalReminders = privateMutation.mutation(
                 updatedAt: new Date(now),
               })
               .where(eq(leagueMembership.id, membership.id));
-          }
-          if (membership) {
             const playerProfile = await ctx.orm.query.playerProfile.findFirst({
               where: { id: membership.playerProfileId as Id<"playerProfile"> },
             });
@@ -717,17 +723,35 @@ export const sendRenewalReminders = privateMutation.mutation(
         continue;
       }
 
-      // Within the reminder window: send renewal_reminder (once per cycle).
+      // Within the reminder window: send renewal_reminder, deduped to once
+      // per 24h via lastRenewalReminderSentAt on the membership.
       if (nextDueMs - now <= RENEWAL_REMINDER_WINDOW_MS) {
-        const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-          where: { id: charge.playerProfileId as Id<"playerProfile"> },
-        });
-        if (playerProfile?.userId) {
-          await scheduleLeagueNotification(ctx, {
-            eventType: "league.membership.renewal_reminder",
-            leagueId: charge.leagueId as Id<"league">,
-            recipientUserIds: [playerProfile.userId as Id<"user">],
+        const membershipForReminder =
+          await ctx.orm.query.leagueMembership.findFirst({
+            where: { id: charge.membershipId as Id<"leagueMembership"> },
           });
+        const lastSentMs =
+          membershipForReminder?.lastRenewalReminderSentAt?.getTime() ?? 0;
+        if (now - lastSentMs >= 24 * 60 * 60 * 1000) {
+          const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+            where: { id: charge.playerProfileId as Id<"playerProfile"> },
+          });
+          if (playerProfile?.userId) {
+            await scheduleLeagueNotification(ctx, {
+              eventType: "league.membership.renewal_reminder",
+              leagueId: charge.leagueId as Id<"league">,
+              recipientUserIds: [playerProfile.userId as Id<"user">],
+            });
+          }
+          if (membershipForReminder) {
+            await ctx.orm
+              .update(leagueMembership)
+              .set({
+                lastRenewalReminderSentAt: new Date(now),
+                updatedAt: new Date(now),
+              })
+              .where(eq(leagueMembership.id, membershipForReminder.id));
+          }
         }
       }
     }

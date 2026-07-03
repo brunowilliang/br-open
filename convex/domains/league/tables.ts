@@ -50,6 +50,7 @@ export const leagueMembership = convexTable(
         onDelete: "cascade",
       }),
     status: text().notNull(),
+    lastRenewalReminderSentAt: timestamp(),
     rankingPosition: integer(),
     reviewedAt: timestamp(),
     createdAt: timestamp().notNull(),

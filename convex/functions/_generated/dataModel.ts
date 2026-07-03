@@ -605,6 +605,7 @@ export type DataModel = {
   leagueMembership: {
     document: {
       createdAt: number;
+      lastRenewalReminderSentAt?: null | number;
       leagueId: Id<"league">;
       playerProfileId: Id<"playerProfile">;
       rankingPosition?: null | number;
@@ -618,6 +619,7 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "createdAt"
+      | "lastRenewalReminderSentAt"
       | "leagueId"
       | "playerProfileId"
       | "rankingPosition"
