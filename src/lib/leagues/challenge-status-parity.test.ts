@@ -8,7 +8,7 @@ import {
   ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
   ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
   CLOSED_CHALLENGE_STATUSES,
-} from "./challenge-route-view";
+} from "@convex/domains/league/challenge-status";
 
 /**
  * Frontend parity with the backend challenge status sets.

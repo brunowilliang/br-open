@@ -2,13 +2,15 @@ import { describe, expect, it } from "bun:test";
 
 import { LeagueChallengeStatusOptions } from "../contract";
 import {
-  ADMIN_CANCELABLE_STATUSES,
-  ADMIN_INVALIDATABLE_STATUSES,
-  ADMIN_RESULT_REMINDER_STATUSES,
-  ADMIN_SCORE_EDITABLE_STATUSES,
+  ADMIN_ATTENTION_CHALLENGE_STATUSES,
+  ADMIN_CANCELABLE_CHALLENGE_STATUSES,
+  ADMIN_INVALIDATABLE_CHALLENGE_STATUSES,
+  ADMIN_ONGOING_CHALLENGE_STATUSES,
+  ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
+  ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
   CLOSED_CHALLENGE_STATUSES,
-  VIEWER_PROPOSAL_RESPONSE_STATUSES,
-} from "../../../functions/league/challenges";
+  VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES,
+} from "../challenge-status";
 
 /**
  * Status-set invariants for the backend challenge state machine.
@@ -29,8 +31,8 @@ describe("backend challenge status sets", () => {
     );
   });
 
-  it("VIEWER_PROPOSAL_RESPONSE_STATUSES contains the two pending-proposal statuses", () => {
-    expect(VIEWER_PROPOSAL_RESPONSE_STATUSES).toEqual(
+  it("VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES contains the two pending-proposal statuses", () => {
+    expect(VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES).toEqual(
       new Set(["pending_opponent_response", "pending_creator_reapproval"])
     );
   });
@@ -48,29 +50,85 @@ describe("backend challenge status sets", () => {
       }
     };
 
-    checkSet("ADMIN_CANCELABLE_STATUSES", ADMIN_CANCELABLE_STATUSES);
-    checkSet("ADMIN_INVALIDATABLE_STATUSES", ADMIN_INVALIDATABLE_STATUSES);
-    checkSet("ADMIN_SCORE_EDITABLE_STATUSES", ADMIN_SCORE_EDITABLE_STATUSES);
-    checkSet("ADMIN_RESULT_REMINDER_STATUSES", ADMIN_RESULT_REMINDER_STATUSES);
+    checkSet(
+      "ADMIN_CANCELABLE_CHALLENGE_STATUSES",
+      ADMIN_CANCELABLE_CHALLENGE_STATUSES
+    );
+    checkSet(
+      "ADMIN_INVALIDATABLE_CHALLENGE_STATUSES",
+      ADMIN_INVALIDATABLE_CHALLENGE_STATUSES
+    );
+    checkSet(
+      "ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES",
+      ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES
+    );
+    checkSet(
+      "ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES",
+      ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES
+    );
   });
 
-  it("ADMIN_RESULT_REMINDER_STATUSES is a subset of ADMIN_SCORE_EDITABLE_STATUSES", () => {
+  it("ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES is a subset of ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES", () => {
     // A reminder only makes sense where the admin could also edit the score.
-    for (const status of ADMIN_RESULT_REMINDER_STATUSES) {
-      expect(ADMIN_SCORE_EDITABLE_STATUSES.has(status)).toBe(true);
+    for (const status of ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES) {
+      expect(ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(status)).toBe(true);
     }
   });
 
-  it("ADMIN_INVALIDATABLE_STATUSES excludes pending-proposal statuses (cancel covers those)", () => {
+  it("ADMIN_INVALIDATABLE_CHALLENGE_STATUSES excludes pending-proposal statuses (cancel covers those)", () => {
     // Semantic invariant confirmed with product: invalidar is reserved for
     // matches that have been played (or scheduled); cancelar covers the
     // pending-proposal phase. Frontend mirrors this in
     // ADMIN_INVALIDATABLE_CHALLENGE_STATUSES.
-    expect(ADMIN_INVALIDATABLE_STATUSES.has("pending_opponent_response")).toBe(
-      false
-    );
-    expect(ADMIN_INVALIDATABLE_STATUSES.has("pending_creator_reapproval")).toBe(
-      false
-    );
+    expect(
+      ADMIN_INVALIDATABLE_CHALLENGE_STATUSES.has("pending_opponent_response")
+    ).toBe(false);
+    expect(
+      ADMIN_INVALIDATABLE_CHALLENGE_STATUSES.has("pending_creator_reapproval")
+    ).toBe(false);
+  });
+
+  it("CLOSED + ADMIN_ATTENTION + ADMIN_ONGOING form a disjoint cover of all statuses", () => {
+    // Every LeagueChallengeStatus must be in exactly one of these three sets.
+    // (Drives the frontend admin tab partition — see challenge-status.ts.)
+    const valid = new Set<string>(LeagueChallengeStatusOptions);
+    const seen = new Map<string, string[]>();
+
+    const recordBucket = (status: string, bucket: string) => {
+      const arr = seen.get(status) ?? [];
+      arr.push(bucket);
+      seen.set(status, arr);
+    };
+
+    for (const status of CLOSED_CHALLENGE_STATUSES) {
+      recordBucket(status, "CLOSED");
+    }
+    for (const status of ADMIN_ATTENTION_CHALLENGE_STATUSES) {
+      recordBucket(status, "ADMIN_ATTENTION");
+    }
+    for (const status of ADMIN_ONGOING_CHALLENGE_STATUSES) {
+      recordBucket(status, "ADMIN_ONGOING");
+    }
+
+    // 1. Every canonical status is covered.
+    for (const status of valid) {
+      const buckets = seen.get(status);
+      if (!buckets || buckets.length === 0) {
+        throw new Error(`Status ${status} not covered by any tab set.`);
+      }
+      // 2. Disjoint: appears in exactly one bucket.
+      if (buckets.length > 1) {
+        throw new Error(
+          `Status ${status} appears in multiple buckets: ${buckets.join(", ")}`
+        );
+      }
+    }
+
+    // 3. No status in any set is outside the canonical enum.
+    for (const [status] of seen) {
+      if (!valid.has(status)) {
+        throw new Error(`Unknown status ${status} in tab set.`);
+      }
+    }
   });
 });

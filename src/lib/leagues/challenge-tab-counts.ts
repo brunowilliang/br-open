@@ -1,4 +1,11 @@
 import type { ApiOutputs } from "@convex/shared/api";
+import {
+  ADMIN_ATTENTION_CHALLENGE_STATUSES as ADMIN_ATTENTION_STATUSES,
+  ADMIN_ONGOING_CHALLENGE_STATUSES as ADMIN_ONGOING_STATUSES,
+  CLOSED_CHALLENGE_STATUSES as CLOSED_STATUSES,
+} from "@convex/domains/league/challenge-status";
+
+export { ADMIN_ATTENTION_STATUSES, ADMIN_ONGOING_STATUSES };
 
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
@@ -40,31 +47,6 @@ export type ChallengeTabCountItem = {
   } | null;
   status: ChallengeItem["status"];
 };
-
-const CLOSED_STATUSES = new Set<ChallengeTabCountItem["status"]>([
-  "cancelled",
-  "declined",
-  "finished",
-  "invalidated",
-]);
-
-export const ADMIN_ATTENTION_STATUSES = new Set<
-  ChallengeTabCountItem["status"]
->([
-  "pending_admin_challenge_validation",
-  "pending_admin_result_validation",
-  "pending_admin_decision",
-  "pending_result_correction",
-]);
-
-export const ADMIN_ONGOING_STATUSES = new Set<ChallengeTabCountItem["status"]>([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-]);
 
 function isViewerParticipant(
   challenge: ChallengeTabCountItem,

@@ -52,6 +52,14 @@ import {
   resolveRuleValue,
 } from "../../domains/league/contract";
 import {
+  ADMIN_CANCELABLE_CHALLENGE_STATUSES,
+  ADMIN_INVALIDATABLE_CHALLENGE_STATUSES,
+  ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
+  ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
+  CLOSED_CHALLENGE_STATUSES,
+  VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES,
+} from "../../domains/league/challenge-status";
+import {
   buildScheduledDate,
   getDayKeyFromMatchDate,
   rangesOverlap,
@@ -84,17 +92,6 @@ type LeagueChallengeResultSubmissionRecord = InferSelectModel<
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 type OrmCtx = AuthenticatedCtx<QueryCtx | MutationCtx>;
 type OrmMutationCtx = AuthenticatedCtx<MutationCtx>;
-
-export const CLOSED_CHALLENGE_STATUSES = new Set<LeagueChallengeStatus>([
-  "finished",
-  "declined",
-  "cancelled",
-  "invalidated",
-]);
-
-export const VIEWER_PROPOSAL_RESPONSE_STATUSES = new Set<LeagueChallengeStatus>(
-  ["pending_opponent_response", "pending_creator_reapproval"]
-);
 
 function serializeLeagueRecord(record: LeagueRecord) {
   return leagueSchema.parse({
@@ -489,7 +486,7 @@ function computeEffectiveChallengeStatus(input: {
   now: Date;
 }) {
   if (
-    VIEWER_PROPOSAL_RESPONSE_STATUSES.has(
+    VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES.has(
       input.challenge.status as LeagueChallengeStatus
     ) &&
     input.now.getTime() > input.currentProposal.responseDeadlineAt.getTime()
@@ -1316,7 +1313,7 @@ export const acceptProposal = authMutation
     if (
       !receiverMembershipId ||
       receiverMembershipId !== viewerMembership.id ||
-      !VIEWER_PROPOSAL_RESPONSE_STATUSES.has(
+      !VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES.has(
         syncedChallenge.status as LeagueChallengeStatus
       )
     ) {
@@ -1402,7 +1399,7 @@ export const declineProposal = authMutation
     if (
       !receiverMembershipId ||
       receiverMembershipId !== viewerMembership.id ||
-      !VIEWER_PROPOSAL_RESPONSE_STATUSES.has(
+      !VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES.has(
         currentChallenge.status as LeagueChallengeStatus
       )
     ) {
@@ -1488,7 +1485,7 @@ export const counterPropose = authMutation
     if (
       !receiverMembershipId ||
       receiverMembershipId !== viewerMembership.id ||
-      !VIEWER_PROPOSAL_RESPONSE_STATUSES.has(
+      !VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES.has(
         syncedChallenge.status as LeagueChallengeStatus
       )
     ) {
@@ -2356,41 +2353,6 @@ export const reviewResult = authMutation
     });
   });
 
-export const ADMIN_CANCELABLE_STATUSES = new Set<LeagueChallengeStatus>([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-  "pending_admin_challenge_validation",
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-]);
-
-export const ADMIN_INVALIDATABLE_STATUSES = new Set<LeagueChallengeStatus>([
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-  "finished",
-]);
-
-export const ADMIN_SCORE_EDITABLE_STATUSES = new Set<LeagueChallengeStatus>([
-  "confirmed",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-  "finished",
-  "invalidated",
-]);
-
 export const adminSubmitResult = authMutation
   .input(AdminSubmitLeagueChallengeResultSchema)
   .output(leagueChallengeSchema)
@@ -2432,7 +2394,7 @@ export const adminSubmitResult = authMutation
 
     const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
 
-    if (!ADMIN_SCORE_EDITABLE_STATUSES.has(currentStatus)) {
+    if (!ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message: "Esse desafio ainda não pode receber placar pelo admin.",
@@ -2558,7 +2520,7 @@ export const adminManage = authMutation
     );
 
     if (input.action === "cancel") {
-      if (!ADMIN_CANCELABLE_STATUSES.has(currentStatus)) {
+      if (!ADMIN_CANCELABLE_CHALLENGE_STATUSES.has(currentStatus)) {
         throw new CRPCError({
           code: "BAD_REQUEST",
           message: "Esse desafio não pode mais ser cancelado pelo admin.",
@@ -2614,7 +2576,7 @@ export const adminManage = authMutation
     }
 
     if (input.action === "invalidate") {
-      if (!ADMIN_INVALIDATABLE_STATUSES.has(currentStatus)) {
+      if (!ADMIN_INVALIDATABLE_CHALLENGE_STATUSES.has(currentStatus)) {
         throw new CRPCError({
           code: "BAD_REQUEST",
           message: "Esse desafio não pode ser invalidado nesse estado.",
@@ -2837,12 +2799,6 @@ export const adminManage = authMutation
  * registrem o placar. São os status onde o placar ainda está pendente de
  * ação de um jogador e o desafio não está finalizado/cancelado.
  */
-export const ADMIN_RESULT_REMINDER_STATUSES = new Set<LeagueChallengeStatus>([
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_decision",
-]);
-
 export const adminRequestResultReminder = authMutation
   .input(LeagueChallengeByIdSchema)
   .output(leagueChallengeSchema)
@@ -2883,7 +2839,7 @@ export const adminRequestResultReminder = authMutation
 
     const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
 
-    if (!ADMIN_RESULT_REMINDER_STATUSES.has(currentStatus)) {
+    if (!ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message: "Esse desafio não está aguardando placar dos jogadores.",

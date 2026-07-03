@@ -1,4 +1,13 @@
 import type { ApiOutputs } from "@convex/shared/api";
+import {
+  ADMIN_ATTENTION_CHALLENGE_STATUSES,
+  ADMIN_CANCELABLE_CHALLENGE_STATUSES,
+  ADMIN_INVALIDATABLE_CHALLENGE_STATUSES,
+  ADMIN_ONGOING_CHALLENGE_STATUSES,
+  ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
+  ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
+  CLOSED_CHALLENGE_STATUSES,
+} from "@convex/domains/league/challenge-status";
 
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
@@ -53,117 +62,6 @@ type ChallengeItem =
  * → Atenção; quem publicou → Aguardando).
  * ============================================================================
  */
-
-/**
- * Status fechados: o desafio terminou (com ou sem resultado). Sempre caem na
- * aba "Histórico" de qualquer role. Nenhuma ação de criação/edição de placar
- * é primária aqui (apenas reabertura, que é ação de admin).
- */
-export const CLOSED_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
-  new Set(["finished", "declined", "cancelled", "invalidated"] as const);
-
-/**
- * ABA "Atenção" (ADMIN) — desafios que requerem ação do organizador.
- *
- * Inclui correções (migradas da antiga aba "Correções"), pois é o admin quem
- * precisa agir sobre elas. Antes, pending_result_correction ficava isolado e
- * invisível (aba sem badge), causando desafios perdidos.
- *
- * Ações de admin válidas por status (todas com guard no backend):
- * - pending_admin_challenge_validation: approve/reject challenge
- * - pending_admin_result_validation: approve result, request correction,
- *   submit/edit result
- * - pending_admin_decision: submit result, request reminder
- * - pending_result_correction: submit/edit result
- * E, onde aplicável: invalidar, cancelar (ver ADMIN_* sets de ações).
- */
-export const ADMIN_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "pending_admin_challenge_validation",
-  "pending_admin_result_validation",
-  "pending_admin_decision",
-  "pending_result_correction",
-] as const);
-
-/**
- * ABA "Em andamento" (ADMIN) — desafios vivos onde os JOGADORES estão agindo
- * (propondo, confirmando, enviando placar). O admin apenas observa.
- *
- * Disjunto de ADMIN_ATTENTION: nenhum status aparece nas duas.
- */
-export const ADMIN_ONGOING_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-] as const);
-
-/**
- * AÇÕES DE ADMIN — Status em que cada ação é permitida.
- *
- * IMPORTANTE: estes sets DEVEM espelhar os sets do backend
- * (ADMIN_CANCELABLE_STATUSES, ADMIN_INVALIDATABLE_STATUSES,
- * ADMIN_SCORE_EDITABLE_STATUSES, ADMIN_RESULT_REMINDER_STATUSES em
- * convex/functions/league/challenges.ts). Se mudar um, mude o outro.
- *
- * Observação sobre ranking já aplicado: em statuses finished/invalidated, o
- * ranking já foi computado. O adminSubmitResult do backend chama
- * restoreChallengeRankingSnapshot antes de reaplicar, então é seguro permitir
- * editar placar nesses estados.
- */
-export const ADMIN_CANCELABLE_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-  "pending_admin_challenge_validation",
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-] as const);
-
-export const ADMIN_INVALIDATABLE_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-  "finished",
-] as const);
-
-export const ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "confirmed",
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_result_correction",
-  "pending_admin_decision",
-  "finished",
-  "invalidated",
-] as const);
-
-export const ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES: ReadonlySet<
-  ChallengeItem["status"]
-> = new Set([
-  "pending_result_submission",
-  "pending_result_confirmation",
-  "pending_admin_decision",
-] as const);
 
 type ChallengeAdminActionItem = {
   latestResultSubmission?: { id?: string | null } | null;
