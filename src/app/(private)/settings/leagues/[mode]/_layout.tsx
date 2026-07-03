@@ -19,7 +19,7 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {

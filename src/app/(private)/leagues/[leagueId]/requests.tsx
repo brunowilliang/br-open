@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";

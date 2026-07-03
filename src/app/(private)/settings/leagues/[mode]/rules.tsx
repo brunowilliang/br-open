@@ -17,7 +17,7 @@ import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import {
   type RuleInfo,

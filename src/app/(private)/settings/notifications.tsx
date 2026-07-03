@@ -25,7 +25,7 @@ import {
 import { useEffect, useState } from "react";
 import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";

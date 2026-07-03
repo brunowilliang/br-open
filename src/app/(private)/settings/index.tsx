@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";

@@ -6,7 +6,7 @@ import { Badge } from "heroui-native-pro";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { ChallengeCard } from "@/components/pages/leagues/challenge-card";
 import { ChallengeAdminActionDialog } from "@/components/pages/leagues/challenge-admin-action-dialog";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";

@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
