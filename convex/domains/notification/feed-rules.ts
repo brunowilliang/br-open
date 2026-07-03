@@ -6,10 +6,12 @@
  * so the rules can be tested in isolation from the CRPC procedures.
  */
 
-type ActorKind = "organization" | "player";
+import type { ActorKind } from "../auth/actor-context";
 
 type NotificationActorLike = {
-  recipientActorKind?: string;
+  // Loosened to `string` to accept raw DB rows (`recipientActorKind` is `text()`).
+  // The zod schema (notificationFeedItemSchema) is the authority for valid values.
+  recipientActorKind?: ActorKind | string;
   recipientOrganizationId?: null | string;
   recipientPlayerProfileId?: null | string;
 };
