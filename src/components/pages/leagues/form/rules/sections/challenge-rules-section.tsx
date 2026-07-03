@@ -15,7 +15,7 @@ import {
   validationModeOptions,
   type RuleConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 
 export const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
   const { control, setValue } = useFormContext<LeagueScreenValues>();

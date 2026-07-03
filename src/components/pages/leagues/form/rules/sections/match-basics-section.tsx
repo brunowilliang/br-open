@@ -14,7 +14,7 @@ import {
   scoringModeOptions,
   type MatchConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 
 export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
   const { control, setValue } = useFormContext<LeagueScreenValues>();

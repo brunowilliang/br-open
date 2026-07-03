@@ -10,10 +10,10 @@ import { Page } from "@/components/core/NewPage";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 
-import { ChallengeRulesSection } from "./rules/_sections/challenge-rules-section";
-import { MatchRulesSection } from "./rules/_sections/match-rules-section";
-import { RankingRulesSection } from "./rules/_sections/ranking-rules-section";
-import { ResultRulesSection } from "./rules/_sections/result-rules-section";
+import { ChallengeRulesSection } from "@/components/pages/leagues/form/rules/sections/challenge-rules-section";
+import { MatchRulesSection } from "@/components/pages/leagues/form/rules/sections/match-rules-section";
+import { RankingRulesSection } from "@/components/pages/leagues/form/rules/sections/ranking-rules-section";
+import { ResultRulesSection } from "@/components/pages/leagues/form/rules/sections/result-rules-section";
 
 export default function LeagueRulesRoute() {
   const { isRulesLocked, isSubmitPending, mode, onSubmitPress } =

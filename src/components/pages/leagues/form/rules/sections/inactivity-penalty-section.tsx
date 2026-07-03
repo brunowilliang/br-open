@@ -20,7 +20,7 @@ import {
   getSelectedOption,
   type RuleConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 
 const inactivityPenaltyTypeOptions = [
   {

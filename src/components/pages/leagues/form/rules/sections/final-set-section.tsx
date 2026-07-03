@@ -23,7 +23,7 @@ import {
   scoringModeOptions,
   type MatchConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 
 const finalSetModeOptions = [
   {

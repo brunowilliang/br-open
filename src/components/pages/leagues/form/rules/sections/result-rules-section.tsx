@@ -21,7 +21,7 @@ import {
   validationModeOptions,
   type RuleConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 
 const winBehaviorOptions = [
   {

@@ -19,7 +19,7 @@ import {
   getSelectedOption,
   type RuleConfig,
   type RuleSectionProps,
-} from "../_shared";
+} from "../shared";
 import { InactivityPenaltySection } from "./inactivity-penalty-section";
 
 const newPlayerPlacementOptions = [

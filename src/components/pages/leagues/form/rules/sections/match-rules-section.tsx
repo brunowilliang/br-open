@@ -1,4 +1,4 @@
-import type { RuleSectionProps } from "../_shared";
+import type { RuleSectionProps } from "../shared";
 import { FinalSetSection } from "./final-set-section";
 import { MatchBasicsSection } from "./match-basics-section";
 import { TieBreakSection } from "./tie-break-section";

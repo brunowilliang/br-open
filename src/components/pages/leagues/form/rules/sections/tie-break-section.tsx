@@ -9,7 +9,7 @@ import {
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
 
-import { RULE_INFO, type RuleSectionProps } from "../_shared";
+import { RULE_INFO, type RuleSectionProps } from "../shared";
 
 export const TieBreakSection = ({ isDisabled }: RuleSectionProps) => {
   const { control, setValue } = useFormContext<LeagueScreenValues>();
