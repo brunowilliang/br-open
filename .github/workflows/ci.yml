@@ -33,5 +33,8 @@ jobs:
       - name: Lint & format check
         run: bun run check
 
+      - name: Verify codegen is up to date
+        run: bun run codegen && git diff --check --exit-code
+
       - name: Tests
         run: bun test
