@@ -25,6 +25,7 @@
       },
       "style": {
         "noExportedImports": "off",
+        "noNestedTernary": "off",
         "useConsistentTypeDefinitions": {
           "level": "error",
           "fix": "safe",
@@ -39,7 +40,8 @@
         "noArrayIndexKey": "off"
       },
       "performance": {
-        "noNamespaceImport": "off"
+        "noNamespaceImport": "off",
+        "useTopLevelRegex": "off"
       }
     }
   },

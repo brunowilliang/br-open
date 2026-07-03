@@ -193,13 +193,16 @@ describe("buildChallengeAdminMenuActionIds", () => {
     ).toEqual(["submit_result", "reopen_result", "admin_invalidate"]);
   });
 
-  it("keeps response-only challenges limited to cancellation", () => {
+  it("keeps response-only challenges limited to cancellation (not invalidation)", () => {
+    // pending_opponent_response is NOT invalidatable on the backend — cancel
+    // is the only admin stop action for the proposal phase. Mirrors
+    // ADMIN_INVALIDATABLE_STATUSES (excludes pending-proposal statuses).
     expect(
       buildChallengeAdminMenuActionIds({
         latestResultSubmission: null,
         status: "pending_opponent_response",
       })
-    ).toEqual(["admin_invalidate", "admin_cancel"]);
+    ).toEqual(["admin_cancel"]);
   });
 
   it("keeps cancel as the last danger action when invalidate is also available", () => {

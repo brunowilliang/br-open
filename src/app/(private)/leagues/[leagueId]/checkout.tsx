@@ -116,25 +116,6 @@ export default function CheckoutScreen() {
     })
   );
 
-  const simulatePayment = useMutation(
-    crpc.payment.charge.simulatePayment.mutationOptions({
-      onSuccess: async () => {
-        await invalidateCheckout();
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível simular o pagamento."
-          ),
-          id: "simulate-payment-error",
-          label: "Erro na simulação",
-          variant: "danger",
-        });
-      },
-    })
-  );
-
   // Create a charge if none exists yet and the membership is awaiting payment.
   // We gate on `attemptedMembershipId` (not just success) so a failed
   // createCharge doesn't loop forever — it only retries via the explicit
@@ -352,24 +333,6 @@ export default function CheckoutScreen() {
                 <Button.Label>Copiar código PIX</Button.Label>
                 <HugeIcons className="size-4.5" icon={CopyIcon} />
               </Button>
-
-              {/* DEV ONLY: simulate the webhook confirming the PIX payment.
-                  Hidden in production builds via __DEV__. */}
-              {__DEV__ ? (
-                <Button
-                  isDisabled={simulatePayment.isPending}
-                  onPress={() => {
-                    simulatePayment.mutate({ membershipId });
-                  }}
-                  variant="secondary"
-                >
-                  <Button.Label>
-                    {simulatePayment.isPending
-                      ? "Simulando…"
-                      : "Simular pagamento (dev)"}
-                  </Button.Label>
-                </Button>
-              ) : null}
             </View>
 
             {/* Help text */}

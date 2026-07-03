@@ -78,14 +78,13 @@ export const api = {
     charge: {
       createCharge: createApiLeaf<"action", typeof import("../functions/payment/charge").createCharge>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").createCharge>("payment/charge:createCharge"), { auth: "required", type: "action" }),
       getChargeForMembership: createApiLeaf<"query", typeof import("../functions/payment/charge").getChargeForMembership>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getChargeForMembership>("payment/charge:getChargeForMembership"), { auth: "required", type: "query" }),
-      simulatePayment: createApiLeaf<"action", typeof import("../functions/payment/charge").simulatePayment>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").simulatePayment>("payment/charge:simulatePayment"), { auth: "required", type: "action" }),
     },
     onboarding: {
-      getCurrent: createApiLeaf<"query", typeof import("../functions/payment/onboarding").getCurrent>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/onboarding").getCurrent>("payment/onboarding:getCurrent"), { auth: "required", type: "query" }),
-      start: createApiLeaf<"mutation", typeof import("../functions/payment/onboarding").start>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/onboarding").start>("payment/onboarding:start"), { auth: "required", type: "mutation" }),
+      getStatus: createApiLeaf<"query", typeof import("../functions/payment/onboarding").getStatus>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/onboarding").getStatus>("payment/onboarding:getStatus"), { auth: "required", type: "query" }),
+      start: createApiLeaf<"action", typeof import("../functions/payment/onboarding").start>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/onboarding").start>("payment/onboarding:start"), { auth: "required", type: "action" }),
     },
     webhook: {
-      handleAbacatepayWebhook: createApiLeaf<"mutation", typeof import("../functions/payment/webhook").handleAbacatepayWebhook>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/webhook").handleAbacatepayWebhook>("payment/webhook:handleAbacatepayWebhook"), { type: "mutation" }),
+      handleWooviWebhook: createApiLeaf<"mutation", typeof import("../functions/payment/webhook").handleWooviWebhook>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/webhook").handleWooviWebhook>("payment/webhook:handleWooviWebhook"), { type: "mutation" }),
     },
   },
   player: {

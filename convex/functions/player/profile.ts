@@ -10,6 +10,7 @@ import {
   upsertPlayerProfileSchema,
 } from "../../domains/player/contract";
 import { authMutation, authQuery } from "../../lib/crpc";
+import { requireActivePlayerProfile } from "../viewer/context";
 
 type PlayerProfileRecord = InferSelectModel<typeof playerProfile>;
 
@@ -75,7 +76,11 @@ export const get = authQuery
 
 export const generateUploadUrl = authMutation
   .output(z.string())
-  .mutation(async ({ ctx }) => ctx.storage.generateUploadUrl());
+  .mutation(async ({ ctx }) => {
+    await requireActivePlayerProfile(ctx);
+
+    return ctx.storage.generateUploadUrl();
+  });
 
 export const upsert = authMutation
   .input(upsertPlayerProfileSchema)

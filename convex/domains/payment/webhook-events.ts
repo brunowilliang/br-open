@@ -1,94 +1,90 @@
 /**
- * Abacate Pay v2 webhook event payload types.
+ * Woovi (OpenPix) webhook event payload types.
  *
- * Source of truth: official webhook docs + observed real payloads.
+ * Source of truth: developers.woovi.com/docs/tags/webhook + the recovered
+ * `woovi-client.ts@572dc61` design intent. Real payloads will be captured
+ * end-to-end in the Phase 1.5 manual validation step (once a tunnel is up);
+ * the shapes here are derived from the Woovi docs and may be tightened then.
  *
- * IMPORTANT: the published `@abacatepay/types/v2` is STALE for webhooks —
- * it only models `billing.paid` / `payout.*` (v1 event names). The real v2
- * event names are `transparent.*`, `checkout.*`, `subscription.*`,
- * `transfer.*`, `payout.*`. Do NOT trust the package's `WebhookEvent`
- * type for v2 webhook routing.
+ * Woovi event names use the `OPENPIX:*` prefix (the previous AbacatePay
+ * migration used `transparent.*`). Webhook routing keys off `event`.
  *
- * @see https://docs.abacatepay.com/pages/webhooks
+ * @see https://developers.woovi.com/docs/tags/webhook
  */
 
 // ---------------------------------------------------------------------------
 // Event name constants — single source of truth.
 // ---------------------------------------------------------------------------
 
-export const TRANSPARENT_COMPLETED = "transparent.completed" as const;
-export const TRANSPARENT_REFUNDED = "transparent.refunded" as const;
-export const TRANSPARENT_DISPUTED = "transparent.disputed" as const;
+/**
+ * Fired when a PIX payment is received for a charge. Payload includes the
+ * charge (with `correlationID` — our idempotency key) and the transaction
+ * details. This is the "paid" signal.
+ */
+export const OPENPIX_TRANSACTION_RECEIVED =
+  "OPENPIX:TRANSACTION_RECEIVED" as const;
 
-export const CHECKOUT_COMPLETED = "checkout.completed" as const;
-export const CHECKOUT_REFUNDED = "checkout.refunded" as const;
-export const CHECKOUT_DISPUTED = "checkout.disputed" as const;
+/**
+ * Fired when a charge expires unpaid. We mirror it locally and notify the
+ * player to generate a new PIX.
+ */
+export const OPENPIX_CHARGE_EXPIRED = "OPENPIX:CHARGE_EXPIRED" as const;
 
-export const SUBSCRIPTION_COMPLETED = "subscription.completed" as const;
-export const SUBSCRIPTION_CANCELLED = "subscription.cancelled" as const;
-export const SUBSCRIPTION_RENEWED = "subscription.renewed" as const;
-
-export const TRANSFER_COMPLETED = "transfer.completed" as const;
-export const TRANSFER_FAILED = "transfer.failed" as const;
-
-export const PAYOUT_COMPLETED = "payout.completed" as const;
-export const PAYOUT_FAILED = "payout.failed" as const;
-
-// ---------------------------------------------------------------------------
-// Payload shapes — only the fields we actually read.
-// ---------------------------------------------------------------------------
-
-export type TransparentCompletedPayload = {
-  event: typeof TRANSPARENT_COMPLETED;
-  data: {
-    transparent: {
-      id: string;
-      externalId: null | string;
-      amount: number;
-      paidAmount: null | number;
-      platformFee: null | number;
-      status: string;
-      metadata?: null | Record<string, unknown>;
-    };
-  };
-};
-
-export type TransparentRefundedPayload = {
-  event: typeof TRANSPARENT_REFUNDED;
-  data: {
-    transparent: {
-      id: string;
-      status: string;
-    };
-  };
-};
+/**
+ * Fired when a charge is completed (often paired with TRANSACTION_RECEIVED).
+ * Treated as an alias of TRANSACTION_RECEIVED for activation purposes —
+ * idempotency is enforced by the `status === "PAID"` short-circuit.
+ */
+export const OPENPIX_CHARGE_COMPLETED = "OPENPIX:CHARGE_COMPLETED" as const;
 
 /**
  * Catch-all for events we acknowledge but don't process. Using a closed
- * union (not `string`) lets TS narrow the `transparent.*` variants above
- * by the literal `event` value.
+ * union (not `string`) lets TS narrow the handled variants above by the
+ * literal `event` value.
  */
-export type OtherEventPayload = {
+export type OtherWooviEventPayload = {
   data?: unknown;
-  event:
-    | typeof CHECKOUT_COMPLETED
-    | typeof CHECKOUT_REFUNDED
-    | typeof CHECKOUT_DISPUTED
-    | typeof TRANSPARENT_DISPUTED
-    | typeof SUBSCRIPTION_COMPLETED
-    | typeof SUBSCRIPTION_CANCELLED
-    | typeof SUBSCRIPTION_RENEWED
-    | typeof TRANSFER_COMPLETED
-    | typeof TRANSFER_FAILED
-    | typeof PAYOUT_COMPLETED
-    | typeof PAYOUT_FAILED;
+  event: string;
+};
+
+export type TransactionReceivedPayload = {
+  event: typeof OPENPIX_TRANSACTION_RECEIVED;
+  // Woovi wraps the relevant entities under `charge` and `transaction`.
+  // We only read `charge.correlationID` (our idempotency key).
+  charge: {
+    correlationID: string;
+    status: string;
+    value: number;
+  };
+  transaction?: {
+    status?: string;
+    value?: number;
+  };
+};
+
+export type ChargeExpiredPayload = {
+  event: typeof OPENPIX_CHARGE_EXPIRED;
+  charge: {
+    correlationID: string;
+    status: string;
+  };
+};
+
+export type ChargeCompletedPayload = {
+  event: typeof OPENPIX_CHARGE_COMPLETED;
+  charge: {
+    correlationID: string;
+    status: string;
+    value: number;
+  };
 };
 
 /**
- * Any inbound AbacatePay v2 webhook. Narrow with `payload.event === ...`
- * before reading `payload.data`.
+ * Any inbound Woovi webhook. Narrow with `payload.event === ...` before
+ * reading `payload.charge` / `payload.transaction`.
  */
-export type AbacatePayWebhookPayload =
-  | OtherEventPayload
-  | TransparentCompletedPayload
-  | TransparentRefundedPayload;
+export type WooviWebhookPayload =
+  | OtherWooviEventPayload
+  | TransactionReceivedPayload
+  | ChargeExpiredPayload
+  | ChargeCompletedPayload;

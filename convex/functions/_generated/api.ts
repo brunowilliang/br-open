@@ -2337,7 +2337,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2429,7 +2429,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2511,7 +2511,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2588,7 +2588,7 @@ export const api: {
           maxPlayers: number | null;
           monthlyPriceCents: number;
           name: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2664,7 +2664,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2747,7 +2747,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2829,7 +2829,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2911,7 +2911,7 @@ export const api: {
           maxPlayers: number | null;
           monthlyPriceCents: number;
           name: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2987,7 +2987,7 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -3219,8 +3219,11 @@ export const api: {
             | "league.membership.requested"
             | "league.membership.approved"
             | "league.membership.payment_confirmed"
+            | "league.membership.payment_expired"
             | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -3266,8 +3269,11 @@ export const api: {
             | "league.membership.requested"
             | "league.membership.approved"
             | "league.membership.payment_confirmed"
+            | "league.membership.payment_expired"
             | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -3557,40 +3563,26 @@ export const api: {
           status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
         } | null
       >;
-      simulatePayment: FunctionReference<
-        "action",
-        "public",
-        { membershipId: string },
-        { success: boolean }
-      >;
     };
     onboarding: {
-      getCurrent: FunctionReference<
+      getStatus: FunctionReference<
         "query",
         "public",
         {},
         {
-          pixKey: string | null;
-          pixKeyType:
-            | "cpf"
-            | "cnpj"
-            | "email"
-            | "phone"
-            | "random"
-            | "evp"
-            | null;
-        }
+          name: string | null;
+          status: "pending" | "active" | "rejected" | null;
+          wooviPixKey: string | null;
+        } | null
       >;
       start: FunctionReference<
-        "mutation",
+        "action",
         "public",
+        { pixKey: string },
         {
-          pixKey: string;
-          pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | "evp";
-        },
-        {
-          pixKey: string;
-          pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | "evp";
+          name: string;
+          status: "pending" | "active" | "rejected";
+          wooviPixKey: string;
         }
       >;
     };
@@ -3972,8 +3964,11 @@ export const internal: {
             | "league.membership.requested"
             | "league.membership.approved"
             | "league.membership.payment_confirmed"
+            | "league.membership.payment_expired"
             | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -4034,22 +4029,41 @@ export const internal: {
         { membershipId: string },
         any
       >;
-      getPendingChargeForSimulation: FunctionReference<
+      expireStaleCharges: FunctionReference<"mutation", "internal", {}, any>;
+      markChargeExpired: FunctionReference<
         "mutation",
         "internal",
-        { membershipId: string },
+        { correlationId: string },
         any
       >;
       markChargePaid: FunctionReference<
         "mutation",
         "internal",
-        { platformFee: number | null; providerChargeId: string },
+        { correlationId: string; wooviTransactionId?: string },
         any
       >;
       markChargeRefunded: FunctionReference<
         "mutation",
         "internal",
-        { providerChargeId: string },
+        { correlationId: string },
+        any
+      >;
+      resolveActiveManagerOrg: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        { organizationId: string }
+      >;
+      resolveOrganizationForOnboarding: FunctionReference<
+        "mutation",
+        "internal",
+        { organizationId: string },
+        { name: string | null }
+      >;
+      resolveWooviAccountForCharge: FunctionReference<
+        "mutation",
+        "internal",
+        { organizationId: string },
         any
       >;
       saveCharge: FunctionReference<
@@ -4058,23 +4072,67 @@ export const internal: {
         {
           amountCents: number;
           brCode: string;
-          brCodeBase64: string;
-          externalId: string;
+          correlationId: string;
+          expiresAt: string | null;
           leagueId: string;
           membershipId: string;
           organizationId: string;
-          platformFee: number | null;
           playerProfileId: string;
-          providerChargeId: string | null;
+          qrCodeImage: string;
+          splitConfig: any;
           status: string;
+          wooviChargeId: string;
         },
         any
       >;
+      sendRenewalReminders: FunctionReference<"mutation", "internal", {}, any>;
       validateMembershipForCharge: FunctionReference<
         "mutation",
         "internal",
         { leagueId: string; membershipId: string; userId: string },
         any
+      >;
+    };
+    onboarding: {
+      upsertAccount: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string; organizationId: string; wooviPixKey: string },
+        {
+          name: string;
+          status: "pending" | "active" | "rejected";
+          wooviPixKey: string;
+        }
+      >;
+    };
+    wooviNode: {
+      createChargeWithSplitAction: FunctionReference<
+        "action",
+        "internal",
+        {
+          amountCents: number;
+          comment: string;
+          correlationId: string;
+          expiresInSeconds: number;
+          organizerCents: number;
+          recipientPixKey: string;
+        },
+        {
+          brCode: string;
+          correlationId: string;
+          expiresDate: string | null;
+          paymentLinkUrl: string;
+          qrCodeImage: string;
+          status: string;
+          transactionID: string;
+          value: number;
+        }
+      >;
+      createSubaccountAction: FunctionReference<
+        "action",
+        "internal",
+        { name: string; pixKey: string },
+        { name: string; pixKey: string }
       >;
     };
   };

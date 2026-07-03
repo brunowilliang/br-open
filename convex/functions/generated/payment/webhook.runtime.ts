@@ -14,7 +14,7 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
-  "handleAbacatepayWebhook": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../payment/webhook").handleAbacatepayWebhook>("payment/webhook:handleAbacatepayWebhook"), () => (require("../../payment/webhook") as Record<string, unknown>)["handleAbacatepayWebhook"])],
+  "handleWooviWebhook": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../payment/webhook").handleWooviWebhook>("payment/webhook:handleWooviWebhook"), () => (require("../../payment/webhook") as Record<string, unknown>)["handleWooviWebhook"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;

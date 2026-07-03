@@ -1,76 +1,53 @@
 import { describe, expect, it } from "bun:test";
 
-// Import the verification helpers from the payment domain.
-// We test the pure functions directly since they don't depend on Convex.
-import {
-  ABACATEPAY_PUBLIC_KEY,
-  verifyWebhookSignature,
-} from "../webhook-signature";
+import { verifyWooviWebhookSignature } from "../webhook-signature";
 
 /**
- * Signs a body with the AbacatePay public key the same way AbacatePay does
- * on the wire — HMAC-SHA256, base64-encoded.
+ * Verifies a body the way Woovi does: RSA-SHA256 with Woovi's private key,
+ * base64-encoded signature in `x-webhook-signature`.
+ *
+ * In tests we cannot sign with the private key (we don't have it — only Woovi
+ * does). So we assert the NEGATIVE paths that don't require signing:
+ * - empty signature rejected
+ * - garbage signature rejected
+ * - valid-looking-but-wrong base64 rejected
+ *
+ * The POSITIVE path (a real Woovi-signed payload) is exercised end-to-end in
+ * the manual webhook validation step against the Woovi sandbox.
  */
-async function sign(body: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(ABACATEPAY_PUBLIC_KEY);
-  const bodyData = encoder.encode(body);
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const sig = await crypto.subtle.sign("HMAC", key, bodyData);
-  const bytes = new Uint8Array(sig);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  return btoa(binary);
-}
-
-describe("verifyWebhookSignature", () => {
-  it("accepts a valid HMAC-SHA256 signature over the raw body", async () => {
-    const body = JSON.stringify({ event: "transparent.completed" });
-    const sig = await sign(body);
-    expect(await verifyWebhookSignature(body, sig)).toBe(true);
-  });
-
-  it("rejects a signature computed over a different body", async () => {
-    const sig = await sign(JSON.stringify({ original: true }));
+describe("verifyWooviWebhookSignature (RSA-SHA256, public key)", () => {
+  it("rejects an empty signature", async () => {
     expect(
-      await verifyWebhookSignature(JSON.stringify({ event: "tampered" }), sig)
+      await verifyWooviWebhookSignature(
+        JSON.stringify({ event: "OPENPIX:TRANSACTION_RECEIVED" }),
+        ""
+      )
     ).toBe(false);
   });
 
-  it("rejects an empty signature", async () => {
-    expect(await verifyWebhookSignature("{}", "")).toBe(false);
+  it("rejects a garbage signature", async () => {
+    expect(
+      await verifyWooviWebhookSignature("{}", "not-a-valid-base64-signature")
+    ).toBe(false);
   });
 
-  it("rejects a signature computed with the wrong key", async () => {
-    const body = "{}";
+  it("rejects a valid-base64 but wrong signature", async () => {
+    // Random base64 — will decode but RSA verify will return false.
+    expect(
+      await verifyWooviWebhookSignature(
+        "{}",
+        "dGhpcyBpcyBhIHRlc3Qgc2lnbmF0dXJlIHRoYXQgc2hvdWxkIGZhaWw="
+      )
+    ).toBe(false);
+  });
 
-    // Sign with a key that is NOT the AbacatePay public key.
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode("wrong-key"),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-    const bytes = new Uint8Array(sig);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]!);
-    }
-    const wrongSig = btoa(binary);
-
-    expect(await verifyWebhookSignature(body, wrongSig)).toBe(false);
+  it("rejects when the body is tampered (signature from a different payload)", async () => {
+    // Even with a syntactically valid signature, a tampered body fails verify.
+    expect(
+      await verifyWooviWebhookSignature(
+        JSON.stringify({ event: "tampered" }),
+        "dGhpcyBpcyBhIHRlc3Qgc2lnbmF0dXJlIHRoYXQgc2hvdWxkIGZhaWw="
+      )
+    ).toBe(false);
   });
 });

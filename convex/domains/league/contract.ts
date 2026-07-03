@@ -135,6 +135,7 @@ export const LeaguePriceBillingIntervalOptions = [
   "month",
   "quarter",
   "year",
+  "once",
 ] as const;
 
 export const DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL = "month" as const;

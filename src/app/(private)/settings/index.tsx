@@ -10,6 +10,7 @@ import {
   ChampionIcon,
   Logout03Icon,
   TennisRacketIcon,
+  Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
@@ -55,6 +56,13 @@ const sections: SettingsSection[] = [
         description: "Push e central de notificações",
         icon: BellDotIcon,
         href: "/settings/notifications",
+      },
+      {
+        title: "Pagamentos",
+        description: "Receba pagamentos via PIX",
+        icon: Wallet01Icon,
+        href: "/settings/organization/payments" as Href,
+        requiresOrganizer: true,
       },
     ],
   },

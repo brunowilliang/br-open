@@ -1,90 +1,70 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  type AbacatePayWebhookPayload,
-  CHECKOUT_COMPLETED,
-  PAYOUT_FAILED,
-  TRANSPARENT_COMPLETED,
-  TRANSPARENT_REFUNDED,
+  type WooviWebhookPayload,
+  OPENPIX_CHARGE_COMPLETED,
+  OPENPIX_CHARGE_EXPIRED,
+  OPENPIX_TRANSACTION_RECEIVED,
 } from "../webhook-events";
 
-describe("AbacatePay webhook payload narrowing", () => {
-  // Helper that mirrors how the route handler narrows the union. Extracting
-  // it here lets us assert type + runtime behavior together.
-  function describeEvent(payload: AbacatePayWebhookPayload): string {
-    if (payload.event === TRANSPARENT_COMPLETED) {
-      // TS narrows: payload.data.transparent is accessible.
-      return `completed:${payload.data.transparent.id}`;
+describe("Woovi webhook payload narrowing", () => {
+  // Helper that mirrors how the route handler narrows the union.
+  function describeEvent(payload: WooviWebhookPayload): string {
+    if (
+      payload.event === OPENPIX_TRANSACTION_RECEIVED ||
+      payload.event === OPENPIX_CHARGE_COMPLETED
+    ) {
+      // TS narrows: payload.charge is accessible on these variants.
+      if (!("charge" in payload)) {
+        return "paid:no-charge";
+      }
+      return `paid:${payload.charge.correlationID}`;
     }
-    if (payload.event === TRANSPARENT_REFUNDED) {
-      return `refunded:${payload.data.transparent.id}`;
+    if (payload.event === OPENPIX_CHARGE_EXPIRED) {
+      if (!("charge" in payload)) {
+        return "expired:no-charge";
+      }
+      return `expired:${payload.charge.correlationID}`;
     }
     return `ignored:${payload.event}`;
   }
 
-  it("narrows transparent.completed and exposes transparent.id", () => {
-    const payload: AbacatePayWebhookPayload = {
-      event: TRANSPARENT_COMPLETED,
-      data: {
-        transparent: {
-          id: "pix_char_abc",
-          externalId: null,
-          amount: 5000,
-          paidAmount: 5000,
-          platformFee: 80,
-          status: "PAID",
-        },
+  it("narrows TRANSACTION_RECEIVED and exposes charge.correlationID", () => {
+    const payload: WooviWebhookPayload = {
+      charge: {
+        correlationID: "bropen:m1:1700000000",
+        status: "COMPLETED",
+        value: 5000,
       },
+      event: OPENPIX_TRANSACTION_RECEIVED,
     };
-    expect(describeEvent(payload)).toBe("completed:pix_char_abc");
+    expect(describeEvent(payload)).toBe("paid:bropen:m1:1700000000");
   });
 
-  it("narrows transparent.refunded and exposes transparent.id", () => {
-    const payload: AbacatePayWebhookPayload = {
-      event: TRANSPARENT_REFUNDED,
-      data: { transparent: { id: "pix_char_xyz", status: "REFUNDED" } },
-    };
-    expect(describeEvent(payload)).toBe("refunded:pix_char_xyz");
-  });
-
-  it("treats other events as ignored (no transparent access)", () => {
-    const payload: AbacatePayWebhookPayload = {
-      event: CHECKOUT_COMPLETED,
-      data: {},
-    };
-    expect(describeEvent(payload)).toBe("ignored:checkout.completed");
-  });
-
-  it("treats payout events as ignored", () => {
-    const payload: AbacatePayWebhookPayload = {
-      event: PAYOUT_FAILED,
-      data: {},
-    };
-    expect(describeEvent(payload)).toBe("ignored:payout.failed");
-  });
-
-  it("exposes metadata when present on transparent.completed", () => {
-    const payload: AbacatePayWebhookPayload = {
-      event: TRANSPARENT_COMPLETED,
-      data: {
-        transparent: {
-          id: "pix_char_md",
-          externalId: null,
-          amount: 9000,
-          paidAmount: null,
-          platformFee: 80,
-          status: "PAID",
-          metadata: {
-            leagueId: "n572hhb2mjsehjeje74swnd7j588gq1j",
-            membershipId: "n9739m0wweb4a1hcx1thtx071x88hs1y",
-          },
-        },
+  it("narrows CHARGE_COMPLETED as a paid alias", () => {
+    const payload: WooviWebhookPayload = {
+      charge: {
+        correlationID: "bropen:m2:1700000001",
+        status: "COMPLETED",
+        value: 9000,
       },
+      event: OPENPIX_CHARGE_COMPLETED,
     };
-    if (payload.event === TRANSPARENT_COMPLETED) {
-      expect(payload.data.transparent.metadata?.membershipId).toBe(
-        "n9739m0wweb4a1hcx1thtx071x88hs1y"
-      );
-    }
+    expect(describeEvent(payload)).toBe("paid:bropen:m2:1700000001");
+  });
+
+  it("narrows CHARGE_EXPIRED and exposes charge.correlationID", () => {
+    const payload: WooviWebhookPayload = {
+      charge: { correlationID: "bropen:m3:1700000002", status: "EXPIRED" },
+      event: OPENPIX_CHARGE_EXPIRED,
+    };
+    expect(describeEvent(payload)).toBe("expired:bropen:m3:1700000002");
+  });
+
+  it("treats other events as ignored (no charge access)", () => {
+    const payload: WooviWebhookPayload = {
+      event: "OPENPIX:PROPOSAL_ACCEPTED",
+    };
+    expect(describeEvent(payload)).toBe("ignored:OPENPIX:PROPOSAL_ACCEPTED");
   });
 });

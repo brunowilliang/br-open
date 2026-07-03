@@ -1,13 +1,19 @@
 const NAME_PARTS_SPLIT_REGEX = /\s+/;
 const LIMITED_AVAILABILITY_THRESHOLD = 10;
 
-type LeaguePriceBillingInterval = "month" | "quarter" | "week" | "year";
+type LeaguePriceBillingInterval =
+  | "month"
+  | "once"
+  | "quarter"
+  | "week"
+  | "year";
 
 const leaguePriceBillingIntervalSuffixes: Record<
   LeaguePriceBillingInterval,
   string
 > = {
   month: "/mês",
+  once: " (único)",
   quarter: "/trimestre",
   week: "/semana",
   year: "/ano",
@@ -181,6 +187,7 @@ export function getMembershipStatusColor(status?: string | null) {
       return "success";
     case "awaiting_payment":
     case "pending":
+    case "suspended":
       return "warning";
     case "removed":
     case "rejected":
@@ -200,6 +207,10 @@ export function getMembershipActionLabel(
 
   if (status === "awaiting_payment") {
     return "Pagar inscrição";
+  }
+
+  if (status === "suspended") {
+    return "Renovar inscrição";
   }
 
   if (status === "pending") {

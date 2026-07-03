@@ -59,9 +59,8 @@ type ChallengeItem =
  * aba "Histórico" de qualquer role. Nenhuma ação de criação/edição de placar
  * é primária aqui (apenas reabertura, que é ação de admin).
  */
-const CLOSED_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> = new Set(
-  ["finished", "declined", "cancelled", "invalidated"] as const
-);
+export const CLOSED_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
+  new Set(["finished", "declined", "cancelled", "invalidated"] as const);
 
 /**
  * ABA "Atenção" (ADMIN) — desafios que requerem ação do organizador.
@@ -78,13 +77,14 @@ const CLOSED_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> = new Set(
  * - pending_result_correction: submit/edit result
  * E, onde aplicável: invalidar, cancelar (ver ADMIN_* sets de ações).
  */
-const ADMIN_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
-  new Set([
-    "pending_admin_challenge_validation",
-    "pending_admin_result_validation",
-    "pending_admin_decision",
-    "pending_result_correction",
-  ] as const);
+export const ADMIN_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<
+  ChallengeItem["status"]
+> = new Set([
+  "pending_admin_challenge_validation",
+  "pending_admin_result_validation",
+  "pending_admin_decision",
+  "pending_result_correction",
+] as const);
 
 /**
  * ABA "Em andamento" (ADMIN) — desafios vivos onde os JOGADORES estão agindo
@@ -92,15 +92,16 @@ const ADMIN_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
  *
  * Disjunto de ADMIN_ATTENTION: nenhum status aparece nas duas.
  */
-const ADMIN_ONGOING_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
-  new Set([
-    "pending_opponent_response",
-    "pending_creator_reapproval",
-    "confirmed",
-    "pending_cancellation_acceptance",
-    "pending_result_submission",
-    "pending_result_confirmation",
-  ] as const);
+export const ADMIN_ONGOING_CHALLENGE_STATUSES: ReadonlySet<
+  ChallengeItem["status"]
+> = new Set([
+  "pending_opponent_response",
+  "pending_creator_reapproval",
+  "confirmed",
+  "pending_cancellation_acceptance",
+  "pending_result_submission",
+  "pending_result_confirmation",
+] as const);
 
 /**
  * AÇÕES DE ADMIN — Status em que cada ação é permitida.
@@ -115,7 +116,7 @@ const ADMIN_ONGOING_CHALLENGE_STATUSES: ReadonlySet<ChallengeItem["status"]> =
  * restoreChallengeRankingSnapshot antes de reaplicar, então é seguro permitir
  * editar placar nesses estados.
  */
-const ADMIN_CANCELABLE_CHALLENGE_STATUSES: ReadonlySet<
+export const ADMIN_CANCELABLE_CHALLENGE_STATUSES: ReadonlySet<
   ChallengeItem["status"]
 > = new Set([
   "pending_opponent_response",
@@ -130,11 +131,9 @@ const ADMIN_CANCELABLE_CHALLENGE_STATUSES: ReadonlySet<
   "pending_admin_decision",
 ] as const);
 
-const ADMIN_INVALIDATABLE_CHALLENGE_STATUSES: ReadonlySet<
+export const ADMIN_INVALIDATABLE_CHALLENGE_STATUSES: ReadonlySet<
   ChallengeItem["status"]
 > = new Set([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
   "confirmed",
   "pending_cancellation_acceptance",
   "pending_result_submission",
@@ -145,7 +144,7 @@ const ADMIN_INVALIDATABLE_CHALLENGE_STATUSES: ReadonlySet<
   "finished",
 ] as const);
 
-const ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES: ReadonlySet<
+export const ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES: ReadonlySet<
   ChallengeItem["status"]
 > = new Set([
   "confirmed",
@@ -158,7 +157,7 @@ const ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES: ReadonlySet<
   "invalidated",
 ] as const);
 
-const ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES: ReadonlySet<
+export const ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES: ReadonlySet<
   ChallengeItem["status"]
 > = new Set([
   "pending_result_submission",

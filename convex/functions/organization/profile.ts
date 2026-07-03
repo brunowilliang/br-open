@@ -87,7 +87,11 @@ export const get = authQuery
 
 export const generateUploadUrl = authMutation
   .output(z.string())
-  .mutation(async ({ ctx }) => ctx.storage.generateUploadUrl());
+  .mutation(async ({ ctx }) => {
+    await requireActiveManager(ctx);
+
+    return ctx.storage.generateUploadUrl();
+  });
 
 export const upsert = authMutation
   .input(upsertOrganizationSchema)

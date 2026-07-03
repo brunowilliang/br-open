@@ -85,17 +85,16 @@ type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 type OrmCtx = AuthenticatedCtx<QueryCtx | MutationCtx>;
 type OrmMutationCtx = AuthenticatedCtx<MutationCtx>;
 
-const CLOSED_CHALLENGE_STATUSES = new Set<LeagueChallengeStatus>([
+export const CLOSED_CHALLENGE_STATUSES = new Set<LeagueChallengeStatus>([
   "finished",
   "declined",
   "cancelled",
   "invalidated",
 ]);
 
-const VIEWER_PROPOSAL_RESPONSE_STATUSES = new Set<LeagueChallengeStatus>([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-]);
+export const VIEWER_PROPOSAL_RESPONSE_STATUSES = new Set<LeagueChallengeStatus>(
+  ["pending_opponent_response", "pending_creator_reapproval"]
+);
 
 function serializeLeagueRecord(record: LeagueRecord) {
   return leagueSchema.parse({
@@ -2357,7 +2356,7 @@ export const reviewResult = authMutation
     });
   });
 
-const ADMIN_CANCELABLE_STATUSES = new Set<LeagueChallengeStatus>([
+export const ADMIN_CANCELABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "pending_opponent_response",
   "pending_creator_reapproval",
   "pending_admin_challenge_validation",
@@ -2370,7 +2369,7 @@ const ADMIN_CANCELABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "pending_admin_decision",
 ]);
 
-const ADMIN_INVALIDATABLE_STATUSES = new Set<LeagueChallengeStatus>([
+export const ADMIN_INVALIDATABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "confirmed",
   "pending_cancellation_acceptance",
   "pending_result_submission",
@@ -2381,7 +2380,7 @@ const ADMIN_INVALIDATABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "finished",
 ]);
 
-const ADMIN_SCORE_EDITABLE_STATUSES = new Set<LeagueChallengeStatus>([
+export const ADMIN_SCORE_EDITABLE_STATUSES = new Set<LeagueChallengeStatus>([
   "confirmed",
   "pending_result_submission",
   "pending_result_confirmation",
@@ -2745,6 +2744,17 @@ export const adminManage = authMutation
         toStatus: nextStatus,
       });
 
+      await scheduleChallengeNotification({
+        actorUserId: ctx.userId,
+        challenge: currentChallenge,
+        ctx,
+        eventType: "league.challenge.admin_approved",
+        recipientMembershipIds: [
+          currentChallenge.challengerMembershipId as Id<"leagueMembership">,
+          currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        ],
+      });
+
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
         status: nextStatus,
@@ -2827,7 +2837,7 @@ export const adminManage = authMutation
  * registrem o placar. São os status onde o placar ainda está pendente de
  * ação de um jogador e o desafio não está finalizado/cancelado.
  */
-const ADMIN_RESULT_REMINDER_STATUSES = new Set<LeagueChallengeStatus>([
+export const ADMIN_RESULT_REMINDER_STATUSES = new Set<LeagueChallengeStatus>([
   "pending_result_submission",
   "pending_result_confirmation",
   "pending_admin_decision",

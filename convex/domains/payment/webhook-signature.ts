@@ -1,74 +1,89 @@
 /**
- * Abacate Pay webhook signature verification.
+ * Woovi (OpenPix) webhook signature verification, Convex-safe.
  *
- * Pure crypto helpers using the Web Crypto API (`crypto.subtle`) so they
- * work in Convex V8 isolates. The official `@abacatepay/types` ships a
- * `verifyWebhookSignature` helper, but it uses `node:crypto` + `Buffer`,
- * which are NOT available in Convex — so we reimplement the same algorithm
- * here. Both use HMAC-SHA256 + base64 + timing-safe compare.
+ * Woovi signs the raw webhook body with RSA-SHA256 using their PRIVATE key
+ * and sends the base64 signature in the `x-webhook-signature` header. We
+ * verify it with Woovi's PUBLIC key (fixed, same for all merchants — sourced
+ * from @woovi/node-sdk `WH_PUBLIC_KEY`).
  *
- * Moved out of `functions/payment/webhook.ts` so it can be imported and
- * tested from the domain layer.
+ * This is the RECOMMENDED method per developers.woovi.com
+ * (webhook-signature-validation). It requires no per-merchant secret — the
+ * signature proves the request came from Woovi.
  *
- * @see https://docs.abacatepay.com/pages/webhooks
+ * Uses the Web Crypto API (`crypto.subtle`) because Convex runs in a V8
+ * isolate where `node:crypto` (`createVerify`, `Buffer`) is unavailable.
  */
 
 /**
- * Fixed public HMAC key published by AbacatePay for webhook signature
- * verification. This is the SAME value for every merchant — it is not a
- * secret. The webhook secret (query param) is the secret part.
- *
- * Source: https://docs.abacatepay.com/pages/webhooks
+ * Woovi's public RSA key (SPKI, base64 of the PEM). Same for every merchant.
+ * Source: @woovi/node-sdk `utils/constants` `WH_PUBLIC_KEY`.
  */
-export const ABACATEPAY_PUBLIC_KEY =
-  "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
+const WOOVI_PUBLIC_KEY_BASE64 =
+  "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlHZk1BMEdDU3FHU0liM0RRRUJBUVVBQTRHTkFEQ0JpUUtCZ1FDLytOdElranpldnZxRCtJM01NdjNiTFhEdApwdnhCalk0QnNSclNkY2EzcnRBd01jUllZdnhTbmQ3amFnVkxwY3RNaU94UU84aWVVQ0tMU1dIcHNNQWpPL3paCldNS2Jxb0c4TU5waS91M2ZwNnp6MG1jSENPU3FZc1BVVUcxOWJ1VzhiaXM1WloySVpnQk9iV1NwVHZKMGNuajYKSEtCQUE4MkpsbitsR3dTMU13SURBUUFCCi0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=";
 
-/**
- * Verifies the `X-Webhook-Signature` header against the raw request body.
- * Returns true when the signature matches.
- */
-export async function verifyWebhookSignature(
-  rawBody: string,
-  signatureFromHeader: string
-): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(ABACATEPAY_PUBLIC_KEY);
-  const bodyData = encoder.encode(rawBody);
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign("HMAC", key, bodyData);
-  const expected = arrayBufferToBase64(signature);
-
-  const a = new TextEncoder().encode(expected);
-  const b = new TextEncoder().encode(signatureFromHeader);
-
-  return timingSafeEqual(a, b);
+/** Strip the PEM headers/footers and return the DER/SPKI base64 body. */
+function pemToSpkiBase64(pemBase64: string): string {
+  const pem = atob(pemBase64);
+  return pem
+    .replace(/-----BEGIN PUBLIC KEY-----/, "")
+    .replace(/-----END PUBLIC KEY-----/, "")
+    .replace(/\s/g, "");
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+/** Decode a base64 string into a fresh ArrayBuffer-backed Uint8Array. */
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const buffer = new ArrayBuffer(binary.length);
   const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]!);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
-  return btoa(binary);
+  return bytes;
 }
 
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) {
+let cachedKey: CryptoKey | null = null;
+
+async function getWooviPublicKey(): Promise<CryptoKey> {
+  if (cachedKey) {
+    return cachedKey;
+  }
+  const spkiBase64 = pemToSpkiBase64(WOOVI_PUBLIC_KEY_BASE64);
+  const spkiBytes = base64ToBytes(spkiBase64);
+  cachedKey = await crypto.subtle.importKey(
+    "spki",
+    spkiBytes.buffer as ArrayBuffer,
+    { hash: "SHA-256", name: "RSASSA-PKCS1-v1_5" },
+    false,
+    ["verify"]
+  );
+  return cachedKey;
+}
+
+/**
+ * Verifies an inbound Woovi webhook signature (RSA-SHA256).
+ *
+ * @param rawBody   The exact bytes received (use `c.req.text()`).
+ * @param signature The value of the `x-webhook-signature` header (base64).
+ * @returns true when the signature was produced by Woovi's private key.
+ */
+export async function verifyWooviWebhookSignature(
+  rawBody: string,
+  signature: string
+): Promise<boolean> {
+  if (!signature) {
     return false;
   }
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    // biome-ignore lint/suspicious/noBitwiseOperators: intentional timing-safe XOR comparison
-    result |= a[i]! ^ b[i]!;
+  try {
+    const key = await getWooviPublicKey();
+    const signatureBytes = base64ToBytes(signature);
+    const dataBytes = new TextEncoder().encode(rawBody);
+    return await crypto.subtle.verify(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      signatureBytes.buffer as ArrayBuffer,
+      dataBytes.buffer as ArrayBuffer
+    );
+  } catch {
+    return false;
   }
-  return result === 0;
 }

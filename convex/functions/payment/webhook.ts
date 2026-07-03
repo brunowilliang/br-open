@@ -1,52 +1,37 @@
 /**
- * Abacate Pay webhook HTTP endpoint.
+ * Woovi (OpenPix) webhook HTTP endpoint.
  *
- * This file contains ONLY the HTTP route: secret check, raw-body read,
- * signature verification (delegated to the domain), and dispatch to the
- * internal mutations (`markChargePaid` / `markChargeRefunded` /
- * `activateMembership`). All pure helpers (signature verification, event
- * payload types, event-name constants) live in `convex/domains/payment/`.
+ * Verifies the HMAC-SHA256 signature (header `x-webhook-signature`, secret
+ * from `WOOVI_WEBHOOK_SECRET`), then dispatches via ctx.runMutation:
+ *   OPENPIX:TRANSACTION_RECEIVED -> markChargePaid + activateMembership
+ *   OPENPIX:CHARGE_EXPIRED      -> markChargeExpired
  *
- * @see https://docs.abacatepay.com/pages/webhooks
+ * Always returns 200 OK to prevent Woovi retries (per the docs).
+ *
+ * @see https://developers.woovi.com/docs/tags/webhook
  */
 
 import { CRPCError } from "kitcn/server";
-import { internal } from "../_generated/api";
 import {
-  type AbacatePayWebhookPayload,
-  TRANSPARENT_COMPLETED,
-  TRANSPARENT_REFUNDED,
+  type WooviWebhookPayload,
+  OPENPIX_CHARGE_COMPLETED,
+  OPENPIX_CHARGE_EXPIRED,
+  OPENPIX_TRANSACTION_RECEIVED,
 } from "../../domains/payment/webhook-events";
-import { verifyWebhookSignature } from "../../domains/payment/webhook-signature";
-import { getEnv } from "../../lib/get-env";
+import { verifyWooviWebhookSignature } from "../../domains/payment/webhook-signature";
 import { publicRoute, router } from "../../lib/crpc";
+import { internal } from "../_generated/api";
 
-export const handleAbacatepayWebhook = publicRoute
-  .post("/api/webhooks/abacatepay")
+export const handleWooviWebhook = publicRoute
+  .post("/api/webhooks/woovi")
   .mutation(async ({ ctx, c }) => {
-    // 1. Verify the webhook secret from the query parameter.
-    const webhookSecret = getEnv().ABACATEPAY_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      throw new CRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Webhook secret not configured.",
-      });
-    }
-
-    const url = new URL(c.req.url);
-    const receivedSecret = url.searchParams.get("webhookSecret");
-    if (!receivedSecret || receivedSecret !== webhookSecret) {
-      throw new CRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid webhook secret.",
-      });
-    }
-
-    // 2. Read raw body for HMAC verification.
+    // No per-merchant secret: Woovi signs with RSA-SHA256 using their
+    // fixed public key (see webhook-signature.ts). The signature alone proves
+    // the request came from Woovi.
     const rawBody = await c.req.text();
-
-    // 3. Verify HMAC-SHA256 signature (delegated to the domain).
-    const signatureHeader = c.req.header("X-Webhook-Signature");
+    const signatureHeader =
+      c.req.header("x-webhook-signature") ??
+      c.req.header("X-Webhook-Signature");
     if (!signatureHeader) {
       throw new CRPCError({
         code: "BAD_REQUEST",
@@ -54,7 +39,7 @@ export const handleAbacatepayWebhook = publicRoute
       });
     }
 
-    const valid = await verifyWebhookSignature(rawBody, signatureHeader);
+    const valid = await verifyWooviWebhookSignature(rawBody, signatureHeader);
     if (!valid) {
       throw new CRPCError({
         code: "UNAUTHORIZED",
@@ -62,55 +47,43 @@ export const handleAbacatepayWebhook = publicRoute
       });
     }
 
-    // 4. Parse and dispatch the event.
-    const payload = JSON.parse(rawBody) as AbacatePayWebhookPayload;
+    const payload = JSON.parse(rawBody) as WooviWebhookPayload;
 
-    // Payment confirmed → mark charge PAID + activate the membership.
-    // We match the charge by `data.transparent.id` (the pix_char_* stored as
-    // providerChargeId). The v2 API returns externalId = null for charges
-    // created without an explicit customer (our case), so we cannot rely on
-    // externalId — the previous implementation gated on it and silently
-    // dropped every real webhook.
-    if (payload.event === TRANSPARENT_COMPLETED) {
-      const transparent = payload.data.transparent;
-      if (transparent?.id) {
-        const membershipId = await ctx.runMutation(
-          internal.payment.charge.markChargePaid,
-          {
-            platformFee: transparent.platformFee ?? null,
-            providerChargeId: transparent.id,
-          }
-        );
-
-        if (membershipId) {
-          await ctx.runMutation(internal.payment.charge.activateMembership, {
-            membershipId,
-          });
+    if (
+      (payload.event === OPENPIX_TRANSACTION_RECEIVED ||
+        payload.event === OPENPIX_CHARGE_COMPLETED) &&
+      "charge" in payload &&
+      payload.charge?.correlationID
+    ) {
+      const membershipId = await ctx.runMutation(
+        internal.payment.charge.markChargePaid,
+        {
+          correlationId: payload.charge.correlationID,
+          wooviTransactionId:
+            "transaction" in payload ? payload.transaction?.status : undefined,
         }
-      }
-    }
+      );
 
-    // Refund issued → mark charge REFUNDED locally so it stops showing as
-    // PAID. Membership state is untouched (refund handling is a separate
-    // concern — e.g. suspending the player is a product decision).
-    if (payload.event === TRANSPARENT_REFUNDED) {
-      const transparent = payload.data.transparent;
-      if (transparent?.id) {
-        await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
-          providerChargeId: transparent.id,
+      if (membershipId) {
+        await ctx.runMutation(internal.payment.charge.activateMembership, {
+          membershipId,
         });
       }
     }
 
-    // Always return 200 OK — even for unhandled events.
-    // Per AbacatePay docs, returning 200 prevents retries.
+    if (
+      payload.event === OPENPIX_CHARGE_EXPIRED &&
+      "charge" in payload &&
+      payload.charge?.correlationID
+    ) {
+      await ctx.runMutation(internal.payment.charge.markChargeExpired, {
+        correlationId: payload.charge.correlationID,
+      });
+    }
+
     return c.text("OK", 200);
   });
 
-// ---------------------------------------------------------------------------
-// Router (grouped under `payment` namespace)
-// ---------------------------------------------------------------------------
-
 export const paymentWebhookRouter = router({
-  handleAbacatepayWebhook,
+  handleWooviWebhook,
 });

@@ -7,9 +7,13 @@ import {
   ToggleableRuleCard,
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
+import { WidgetAlert } from "@/components/pages/leagues/widget-alert";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { useCRPC } from "@/lib/convex/crpc";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
+import { useQuery } from "@tanstack/react-query";
+import { type Href, useRouter } from "expo-router";
 import {
   Alert02Icon,
   CheckmarkCircle02Icon,
@@ -69,6 +73,16 @@ export default function LeagueSettingsRoute() {
     useLeagueFormRoute();
   const isDisabled = isSubmitPending;
   const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
+  const router = useRouter();
+  const crpc = useCRPC();
+
+  // The organizer must have an active Woovi subaccount before they can charge
+  // players for a paid league. Fetched unconditionally (cheap authQuery) so the
+  // guard works in both create and edit modes.
+  const wooviStatusQuery = useQuery(
+    crpc.payment.onboarding.getStatus.queryOptions()
+  );
+  const wooviStatus = wooviStatusQuery.data?.status ?? null;
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -88,6 +102,7 @@ export default function LeagueSettingsRoute() {
     ],
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isWooviDialogOpen, setIsWooviDialogOpen] = useState(false);
   const visibility = useWatch({
     control,
     name: "visibility",
@@ -138,6 +153,13 @@ export default function LeagueSettingsRoute() {
   }
 
   function togglePaidPrice() {
+    // Turning charging ON requires an active Woovi subaccount. If not connected,
+    // block the toggle and prompt the organizer to set up payments instead.
+    if (!hasPaidPrice && wooviStatus !== "active") {
+      setIsWooviDialogOpen(true);
+      return;
+    }
+
     setValue(
       "monthlyPriceCents",
       hasPaidPrice ? 0 : DEFAULT_PAID_PRICE_CENTS,
@@ -312,6 +334,14 @@ export default function LeagueSettingsRoute() {
           <ToggleableRuleCard
             description="Ative para definir uma mensalidade para a liga."
             enabled={hasPaidPrice}
+            error={
+              hasPaidPrice && wooviStatus !== "active" ? (
+                <WidgetAlert
+                  status="warning"
+                  title="Conta de pagamento não conectada — os jogadores não conseguirão pagar."
+                />
+              ) : null
+            }
             info={SETTINGS_RULE_INFO.paidPrice}
             isDisabled={isDisabled}
             label="Cobrança"
@@ -443,6 +473,54 @@ export default function LeagueSettingsRoute() {
                   variant="danger-soft"
                 >
                   <Button.Label>Deletar liga</Button.Label>
+                </Button>
+              </View>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog>
+
+        <Dialog
+          isOpen={isWooviDialogOpen}
+          onOpenChange={(nextOpen) => {
+            if (isDisabled) {
+              return;
+            }
+            setIsWooviDialogOpen(nextOpen);
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Overlay />
+            <Dialog.Content className="gap-4 p-5">
+              {isDisabled ? null : (
+                <Dialog.Close className="absolute top-4 right-4 z-100" />
+              )}
+              <Dialog.Title>Configure sua conta de pagamento</Dialog.Title>
+              <Description>
+                Para ativar a cobrança na liga, conecte sua conta Woovi para
+                receber os pagamentos via PIX.
+              </Description>
+
+              <View className="flex-row gap-2 self-end">
+                <Button
+                  isDisabled={isDisabled}
+                  onPress={() => {
+                    setIsWooviDialogOpen(false);
+                  }}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <Button.Label>Agora não</Button.Label>
+                </Button>
+                <Button
+                  isDisabled={isDisabled}
+                  onPress={() => {
+                    setIsWooviDialogOpen(false);
+                    router.navigate("/settings/organization/payments" as Href);
+                  }}
+                  size="sm"
+                  variant="primary"
+                >
+                  <Button.Label>Configurar</Button.Label>
                 </Button>
               </View>
             </Dialog.Content>

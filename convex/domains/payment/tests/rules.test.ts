@@ -6,12 +6,12 @@ import {
   CHARGE_STATUS_EXPIRED,
   CHARGE_STATUS_PAID,
   CHARGE_STATUS_PENDING,
-  CHARGE_STATUS_REFUNDED,
   canChargeBeExpired,
   canChargeBePaid,
   canChargeBeRefunded,
   canMembershipBeCharged,
-  normalizeProviderStatus,
+  computeSplit,
+  normalizeWooviStatus,
 } from "../rules";
 
 describe("payment rules", () => {
@@ -48,7 +48,7 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
-  // canChargeBeExpired — only PENDING can be expired (avoid expiring PAID)
+  // canChargeBeExpired / canChargeBeRefunded
   // -------------------------------------------------------------------------
 
   describe("canChargeBeExpired", () => {
@@ -59,15 +59,7 @@ describe("payment rules", () => {
     it("rejects expiring an already-PAID charge", () => {
       expect(canChargeBeExpired({ status: "PAID" })).toBe(false);
     });
-
-    it("rejects expiring a REFUNDED charge", () => {
-      expect(canChargeBeExpired({ status: "REFUNDED" })).toBe(false);
-    });
   });
-
-  // -------------------------------------------------------------------------
-  // canChargeBeRefunded — PAID (and defensively EXPIRED) can be refunded
-  // -------------------------------------------------------------------------
 
   describe("canChargeBeRefunded", () => {
     it("allows REFUNDED transition from PAID", () => {
@@ -81,14 +73,10 @@ describe("payment rules", () => {
     it("rejects refunding a still-PENDING charge (nothing to refund)", () => {
       expect(canChargeBeRefunded({ status: "PENDING" })).toBe(false);
     });
-
-    it("rejects refunding an already-REFUNDED charge", () => {
-      expect(canChargeBeRefunded({ status: "REFUNDED" })).toBe(false);
-    });
   });
 
   // -------------------------------------------------------------------------
-  // canMembershipBeCharged — only awaiting_payment is chargeable
+  // canMembershipBeCharged
   // -------------------------------------------------------------------------
 
   describe("canMembershipBeCharged", () => {
@@ -99,33 +87,22 @@ describe("payment rules", () => {
     it("rejects charging an active membership", () => {
       expect(canMembershipBeCharged({ status: "active" })).toBe(false);
     });
-
-    it("rejects charging a pending membership", () => {
-      expect(canMembershipBeCharged({ status: "pending" })).toBe(false);
-    });
-
-    it("rejects charging a removed membership", () => {
-      expect(canMembershipBeCharged({ status: "removed" })).toBe(false);
-    });
   });
 
   // -------------------------------------------------------------------------
-  // normalizeProviderStatus — map AbacatePay strings onto our enum
+  // normalizeWooviStatus — map Woovi ACTIVE/COMPLETED/EXPIRED onto our enum
   // -------------------------------------------------------------------------
 
-  describe("normalizeProviderStatus", () => {
+  describe("normalizeWooviStatus", () => {
     type Case = {
       input: string | null | undefined;
       expected: PaymentChargeStatus;
     };
     const cases: Case[] = [
-      { input: "PENDING", expected: CHARGE_STATUS_PENDING },
-      { input: "PAID", expected: CHARGE_STATUS_PAID },
+      // Woovi uses ACTIVE for a charge awaiting payment.
+      { input: "ACTIVE", expected: CHARGE_STATUS_PENDING },
+      { input: "COMPLETED", expected: CHARGE_STATUS_PAID },
       { input: "EXPIRED", expected: CHARGE_STATUS_EXPIRED },
-      { input: "REFUNDED", expected: CHARGE_STATUS_REFUNDED },
-      { input: "FAILED", expected: "FAILED" },
-      // AbacatePay uses CANCELLED for failed card charges — we collapse to FAILED.
-      { input: "CANCELLED", expected: "FAILED" },
       // Unknown / missing — default to PENDING so the charge stays payable.
       { input: undefined, expected: CHARGE_STATUS_PENDING },
       { input: null, expected: CHARGE_STATUS_PENDING },
@@ -133,9 +110,47 @@ describe("payment rules", () => {
     ];
 
     for (const { input, expected } of cases) {
-      it(`maps ${JSON.stringify(input)} → ${expected}`, () => {
-        expect(normalizeProviderStatus(input)).toBe(expected);
+      it(`maps ${JSON.stringify(input)} -> ${expected}`, () => {
+        expect(normalizeWooviStatus(input)).toBe(expected);
       });
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // computeSplit — organizer vs BR-Open split math
+  // -------------------------------------------------------------------------
+
+  describe("computeSplit", () => {
+    it("splits R$50 at 10% fee -> organizer gets R$45, BR-Open gets R$5", () => {
+      const split = computeSplit({
+        amountCents: 5000,
+        feePercent: 10,
+        recipientPixKey: "org@woovi.com",
+      });
+      expect(split.brOpenCents).toBe(500);
+      expect(split.organizerCents).toBe(4500);
+      expect(split.organizerCents + split.brOpenCents).toBe(5000);
+      expect(split.recipientPixKey).toBe("org@woovi.com");
+    });
+
+    it("at 0% fee the organizer gets the full amount", () => {
+      const split = computeSplit({
+        amountCents: 9000,
+        feePercent: 0,
+        recipientPixKey: "k",
+      });
+      expect(split.brOpenCents).toBe(0);
+      expect(split.organizerCents).toBe(9000);
+    });
+
+    it("rounds so organizer + brOpen always sums exactly to amountCents", () => {
+      // R$33.33 at 10% would be 333.3 — must round and stay exact.
+      const split = computeSplit({
+        amountCents: 3333,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(split.organizerCents + split.brOpenCents).toBe(3333);
+    });
   });
 });

@@ -145,19 +145,24 @@ export function buildLeagueDetailsCanRequestJoin(input: {
 }) {
   const isAwaitingAction =
     input.viewerMembershipStatus === "pending" ||
-    input.viewerMembershipStatus === "awaiting_payment";
+    input.viewerMembershipStatus === "awaiting_payment" ||
+    input.viewerMembershipStatus === "suspended";
   return input.canJoinLeagues && input.role === "visitor" && !isAwaitingAction;
 }
 
 /**
- * When the viewer is `awaiting_payment`, the join button becomes a shortcut
- * to the checkout screen (not a new request). This is independent of
- * `canRequestJoin` which gates the *initial* join request.
+ * When the viewer is `awaiting_payment` (initial charge) or `suspended`
+ * (renewal overdue), the join button becomes a shortcut to the checkout
+ * screen. This is independent of `canRequestJoin` which gates the *initial*
+ * join request.
  */
 export function buildLeagueDetailsCanResumeCheckout(input: {
   viewerMembershipStatus: null | string | undefined;
 }) {
-  return input.viewerMembershipStatus === "awaiting_payment";
+  return (
+    input.viewerMembershipStatus === "awaiting_payment" ||
+    input.viewerMembershipStatus === "suspended"
+  );
 }
 
 export function buildLeagueDetailsShowJoinFooter(input: {

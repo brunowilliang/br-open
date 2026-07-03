@@ -1,21 +1,22 @@
 /**
  * Payment charge business rules — pure functions only.
  *
- * These centralize the state-machine + validation logic that used to live
- * inline inside `functions/payment/charge.ts`. Each function takes a small
- * typed input object and returns a value or boolean, with no side effects.
- * This mirrors the pattern of `convex/domains/league/membership-rules.ts`.
+ * These centralize the state-machine + validation + split-math logic that
+ * used to live inline inside `functions/payment/charge.ts`. Each function
+ * takes a small typed input object and returns a value or boolean, with no
+ * side effects. This mirrors the pattern of
+ * `convex/domains/league/membership-rules.ts`.
  *
  * Status reference: `PAYMENT_CHARGE_STATUSES` in `./contract.ts`
  * (`PENDING`, `PAID`, `EXPIRED`, `REFUNDED`, `FAILED`).
  */
 
-import type { PaymentChargeStatus } from "./contract";
+import type { PaymentChargeStatus, SplitConfig } from "./contract";
 
 /**
  * How long a PIX charge stays valid after creation, in seconds.
- * Used both when creating the charge (passed to AbacatePay as `expiresIn`)
- * and when computing the local `expiresAt` timestamp.
+ * Used both when creating the charge (passed to Woovi as `expiresIn`) and
+ * when computing the local `expiresAt` timestamp.
  */
 export const CHARGE_EXPIRES_IN_SECONDS = 3600; // 1 hour
 
@@ -90,34 +91,62 @@ export function canMembershipBeCharged(membership: MembershipLike): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Provider → domain status normalization
+// Provider (Woovi) → domain status normalization
 // ---------------------------------------------------------------------------
 
 /**
- * Maps an AbacatePay status string (from `APIQRCodePIX.status`) onto our
- * `PaymentChargeStatus` enum. Falls back to `PENDING` when the provider
- * returns something we don't recognize (defensive — the provider has
- * shipped undocumented statuses before).
+ * Maps a Woovi charge status string onto our `PaymentChargeStatus` enum.
  *
- * The inverse is not needed: we never send status to the provider, only
- * receive it.
+ * Woovi statuses (from the 2026-07-02 PoC + developers.woovi.com):
+ *   ACTIVE      — charge created, awaiting payment  → PENDING
+ *   COMPLETED   — payment received                  → PAID
+ *   EXPIRED     — charge expired unpaid             → EXPIRED
+ *
+ * Falls back to `PENDING` when the provider returns something we don't
+ * recognize (defensive).
  */
-export function normalizeProviderStatus(
-  raw?: null | string
-): PaymentChargeStatus {
+export function normalizeWooviStatus(raw?: null | string): PaymentChargeStatus {
   switch (raw) {
-    case "PENDING":
+    case "ACTIVE":
       return CHARGE_STATUS_PENDING;
-    case "PAID":
+    case "COMPLETED":
       return CHARGE_STATUS_PAID;
     case "EXPIRED":
       return CHARGE_STATUS_EXPIRED;
-    case "REFUNDED":
-      return CHARGE_STATUS_REFUNDED;
-    case "FAILED":
-    case "CANCELLED": // AbacatePay uses CANCELLED for failed card charges
-      return CHARGE_STATUS_FAILED;
     default:
       return CHARGE_STATUS_PENDING;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Split math
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the split between organizer and BR-Open for a paid league charge.
+ *
+ * `feePercent` is the BR-Open platform cut (0-100); the organizer receives
+ * the remainder. The organizer's share is rounded DOWN to the nearest cent
+ * (BR-Open keeps any fractional remainder, which is at most R$0.0099 per
+ * charge) so the split always sums exactly to `amountCents`.
+ *
+ * @example computeSplit(5000, 10) === {
+ *   brOpenCents: 500,
+ *   feePercent: 10,
+ *   organizerCents: 4500,
+ *   recipientPixKey: "<the org's woovi pix key>"
+ * }
+ */
+export function computeSplit(args: {
+  amountCents: number;
+  feePercent: number;
+  recipientPixKey: string;
+}): SplitConfig {
+  const brOpenCents = Math.round(args.amountCents * (args.feePercent / 100));
+  return {
+    brOpenCents,
+    feePercent: args.feePercent,
+    organizerCents: args.amountCents - brOpenCents,
+    recipientPixKey: args.recipientPixKey,
+  };
 }

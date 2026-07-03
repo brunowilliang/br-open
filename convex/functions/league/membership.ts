@@ -401,10 +401,19 @@ export const requestJoin = authMutation
       );
     }
 
-    assertLeagueHasAvailableSpot({
-      activeMembershipCount: await countActiveLeagueMemberships(ctx, leagueId),
-      maxPlayers: currentLeague.maxPlayers ?? null,
-    });
+    // A suspended member is renewing (their previous cycle expired). They
+    // already held a spot, so the capacity check is skipped — renewing must
+    // not be blocked by new entrants who joined during the suspension.
+    const isRenewingSuspended = currentMembership?.status === "suspended";
+    if (!isRenewingSuspended) {
+      assertLeagueHasAvailableSpot({
+        activeMembershipCount: await countActiveLeagueMemberships(
+          ctx,
+          leagueId
+        ),
+        maxPlayers: currentLeague.maxPlayers ?? null,
+      });
+    }
 
     // Paid leagues go straight to `awaiting_payment` — the PIX payment is the
     // gate, no manager approval needed. Free leagues keep the `pending` ->

@@ -4,8 +4,15 @@ import { z } from "zod";
 const envSchema = z.object({
   DEPLOY_ENV: z.string().default("production"),
   SITE_URL: z.string().default("http://localhost:3000"),
-  ABACATEPAY_API_KEY: z.string().optional(),
-  ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
+  // Woovi (OpenPix) — REST auth uses WOOVI_APP_ID verbatim (no Bearer/Basic).
+  // Webhook verification uses Woovi's fixed RSA public key (no per-merchant
+  // secret — see webhook-signature.ts). WOOVI_BASE_URL defaults to sandbox.
+  WOOVI_APP_ID: z.string().optional(),
+  WOOVI_BASE_URL: z.string().default("https://api.woovi-sandbox.com"),
+  WOOVI_CLIENT_ID: z.string().optional(),
+  // Platform fee percent (0-100). Organizer receives (100 - fee)% of the
+  // charge; BR-Open keeps `fee`%. Default 10 = organizer gets 90%.
+  WOOVI_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).default(10),
   BETTER_AUTH_URL: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().optional(),
   JWKS: z.string().optional(),
@@ -21,8 +28,10 @@ const envSchema = z.object({
 
 export const getEnv = createEnv({
   readOptionalRuntimeEnv: [
-    "ABACATEPAY_API_KEY",
-    "ABACATEPAY_WEBHOOK_SECRET",
+    "WOOVI_APP_ID",
+    "WOOVI_BASE_URL",
+    "WOOVI_CLIENT_ID",
+    "WOOVI_PLATFORM_FEE_PERCENT",
     "APPLE_APP_BUNDLE_IDENTIFIER",
     "APPLE_CLIENT_ID",
     "APPLE_CLIENT_SECRET",

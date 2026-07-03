@@ -70,10 +70,28 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
     }),
   },
+  "league.membership.payment_expired": {
+    template: (input) => ({
+      title: "PIX expirado",
+      body: `O PIX da sua inscrição na liga ${input.leagueName} expirou. Gere um novo para concluir.`,
+    }),
+  },
   "league.membership.payment_refunded": {
     template: (input) => ({
       title: "Inscrição não concluída",
       body: `A liga ${input.leagueName} atingiu o limite de jogadores enquanto você pagava. O reembolso será processado.`,
+    }),
+  },
+  "league.membership.renewal_reminder": {
+    template: (input) => ({
+      title: "Renovação em 3 dias",
+      body: `Sua inscrição na liga ${input.leagueName} vence em breve. Renove para continuar participando.`,
+    }),
+  },
+  "league.membership.renewal_due": {
+    template: (input) => ({
+      title: "Inscrição vencida",
+      body: `Sua inscrição na liga ${input.leagueName} venceu. Renove para voltar a participar.`,
     }),
   },
   "league.membership.rejected": {

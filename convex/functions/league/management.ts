@@ -22,10 +22,7 @@ import {
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
-import {
-  requireActiveManager,
-  requireActiveOrganization,
-} from "../viewer/context";
+import { requireActiveManager } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
@@ -116,7 +113,7 @@ async function deleteLeagueStorageIds(ctx: MutationCtx, storageIds: string[]) {
 export const listMine = authQuery
   .output(leagueSchema.array())
   .query(async ({ ctx }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const leagues = await ctx.orm.query.league.findMany({
       limit: 100,
@@ -133,7 +130,7 @@ export const getById = authQuery
   .input(LeagueByIdSchema)
   .output(leagueSchema)
   .query(async ({ ctx, input }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const currentLeague = await getManagedLeagueOrThrow(ctx, {
       leagueId: input.leagueId as Id<"league">,
