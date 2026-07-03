@@ -3,7 +3,8 @@
  *
  * Verifies the HMAC-SHA256 signature (header `x-webhook-signature`, secret
  * from `WOOVI_WEBHOOK_SECRET`), then dispatches via ctx.runMutation:
- *   OPENPIX:TRANSACTION_RECEIVED -> markChargePaid + activateMembership
+ *   OPENPIX:TRANSACTION_RECEIVED -> applyPaidCharge (atomic)
+ *   OPENPIX:CHARGE_COMPLETED    -> applyPaidCharge (atomic)
  *   OPENPIX:CHARGE_EXPIRED      -> markChargeExpired
  *
  * Always returns 200 OK to prevent Woovi retries (per the docs).
@@ -55,20 +56,11 @@ export const handleWooviWebhook = publicRoute
       "charge" in payload &&
       payload.charge?.correlationID
     ) {
-      const membershipId = await ctx.runMutation(
-        internal.payment.charge.markChargePaid,
-        {
-          correlationId: payload.charge.correlationID,
-          wooviTransactionId:
-            "transaction" in payload ? payload.transaction?.status : undefined,
-        }
-      );
-
-      if (membershipId) {
-        await ctx.runMutation(internal.payment.charge.activateMembership, {
-          membershipId,
-        });
-      }
+      await ctx.runMutation(internal.payment.charge.applyPaidCharge, {
+        correlationId: payload.charge.correlationID,
+        wooviTransactionStatus:
+          "transaction" in payload ? payload.transaction?.status : undefined,
+      });
     }
 
     if (

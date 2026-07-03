@@ -4017,11 +4017,11 @@ export const internal: {
   };
   payment: {
     charge: {
-      activateMembership: FunctionReference<
+      applyPaidCharge: FunctionReference<
         "mutation",
         "internal",
-        { membershipId: string },
-        any
+        { correlationId: string; wooviTransactionStatus?: string },
+        { activated: boolean; membershipId: string | null }
       >;
       expireChargeForMembership: FunctionReference<
         "mutation",
@@ -4034,12 +4034,6 @@ export const internal: {
         "mutation",
         "internal",
         { correlationId: string },
-        any
-      >;
-      markChargePaid: FunctionReference<
-        "mutation",
-        "internal",
-        { correlationId: string; wooviTransactionId?: string },
         any
       >;
       markChargeRefunded: FunctionReference<

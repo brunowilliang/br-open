@@ -278,11 +278,32 @@ export const resolveWooviAccountForCharge = privateMutation
     };
   });
 
-export const markChargePaid = privateMutation
+/**
+ * Atomic "charge paid → activate membership" pipeline.
+ *
+ * Replaces the previous two-step `markChargePaid` → `activateMembership`
+ * sequence that ran as separate transactions and could leave a charge PAID
+ * with the membership still `awaiting_payment` if the second step failed.
+ *
+ * The webhook now calls this single mutation so the full transition
+ * (charge → PAID, capacity re-check, membership → active, refund on
+ * overflow, payment_confirmed notification) commits atomically.
+ *
+ * `wooviTransactionStatus` carries the Woovi transaction status string
+ * (the payload's `transaction.status`, e.g. "COMPLETED") — not an id. The
+ * previous field name (`wooviTransactionId`) was misleading.
+ */
+export const applyPaidCharge = privateMutation
   .input(
     z.object({
       correlationId: z.string(),
-      wooviTransactionId: z.string().optional(),
+      wooviTransactionStatus: z.string().optional(),
+    })
+  )
+  .output(
+    z.object({
+      activated: z.boolean(),
+      membershipId: z.string().nullable(),
     })
   )
   .mutation(async ({ ctx, input }) => {
@@ -290,28 +311,89 @@ export const markChargePaid = privateMutation
       where: { wooviCorrelationId: input.correlationId },
     });
 
-    if (!charge) {
-      return null;
+    if (!(charge && canChargeBePaid(charge))) {
+      return { activated: false, membershipId: null };
     }
 
-    if (!canChargeBePaid(charge)) {
-      return null;
-    }
-
+    const membershipId = charge.membershipId as Id<"leagueMembership">;
     const now = new Date();
+
+    // Step 1: mark charge PAID.
     await ctx.orm
       .update(leaguePayment)
       .set({
         paidAt: now,
         status: "PAID",
         updatedAt: now,
-        ...(input.wooviTransactionId
-          ? { wooviChargeId: input.wooviTransactionId }
+        ...(input.wooviTransactionStatus
+          ? { wooviChargeId: input.wooviTransactionStatus }
           : {}),
       })
       .where(eq(leaguePayment.id, charge.id));
 
-    return charge.membershipId as Id<"leagueMembership">;
+    // Step 2: load membership for activation.
+    const membership = await ctx.orm.query.leagueMembership.findFirst({
+      where: { id: membershipId },
+    });
+
+    if (!(membership && canMembershipBeCharged(membership))) {
+      // Charge is PAID but membership is not in a chargeable state — leave
+      // it; a reconciler (future) can recover. Avoid reverting the charge.
+      return { activated: false, membershipId };
+    }
+
+    // Step 3: capacity re-check (over-enrollment guard).
+    const currentLeague = await ctx.orm.query.league.findFirst({
+      where: { id: membership.leagueId as Id<"league"> },
+    });
+    if (!currentLeague) {
+      return { activated: false, membershipId };
+    }
+
+    const { maxPlayers } = currentLeague;
+    if (maxPlayers !== null && maxPlayers !== undefined) {
+      const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
+        limit: 500,
+        where: {
+          leagueId: membership.leagueId as Id<"league">,
+          status: "active",
+        },
+      });
+      if (activeMemberships.length >= maxPlayers) {
+        // League filled up between charge creation and webhook. Refund and
+        // revert membership to `left`. markChargeRefunded is a separate
+        // mutation that runs in its own transaction; we accept the small
+        // window (refund failure leaves charge PAID, membership awaiting).
+        await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
+          correlationId: charge.wooviCorrelationId,
+        });
+        return { activated: false, membershipId };
+      }
+    }
+
+    // Step 4: activate membership.
+    await ctx.orm
+      .update(leagueMembership)
+      .set({
+        reviewedAt: now,
+        status: "active",
+        updatedAt: now,
+      })
+      .where(eq(leagueMembership.id, membershipId));
+
+    // Step 5: payment_confirmed notification.
+    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+      where: { id: membership.playerProfileId as Id<"playerProfile"> },
+    });
+    if (playerProfile?.userId) {
+      await scheduleLeagueNotification(ctx, {
+        eventType: "league.membership.payment_confirmed",
+        leagueId: membership.leagueId as Id<"league">,
+        recipientUserIds: [playerProfile.userId as Id<"user">],
+      });
+    }
+
+    return { activated: true, membershipId };
   });
 
 export const markChargeExpired = privateMutation
@@ -392,82 +474,6 @@ export const markChargeRefunded = privateMutation
     }
 
     return charge.id;
-  });
-
-/**
- * Activates a membership after payment is confirmed.
- *
- * OVER-ENROLLMENT GUARD: re-checks league capacity atomically before flipping
- * to active. If the league filled up between charge creation and webhook
- * delivery, the player is NOT activated — the charge is refunded and the
- * membership reverts to `left`.
- */
-export const activateMembership = privateMutation
-  .input(z.object({ membershipId: z.string() }))
-  .mutation(async ({ ctx, input }) => {
-    const membershipId = input.membershipId as Id<"leagueMembership">;
-    const membership = await ctx.orm.query.leagueMembership.findFirst({
-      where: { id: membershipId },
-    });
-
-    if (!(membership && canMembershipBeCharged(membership))) {
-      return null;
-    }
-
-    const currentLeague = await ctx.orm.query.league.findFirst({
-      where: { id: membership.leagueId as Id<"league"> },
-    });
-    if (!currentLeague) {
-      return null;
-    }
-
-    const { maxPlayers } = currentLeague;
-    if (maxPlayers !== null && maxPlayers !== undefined) {
-      const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
-        limit: 500,
-        where: {
-          leagueId: membership.leagueId as Id<"league">,
-          status: "active",
-        },
-      });
-      if (activeMemberships.length >= maxPlayers) {
-        const charge = await ctx.orm.query.leaguePayment.findFirst({
-          where: {
-            membershipId,
-            status: "PAID",
-          },
-        });
-        if (charge) {
-          await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
-            correlationId: charge.wooviCorrelationId,
-          });
-        }
-        return null;
-      }
-    }
-
-    const now = new Date();
-    await ctx.orm
-      .update(leagueMembership)
-      .set({
-        reviewedAt: now,
-        status: "active",
-        updatedAt: now,
-      })
-      .where(eq(leagueMembership.id, membershipId));
-
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { id: membership.playerProfileId as Id<"playerProfile"> },
-    });
-    if (playerProfile?.userId) {
-      await scheduleLeagueNotification(ctx, {
-        eventType: "league.membership.payment_confirmed",
-        leagueId: membership.leagueId as Id<"league">,
-        recipientUserIds: [playerProfile.userId as Id<"user">],
-      });
-    }
-
-    return membershipId;
   });
 
 export const expireChargeForMembership = privateMutation
