@@ -105,6 +105,23 @@ export const LeagueMembershipStatusOptions = [
   "suspended",
 ] as const;
 
+/**
+ * Membership status constants — single source of truth.
+ *
+ * `LeagueMembershipStatusOptions` is the canonical enum array (used by zod
+ * schemas below). `LEAGUE_MEMBERSHIP_STATUSES` exposes the same values as
+ * named constants so callers don't redeclare string literals.
+ */
+export const LEAGUE_MEMBERSHIP_STATUSES = {
+  ACTIVE: "active",
+  AWAITING_PAYMENT: "awaiting_payment",
+  LEFT: "left",
+  PENDING: "pending",
+  REJECTED: "rejected",
+  REMOVED: "removed",
+  SUSPENDED: "suspended",
+} as const satisfies Record<string, LeagueMembershipStatus>;
+
 export const LeagueChallengeStatusOptions = [
   "pending_opponent_response",
   "pending_creator_reapproval",

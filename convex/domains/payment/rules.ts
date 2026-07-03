@@ -11,6 +11,7 @@
  * (`PENDING`, `PAID`, `EXPIRED`, `REFUNDED`, `FAILED`).
  */
 
+import { LEAGUE_MEMBERSHIP_STATUSES } from "../league/contract";
 import type { PaymentChargeStatus, SplitConfig } from "./contract";
 
 /**
@@ -34,13 +35,6 @@ export const CHARGE_STATUS_REFUNDED =
   "REFUNDED" as const satisfies PaymentChargeStatus;
 export const CHARGE_STATUS_FAILED =
   "FAILED" as const satisfies PaymentChargeStatus;
-
-/**
- * The membership status that means "this player needs to pay before being
- * activated". Lives here (not in `league/contract.ts`) because it is the
- * payment domain's precondition for creating a charge.
- */
-export const MEMBERSHIP_STATUS_AWAITING_PAYMENT = "awaiting_payment" as const;
 
 // ---------------------------------------------------------------------------
 // Charge transition guards
@@ -87,7 +81,7 @@ type MembershipLike = { status: string };
  * or validated against it.
  */
 export function canMembershipBeCharged(membership: MembershipLike): boolean {
-  return membership.status === MEMBERSHIP_STATUS_AWAITING_PAYMENT;
+  return membership.status === LEAGUE_MEMBERSHIP_STATUSES.AWAITING_PAYMENT;
 }
 
 // ---------------------------------------------------------------------------

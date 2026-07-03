@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { LeagueChallengeStatusOptions } from "../contract";
+import {
+  LEAGUE_MEMBERSHIP_STATUSES,
+  LeagueChallengeStatusOptions,
+  LeagueMembershipStatusOptions,
+} from "../contract";
 import {
   ADMIN_ATTENTION_CHALLENGE_STATUSES,
   ADMIN_CANCELABLE_CHALLENGE_STATUSES,
@@ -128,6 +132,30 @@ describe("backend challenge status sets", () => {
     for (const [status] of seen) {
       if (!valid.has(status)) {
         throw new Error(`Unknown status ${status} in tab set.`);
+      }
+    }
+  });
+});
+
+describe("LEAGUE_MEMBERSHIP_STATUSES", () => {
+  it("every value is a valid LeagueMembershipStatus", () => {
+    const valid = new Set<string>(LeagueMembershipStatusOptions);
+    for (const value of Object.values(LEAGUE_MEMBERSHIP_STATUSES)) {
+      if (!valid.has(value)) {
+        throw new Error(
+          `LEAGUE_MEMBERSHIP_STATUSES contains unknown value: ${value}`
+        );
+      }
+    }
+  });
+
+  it("covers every LeagueMembershipStatusOptions entry", () => {
+    const constants = new Set(Object.values(LEAGUE_MEMBERSHIP_STATUSES));
+    for (const status of LeagueMembershipStatusOptions) {
+      if (!constants.has(status)) {
+        throw new Error(
+          `LeagueMembershipStatusOptions.${status} has no corresponding LEAGUE_MEMBERSHIP_STATUSES entry`
+        );
       }
     }
   });
