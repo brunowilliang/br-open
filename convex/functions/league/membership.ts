@@ -13,6 +13,7 @@ import {
   RequestLeagueJoinSchema,
   ReviewLeagueMembershipSchema,
 } from "../../domains/league/contract";
+import { resolveStorageUrl } from "../../shared/media-rules";
 import {
   canLeagueAcceptMember,
   isLeaguePaid,
@@ -129,21 +130,6 @@ async function getMembershipByIdOrThrow(
   return currentMembership;
 }
 
-async function resolvePlayerProfileAvatarUrl(
-  ctx: OrmCtx,
-  storageId?: null | string
-) {
-  if (!storageId) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
-
 async function getOptionalPlayerSummary(
   ctx: OrmCtx,
   playerProfileId: Id<"playerProfile">
@@ -166,10 +152,7 @@ async function getOptionalPlayerSummary(
     playerProfile.fullName?.trim() ||
     user?.name ||
     "Jogador";
-  const avatarUrl = await resolvePlayerProfileAvatarUrl(
-    ctx,
-    playerProfile.avatarStorageId
-  );
+  const avatarUrl = await resolveStorageUrl(ctx, playerProfile.avatarStorageId);
 
   return {
     avatarUrl: avatarUrl ?? user?.image ?? null,

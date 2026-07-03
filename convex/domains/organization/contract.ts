@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { collectReplacedStorageIds } from "../../shared/media-rules";
 import { requiredString } from "../../utils/contract.zod";
 
 export const ORGANIZER_TYPES = [
@@ -267,14 +268,10 @@ export function collectReplacedLogoStorageIds(input: {
   next: { logoStorageId?: null | string };
   previous?: { logoStorageId?: null | string } | null;
 }) {
-  const previousLogo = input.previous?.logoStorageId ?? null;
-  const nextLogo = input.next.logoStorageId ?? null;
-
-  if (!previousLogo || previousLogo === nextLogo) {
-    return [];
-  }
-
-  return [previousLogo];
+  return collectReplacedStorageIds("logoStorageId", {
+    next: input.next,
+    previous: input.previous,
+  });
 }
 
 export const CURRENT_TERMS_VERSION = "1.0.0";

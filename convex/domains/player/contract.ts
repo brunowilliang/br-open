@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { collectReplacedStorageIds } from "../../shared/media-rules";
 import { enumField, requiredString } from "../../utils/contract.zod";
 
 const playerGenderOptions = ["Feminino", "Masculino"] as const;
@@ -54,15 +55,8 @@ export function collectReplacedPlayerAvatarStorageIds(input: {
   next: { avatarStorageId?: null | string };
   previous?: { avatarStorageId?: null | string } | null;
 }) {
-  const previousAvatarStorageId = input.previous?.avatarStorageId ?? null;
-  const nextAvatarStorageId = input.next.avatarStorageId ?? null;
-
-  if (
-    !previousAvatarStorageId ||
-    previousAvatarStorageId === nextAvatarStorageId
-  ) {
-    return [];
-  }
-
-  return [previousAvatarStorageId];
+  return collectReplacedStorageIds("avatarStorageId", {
+    next: input.next,
+    previous: input.previous,
+  });
 }

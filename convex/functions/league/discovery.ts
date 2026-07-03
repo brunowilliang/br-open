@@ -18,31 +18,24 @@ import {
 } from "../../domains/league/contract";
 import { getActiveMembershipLeagueIds } from "../../domains/league/discovery-list";
 import type { league, leagueMembership } from "../../domains/league/tables";
+import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
 import { getViewerContext } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 
-async function resolveLeagueMediaUrl(ctx: QueryCtx, storageId?: null | string) {
-  if (
-    !storageId ||
-    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
-  ) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
+const isDeletableLeagueStorageId = (id: string) =>
+  !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(id);
 
 async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
   const [avatarUrl, coverUrl] = await Promise.all([
-    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
-    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+    resolveStorageUrl(ctx, record.avatarStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
+    resolveStorageUrl(ctx, record.coverStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
   ]);
 
   return leagueSchema.parse({

@@ -21,36 +21,26 @@ import {
   normalizeLeagueVisibility,
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
+import { deleteStorageIds, resolveStorageUrl } from "../../shared/media-rules";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
-async function resolveLeagueMediaUrl(
-  ctx: QueryCtx | MutationCtx,
-  storageId?: null | string
-) {
-  if (
-    !storageId ||
-    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
-  ) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
+const isDeletableLeagueStorageId = (id: string) =>
+  !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(id);
 
 async function serializeLeague(
   ctx: QueryCtx | MutationCtx,
   record: LeagueRecord
 ) {
   const [avatarUrl, coverUrl] = await Promise.all([
-    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
-    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+    resolveStorageUrl(ctx, record.avatarStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
+    resolveStorageUrl(ctx, record.coverStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
   ]);
 
   return leagueSchema.parse({
@@ -102,12 +92,6 @@ async function getManagedLeagueOrThrow(
   }
 
   return currentLeague;
-}
-
-async function deleteLeagueStorageIds(ctx: MutationCtx, storageIds: string[]) {
-  for (const storageId of storageIds) {
-    await ctx.storage.delete(storageId as Id<"_storage">);
-  }
 }
 
 export const listMine = authQuery
@@ -217,7 +201,7 @@ export const update = authMutation
       )
       .returning();
 
-    await deleteLeagueStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     return serializeLeague(ctx, updatedLeague);
   });
@@ -251,7 +235,7 @@ export const remove = authMutation
         )!
       );
 
-    await deleteLeagueStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     return { success: true };
   });

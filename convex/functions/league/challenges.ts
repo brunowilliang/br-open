@@ -73,6 +73,7 @@ import {
   type leagueMembership,
 } from "../../domains/league/tables";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
+import { resolveStorageUrl } from "../../shared/media-rules";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import { scheduleLeagueNotification } from "../notification/events";
@@ -135,21 +136,6 @@ function serializeLeagueRecord(record: LeagueRecord) {
   });
 }
 
-async function resolvePlayerProfileAvatarUrl(
-  ctx: OrmCtx,
-  storageId?: null | string
-) {
-  if (!storageId) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
-
 async function getPlayerSummary(
   ctx: OrmCtx,
   playerProfileId: Id<"playerProfile">
@@ -174,10 +160,7 @@ async function getPlayerSummary(
     playerProfile.fullName?.trim() ||
     user?.name ||
     "Jogador";
-  const avatarUrl = await resolvePlayerProfileAvatarUrl(
-    ctx,
-    playerProfile.avatarStorageId
-  );
+  const avatarUrl = await resolveStorageUrl(ctx, playerProfile.avatarStorageId);
 
   return leagueMembershipPlayerSchema.parse({
     avatarUrl: avatarUrl ?? user?.image ?? null,

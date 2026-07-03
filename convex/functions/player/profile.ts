@@ -1,6 +1,5 @@
 import type { InferSelectModel } from "kitcn/orm";
 import { z } from "zod";
-import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import { playerProfile } from "../../domains/player/tables";
 import { buildPlayerDisplayName } from "../../domains/player/identity";
@@ -9,25 +8,11 @@ import {
   playerProfileSchema,
   upsertPlayerProfileSchema,
 } from "../../domains/player/contract";
+import { deleteStorageIds, resolveStorageUrl } from "../../shared/media-rules";
 import { authMutation, authQuery } from "../../lib/crpc";
 import { requireActivePlayerProfile } from "../viewer/context";
 
 type PlayerProfileRecord = InferSelectModel<typeof playerProfile>;
-
-async function resolvePlayerAvatarUrl(
-  ctx: QueryCtx | MutationCtx,
-  storageId?: null | string
-) {
-  if (!storageId) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
 
 async function serializePlayerProfile(
   ctx: QueryCtx | MutationCtx,
@@ -45,19 +30,10 @@ async function serializePlayerProfile(
   return playerProfileSchema.parse({
     ...record,
     avatarStorageId: record.avatarStorageId ?? null,
-    avatarUrl: await resolvePlayerAvatarUrl(ctx, record.avatarStorageId),
+    avatarUrl: await resolveStorageUrl(ctx, record.avatarStorageId),
     fullName,
     nickname,
   });
-}
-
-async function deletePlayerAvatarStorageIds(
-  ctx: MutationCtx,
-  storageIds: string[]
-) {
-  for (const storageId of storageIds) {
-    await ctx.storage.delete(storageId as Id<"_storage">);
-  }
 }
 
 export const get = authQuery
@@ -117,7 +93,7 @@ export const upsert = authMutation
         eq(currentPlayerProfile.userId, ctx.userId),
     });
 
-    await deletePlayerAvatarStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     if (!nextPlayerProfile) {
       throw new Error("Player profile was not found after upsert.");

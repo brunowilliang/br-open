@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { collectReplacedStorageIds } from "../../shared/media-rules";
 import { FORM_MAX_ENTRIES } from "./challenge-form";
 import {
   enumField,
@@ -533,18 +534,10 @@ export function collectReplacedLeagueStorageIds(input: {
   next: LeagueMediaStorageIds;
   previous: LeagueMediaStorageIds;
 }) {
-  const nextStorageIds = new Set(
-    [input.next.avatarStorageId, input.next.coverStorageId].filter(
-      isDeletableLeagueStorageId
-    )
-  );
-  const previousStorageIds = [
-    input.previous.avatarStorageId,
-    input.previous.coverStorageId,
-  ].filter(isDeletableLeagueStorageId);
-
-  return [...new Set(previousStorageIds)].filter(
-    (storageId) => !nextStorageIds.has(storageId)
+  return collectReplacedStorageIds(
+    ["avatarStorageId", "coverStorageId"] as const,
+    { next: input.next, previous: input.previous },
+    { isDeletable: isDeletableLeagueStorageId }
   );
 }
 
