@@ -12,6 +12,8 @@
  * @see https://developers.woovi.com/docs/tags/webhook
  */
 
+import { z } from "zod";
+
 // ---------------------------------------------------------------------------
 // Event name constants — single source of truth.
 // ---------------------------------------------------------------------------
@@ -88,3 +90,63 @@ export type WooviWebhookPayload =
   | TransactionReceivedPayload
   | ChargeExpiredPayload
   | ChargeCompletedPayload;
+
+// ---------------------------------------------------------------------------
+// Runtime validators — used by webhook.ts to parse incoming payloads safely.
+// ---------------------------------------------------------------------------
+
+const chargeBaseSchema = z.object({
+  correlationID: z.string().min(1),
+  status: z.string(),
+});
+
+const chargeWithValueSchema = chargeBaseSchema.extend({
+  value: z.number(),
+});
+
+const transactionSchema = z
+  .object({
+    status: z.string().optional(),
+    value: z.number().optional(),
+  })
+  .optional();
+
+const transactionReceivedPayloadSchema = z.object({
+  charge: chargeWithValueSchema,
+  event: z.literal(OPENPIX_TRANSACTION_RECEIVED),
+  transaction: transactionSchema,
+});
+
+const chargeExpiredPayloadSchema = z.object({
+  charge: chargeBaseSchema,
+  event: z.literal(OPENPIX_CHARGE_EXPIRED),
+});
+
+const chargeCompletedPayloadSchema = z.object({
+  charge: chargeWithValueSchema,
+  event: z.literal(OPENPIX_CHARGE_COMPLETED),
+  transaction: transactionSchema,
+});
+
+const otherEventPayloadSchema = z
+  .object({
+    data: z.unknown().optional(),
+    event: z.string(),
+  })
+  .passthrough();
+
+/**
+ * Parses any inbound Woovi webhook payload. Use
+ * `wooviWebhookPayloadSchema.parse(JSON.parse(rawBody))` — the wrapper handles
+ * `JSON.parse` failures separately.
+ *
+ * Note: `OtherWooviEventPayload` (open `event: string`) is the fallback; the
+ * webhook handler dispatches on `event` after parse and silently ignores
+ * unknown events.
+ */
+export const wooviWebhookPayloadSchema = z.union([
+  chargeCompletedPayloadSchema,
+  chargeExpiredPayloadSchema,
+  otherEventPayloadSchema,
+  transactionReceivedPayloadSchema,
+]);
