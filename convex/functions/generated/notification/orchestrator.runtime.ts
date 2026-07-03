@@ -20,6 +20,7 @@ const procedureRegistry = {
   "releaseLock": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../notification/orchestrator").releaseLock>("notification/orchestrator:releaseLock"), () => (require("../../notification/orchestrator") as Record<string, unknown>)["releaseLock"])],
   "retractNotifications": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../notification/orchestrator").retractNotifications>("notification/orchestrator:retractNotifications"), () => (require("../../notification/orchestrator") as Record<string, unknown>)["retractNotifications"])],
   "sendPending": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../notification/orchestrator").sendPending>("notification/orchestrator:sendPending"), () => (require("../../notification/orchestrator") as Record<string, unknown>)["sendPending"])],
+  "sweepStaleInProgressDeliveries": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../notification/orchestrator").sweepStaleInProgressDeliveries>("notification/orchestrator:sweepStaleInProgressDeliveries"), () => (require("../../notification/orchestrator") as Record<string, unknown>)["sweepStaleInProgressDeliveries"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;

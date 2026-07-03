@@ -23,4 +23,11 @@ crons.interval(
   {}
 );
 
+crons.interval(
+  "sweep-stale-deliveries",
+  { minutes: 1 },
+  internal.notification.orchestrator.sweepStaleInProgressDeliveries,
+  {}
+);
+
 export default crons;

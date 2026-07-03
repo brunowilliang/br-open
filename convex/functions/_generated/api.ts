@@ -4033,6 +4033,12 @@ export const internal: {
         { retractedCount: number }
       >;
       sendPending: FunctionReference<"action", "internal", {}, any>;
+      sweepStaleInProgressDeliveries: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        any
+      >;
     };
   };
   payment: {
