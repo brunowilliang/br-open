@@ -16,8 +16,16 @@ import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
+import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import {
+  applyPixInputChange,
+  type PixKeyType,
+  PIX_KEY_TYPES,
+  isValidPixKey,
+  rawPixKey,
+} from "@/lib/payments/pix-key";
 import {
   Button,
   Card,
@@ -26,15 +34,15 @@ import {
   Input,
   Label,
   Menu,
+  Select,
   Spinner,
   useToast,
 } from "heroui-native";
 
-const connectSchema = z.object({
-  pixKey: z.string().min(1, "Informe a chave PIX."),
-});
-
-type ConnectFormValues = z.infer<typeof connectSchema>;
+type ConnectFormValues = {
+  pixKey: string;
+  pixKeyType: PixKeyType;
+};
 
 export default function PaymentsRoute() {
   const crpc = useCRPC();
@@ -75,22 +83,34 @@ export default function PaymentsRoute() {
   );
 
   const form = useForm<ConnectFormValues>({
-    defaultValues: { pixKey: "" },
-    resolver: zodResolver(connectSchema),
+    defaultValues: { pixKey: "", pixKeyType: "cpf" },
+    resolver: zodResolver(
+      z.object({
+        pixKey: z.string().min(1, "Informe a chave PIX."),
+        pixKeyType: z.custom<PixKeyType>(),
+      })
+    ),
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await startOnboarding.mutateAsync({ pixKey: values.pixKey });
+    if (!isValidPixKey(values.pixKey, values.pixKeyType)) {
+      form.setError("pixKey", {
+        message: "Chave PIX inválida para o tipo selecionado.",
+      });
+      return;
+    }
+    const raw = rawPixKey(values.pixKey, values.pixKeyType);
+    await startOnboarding.mutateAsync({ pixKey: raw });
   });
 
   function handleEditPixKey() {
     setIsEditing(true);
-    form.reset({ pixKey: "" });
+    form.reset({ pixKey: "", pixKeyType: "cpf" });
   }
 
   function handleCancelEdit() {
     setIsEditing(false);
-    form.reset({ pixKey: "" });
+    form.reset({ pixKey: "", pixKeyType: "cpf" });
   }
 
   const account = statusQuery.data ?? null;
@@ -122,21 +142,73 @@ export default function PaymentsRoute() {
                 Digite a nova chave PIX que receberá os pagamentos das suas
                 ligas.
               </Description>
+              <Controller
+                control={form.control}
+                name="pixKeyType"
+                render={({ field: typeField }) => (
+                  <View className="gap-1">
+                    <Label>Tipo de chave</Label>
+                    <Select
+                      onValueChange={(nextValue) => {
+                        if (nextValue && !Array.isArray(nextValue)) {
+                          typeField.onChange(nextValue.value as PixKeyType);
+                          form.setValue("pixKey", "");
+                        }
+                      }}
+                      selectionMode="single"
+                      value={{
+                        label:
+                          PIX_KEY_TYPES.find((o) => o.value === typeField.value)
+                            ?.label ?? "CPF",
+                        value: (typeField.value as string) ?? "cpf",
+                      }}
+                    >
+                      <Select.Trigger className="bg-surface-secondary">
+                        <Select.Value
+                          className="font-normal"
+                          numberOfLines={1}
+                          placeholder="Escolha um tipo"
+                        />
+                        <Select.TriggerIndicator />
+                      </Select.Trigger>
+                      <Select.Portal>
+                        <Select.Overlay />
+                        <Select.Content presentation="popover" width="trigger">
+                          <Select.ListLabel className="mb-2">
+                            Escolha um tipo
+                          </Select.ListLabel>
+                          {PIX_KEY_TYPES.map((option) => (
+                            <SelectOptionItem
+                              key={option.value}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Select.Content>
+                      </Select.Portal>
+                    </Select>
+                  </View>
+                )}
+              />
 
               <Controller
                 control={form.control}
                 name="pixKey"
                 render={({ field, fieldState }) => (
                   <View className="gap-1">
-                    <Label>Nova chave PIX</Label>
+                    <Label>Chave PIX</Label>
                     <Input
                       autoCapitalize="none"
                       className="w-full"
-                      editable={!startOnboarding.isPending}
                       isInvalid={Boolean(fieldState.error)}
                       onBlur={field.onBlur}
-                      onChangeText={field.onChange}
-                      placeholder="Ex.: seu e-mail, CPF, telefone ou chave aleatória"
+                      onChangeText={(text) => {
+                        const formType = form.getValues("pixKeyType");
+                        const prev = String(field.value ?? "");
+                        const next = applyPixInputChange(prev, text, formType);
+                        field.onChange(next);
+                      }}
+                      placeholder="Digite sua chave PIX"
                       value={String(field.value ?? "")}
                       variant="secondary"
                     />
@@ -261,6 +333,55 @@ export default function PaymentsRoute() {
 
               <Controller
                 control={form.control}
+                name="pixKeyType"
+                render={({ field: typeField }) => (
+                  <View className="gap-1">
+                    <Label>Tipo de chave</Label>
+                    <Select
+                      onValueChange={(nextValue) => {
+                        if (nextValue && !Array.isArray(nextValue)) {
+                          typeField.onChange(nextValue.value as PixKeyType);
+                          form.setValue("pixKey", "");
+                        }
+                      }}
+                      selectionMode="single"
+                      value={{
+                        label:
+                          PIX_KEY_TYPES.find((o) => o.value === typeField.value)
+                            ?.label ?? "CPF",
+                        value: (typeField.value as string) ?? "cpf",
+                      }}
+                    >
+                      <Select.Trigger className="bg-surface-secondary">
+                        <Select.Value
+                          className="font-normal"
+                          numberOfLines={1}
+                          placeholder="Escolha um tipo"
+                        />
+                        <Select.TriggerIndicator />
+                      </Select.Trigger>
+                      <Select.Portal>
+                        <Select.Overlay />
+                        <Select.Content presentation="popover" width="trigger">
+                          <Select.ListLabel className="mb-2">
+                            Escolha um tipo
+                          </Select.ListLabel>
+                          {PIX_KEY_TYPES.map((option) => (
+                            <SelectOptionItem
+                              key={option.value}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Select.Content>
+                      </Select.Portal>
+                    </Select>
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={form.control}
                 name="pixKey"
                 render={({ field, fieldState }) => (
                   <View className="gap-1">
@@ -268,11 +389,15 @@ export default function PaymentsRoute() {
                     <Input
                       autoCapitalize="none"
                       className="w-full"
-                      editable={!startOnboarding.isPending}
                       isInvalid={Boolean(fieldState.error)}
                       onBlur={field.onBlur}
-                      onChangeText={field.onChange}
-                      placeholder="Ex.: seu e-mail, CPF, telefone ou chave aleatória"
+                      onChangeText={(text) => {
+                        const formType = form.getValues("pixKeyType");
+                        const prev = String(field.value ?? "");
+                        const next = applyPixInputChange(prev, text, formType);
+                        field.onChange(next);
+                      }}
+                      placeholder="Digite sua chave PIX"
                       value={String(field.value ?? "")}
                       variant="secondary"
                     />
