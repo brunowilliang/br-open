@@ -216,10 +216,11 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     let optimisticStatus: ViewerMembershipStatus;
     if (intent === "cancel") {
       optimisticStatus = "left";
-    } else if ((league?.monthlyPriceCents ?? 0) > 0) {
-      optimisticStatus = "awaiting_payment";
     } else {
-      optimisticStatus = "pending";
+      // Paid leagues always go straight to checkout (the approval gate, if
+      // any, happens AFTER payment in the manual flow). Free leagues queue.
+      const isPaidLeague = (league?.monthlyPriceCents ?? 0) > 0;
+      optimisticStatus = isPaidLeague ? "awaiting_payment" : "pending";
     }
     bucket$.actions.setViewerMembership({
       // Keep the existing membershipId during optimistic updates; the real id

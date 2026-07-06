@@ -28,6 +28,11 @@ export const league = convexTable(
     maxPlayers: integer(),
     monthlyPriceCents: integer(),
     priceBillingInterval: text(),
+    // Whether players on this paid league go straight to checkout (`auto`)
+    // or land in the organizer's request queue first (`manual`). Only
+    // meaningful when `monthlyPriceCents > 0`. Defaults to `auto` via
+    // the league serializer (kept nullable for legacy docs).
+    approvalMode: text(),
     mode: text().notNull(),
     ruleConfig: json<Record<string, unknown>>().notNull(),
     coverStorageId: text(),

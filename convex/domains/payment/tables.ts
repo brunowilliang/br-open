@@ -71,9 +71,13 @@ export const leaguePayment = convexTable(
     // Our idempotency key. Sent as `correlationID` to Woovi, echoed back,
     // and referenced by the webhook as `charge.correlationID`.
     wooviCorrelationId: text().notNull(),
-    // Woovi's internal id (`transactionID`/`identifier`). Stored for
-    // diagnostics; matching is done via `wooviCorrelationId`.
+    // Woovi's internal charge id (`transactionID`/`identifier` at charge
+    // creation). Stored for diagnostics; matching is via `wooviCorrelationId`.
     wooviChargeId: text(),
+    // Woovi's PIX transaction id (end-to-end identifier), returned on
+    // `OPENPIX:TRANSACTION_RECEIVED`. Distinct from `wooviChargeId` (which is
+    // the *charge* id). Captured only when the webhook confirms payment.
+    wooviTransactionId: text(),
     amountCents: integer().notNull(),
     status: text().notNull(),
     brCode: text(),

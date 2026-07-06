@@ -158,6 +158,22 @@ export const LeaguePriceBillingIntervalOptions = [
 
 export const DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL = "month" as const;
 
+/**
+ * Approval mode for paid leagues.
+ *
+ * - `auto`: the player goes straight to checkout (`awaiting_payment`).
+ *   The PIX payment is the only gate.
+ * - `manual`: the player lands in the organizer's request queue first
+ *   (`pending`). After approval they move to `awaiting_payment`.
+ *
+ * Free leagues always behave as `manual` (the organizer must approve), so
+ * this field is only meaningful when `monthlyPriceCents > 0`. The default
+ * keeps the historical behavior: paid = `auto` (payment is the gate).
+ */
+export const LeagueApprovalModeOptions = ["auto", "manual"] as const;
+
+export const DEFAULT_LEAGUE_APPROVAL_MODE = "auto" as const;
+
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
   "super_tiebreak",
@@ -566,6 +582,11 @@ const LeaguePriceBillingIntervalSchema = enumField(
   "Selecione o período de cobrança."
 );
 
+const LeagueApprovalModeSchema = enumField(
+  LeagueApprovalModeOptions,
+  "Selecione o modo de aprovação."
+);
+
 export const CreateLeagueSchema = z.object({
   name: requiredString("Informe o nome da liga.").pipe(
     z.string().min(1, "Informe o nome da liga.")
@@ -589,6 +610,7 @@ export const CreateLeagueSchema = z.object({
   maxPlayers: LeagueMaxPlayersSchema,
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
+  approvalMode: LeagueApprovalModeSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
   ruleConfig: ChallengeRuleConfigSchema,
@@ -623,6 +645,7 @@ export const UpdateLeagueSchema = z.object({
   maxPlayers: LeagueMaxPlayersSchema,
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
+  approvalMode: LeagueApprovalModeSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
@@ -665,6 +688,7 @@ export const leagueSchema = z.object({
   maxPlayers: LeagueMaxPlayersSchema,
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
+  approvalMode: LeagueApprovalModeSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: z.string().nullable(),
   avatarStorageId: z.string().nullable(),

@@ -47,6 +47,21 @@ const getLeagueRequestsUrl = (input: NotificationContentInput) =>
 const getLeagueChallengesUrl = (input: NotificationContentInput) =>
   `/leagues/${input.leagueId}/challenges`;
 
+// Deep-link a player-facing payment notification to the checkout screen.
+// Requires `membershipId` in the notification metadata (set by the charge
+// cron / webhook). Falls back to the league root when missing so old
+// notifications still resolve.
+const getLeagueCheckoutUrl = (input: NotificationContentInput) => {
+  const membershipId =
+    input.metadata && "membershipId" in input.metadata
+      ? (input.metadata.membershipId as string | undefined)
+      : undefined;
+  if (!membershipId) {
+    return getLeagueUrl(input);
+  }
+  return `/leagues/${input.leagueId}/checkout?membershipId=${membershipId}`;
+};
+
 const definitions: Record<NotificationEventType, NotificationDefinition> = {
   "league.membership.requested": {
     categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],
@@ -65,12 +80,14 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     }),
   },
   "league.membership.payment_confirmed": {
+    getUrl: getLeagueUrl,
     template: (input) => ({
       title: "Pagamento confirmado",
       body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
     }),
   },
   "league.membership.payment_expired": {
+    getUrl: getLeagueCheckoutUrl,
     template: (input) => ({
       title: "PIX expirado",
       body: `O PIX da sua inscrição na liga ${input.leagueName} expirou. Gere um novo para concluir.`,
@@ -83,12 +100,14 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     }),
   },
   "league.membership.renewal_reminder": {
+    getUrl: getLeagueCheckoutUrl,
     template: (input) => ({
       title: "Renovação em 3 dias",
       body: `Sua inscrição na liga ${input.leagueName} vence em breve. Renove para continuar participando.`,
     }),
   },
   "league.membership.renewal_due": {
+    getUrl: getLeagueCheckoutUrl,
     template: (input) => ({
       title: "Inscrição vencida",
       body: `Sua inscrição na liga ${input.leagueName} venceu. Renove para voltar a participar.`,

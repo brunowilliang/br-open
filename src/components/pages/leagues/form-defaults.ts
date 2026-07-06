@@ -1,5 +1,6 @@
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import {
+  DEFAULT_LEAGUE_APPROVAL_MODE,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MATCH_CONFIG,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
@@ -20,6 +21,7 @@ export function buildCreateLeagueDefaultValues(): LeagueScreenValues {
     categories: [],
     courts: [],
     maxPlayers: null,
+    approvalMode: DEFAULT_LEAGUE_APPROVAL_MODE,
     monthlyPriceCents: DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval: DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,

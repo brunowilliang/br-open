@@ -2,7 +2,6 @@ import { Cancel01Icon, CopyIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, Label, useToast } from "heroui-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
@@ -13,6 +12,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatLeaguePriceParts } from "@/lib/leagues/presentation";
+import { Button, Card, Label, Skeleton, useToast } from "heroui-native";
 
 const DANGER_THRESHOLD_MS = 300_000;
 
@@ -60,10 +60,6 @@ export default function CheckoutScreen() {
     membershipId: string;
   }>();
 
-  // Tracks the membershipId we've already attempted to charge in this mount,
-  // so a transient createCharge error doesn't re-fire forever (the effect
-  // below keys off this, not off success). Reset only by the explicit
-  // "Gerar novo PIX" button on the expired state.
   const [hasCreatedCharge, setHasCreatedCharge] = useState(false);
   const [attemptedMembershipId, setAttemptedMembershipId] = useState<
     string | null
@@ -73,8 +69,6 @@ export default function CheckoutScreen() {
     crpc.league.discovery.getById.queryOptions({ leagueId })
   );
 
-  // Existing charge is reactive — Convex pushes the PAID transition over the
-  // WebSocket as soon as the webhook fires, so no polling is needed.
   const chargeQuery = useQuery({
     ...crpc.payment.charge.getChargeForMembership.queryOptions({
       membershipId,
@@ -85,7 +79,9 @@ export default function CheckoutScreen() {
   async function invalidateCheckout() {
     await Promise.all([
       queryClient.invalidateQueries(
-        crpc.payment.charge.getChargeForMembership.queryFilter({ membershipId })
+        crpc.payment.charge.getChargeForMembership.queryFilter({
+          membershipId,
+        })
       ),
       queryClient.invalidateQueries(
         crpc.league.discovery.getById.queryFilter({ leagueId })
@@ -116,10 +112,25 @@ export default function CheckoutScreen() {
     })
   );
 
-  // Create a charge if none exists yet and the membership is awaiting payment.
-  // We gate on `attemptedMembershipId` (not just success) so a failed
-  // createCharge doesn't loop forever — it only retries via the explicit
-  // "Gerar novo PIX" button, which resets the attempt tracker.
+  const simulatePayment = useMutation(
+    crpc.payment.charge.simulatePayment.mutationOptions({
+      onSuccess: async () => {
+        await invalidateCheckout();
+      },
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível simular o pagamento."
+          ),
+          id: "simulate-payment-error",
+          label: "Erro na simulação",
+          variant: "danger",
+        });
+      },
+    })
+  );
+
   const charge = chargeQuery.data ?? null;
   const needsNewCharge = !(
     charge ||
@@ -136,30 +147,11 @@ export default function CheckoutScreen() {
     createCharge.mutate({ leagueId, membershipId });
   }, [needsNewCharge, leagueId, membershipId, createCharge]);
 
-  // Payment confirmation comes from the membership status (active), not the
-  // charge row. The charge query only returns the current PENDING PIX; a PAID
-  // charge from a previous cycle (e.g. player was removed and re-requested)
-  // must not be treated as "paid" for the new request.
   const isPaid = leagueQuery.data?.viewerMembershipStatus === "active";
   const remainingMs = useCountdown(charge?.expiresAt ?? null);
   const isExpired = Boolean(charge) && remainingMs <= 0;
   const isLoading =
     createCharge.isPending || (chargeQuery.isLoading && !charge);
-
-  // Navigate back to the league once payment is confirmed. The success state
-  // is rendered below (no toast — the screen itself communicates it).
-  // useEffect(() => {
-  //   if (!isPaid) {
-  //     return;
-  //   }
-  //   const timeout = setTimeout(() => {
-  //     router.replace({
-  //       params: { leagueId },
-  //       pathname: "/leagues/[leagueId]",
-  //     });
-  //   }, 2500);
-  //   return () => clearTimeout(timeout);
-  // }, [isPaid, router, leagueId]);
 
   const priceParts = useMemo(() => {
     const cents = leagueQuery.data?.monthlyPriceCents ?? 0;
@@ -183,8 +175,7 @@ export default function CheckoutScreen() {
     });
   }
 
-  // Resolve the current view state as a simple string so the JSX below can
-  // branch without nested ternaries (which the linter rejects).
+  // Resolve the current view state.
   let viewState: "expired" | "idle" | "loading" | "paid" | "pending";
   if (isLoading) {
     viewState = "loading";
@@ -239,10 +230,24 @@ export default function CheckoutScreen() {
         )}
 
         {viewState === "loading" ? (
-          /* Loading state */
-          <View className="flex-1 items-center justify-center gap-2">
-            <Text color="muted">Gerando cobrança PIX…</Text>
-          </View>
+          /* Loading — skeleton matching the pending layout */
+          <>
+            {/* Countdown skeleton */}
+            <View className="w-full items-center gap-1">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-6 w-16" />
+            </View>
+
+            {/* QR code skeleton (same size as the real QR: 256x256) */}
+            <Skeleton className="size-64 self-center rounded-3xl" />
+
+            {/* Copia e cola skeleton */}
+            <View className="w-full gap-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
+              <Skeleton className="h-12 w-full rounded-2xl" />
+            </View>
+          </>
         ) : null}
 
         {viewState === "paid" ? (
@@ -340,6 +345,21 @@ export default function CheckoutScreen() {
               Abra o app do seu banco e escaneie o QR code ou cole o código
               acima para pagar.
             </Text>
+
+            {/* DEV ONLY: simulate payment */}
+            {__DEV__ ? (
+              <Button
+                isDisabled={simulatePayment.isPending}
+                onPress={() => simulatePayment.mutate({ membershipId })}
+                variant="secondary"
+              >
+                <Button.Label>
+                  {simulatePayment.isPending
+                    ? "Simulando..."
+                    : "🧪 Simular pagamento"}
+                </Button.Label>
+              </Button>
+            ) : null}
           </>
         ) : null}
       </Page.View>

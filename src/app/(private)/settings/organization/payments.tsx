@@ -1,30 +1,30 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Alert02Icon,
   CheckmarkCircle02Icon,
   Edit02Icon,
   MoreVerticalIcon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Controller, useForm } from "react-hook-form";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
 import { Page } from "@/components/core/NewPage";
-import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
-  applyPixInputChange,
-  type PixKeyType,
   PIX_KEY_TYPES,
+  applyPixInputChange,
+  formatPixKey,
+  isNumericPixKey,
   isValidPixKey,
   rawPixKey,
+  type PixKeyType,
 } from "@/lib/payments/pix-key";
 import {
   Button,
@@ -36,6 +36,7 @@ import {
   Menu,
   Select,
   Spinner,
+  TextField,
   useToast,
 } from "heroui-native";
 
@@ -87,7 +88,9 @@ export default function PaymentsRoute() {
     resolver: zodResolver(
       z.object({
         pixKey: z.string().min(1, "Informe a chave PIX."),
-        pixKeyType: z.custom<PixKeyType>(),
+        pixKeyType: z.custom<PixKeyType>(
+          (v) => v !== undefined && v !== null && v !== ""
+        ),
       })
     ),
   });
@@ -133,20 +136,20 @@ export default function PaymentsRoute() {
         {statusQuery.isPending ? (
           <LoadingState />
         ) : showEditForm ? (
-          <Card className="gap-4">
-            <Card.Body className="gap-2">
-              <Text variant="title" weight="semibold">
-                Editar chave PIX
-              </Text>
-              <Description>
+          <Card className="gap-5">
+            <Card.Header>
+              <Card.Title>Editar chave PIX</Card.Title>
+              <Card.Description>
                 Digite a nova chave PIX que receberá os pagamentos das suas
                 ligas.
-              </Description>
+              </Card.Description>
+            </Card.Header>
+            <Card.Body className="gap-2">
               <Controller
                 control={form.control}
                 name="pixKeyType"
                 render={({ field: typeField }) => (
-                  <View className="gap-1">
+                  <TextField isRequired>
                     <Label>Tipo de chave</Label>
                     <Select
                       onValueChange={(nextValue) => {
@@ -187,7 +190,7 @@ export default function PaymentsRoute() {
                         </Select.Content>
                       </Select.Portal>
                     </Select>
-                  </View>
+                  </TextField>
                 )}
               />
 
@@ -195,30 +198,39 @@ export default function PaymentsRoute() {
                 control={form.control}
                 name="pixKey"
                 render={({ field, fieldState }) => (
-                  <View className="gap-1">
+                  <TextField isRequired>
                     <Label>Chave PIX</Label>
                     <Input
                       autoCapitalize="none"
                       className="w-full"
                       isInvalid={Boolean(fieldState.error)}
+                      keyboardType={
+                        isNumericPixKey(form.getValues("pixKeyType"))
+                          ? "numeric"
+                          : "default"
+                      }
                       onBlur={field.onBlur}
                       onChangeText={(text) => {
                         const formType = form.getValues("pixKeyType");
                         const prev = String(field.value ?? "");
-                        const next = applyPixInputChange(prev, text, formType);
-                        field.onChange(next);
+                        const digits = applyPixInputChange(
+                          prev,
+                          text,
+                          formType
+                        );
+                        field.onChange(formatPixKey(digits, formType));
                       }}
                       placeholder="Digite sua chave PIX"
                       value={String(field.value ?? "")}
                       variant="secondary"
                     />
                     <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </View>
+                  </TextField>
                 )}
               />
             </Card.Body>
 
-            <View className="flex-row gap-2">
+            <Card.Footer className="flex-row gap-2">
               <Button
                 className="flex-1"
                 isDisabled={startOnboarding.isPending}
@@ -236,73 +248,81 @@ export default function PaymentsRoute() {
                   {startOnboarding.isPending ? "Salvando..." : "Salvar chave"}
                 </Button.Label>
               </Button>
-            </View>
+            </Card.Footer>
           </Card>
         ) : isConnected ? (
-          <Card className="border border-success-soft bg-success-soft">
-            <Card.Body className="gap-3">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-2">
-                  <HugeIcons
-                    className="size-5 text-success"
-                    icon={CheckmarkCircle02Icon}
-                  />
-                  <Text className="text-success" weight="semibold">
-                    Conta conectada
-                  </Text>
-                </View>
-                <Menu>
-                  <Menu.Trigger asChild>
-                    <Button isIconOnly size="sm" variant="ghost">
-                      <HugeIcons icon={MoreVerticalIcon} />
-                    </Button>
-                  </Menu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Overlay className="bg-backdrop" />
-                    <Menu.Content presentation="popover">
-                      <Menu.Item onPress={handleEditPixKey}>
-                        <Menu.ItemTitle className="flex-none">
-                          Editar chave PIX
-                        </Menu.ItemTitle>
-                        <HugeIcons icon={Edit02Icon} />
-                      </Menu.Item>
-                    </Menu.Content>
-                  </Menu.Portal>
-                </Menu>
+          <Card className="gap-5 bg-success-soft">
+            <Card.Header>
+              <View className="flex-row items-center gap-2">
+                <Card.Title className="text-success">
+                  Conta conectada
+                </Card.Title>
+                <HugeIcons
+                  className="text-success"
+                  icon={CheckmarkCircle02Icon}
+                />
               </View>
+              <Card.Description className="text-success">
+                Sua conta está conectada e pronta para receber pagamentos via
+                PIX!
+              </Card.Description>
+            </Card.Header>
+            <Menu className="absolute top-2 right-2">
+              <Menu.Trigger asChild>
+                <Button isIconOnly size="sm" variant="ghost">
+                  <HugeIcons icon={MoreVerticalIcon} />
+                </Button>
+              </Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Overlay className="bg-backdrop" />
+                <Menu.Content presentation="popover">
+                  <Menu.Item onPress={handleEditPixKey}>
+                    <Menu.ItemTitle className="flex-none">
+                      Editar chave PIX
+                    </Menu.ItemTitle>
+                    <HugeIcons icon={Edit02Icon} />
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Portal>
+            </Menu>
+            <Card.Body className="gap-2">
               {account?.name ? (
-                <Text weight="semibold">{account.name}</Text>
+                <TextField>
+                  <Description>Nome da conta</Description>
+                  <Label>{account.name}</Label>
+                </TextField>
               ) : null}
               {account?.wooviPixKey ? (
-                <View className="gap-1">
-                  <Text color="muted" variant="description">
-                    Chave PIX
-                  </Text>
-                  <Text className="font-mono">{account.wooviPixKey}</Text>
-                </View>
+                <TextField>
+                  <Description>Chave PIX</Description>
+                  <Label>{account.wooviPixKey}</Label>
+                </TextField>
               ) : null}
-              <Description>
+            </Card.Body>
+
+            <Card.Footer className="flex-row gap-2">
+              <Card.Description>
                 Os pagamentos das suas ligas serão recebidos automaticamente
                 nesta conta via PIX.
-              </Description>
-            </Card.Body>
+              </Card.Description>
+            </Card.Footer>
           </Card>
         ) : account?.status === "pending" ? (
-          <Card className="gap-3">
-            <Card.Body className="items-center gap-3 py-6">
-              <Spinner />
-              <Text variant="title" weight="semibold">
-                Validando conta…
-              </Text>
-              <Description className="text-center">
+          <Card className="gap-5">
+            <Card.Header>
+              <View className="flex-row items-center gap-2">
+                <Spinner size="sm" />
+                <Card.Title>Validando conta…</Card.Title>
+              </View>
+              <Card.Description>
                 A validação da conta leva alguns instantes. Mantenha o app
                 aberto — avisaremos quando estiver tudo pronto.
-              </Description>
-            </Card.Body>
+              </Card.Description>
+            </Card.Header>
           </Card>
         ) : (
-          <Card className="gap-4">
-            <Card.Body className="gap-2">
+          <Card className="gap-5">
+            <Card.Header>
               <View className="flex-row items-center gap-2">
                 <View className="centered size-10 rounded-2xl bg-accent-soft">
                   <HugeIcons
@@ -310,32 +330,26 @@ export default function PaymentsRoute() {
                     icon={Wallet01Icon}
                   />
                 </View>
-                <Text variant="title" weight="semibold">
-                  Receba pagamentos nas suas ligas
-                </Text>
-              </View>
-              <Description>
-                Quando um jogador paga por uma liga, o valor é dividido — você
-                recebe sua parte automaticamente via PIX.
-              </Description>
-
-              {account?.status === "rejected" ? (
-                <View className="flex-row items-center gap-2">
-                  <HugeIcons
-                    className="size-4 text-danger"
-                    icon={Alert02Icon}
-                  />
-                  <Text className="text-danger" variant="description">
-                    Conta rejeitada. Tente conectar novamente.
-                  </Text>
+                <View>
+                  <Card.Title>Receba pagamentos nas suas ligas</Card.Title>
+                  <Card.Description>
+                    Quando um jogador paga por uma liga, o valor é dividido —
+                    você recebe sua parte automaticamente via PIX.
+                  </Card.Description>
                 </View>
+              </View>
+              {account?.status === "rejected" ? (
+                <Card.Description className="text-danger">
+                  Conta rejeitada. Tente conectar novamente.
+                </Card.Description>
               ) : null}
-
+            </Card.Header>
+            <Card.Body className="gap-2">
               <Controller
                 control={form.control}
                 name="pixKeyType"
                 render={({ field: typeField }) => (
-                  <View className="gap-1">
+                  <TextField isRequired>
                     <Label>Tipo de chave</Label>
                     <Select
                       onValueChange={(nextValue) => {
@@ -376,7 +390,7 @@ export default function PaymentsRoute() {
                         </Select.Content>
                       </Select.Portal>
                     </Select>
-                  </View>
+                  </TextField>
                 )}
               />
 
@@ -384,38 +398,51 @@ export default function PaymentsRoute() {
                 control={form.control}
                 name="pixKey"
                 render={({ field, fieldState }) => (
-                  <View className="gap-1">
+                  <TextField isRequired>
                     <Label>Chave PIX</Label>
                     <Input
                       autoCapitalize="none"
                       className="w-full"
                       isInvalid={Boolean(fieldState.error)}
+                      keyboardType={
+                        isNumericPixKey(form.getValues("pixKeyType"))
+                          ? "numeric"
+                          : "default"
+                      }
                       onBlur={field.onBlur}
                       onChangeText={(text) => {
                         const formType = form.getValues("pixKeyType");
                         const prev = String(field.value ?? "");
-                        const next = applyPixInputChange(prev, text, formType);
-                        field.onChange(next);
+                        const digits = applyPixInputChange(
+                          prev,
+                          text,
+                          formType
+                        );
+                        field.onChange(formatPixKey(digits, formType));
                       }}
                       placeholder="Digite sua chave PIX"
                       value={String(field.value ?? "")}
                       variant="secondary"
                     />
                     <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-                  </View>
+                  </TextField>
                 )}
               />
             </Card.Body>
 
-            <Button
-              className="w-full"
-              isDisabled={startOnboarding.isPending}
-              onPress={() => onSubmit().catch(() => undefined)}
-            >
-              <Button.Label>
-                {startOnboarding.isPending ? "Conectando..." : "Conectar conta"}
-              </Button.Label>
-            </Button>
+            <Card.Footer>
+              <Button
+                className="w-full"
+                isDisabled={startOnboarding.isPending}
+                onPress={() => onSubmit().catch(() => undefined)}
+              >
+                <Button.Label>
+                  {startOnboarding.isPending
+                    ? "Conectando..."
+                    : "Conectar conta"}
+                </Button.Label>
+              </Button>
+            </Card.Footer>
           </Card>
         )}
       </Page.ScrollView>

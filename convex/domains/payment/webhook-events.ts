@@ -52,7 +52,8 @@ export type OtherWooviEventPayload = {
 export type TransactionReceivedPayload = {
   event: typeof OPENPIX_TRANSACTION_RECEIVED;
   // Woovi wraps the relevant entities under `charge` and `transaction`.
-  // We only read `charge.correlationID` (our idempotency key).
+  // We only read `charge.correlationID` (our idempotency key) and the
+  // transaction's end-to-end identifier for reconciliation.
   charge: {
     correlationID: string;
     status: string;
@@ -61,6 +62,10 @@ export type TransactionReceivedPayload = {
   transaction?: {
     status?: string;
     value?: number;
+    // PIX end-to-end id (also exposed as `e2eId` on some payloads). Captured
+    // as `wooviTransactionId` when the webhook confirms payment.
+    transactionID?: string;
+    e2eId?: string;
   };
 };
 
@@ -78,6 +83,12 @@ export type ChargeCompletedPayload = {
     correlationID: string;
     status: string;
     value: number;
+  };
+  transaction?: {
+    status?: string;
+    value?: number;
+    transactionID?: string;
+    e2eId?: string;
   };
 };
 
@@ -106,7 +117,9 @@ const chargeWithValueSchema = chargeBaseSchema.extend({
 
 const transactionSchema = z
   .object({
+    e2eId: z.string().optional(),
     status: z.string().optional(),
+    transactionID: z.string().optional(),
     value: z.number().optional(),
   })
   .optional();

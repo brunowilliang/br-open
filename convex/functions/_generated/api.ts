@@ -2308,6 +2308,7 @@ export const api: {
         { leagueId: string },
         {
           activePlayerCount: number;
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2401,6 +2402,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2483,6 +2485,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2566,6 +2569,7 @@ export const api: {
         "mutation",
         "public",
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
@@ -2636,6 +2640,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2719,6 +2724,7 @@ export const api: {
         "public",
         { leagueId: string },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2801,6 +2807,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2888,6 +2895,7 @@ export const api: {
         "mutation",
         "public",
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
@@ -2959,6 +2967,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -3571,6 +3580,29 @@ export const api: {
           status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
         } | null
       >;
+      listMine: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          items: Array<{
+            amountCents: number;
+            chargeId: string;
+            expiresAt: string | null;
+            leagueId: string;
+            leagueName: string | null;
+            membershipId: string;
+            paidAt: string | null;
+            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          }>;
+        }
+      >;
+      simulatePayment: FunctionReference<
+        "mutation",
+        "public",
+        { membershipId: string },
+        { activated: boolean; membershipId: string | null }
+      >;
     };
     onboarding: {
       getStatus: FunctionReference<
@@ -4046,7 +4078,7 @@ export const internal: {
       applyPaidCharge: FunctionReference<
         "mutation",
         "internal",
-        { correlationId: string; wooviTransactionStatus?: string },
+        { correlationId: string; wooviTransactionId?: string },
         { activated: boolean; membershipId: string | null }
       >;
       expireChargeForMembership: FunctionReference<

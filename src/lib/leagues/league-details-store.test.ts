@@ -15,6 +15,7 @@ function makeLeagueOverview(
 ): LeagueOverview {
   return {
     activePlayerCount: 0,
+    approvalMode: "auto",
     avatarStorageId: null,
     categories: [],
     city: "Sao Paulo",

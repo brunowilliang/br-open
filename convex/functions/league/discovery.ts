@@ -4,6 +4,7 @@ import type { Id } from "../../functions/_generated/dataModel";
 import type { QueryCtx } from "../../functions/generated/server";
 
 import {
+  DEFAULT_LEAGUE_APPROVAL_MODE,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
@@ -51,6 +52,7 @@ async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
     ruleConfig: {
       ...record.ruleConfig,
       scheduleVisibility:

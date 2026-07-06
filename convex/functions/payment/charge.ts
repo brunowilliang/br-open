@@ -5,9 +5,11 @@ import { isLeaguePaid } from "../../domains/league/membership-rules";
 import { leagueMembership } from "../../domains/league/tables";
 import {
   createChargeOutputSchema,
+  listMyPaymentsOutputSchema,
   type PaymentChargeStatus,
   type SplitConfig,
 } from "../../domains/payment/contract";
+import { DEFAULT_LEAGUE_APPROVAL_MODE } from "../../domains/league/contract";
 import {
   CHARGE_EXPIRES_IN_SECONDS,
   canChargeBeExpired,
@@ -19,7 +21,12 @@ import {
 } from "../../domains/payment/rules";
 import { leaguePayment } from "../../domains/payment/tables";
 import { getEnv } from "../../lib/get-env";
-import { authAction, authQuery, privateMutation } from "../../lib/crpc";
+import {
+  authAction,
+  authMutation,
+  authQuery,
+  privateMutation,
+} from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { scheduleLeagueNotification } from "../notification/events";
@@ -177,6 +184,68 @@ export const getChargeForMembership = authQuery
   });
 
 // ---------------------------------------------------------------------------
+// List the viewer's payments (player-facing payment hub)
+// ---------------------------------------------------------------------------
+
+export const listMine = authQuery
+  .output(listMyPaymentsOutputSchema)
+  .query(async ({ ctx }) => {
+    // Resolve the viewer's active player profile (a user may have at most one).
+    const profile = await ctx.orm.query.playerProfile.findFirst({
+      where: { userId: ctx.userId },
+    });
+    if (!profile) {
+      return { items: [] };
+    }
+
+    const charges = await ctx.orm.query.leaguePayment.findMany({
+      limit: 50,
+      orderBy: { createdAt: "desc" },
+      where: {
+        playerProfileId: profile.id as Id<"playerProfile">,
+      },
+    });
+
+    // Hydrate league names in a single pass (most charges hit a handful of
+    // distinct leagues; keep it simple rather than fan-out per charge).
+    const leagueCache = new Map<Id<"league">, string | null>();
+    async function getLeagueName(id: Id<"league">) {
+      if (leagueCache.has(id)) {
+        return leagueCache.get(id) ?? null;
+      }
+      const found = await ctx.orm.query.league.findFirst({ where: { id } });
+      const name = found?.name ?? null;
+      leagueCache.set(id, name);
+      return name;
+    }
+
+    const items: Array<{
+      amountCents: number;
+      chargeId: string;
+      expiresAt: string | null;
+      leagueId: string;
+      leagueName: string | null;
+      membershipId: string;
+      paidAt: string | null;
+      status: PaymentChargeStatus;
+    }> = [];
+    for (const charge of charges) {
+      items.push({
+        amountCents: charge.amountCents,
+        chargeId: charge.id as Id<"leaguePayment">,
+        expiresAt: charge.expiresAt?.toISOString() ?? null,
+        leagueId: charge.leagueId as string,
+        leagueName: await getLeagueName(charge.leagueId as Id<"league">),
+        membershipId: charge.membershipId as string,
+        paidAt: charge.paidAt?.toISOString() ?? null,
+        status: (charge.status as PaymentChargeStatus) ?? "PENDING",
+      });
+    }
+
+    return { items };
+  });
+
+// ---------------------------------------------------------------------------
 // Private mutations (called via the kitcn caller from the webhook + cron)
 // ---------------------------------------------------------------------------
 
@@ -289,15 +358,15 @@ export const resolveWooviAccountForCharge = privateMutation
  * (charge → PAID, capacity re-check, membership → active, refund on
  * overflow, payment_confirmed notification) commits atomically.
  *
- * `wooviTransactionStatus` carries the Woovi transaction status string
- * (the payload's `transaction.status`, e.g. "COMPLETED") — not an id. The
- * previous field name (`wooviTransactionId`) was misleading.
+ * `wooviTransactionId` carries the PIX end-to-end transaction identifier
+ * (from `payload.transaction.transactionID` / `e2eId`), captured for
+ * reconciliation. It is distinct from `wooviChargeId` (the charge id).
  */
 export const applyPaidCharge = privateMutation
   .input(
     z.object({
       correlationId: z.string(),
-      wooviTransactionStatus: z.string().optional(),
+      wooviTransactionId: z.string().optional(),
     })
   )
   .output(
@@ -318,15 +387,16 @@ export const applyPaidCharge = privateMutation
     const membershipId = charge.membershipId as Id<"leagueMembership">;
     const now = new Date();
 
-    // Step 1: mark charge PAID.
+    // Step 1: mark charge PAID. Persist the PIX transaction id when present;
+    // do NOT overwrite `wooviChargeId` (the charge id captured at creation).
     await ctx.orm
       .update(leaguePayment)
       .set({
         paidAt: now,
         status: "PAID",
         updatedAt: now,
-        ...(input.wooviTransactionStatus
-          ? { wooviChargeId: input.wooviTransactionStatus }
+        ...(input.wooviTransactionId
+          ? { wooviTransactionId: input.wooviTransactionId }
           : {}),
       })
       .where(eq(leaguePayment.id, charge.id));
@@ -371,29 +441,68 @@ export const applyPaidCharge = privateMutation
       }
     }
 
-    // Step 4: activate membership.
+    // Step 4: decide the membership's next status.
+    // - Paid league + approvalMode `auto`   → `active` (PIX was the only gate).
+    // - Paid league + approvalMode `manual` → `pending` (manager must still
+    //   approve; payment is already confirmed so approval just flips to active).
+    const approvalMode =
+      currentLeague.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE;
+    const requiresManualApproval = approvalMode === "manual";
+
     await ctx.orm
       .update(leagueMembership)
       .set({
-        reviewedAt: now,
-        status: "active",
+        reviewedAt: requiresManualApproval ? null : now,
+        status: requiresManualApproval ? "pending" : "active",
         updatedAt: now,
       })
       .where(eq(leagueMembership.id, membershipId));
 
-    // Step 5: payment_confirmed notification.
+    // Step 5: notify — payment_confirmed for auto, requested-style for manual.
     const playerProfile = await ctx.orm.query.playerProfile.findFirst({
       where: { id: membership.playerProfileId as Id<"playerProfile"> },
     });
     if (playerProfile?.userId) {
-      await scheduleLeagueNotification(ctx, {
-        eventType: "league.membership.payment_confirmed",
-        leagueId: membership.leagueId as Id<"league">,
-        recipientUserIds: [playerProfile.userId as Id<"user">],
-      });
+      if (requiresManualApproval) {
+        // Tell the player their payment was received and is pending approval.
+        await scheduleLeagueNotification(ctx, {
+          eventType: "league.membership.payment_confirmed",
+          leagueId: membership.leagueId as Id<"league">,
+          metadata: { membershipId },
+          recipientUserIds: [playerProfile.userId as Id<"user">],
+        });
+        // Tell the managers there's a paid membership waiting for approval.
+        // The member table is owned by the auth domain; org admins/owners
+        // are the managers who approve join requests.
+        const orgMembers = await ctx.orm.query.member.findMany({
+          limit: 100,
+          where: {
+            organizationId: currentLeague.organizationId as Id<"organization">,
+          },
+        });
+        const managerUserIds = orgMembers
+          .filter((m) => m.role === "owner" || m.role === "admin")
+          .map((m) => m.userId as Id<"user">);
+        if (managerUserIds.length > 0) {
+          await scheduleLeagueNotification(ctx, {
+            actorUserId: playerProfile.userId,
+            eventType: "league.membership.requested",
+            leagueId: membership.leagueId as Id<"league">,
+            metadata: { membershipId },
+            recipientUserIds: managerUserIds,
+          });
+        }
+      } else {
+        await scheduleLeagueNotification(ctx, {
+          eventType: "league.membership.payment_confirmed",
+          leagueId: membership.leagueId as Id<"league">,
+          metadata: { membershipId },
+          recipientUserIds: [playerProfile.userId as Id<"user">],
+        });
+      }
     }
 
-    return { activated: true, membershipId };
+    return { activated: !requiresManualApproval, membershipId };
   });
 
 export const markChargeExpired = privateMutation
@@ -715,6 +824,9 @@ export const sendRenewalReminders = privateMutation.mutation(
               await scheduleLeagueNotification(ctx, {
                 eventType: "league.membership.renewal_due",
                 leagueId: charge.leagueId as Id<"league">,
+                metadata: {
+                  membershipId: charge.membershipId,
+                },
                 recipientUserIds: [playerProfile.userId as Id<"user">],
               });
             }
@@ -740,6 +852,9 @@ export const sendRenewalReminders = privateMutation.mutation(
             await scheduleLeagueNotification(ctx, {
               eventType: "league.membership.renewal_reminder",
               leagueId: charge.leagueId as Id<"league">,
+              metadata: {
+                membershipId: charge.membershipId,
+              },
               recipientUserIds: [playerProfile.userId as Id<"user">],
             });
           }
@@ -772,3 +887,41 @@ function asciiSafe(value: string): string {
     .filter((ch) => ch.codePointAt(0)! <= 0x7f)
     .join("");
 }
+
+// ---------------------------------------------------------------------------
+// DEV ONLY: simulate a PIX payment for testing checkout flow.
+// Calls applyPaidCharge directly, bypassing the webhook. Only callable when
+// DEPLOY_ENV !== "production".
+// ---------------------------------------------------------------------------
+
+export const simulatePayment = authMutation
+  .input(z.object({ membershipId: z.string().min(1) }))
+  .output(
+    z.object({ activated: z.boolean(), membershipId: z.string().nullable() })
+  )
+  .mutation(async ({ ctx, input }) => {
+    if (getEnv().DEPLOY_ENV === "production") {
+      throw new CRPCError({
+        code: "FORBIDDEN",
+        message: "Simulação de pagamento desativada em produção.",
+      });
+    }
+
+    const membershipId = input.membershipId as Id<"leagueMembership">;
+    const charge = await ctx.orm.query.leaguePayment.findFirst({
+      orderBy: { createdAt: "desc" },
+      where: { membershipId, status: "PENDING" },
+    });
+
+    if (!charge) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Nenhuma cobrança pendente encontrada para esta inscrição.",
+      });
+    }
+
+    return ctx.runMutation(internal.payment.charge.applyPaidCharge, {
+      correlationId: charge.wooviCorrelationId,
+      wooviTransactionId: `dev-simulated-${Date.now()}`,
+    });
+  });

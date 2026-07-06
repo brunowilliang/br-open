@@ -47,10 +47,16 @@ const scheduleVisibilityOptions = [
 ];
 
 const priceBillingIntervalOptions = [
+  { label: "Único", value: "once" as const },
   { label: "Semanal", value: "week" as const },
   { label: "Mensal", value: "month" as const },
   { label: "Trimestral", value: "quarter" as const },
   { label: "Anual", value: "year" as const },
+];
+
+const approvalModeOptions = [
+  { label: "Automática", value: "auto" as const },
+  { label: "Manual", value: "manual" as const },
 ];
 
 const DEFAULT_PAID_PRICE_CENTS = 9000;
@@ -65,6 +71,11 @@ const SETTINGS_RULE_INFO = {
     description:
       "Define se a liga cobra mensalidade dos jogadores. Ao ativar, configure o valor e o período (semanal, mensal, etc.).",
     title: "Cobrança",
+  },
+  approvalMode: {
+    description:
+      "Automática: o jogador vai direto pro pagamento. Manual: você aprova a solicitação antes do jogador pagar.",
+    title: "Aprovação de jogadores",
   },
 } as const;
 
@@ -99,6 +110,7 @@ export default function LeagueSettingsRoute() {
       "maxPlayers",
       "monthlyPriceCents",
       "priceBillingInterval",
+      "approvalMode",
     ],
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -122,6 +134,11 @@ export default function LeagueSettingsRoute() {
     control,
     name: "priceBillingInterval",
     defaultValue: getValues("priceBillingInterval"),
+  });
+  const approvalMode = useWatch({
+    control,
+    name: "approvalMode",
+    defaultValue: getValues("approvalMode"),
   });
   const scheduleVisibility = useWatch({
     control,
@@ -406,6 +423,35 @@ export default function LeagueSettingsRoute() {
                 </Segment.Group>
               </Segment>
               <FieldError>{priceBillingIntervalError ?? ""}</FieldError>
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Aprovação de jogadores</Label>
+              <Segment
+                isDisabled={isDisabled}
+                onValueChange={(nextValue) => {
+                  if (nextValue) {
+                    setValue(
+                      "approvalMode",
+                      nextValue as LeagueScreenValues["approvalMode"],
+                      fieldUpdateOptions
+                    );
+                  }
+                }}
+                value={approvalMode}
+              >
+                <Segment.Group>
+                  <Segment.Indicator />
+                  {approvalModeOptions.map((option) => (
+                    <Segment.Item key={option.value} value={option.value}>
+                      <Segment.Label>{option.label}</Segment.Label>
+                    </Segment.Item>
+                  ))}
+                </Segment.Group>
+              </Segment>
+              <Description>
+                {SETTINGS_RULE_INFO.approvalMode.description}
+              </Description>
             </TextField>
           </ToggleableRuleCard>
 

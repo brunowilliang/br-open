@@ -6,6 +6,7 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
   CreateLeagueSchema,
+  DEFAULT_LEAGUE_APPROVAL_MODE,
   DeleteLeagueSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
@@ -56,6 +57,7 @@ async function serializeLeague(
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
     ruleConfig: {
       ...record.ruleConfig,
       scheduleVisibility:
@@ -188,6 +190,7 @@ export const update = authMutation
         maxPlayers: input.maxPlayers,
         monthlyPriceCents: input.monthlyPriceCents,
         priceBillingInterval: input.priceBillingInterval,
+        approvalMode: input.approvalMode,
         ruleConfig: input.ruleConfig,
         coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,

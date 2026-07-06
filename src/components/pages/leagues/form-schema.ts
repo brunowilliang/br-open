@@ -34,6 +34,7 @@ export const LeagueSchema = z.object({
   categories: CreateLeagueSchema.shape.categories,
   courts: CreateLeagueSchema.shape.courts,
   maxPlayers: CreateLeagueSchema.shape.maxPlayers,
+  approvalMode: CreateLeagueSchema.shape.approvalMode,
   monthlyPriceCents: CreateLeagueSchema.shape.monthlyPriceCents,
   priceBillingInterval: CreateLeagueSchema.shape.priceBillingInterval,
   coverStorageId: CreateLeagueSchema.shape.coverStorageId,

@@ -398,9 +398,11 @@ export const requestJoin = authMutation
       });
     }
 
-    // Paid leagues go straight to `awaiting_payment` — the PIX payment is the
-    // gate, no manager approval needed. Free leagues keep the `pending` ->
-    // manager approval flow.
+    // Any paid league (auto or manual) sends the player straight to checkout
+    // (`awaiting_payment`). Free leagues keep the manager-approval queue
+    // (`pending`). In the manual flow, the manager approval happens AFTER
+    // payment: the webhook routes the paid membership to `pending` instead
+    // of `active` (see applyPaidCharge), and the manager approves from there.
     const isPaidLeague = isLeaguePaid(currentLeague);
     const joinStatus = isPaidLeague ? "awaiting_payment" : "pending";
 
@@ -426,10 +428,9 @@ export const requestJoin = authMutation
             .returning()
         )[0];
 
-    // Free leagues need manual manager approval — notify the managers so they
-    // can review. Paid leagues are gated by the PIX payment itself, so the
-    // "requested" notification is meaningless (managers have nothing to do);
-    // the player is notified automatically once payment is confirmed.
+    // Notify managers only for free leagues — they must approve the request
+    // before the player joins. Paid leagues go straight to checkout; the
+    // manager is notified later (after payment) when approval is required.
     if (!isPaidLeague) {
       const recipientUserIds = await getOrganizationMemberUserIds(
         ctx,
@@ -533,6 +534,9 @@ export const approve = authMutation
       });
     }
 
+    // In the manual flow, payment has already happened by the time the
+    // manager approves (the webhook routed paid+manual to `pending`).
+    // So approval always moves the membership to `active`.
     const rankingPosition = resolveApprovedMembershipRankingPosition({
       currentRankingPosition: currentMembership.rankingPosition,
       highestRankingPosition: await getHighestRankingPosition(ctx, leagueId),

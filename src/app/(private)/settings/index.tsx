@@ -31,6 +31,7 @@ type SettingsItem = {
   description: string;
   href: Href;
   icon: ComponentProps<typeof HugeIcons>["icon"];
+  playerOnly?: boolean;
   requiresOrganizer?: boolean;
   title: string;
 };
@@ -63,6 +64,13 @@ const sections: SettingsSection[] = [
         icon: Wallet01Icon,
         href: "/settings/organization/payments" as Href,
         requiresOrganizer: true,
+      },
+      {
+        title: "Meus pagamentos",
+        description: "Cobranças, vencimentos e histórico",
+        icon: Wallet01Icon,
+        href: "/settings/player/payments" as Href,
+        playerOnly: true,
       },
     ],
   },
@@ -255,7 +263,10 @@ export default function Settings() {
               {section.items
                 .filter(
                   (item) =>
-                    !(item.requiresOrganizer && !canShowOrganizerResources)
+                    !(
+                      (item.requiresOrganizer && !canShowOrganizerResources) ||
+                      (item.playerOnly && isOrganizationActor)
+                    )
                 )
                 .map((item, index) => (
                   <Fragment key={item.title}>

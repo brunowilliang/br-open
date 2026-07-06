@@ -368,6 +368,7 @@ export type DataModel = {
   };
   league: {
     document: {
+      approvalMode?: null | string;
       avatarStorageId?: null | string;
       categories: any;
       city: string;
@@ -392,6 +393,7 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "approvalMode"
       | "avatarStorageId"
       | "categories"
       | "city"
@@ -662,6 +664,7 @@ export type DataModel = {
       updatedAt: number;
       wooviChargeId?: null | string;
       wooviCorrelationId: string;
+      wooviTransactionId?: null | string;
       _id: Id<"leaguePayment">;
       _creationTime: number;
     };
@@ -682,7 +685,8 @@ export type DataModel = {
       | "status"
       | "updatedAt"
       | "wooviChargeId"
-      | "wooviCorrelationId";
+      | "wooviCorrelationId"
+      | "wooviTransactionId";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];

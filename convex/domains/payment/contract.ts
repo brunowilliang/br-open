@@ -81,3 +81,26 @@ export const createChargeOutputSchema = z.object({
 });
 
 export type CreateChargeOutput = z.infer<typeof createChargeOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// My payments list item (player-facing payment hub)
+// ---------------------------------------------------------------------------
+
+export const myPaymentItemSchema = z.object({
+  amountCents: z.number().int().nonnegative(),
+  chargeId: z.string(),
+  expiresAt: z.string().nullable(),
+  leagueId: z.string(),
+  leagueName: z.string().nullable(),
+  membershipId: z.string(),
+  paidAt: z.string().nullable(),
+  status: paymentChargeStatusSchema,
+});
+
+export type MyPaymentItem = z.infer<typeof myPaymentItemSchema>;
+
+export const listMyPaymentsOutputSchema = z.object({
+  items: z.array(myPaymentItemSchema),
+});
+
+export type ListMyPaymentsOutput = z.infer<typeof listMyPaymentsOutputSchema>;
