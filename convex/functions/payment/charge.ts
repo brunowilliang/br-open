@@ -4,8 +4,11 @@ import { z } from "zod";
 import { isLeaguePaid } from "../../domains/league/membership-rules";
 import { leagueMembership } from "../../domains/league/tables";
 import {
+  checkoutContextSchema,
   createChargeOutputSchema,
   listMyPaymentsOutputSchema,
+  paymentAccountSchema,
+  type CheckoutContext,
   type PaymentChargeStatus,
   type SplitConfig,
 } from "../../domains/payment/contract";
@@ -17,9 +20,9 @@ import {
   canChargeBeRefunded,
   canMembershipBeCharged,
   computeSplit,
-  normalizeWooviStatus,
+  normalizeProviderStatus,
 } from "../../domains/payment/rules";
-import { leaguePayment } from "../../domains/payment/tables";
+import { paymentCharge } from "../../domains/payment/tables";
 import { getEnv } from "../../lib/get-env";
 import {
   authAction,
@@ -33,34 +36,40 @@ import { scheduleLeagueNotification } from "../notification/events";
 import { getViewerContext } from "../viewer/context";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
 
+// Source type discriminator. Today only league membership charges exist; the
+// polymorphic pair (sourceType + sourceId) is ready for future sources
+// (event_registration, tournament_entry, ...).
+const SOURCE_TYPE_LEAGUE_MEMBERSHIP = "league_membership";
+
 // ---------------------------------------------------------------------------
-// Charge creation (authAction — calls the Woovi SDK via a Node action)
+// Charge creation (authAction — calls the provider SDK via a Node action)
 // ---------------------------------------------------------------------------
 
 const createChargeInput = z.object({
-  leagueId: z.string().min(1),
-  membershipId: z.string().min(1),
+  sourceId: z.string().min(1),
+  sourceType: z.string().min(1),
 });
 
 export const createCharge = authAction
   .input(createChargeInput)
   .output(createChargeOutputSchema)
   .action(async ({ ctx, input }) => {
-    const membershipId = input.membershipId as Id<"leagueMembership">;
-    const leagueId = input.leagueId as Id<"league">;
-    // Validate the membership is awaiting_payment and the league is paid.
+    const sourceId = input.sourceId;
+    const sourceType = input.sourceType;
+
+    // Validate the source is chargeable and gather amount + human label.
     const chargeData = await ctx.runMutation(
-      internal.payment.charge.validateMembershipForCharge,
+      internal.payment.charge.resolveSourceForCharge,
       {
-        leagueId,
-        membershipId,
+        sourceId,
+        sourceType,
         userId: ctx.userId,
       }
     );
 
-    // Require the org to have an ACTIVE Woovi subaccount to receive splits.
-    const wooviAccount = await ctx.runMutation(
-      internal.payment.charge.resolveWooviAccountForCharge,
+    // Require the org to have an ACTIVE payment account to receive splits.
+    const paymentAccount = await ctx.runMutation(
+      internal.payment.charge.resolvePaymentAccount,
       { organizationId: chargeData.organizationId }
     );
 
@@ -68,10 +77,10 @@ export const createCharge = authAction
     const split = computeSplit({
       amountCents: chargeData.amountCents,
       feePercent: getEnv().WOOVI_PLATFORM_FEE_PERCENT,
-      recipientPixKey: wooviAccount.wooviPixKey,
+      recipientPixKey: paymentAccount.pixKey,
     });
 
-    // Call the Woovi SDK via a Node action (woovi-node.ts has "use node").
+    // Call the provider SDK via a Node action (providerNode.ts has "use node").
     // Use ctx.runAction (NOT the kitcn caller) so this file never imports the
     // "use node" module — that would break Convex bundling.
     let chargeResult: {
@@ -86,17 +95,18 @@ export const createCharge = authAction
     };
     try {
       chargeResult = await ctx.runAction(
-        internal.payment.wooviNode.createChargeWithSplitAction,
+        internal.payment.providerNode.createChargeWithSplitAction,
         {
           amountCents: chargeData.amountCents,
-          comment: `Inscricao - ${asciiSafe(chargeData.leagueName)}`,
+          comment: `Inscricao - ${asciiSafe(chargeData.sourceLabel)}`,
           correlationId: buildCorrelationId({
-            membershipId,
+            sourceId,
+            sourceType,
             timestamp: Date.now(),
           }),
           expiresInSeconds: CHARGE_EXPIRES_IN_SECONDS,
           organizerCents: split.organizerCents,
-          recipientPixKey: wooviAccount.wooviPixKey,
+          recipientPixKey: paymentAccount.pixKey,
         }
       );
     } catch (error) {
@@ -115,72 +125,67 @@ export const createCharge = authAction
         brCode: chargeResult.brCode,
         correlationId: chargeResult.correlationId,
         expiresAt: chargeResult.expiresDate,
-        leagueId,
-        membershipId,
         organizationId: chargeData.organizationId,
         playerProfileId: chargeData.playerProfileId,
+        providerChargeId: chargeResult.transactionID,
         qrCodeImage: chargeResult.qrCodeImage,
+        sourceId,
+        sourceLabel: chargeData.sourceLabel,
+        sourceType,
         splitConfig: split,
-        status: normalizeWooviStatus(chargeResult.status),
-        wooviChargeId: chargeResult.transactionID,
+        status: normalizeProviderStatus(chargeResult.status),
       }
     );
 
     return {
       brCode: chargeResult.brCode,
-      // Field kept under the legacy name `brCodeBase64` so the checkout
-      // screen needs no changes. Woovi returns an HTTPS URL here.
-      brCodeBase64: chargeResult.qrCodeImage,
-      chargeId: savedCharge.id as Id<"leaguePayment">,
+      chargeId: savedCharge.id as Id<"paymentCharge">,
       expiresAt: chargeResult.expiresDate,
-      status: normalizeWooviStatus(chargeResult.status),
+      // Provider returns an HTTPS URL for the QR PNG (not a base64 string).
+      qrCodeUrl: chargeResult.qrCodeImage,
+      status: normalizeProviderStatus(chargeResult.status),
     };
   });
 
 // ---------------------------------------------------------------------------
-// Query for existing charge (to re-display QR code)
+// Checkout context (re-display a charge's QR code by chargeId)
 // ---------------------------------------------------------------------------
 
-export const getChargeForMembership = authQuery
-  .input(z.object({ membershipId: z.string().min(1) }))
-  .output(createChargeOutputSchema.nullable())
+export const getCheckoutContext = authQuery
+  .input(z.object({ chargeId: z.string().min(1) }))
+  .output(checkoutContextSchema)
   .query(async ({ ctx, input }) => {
-    const membershipId = input.membershipId as Id<"leagueMembership">;
-
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
-      orderBy: { createdAt: "desc" },
-      where: { membershipId, status: "PENDING" },
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { id: input.chargeId as Id<"paymentCharge"> },
     });
-
     if (!charge) {
-      return null;
-    }
-
-    // Ownership check: only the membership's owner may read their charge.
-    // Resolve membership -> playerProfile -> userId and verify against viewer.
-    const [membership, playerProfile] = await Promise.all([
-      ctx.orm.query.leagueMembership.findFirst({ where: { id: membershipId } }),
-      charge.playerProfileId
-        ? ctx.orm.query.playerProfile.findFirst({
-            where: { id: charge.playerProfileId as Id<"playerProfile"> },
-          })
-        : null,
-    ]);
-
-    if (!(membership && playerProfile) || playerProfile.userId !== ctx.userId) {
       throw new CRPCError({
         code: "NOT_FOUND",
         message: "Cobranca nao encontrada.",
       });
     }
-
+    // Ownership check: only the charge's owner may read it. Resolve
+    // paymentCharge -> playerProfile -> userId and verify against viewer.
+    const profile = await ctx.orm.query.playerProfile.findFirst({
+      where: { id: charge.playerProfileId as Id<"playerProfile"> },
+    });
+    if (!profile || profile.userId !== ctx.userId) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Cobranca nao encontrada.",
+      });
+    }
     return {
+      amountCents: charge.amountCents,
       brCode: charge.brCode ?? "",
-      brCodeBase64: charge.qrCodeImage ?? "",
-      chargeId: charge.id as Id<"leaguePayment">,
+      chargeId: charge.id as Id<"paymentCharge">,
       expiresAt: charge.expiresAt?.toISOString() ?? null,
+      qrCodeUrl: charge.qrCodeImage ?? "",
+      sourceId: charge.sourceId,
+      sourceLabel: charge.sourceLabel ?? null,
+      sourceType: charge.sourceType,
       status: (charge.status as PaymentChargeStatus) ?? "PENDING",
-    };
+    } satisfies CheckoutContext;
   });
 
 // ---------------------------------------------------------------------------
@@ -198,7 +203,7 @@ export const listMine = authQuery
       return { items: [] };
     }
 
-    const charges = await ctx.orm.query.leaguePayment.findMany({
+    const charges = await ctx.orm.query.paymentCharge.findMany({
       limit: 50,
       orderBy: { createdAt: "desc" },
       where: {
@@ -206,41 +211,17 @@ export const listMine = authQuery
       },
     });
 
-    // Hydrate league names in a single pass (most charges hit a handful of
-    // distinct leagues; keep it simple rather than fan-out per charge).
-    const leagueCache = new Map<Id<"league">, string | null>();
-    async function getLeagueName(id: Id<"league">) {
-      if (leagueCache.has(id)) {
-        return leagueCache.get(id) ?? null;
-      }
-      const found = await ctx.orm.query.league.findFirst({ where: { id } });
-      const name = found?.name ?? null;
-      leagueCache.set(id, name);
-      return name;
-    }
-
-    const items: Array<{
-      amountCents: number;
-      chargeId: string;
-      expiresAt: string | null;
-      leagueId: string;
-      leagueName: string | null;
-      membershipId: string;
-      paidAt: string | null;
-      status: PaymentChargeStatus;
-    }> = [];
-    for (const charge of charges) {
-      items.push({
-        amountCents: charge.amountCents,
-        chargeId: charge.id as Id<"leaguePayment">,
-        expiresAt: charge.expiresAt?.toISOString() ?? null,
-        leagueId: charge.leagueId as string,
-        leagueName: await getLeagueName(charge.leagueId as Id<"league">),
-        membershipId: charge.membershipId as string,
-        paidAt: charge.paidAt?.toISOString() ?? null,
-        status: (charge.status as PaymentChargeStatus) ?? "PENDING",
-      });
-    }
+    // No league join/cache needed: sourceLabel is snapshotted on each charge.
+    const items = charges.map((charge) => ({
+      amountCents: charge.amountCents,
+      chargeId: charge.id as Id<"paymentCharge">,
+      expiresAt: charge.expiresAt?.toISOString() ?? null,
+      paidAt: charge.paidAt?.toISOString() ?? null,
+      sourceId: charge.sourceId,
+      sourceLabel: charge.sourceLabel ?? null,
+      sourceType: charge.sourceType,
+      status: (charge.status as PaymentChargeStatus) ?? "PENDING",
+    }));
 
     return { items };
   });
@@ -254,16 +235,17 @@ const saveChargeInput = z.object({
   brCode: z.string(),
   correlationId: z.string(),
   expiresAt: z.string().nullable(),
-  leagueId: z.string(),
-  membershipId: z.string(),
   organizationId: z.string(),
   playerProfileId: z.string(),
+  providerChargeId: z.string(),
   qrCodeImage: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  sourceType: z.string(),
   splitConfig: z.custom<SplitConfig>(
     (v) => typeof v === "object" && v !== null
   ),
   status: z.string(),
-  wooviChargeId: z.string(),
 });
 
 export const saveCharge = privateMutation
@@ -274,48 +256,29 @@ export const saveCharge = privateMutation
       ? new Date(input.expiresAt)
       : new Date(Date.now() + CHARGE_EXPIRES_IN_SECONDS * 1000);
 
-    const existing = await ctx.orm.query.leaguePayment.findFirst({
-      where: { membershipId: input.membershipId as Id<"leagueMembership"> },
-    });
-
-    if (existing) {
-      await ctx.orm
-        .update(leaguePayment)
-        .set({
-          amountCents: input.amountCents,
-          brCode: input.brCode,
-          expiresAt,
-          paidAt: null,
-          qrCodeImage: input.qrCodeImage,
-          splitConfig: input.splitConfig,
-          status: input.status,
-          updatedAt: now,
-          wooviChargeId: input.wooviChargeId,
-          wooviCorrelationId: input.correlationId,
-        })
-        .where(eq(leaguePayment.id, existing.id));
-      return existing;
-    }
-
+    // Always INSERT a new row. This gives a real per-charge history for the
+    // player-facing "my payments" list (the previous upsert collapsed
+    // retries onto a single row, hiding history).
     const row = (
       await ctx.orm
-        .insert(leaguePayment)
+        .insert(paymentCharge)
         .values({
           amountCents: input.amountCents,
           brCode: input.brCode,
+          correlationId: input.correlationId,
           createdAt: now,
           expiresAt,
-          leagueId: input.leagueId as Id<"league">,
-          membershipId: input.membershipId as Id<"leagueMembership">,
           organizationId: input.organizationId as Id<"organization">,
           paidAt: null,
           playerProfileId: input.playerProfileId as Id<"playerProfile">,
+          providerChargeId: input.providerChargeId,
           qrCodeImage: input.qrCodeImage,
+          sourceId: input.sourceId,
+          sourceLabel: input.sourceLabel,
+          sourceType: input.sourceType,
           splitConfig: input.splitConfig,
           status: input.status,
           updatedAt: now,
-          wooviChargeId: input.wooviChargeId,
-          wooviCorrelationId: input.correlationId,
         })
         .returning()
     )[0];
@@ -323,14 +286,18 @@ export const saveCharge = privateMutation
     return row;
   });
 
-export const resolveWooviAccountForCharge = privateMutation
+export const resolvePaymentAccount = privateMutation
   .input(z.object({ organizationId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    const account = await ctx.orm.query.organizationWooviAccount.findFirst({
-      where: {
-        organizationId: input.organizationId as Id<"organization">,
-      },
+    // The payment account is now embedded JSON on `organization.paymentAccount`
+    // (the old `organizationWooviAccount` table was removed). Validate it with
+    // `paymentAccountSchema` before trusting the raw JSON.
+    const org = await ctx.orm.query.organization.findFirst({
+      where: { id: input.organizationId as Id<"organization"> },
     });
+    const account = org?.paymentAccount
+      ? paymentAccountSchema.safeParse(org.paymentAccount).data
+      : null;
 
     if (!account || account.status !== "active") {
       throw new CRPCError({
@@ -343,30 +310,102 @@ export const resolveWooviAccountForCharge = privateMutation
     return {
       name: account.name,
       status: account.status,
-      wooviPixKey: account.wooviPixKey,
+      pixKey: account.pixKey,
     };
   });
 
 /**
- * Atomic "charge paid → activate membership" pipeline.
+ * Resolves a payable source into the data needed to create a charge
+ * (amount, human label, owning org, player profile).
+ *
+ * Polymorphic over `sourceType` + `sourceId`. Today only
+ * `league_membership` is supported (sourceId is a `leagueMembership` id);
+ * other source types throw NOT_FOUND until a handler is added.
+ */
+export const resolveSourceForCharge = privateMutation
+  .input(
+    z.object({
+      sourceId: z.string(),
+      sourceType: z.string(),
+      userId: z.string(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    if (input.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Tipo de cobranca nao suportado.",
+      });
+    }
+
+    const membershipId = input.sourceId as Id<"leagueMembership">;
+
+    const membership = await ctx.orm.query.leagueMembership.findFirst({
+      where: { id: membershipId },
+    });
+
+    if (!membership) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Solicitacao nao encontrada.",
+      });
+    }
+
+    if (!canMembershipBeCharged(membership)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Esta solicitacao nao esta aguardando pagamento.",
+      });
+    }
+
+    const currentLeague = await ctx.orm.query.league.findFirst({
+      where: { id: membership.leagueId as Id<"league"> },
+    });
+
+    if (!currentLeague) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Liga nao encontrada.",
+      });
+    }
+
+    if (!isLeaguePaid(currentLeague)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Esta liga nao e paga.",
+      });
+    }
+
+    return {
+      amountCents: currentLeague.monthlyPriceCents ?? 0,
+      organizationId: currentLeague.organizationId as string,
+      playerProfileId: membership.playerProfileId as string,
+      sourceLabel: currentLeague.name,
+    };
+  });
+
+/**
+ * Atomic "charge paid → apply source side effect" pipeline.
  *
  * Replaces the previous two-step `markChargePaid` → `activateMembership`
  * sequence that ran as separate transactions and could leave a charge PAID
  * with the membership still `awaiting_payment` if the second step failed.
  *
- * The webhook now calls this single mutation so the full transition
- * (charge → PAID, capacity re-check, membership → active, refund on
- * overflow, payment_confirmed notification) commits atomically.
+ * The webhook calls this single mutation so the full transition commits
+ * atomically. The source-specific side effect (capacity re-check, membership
+ * activation, refund on overflow, notifications) runs inside a
+ * `sourceType === "league_membership"` branch; other source types just leave
+ * the charge PAID for a reconciler.
  *
- * `wooviTransactionId` carries the PIX end-to-end transaction identifier
+ * `providerTransactionId` carries the PIX end-to-end transaction identifier
  * (from `payload.transaction.transactionID` / `e2eId`), captured for
- * reconciliation. It is distinct from `wooviChargeId` (the charge id).
+ * reconciliation. It is distinct from `providerChargeId` (the charge id).
  */
 export const applyPaidCharge = privateMutation
   .input(
     z.object({
       correlationId: z.string(),
-      wooviTransactionId: z.string().optional(),
+      providerTransactionId: z.string().optional(),
     })
   )
   .output(
@@ -376,30 +415,37 @@ export const applyPaidCharge = privateMutation
     })
   )
   .mutation(async ({ ctx, input }) => {
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
-      where: { wooviCorrelationId: input.correlationId },
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { correlationId: input.correlationId },
     });
 
     if (!(charge && canChargeBePaid(charge))) {
       return { activated: false, membershipId: null };
     }
 
-    const membershipId = charge.membershipId as Id<"leagueMembership">;
     const now = new Date();
 
     // Step 1: mark charge PAID. Persist the PIX transaction id when present;
-    // do NOT overwrite `wooviChargeId` (the charge id captured at creation).
+    // do NOT overwrite `providerChargeId` (captured at creation).
     await ctx.orm
-      .update(leaguePayment)
+      .update(paymentCharge)
       .set({
         paidAt: now,
         status: "PAID",
         updatedAt: now,
-        ...(input.wooviTransactionId
-          ? { wooviTransactionId: input.wooviTransactionId }
+        ...(input.providerTransactionId
+          ? { providerTransactionId: input.providerTransactionId }
           : {}),
       })
-      .where(eq(leaguePayment.id, charge.id));
+      .where(eq(paymentCharge.id, charge.id));
+
+    // Dispatch on source type. Today only league_membership has a side
+    // effect; other sources leave the charge PAID for a reconciler.
+    if (charge.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
+      return { activated: false, membershipId: null };
+    }
+
+    const membershipId = charge.sourceId as Id<"leagueMembership">;
 
     // Step 2: load membership for activation.
     const membership = await ctx.orm.query.leagueMembership.findFirst({
@@ -431,19 +477,19 @@ export const applyPaidCharge = privateMutation
       });
       if (activeMemberships.length >= maxPlayers) {
         // League filled up between charge creation and webhook. Refund and
-        // revert membership to `left`. markChargeRefunded is a separate
-        // mutation that runs in its own transaction; we accept the small
-        // window (refund failure leaves charge PAID, membership awaiting).
+        // revert membership to `left`. markChargeRefunded runs in its own
+        // transaction; we accept the small window (refund failure leaves
+        // charge PAID, membership awaiting).
         await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
-          correlationId: charge.wooviCorrelationId,
+          correlationId: charge.correlationId,
         });
         return { activated: false, membershipId };
       }
     }
 
     // Step 4: decide the membership's next status.
-    // - Paid league + approvalMode `auto`   → `active` (PIX was the only gate).
-    // - Paid league + approvalMode `manual` → `pending` (manager must still
+    // - Paid league + approvalMode `auto`   -> `active` (PIX was the only gate).
+    // - Paid league + approvalMode `manual` -> `pending` (manager must still
     //   approve; payment is already confirmed so approval just flips to active).
     const approvalMode =
       currentLeague.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE;
@@ -468,7 +514,7 @@ export const applyPaidCharge = privateMutation
         await scheduleLeagueNotification(ctx, {
           eventType: "league.membership.payment_confirmed",
           leagueId: membership.leagueId as Id<"league">,
-          metadata: { membershipId },
+          metadata: { chargeId: charge.id, membershipId },
           recipientUserIds: [playerProfile.userId as Id<"user">],
         });
         // Tell the managers there's a paid membership waiting for approval.
@@ -488,7 +534,7 @@ export const applyPaidCharge = privateMutation
             actorUserId: playerProfile.userId,
             eventType: "league.membership.requested",
             leagueId: membership.leagueId as Id<"league">,
-            metadata: { membershipId },
+            metadata: { chargeId: charge.id, membershipId },
             recipientUserIds: managerUserIds,
           });
         }
@@ -496,7 +542,7 @@ export const applyPaidCharge = privateMutation
         await scheduleLeagueNotification(ctx, {
           eventType: "league.membership.payment_confirmed",
           leagueId: membership.leagueId as Id<"league">,
-          metadata: { membershipId },
+          metadata: { chargeId: charge.id, membershipId },
           recipientUserIds: [playerProfile.userId as Id<"user">],
         });
       }
@@ -508,8 +554,8 @@ export const applyPaidCharge = privateMutation
 export const markChargeExpired = privateMutation
   .input(z.object({ correlationId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
-      where: { wooviCorrelationId: input.correlationId },
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { correlationId: input.correlationId },
     });
 
     if (!charge) {
@@ -522,25 +568,25 @@ export const markChargeExpired = privateMutation
 
     const now = new Date();
     await ctx.orm
-      .update(leaguePayment)
+      .update(paymentCharge)
       .set({
         status: "EXPIRED",
         updatedAt: now,
       })
-      .where(eq(leaguePayment.id, charge.id));
+      .where(eq(paymentCharge.id, charge.id));
 
     return {
-      leagueId: charge.leagueId as Id<"league">,
-      membershipId: charge.membershipId as Id<"leagueMembership">,
       playerProfileId: charge.playerProfileId as Id<"playerProfile">,
+      sourceId: charge.sourceId,
+      sourceType: charge.sourceType,
     };
   });
 
 export const markChargeRefunded = privateMutation
   .input(z.object({ correlationId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
-      where: { wooviCorrelationId: input.correlationId },
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { correlationId: input.correlationId },
     });
 
     if (!charge) {
@@ -553,44 +599,54 @@ export const markChargeRefunded = privateMutation
 
     const now = new Date();
     await ctx.orm
-      .update(leaguePayment)
+      .update(paymentCharge)
       .set({
         status: "REFUNDED",
         updatedAt: now,
       })
-      .where(eq(leaguePayment.id, charge.id));
+      .where(eq(paymentCharge.id, charge.id));
 
-    await ctx.orm
-      .update(leagueMembership)
-      .set({
-        rankingPosition: null,
-        status: "left",
-        updatedAt: now,
-      })
-      .where(
-        eq(leagueMembership.id, charge.membershipId as Id<"leagueMembership">)
-      );
-
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { id: charge.playerProfileId as Id<"playerProfile"> },
-    });
-    if (playerProfile?.userId) {
-      await scheduleLeagueNotification(ctx, {
-        eventType: "league.membership.payment_refunded",
-        leagueId: charge.leagueId as Id<"league">,
-        recipientUserIds: [playerProfile.userId as Id<"user">],
+    // Source-specific refund side effects.
+    if (charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
+      const membershipId = charge.sourceId as Id<"leagueMembership">;
+      const membership = await ctx.orm.query.leagueMembership.findFirst({
+        where: { id: membershipId },
       });
+      await ctx.orm
+        .update(leagueMembership)
+        .set({
+          rankingPosition: null,
+          status: "left",
+          updatedAt: now,
+        })
+        .where(eq(leagueMembership.id, membershipId));
+
+      const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+        where: { id: charge.playerProfileId as Id<"playerProfile"> },
+      });
+      if (playerProfile?.userId) {
+        await scheduleLeagueNotification(ctx, {
+          eventType: "league.membership.payment_refunded",
+          leagueId: membership?.leagueId as Id<"league">,
+          metadata: { chargeId: charge.id },
+          recipientUserIds: [playerProfile.userId as Id<"user">],
+        });
+      }
     }
 
     return charge.id;
   });
 
 export const expireChargeForMembership = privateMutation
-  .input(z.object({ membershipId: z.string() }))
+  .input(z.object({ sourceId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
+    // Today only called for league_membership sources; `sourceId` is the
+    // leagueMembership id. Expire the most recent PENDING charge for it.
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      orderBy: { createdAt: "desc" },
       where: {
-        membershipId: input.membershipId as Id<"leagueMembership">,
+        sourceId: input.sourceId,
+        sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
         status: "PENDING",
       },
     });
@@ -601,70 +657,14 @@ export const expireChargeForMembership = privateMutation
 
     const now = new Date();
     await ctx.orm
-      .update(leaguePayment)
+      .update(paymentCharge)
       .set({
         status: "EXPIRED",
         updatedAt: now,
       })
-      .where(eq(leaguePayment.id, charge.id));
+      .where(eq(paymentCharge.id, charge.id));
 
     return charge.id;
-  });
-
-export const validateMembershipForCharge = privateMutation
-  .input(
-    z.object({
-      leagueId: z.string(),
-      membershipId: z.string(),
-      userId: z.string(),
-    })
-  )
-  .mutation(async ({ ctx, input }) => {
-    const membershipId = input.membershipId as Id<"leagueMembership">;
-    const leagueId = input.leagueId as Id<"league">;
-
-    const membership = await ctx.orm.query.leagueMembership.findFirst({
-      where: { id: membershipId, leagueId },
-    });
-
-    if (!membership) {
-      throw new CRPCError({
-        code: "NOT_FOUND",
-        message: "Solicitacao nao encontrada.",
-      });
-    }
-
-    if (!canMembershipBeCharged(membership)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esta solicitacao nao esta aguardando pagamento.",
-      });
-    }
-
-    const currentLeague = await ctx.orm.query.league.findFirst({
-      where: { id: leagueId },
-    });
-
-    if (!currentLeague) {
-      throw new CRPCError({
-        code: "NOT_FOUND",
-        message: "Liga nao encontrada.",
-      });
-    }
-
-    if (!isLeaguePaid(currentLeague)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esta liga nao e paga.",
-      });
-    }
-
-    return {
-      amountCents: currentLeague.monthlyPriceCents ?? 0,
-      leagueName: currentLeague.name,
-      organizationId: currentLeague.organizationId as string,
-      playerProfileId: membership.playerProfileId as string,
-    };
   });
 
 export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
@@ -672,7 +672,7 @@ export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
     return { expiredCount: 0 };
   }
   const now = new Date();
-  const stale = await ctx.orm.query.leaguePayment.findMany({
+  const stale = await ctx.orm.query.paymentCharge.findMany({
     limit: 100,
     where: { status: "PENDING" },
   });
@@ -682,22 +682,31 @@ export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
 
   for (const charge of expired) {
     await ctx.orm
-      .update(leaguePayment)
+      .update(paymentCharge)
       .set({
         status: "EXPIRED",
         updatedAt: now,
       })
-      .where(eq(leaguePayment.id, charge.id));
+      .where(eq(paymentCharge.id, charge.id));
 
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { id: charge.playerProfileId as Id<"playerProfile"> },
-    });
-    if (playerProfile?.userId) {
-      await scheduleLeagueNotification(ctx, {
-        eventType: "league.membership.payment_expired",
-        leagueId: charge.leagueId as Id<"league">,
-        recipientUserIds: [playerProfile.userId as Id<"user">],
+    // Source-specific notification.
+    if (charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
+      const membership = await ctx.orm.query.leagueMembership.findFirst({
+        where: { id: charge.sourceId as Id<"leagueMembership"> },
       });
+      if (membership) {
+        const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+          where: { id: charge.playerProfileId as Id<"playerProfile"> },
+        });
+        if (playerProfile?.userId) {
+          await scheduleLeagueNotification(ctx, {
+            eventType: "league.membership.payment_expired",
+            leagueId: membership.leagueId as Id<"league">,
+            metadata: { chargeId: charge.id },
+            recipientUserIds: [playerProfile.userId as Id<"user">],
+          });
+        }
+      }
     }
   }
 
@@ -744,9 +753,10 @@ export const resolveActiveManagerOrg = privateMutation
 // ---------------------------------------------------------------------------
 // Cron entry (Phase 3.2): manual renewal reminders.
 //
-// For each PAID charge, computes nextDue = paidAt + billingInterval. Sends
-// renewal_reminder (≤3 days before due) or marks the membership `suspended`
-// and emits renewal_due (past due + no newer PAID charge for the membership).
+// For each PAID league_membership charge, computes nextDue = paidAt +
+// billingInterval. Sends renewal_reminder (<=3 days before due) or marks the
+// membership `suspended` and emits renewal_due (past due + no newer PAID
+// charge for the membership).
 // ---------------------------------------------------------------------------
 
 const RENEWAL_REMINDER_WINDOW_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
@@ -766,7 +776,7 @@ export const sendRenewalReminders = privateMutation.mutation(
     }
     const now = Date.now();
     // Sweep PAID charges in batches of 100.
-    const paid = await ctx.orm.query.leaguePayment.findMany({
+    const paid = await ctx.orm.query.paymentCharge.findMany({
       limit: 100,
       where: { status: "PAID" },
     });
@@ -775,8 +785,18 @@ export const sendRenewalReminders = privateMutation.mutation(
       if (!charge.paidAt) {
         continue;
       }
+      // Only league_membership charges have a billing interval today.
+      if (charge.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
+        continue;
+      }
+      const membership = await ctx.orm.query.leagueMembership.findFirst({
+        where: { id: charge.sourceId as Id<"leagueMembership"> },
+      });
+      if (!membership) {
+        continue;
+      }
       const league = await ctx.orm.query.league.findFirst({
-        where: { id: charge.leagueId as Id<"league"> },
+        where: { id: membership.leagueId as Id<"league"> },
       });
       if (!league) {
         continue;
@@ -795,21 +815,20 @@ export const sendRenewalReminders = privateMutation.mutation(
       // Already past due: check if there's a newer PAID charge for this
       // membership (the player renewed). If yes, skip. If not, suspend + notify.
       if (nextDueMs <= now) {
-        const newer = await ctx.orm.query.leaguePayment.findFirst({
+        const newer = await ctx.orm.query.paymentCharge.findFirst({
           orderBy: { paidAt: "desc" },
           where: {
-            membershipId: charge.membershipId as Id<"leagueMembership">,
+            sourceId: charge.sourceId,
+            sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
             status: "PAID",
           },
         });
         // If `charge` IS the latest PAID one (no newer), it's overdue.
         if (!newer || newer.id === charge.id) {
-          const membership = await ctx.orm.query.leagueMembership.findFirst({
-            where: { id: charge.membershipId as Id<"leagueMembership"> },
-          });
           // Only suspend + notify on the active->suspended transition. Once
           // suspended, subsequent daily runs skip (no spam).
-          if (membership && membership.status === "active") {
+          // biome-ignore lint/style/useCollapsedIf: explicit block keeps the active->suspended guard readable
+          if (membership.status === "active") {
             await ctx.orm
               .update(leagueMembership)
               .set({
@@ -823,9 +842,10 @@ export const sendRenewalReminders = privateMutation.mutation(
             if (playerProfile?.userId) {
               await scheduleLeagueNotification(ctx, {
                 eventType: "league.membership.renewal_due",
-                leagueId: charge.leagueId as Id<"league">,
+                leagueId: membership.leagueId as Id<"league">,
                 metadata: {
-                  membershipId: charge.membershipId,
+                  chargeId: charge.id,
+                  membershipId: charge.sourceId,
                 },
                 recipientUserIds: [playerProfile.userId as Id<"user">],
               });
@@ -838,12 +858,7 @@ export const sendRenewalReminders = privateMutation.mutation(
       // Within the reminder window: send renewal_reminder, deduped to once
       // per 24h via lastRenewalReminderSentAt on the membership.
       if (nextDueMs - now <= RENEWAL_REMINDER_WINDOW_MS) {
-        const membershipForReminder =
-          await ctx.orm.query.leagueMembership.findFirst({
-            where: { id: charge.membershipId as Id<"leagueMembership"> },
-          });
-        const lastSentMs =
-          membershipForReminder?.lastRenewalReminderSentAt?.getTime() ?? 0;
+        const lastSentMs = membership.lastRenewalReminderSentAt?.getTime() ?? 0;
         if (now - lastSentMs >= 24 * 60 * 60 * 1000) {
           const playerProfile = await ctx.orm.query.playerProfile.findFirst({
             where: { id: charge.playerProfileId as Id<"playerProfile"> },
@@ -851,22 +866,21 @@ export const sendRenewalReminders = privateMutation.mutation(
           if (playerProfile?.userId) {
             await scheduleLeagueNotification(ctx, {
               eventType: "league.membership.renewal_reminder",
-              leagueId: charge.leagueId as Id<"league">,
+              leagueId: membership.leagueId as Id<"league">,
               metadata: {
-                membershipId: charge.membershipId,
+                chargeId: charge.id,
+                membershipId: charge.sourceId,
               },
               recipientUserIds: [playerProfile.userId as Id<"user">],
             });
           }
-          if (membershipForReminder) {
-            await ctx.orm
-              .update(leagueMembership)
-              .set({
-                lastRenewalReminderSentAt: new Date(now),
-                updatedAt: new Date(now),
-              })
-              .where(eq(leagueMembership.id, membershipForReminder.id));
-          }
+          await ctx.orm
+            .update(leagueMembership)
+            .set({
+              lastRenewalReminderSentAt: new Date(now),
+              updatedAt: new Date(now),
+            })
+            .where(eq(leagueMembership.id, membership.id));
         }
       }
     }
@@ -876,10 +890,11 @@ export const sendRenewalReminders = privateMutation.mutation(
 );
 
 function buildCorrelationId(args: {
-  membershipId: string;
+  sourceId: string;
+  sourceType: string;
   timestamp: number;
 }): string {
-  return `bropen:${args.membershipId}:${args.timestamp}`;
+  return `bropen:${args.sourceType}:${args.sourceId}:${args.timestamp}`;
 }
 
 function asciiSafe(value: string): string {
@@ -895,7 +910,7 @@ function asciiSafe(value: string): string {
 // ---------------------------------------------------------------------------
 
 export const simulatePayment = authMutation
-  .input(z.object({ membershipId: z.string().min(1) }))
+  .input(z.object({ chargeId: z.string().min(1) }))
   .output(
     z.object({ activated: z.boolean(), membershipId: z.string().nullable() })
   )
@@ -907,21 +922,20 @@ export const simulatePayment = authMutation
       });
     }
 
-    const membershipId = input.membershipId as Id<"leagueMembership">;
-    const charge = await ctx.orm.query.leaguePayment.findFirst({
-      orderBy: { createdAt: "desc" },
-      where: { membershipId, status: "PENDING" },
+    const chargeId = input.chargeId as Id<"paymentCharge">;
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { id: chargeId },
     });
 
     if (!charge) {
       throw new CRPCError({
         code: "NOT_FOUND",
-        message: "Nenhuma cobrança pendente encontrada para esta inscrição.",
+        message: "Cobrança não encontrada.",
       });
     }
 
     return ctx.runMutation(internal.payment.charge.applyPaidCharge, {
-      correlationId: charge.wooviCorrelationId,
-      wooviTransactionId: `dev-simulated-${Date.now()}`,
+      correlationId: charge.correlationId,
+      providerTransactionId: `dev-simulated-${Date.now()}`,
     });
   });

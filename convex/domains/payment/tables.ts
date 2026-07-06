@@ -9,79 +9,54 @@ import {
 } from "kitcn/orm";
 
 import * as authTables from "../auth/tables";
-import * as leagueTables from "../league/tables";
 import * as playerTables from "../player/tables";
 
 import type { SplitConfig } from "./contract";
 
 /**
- * Onboards an organization as a Woovi split recipient (subaccount).
+ * One row per PIX charge created for a payable source (today: a league
+ * membership; in the future: event registrations, tournament entries, ...).
  *
- * One row per organization. The subaccount is created synchronously via
- * `POST /api/v1/subaccount` and is usable immediately (validated in the
- * 2026-07-02 PoC). The `wooviPixKey` is the value used as the recipient
- * in a charge's `splits` array.
+ * The charge is polymorphic over its `sourceType` + `sourceId` pair — the
+ * pair identifies what was paid for (e.g. a `leagueMembership` row). The
+ * webhook/handlers dispatch on `sourceType` to apply the side effect
+ * appropriate for that source (e.g. activate a membership, confirm a
+ * registration).
+ *
+ * `correlationId` is our idempotency key (sent as `correlationID` to Woovi,
+ * echoed back, referenced by the webhook as `charge.correlationID`).
  */
-export const organizationWooviAccount = convexTable(
-  "organizationWooviAccount",
+export const paymentCharge = convexTable(
+  "paymentCharge",
   {
     organizationId: id("organization")
       .notNull()
       .references(() => authTables.organization.id, { onDelete: "cascade" }),
-    // PIX key supplied at subaccount creation — IS the split recipient.
-    wooviPixKey: text().notNull(),
-    name: text().notNull(),
-    status: text().notNull(),
-    onboardedAt: timestamp(),
-    createdAt: timestamp().notNull(),
-    updatedAt: timestamp().notNull(),
-  },
-  (organizationWooviAccount) => [
-    index("organizationId").on(organizationWooviAccount.organizationId),
-  ]
-);
-
-/**
- * One row per PIX charge created for a league membership payment.
- *
- * Created when the player initiates payment; updated by the webhook when
- * payment is confirmed (`OPENPIX:TRANSACTION_RECEIVED`) or expired
- * (`OPENPIX:CHARGE_EXPIRED`). `wooviCorrelationID` is our idempotency key
- * (we generate it, Woovi echoes it, the webhook references it).
- */
-export const leaguePayment = convexTable(
-  "leaguePayment",
-  {
-    organizationId: id("organization")
-      .notNull()
-      .references(() => authTables.organization.id, { onDelete: "cascade" }),
-    leagueId: id("league")
-      .notNull()
-      .references(() => leagueTables.league.id, { onDelete: "cascade" }),
     playerProfileId: id("playerProfile")
       .notNull()
       .references(() => playerTables.playerProfile.id, {
         onDelete: "cascade",
       }),
-    membershipId: id("leagueMembership")
-      .notNull()
-      .references(() => leagueTables.leagueMembership.id, {
-        onDelete: "cascade",
-      }),
-    // Our idempotency key. Sent as `correlationID` to Woovi, echoed back,
-    // and referenced by the webhook as `charge.correlationID`.
-    wooviCorrelationId: text().notNull(),
-    // Woovi's internal charge id (`transactionID`/`identifier` at charge
-    // creation). Stored for diagnostics; matching is via `wooviCorrelationId`.
-    wooviChargeId: text(),
-    // Woovi's PIX transaction id (end-to-end identifier), returned on
-    // `OPENPIX:TRANSACTION_RECEIVED`. Distinct from `wooviChargeId` (which is
-    // the *charge* id). Captured only when the webhook confirms payment.
-    wooviTransactionId: text(),
+    // Polymorphic source pair. Today only "league_membership" exists; the
+    // pair is ready for future sources (event_registration, ...).
+    sourceType: text().notNull(),
+    sourceId: text().notNull(),
+    // Snapshot of the source's human label (e.g. the league name) captured
+    // at charge time so list/history views don't need a join.
+    sourceLabel: text(),
+    // Our idempotency key. Sent as `correlationID` to the provider, echoed
+    // back, and referenced by the webhook as `charge.correlationID`.
+    correlationId: text().notNull(),
+    // Provider's internal charge id (`transactionID`/`identifier` at charge
+    // creation). Stored for diagnostics; matching is via `correlationId`.
+    providerChargeId: text(),
+    // Provider's PIX transaction id (end-to-end identifier), returned on
+    // `OPENPIX:TRANSACTION_RECEIVED`. Distinct from `providerChargeId`.
+    providerTransactionId: text(),
     amountCents: integer().notNull(),
     status: text().notNull(),
     brCode: text(),
-    // HTTPS URL of the QR PNG (Woovi returns a URL, not base64).
+    // HTTPS URL of the QR PNG (provider returns a URL, not base64).
     qrCodeImage: text(),
     // Snapshot of how the split was computed at charge time.
     splitConfig: json<SplitConfig>(),
@@ -90,16 +65,17 @@ export const leaguePayment = convexTable(
     createdAt: timestamp().notNull(),
     updatedAt: timestamp().notNull(),
   },
-  (leaguePayment) => [
-    index("membershipId_status").on(
-      leaguePayment.membershipId,
-      leaguePayment.status
+  (paymentCharge) => [
+    index("sourceType_sourceId_status").on(
+      paymentCharge.sourceType,
+      paymentCharge.sourceId,
+      paymentCharge.status
     ),
     index("playerProfileId_status").on(
-      leaguePayment.playerProfileId,
-      leaguePayment.status
+      paymentCharge.playerProfileId,
+      paymentCharge.status
     ),
-    // Used by the webhook to find the charge by our correlationID.
-    index("wooviCorrelationId").on(leaguePayment.wooviCorrelationId),
+    // Used by the webhook to find the charge by our correlationId.
+    index("correlationId").on(paymentCharge.correlationId),
   ]
 );

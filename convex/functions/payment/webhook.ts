@@ -58,7 +58,7 @@ export const handleWooviWebhook = publicRoute
     ) {
       await ctx.runMutation(internal.payment.charge.applyPaidCharge, {
         correlationId: payload.charge.correlationID,
-        wooviTransactionId:
+        providerTransactionId:
           "transaction" in payload
             ? (payload.transaction?.transactionID ?? payload.transaction?.e2eId)
             : undefined,

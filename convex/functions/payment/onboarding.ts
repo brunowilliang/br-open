@@ -2,10 +2,11 @@ import { eq } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import {
-  wooviAccountStatusSchema,
-  type WooviAccountStatus,
+  paymentAccountSchema,
+  paymentAccountStatusSchema,
+  type PaymentAccount,
 } from "../../domains/payment/contract";
-import { organizationWooviAccount } from "../../domains/payment/tables";
+import { organization } from "../../domains/auth/tables";
 import { authAction, authQuery, privateMutation } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -16,9 +17,10 @@ const startOnboardingInput = z.object({
 });
 
 /**
- * Onboards the active organization as a Woovi subaccount (split recipient).
+ * Onboards the active organization as a payment-provider subaccount (split
+ * recipient).
  *
- * authAction because it calls the Woovi SDK (Node runtime) to provision the
+ * authAction because it calls the provider SDK (Node runtime) to provision the
  * subaccount. The DB writes are delegated to private mutations via
  * `ctx.runMutation` / `ctx.runAction` (the kitcn caller has TS inference
  * issues for `.actions` on ActionCtx). taxId is NOT collected (validated in
@@ -29,8 +31,8 @@ export const start = authAction
   .output(
     z.object({
       name: z.string(),
-      status: wooviAccountStatusSchema,
-      wooviPixKey: z.string(),
+      status: paymentAccountStatusSchema,
+      pixKey: z.string(),
     })
   )
   .action(async ({ ctx, input }) => {
@@ -54,13 +56,13 @@ export const start = authAction
       });
     }
 
-    // Provision the Woovi subaccount via the Node action (woovi-node.ts has
-    // "use node"). Use ctx.runAction so this file never imports the use-node
-    // module directly (which would break Convex bundling).
+    // Provision the provider subaccount via the Node action (provider-node.ts
+    // has "use node"). Use ctx.runAction so this file never imports the
+    // use-node module directly (which would break Convex bundling).
     let subaccount: { name: string; pixKey: string };
     try {
       subaccount = await ctx.runAction(
-        internal.payment.wooviNode.createSubaccountAction,
+        internal.payment.providerNode.createSubaccountAction,
         { name: org.name, pixKey: input.pixKey }
       );
     } catch (error) {
@@ -72,106 +74,84 @@ export const start = authAction
       });
     }
 
-    return ctx.runMutation(internal.payment.onboarding.upsertAccount, {
+    await ctx.runMutation(internal.payment.onboarding.upsertAccount, {
       name: subaccount.name,
       organizationId,
-      wooviPixKey: subaccount.pixKey,
+      pixKey: subaccount.pixKey,
     });
-  });
-
-/**
- * Returns the organization's current Woovi subaccount status (or null if not
- * onboarded yet). Used by the organizer "Pagamentos" card and by the league
- * settings screen to gate the charging toggle.
- */
-export const getStatus = authQuery
-  .output(
-    z
-      .object({
-        name: z.string().nullable(),
-        status: wooviAccountStatusSchema.nullable(),
-        wooviPixKey: z.string().nullable(),
-      })
-      .nullable()
-  )
-  .query(async ({ ctx }) => {
-    const organizationId = await requireActiveManager(ctx);
-    const account = await ctx.orm.query.organizationWooviAccount.findFirst({
-      where: { organizationId },
-    });
-
-    if (!account) {
-      return null;
-    }
 
     return {
-      name: account.name,
-      status: account.status as WooviAccountStatus,
-      wooviPixKey: maskPixKey(account.wooviPixKey),
+      name: subaccount.name,
+      status: "active",
+      pixKey: subaccount.pixKey,
     };
   });
 
 /**
- * Upserts the organization's Woovi subaccount row (status "active") after a
- * successful subaccount provisioning. Private mutation called from the
- * onboarding `start` authAction via `ctx.runMutation`.
+ * Returns the organization's current payment account status (or null fields if
+ * not onboarded yet). Used by the organizer "Pagamentos" card and by the league
+ * settings screen to gate the charging toggle. Reads the embedded JSON snapshot
+ * from `organization.paymentAccount`.
+ */
+export const getStatus = authQuery
+  .output(
+    z.object({
+      name: z.string().nullable(),
+      pixKey: z.string().nullable(),
+      status: paymentAccountStatusSchema.nullable(),
+    })
+  )
+  .query(async ({ ctx }) => {
+    const organizationId = await requireActiveManager(ctx);
+    const org = await ctx.orm.query.organization.findFirst({
+      where: { id: organizationId },
+    });
+    const raw = org?.paymentAccount;
+    if (!raw) {
+      return { name: null, pixKey: null, status: null };
+    }
+    const parsed = paymentAccountSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { name: null, pixKey: null, status: null };
+    }
+    return {
+      name: parsed.data.name,
+      pixKey: maskPixKey(parsed.data.pixKey),
+      status: parsed.data.status,
+    };
+  });
+
+/**
+ * Persists the organization's payment account snapshot (status "active") into
+ * the embedded `paymentAccount` JSON column on `organization` after a
+ * successful subaccount provisioning. Single UPDATE replaces the old
+ * find-then-upsert against the extinct `organizationWooviAccount` table.
+ * Private mutation called from the onboarding `start` authAction via
+ * `ctx.runMutation`.
  */
 export const upsertAccount = privateMutation
   .input(
     z.object({
       name: z.string(),
       organizationId: z.string(),
-      wooviPixKey: z.string(),
-    })
-  )
-  .output(
-    z.object({
-      name: z.string(),
-      status: wooviAccountStatusSchema,
-      wooviPixKey: z.string(),
+      pixKey: z.string(),
     })
   )
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
-    const existing = await ctx.orm.query.organizationWooviAccount.findFirst({
-      where: {
-        organizationId: input.organizationId as Id<"organization">,
-      },
-    });
-
-    if (existing) {
-      await ctx.orm
-        .update(organizationWooviAccount)
-        .set({
-          name: input.name,
-          onboardedAt: now,
-          status: "active",
-          updatedAt: now,
-          wooviPixKey: input.wooviPixKey,
-        })
-        .where(eq(organizationWooviAccount.id, existing.id));
-      return {
-        name: input.name,
-        status: "active" as WooviAccountStatus,
-        wooviPixKey: input.wooviPixKey,
-      };
-    }
-
-    await ctx.orm.insert(organizationWooviAccount).values({
-      createdAt: now,
+    const account: PaymentAccount = {
       name: input.name,
-      onboardedAt: now,
-      organizationId: input.organizationId as Id<"organization">,
+      onboardedAt: now.toISOString(),
+      pixKey: input.pixKey,
       status: "active",
-      updatedAt: now,
-      wooviPixKey: input.wooviPixKey,
-    });
-
-    return {
-      name: input.name,
-      status: "active" as WooviAccountStatus,
-      wooviPixKey: input.wooviPixKey,
     };
+    await ctx.orm
+      .update(organization)
+      .set({
+        paymentAccount: account as unknown as Record<string, unknown>,
+        updatedAt: now,
+      })
+      .where(eq(organization.id, input.organizationId as Id<"organization">));
   });
 
 function maskPixKey(key: string): string {

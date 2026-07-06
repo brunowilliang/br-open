@@ -55,62 +55,22 @@ export default function CheckoutScreen() {
   const { toast } = useToast();
   const crpc = useCRPC();
   const queryClient = useQueryClient();
-  const { leagueId, membershipId } = useLocalSearchParams<{
-    leagueId: string;
-    membershipId: string;
+  const { chargeId } = useLocalSearchParams<{
+    chargeId: string;
   }>();
 
-  const [hasCreatedCharge, setHasCreatedCharge] = useState(false);
-  const [attemptedMembershipId, setAttemptedMembershipId] = useState<
-    string | null
-  >(null);
-
-  const leagueQuery = useQuery(
-    crpc.league.discovery.getById.queryOptions({ leagueId })
+  const checkoutQuery = useQuery(
+    crpc.payment.charge.getCheckoutContext.queryOptions({ chargeId })
   );
-
-  const chargeQuery = useQuery({
-    ...crpc.payment.charge.getChargeForMembership.queryOptions({
-      membershipId,
-    }),
-    enabled: Boolean(membershipId),
-  });
 
   async function invalidateCheckout() {
-    await Promise.all([
-      queryClient.invalidateQueries(
-        crpc.payment.charge.getChargeForMembership.queryFilter({
-          membershipId,
-        })
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.discovery.getById.queryFilter({ leagueId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.membership.getOverview.queryFilter({ leagueId })
-      ),
-    ]);
+    await queryClient.invalidateQueries(
+      crpc.payment.charge.getCheckoutContext.queryFilter({ chargeId })
+    );
+    await queryClient.invalidateQueries(
+      crpc.payment.charge.listMine.queryFilter()
+    );
   }
-
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onSuccess: async () => {
-        setHasCreatedCharge(true);
-        await invalidateCheckout();
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar o PIX."
-          ),
-          id: "create-charge-error",
-          label: "Erro ao gerar cobrança",
-          variant: "danger",
-        });
-      },
-    })
-  );
 
   const simulatePayment = useMutation(
     crpc.payment.charge.simulatePayment.mutationOptions({
@@ -131,42 +91,25 @@ export default function CheckoutScreen() {
     })
   );
 
-  const charge = chargeQuery.data ?? null;
-  const needsNewCharge = !(
-    charge ||
-    createCharge.isPending ||
-    hasCreatedCharge ||
-    attemptedMembershipId === membershipId
-  );
-
-  useEffect(() => {
-    if (!(needsNewCharge && leagueId && membershipId)) {
-      return;
-    }
-    setAttemptedMembershipId(membershipId);
-    createCharge.mutate({ leagueId, membershipId });
-  }, [needsNewCharge, leagueId, membershipId, createCharge]);
-
-  const isPaid = leagueQuery.data?.viewerMembershipStatus === "active";
-  const remainingMs = useCountdown(charge?.expiresAt ?? null);
-  const isExpired = Boolean(charge) && remainingMs <= 0;
-  const isLoading =
-    createCharge.isPending || (chargeQuery.isLoading && !charge);
+  const checkout = checkoutQuery.data ?? null;
+  const remainingMs = useCountdown(checkout?.expiresAt ?? null);
+  const isExpired =
+    Boolean(checkout) && checkout?.status !== "PAID" && remainingMs <= 0;
+  const isLoading = checkoutQuery.isLoading && !checkout;
 
   const priceParts = useMemo(() => {
-    const cents = leagueQuery.data?.monthlyPriceCents ?? 0;
-    const interval = leagueQuery.data?.priceBillingInterval ?? "month";
+    const cents = checkout?.amountCents ?? 0;
     return formatLeaguePriceParts({
       amountCents: cents,
-      billingInterval: interval,
+      billingInterval: "month",
     });
-  }, [leagueQuery.data]);
+  }, [checkout]);
 
   async function copyBrCode() {
-    if (!charge?.brCode) {
+    if (!checkout?.brCode) {
       return;
     }
-    await Clipboard.setStringAsync(charge.brCode);
+    await Clipboard.setStringAsync(checkout.brCode);
     toast.show({
       description: "Código PIX copiado para a área de transferência.",
       id: "copy-brcode",
@@ -179,11 +122,11 @@ export default function CheckoutScreen() {
   let viewState: "expired" | "idle" | "loading" | "paid" | "pending";
   if (isLoading) {
     viewState = "loading";
-  } else if (isPaid) {
+  } else if (checkout?.status === "PAID") {
     viewState = "paid";
-  } else if (isExpired) {
+  } else if (isExpired || checkout?.status === "EXPIRED") {
     viewState = "expired";
-  } else if (charge) {
+  } else if (checkout) {
     viewState = "pending";
   } else {
     viewState = "idle";
@@ -194,7 +137,9 @@ export default function CheckoutScreen() {
       <Page.Header>
         <Page.Header.Left />
         <Page.Header.Center>
-          <Page.Header.Title>Pagamento</Page.Header.Title>
+          <Page.Header.Title>
+            {checkout?.sourceLabel ?? "Pagamento"}
+          </Page.Header.Title>
           <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
         </Page.Header.Center>
         <Page.Header.Right>
@@ -286,20 +231,10 @@ export default function CheckoutScreen() {
                 O tempo para pagamento esgotou. Gere um novo PIX para continuar.
               </Text>
             </View>
-            <Button
-              onPress={() => {
-                setHasCreatedCharge(false);
-                setAttemptedMembershipId(null);
-                createCharge.mutate({ leagueId, membershipId });
-              }}
-              variant="secondary"
-            >
-              <Button.Label>Gerar novo PIX</Button.Label>
-            </Button>
           </View>
         ) : null}
 
-        {viewState === "pending" && charge ? (
+        {viewState === "pending" && checkout ? (
           /* Pending — show QR + copia e cola + countdown */
           <>
             {/* Countdown */}
@@ -316,12 +251,12 @@ export default function CheckoutScreen() {
             </View>
 
             {/* QR Code */}
-            {charge.brCodeBase64 ? (
+            {checkout.qrCodeUrl ? (
               <Image
                 className="size-64 self-center rounded-3xl"
                 fallback="none"
                 source={{
-                  uri: charge.brCodeBase64,
+                  uri: checkout.qrCodeUrl,
                 }}
               />
             ) : null}
@@ -331,7 +266,7 @@ export default function CheckoutScreen() {
               <Label className="-mb-2 pl-2">Copia e cola</Label>
               <Card>
                 <Text numberOfLines={2} size="sm">
-                  {charge.brCode}
+                  {checkout.brCode}
                 </Text>
               </Card>
               <Button onPress={copyBrCode} variant="tertiary">
@@ -350,7 +285,7 @@ export default function CheckoutScreen() {
             {__DEV__ ? (
               <Button
                 isDisabled={simulatePayment.isPending}
-                onPress={() => simulatePayment.mutate({ membershipId })}
+                onPress={() => simulatePayment.mutate({ chargeId })}
                 variant="secondary"
               >
                 <Button.Label>

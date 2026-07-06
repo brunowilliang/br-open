@@ -26,32 +26,50 @@ export type PaymentChargeStatus = (typeof PAYMENT_CHARGE_STATUSES)[number];
 export const paymentChargeStatusSchema = z.enum([...PAYMENT_CHARGE_STATUSES]);
 
 // ---------------------------------------------------------------------------
-// Woovi account statuses (organization onboarding)
+// Payment account statuses (organization onboarding)
 // ---------------------------------------------------------------------------
 //
-// Woovi creates the subaccount synchronously and it is usable immediately
-// (no async KYC for subaccounts — validated in the 2026-07-02 PoC). The
-// `pending` -> `active` transition is therefore immediate in practice, but
-// we keep the enum so a future stricter Woovi KYC flow can fit in without
-// schema changes.
+// The provider creates the subaccount synchronously and it is usable
+// immediately (no async KYC for subaccounts — validated in the 2026-07-02
+// PoC). The `pending` -> `active` transition is therefore immediate in
+// practice, but we keep the enum so a future stricter KYC flow can fit in
+// without schema changes.
 
-export const WOOVI_ACCOUNT_STATUSES = [
+export const PAYMENT_ACCOUNT_STATUSES = [
   "pending",
   "active",
   "rejected",
 ] as const;
 
-export type WooviAccountStatus = (typeof WOOVI_ACCOUNT_STATUSES)[number];
+export type PaymentAccountStatus = (typeof PAYMENT_ACCOUNT_STATUSES)[number];
 
-export const wooviAccountStatusSchema = z.enum([...WOOVI_ACCOUNT_STATUSES]);
+export const paymentAccountStatusSchema = z.enum([...PAYMENT_ACCOUNT_STATUSES]);
+
+// ---------------------------------------------------------------------------
+// Payment account snapshot — embedded JSON on `organization.paymentAccount`
+// ---------------------------------------------------------------------------
+//
+// Mirrors the `metadata` pattern: raw JSON at the schema level, validated
+// by this zod schema in the organization serializer. One organization has
+// at most one payment account (1:1), so the JSON embed replaces the old
+// `organizationWooviAccount` table.
+
+export const paymentAccountSchema = z.object({
+  onboardedAt: z.string().nullable(),
+  name: z.string(),
+  pixKey: z.string(),
+  status: paymentAccountStatusSchema,
+});
+
+export type PaymentAccount = z.infer<typeof paymentAccountSchema>;
 
 // ---------------------------------------------------------------------------
 // Split config snapshot
 // ---------------------------------------------------------------------------
 //
-// Stored on each leaguePayment at charge time so historical payments stay
+// Stored on each paymentCharge at charge time so historical payments stay
 // correct even if the platform fee percent changes later. The actual split
-// is enforced by Woovi from the charge payload; this is informational.
+// is enforced by the provider from the charge payload; this is informational.
 
 export const splitConfigSchema = z.object({
   brOpenCents: z.number().int().nonnegative(),
@@ -65,22 +83,34 @@ export type SplitConfig = z.infer<typeof splitConfigSchema>;
 // ---------------------------------------------------------------------------
 // Charge output (returned to the client after creating a PIX charge)
 // ---------------------------------------------------------------------------
-//
-// Field names are kept stable with the previous AbacatePay shape so the
-// checkout screen needs no changes. `brCodeBase64` is a misnomer now — it
-// holds the Woovi `qrCodeImage` HTTPS URL (React Native <Image> accepts
-// both data: and https:// URIs). Kept under the old name to avoid a
-// frontend migration in this slice.
 
 export const createChargeOutputSchema = z.object({
   brCode: z.string(),
-  brCodeBase64: z.string(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
+  qrCodeUrl: z.string(),
   status: paymentChargeStatusSchema,
 });
 
 export type CreateChargeOutput = z.infer<typeof createChargeOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// Checkout context (returned by getCheckoutContext for /checkout/[chargeId])
+// ---------------------------------------------------------------------------
+
+export const checkoutContextSchema = z.object({
+  amountCents: z.number().int().nonnegative(),
+  brCode: z.string(),
+  chargeId: z.string(),
+  expiresAt: z.string().nullable(),
+  qrCodeUrl: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string().nullable(),
+  sourceType: z.string(),
+  status: paymentChargeStatusSchema,
+});
+
+export type CheckoutContext = z.infer<typeof checkoutContextSchema>;
 
 // ---------------------------------------------------------------------------
 // My payments list item (player-facing payment hub)
@@ -90,10 +120,10 @@ export const myPaymentItemSchema = z.object({
   amountCents: z.number().int().nonnegative(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
-  leagueId: z.string(),
-  leagueName: z.string().nullable(),
-  membershipId: z.string(),
   paidAt: z.string().nullable(),
+  sourceId: z.string(),
+  sourceLabel: z.string().nullable(),
+  sourceType: z.string(),
   status: paymentChargeStatusSchema,
 });
 

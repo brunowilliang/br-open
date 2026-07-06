@@ -292,10 +292,10 @@ export default function PaymentsRoute() {
                   <Label>{account.name}</Label>
                 </TextField>
               ) : null}
-              {account?.wooviPixKey ? (
+              {account?.pixKey ? (
                 <TextField>
                   <Description>Chave PIX</Description>
-                  <Label>{account.wooviPixKey}</Label>
+                  <Label>{account.pixKey}</Label>
                 </TextField>
               ) : null}
             </Card.Body>

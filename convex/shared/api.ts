@@ -77,7 +77,7 @@ export const api = {
   payment: {
     charge: {
       createCharge: createApiLeaf<"action", typeof import("../functions/payment/charge").createCharge>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").createCharge>("payment/charge:createCharge"), { auth: "required", type: "action" }),
-      getChargeForMembership: createApiLeaf<"query", typeof import("../functions/payment/charge").getChargeForMembership>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getChargeForMembership>("payment/charge:getChargeForMembership"), { auth: "required", type: "query" }),
+      getCheckoutContext: createApiLeaf<"query", typeof import("../functions/payment/charge").getCheckoutContext>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getCheckoutContext>("payment/charge:getCheckoutContext"), { auth: "required", type: "query" }),
       listMine: createApiLeaf<"query", typeof import("../functions/payment/charge").listMine>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").listMine>("payment/charge:listMine"), { auth: "required", type: "query" }),
       simulatePayment: createApiLeaf<"mutation", typeof import("../functions/payment/charge").simulatePayment>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/charge").simulatePayment>("payment/charge:simulatePayment"), { auth: "required", type: "mutation" }),
     },

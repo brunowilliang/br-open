@@ -131,6 +131,10 @@ export const organization = convexTable(
     slug: text().notNull().unique(),
     logo: text(),
     metadata: json<Record<string, unknown>>(),
+    // Embedded payment account (PIX key, status, etc.) — mirrors the
+    // metadata pattern: raw JSON here, validated by `paymentAccountSchema`
+    // in convex/domains/payment/contract.ts. Null until the org onboards.
+    paymentAccount: json<Record<string, unknown>>(),
     createdAt: timestamp().notNull(),
     updatedAt: timestamp(),
   },

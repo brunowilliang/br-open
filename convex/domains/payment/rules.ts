@@ -89,7 +89,7 @@ export function canMembershipBeCharged(membership: MembershipLike): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Maps a Woovi charge status string onto our `PaymentChargeStatus` enum.
+ * Maps a provider charge status string onto our `PaymentChargeStatus` enum.
  *
  * Woovi statuses (from the 2026-07-02 PoC + developers.woovi.com):
  *   ACTIVE      — charge created, awaiting payment  → PENDING
@@ -99,7 +99,9 @@ export function canMembershipBeCharged(membership: MembershipLike): boolean {
  * Falls back to `PENDING` when the provider returns something we don't
  * recognize (defensive).
  */
-export function normalizeWooviStatus(raw?: null | string): PaymentChargeStatus {
+export function normalizeProviderStatus(
+  raw?: null | string
+): PaymentChargeStatus {
   switch (raw) {
     case "ACTIVE":
       return CHARGE_STATUS_PENDING;

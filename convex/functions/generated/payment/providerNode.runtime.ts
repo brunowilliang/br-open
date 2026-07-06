@@ -14,8 +14,8 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
-  "createChargeWithSplitAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/wooviNode").createChargeWithSplitAction>("payment/wooviNode:createChargeWithSplitAction"), () => (require("../../payment/wooviNode") as Record<string, unknown>)["createChargeWithSplitAction"])],
-  "createSubaccountAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/wooviNode").createSubaccountAction>("payment/wooviNode:createSubaccountAction"), () => (require("../../payment/wooviNode") as Record<string, unknown>)["createSubaccountAction"])],
+  "createChargeWithSplitAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/providerNode").createChargeWithSplitAction>("payment/providerNode:createChargeWithSplitAction"), () => (require("../../payment/providerNode") as Record<string, unknown>)["createChargeWithSplitAction"])],
+  "createSubaccountAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/providerNode").createSubaccountAction>("payment/providerNode:createSubaccountAction"), () => (require("../../payment/providerNode") as Record<string, unknown>)["createSubaccountAction"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;
@@ -58,7 +58,7 @@ type GeneratedProcedureHandler<
 >;
 
 
-export function createPaymentWooviNodeCaller<TCtx extends ProcedureCallerContext>(
+export function createPaymentProviderNodeCaller<TCtx extends ProcedureCallerContext>(
   ctx: TCtx
 ): GeneratedProcedureCaller<TCtx> {
   return generatedRuntime.getCallerFactory()(
@@ -66,7 +66,7 @@ export function createPaymentWooviNodeCaller<TCtx extends ProcedureCallerContext
   ) as GeneratedProcedureCaller<TCtx>;
 }
 
-export function createPaymentWooviNodeHandler<TCtx extends ProcedureHandlerContext>(
+export function createPaymentProviderNodeHandler<TCtx extends ProcedureHandlerContext>(
   ctx: TCtx
 ): GeneratedProcedureHandler<TCtx> {
   return generatedRuntime.getHandlerFactory()(ctx) as GeneratedProcedureHandler<TCtx>;

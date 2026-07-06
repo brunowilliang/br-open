@@ -101,6 +101,35 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     ]);
   }
 
+  const createCharge = useMutation(
+    crpc.payment.charge.createCharge.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível gerar o PIX."
+          ),
+          id: "create-charge-error",
+          label: "Erro ao gerar cobrança",
+          variant: "danger",
+        });
+      },
+      onSuccess: (result) => {
+        router.navigate({
+          params: { chargeId: result.chargeId },
+          pathname: "/checkout/[chargeId]",
+        });
+      },
+    })
+  );
+
+  function createChargeForCheckout(targetMembershipId: string) {
+    createCharge.mutate({
+      sourceId: targetMembershipId,
+      sourceType: "league_membership",
+    });
+  }
+
   const requestJoin = useMutation(
     crpc.league.membership.requestJoin.mutationOptions({
       onSuccess: async (membership) => {
@@ -142,12 +171,9 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
 
         await invalidateLeagueContext();
 
-        // Paid leagues route straight to checkout after requesting to join.
+        // Paid leagues create a charge on-demand, then route to checkout.
         if (membership.status === "awaiting_payment") {
-          router.navigate({
-            params: { leagueId, membershipId: membership.id },
-            pathname: "/leagues/[leagueId]/checkout",
-          });
+          createChargeForCheckout(membership.id);
         }
       },
       onError: (error) => {
@@ -265,12 +291,9 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           <View className="flex-row items-center gap-2">
             {canResumeCheckout && membershipId ? (
               <Button
-                isDisabled={requestJoin.isPending}
+                isDisabled={requestJoin.isPending || createCharge.isPending}
                 onPress={() => {
-                  router.navigate({
-                    params: { leagueId, membershipId },
-                    pathname: "/leagues/[leagueId]/checkout",
-                  });
+                  createChargeForCheckout(membershipId);
                 }}
               >
                 <Button.Label>{joinFooterActionLabel}</Button.Label>

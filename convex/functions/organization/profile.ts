@@ -7,6 +7,7 @@ import {
   organizationOutputSchema,
   upsertOrganizationSchema,
 } from "../../domains/organization/contract";
+import { paymentAccountSchema } from "../../domains/payment/contract";
 import { deleteStorageIds, resolveStorageUrl } from "../../shared/media-rules";
 import { authMutation, authQuery } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
@@ -21,6 +22,10 @@ function serializeOrganization(
     record.metadata ?? {}
   );
 
+  const paymentAccount = record.paymentAccount
+    ? (paymentAccountSchema.safeParse(record.paymentAccount).data ?? null)
+    : null;
+
   return organizationOutputSchema.parse({
     acceptedTerms: parsedMetadata.acceptedTerms ?? null,
     address: parsedMetadata.address ?? null,
@@ -32,6 +37,7 @@ function serializeOrganization(
     name: record.name,
     organizerType: parsedMetadata.organizerType ?? null,
     organizerTypeLabel: parsedMetadata.organizerTypeLabel ?? null,
+    paymentAccount,
     phone: parsedMetadata.phone ?? null,
     slug: record.slug,
     sports: parsedMetadata.sports ?? null,

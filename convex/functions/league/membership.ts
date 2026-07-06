@@ -334,7 +334,7 @@ export const requestJoin = authMutation
         await ctx.runMutation(
           internal.payment.charge.expireChargeForMembership,
           {
-            membershipId: currentMembership.id,
+            sourceId: currentMembership.id,
           }
         );
       }

@@ -2,11 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import {
   PAYMENT_CHARGE_STATUSES,
-  WOOVI_ACCOUNT_STATUSES,
+  PAYMENT_ACCOUNT_STATUSES,
   createChargeOutputSchema,
   paymentChargeStatusSchema,
   splitConfigSchema,
-  wooviAccountStatusSchema,
+  paymentAccountStatusSchema,
 } from "../contract";
 
 describe("payment contract", () => {
@@ -33,20 +33,24 @@ describe("payment contract", () => {
     });
   });
 
-  describe("WOOVI_ACCOUNT_STATUSES", () => {
-    it("lists the woovi account lifecycle states", () => {
-      expect(WOOVI_ACCOUNT_STATUSES).toEqual(["pending", "active", "rejected"]);
+  describe("PAYMENT_ACCOUNT_STATUSES", () => {
+    it("lists the payment account lifecycle states", () => {
+      expect(PAYMENT_ACCOUNT_STATUSES).toEqual([
+        "pending",
+        "active",
+        "rejected",
+      ]);
     });
   });
 
-  describe("wooviAccountStatusSchema", () => {
+  describe("paymentAccountStatusSchema", () => {
     it("accepts valid statuses", () => {
-      expect(wooviAccountStatusSchema.parse("active")).toBe("active");
-      expect(wooviAccountStatusSchema.parse("pending")).toBe("pending");
+      expect(paymentAccountStatusSchema.parse("active")).toBe("active");
+      expect(paymentAccountStatusSchema.parse("pending")).toBe("pending");
     });
 
     it("rejects invalid statuses", () => {
-      expect(() => wooviAccountStatusSchema.parse("onboarding")).toThrow();
+      expect(() => paymentAccountStatusSchema.parse("onboarding")).toThrow();
     });
   });
 
@@ -88,9 +92,9 @@ describe("payment contract", () => {
     it("accepts a valid charge output", () => {
       const result = createChargeOutputSchema.parse({
         brCode: "pix-br-code",
-        brCodeBase64: "https://api.woovi.com/charge/image/abc.png",
         chargeId: "charge-123",
         expiresAt: "2026-07-01T12:00:00Z",
+        qrCodeUrl: "https://api.woovi.com/charge/image/abc.png",
         status: "PENDING",
       });
       expect(result.status).toBe("PENDING");

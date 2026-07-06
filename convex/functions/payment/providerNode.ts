@@ -1,18 +1,19 @@
 "use node";
 
 /**
- * Woovi outbound API operations, running on the Convex Node.js action runtime.
+ * Payment provider outbound API operations, running on the Convex Node.js
+ * action runtime.
  *
  * This file has `"use node"` at the top and contains ONLY actions. It is the
  * ONLY place that imports `@woovi/node-sdk` (which depends on `node:crypto`).
  *
- * CRITICAL: callers must invoke these via `ctx.runAction(internal.payment.wooviNode.*)`
- * — they must NOT import this file or its generated caller (`createPaymentWooviNodeCaller`),
- * because importing a `"use node"` file from a non-`"use node"` file breaks Convex
- * bundling. `ctx.runAction` crosses the runtime boundary cleanly.
+ * CRITICAL: callers must invoke these via `ctx.runAction(internal.payment.providerNode.*)`
+ * — they must NOT import this file or its generated caller, because importing
+ * a `"use node"` file from a non-`"use node"` file breaks Convex bundling.
+ * `ctx.runAction` crosses the runtime boundary cleanly.
  *
- * Inbound webhook verification still lives in `webhook-signature.ts` (Web Crypto)
- * because the kitcn `publicRoute` HTTP handler runs in the V8 isolate.
+ * Inbound webhook verification still lives in `webhook-signature.ts` (Web
+ * Crypto) because the kitcn `publicRoute` HTTP handler runs in the V8 isolate.
  */
 
 import WooviSDK from "@woovi/node-sdk";
@@ -21,7 +22,7 @@ import { z } from "zod";
 import { getEnv } from "../../lib/get-env";
 import { privateAction } from "../../lib/crpc";
 
-function wooviClient() {
+function providerClient() {
   const { WOOVI_APP_ID, WOOVI_BASE_URL } = getEnv();
   if (!WOOVI_APP_ID) {
     throw new CRPCError({
@@ -53,7 +54,7 @@ export const createSubaccountAction = privateAction
     })
   )
   .action(async ({ input }) => {
-    const client = wooviClient();
+    const client = providerClient();
     const response = await client.subAccount.create({
       name: input.name,
       pixKey: input.pixKey,
@@ -68,7 +69,10 @@ export const createSubaccountAction = privateAction
         | undefined);
     if (!sub) {
       const body = JSON.stringify(response);
-      console.error("[wooviNode] subAccount.create unexpected response:", body);
+      console.error(
+        "[providerNode] subAccount.create unexpected response:",
+        body
+      );
       throw new CRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Não foi possível conectar a conta de pagamento.",
@@ -109,7 +113,7 @@ export const createChargeWithSplitAction = privateAction
     })
   )
   .action(async ({ input }) => {
-    const client = wooviClient();
+    const client = providerClient();
     const response = await client.charge.create({
       comment: input.comment,
       correlationID: input.correlationId,

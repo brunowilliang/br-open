@@ -11,7 +11,7 @@ import {
   canChargeBeRefunded,
   canMembershipBeCharged,
   computeSplit,
-  normalizeWooviStatus,
+  normalizeProviderStatus,
 } from "../rules";
 
 describe("payment rules", () => {
@@ -90,10 +90,10 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
-  // normalizeWooviStatus — map Woovi ACTIVE/COMPLETED/EXPIRED onto our enum
+  // normalizeProviderStatus — map Woovi ACTIVE/COMPLETED/EXPIRED onto our enum
   // -------------------------------------------------------------------------
 
-  describe("normalizeWooviStatus", () => {
+  describe("normalizeProviderStatus", () => {
     type Case = {
       input: string | null | undefined;
       expected: PaymentChargeStatus;
@@ -111,7 +111,7 @@ describe("payment rules", () => {
 
     for (const { input, expected } of cases) {
       it(`maps ${JSON.stringify(input)} -> ${expected}`, () => {
-        expect(normalizeWooviStatus(input)).toBe(expected);
+        expect(normalizeProviderStatus(input)).toBe(expected);
       });
     }
   });

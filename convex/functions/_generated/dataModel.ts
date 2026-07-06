@@ -647,56 +647,6 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
-  leaguePayment: {
-    document: {
-      amountCents: number;
-      brCode?: null | string;
-      createdAt: number;
-      expiresAt?: null | number;
-      leagueId: Id<"league">;
-      membershipId: Id<"leagueMembership">;
-      organizationId: Id<"organization">;
-      paidAt?: null | number;
-      playerProfileId: Id<"playerProfile">;
-      qrCodeImage?: null | string;
-      splitConfig?: null | any;
-      status: string;
-      updatedAt: number;
-      wooviChargeId?: null | string;
-      wooviCorrelationId: string;
-      wooviTransactionId?: null | string;
-      _id: Id<"leaguePayment">;
-      _creationTime: number;
-    };
-    fieldPaths:
-      | "_creationTime"
-      | "_id"
-      | "amountCents"
-      | "brCode"
-      | "createdAt"
-      | "expiresAt"
-      | "leagueId"
-      | "membershipId"
-      | "organizationId"
-      | "paidAt"
-      | "playerProfileId"
-      | "qrCodeImage"
-      | "splitConfig"
-      | "status"
-      | "updatedAt"
-      | "wooviChargeId"
-      | "wooviCorrelationId"
-      | "wooviTransactionId";
-    indexes: {
-      by_id: ["_id"];
-      by_creation_time: ["_creationTime"];
-      membershipId_status: ["membershipId", "status", "_creationTime"];
-      playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
-      wooviCorrelationId: ["wooviCorrelationId", "_creationTime"];
-    };
-    searchIndexes: {};
-    vectorIndexes: {};
-  };
   member: {
     document: {
       createdAt: number;
@@ -1004,6 +954,7 @@ export type DataModel = {
       logo?: null | string;
       metadata?: null | any;
       name: string;
+      paymentAccount?: null | any;
       slug: string;
       updatedAt?: null | number;
       _id: Id<"organization">;
@@ -1016,6 +967,7 @@ export type DataModel = {
       | "logo"
       | "metadata"
       | "name"
+      | "paymentAccount"
       | "slug"
       | "updatedAt";
     indexes: {
@@ -1027,32 +979,59 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
-  organizationWooviAccount: {
+  paymentCharge: {
     document: {
+      amountCents: number;
+      brCode?: null | string;
+      correlationId: string;
       createdAt: number;
-      name: string;
-      onboardedAt?: null | number;
+      expiresAt?: null | number;
       organizationId: Id<"organization">;
+      paidAt?: null | number;
+      playerProfileId: Id<"playerProfile">;
+      providerChargeId?: null | string;
+      providerTransactionId?: null | string;
+      qrCodeImage?: null | string;
+      sourceId: string;
+      sourceLabel?: null | string;
+      sourceType: string;
+      splitConfig?: null | any;
       status: string;
       updatedAt: number;
-      wooviPixKey: string;
-      _id: Id<"organizationWooviAccount">;
+      _id: Id<"paymentCharge">;
       _creationTime: number;
     };
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "amountCents"
+      | "brCode"
+      | "correlationId"
       | "createdAt"
-      | "name"
-      | "onboardedAt"
+      | "expiresAt"
       | "organizationId"
+      | "paidAt"
+      | "playerProfileId"
+      | "providerChargeId"
+      | "providerTransactionId"
+      | "qrCodeImage"
+      | "sourceId"
+      | "sourceLabel"
+      | "sourceType"
+      | "splitConfig"
       | "status"
-      | "updatedAt"
-      | "wooviPixKey";
+      | "updatedAt";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
-      organizationId: ["organizationId", "_creationTime"];
+      correlationId: ["correlationId", "_creationTime"];
+      playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
+      sourceType_sourceId_status: [
+        "sourceType",
+        "sourceId",
+        "status",
+        "_creationTime",
+      ];
     };
     searchIndexes: {};
     vectorIndexes: {};

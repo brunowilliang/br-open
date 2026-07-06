@@ -66,10 +66,10 @@ type PaymentItem = {
   amountCents: number;
   chargeId: string;
   expiresAt: null | string;
-  leagueId: string;
-  leagueName: null | string;
-  membershipId: string;
   paidAt: null | string;
+  sourceId: string;
+  sourceLabel: null | string;
+  sourceType: string;
   status: PaymentChargeStatus;
 };
 
@@ -86,7 +86,7 @@ function PaymentCard(props: {
       <View className="flex-1 gap-1">
         <View className="flex-row items-center justify-between gap-2">
           <Text numberOfLines={1} variant="title">
-            {item.leagueName ?? "Liga"}
+            {item.sourceLabel ?? "Pagamento"}
           </Text>
           <Chip
             color={getPaymentStatusColor(item.status)}
@@ -135,10 +135,9 @@ export default function PlayerPaymentsSettings() {
   function handleOpenCheckout(item: PaymentItem) {
     router.navigate({
       params: {
-        leagueId: item.leagueId,
-        membershipId: item.membershipId,
+        chargeId: item.chargeId,
       },
-      pathname: "/leagues/[leagueId]/checkout",
+      pathname: "/checkout/[chargeId]",
     });
   }
 

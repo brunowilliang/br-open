@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { collectReplacedStorageIds } from "../../shared/media-rules";
 import { requiredString } from "../../utils/contract.zod";
+import { paymentAccountSchema } from "../payment/contract";
 
 export const ORGANIZER_TYPES = [
   "academia",
@@ -260,6 +261,7 @@ export const organizationOutputSchema = z.object({
   contactEmail: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   acceptedTerms: acceptedTermsSchema.nullable().optional(),
+  paymentAccount: paymentAccountSchema.nullable().optional(),
 });
 
 export type OrganizationOutput = z.infer<typeof organizationOutputSchema>;

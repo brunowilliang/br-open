@@ -3428,6 +3428,12 @@ export const api: {
             | "outro"
             | null;
           organizerTypeLabel?: string | null;
+          paymentAccount?: {
+            name: string;
+            onboardedAt: string | null;
+            pixKey: string;
+            status: "pending" | "active" | "rejected";
+          } | null;
           phone?: string | null;
           slug: string;
           sports?: Array<
@@ -3531,6 +3537,12 @@ export const api: {
             | "outro"
             | null;
           organizerTypeLabel?: string | null;
+          paymentAccount?: {
+            name: string;
+            onboardedAt: string | null;
+            pixKey: string;
+            status: "pending" | "active" | "rejected";
+          } | null;
           phone?: string | null;
           slug: string;
           sports?: Array<
@@ -3559,26 +3571,30 @@ export const api: {
       createCharge: FunctionReference<
         "action",
         "public",
-        { leagueId: string; membershipId: string },
+        { sourceId: string; sourceType: string },
         {
           brCode: string;
-          brCodeBase64: string;
           chargeId: string;
           expiresAt: string | null;
+          qrCodeUrl: string;
           status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
         }
       >;
-      getChargeForMembership: FunctionReference<
+      getCheckoutContext: FunctionReference<
         "query",
         "public",
-        { membershipId: string },
+        { chargeId: string },
         {
+          amountCents: number;
           brCode: string;
-          brCodeBase64: string;
           chargeId: string;
           expiresAt: string | null;
+          qrCodeUrl: string;
+          sourceId: string;
+          sourceLabel: string | null;
+          sourceType: string;
           status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
-        } | null
+        }
       >;
       listMine: FunctionReference<
         "query",
@@ -3589,10 +3605,10 @@ export const api: {
             amountCents: number;
             chargeId: string;
             expiresAt: string | null;
-            leagueId: string;
-            leagueName: string | null;
-            membershipId: string;
             paidAt: string | null;
+            sourceId: string;
+            sourceLabel: string | null;
+            sourceType: string;
             status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
           }>;
         }
@@ -3600,7 +3616,7 @@ export const api: {
       simulatePayment: FunctionReference<
         "mutation",
         "public",
-        { membershipId: string },
+        { chargeId: string },
         { activated: boolean; membershipId: string | null }
       >;
     };
@@ -3611,9 +3627,9 @@ export const api: {
         {},
         {
           name: string | null;
+          pixKey: string | null;
           status: "pending" | "active" | "rejected" | null;
-          wooviPixKey: string | null;
-        } | null
+        }
       >;
       start: FunctionReference<
         "action",
@@ -3621,8 +3637,8 @@ export const api: {
         { pixKey: string },
         {
           name: string;
+          pixKey: string;
           status: "pending" | "active" | "rejected";
-          wooviPixKey: string;
         }
       >;
     };
@@ -4078,13 +4094,13 @@ export const internal: {
       applyPaidCharge: FunctionReference<
         "mutation",
         "internal",
-        { correlationId: string; wooviTransactionId?: string },
+        { correlationId: string; providerTransactionId?: string },
         { activated: boolean; membershipId: string | null }
       >;
       expireChargeForMembership: FunctionReference<
         "mutation",
         "internal",
-        { membershipId: string },
+        { sourceId: string },
         any
       >;
       expireStaleCharges: FunctionReference<"mutation", "internal", {}, any>;
@@ -4112,10 +4128,16 @@ export const internal: {
         { organizationId: string },
         { name: string | null }
       >;
-      resolveWooviAccountForCharge: FunctionReference<
+      resolvePaymentAccount: FunctionReference<
         "mutation",
         "internal",
         { organizationId: string },
+        any
+      >;
+      resolveSourceForCharge: FunctionReference<
+        "mutation",
+        "internal",
+        { sourceId: string; sourceType: string; userId: string },
         any
       >;
       saveCharge: FunctionReference<
@@ -4126,38 +4148,29 @@ export const internal: {
           brCode: string;
           correlationId: string;
           expiresAt: string | null;
-          leagueId: string;
-          membershipId: string;
           organizationId: string;
           playerProfileId: string;
+          providerChargeId: string;
           qrCodeImage: string;
+          sourceId: string;
+          sourceLabel: string;
+          sourceType: string;
           splitConfig: any;
           status: string;
-          wooviChargeId: string;
         },
         any
       >;
       sendRenewalReminders: FunctionReference<"mutation", "internal", {}, any>;
-      validateMembershipForCharge: FunctionReference<
-        "mutation",
-        "internal",
-        { leagueId: string; membershipId: string; userId: string },
-        any
-      >;
     };
     onboarding: {
       upsertAccount: FunctionReference<
         "mutation",
         "internal",
-        { name: string; organizationId: string; wooviPixKey: string },
-        {
-          name: string;
-          status: "pending" | "active" | "rejected";
-          wooviPixKey: string;
-        }
+        { name: string; organizationId: string; pixKey: string },
+        any
       >;
     };
-    wooviNode: {
+    providerNode: {
       createChargeWithSplitAction: FunctionReference<
         "action",
         "internal",
