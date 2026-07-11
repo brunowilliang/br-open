@@ -47,7 +47,7 @@ import {
 import { authMutation, authQuery } from "../../lib/crpc";
 import {
   applyChallengeRankingResult,
-  recordAdminChallengeAction,
+  recordOrganizerChallengeAction,
   restoreChallengeRankingSnapshot,
 } from "./_challenges/ranking";
 import {
@@ -90,7 +90,7 @@ export const listForLeague = authQuery
   .output(z.array(leagueChallengeSchema))
   .query(async ({ ctx, input }) => {
     const leagueId = input.leagueId as Id<"league">;
-    const { activeMembership, currentLeague, isManagerOwner } =
+    const { activeMembership, currentLeague, isLeagueOrganizer } =
       await getViewerContextOrThrow(ctx, leagueId);
 
     const challengeRecords = await ctx.orm.query.leagueChallenge.findMany({
@@ -100,7 +100,7 @@ export const listForLeague = authQuery
     });
 
     const visibleChallenges = challengeRecords.filter((challenge) => {
-      if (isManagerOwner) {
+      if (isLeagueOrganizer) {
         return true;
       }
 
@@ -262,7 +262,7 @@ export const getById = authQuery
       ctx,
       input.challengeId as Id<"leagueChallenge">
     );
-    const { activeMembership, currentLeague, isManagerOwner } =
+    const { activeMembership, currentLeague, isLeagueOrganizer } =
       await getViewerContextOrThrow(
         ctx,
         currentChallenge.leagueId as Id<"league">
@@ -270,7 +270,7 @@ export const getById = authQuery
 
     assertParticipantAccess({
       challenge: currentChallenge,
-      isManagerOwner,
+      isLeagueOrganizer,
       viewerMembership: activeMembership,
     });
 
@@ -699,8 +699,8 @@ export const cancel = authMutation
       ctx,
       currentChallenge.leagueId as Id<"league">
     );
-    const isManagerOwner = await canManageLeague(ctx, currentLeague);
-    const viewerMembership = isManagerOwner
+    const isLeagueOrganizer = await canManageLeague(ctx, currentLeague);
+    const viewerMembership = isLeagueOrganizer
       ? null
       : await getActiveViewerMembership(
           ctx,
@@ -709,13 +709,13 @@ export const cancel = authMutation
 
     assertParticipantAccess({
       challenge: currentChallenge,
-      isManagerOwner,
+      isLeagueOrganizer,
       viewerMembership,
     });
 
     if (
       !(
-        isManagerOwner ||
+        isLeagueOrganizer ||
         canPlayersCancelChallenge({
           now,
           scheduledStartAt: buildScheduledDate(
@@ -727,7 +727,7 @@ export const cancel = authMutation
     ) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Depois do horário marcado, só o admin pode cancelar.",
+        message: "Depois do horário marcado, só o organizador pode cancelar.",
       });
     }
 
@@ -742,7 +742,7 @@ export const cancel = authMutation
       });
     }
 
-    if (!isManagerOwner) {
+    if (!isLeagueOrganizer) {
       if (currentChallenge.status === "confirmed") {
         throw new CRPCError({
           code: "BAD_REQUEST",
@@ -776,7 +776,7 @@ export const cancel = authMutation
       challenge: currentChallenge,
       ctx,
       eventType: "league.challenge.cancelled",
-      recipientMembershipIds: isManagerOwner
+      recipientMembershipIds: isLeagueOrganizer
         ? [
             currentChallenge.challengerMembershipId as Id<"leagueMembership">,
             currentChallenge.challengedMembershipId as Id<"leagueMembership">,
@@ -828,7 +828,7 @@ export const requestCancellation = authMutation
 
     assertParticipantAccess({
       challenge: currentChallenge,
-      isManagerOwner: false,
+      isLeagueOrganizer: false,
       viewerMembership,
     });
 
@@ -851,7 +851,7 @@ export const requestCancellation = authMutation
     ) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Depois do horário marcado, só o admin pode cancelar.",
+        message: "Depois do horário marcado, só o organizador pode cancelar.",
       });
     }
 
@@ -913,7 +913,7 @@ export const respondCancellationRequest = authMutation
 
     assertParticipantAccess({
       challenge: currentChallenge,
-      isManagerOwner: false,
+      isLeagueOrganizer: false,
       viewerMembership,
     });
 
@@ -1045,7 +1045,7 @@ export const submitResult = authMutation
 
     assertParticipantAccess({
       challenge: syncedChallenge,
-      isManagerOwner: false,
+      isLeagueOrganizer: false,
       viewerMembership,
     });
 
@@ -1145,7 +1145,7 @@ export const confirmResult = authMutation
 
     assertParticipantAccess({
       challenge: currentChallenge,
-      isManagerOwner: false,
+      isLeagueOrganizer: false,
       viewerMembership,
     });
 
@@ -1249,10 +1249,10 @@ export const reviewChallenge = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o admin da liga pode validar esse desafio."
+      "Só o organizador da liga pode validar esse desafio."
     );
 
-    if (currentChallenge.status !== "pending_admin_challenge_validation") {
+    if (currentChallenge.status !== "pending_organizer_challenge_validation") {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message: "Esse desafio não está aguardando validação manual.",
@@ -1270,7 +1270,7 @@ export const reviewChallenge = authMutation
         actorUserId: ctx.userId,
         challenge: currentChallenge,
         ctx,
-        eventType: "league.challenge.admin_approved",
+        eventType: "league.challenge.organizer_approved",
         recipientMembershipIds: [
           currentChallenge.challengerMembershipId as Id<"leagueMembership">,
           currentChallenge.challengedMembershipId as Id<"leagueMembership">,
@@ -1295,7 +1295,7 @@ export const reviewChallenge = authMutation
       actorUserId: ctx.userId,
       challenge: currentChallenge,
       ctx,
-      eventType: "league.challenge.admin_rejected",
+      eventType: "league.challenge.organizer_rejected",
       recipientMembershipIds: [
         currentChallenge.challengerMembershipId as Id<"leagueMembership">,
         currentChallenge.challengedMembershipId as Id<"leagueMembership">,
@@ -1327,7 +1327,7 @@ export const reviewResult = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o admin da liga pode validar resultados."
+      "Só o organizador da liga pode validar resultados."
     );
 
     const latestResultSubmission = await getLatestResultSubmission(
@@ -1345,7 +1345,7 @@ export const reviewResult = authMutation
       });
     }
 
-    if (currentChallenge.status !== "pending_admin_result_validation") {
+    if (currentChallenge.status !== "pending_organizer_result_validation") {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message: "Esse desafio não está aguardando validação de resultado.",
@@ -1363,7 +1363,7 @@ export const reviewResult = authMutation
       await ctx.db.patch(
         latestResultSubmission.id as Id<"leagueChallengeResultSubmission">,
         {
-          adminReviewedByUserId: ctx.userId,
+          organizerReviewedByUserId: ctx.userId,
           reviewAction: "approved",
           reviewedAt: now.getTime(),
         }
@@ -1406,7 +1406,7 @@ export const reviewResult = authMutation
       await ctx.db.patch(
         latestResultSubmission.id as Id<"leagueChallengeResultSubmission">,
         {
-          adminReviewedByUserId: ctx.userId,
+          organizerReviewedByUserId: ctx.userId,
           reviewAction: "correction_requested",
           reviewedAt: now.getTime(),
         }
@@ -1438,7 +1438,7 @@ export const reviewResult = authMutation
     await ctx.db.patch(
       latestResultSubmission.id as Id<"leagueChallengeResultSubmission">,
       {
-        adminReviewedByUserId: ctx.userId,
+        organizerReviewedByUserId: ctx.userId,
         reviewAction: "invalidated",
         reviewedAt: now.getTime(),
       }
@@ -1469,7 +1469,7 @@ export const reviewResult = authMutation
     });
   });
 
-export const adminSubmitResult = authMutation
+export const organizerSubmitResult = authMutation
   .input(AdminSubmitLeagueChallengeResultSchema)
   .output(leagueChallengeSchema)
   .mutation(async ({ ctx, input }) => {
@@ -1486,11 +1486,11 @@ export const adminSubmitResult = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o admin da liga pode editar o placar."
+      "Só o organizador da liga pode editar o placar."
     );
 
     // Sincroniza status derivados do tempo (ex.: proposta sem resposta após o
-    // deadline vira pending_admin_decision) antes de validar, para que o
+    // deadline vira pending_organizer_decision) antes de validar, para que o
     // status refletido na UI (derivado) seja o mesmo usado aqui.
     const currentProposal = await getCurrentProposalOrThrow(
       ctx,
@@ -1513,7 +1513,7 @@ export const adminSubmitResult = authMutation
     if (!ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Esse desafio ainda não pode receber placar pelo admin.",
+        message: "Esse desafio ainda não pode receber placar pelo organizador.",
       });
     }
 
@@ -1552,7 +1552,7 @@ export const adminSubmitResult = authMutation
     await ctx.orm
       .insert(leagueChallengeResultSubmission)
       .values({
-        adminReviewedByUserId: ctx.userId,
+        organizerReviewedByUserId: ctx.userId,
         challengeId: currentChallenge.id as Id<"leagueChallenge">,
         confirmedAt: now,
         confirmedByMembershipId:
@@ -1609,7 +1609,7 @@ export const adminSubmitResult = authMutation
     });
   });
 
-export const adminManage = authMutation
+export const organizerManage = authMutation
   .input(AdminManageLeagueChallengeSchema)
   .output(leagueChallengeSchema)
   .mutation(async ({ ctx, input }) => {
@@ -1626,7 +1626,7 @@ export const adminManage = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o admin da liga pode executar essa ação."
+      "Só o organizador da liga pode executar essa ação."
     );
 
     const currentStatus = currentChallenge.status as LeagueChallengeStatus;
@@ -1639,7 +1639,7 @@ export const adminManage = authMutation
       if (!ADMIN_CANCELABLE_CHALLENGE_STATUSES.has(currentStatus)) {
         throw new CRPCError({
           code: "BAD_REQUEST",
-          message: "Esse desafio não pode mais ser cancelado pelo admin.",
+          message: "Esse desafio não pode mais ser cancelado pelo organizador.",
         });
       }
 
@@ -1661,7 +1661,7 @@ export const adminManage = authMutation
         }),
       ]);
 
-      await recordAdminChallengeAction({
+      await recordOrganizerChallengeAction({
         action: "cancel",
         challenge: currentChallenge,
         ctx,
@@ -1711,7 +1711,7 @@ export const adminManage = authMutation
         await ctx.db.patch(
           latestResultSubmission.id as Id<"leagueChallengeResultSubmission">,
           {
-            adminReviewedByUserId: ctx.userId,
+            organizerReviewedByUserId: ctx.userId,
             reviewAction: "invalidated",
             reviewedAt: now.getTime(),
           }
@@ -1731,7 +1731,7 @@ export const adminManage = authMutation
         } as never
       );
 
-      await recordAdminChallengeAction({
+      await recordOrganizerChallengeAction({
         action: "invalidate",
         challenge: currentChallenge,
         ctx,
@@ -1814,7 +1814,7 @@ export const adminManage = authMutation
         ),
       ]);
 
-      await recordAdminChallengeAction({
+      await recordOrganizerChallengeAction({
         action: "reopen_challenge",
         challenge: currentChallenge,
         ctx,
@@ -1828,7 +1828,7 @@ export const adminManage = authMutation
         actorUserId: ctx.userId,
         challenge: currentChallenge,
         ctx,
-        eventType: "league.challenge.admin_approved",
+        eventType: "league.challenge.organizer_approved",
         recipientMembershipIds: [
           currentChallenge.challengerMembershipId as Id<"leagueMembership">,
           currentChallenge.challengedMembershipId as Id<"leagueMembership">,
@@ -1882,7 +1882,7 @@ export const adminManage = authMutation
       } as never
     );
 
-    await recordAdminChallengeAction({
+    await recordOrganizerChallengeAction({
       action: "reopen_result",
       challenge: currentChallenge,
       ctx,
@@ -1917,7 +1917,7 @@ export const adminManage = authMutation
  * registrem o placar. São os status onde o placar ainda está pendente de
  * ação de um jogador e o desafio não está finalizado/cancelado.
  */
-export const adminRequestResultReminder = authMutation
+export const organizerRequestResultReminder = authMutation
   .input(LeagueChallengeByIdSchema)
   .output(leagueChallengeSchema)
   .mutation(async ({ ctx, input }) => {
@@ -1934,7 +1934,7 @@ export const adminRequestResultReminder = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o admin da liga pode enviar lembretes de placar."
+      "Só o organizador da liga pode enviar lembretes de placar."
     );
 
     // Sincroniza status derivados do tempo antes de validar, alinhando o

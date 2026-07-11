@@ -247,7 +247,7 @@ export async function requireActiveManager(ctx: ViewerCtx) {
   ) {
     throw new CRPCError({
       code: "FORBIDDEN",
-      message: "Voce precisa ser gestor da organizacao para isso.",
+      message: "Voce precisa ser organizador da organização para isso.",
     });
   }
 

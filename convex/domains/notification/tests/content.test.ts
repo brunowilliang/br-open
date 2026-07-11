@@ -14,7 +14,7 @@ describe("notification content", () => {
       eventType: "league.membership.requested",
       leagueId: "league-1",
       leagueName: "Santa Elena",
-      recipientRole: "manager",
+      recipientRole: "organizer",
     });
 
     expect(content).toEqual({
@@ -92,7 +92,7 @@ describe("notification content", () => {
       eventType: "league.membership.requested",
       leagueId: "league-1",
       leagueName: "Santa Elena",
-      recipientRole: "manager",
+      recipientRole: "organizer",
     });
 
     expect(content.categoryId).toBe(

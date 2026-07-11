@@ -91,13 +91,7 @@ function getImageCropRuntime() {
   };
 }
 
-export function clamp(value: number, minimum: number, maximum: number) {
-  if (maximum < minimum) {
-    return minimum;
-  }
-
-  return Math.min(Math.max(value, minimum), maximum);
-}
+import { clamp } from "@/lib/numbers";
 
 export function getMaskWidthBounds(input: {
   aspectRatio: number;

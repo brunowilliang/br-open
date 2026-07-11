@@ -32,6 +32,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
+import { formatDateTimeShort } from "@/lib/format/date";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -51,13 +52,6 @@ import {
 type NotificationItem = ApiOutputs["notification"]["feed"]["list"][number];
 type NotificationStatus = ApiOutputs["notification"]["settings"]["status"];
 type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
-
-const NOTIFICATION_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  month: "short",
-});
 
 function getPushDescription(status?: NotificationStatus) {
   if (!status) {
@@ -156,9 +150,7 @@ function NotificationFeedItem(props: {
             {props.notification.body}
           </Text>
           <Text color="muted" size="xs">
-            {NOTIFICATION_DATE_FORMATTER.format(
-              new Date(props.notification.occurredAt)
-            )}
+            {formatDateTimeShort(new Date(props.notification.occurredAt))}
           </Text>
         </View>
         <Menu className="absolute top-2 right-2">

@@ -14,7 +14,7 @@ type RankingReorderInput = {
 };
 
 const RANKING_REORDER_ERROR =
-  "O ranking enviado não corresponde aos participantes ativos.";
+  "O ranking enviado não corresponde aos jogadores ativos.";
 
 export function canLeagueAcceptMember(input: LeagueAvailabilityInput) {
   return (

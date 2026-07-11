@@ -98,7 +98,7 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const CHALLENGE_LOCKED_STATUSES: ReadonlySet<string> = new Set([
   "confirmed",
   "finished",
-  "pending_admin_result_validation",
+  "pending_organizer_result_validation",
   "pending_result_confirmation",
   "pending_result_submission",
 ] as const);
@@ -107,8 +107,8 @@ const TARGET_CHALLENGE_STATUS_CYCLE = [
   "confirmed",
   "pending_result_submission",
   "pending_result_confirmation",
-  "pending_admin_result_validation",
-  "pending_admin_decision",
+  "pending_organizer_result_validation",
+  "pending_organizer_decision",
   "finished",
 ] as const;
 const TARGET_MEMBERSHIP_LABELS = {
@@ -283,7 +283,7 @@ function buildTargetChallengeResult(
         submittedBy: "challenger",
         winner,
       };
-    case "pending_admin_result_validation":
+    case "pending_organizer_result_validation":
     case "finished":
       return {
         confirmedBy: "challenged",
@@ -338,7 +338,7 @@ function buildAdditionalTargetChallengePlan(input: {
     key: `extra-${input.attempt}`,
     result: buildTargetChallengeResult(status, input.attempt),
     resultValidationMode:
-      status === "pending_admin_result_validation" ? "manual" : "automatic",
+      status === "pending_organizer_result_validation" ? "manual" : "automatic",
     startMinute,
     status,
   };
@@ -366,7 +366,7 @@ async function deleteByIds<
   T extends
     | "league"
     | "leagueChallenge"
-    | "leagueChallengeAdminAction"
+    | "leagueChallengeOrganizerAction"
     | "leagueChallengeProposal"
     | "leagueChallengeResultSubmission"
     | "leagueMembership"
@@ -387,13 +387,13 @@ async function deleteByIds<
             eq(leagueTables.leagueChallenge.id, id as Id<"leagueChallenge">)!
           );
         break;
-      case "leagueChallengeAdminAction":
+      case "leagueChallengeOrganizerAction":
         await ctx.orm
-          .delete(leagueTables.leagueChallengeAdminAction)
+          .delete(leagueTables.leagueChallengeOrganizerAction)
           .where(
             eq(
-              leagueTables.leagueChallengeAdminAction.id,
-              id as Id<"leagueChallengeAdminAction">
+              leagueTables.leagueChallengeOrganizerAction.id,
+              id as Id<"leagueChallengeOrganizerAction">
             )!
           );
         break;
@@ -465,7 +465,7 @@ async function resetSeedData(ctx: SeedCtx) {
       limit: 1500,
       orderBy: { createdAt: "asc" },
     }),
-    ctx.orm.query.leagueChallengeAdminAction.findMany({
+    ctx.orm.query.leagueChallengeOrganizerAction.findMany({
       limit: 1500,
       orderBy: { createdAt: "asc" },
     }),
@@ -507,7 +507,7 @@ async function resetSeedData(ctx: SeedCtx) {
 
   await deleteByIds(
     ctx,
-    "leagueChallengeAdminAction",
+    "leagueChallengeOrganizerAction",
     challengeAdminActions
       .filter((action) => seedChallengeIds.has(action.challengeId))
       .map((action) => action.id)
@@ -564,7 +564,7 @@ async function ensureSeedOrganization(ctx: SeedCtx, userId: Id<"user">) {
   });
 
   if (!user) {
-    throw new Error("Usuario gestor nao encontrado.");
+    throw new Error("Usuário organizador não encontrado.");
   }
 
   const slug = `seed-org-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
@@ -1003,7 +1003,7 @@ async function ensureSeedChallenge(input: {
       : addDays(now, -1);
   const isLocked = CHALLENGE_LOCKED_STATUSES.has(input.plan.status);
   const challengeValidationMode =
-    input.plan.status === "pending_admin_decision" ? "manual" : "automatic";
+    input.plan.status === "pending_organizer_decision" ? "manual" : "automatic";
   const resultValidationMode = input.plan.resultValidationMode ?? "automatic";
 
   const [createdChallenge] = await input.ctx.orm
@@ -1397,7 +1397,7 @@ async function seedLeagueScenarios(
       {
         categories: ["Todas", "A", "B"],
         city: "São Paulo",
-        description: "Liga seedada para testar gestão como administrador.",
+        description: "Liga seedada para testar gestão como organizador.",
         name: "Minha Liga de Teste",
         state: "SP",
         visibility: "public",

@@ -5,7 +5,7 @@ import {
   resolveChallengeRankingRestore,
   type LeagueChallengeStatus,
 } from "../../../domains/league/challenge-rules";
-import { leagueChallengeAdminAction } from "../../../domains/league/tables";
+import { leagueChallengeOrganizerAction } from "../../../domains/league/tables";
 import type {
   League,
   LeagueChallengeScore,
@@ -98,7 +98,7 @@ export async function restoreChallengeRankingSnapshot(input: {
   }
 }
 
-export async function recordAdminChallengeAction(input: {
+export async function recordOrganizerChallengeAction(input: {
   action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
   challenge: LeagueChallengeRecord;
   ctx: OrmMutationCtx;
@@ -106,7 +106,7 @@ export async function recordAdminChallengeAction(input: {
   performedByUserId: Id<"user">;
   toStatus: LeagueChallengeStatus;
 }) {
-  await input.ctx.orm.insert(leagueChallengeAdminAction).values({
+  await input.ctx.orm.insert(leagueChallengeOrganizerAction).values({
     action: input.action,
     challengeId: input.challenge.id as Id<"leagueChallenge">,
     createdAt: new Date(),

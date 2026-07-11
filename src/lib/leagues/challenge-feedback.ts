@@ -65,14 +65,14 @@ export function getAdminManageChallengeSuccessToast(input: {
   switch (input.action) {
     case "cancel":
       return {
-        description: "A ação administrativa foi aplicada com sucesso.",
+        description: "A ação do organizador foi aplicada com sucesso.",
         id: "admin-manage-challenge-cancel-success",
         label: "Desafio cancelado",
         variant: "success",
       };
     case "invalidate":
       return {
-        description: "A ação administrativa foi aplicada com sucesso.",
+        description: "A ação do organizador foi aplicada com sucesso.",
         id: "admin-manage-challenge-invalidate-success",
         label: "Desafio invalidado",
         variant: "success",
@@ -102,7 +102,8 @@ export function getAdminManageChallengeErrorToast(input: {
     case "cancel":
       return {
         description:
-          input.message || "Não foi possível cancelar o desafio pelo admin.",
+          input.message ||
+          "Não foi possível cancelar o desafio pelo organizador.",
         id: "admin-manage-challenge-cancel-error",
         label: "Erro ao cancelar desafio",
         variant: "danger",
@@ -110,7 +111,8 @@ export function getAdminManageChallengeErrorToast(input: {
     case "invalidate":
       return {
         description:
-          input.message || "Não foi possível invalidar o desafio pelo admin.",
+          input.message ||
+          "Não foi possível invalidar o desafio pelo organizador.",
         id: "admin-manage-challenge-invalidate-error",
         label: "Erro ao invalidar desafio",
         variant: "danger",

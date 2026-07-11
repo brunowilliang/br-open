@@ -15,6 +15,7 @@ import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { getSelectedOption } from "@/lib/collections";
 import { buildChallengeTimeOptions } from "@/lib/leagues/challenge-schedule";
 import type { ApiOutputs } from "@convex/shared/api";
 import type { LeagueCourt } from "@convex/domains/league/contract";
@@ -62,17 +63,6 @@ function formatMatchDate(date: CalendarDate) {
     dateStyle: "medium",
     timeZone: "UTC",
   }).format(date.toDate("UTC"));
-}
-
-function getSelectedOption(
-  options: readonly { label: string; value: string }[],
-  value: string | undefined
-) {
-  if (value === undefined || value === "") {
-    return;
-  }
-
-  return options.find((option) => option.value === value);
 }
 
 function buildDateOption(value?: string): DatePickerOption | undefined {

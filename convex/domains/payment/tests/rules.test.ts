@@ -12,6 +12,9 @@ import {
   canMembershipBeCharged,
   computeSplit,
   normalizeProviderStatus,
+  shouldMarkPaymentDue,
+  shouldSendRenewalReminder,
+  shouldSuspend,
 } from "../rules";
 
 describe("payment rules", () => {
@@ -84,8 +87,24 @@ describe("payment rules", () => {
       expect(canMembershipBeCharged({ status: "awaiting_payment" })).toBe(true);
     });
 
+    it("allows charging when membership is payment_due (grace period)", () => {
+      expect(canMembershipBeCharged({ status: "payment_due" })).toBe(true);
+    });
+
+    it("allows charging when membership is suspended (re-paying)", () => {
+      expect(canMembershipBeCharged({ status: "suspended" })).toBe(true);
+    });
+
     it("rejects charging an active membership", () => {
       expect(canMembershipBeCharged({ status: "active" })).toBe(false);
+    });
+
+    it("rejects charging a pending membership", () => {
+      expect(canMembershipBeCharged({ status: "pending" })).toBe(false);
+    });
+
+    it("rejects charging a left membership", () => {
+      expect(canMembershipBeCharged({ status: "left" })).toBe(false);
     });
   });
 
@@ -151,6 +170,145 @@ describe("payment rules", () => {
         recipientPixKey: "k",
       });
       expect(split.organizerCents + split.brOpenCents).toBe(3333);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Renewal timeline helpers
+  // -------------------------------------------------------------------------
+
+  const DAY = 24 * 60 * 60 * 1000;
+
+  describe("shouldSendRenewalReminder", () => {
+    it("fires when within the reminder window before due", () => {
+      const now = Date.now();
+      const nextDue = now + 2 * DAY;
+      expect(
+        shouldSendRenewalReminder({
+          nextDueMs: nextDue,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(true);
+    });
+
+    it("does not fire when too far before due", () => {
+      const now = Date.now();
+      const nextDue = now + 10 * DAY;
+      expect(
+        shouldSendRenewalReminder({
+          nextDueMs: nextDue,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(false);
+    });
+
+    it("does not fire after due date has passed", () => {
+      const now = Date.now();
+      const nextDue = now - 1 * DAY;
+      expect(
+        shouldSendRenewalReminder({
+          nextDueMs: nextDue,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(false);
+    });
+
+    it("fires exactly at the boundary (reminderDaysBefore days before due)", () => {
+      const now = Date.now();
+      const nextDue = now + 3 * DAY;
+      expect(
+        shouldSendRenewalReminder({
+          nextDueMs: nextDue,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(true);
+    });
+
+    it("never fires when reminderDaysBefore is 0", () => {
+      const now = Date.now();
+      const nextDue = now + 1;
+      expect(
+        shouldSendRenewalReminder({
+          nextDueMs: nextDue,
+          nowMs: now,
+          reminderDaysBefore: 0,
+        })
+      ).toBe(false);
+    });
+  });
+
+  describe("shouldMarkPaymentDue", () => {
+    it("returns true when due date has passed", () => {
+      const now = Date.now();
+      expect(shouldMarkPaymentDue({ nextDueMs: now - 1000, nowMs: now })).toBe(
+        true
+      );
+    });
+
+    it("returns false when due date has not arrived", () => {
+      const now = Date.now();
+      expect(shouldMarkPaymentDue({ nextDueMs: now + 1000, nowMs: now })).toBe(
+        false
+      );
+    });
+
+    it("returns true at exactly the due date", () => {
+      const now = Date.now();
+      expect(shouldMarkPaymentDue({ nextDueMs: now, nowMs: now })).toBe(true);
+    });
+  });
+
+  describe("shouldSuspend", () => {
+    it("returns true when grace period has elapsed", () => {
+      const now = Date.now();
+      const nextDue = now - 8 * DAY;
+      expect(
+        shouldSuspend({
+          nextDueMs: nextDue,
+          nowMs: now,
+          gracePeriodDays: 7,
+        })
+      ).toBe(true);
+    });
+
+    it("returns false when still within grace period", () => {
+      const now = Date.now();
+      const nextDue = now - 3 * DAY;
+      expect(
+        shouldSuspend({
+          nextDueMs: nextDue,
+          nowMs: now,
+          gracePeriodDays: 7,
+        })
+      ).toBe(false);
+    });
+
+    it("returns true at exactly the grace boundary", () => {
+      const now = Date.now();
+      const nextDue = now - 7 * DAY;
+      expect(
+        shouldSuspend({
+          nextDueMs: nextDue,
+          nowMs: now,
+          gracePeriodDays: 7,
+        })
+      ).toBe(true);
+    });
+
+    it("suspends immediately when grace is 0", () => {
+      const now = Date.now();
+      const nextDue = now;
+      expect(
+        shouldSuspend({
+          nextDueMs: nextDue,
+          nowMs: now,
+          gracePeriodDays: 0,
+        })
+      ).toBe(true);
     });
   });
 });

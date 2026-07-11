@@ -134,3 +134,39 @@ export const listMyPaymentsOutputSchema = z.object({
 });
 
 export type ListMyPaymentsOutput = z.infer<typeof listMyPaymentsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// Organizer dashboard overview (Home screen in organizer mode)
+// ---------------------------------------------------------------------------
+
+export const dashboardRecentChargeSchema = z.object({
+  chargeId: z.string(),
+  playerName: z.string().nullable(),
+  sourceLabel: z.string().nullable(),
+  amountCents: z.number().int().nonnegative(),
+  organizerCents: z.number().int().nonnegative(),
+  status: paymentChargeStatusSchema,
+  paidAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type DashboardRecentCharge = z.infer<typeof dashboardRecentChargeSchema>;
+
+export const dashboardOverviewSchema = z.object({
+  account: z.object({
+    name: z.string().nullable(),
+    pixKey: z.string().nullable(),
+    status: paymentAccountStatusSchema.nullable(),
+  }),
+  metrics: z.object({
+    receivedThisMonthCents: z.number().int().nonnegative(),
+    receivedLastMonthCents: z.number().int().nonnegative(),
+    activeSubscribers: z.number().int().nonnegative(),
+    overdueCount: z.number().int().nonnegative(),
+    paymentsThisMonth: z.number().int().nonnegative(),
+    projectedMonthlyCents: z.number().int().nonnegative(),
+  }),
+  recentCharges: z.array(dashboardRecentChargeSchema),
+});
+
+export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;

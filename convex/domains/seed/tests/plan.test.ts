@@ -66,8 +66,8 @@ describe("seed plan", () => {
       "confirmed",
       "pending_result_submission",
       "pending_result_confirmation",
-      "pending_admin_result_validation",
-      "pending_admin_decision",
+      "pending_organizer_result_validation",
+      "pending_organizer_decision",
       "finished",
     ] as const;
     for (const expectedStatus of expectedStatuses) {

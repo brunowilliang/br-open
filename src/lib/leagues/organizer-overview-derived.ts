@@ -1,8 +1,9 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
+import { getMonthStartMs } from "@/lib/format/date";
 import {
-  ADMIN_ATTENTION_STATUSES,
-  ADMIN_ONGOING_STATUSES,
+  ORGANIZER_ATTENTION_STATUSES,
+  ORGANIZER_ONGOING_STATUSES,
 } from "./challenge-tab-counts";
 
 export type ChallengeItem =
@@ -15,40 +16,40 @@ export type MembershipOverview =
 
 // ----- Alerts -----
 
-export type AdminJoinRequestsAlert = { total: number };
+export type OrganizerJoinRequestsAlert = { total: number };
 
-export type AdminPendingActionKind =
+export type OrganizerPendingActionKind =
   | "challenge_validation"
   | "decision"
   | "result_approval"
   | "result_correction";
 
-export type AdminPendingAction = { kind: AdminPendingActionKind };
+export type OrganizerPendingAction = { kind: OrganizerPendingActionKind };
 
-export type AdminValidationsAlert = {
-  actions: AdminPendingAction[];
+export type OrganizerValidationsAlert = {
+  actions: OrganizerPendingAction[];
   total: number;
 };
 
 const ATTENTION_STATUS_TO_KIND: Record<
   Extract<
     ChallengeStatus,
-    | "pending_admin_challenge_validation"
-    | "pending_admin_result_validation"
-    | "pending_admin_decision"
+    | "pending_organizer_challenge_validation"
+    | "pending_organizer_result_validation"
+    | "pending_organizer_decision"
     | "pending_result_correction"
   >,
-  AdminPendingActionKind
+  OrganizerPendingActionKind
 > = {
-  pending_admin_challenge_validation: "challenge_validation",
-  pending_admin_result_validation: "result_approval",
-  pending_admin_decision: "decision",
+  pending_organizer_challenge_validation: "challenge_validation",
+  pending_organizer_result_validation: "result_approval",
+  pending_organizer_decision: "decision",
   pending_result_correction: "result_correction",
 };
 
-export function buildAdminJoinRequestsAlert(input: {
+export function buildOrganizerJoinRequestsAlert(input: {
   pendingRequestsCount: number;
-}): AdminJoinRequestsAlert | null {
+}): OrganizerJoinRequestsAlert | null {
   if (input.pendingRequestsCount <= 0) {
     return null;
   }
@@ -56,10 +57,10 @@ export function buildAdminJoinRequestsAlert(input: {
   return { total: input.pendingRequestsCount };
 }
 
-export function buildAdminValidationsAlert(input: {
+export function buildOrganizerValidationsAlert(input: {
   challenges: ChallengeItem[];
-}): AdminValidationsAlert | null {
-  const actions: AdminPendingAction[] = [];
+}): OrganizerValidationsAlert | null {
+  const actions: OrganizerPendingAction[] = [];
 
   for (const challenge of input.challenges) {
     const kind =
@@ -80,7 +81,7 @@ export function buildAdminValidationsAlert(input: {
 }
 
 const KIND_LABEL: Record<
-  AdminPendingActionKind,
+  OrganizerPendingActionKind,
   { many: string; one: string }
 > = {
   challenge_validation: {
@@ -99,17 +100,17 @@ const KIND_LABEL: Record<
 };
 
 // Ordem estável para o resumo, independente da ordem dos status no input.
-const SUMMARY_ORDER: AdminPendingActionKind[] = [
+const SUMMARY_ORDER: OrganizerPendingActionKind[] = [
   "challenge_validation",
   "result_approval",
   "decision",
   "result_correction",
 ];
 
-export function summarizeAdminPendingActions(
-  actions: AdminPendingAction[]
+export function summarizeOrganizerPendingActions(
+  actions: OrganizerPendingAction[]
 ): string {
-  const counts: Record<AdminPendingActionKind, number> = {
+  const counts: Record<OrganizerPendingActionKind, number> = {
     challenge_validation: 0,
     decision: 0,
     result_approval: 0,
@@ -135,32 +136,25 @@ export function summarizeAdminPendingActions(
 }
 
 // Re-export para o componente poder importar os conjuntos de um único lugar.
-export { ADMIN_ATTENTION_STATUSES, ADMIN_ONGOING_STATUSES };
+export { ORGANIZER_ATTENTION_STATUSES, ORGANIZER_ONGOING_STATUSES };
 
 // ----- Metric cards -----
 
-export type AdminOccupationCard = {
+export type OrganizerOccupationCard = {
   activeCount: number;
   label: string;
 };
 
-export type AdminMonthlyMatchesCard = { finishedCount: number };
+export type OrganizerMonthlyMatchesCard = { finishedCount: number };
 
-export type AdminOngoingChallengesCard = { ongoingCount: number };
+export type OrganizerOngoingChallengesCard = { ongoingCount: number };
 
-export type AdminActivityRateCard = { activeCount: number; rate: number };
+export type OrganizerActivityRateCard = { activeCount: number; rate: number };
 
-function getMonthStartMs(now: number) {
-  const monthStart = new Date(now);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  return monthStart.getTime();
-}
-
-export function buildAdminOccupationCard(input: {
+export function buildOrganizerOccupationCard(input: {
   activeCount: number;
   maxPlayers: null | number;
-}): AdminOccupationCard {
+}): OrganizerOccupationCard {
   if (input.maxPlayers === null) {
     return { activeCount: input.activeCount, label: "vagas ilimitadas" };
   }
@@ -177,10 +171,10 @@ export function buildAdminOccupationCard(input: {
   };
 }
 
-export function buildAdminMonthlyMatchesCard(input: {
+export function buildOrganizerMonthlyMatchesCard(input: {
   challenges: ChallengeItem[];
   now: number;
-}): AdminMonthlyMatchesCard {
+}): OrganizerMonthlyMatchesCard {
   const monthStart = getMonthStartMs(input.now);
 
   const finishedCount = input.challenges.filter((challenge) => {
@@ -197,21 +191,21 @@ export function buildAdminMonthlyMatchesCard(input: {
   return { finishedCount };
 }
 
-export function buildAdminOngoingChallengesCard(input: {
+export function buildOrganizerOngoingChallengesCard(input: {
   challenges: ChallengeItem[];
-}): AdminOngoingChallengesCard {
+}): OrganizerOngoingChallengesCard {
   const ongoingCount = input.challenges.filter((challenge) =>
-    ADMIN_ONGOING_STATUSES.has(challenge.status)
+    ORGANIZER_ONGOING_STATUSES.has(challenge.status)
   ).length;
 
   return { ongoingCount };
 }
 
-export function buildAdminActivityRateCard(input: {
+export function buildOrganizerActivityRateCard(input: {
   challenges: ChallengeItem[];
   now: number;
   ranking: MembershipOverview["ranking"];
-}): AdminActivityRateCard {
+}): OrganizerActivityRateCard {
   const activeCount = input.ranking.length;
 
   if (activeCount === 0) {

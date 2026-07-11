@@ -43,7 +43,7 @@ const visibilityOptions = [
 
 const scheduleVisibilityOptions = [
   { label: "Aberta para todos", value: "public" as const },
-  { label: "Somente membros", value: "members_only" as const },
+  { label: "Somente jogadores", value: "members_only" as const },
 ];
 
 const priceBillingIntervalOptions = [
@@ -111,6 +111,8 @@ export default function LeagueSettingsRoute() {
       "monthlyPriceCents",
       "priceBillingInterval",
       "approvalMode",
+      "gracePeriodDays",
+      "reminderDaysBefore",
     ],
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -139,6 +141,16 @@ export default function LeagueSettingsRoute() {
     control,
     name: "approvalMode",
     defaultValue: getValues("approvalMode"),
+  });
+  const gracePeriodDays = useWatch({
+    control,
+    name: "gracePeriodDays",
+    defaultValue: getValues("gracePeriodDays"),
+  });
+  const reminderDaysBefore = useWatch({
+    control,
+    name: "reminderDaysBefore",
+    defaultValue: getValues("reminderDaysBefore"),
   });
   const scheduleVisibility = useWatch({
     control,
@@ -453,6 +465,56 @@ export default function LeagueSettingsRoute() {
                 {SETTINGS_RULE_INFO.approvalMode.description}
               </Description>
             </TextField>
+
+            <TextField isRequired>
+              <Label>Carência (dias)</Label>
+              <NumberStepper
+                className="self-start"
+                defaultValue={gracePeriodDays ?? 7}
+                isDisabled={isDisabled}
+                maxValue={90}
+                minValue={0}
+                onValueChange={(nextValue) => {
+                  setValue("gracePeriodDays", nextValue, fieldUpdateOptions);
+                }}
+                step={1}
+                value={gracePeriodDays ?? 7}
+              >
+                <NumberStepper.DecrementButton />
+                <NumberStepper.Value />
+                <NumberStepper.IncrementButton />
+              </NumberStepper>
+              <Description>
+                Dias que o jogador tem após o vencimento antes de ser suspenso.
+              </Description>
+              <FieldError>{errors.gracePeriodDays?.message ?? ""}</FieldError>
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Lembrete antes do vencimento (dias)</Label>
+              <NumberStepper
+                className="self-start"
+                defaultValue={reminderDaysBefore ?? 3}
+                isDisabled={isDisabled}
+                maxValue={60}
+                minValue={0}
+                onValueChange={(nextValue) => {
+                  setValue("reminderDaysBefore", nextValue, fieldUpdateOptions);
+                }}
+                step={1}
+                value={reminderDaysBefore ?? 3}
+              >
+                <NumberStepper.DecrementButton />
+                <NumberStepper.Value />
+                <NumberStepper.IncrementButton />
+              </NumberStepper>
+              <Description>
+                Quantos dias antes do vencimento o jogador recebe um lembrete.
+              </Description>
+              <FieldError>
+                {errors.reminderDaysBefore?.message ?? ""}
+              </FieldError>
+            </TextField>
           </ToggleableRuleCard>
 
           {showDelete ? (
@@ -561,7 +623,7 @@ export default function LeagueSettingsRoute() {
                   isDisabled={isDisabled}
                   onPress={() => {
                     setIsWooviDialogOpen(false);
-                    router.navigate("/settings/organization/payments" as Href);
+                    router.navigate("/settings/organization/profile" as Href);
                   }}
                   size="sm"
                   variant="primary"

@@ -6,10 +6,10 @@ import {
   LeagueMembershipStatusOptions,
 } from "../contract";
 import {
-  ADMIN_ATTENTION_CHALLENGE_STATUSES,
+  ORGANIZER_ATTENTION_CHALLENGE_STATUSES,
   ADMIN_CANCELABLE_CHALLENGE_STATUSES,
   ADMIN_INVALIDATABLE_CHALLENGE_STATUSES,
-  ADMIN_ONGOING_CHALLENGE_STATUSES,
+  ORGANIZER_ONGOING_CHALLENGE_STATUSES,
   ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
   ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
   CLOSED_CHALLENGE_STATUSES,
@@ -92,7 +92,7 @@ describe("backend challenge status sets", () => {
     ).toBe(false);
   });
 
-  it("CLOSED + ADMIN_ATTENTION + ADMIN_ONGOING form a disjoint cover of all statuses", () => {
+  it("CLOSED + ORGANIZER_ATTENTION + ORGANIZER_ONGOING form a disjoint cover of all statuses", () => {
     // Every LeagueChallengeStatus must be in exactly one of these three sets.
     // (Drives the frontend admin tab partition — see challenge-status.ts.)
     const valid = new Set<string>(LeagueChallengeStatusOptions);
@@ -107,11 +107,11 @@ describe("backend challenge status sets", () => {
     for (const status of CLOSED_CHALLENGE_STATUSES) {
       recordBucket(status, "CLOSED");
     }
-    for (const status of ADMIN_ATTENTION_CHALLENGE_STATUSES) {
-      recordBucket(status, "ADMIN_ATTENTION");
+    for (const status of ORGANIZER_ATTENTION_CHALLENGE_STATUSES) {
+      recordBucket(status, "ORGANIZER_ATTENTION");
     }
-    for (const status of ADMIN_ONGOING_CHALLENGE_STATUSES) {
-      recordBucket(status, "ADMIN_ONGOING");
+    for (const status of ORGANIZER_ONGOING_CHALLENGE_STATUSES) {
+      recordBucket(status, "ORGANIZER_ONGOING");
     }
 
     // 1. Every canonical status is covered.

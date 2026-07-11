@@ -2,6 +2,7 @@ import { observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
 
 import type { ImageCropAsset, CroppedImage } from "@/lib/uploads/image-crop";
+import { normalizeRouteParam } from "@/lib/router/normalize-param";
 
 export type LeagueMediaKind = "avatar" | "cover";
 export type LeagueFormMode = "create" | "edit";
@@ -31,10 +32,6 @@ const leagueFormCallbacks = new Map<string, LeagueFormCallbacks>();
 export const leagueFormStore$ = observable({
   activeSessionKey: CREATE_LEAGUE_FORM_SESSION_KEY,
 });
-
-function normalizeLeagueId(rawLeagueId?: string | string[]) {
-  return Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
-}
 
 function createLeagueFormBucket(sessionKey: string) {
   const bucket$ = observable({
@@ -189,7 +186,7 @@ export function getEditLeagueFormSessionKey(leagueId: string) {
 }
 
 export function getLeagueFormSessionKey(rawLeagueId?: string | string[]) {
-  const leagueId = normalizeLeagueId(rawLeagueId);
+  const leagueId = normalizeRouteParam(rawLeagueId);
 
   return leagueId
     ? getEditLeagueFormSessionKey(leagueId)

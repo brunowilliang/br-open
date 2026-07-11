@@ -56,7 +56,7 @@ describe("league challenge rules", () => {
       resolveAcceptedChallengeStatus({
         challengeValidationMode: "manual",
       })
-    ).toBe("pending_admin_challenge_validation");
+    ).toBe("pending_organizer_challenge_validation");
   });
 
   it("locks directly into confirmed when both players agree and the league is automatic", () => {
@@ -72,7 +72,7 @@ describe("league challenge rules", () => {
       resolveScoreConfirmationStatus({
         resultValidationMode: "manual",
       })
-    ).toBe("pending_admin_result_validation");
+    ).toBe("pending_organizer_result_validation");
   });
 
   it("finishes confirmed scores immediately when the league is automatic", () => {
@@ -84,7 +84,7 @@ describe("league challenge rules", () => {
   });
 
   it("marks silent responses for admin decision", () => {
-    expect(resolveNoResponseStatus()).toBe("pending_admin_decision");
+    expect(resolveNoResponseStatus()).toBe("pending_organizer_decision");
   });
 
   it("marks matches without score after the scheduled time as pending result submission", () => {
@@ -521,7 +521,7 @@ describe("league challenge rules", () => {
         winBehavior: "take_opponent_position",
       })
     ).toEqual({
-      nextStatus: "pending_admin_result_validation",
+      nextStatus: "pending_organizer_result_validation",
       ok: true,
       rankingMembershipIds: null,
       winnerMembershipId: "membership-4",

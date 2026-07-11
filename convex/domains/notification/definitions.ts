@@ -9,7 +9,7 @@ export type {
   NotificationPushCategoryId,
 } from "../../shared/notifications/protocol";
 
-export type NotificationRecipientRole = "manager" | "player";
+export type NotificationRecipientRole = "organizer" | "player";
 
 export type NotificationContentInput = {
   actorName?: string | null;
@@ -84,6 +84,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     template: (input) => ({
       title: "Pagamento confirmado",
       body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
+    }),
+  },
+  "league.membership.payment_due": {
+    getUrl: getCheckoutUrl,
+    template: (input) => ({
+      title: "Pagamento atrasado",
+      body: `O pagamento da sua inscrição na liga ${input.leagueName} venceu. Pague para não ser suspenso.`,
     }),
   },
   "league.membership.payment_expired": {
@@ -234,14 +241,14 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       body: `O organizador da liga ${input.leagueName} está aguardando o placar do seu desafio.`,
     }),
   },
-  "league.challenge.admin_approved": {
+  "league.challenge.organizer_approved": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Desafio aprovado",
       body: `O organizador aprovou o desafio em ${input.leagueName}.`,
     }),
   },
-  "league.challenge.admin_rejected": {
+  "league.challenge.organizer_rejected": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
       title: "Desafio recusado",

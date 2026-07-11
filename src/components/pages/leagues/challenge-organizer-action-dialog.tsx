@@ -1,7 +1,7 @@
 import { Button, Description, Dialog } from "heroui-native";
 import { View } from "react-native";
 
-type ChallengeAdminActionDialogProps = {
+type ChallengeOrganizerActionDialogProps = {
   description: string;
   isDanger?: boolean;
   isOpen: boolean;
@@ -12,8 +12,8 @@ type ChallengeAdminActionDialogProps = {
   title: string;
 };
 
-export const ChallengeAdminActionDialog = (
-  props: ChallengeAdminActionDialogProps
+export const ChallengeOrganizerActionDialog = (
+  props: ChallengeOrganizerActionDialogProps
 ) => {
   const {
     description,

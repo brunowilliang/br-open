@@ -112,7 +112,7 @@ export default function SettingsLeaguesIndex() {
             pathname: "/settings/leagues/[mode]",
           });
         }}
-        description="Crie a primeira liga para começar a receber participantes"
+        description="Crie a primeira liga para começar a receber jogadores"
         title="Nenhuma liga criada"
       />
     );

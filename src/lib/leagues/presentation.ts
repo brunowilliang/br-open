@@ -1,4 +1,8 @@
-const NAME_PARTS_SPLIT_REGEX = /\s+/;
+import { formatCurrencyCents } from "@/lib/format/currency";
+import { getGreetingLabel, getUserInitials } from "@/lib/format/user";
+
+export { getGreetingLabel, getUserInitials };
+
 const LIMITED_AVAILABILITY_THRESHOLD = 10;
 
 type LeaguePriceBillingInterval =
@@ -18,15 +22,6 @@ const leaguePriceBillingIntervalSuffixes: Record<
   week: "/semana",
   year: "/ano",
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    currency: "BRL",
-    style: "currency",
-  })
-    .format(value / 100)
-    .replace(/\u00a0/g, " ");
-}
 
 export function getLeagueAvailableSpotCount(input: {
   activePlayerCount: number;
@@ -82,7 +77,7 @@ export function formatLeaguePriceParts(input: {
   }
 
   return {
-    amount: formatCurrency(input.amountCents),
+    amount: formatCurrencyCents(input.amountCents),
     suffix: leaguePriceBillingIntervalSuffixes[input.billingInterval],
   };
 }
@@ -166,6 +161,8 @@ export function formatMembershipStatus(status?: string | null) {
       return "Ativo";
     case "awaiting_payment":
       return "Aguardando pagamento";
+    case "payment_due":
+      return "Pagamento atrasado";
     case "pending":
       return "Pendente";
     case "rejected":
@@ -187,6 +184,8 @@ export function getMembershipStatusColor(status?: string | null) {
       return "success";
     case "awaiting_payment":
     case "pending":
+      return "warning";
+    case "payment_due":
     case "suspended":
       return "warning";
     case "removed":
@@ -199,7 +198,7 @@ export function getMembershipStatusColor(status?: string | null) {
 
 export function getMembershipActionLabel(
   status?: string | null,
-  options?: { isManagerOwner?: boolean }
+  options?: { isLeagueOrganizer?: boolean }
 ) {
   if (status === "active") {
     return "Abrir";
@@ -207,6 +206,10 @@ export function getMembershipActionLabel(
 
   if (status === "awaiting_payment") {
     return "Pagar inscrição";
+  }
+
+  if (status === "payment_due") {
+    return "Pagar agora";
   }
 
   if (status === "suspended") {
@@ -221,40 +224,9 @@ export function getMembershipActionLabel(
     return "Solicitar novamente";
   }
 
-  if (options?.isManagerOwner) {
+  if (options?.isLeagueOrganizer) {
     return "Entrar como jogador";
   }
 
   return "Solicitar entrada";
-}
-
-export function getGreetingLabel(now = new Date()) {
-  const hour = now.getHours();
-
-  if (hour < 12) {
-    return "Bom dia";
-  }
-
-  if (hour < 18) {
-    return "Boa tarde";
-  }
-
-  return "Boa noite";
-}
-
-export function getUserInitials(
-  name?: string | null,
-  fallback?: string | null
-) {
-  const normalizedName = name?.trim();
-
-  if (normalizedName) {
-    return normalizedName
-      .split(NAME_PARTS_SPLIT_REGEX)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("");
-  }
-
-  return (fallback ?? "?").slice(0, 2).toUpperCase();
 }

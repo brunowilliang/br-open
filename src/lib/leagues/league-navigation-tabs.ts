@@ -1,3 +1,5 @@
+import { clampToNonNegativeInt } from "@/lib/numbers";
+
 import type { LeagueDetailsAccess } from "./league-details-derived";
 
 export type LeagueNavigationTabValue =
@@ -35,7 +37,7 @@ export function buildLeagueNavigationTabItems(input: {
 
   if (input.access.canOpenChallenges) {
     items.push({
-      badgeCount: normalizeTabBadgeCount(input.challengeActionCount),
+      badgeCount: clampToNonNegativeInt(input.challengeActionCount),
       label: "Desafios",
       value: "challenges",
     });
@@ -43,7 +45,7 @@ export function buildLeagueNavigationTabItems(input: {
 
   if (input.access.canOpenRequests) {
     items.push({
-      badgeCount: normalizeTabBadgeCount(input.requestActionCount),
+      badgeCount: clampToNonNegativeInt(input.requestActionCount),
       label: "Solicitações",
       value: "requests",
     });
@@ -73,8 +75,4 @@ export function resolveLeagueNavigationTabValue(
     default:
       return null;
   }
-}
-
-function normalizeTabBadgeCount(count: number) {
-  return Math.max(0, Math.trunc(count));
 }

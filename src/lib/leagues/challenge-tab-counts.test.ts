@@ -42,7 +42,7 @@ const sampleChallenges: ChallengeTabCountItem[] = [
     },
     status: "finished",
   },
-  // Não envolve o viewer; esperando validação do admin.
+  // Não envolve o viewer; esperando validação do organizador.
   {
     challenged: {
       membershipId: "membership-other-d",
@@ -52,7 +52,7 @@ const sampleChallenges: ChallengeTabCountItem[] = [
       membershipId: "membership-other-e",
       playerProfileId: "other-e",
     },
-    status: "pending_admin_result_validation",
+    status: "pending_organizer_result_validation",
   },
   // Não envolve o viewer; admin pediu correção de placar.
   {
@@ -129,7 +129,7 @@ describe("buildChallengeTabCounts (participant)", () => {
   });
 });
 
-describe("buildChallengeTabCounts (admin)", () => {
+describe("buildChallengeTabCounts (organizer)", () => {
   it("counts attention from admin-gated statuses", () => {
     const result = buildChallengeTabCounts({
       canManage: true,
@@ -137,7 +137,7 @@ describe("buildChallengeTabCounts (admin)", () => {
       viewerPlayerProfileId: "viewer",
     });
 
-    // pending_admin_result_validation + pending_result_correction → 2 atenção.
+    // pending_organizer_result_validation + pending_result_correction → 2 atenção.
     expect(result.attention).toBe(2);
     expect(result.main).toBe(2);
   });

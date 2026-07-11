@@ -1,11 +1,13 @@
 /**
  * Woovi (OpenPix) webhook HTTP endpoint.
  *
- * Verifies the HMAC-SHA256 signature (header `x-webhook-signature`, secret
- * from `WOOVI_WEBHOOK_SECRET`), then dispatches via ctx.runMutation:
+ * Verifies the RSA-SHA256 signature (header `x-webhook-signature`, verified
+ * with Woovi's fixed public key — see webhook-signature.ts), then dispatches
+ * via ctx.runMutation:
  *   OPENPIX:TRANSACTION_RECEIVED -> applyPaidCharge (atomic)
  *   OPENPIX:CHARGE_COMPLETED    -> applyPaidCharge (atomic)
  *   OPENPIX:CHARGE_EXPIRED      -> markChargeExpired
+ *   OPENPIX:CHARGE_REFUNDED     -> markChargeRefunded
  *
  * Always returns 200 OK to prevent Woovi retries (per the docs).
  *
@@ -17,6 +19,7 @@ import {
   type WooviWebhookPayload,
   OPENPIX_CHARGE_COMPLETED,
   OPENPIX_CHARGE_EXPIRED,
+  OPENPIX_CHARGE_REFUNDED,
   OPENPIX_TRANSACTION_RECEIVED,
 } from "../../domains/payment/webhook-events";
 import { verifyWooviWebhookSignature } from "../../domains/payment/webhook-signature";
@@ -48,7 +51,14 @@ export const handleWooviWebhook = publicRoute
       });
     }
 
-    const payload = JSON.parse(rawBody) as WooviWebhookPayload;
+    let payload: WooviWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody) as WooviWebhookPayload;
+    } catch {
+      // Malformed JSON — still return 200 to prevent Woovi retries.
+      console.warn("[woovi-webhook] received malformed JSON body");
+      return c.text("OK", 200);
+    }
 
     if (
       (payload.event === OPENPIX_TRANSACTION_RECEIVED ||
@@ -71,6 +81,16 @@ export const handleWooviWebhook = publicRoute
       payload.charge?.correlationID
     ) {
       await ctx.runMutation(internal.payment.charge.markChargeExpired, {
+        correlationId: payload.charge.correlationID,
+      });
+    }
+
+    if (
+      payload.event === OPENPIX_CHARGE_REFUNDED &&
+      "charge" in payload &&
+      payload.charge?.correlationID
+    ) {
+      await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
         correlationId: payload.charge.correlationID,
       });
     }

@@ -288,7 +288,7 @@ export default function PlayerProfile() {
             <Page.Header.BackButton />
           </Page.Header.Left>
           <Page.Header.Center>
-            <Page.Header.Title>Perfil</Page.Header.Title>
+            <Page.Header.Title>Perfil do jogador</Page.Header.Title>
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>

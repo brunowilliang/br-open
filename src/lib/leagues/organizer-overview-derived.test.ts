@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  buildAdminActivityRateCard,
-  buildAdminJoinRequestsAlert,
-  buildAdminMonthlyMatchesCard,
-  buildAdminOngoingChallengesCard,
-  buildAdminOccupationCard,
-  buildAdminValidationsAlert,
-  summarizeAdminPendingActions,
+  buildOrganizerActivityRateCard,
+  buildOrganizerJoinRequestsAlert,
+  buildOrganizerMonthlyMatchesCard,
+  buildOrganizerOngoingChallengesCard,
+  buildOrganizerOccupationCard,
+  buildOrganizerValidationsAlert,
+  summarizeOrganizerPendingActions,
   type ChallengeStatus,
-} from "./admin-overview-derived";
+} from "./organizer-overview-derived";
 
 function makeChallenge(status: ChallengeStatus) {
   return {
@@ -19,34 +19,38 @@ function makeChallenge(status: ChallengeStatus) {
   } as never;
 }
 
-describe("buildAdminJoinRequestsAlert", () => {
+describe("buildOrganizerJoinRequestsAlert", () => {
   it("returns null when there are no pending requests", () => {
-    expect(buildAdminJoinRequestsAlert({ pendingRequestsCount: 0 })).toBeNull();
+    expect(
+      buildOrganizerJoinRequestsAlert({ pendingRequestsCount: 0 })
+    ).toBeNull();
   });
 
   it("returns the count when there are pending requests", () => {
-    expect(buildAdminJoinRequestsAlert({ pendingRequestsCount: 3 })).toEqual({
+    expect(
+      buildOrganizerJoinRequestsAlert({ pendingRequestsCount: 3 })
+    ).toEqual({
       total: 3,
     });
   });
 });
 
-describe("buildAdminValidationsAlert", () => {
+describe("buildOrganizerValidationsAlert", () => {
   it("returns null when no challenges need admin attention", () => {
     expect(
-      buildAdminValidationsAlert({
+      buildOrganizerValidationsAlert({
         challenges: [makeChallenge("confirmed"), makeChallenge("finished")],
       })
     ).toBeNull();
   });
 
   it("groups admin-attention statuses into actions", () => {
-    const result = buildAdminValidationsAlert({
+    const result = buildOrganizerValidationsAlert({
       challenges: [
-        makeChallenge("pending_admin_challenge_validation"),
-        makeChallenge("pending_admin_challenge_validation"),
-        makeChallenge("pending_admin_result_validation"),
-        makeChallenge("pending_admin_decision"),
+        makeChallenge("pending_organizer_challenge_validation"),
+        makeChallenge("pending_organizer_challenge_validation"),
+        makeChallenge("pending_organizer_result_validation"),
+        makeChallenge("pending_organizer_decision"),
         makeChallenge("pending_result_correction"),
       ],
     });
@@ -57,13 +61,13 @@ describe("buildAdminValidationsAlert", () => {
   });
 });
 
-describe("summarizeAdminPendingActions", () => {
+describe("summarizeOrganizerPendingActions", () => {
   it("returns empty string for no actions", () => {
-    expect(summarizeAdminPendingActions([])).toBe("");
+    expect(summarizeOrganizerPendingActions([])).toBe("");
   });
 
   it("summarizes each kind with pt-BR pluralization, joined by ' · '", () => {
-    const summary = summarizeAdminPendingActions([
+    const summary = summarizeOrganizerPendingActions([
       { kind: "challenge_validation" },
       { kind: "challenge_validation" },
       { kind: "result_approval" },
@@ -77,7 +81,7 @@ describe("summarizeAdminPendingActions", () => {
   });
 
   it("uses singular form for a single item", () => {
-    const summary = summarizeAdminPendingActions([
+    const summary = summarizeOrganizerPendingActions([
       { kind: "challenge_validation" },
     ]);
 
@@ -110,33 +114,33 @@ function makeFinishedChallenge(
   } as never;
 }
 
-describe("buildAdminOccupationCard", () => {
+describe("buildOrganizerOccupationCard", () => {
   it("shows remaining slots when maxPlayers is set", () => {
     expect(
-      buildAdminOccupationCard({ activeCount: 12, maxPlayers: 20 })
+      buildOrganizerOccupationCard({ activeCount: 12, maxPlayers: 20 })
     ).toEqual({ activeCount: 12, label: "8 vagas restantes" });
   });
 
   it("shows 'Liga lotada' when activeCount reaches maxPlayers", () => {
     expect(
-      buildAdminOccupationCard({ activeCount: 20, maxPlayers: 20 })
+      buildOrganizerOccupationCard({ activeCount: 20, maxPlayers: 20 })
     ).toEqual({ activeCount: 20, label: "Liga lotada" });
   });
 
   it("shows 'Liga lotada' when activeCount exceeds maxPlayers", () => {
     expect(
-      buildAdminOccupationCard({ activeCount: 21, maxPlayers: 20 })
+      buildOrganizerOccupationCard({ activeCount: 21, maxPlayers: 20 })
     ).toEqual({ activeCount: 21, label: "Liga lotada" });
   });
 
   it("shows 'vagas ilimitadas' when maxPlayers is null", () => {
     expect(
-      buildAdminOccupationCard({ activeCount: 5, maxPlayers: null })
+      buildOrganizerOccupationCard({ activeCount: 5, maxPlayers: null })
     ).toEqual({ activeCount: 5, label: "vagas ilimitadas" });
   });
 });
 
-describe("buildAdminMonthlyMatchesCard", () => {
+describe("buildOrganizerMonthlyMatchesCard", () => {
   it("counts only finished challenges within the current month", () => {
     const challenges = [
       makeFinishedChallenge(MONTH_START_MS + 1000),
@@ -144,7 +148,7 @@ describe("buildAdminMonthlyMatchesCard", () => {
       makeFinishedChallenge(MONTH_START_MS - 1000), // mês anterior
     ];
 
-    expect(buildAdminMonthlyMatchesCard({ challenges, now: NOW })).toEqual({
+    expect(buildOrganizerMonthlyMatchesCard({ challenges, now: NOW })).toEqual({
       finishedCount: 2,
     });
   });
@@ -152,33 +156,33 @@ describe("buildAdminMonthlyMatchesCard", () => {
   it("returns zero when nothing finished this month", () => {
     const challenges = [makeFinishedChallenge(MONTH_START_MS - 1000)];
 
-    expect(buildAdminMonthlyMatchesCard({ challenges, now: NOW })).toEqual({
+    expect(buildOrganizerMonthlyMatchesCard({ challenges, now: NOW })).toEqual({
       finishedCount: 0,
     });
   });
 });
 
-describe("buildAdminOngoingChallengesCard", () => {
+describe("buildOrganizerOngoingChallengesCard", () => {
   it("counts only ongoing statuses", () => {
     const challenges = [
       { status: "confirmed" } as never,
       { status: "pending_result_confirmation" } as never,
       { status: "finished" } as never, // não conta
-      { status: "pending_admin_decision" } as never, // não conta (vai pro alerta)
+      { status: "pending_organizer_decision" } as never, // não conta (vai pro alerta)
     ];
 
-    expect(buildAdminOngoingChallengesCard({ challenges })).toEqual({
+    expect(buildOrganizerOngoingChallengesCard({ challenges })).toEqual({
       ongoingCount: 2,
     });
   });
 });
 
-describe("buildAdminActivityRateCard", () => {
+describe("buildOrganizerActivityRateCard", () => {
   const ranking = [{ id: "m-1" }, { id: "m-2" }, { id: "m-3" }] as never;
 
   it("returns rate 0 with no division by zero when ranking is empty", () => {
     expect(
-      buildAdminActivityRateCard({ challenges: [], now: NOW, ranking: [] })
+      buildOrganizerActivityRateCard({ challenges: [], now: NOW, ranking: [] })
     ).toEqual({ activeCount: 0, rate: 0 });
   });
 
@@ -188,7 +192,7 @@ describe("buildAdminActivityRateCard", () => {
       makeFinishedChallenge(MONTH_START_MS + 1000, "m-1", "m-2"),
     ];
 
-    const result = buildAdminActivityRateCard({
+    const result = buildOrganizerActivityRateCard({
       challenges,
       now: NOW,
       ranking,
@@ -206,7 +210,7 @@ describe("buildAdminActivityRateCard", () => {
       makeFinishedChallenge(MONTH_START_MS + 1000, "m-1", "m-4"),
     ];
 
-    const result = buildAdminActivityRateCard({
+    const result = buildOrganizerActivityRateCard({
       challenges,
       now: NOW,
       ranking,
@@ -225,7 +229,7 @@ describe("buildAdminActivityRateCard", () => {
     ];
 
     expect(
-      buildAdminActivityRateCard({ challenges, now: NOW, ranking })
+      buildOrganizerActivityRateCard({ challenges, now: NOW, ranking })
     ).toEqual({ activeCount: 3, rate: 1 });
   });
 });

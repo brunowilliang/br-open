@@ -20,7 +20,7 @@ function PreviewIcon(props: { icon: PreviewFeature["icon"] }) {
   );
 }
 
-export function VisitorOverview(props: { league: LeagueOverview }) {
+export function GuestOverview(props: { league: LeagueOverview }) {
   const { league } = props;
   const features = buildPreviewFeatures(league.ruleConfig);
 

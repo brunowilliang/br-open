@@ -100,6 +100,7 @@ export const LeagueMembershipStatusOptions = [
   "pending",
   "awaiting_payment",
   "active",
+  "payment_due",
   "rejected",
   "removed",
   "left",
@@ -117,6 +118,7 @@ export const LEAGUE_MEMBERSHIP_STATUSES = {
   ACTIVE: "active",
   AWAITING_PAYMENT: "awaiting_payment",
   LEFT: "left",
+  PAYMENT_DUE: "payment_due",
   PENDING: "pending",
   REJECTED: "rejected",
   REMOVED: "removed",
@@ -126,14 +128,14 @@ export const LEAGUE_MEMBERSHIP_STATUSES = {
 export const LeagueChallengeStatusOptions = [
   "pending_opponent_response",
   "pending_creator_reapproval",
-  "pending_admin_challenge_validation",
+  "pending_organizer_challenge_validation",
   "confirmed",
   "pending_cancellation_acceptance",
   "pending_result_submission",
   "pending_result_confirmation",
-  "pending_admin_result_validation",
+  "pending_organizer_result_validation",
   "pending_result_correction",
-  "pending_admin_decision",
+  "pending_organizer_decision",
   "finished",
   "declined",
   "cancelled",
@@ -173,6 +175,9 @@ export const DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL = "month" as const;
 export const LeagueApprovalModeOptions = ["auto", "manual"] as const;
 
 export const DEFAULT_LEAGUE_APPROVAL_MODE = "auto" as const;
+
+export const DEFAULT_LEAGUE_GRACE_PERIOD_DAYS = 7;
+export const DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE = 3;
 
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
@@ -587,6 +592,22 @@ const LeagueApprovalModeSchema = enumField(
   "Selecione o modo de aprovação."
 );
 
+const LeagueGracePeriodDaysSchema = z
+  .number({
+    error: "Informe a carência em dias.",
+  })
+  .int("Informe um valor válido.")
+  .min(0, "A carência deve ser no mínimo 0 dias.")
+  .max(90, "A carência deve ser no máximo 90 dias.");
+
+const LeagueReminderDaysBeforeSchema = z
+  .number({
+    error: "Informe os dias de antecedência.",
+  })
+  .int("Informe um valor válido.")
+  .min(0, "A antecedência deve ser no mínimo 0 dias.")
+  .max(60, "A antecedência deve ser no máximo 60 dias.");
+
 export const CreateLeagueSchema = z.object({
   name: requiredString("Informe o nome da liga.").pipe(
     z.string().min(1, "Informe o nome da liga.")
@@ -611,6 +632,8 @@ export const CreateLeagueSchema = z.object({
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
   approvalMode: LeagueApprovalModeSchema,
+  gracePeriodDays: LeagueGracePeriodDaysSchema,
+  reminderDaysBefore: LeagueReminderDaysBeforeSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
   ruleConfig: ChallengeRuleConfigSchema,
@@ -646,6 +669,8 @@ export const UpdateLeagueSchema = z.object({
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
   approvalMode: LeagueApprovalModeSchema,
+  gracePeriodDays: LeagueGracePeriodDaysSchema,
+  reminderDaysBefore: LeagueReminderDaysBeforeSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: LeagueMediaStorageIdSchema,
   avatarStorageId: LeagueMediaStorageIdSchema,
@@ -670,7 +695,7 @@ export const ReorderLeagueRankingSchema = z.object({
   leagueId: leagueIdSchema,
   membershipIds: z
     .array(leagueMembershipIdSchema)
-    .min(1, "Informe pelo menos um participante."),
+    .min(1, "Informe pelo menos um jogador."),
 });
 
 export const leagueSchema = z.object({
@@ -689,6 +714,8 @@ export const leagueSchema = z.object({
   monthlyPriceCents: LeagueMonthlyPriceCentsSchema,
   priceBillingInterval: LeaguePriceBillingIntervalSchema,
   approvalMode: LeagueApprovalModeSchema,
+  gracePeriodDays: LeagueGracePeriodDaysSchema,
+  reminderDaysBefore: LeagueReminderDaysBeforeSchema,
   ruleConfig: ChallengeRuleConfigSchema,
   coverStorageId: z.string().nullable(),
   avatarStorageId: z.string().nullable(),
@@ -769,7 +796,7 @@ export const leagueChallengeResultSubmissionSchema = z.object({
   challengeId: z.string().min(1, "Desafio inválido."),
   submittedByMembershipId: leagueMembershipIdSchema,
   confirmedByMembershipId: leagueMembershipIdSchema.nullable().optional(),
-  adminReviewedByUserId: z.string().nullable().optional(),
+  organizerReviewedByUserId: z.string().nullable().optional(),
   reviewAction: z
     .enum(LeagueChallengeResultReviewActionOptions)
     .nullable()
@@ -825,7 +852,7 @@ export const leagueScheduleItemSchema = z.object({
 
 export const leagueDiscoverySchema = leagueSchema.extend({
   activePlayerCount: z.number().int().min(0),
-  isManagerOwner: z.boolean(),
+  isLeagueOrganizer: z.boolean(),
   viewerMembershipId: z.string().min(1).nullable().optional(),
   viewerMembershipStatus: z
     .enum(LeagueMembershipStatusOptions)

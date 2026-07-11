@@ -23,6 +23,16 @@ crons.interval(
   {}
 );
 
+// Reconcile PENDING charges older than 10 min against the provider API.
+// Catches payments that succeeded on the provider side but whose webhook
+// delivery was missed. Runs every 30 minutes.
+crons.interval(
+  "reconcile-charges",
+  { minutes: 30 },
+  internal.payment.charge.reconcileCharges,
+  {}
+);
+
 crons.interval(
   "sweep-stale-deliveries",
   { minutes: 1 },

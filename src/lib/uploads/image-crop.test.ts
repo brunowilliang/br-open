@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
+import { clamp } from "@/lib/numbers";
 import {
   buildImageCropArea,
   buildImageCropPickerOptions,
-  clamp,
   clampImageOffset,
   getImageDisplay,
   getMaskFrame,

@@ -33,6 +33,8 @@ export const league = convexTable(
     // meaningful when `monthlyPriceCents > 0`. Defaults to `auto` via
     // the league serializer (kept nullable for legacy docs).
     approvalMode: text(),
+    gracePeriodDays: integer(),
+    reminderDaysBefore: integer(),
     mode: text().notNull(),
     ruleConfig: json<Record<string, unknown>>().notNull(),
     coverStorageId: text(),
@@ -134,8 +136,8 @@ export const leagueChallenge = convexTable(
   ]
 );
 
-export const leagueChallengeAdminAction = convexTable(
-  "leagueChallengeAdminAction",
+export const leagueChallengeOrganizerAction = convexTable(
+  "leagueChallengeOrganizerAction",
   {
     challengeId: id("leagueChallenge")
       .notNull()
@@ -149,9 +151,11 @@ export const leagueChallengeAdminAction = convexTable(
     toStatus: text().notNull(),
     createdAt: timestamp().notNull(),
   },
-  (leagueChallengeAdminAction) => [
-    index("challengeId").on(leagueChallengeAdminAction.challengeId),
-    index("performedByUserId").on(leagueChallengeAdminAction.performedByUserId),
+  (leagueChallengeOrganizerAction) => [
+    index("challengeId").on(leagueChallengeOrganizerAction.challengeId),
+    index("performedByUserId").on(
+      leagueChallengeOrganizerAction.performedByUserId
+    ),
   ]
 );
 
@@ -201,7 +205,7 @@ export const leagueChallengeResultSubmission = convexTable(
       () => leagueMembership.id,
       { onDelete: "set null" }
     ),
-    adminReviewedByUserId: id("user").references(() => authTables.user.id, {
+    organizerReviewedByUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
     }),
     reviewAction: text(),
@@ -225,8 +229,8 @@ export const leagueChallengeResultSubmission = convexTable(
     index("confirmedByMembershipId").on(
       leagueChallengeResultSubmission.confirmedByMembershipId
     ),
-    index("adminReviewedByUserId").on(
-      leagueChallengeResultSubmission.adminReviewedByUserId
+    index("organizerReviewedByUserId").on(
+      leagueChallengeResultSubmission.organizerReviewedByUserId
     ),
     index("winnerMembershipId").on(
       leagueChallengeResultSubmission.winnerMembershipId

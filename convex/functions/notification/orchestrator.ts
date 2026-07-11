@@ -229,7 +229,7 @@ export const createForRecipients = privateMutation
         leagueName: league.name,
         metadata: input.metadata,
         recipientRole:
-          recipientActor.kind === "organization" ? "manager" : "player",
+          recipientActor.kind === "organization" ? "organizer" : "player",
       });
 
       const feedId = await ctx.db.insert("notificationFeed", {

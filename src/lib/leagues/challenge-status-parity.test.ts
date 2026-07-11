@@ -68,14 +68,14 @@ describe("frontend challenge status sets vs backend canonical enum", () => {
       new Set([
         "pending_opponent_response",
         "pending_creator_reapproval",
-        "pending_admin_challenge_validation",
+        "pending_organizer_challenge_validation",
         "confirmed",
         "pending_cancellation_acceptance",
         "pending_result_submission",
         "pending_result_confirmation",
-        "pending_admin_result_validation",
+        "pending_organizer_result_validation",
         "pending_result_correction",
-        "pending_admin_decision",
+        "pending_organizer_decision",
       ])
     );
   });
@@ -90,9 +90,9 @@ describe("frontend challenge status sets vs backend canonical enum", () => {
         "pending_cancellation_acceptance",
         "pending_result_submission",
         "pending_result_confirmation",
-        "pending_admin_result_validation",
+        "pending_organizer_result_validation",
         "pending_result_correction",
-        "pending_admin_decision",
+        "pending_organizer_decision",
         "finished",
       ])
     );
@@ -110,9 +110,9 @@ describe("frontend challenge status sets vs backend canonical enum", () => {
         "confirmed",
         "pending_result_submission",
         "pending_result_confirmation",
-        "pending_admin_result_validation",
+        "pending_organizer_result_validation",
         "pending_result_correction",
-        "pending_admin_decision",
+        "pending_organizer_decision",
         "finished",
         "invalidated",
       ])
@@ -124,7 +124,7 @@ describe("frontend challenge status sets vs backend canonical enum", () => {
       new Set([
         "pending_result_submission",
         "pending_result_confirmation",
-        "pending_admin_decision",
+        "pending_organizer_decision",
       ])
     );
   });

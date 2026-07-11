@@ -80,7 +80,7 @@ async function getManagedLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
   if (!currentLeague || currentLeague.organizationId !== organizationId) {
     throw new CRPCError({
       code: "FORBIDDEN",
-      message: "Liga não encontrada para esse gestor.",
+      message: "Liga não encontrada para esse organizador.",
     });
   }
 
@@ -362,7 +362,7 @@ export const requestJoin = authMutation
     if (!isDiscoverable) {
       throw new CRPCError({
         code: "FORBIDDEN",
-        message: "Essa liga não está disponível para participação.",
+        message: "Essa liga não está disponível para jogadores.",
       });
     }
 

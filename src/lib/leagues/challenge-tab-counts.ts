@@ -1,11 +1,11 @@
 import type { ApiOutputs } from "@convex/shared/api";
 import {
-  ADMIN_ATTENTION_CHALLENGE_STATUSES as ADMIN_ATTENTION_STATUSES,
-  ADMIN_ONGOING_CHALLENGE_STATUSES as ADMIN_ONGOING_STATUSES,
+  ORGANIZER_ATTENTION_CHALLENGE_STATUSES as ORGANIZER_ATTENTION_STATUSES,
+  ORGANIZER_ONGOING_CHALLENGE_STATUSES as ORGANIZER_ONGOING_STATUSES,
   CLOSED_CHALLENGE_STATUSES as CLOSED_STATUSES,
 } from "@convex/domains/league/challenge-status";
 
-export { ADMIN_ATTENTION_STATUSES, ADMIN_ONGOING_STATUSES };
+export { ORGANIZER_ATTENTION_STATUSES, ORGANIZER_ONGOING_STATUSES };
 
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
@@ -59,7 +59,7 @@ function isViewerParticipant(
 }
 
 /**
- * Determina se um desafio requer a AÇÃO IMEDIATA do participante (viewer).
+ * Determina se um desafio requer a AÇÃO IMEDIATA do jogador (viewer).
  * Espelha isParticipantAttentionChallenge de challenge-route-view.ts.
  * Se alterar um, altere o outro.
  */
@@ -151,10 +151,10 @@ export function buildChallengeTabCounts(input: {
 }): ChallengeTabCounts {
   if (input.canManage) {
     const attention = input.challenges.filter((challenge) =>
-      ADMIN_ATTENTION_STATUSES.has(challenge.status)
+      ORGANIZER_ATTENTION_STATUSES.has(challenge.status)
     ).length;
     const ongoing = input.challenges.filter((challenge) =>
-      ADMIN_ONGOING_STATUSES.has(challenge.status)
+      ORGANIZER_ONGOING_STATUSES.has(challenge.status)
     ).length;
     const history = input.challenges.filter((challenge) =>
       CLOSED_STATUSES.has(challenge.status)

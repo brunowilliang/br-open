@@ -78,9 +78,9 @@ export const defineLeagueRelations = (r: RelationsBuilder<typeof tables>) => ({
       from: r.leagueChallenge.id,
       to: r.leagueChallengeResultSubmission.challengeId,
     }),
-    adminActions: r.many.leagueChallengeAdminAction({
+    adminActions: r.many.leagueChallengeOrganizerAction({
       from: r.leagueChallenge.id,
-      to: r.leagueChallengeAdminAction.challengeId,
+      to: r.leagueChallengeOrganizerAction.challengeId,
     }),
   },
   leagueChallengeProposal: {
@@ -114,17 +114,17 @@ export const defineLeagueRelations = (r: RelationsBuilder<typeof tables>) => ({
       to: r.leagueMembership.id,
     }),
     adminReviewedBy: r.one.user({
-      from: r.leagueChallengeResultSubmission.adminReviewedByUserId,
+      from: r.leagueChallengeResultSubmission.organizerReviewedByUserId,
       to: r.user.id,
     }),
   },
-  leagueChallengeAdminAction: {
+  leagueChallengeOrganizerAction: {
     challenge: r.one.leagueChallenge({
-      from: r.leagueChallengeAdminAction.challengeId,
+      from: r.leagueChallengeOrganizerAction.challengeId,
       to: r.leagueChallenge.id,
     }),
     performedBy: r.one.user({
-      from: r.leagueChallengeAdminAction.performedByUserId,
+      from: r.leagueChallengeOrganizerAction.performedByUserId,
       to: r.user.id,
     }),
   },

@@ -36,6 +36,48 @@ function providerClient() {
   });
 }
 
+/**
+ * Fetches the current status of a charge from the provider by correlationID.
+ * Used by the reconciliation cron to catch payments that succeeded on the
+ * provider side but whose webhook delivery was missed.
+ *
+ * Uses raw REST (not the SDK) because the SDK's `charge.get` typing doesn't
+ * match the live API (same divergence pattern as the subaccount PascalCase
+ * issue). The REST endpoint `GET /api/v1/charge/{correlationID}` was
+ * validated in the 2026-07-02 PoC.
+ */
+export const getChargeStatusAction = privateAction
+  .input(z.object({ correlationId: z.string().min(1) }))
+  .output(z.object({ status: z.string() }))
+  .action(async ({ input }) => {
+    const { WOOVI_APP_ID, WOOVI_BASE_URL } = getEnv();
+    if (!WOOVI_APP_ID) {
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WOOVI_APP_ID must be configured.",
+      });
+    }
+    const baseUrl = WOOVI_BASE_URL ?? "https://api.woovi-sandbox.com";
+    const response = await fetch(
+      `${baseUrl}/api/v1/charge/${input.correlationId}`,
+      {
+        headers: {
+          Authorization: WOOVI_APP_ID,
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Provider returned ${response.status}`,
+      });
+    }
+    const data = (await response.json()) as {
+      charge?: { status?: string };
+    };
+    return { status: data?.charge?.status ?? "ACTIVE" };
+  });
+
 // ---------------------------------------------------------------------------
 // Subaccount provisioning
 // ---------------------------------------------------------------------------

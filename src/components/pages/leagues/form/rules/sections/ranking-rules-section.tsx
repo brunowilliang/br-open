@@ -49,7 +49,7 @@ export const RankingRulesSection = ({ isDisabled }: RuleSectionProps) => {
         >
           <Label>Entrada de novo jogador</Label>
           <Description className="-mt-1.5 mb-1">
-            Define em que posição novos participantes entram no ranking.
+            Define em que posição novos jogadores entram no ranking.
           </Description>
           <Select
             isDisabled={isDisabled}

@@ -11,19 +11,19 @@ import { View } from "react-native";
 
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
-  buildParticipantInactiveAlertCard,
-  buildParticipantLastMatchCard,
-  buildParticipantMonthlyChallengesCard,
-  buildParticipantMonthlyMatchesCard,
-  buildParticipantPendingActionsAlert,
-  buildParticipantPositionCard,
-} from "@/lib/leagues/participant-overview-derived";
+  buildPlayerInactiveAlertCard,
+  buildPlayerLastMatchCard,
+  buildPlayerMonthlyChallengesCard,
+  buildPlayerMonthlyMatchesCard,
+  buildPlayerPendingActionsAlert,
+  buildPlayerPositionCard,
+} from "@/lib/leagues/player-overview-derived";
 import { WidgetAlert } from "./widget-alert";
 import { WidgetCard } from "./widget-card";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 
-export function ParticipantOverview(props: { league: LeagueOverview }) {
+export function PlayerOverview(props: { league: LeagueOverview }) {
   const { league } = props;
   const bucket$ = getLeagueDetailsBucket$(league.id);
   const viewerMembershipId = useValue(bucket$.derived.viewerMembershipId);
@@ -32,31 +32,31 @@ export function ParticipantOverview(props: { league: LeagueOverview }) {
   const challenges = useValue(bucket$.data.challenges);
 
   const now = Date.now();
-  const inactiveAlert = buildParticipantInactiveAlertCard({
+  const inactiveAlert = buildPlayerInactiveAlertCard({
     challenges,
     now,
     ruleConfig: league.ruleConfig,
     viewerMembershipId,
   });
-  const pendingActions = buildParticipantPendingActionsAlert({
+  const pendingActions = buildPlayerPendingActionsAlert({
     challenges,
     viewerMembershipId,
   });
-  const position = buildParticipantPositionCard({
+  const position = buildPlayerPositionCard({
     rankingItemsCount: rankingItems.length,
     viewerPosition,
   });
-  const monthlyMatches = buildParticipantMonthlyMatchesCard({
+  const monthlyMatches = buildPlayerMonthlyMatchesCard({
     challenges,
     now,
     viewerMembershipId,
   });
-  const lastMatch = buildParticipantLastMatchCard({
+  const lastMatch = buildPlayerLastMatchCard({
     challenges,
     now,
     viewerMembershipId,
   });
-  const monthlyChallenges = buildParticipantMonthlyChallengesCard({
+  const monthlyChallenges = buildPlayerMonthlyChallengesCard({
     challenges,
     now,
     ruleConfig: league.ruleConfig,

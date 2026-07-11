@@ -5,6 +5,8 @@ import type { QueryCtx } from "../../functions/generated/server";
 
 import {
   DEFAULT_LEAGUE_APPROVAL_MODE,
+  DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+  DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
@@ -53,6 +55,9 @@ async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
+    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+    reminderDaysBefore:
+      record.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
     ruleConfig: {
       ...record.ruleConfig,
       scheduleVisibility:
@@ -83,7 +88,7 @@ async function serializeLeagueDiscovery(
   ctx: QueryCtx,
   record: LeagueRecord,
   options: {
-    isManagerOwner: boolean;
+    isLeagueOrganizer: boolean;
     viewerMembershipId?: LeagueMembershipRecord["id"] | null;
     viewerMembershipStatus?: LeagueMembershipRecord["status"] | null;
   }
@@ -94,7 +99,7 @@ async function serializeLeagueDiscovery(
       ctx,
       record.id as Id<"league">
     ),
-    isManagerOwner: options.isManagerOwner,
+    isLeagueOrganizer: options.isLeagueOrganizer,
     viewerMembershipId: options.viewerMembershipId ?? null,
     viewerMembershipStatus: options.viewerMembershipStatus ?? null,
   });
@@ -116,14 +121,14 @@ export const getById = authQuery
       });
     }
 
-    const isManagerOwner =
+    const isLeagueOrganizer =
       viewerContext.activeActor.kind === "organization" &&
       currentLeague.organizationId === viewerContext.activeActor.id;
     const isDiscoverable = isLeagueDiscoverableVisibility(
       currentLeague.visibility
     );
 
-    if (!(isManagerOwner || isDiscoverable)) {
+    if (!(isLeagueOrganizer || isDiscoverable)) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "Essa liga não está disponível para visualização.",
@@ -142,7 +147,7 @@ export const getById = authQuery
         : null;
 
     return serializeLeagueDiscovery(ctx, currentLeague, {
-      isManagerOwner,
+      isLeagueOrganizer,
       viewerMembershipId: currentMembership?.id ?? null,
       viewerMembershipStatus: currentMembership?.status ?? null,
     });
@@ -158,14 +163,14 @@ export const listAvailable = authQuery
     });
 
     const visibleLeagues = leagues.filter((currentLeague) => {
-      const isManagerOwner =
+      const isLeagueOrganizer =
         viewerContext.activeActor.kind === "organization" &&
         currentLeague.organizationId === viewerContext.activeActor.id;
       const isDiscoverable = isLeagueDiscoverableVisibility(
         currentLeague.visibility
       );
 
-      return isManagerOwner || isDiscoverable;
+      return isLeagueOrganizer || isDiscoverable;
     });
 
     return Promise.all(

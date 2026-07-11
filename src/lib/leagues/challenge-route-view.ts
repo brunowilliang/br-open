@@ -1,9 +1,9 @@
 import type { ApiOutputs } from "@convex/shared/api";
 import {
-  ADMIN_ATTENTION_CHALLENGE_STATUSES,
+  ORGANIZER_ATTENTION_CHALLENGE_STATUSES,
   ADMIN_CANCELABLE_CHALLENGE_STATUSES,
   ADMIN_INVALIDATABLE_CHALLENGE_STATUSES,
-  ADMIN_ONGOING_CHALLENGE_STATUSES,
+  ORGANIZER_ONGOING_CHALLENGE_STATUSES,
   ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES,
   ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES,
   CLOSED_CHALLENGE_STATUSES,
@@ -18,7 +18,7 @@ type ChallengeItem =
  * ============================================================================
  *
  * Esta é a fonte da verdade para quais desafios aparecem em cada aba e quais
- * ações de admin são visíveis por status.
+ * ações  de organizador são visíveis por status.
  *
  * PRINCÍPIOS:
  *
@@ -27,7 +27,7 @@ type ChallengeItem =
  *    aparece noutra aba". (Antes, pending_result_submission aparecia tanto
  *    em "Pendentes" quanto em "Ativos", gerando inconsistência.)
  *
- * 2. AÇÃO VISÍVEL = AÇÃO EXECUTÁVEL — toda ação de admin listada aqui tem um
+ * 2. AÇÃO VISÍVEL = AÇÃO EXECUTÁVEL — toda ação  de organizador listada aqui tem um
  *    guard correspondente no backend (em convex/functions/league/challenges.ts,
  *    sets ADMIN_*_STATUSES). Se o backend rejeita um status, a ação NÃO pode
  *    ser visível. A tabela de mapeamento está documentada em cada set abaixo.
@@ -40,9 +40,9 @@ type ChallengeItem =
  * ----------------------------------------------------------------------------
  * TABELA: STATUS → ABA (ADMIN)
  * ----------------------------------------------------------------------------
- * pending_admin_challenge_validation → Atenção
- * pending_admin_result_validation     → Atenção
- * pending_admin_decision              → Atenção
+ * pending_organizer_challenge_validation → Atenção
+ * pending_organizer_result_validation     → Atenção
+ * pending_organizer_decision              → Atenção
  * pending_result_correction           → Atenção
  * pending_opponent_response           → Em andamento
  * pending_creator_reapproval          → Em andamento
@@ -55,22 +55,22 @@ type ChallengeItem =
  * ----------------------------------------------------------------------------
  * TABELA: STATUS → ABA (PARTICIPANTE)
  * ----------------------------------------------------------------------------
- * A lógica do participante é por AÇÃO NECESSÁRIA do viewer, não só por status
- * (ver buildParticipantAttentionChallenges). Um mesmo status pode cair em
+ * A lógica do jogador é por AÇÃO NECESSÁRIA do viewer, não só por status
+ * (ver buildPlayerAttentionChallenges). Um mesmo status pode cair em
  * "Atenção" ou "Aguardando" dependendo do papel do viewer (ex.: em
  * pending_result_confirmation, quem NÃO publicou o placar precisa confirmar
  * → Atenção; quem publicou → Aguardando).
  * ============================================================================
  */
 
-type ChallengeAdminActionItem = {
+type ChallengeOrganizerActionItem = {
   latestResultSubmission?: { id?: string | null } | null;
   status: ChallengeItem["status"];
 };
 
-export type ChallengeAdminMenuActionId =
-  | "admin_cancel"
-  | "admin_invalidate"
+export type ChallengeOrganizerMenuActionId =
+  | "organizer_cancel"
+  | "organizer_invalidate"
   | "approve_challenge"
   | "approve_result"
   | "reject_challenge"
@@ -91,7 +91,7 @@ function isViewerChallenge(
 }
 
 /**
- * Abas disponíveis. Unificadas entre admin e participante: ambos vêem
+ * Abas disponíveis. Unificadas entre organizer e jogador: ambos vêem
  * "Atenção", "Aguardando" (admin: "Em andamento") e "Histórico".
  * - Participante: incoming/outgoing foram removidos (não ajudavam a saber o
  *   que fazer; "Atenção/Aguardando" é orientado a ação).
@@ -125,24 +125,24 @@ export function buildChallengeRouteVisibleChallenges(input: {
   viewerPlayerProfileId: null | string;
 }) {
   if (input.canManage) {
-    return buildAdminVisibleChallenges(input);
+    return buildOrganizerVisibleChallenges(input);
   }
 
-  return buildParticipantVisibleChallenges(input);
+  return buildPlayerVisibleChallenges(input);
 }
 
-function buildAdminVisibleChallenges(input: {
+function buildOrganizerVisibleChallenges(input: {
   activeTab: ChallengeRouteTab | string;
   challenges: readonly ChallengeItem[];
 }) {
   switch (input.activeTab) {
     case "attention":
       return input.challenges.filter((challenge) =>
-        ADMIN_ATTENTION_CHALLENGE_STATUSES.has(challenge.status)
+        ORGANIZER_ATTENTION_CHALLENGE_STATUSES.has(challenge.status)
       );
     case "ongoing":
       return input.challenges.filter((challenge) =>
-        ADMIN_ONGOING_CHALLENGE_STATUSES.has(challenge.status)
+        ORGANIZER_ONGOING_CHALLENGE_STATUSES.has(challenge.status)
       );
     case "history":
       return input.challenges.filter((challenge) =>
@@ -150,12 +150,12 @@ function buildAdminVisibleChallenges(input: {
       );
     default:
       return input.challenges.filter((challenge) =>
-        ADMIN_ATTENTION_CHALLENGE_STATUSES.has(challenge.status)
+        ORGANIZER_ATTENTION_CHALLENGE_STATUSES.has(challenge.status)
       );
   }
 }
 
-function buildParticipantVisibleChallenges(input: {
+function buildPlayerVisibleChallenges(input: {
   activeTab: ChallengeRouteTab | string;
   challenges: readonly ChallengeItem[];
   viewerPlayerProfileId: null | string;
@@ -191,13 +191,13 @@ function buildParticipantVisibleChallenges(input: {
 }
 
 /**
- * Determina se um desafio requer a ATENÇÃO do participante (viewer).
+ * Determina se um desafio requer a ATENÇÃO do jogador (viewer).
  *
  * A regra combina status + papel do viewer, pois o mesmo status pode exigir
  * ação de um lado e não do outro (ex.: pending_result_confirmation — quem
  * NÃO publicou o placar precisa confirmar; quem publicou fica em "Aguardando").
  *
- * Não participante? Nunca é atenção (nem aparece para o participante).
+ * Não é jogador? Nunca é atenção (nem aparece para o jogador).
  */
 function isParticipantAttentionChallenge(
   challenge: ChallengeItem,
@@ -230,8 +230,8 @@ function isParticipantAttentionChallenge(
       // O admin pediu correção; o jogador que lançou precisa corrigir.
       return true;
     default:
-      // Status de admin (validação/decisão), confirmed, e fechados não
-      // requerem ação do participante.
+      // Status  de organizador (validação/decisão), confirmed, e fechados não
+      // requerem ação do jogador.
       return false;
   }
 }
@@ -276,28 +276,28 @@ function isViewerResultConfirmer(
 }
 
 /**
- * Constrói a lista de IDs de ações de admin para um desafio.
+ * Constrói a lista de IDs de ações  de organizador para um desafio.
  *
  * Cada ação é adicionada somente se o status permite, alinhado com os guards
  * do backend. As ações de perigo (invalidar/cancelar) são sempre empilhadas
  * ao final, mantendo a ordem: [ações neutras..., ações de perigo...].
  */
-export function buildChallengeAdminMenuActionIds(
-  challenge: ChallengeAdminActionItem
-): ChallengeAdminMenuActionId[] {
-  const actionIds: ChallengeAdminMenuActionId[] = [];
-  const dangerActionIds: ChallengeAdminMenuActionId[] = [];
+export function buildChallengeOrganizerMenuActionIds(
+  challenge: ChallengeOrganizerActionItem
+): ChallengeOrganizerMenuActionId[] {
+  const actionIds: ChallengeOrganizerMenuActionId[] = [];
+  const dangerActionIds: ChallengeOrganizerMenuActionId[] = [];
   const hasResult = Boolean(challenge.latestResultSubmission);
 
   // --- Ações específicas de validação (admin gate) ---
 
-  if (challenge.status === "pending_admin_challenge_validation") {
+  if (challenge.status === "pending_organizer_challenge_validation") {
     actionIds.push("approve_challenge", "reject_challenge");
   }
 
-  // Resultado enviado e esperando validação do admin.
+  // Resultado enviado e esperando validação do organizador.
   if (
-    challenge.status === "pending_admin_result_validation" &&
+    challenge.status === "pending_organizer_result_validation" &&
     challenge.latestResultSubmission
   ) {
     actionIds.push("approve_result", "request_result_correction");
@@ -306,7 +306,7 @@ export function buildChallengeAdminMenuActionIds(
   // --- Ações de placar ---
 
   // Admin pode lançar/editar o placar em qualquer status editável.
-  // (Inclui pending_admin_decision e pending_result_correction, que antes
+  // (Inclui pending_organizer_decision e pending_result_correction, que antes
   // estavam ausentes e geravam o bug de "só aparece cancelar".)
   if (ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(challenge.status)) {
     actionIds.push("submit_result");
@@ -335,11 +335,11 @@ export function buildChallengeAdminMenuActionIds(
   // --- Ações de perigo (sempre ao final) ---
 
   if (ADMIN_INVALIDATABLE_CHALLENGE_STATUSES.has(challenge.status)) {
-    dangerActionIds.push("admin_invalidate");
+    dangerActionIds.push("organizer_invalidate");
   }
 
   if (ADMIN_CANCELABLE_CHALLENGE_STATUSES.has(challenge.status)) {
-    dangerActionIds.push("admin_cancel");
+    dangerActionIds.push("organizer_cancel");
   }
 
   return [...actionIds, ...dangerActionIds];

@@ -4,62 +4,34 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC } from "@/lib/convex/crpc";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { formatCurrencyCents } from "@/lib/format/currency";
+import { formatShortDate } from "@/lib/format/date";
+import {
+  getPaymentStatusColor,
+  formatPaymentStatus,
+} from "@/lib/payments/status";
 import { Wallet01Icon } from "@hugeicons/core-free-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Card, Chip, Description, PressableFeedback } from "heroui-native";
+import {
+  Button,
+  Card,
+  Chip,
+  Description,
+  PressableFeedback,
+  useToast,
+} from "heroui-native";
+import { useState } from "react";
 import { View } from "react-native";
 
 import type { PaymentChargeStatus } from "@convex/domains/payment/contract";
-
-const PAYMENT_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-function formatPaymentStatus(status: PaymentChargeStatus) {
-  switch (status) {
-    case "PAID":
-      return "Pago";
-    case "PENDING":
-      return "Pendente";
-    case "EXPIRED":
-      return "Expirado";
-    case "REFUNDED":
-      return "Reembolsado";
-    default:
-      return "Falhou";
-  }
-}
-
-function getPaymentStatusColor(status: PaymentChargeStatus) {
-  switch (status) {
-    case "PAID":
-      return "success" as const;
-    case "PENDING":
-      return "warning" as const;
-    case "EXPIRED":
-    case "FAILED":
-    case "REFUNDED":
-      return "danger" as const;
-    default:
-      return "default" as const;
-  }
-}
-
-function formatCurrency(valueCents: number) {
-  return (valueCents / 100).toLocaleString("pt-BR", {
-    currency: "BRL",
-    style: "currency",
-  });
-}
 
 function formatPaymentDate(iso: null | string) {
   if (!iso) {
     return null;
   }
-  return PAYMENT_DATE_FORMATTER.format(new Date(iso));
+  return formatShortDate(new Date(iso));
 }
 
 type PaymentItem = {
@@ -76,10 +48,13 @@ type PaymentItem = {
 function PaymentCard(props: {
   item: PaymentItem;
   onPress?: (item: PaymentItem) => void;
+  onGenerateNew?: (item: PaymentItem) => void;
+  isGenerating?: boolean;
 }) {
   const { item } = props;
   const dateLabel =
     formatPaymentDate(item.paidAt) ?? formatPaymentDate(item.expiresAt);
+  const showGenerateNew = item.status === "EXPIRED" && props.onGenerateNew;
 
   const content = (
     <Card className="flex-row items-start gap-3">
@@ -96,11 +71,22 @@ function PaymentCard(props: {
             <Chip.Label>{formatPaymentStatus(item.status)}</Chip.Label>
           </Chip>
         </View>
-        <Text weight="medium">{formatCurrency(item.amountCents)}</Text>
+        <Text weight="medium">{formatCurrencyCents(item.amountCents)}</Text>
         {dateLabel ? (
           <Text color="muted" size="xs">
             {dateLabel}
           </Text>
+        ) : null}
+        {showGenerateNew ? (
+          <Button
+            className="mt-1 self-start"
+            isDisabled={props.isGenerating}
+            onPress={() => props.onGenerateNew?.(item)}
+            size="sm"
+            variant="tertiary"
+          >
+            <Button.Label>Gerar novo PIX</Button.Label>
+          </Button>
         ) : null}
       </View>
       {props.onPress ? <PressableFeedback.Highlight /> : null}
@@ -122,7 +108,37 @@ function PaymentCard(props: {
 
 export default function PlayerPaymentsSettings() {
   const crpc = useCRPC();
+  const { toast } = useToast();
   const paymentsQuery = useQuery(crpc.payment.charge.listMine.queryOptions());
+
+  const [generatingSourceId, setGeneratingSourceId] = useState<null | string>(
+    null
+  );
+
+  const createCharge = useMutation(
+    crpc.payment.charge.createCharge.mutationOptions({
+      onSuccess: async (data) => {
+        setGeneratingSourceId(null);
+        await paymentsQuery.refetch();
+        router.navigate({
+          params: { chargeId: data.chargeId },
+          pathname: "/checkout/[chargeId]",
+        });
+      },
+      onError: (error) => {
+        setGeneratingSourceId(null);
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível gerar o PIX."
+          ),
+          id: "generate-new-charge-error",
+          label: "Erro ao gerar PIX",
+          variant: "danger",
+        });
+      },
+    })
+  );
 
   const items = paymentsQuery.data?.items ?? [];
   const pending = items.filter((item) => item.status === "PENDING");
@@ -141,6 +157,13 @@ export default function PlayerPaymentsSettings() {
     });
   }
 
+  function handleGenerateNew(item: PaymentItem) {
+    setGeneratingSourceId(item.sourceId);
+    createCharge.mutate({
+      sourceId: item.sourceId,
+      sourceType: item.sourceType,
+    });
+  }
   return (
     <Page>
       <Page.Header>
@@ -192,7 +215,15 @@ export default function PlayerPaymentsSettings() {
             <View className="gap-2">
               <Description>Histórico</Description>
               {history.map((item) => (
-                <PaymentCard item={item} key={item.chargeId} />
+                <PaymentCard
+                  isGenerating={
+                    createCharge.isPending &&
+                    generatingSourceId === item.sourceId
+                  }
+                  item={item}
+                  key={item.chargeId}
+                  onGenerateNew={handleGenerateNew}
+                />
               ))}
             </View>
           ) : null}

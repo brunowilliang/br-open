@@ -7,6 +7,8 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import {
   CreateLeagueSchema,
   DEFAULT_LEAGUE_APPROVAL_MODE,
+  DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+  DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
   DeleteLeagueSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
@@ -58,6 +60,9 @@ async function serializeLeague(
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
+    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+    reminderDaysBefore:
+      record.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
     ruleConfig: {
       ...record.ruleConfig,
       scheduleVisibility:
@@ -89,7 +94,7 @@ async function getManagedLeagueOrThrow(
   if (!currentLeague) {
     throw new CRPCError({
       code: "FORBIDDEN",
-      message: "Liga não encontrada para esse gestor.",
+      message: "Liga não encontrada para esse organizador.",
     });
   }
 

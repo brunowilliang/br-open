@@ -47,14 +47,14 @@ export const ADMIN_CANCELABLE_CHALLENGE_STATUSES: ReadonlySet<LeagueChallengeSta
   new Set<LeagueChallengeStatus>([
     "pending_opponent_response",
     "pending_creator_reapproval",
-    "pending_admin_challenge_validation",
+    "pending_organizer_challenge_validation",
     "confirmed",
     "pending_cancellation_acceptance",
     "pending_result_submission",
     "pending_result_confirmation",
-    "pending_admin_result_validation",
+    "pending_organizer_result_validation",
     "pending_result_correction",
-    "pending_admin_decision",
+    "pending_organizer_decision",
   ]);
 
 /**
@@ -67,9 +67,9 @@ export const ADMIN_INVALIDATABLE_CHALLENGE_STATUSES: ReadonlySet<LeagueChallenge
     "pending_cancellation_acceptance",
     "pending_result_submission",
     "pending_result_confirmation",
-    "pending_admin_result_validation",
+    "pending_organizer_result_validation",
     "pending_result_correction",
-    "pending_admin_decision",
+    "pending_organizer_decision",
     "finished",
   ]);
 
@@ -78,9 +78,9 @@ export const ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES: ReadonlySet<LeagueChalleng
     "confirmed",
     "pending_result_submission",
     "pending_result_confirmation",
-    "pending_admin_result_validation",
+    "pending_organizer_result_validation",
     "pending_result_correction",
-    "pending_admin_decision",
+    "pending_organizer_decision",
     "finished",
     "invalidated",
   ]);
@@ -89,7 +89,7 @@ export const ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES: ReadonlySet<LeagueChallen
   new Set<LeagueChallengeStatus>([
     "pending_result_submission",
     "pending_result_confirmation",
-    "pending_admin_decision",
+    "pending_organizer_decision",
   ]);
 
 // ---------------------------------------------------------------------------
@@ -101,15 +101,15 @@ export const ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES: ReadonlySet<LeagueChallen
 // LeagueChallengeStatusOptions — asserted in the parity test.
 // ---------------------------------------------------------------------------
 
-export const ADMIN_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<LeagueChallengeStatus> =
+export const ORGANIZER_ATTENTION_CHALLENGE_STATUSES: ReadonlySet<LeagueChallengeStatus> =
   new Set<LeagueChallengeStatus>([
-    "pending_admin_challenge_validation",
-    "pending_admin_result_validation",
-    "pending_admin_decision",
+    "pending_organizer_challenge_validation",
+    "pending_organizer_result_validation",
+    "pending_organizer_decision",
     "pending_result_correction",
   ]);
 
-export const ADMIN_ONGOING_CHALLENGE_STATUSES: ReadonlySet<LeagueChallengeStatus> =
+export const ORGANIZER_ONGOING_CHALLENGE_STATUSES: ReadonlySet<LeagueChallengeStatus> =
   new Set<LeagueChallengeStatus>([
     "pending_opponent_response",
     "pending_creator_reapproval",

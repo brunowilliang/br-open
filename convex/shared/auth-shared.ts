@@ -60,35 +60,8 @@ const admin = ac.newRole({
   venue: venuePermissions,
 });
 
-const tournamentManager = ac.newRole({
-  ...memberAc.statements,
-  invitation: ["create", "cancel"],
-  member: ["create", "update"],
-  tournament: tournamentPermissions,
-  venue: ["read"],
-});
-
-const leagueManager = ac.newRole({
-  ...memberAc.statements,
-  invitation: ["create", "cancel"],
-  league: leaguePermissions,
-  member: ["create", "update"],
-  tournament: ["read"],
-});
-
-const clubManager = ac.newRole({
-  ...memberAc.statements,
-  invitation: ["create", "cancel"],
-  member: ["create", "update"],
-  tournament: ["create", "read", "update"],
-  venue: venuePermissions,
-});
-
 export const roles = {
   admin,
-  club_manager: clubManager,
-  league_manager: leagueManager,
   member,
   owner,
-  tournament_manager: tournamentManager,
 };

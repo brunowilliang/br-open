@@ -26,7 +26,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.brunoidonate.bropen"
+      "package": "com.brunoidonate.bropen",
+      "runtimeVersion": "1.0.0"
     },
     "plugins": [
       "expo-dev-client",
@@ -43,7 +44,8 @@
         "expo-notifications",
         {
           "defaultChannel": "default",
-          "color": "#0485F7"
+          "color": "#0485F7",
+          "googleServicesFile": "./google-services.json"
         }
       ],
       "expo-font",

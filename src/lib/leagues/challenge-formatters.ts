@@ -1,38 +1,17 @@
+import { formatMatchDate } from "@/lib/format/date";
+import { formatMinuteToHHMM as formatMinute } from "@/lib/format/time";
+
 import { buildChallengeCardScoreSummary } from "@/lib/leagues/challenge-card-score-summary";
 import type { ManageChallengeAction } from "@/lib/leagues/challenge-feedback";
 import type { ChallengeItem } from "@/lib/leagues/challenge-menu-actions";
 
-export const CHALLENGE_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-  year: "numeric",
-});
+export { formatMatchDate, formatMinute };
 
 export type ChallengeStatusChip = {
   color: "accent" | "danger" | "default" | "success" | "warning";
   label: string;
   variant: "primary" | "secondary" | "soft" | "tertiary";
 };
-
-export function formatMatchDate(matchDate: string) {
-  const [year, month, day] = matchDate.split("-").map(Number);
-
-  if (!(year && month && day)) {
-    return matchDate;
-  }
-
-  return CHALLENGE_DATE_FORMATTER.format(
-    new Date(Date.UTC(year, month - 1, day))
-  );
-}
-
-export function formatMinute(minute: number) {
-  const hour = Math.floor(minute / 60);
-  const currentMinute = minute % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
-}
 
 export function formatProposalSummary(challenge: ChallengeItem) {
   return `${formatMatchDate(challenge.currentProposal.matchDate)} às ${formatMinute(
@@ -54,10 +33,10 @@ export function formatStatus(status: ChallengeItem["status"]) {
         label: "Aguardando reaprovação",
         variant: "soft",
       } satisfies ChallengeStatusChip;
-    case "pending_admin_challenge_validation":
+    case "pending_organizer_challenge_validation":
       return {
         color: "accent",
-        label: "Validação do admin",
+        label: "Validação do organizador",
         variant: "soft",
       } satisfies ChallengeStatusChip;
     case "confirmed":
@@ -84,7 +63,7 @@ export function formatStatus(status: ChallengeItem["status"]) {
         label: "Confirmar placar",
         variant: "soft",
       } satisfies ChallengeStatusChip;
-    case "pending_admin_result_validation":
+    case "pending_organizer_result_validation":
       return {
         color: "accent",
         label: "Validar resultado",
@@ -96,10 +75,10 @@ export function formatStatus(status: ChallengeItem["status"]) {
         label: "Corrigir placar",
         variant: "soft",
       } satisfies ChallengeStatusChip;
-    case "pending_admin_decision":
+    case "pending_organizer_decision":
       return {
         color: "warning",
-        label: "Decisão do admin",
+        label: "Decisão do organizador",
         variant: "soft",
       } satisfies ChallengeStatusChip;
     case "finished":
@@ -194,7 +173,7 @@ export function getAdminActionCopy(action: ManageChallengeAction) {
         description: "",
         isDanger: false,
         submitLabel: "Salvar",
-        title: "Ação administrativa",
+        title: "Ação do organizador",
       };
   }
 }

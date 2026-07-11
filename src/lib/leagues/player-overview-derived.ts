@@ -1,35 +1,38 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
+import { getMonthStartMs } from "@/lib/format/date";
+import { DAY_MS, formatRelativeDay } from "@/lib/format/relative-time";
+
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
 
 type RuleConfig = LeagueOverview["ruleConfig"];
 
-export type ParticipantPositionCard = {
+export type PlayerPositionCard = {
   position: number;
   totalPlayers: number;
 };
 
-export type ParticipantInactiveAlertCard = {
+export type PlayerInactiveAlertCard = {
   daysSinceLastMatch: number;
   daysUntilPenalty: number;
   /** "danger" quando já passou do prazo; "warning" quando próximo. */
   severity: "danger" | "warning";
 };
 
-export type ParticipantMonthlyMatchesCard = {
+export type PlayerMonthlyMatchesCard = {
   finishedCount: number;
 };
 
-export type ParticipantLastMatchCard = {
+export type PlayerLastMatchCard = {
   isWin: boolean;
   opponentName: string;
   scoreSummary: string;
   whenLabel: string;
 };
 
-export type ParticipantMonthlyChallengesCard = {
+export type PlayerMonthlyChallengesCard = {
   createdCount: number;
   /** null quando a regra está desabilitada ("sem limite"). */
   max: null | number;
@@ -41,12 +44,11 @@ export type PendingChallengeAction = {
   opponentName: string;
 };
 
-export type ParticipantPendingActionsAlert = {
+export type PlayerPendingActionsAlert = {
   actions: PendingChallengeAction[];
   total: number;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** Janela de alerta: quando faltam esse número de dias (ou menos) para a punição. */
 const WARNING_WINDOW_DAYS = 7;
 
@@ -100,10 +102,10 @@ function formatScoreSets(sets: ChallengeScore["sets"]) {
     .join(", ");
 }
 
-export function buildParticipantPositionCard(input: {
+export function buildPlayerPositionCard(input: {
   rankingItemsCount: number;
   viewerPosition: null | number;
-}): ParticipantPositionCard | null {
+}): PlayerPositionCard | null {
   if (input.viewerPosition === null) {
     return null;
   }
@@ -114,18 +116,16 @@ export function buildParticipantPositionCard(input: {
   };
 }
 
-export function buildParticipantMonthlyMatchesCard(input: {
+export function buildPlayerMonthlyMatchesCard(input: {
   challenges: ChallengeItem[];
   now: number;
   viewerMembershipId: null | string;
-}): ParticipantMonthlyMatchesCard | null {
+}): PlayerMonthlyMatchesCard | null {
   if (!input.viewerMembershipId) {
     return null;
   }
 
-  const monthStart = new Date(input.now);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+  const monthStartMs = getMonthStartMs(input.now);
 
   const finishedCount = input.challenges.filter((challenge) => {
     if (!(isFinished(challenge) && challenge.finishedAt)) {
@@ -134,18 +134,18 @@ export function buildParticipantMonthlyMatchesCard(input: {
 
     return (
       isViewerChallenge(challenge, input.viewerMembershipId as string) &&
-      challenge.finishedAt >= monthStart.getTime()
+      challenge.finishedAt >= monthStartMs
     );
   }).length;
 
   return { finishedCount };
 }
 
-export function buildParticipantLastMatchCard(input: {
+export function buildPlayerLastMatchCard(input: {
   challenges: ChallengeItem[];
   now: number;
   viewerMembershipId: null | string;
-}): ParticipantLastMatchCard | null {
+}): PlayerLastMatchCard | null {
   if (!input.viewerMembershipId) {
     return null;
   }
@@ -176,46 +176,19 @@ export function buildParticipantLastMatchCard(input: {
     isWin,
     opponentName: opponent.player.fullName,
     scoreSummary: formatScoreSets(result.score.sets),
-    whenLabel: formatRelativeWhen(
+    whenLabel: formatRelativeDay(
       last.finishedAt ?? result.submittedAt,
       input.now
     ),
   };
 }
 
-function formatRelativeWhen(timestamp: number, now: number) {
-  const diffDays = Math.floor((now - timestamp) / DAY_MS);
-
-  if (diffDays <= 0) {
-    return "Hoje";
-  }
-
-  if (diffDays === 1) {
-    return "Ontem";
-  }
-
-  if (diffDays < 7) {
-    return `${diffDays} dias atrás`;
-  }
-
-  if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return weeks === 1 ? "1 semana atrás" : `${weeks} semanas atrás`;
-  }
-
-  const date = new Date(timestamp);
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  });
-}
-
-export function buildParticipantInactiveAlertCard(input: {
+export function buildPlayerInactiveAlertCard(input: {
   challenges: ChallengeItem[];
   now: number;
   ruleConfig: RuleConfig;
   viewerMembershipId: null | string;
-}): ParticipantInactiveAlertCard | null {
+}): PlayerInactiveAlertCard | null {
   // Regra de ouro: se a liga não aplica penalidade, não há alerta.
   if (!input.ruleConfig.hasInactivityPenalty) {
     return null;
@@ -247,7 +220,7 @@ export function buildParticipantInactiveAlertCard(input: {
     : 0;
 
   const daysUntilPenalty = penaltyDays - daysSinceLastMatch;
-  const severity: ParticipantInactiveAlertCard["severity"] =
+  const severity: PlayerInactiveAlertCard["severity"] =
     daysUntilPenalty <= 0 ? "danger" : "warning";
 
   // Quando ainda há folga suficiente (mais de WARNING_WINDOW_DAYS), não vale o
@@ -263,19 +236,17 @@ export function buildParticipantInactiveAlertCard(input: {
   };
 }
 
-export function buildParticipantMonthlyChallengesCard(input: {
+export function buildPlayerMonthlyChallengesCard(input: {
   challenges: ChallengeItem[];
   now: number;
   ruleConfig: RuleConfig;
   viewerMembershipId: null | string;
-}): ParticipantMonthlyChallengesCard | null {
+}): PlayerMonthlyChallengesCard | null {
   if (!input.viewerMembershipId) {
     return null;
   }
 
-  const monthStart = new Date(input.now);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+  const monthStartMs = getMonthStartMs(input.now);
 
   // Conta desafios CRIADOS pelo viewer (ele é o challenger) neste mês,
   // independente do status — a cota mensal consome ao criar.
@@ -284,7 +255,7 @@ export function buildParticipantMonthlyChallengesCard(input: {
       return false;
     }
 
-    return challenge.createdAt >= monthStart.getTime();
+    return challenge.createdAt >= monthStartMs;
   }).length;
 
   const { maxChallengesPerMonth } = input.ruleConfig;
@@ -333,10 +304,10 @@ function resolvePendingAction(
   }
 }
 
-export function buildParticipantPendingActionsAlert(input: {
+export function buildPlayerPendingActionsAlert(input: {
   challenges: ChallengeItem[];
   viewerMembershipId: null | string;
-}): ParticipantPendingActionsAlert | null {
+}): PlayerPendingActionsAlert | null {
   if (!input.viewerMembershipId) {
     return null;
   }

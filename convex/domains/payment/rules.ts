@@ -76,12 +76,22 @@ export function canChargeBeRefunded(charge: ChargeLike): boolean {
 
 type MembershipLike = { status: string };
 
+const CHARGEABLE_MEMBERSHIP_STATUSES: ReadonlySet<string> = new Set([
+  LEAGUE_MEMBERSHIP_STATUSES.AWAITING_PAYMENT,
+  LEAGUE_MEMBERSHIP_STATUSES.PAYMENT_DUE,
+  LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED,
+]);
+
 /**
- * Whether a membership is in the state where a PIX charge can be created
+ * Whether a membership is in a state where a PIX charge can be created
  * or validated against it.
+ *
+ * Accepts `awaiting_payment` (initial charge), `payment_due` (grace period —
+ * player is generating a new charge before the cycle lapses), and `suspended`
+ * (player was suspended for non-payment and is re-paying to reactivate).
  */
 export function canMembershipBeCharged(membership: MembershipLike): boolean {
-  return membership.status === LEAGUE_MEMBERSHIP_STATUSES.AWAITING_PAYMENT;
+  return CHARGEABLE_MEMBERSHIP_STATUSES.has(membership.status);
 }
 
 // ---------------------------------------------------------------------------
@@ -145,4 +155,50 @@ export function computeSplit(args: {
     organizerCents: args.amountCents - brOpenCents,
     recipientPixKey: args.recipientPixKey,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Renewal timeline helpers (grace period + proactive reminders)
+// ---------------------------------------------------------------------------
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Whether the proactive renewal reminder should fire.
+ *
+ * True when `now` is within the `reminderDaysBefore` window before the due
+ * date (i.e. due date is approaching but hasn't arrived yet).
+ */
+export function shouldSendRenewalReminder(args: {
+  nextDueMs: number;
+  nowMs: number;
+  reminderDaysBefore: number;
+}): boolean {
+  const msUntilDue = args.nextDueMs - args.nowMs;
+  return msUntilDue > 0 && msUntilDue <= args.reminderDaysBefore * MS_PER_DAY;
+}
+
+/**
+ * Whether the billing due date has passed (the membership should enter
+ * `payment_due` if it's still `active`).
+ */
+export function shouldMarkPaymentDue(args: {
+  nextDueMs: number;
+  nowMs: number;
+}): boolean {
+  return args.nextDueMs <= args.nowMs;
+}
+
+/**
+ * Whether the grace period has elapsed (the membership should be suspended).
+ *
+ * True when `now` is past `nextDueMs + gracePeriodDays`.
+ */
+export function shouldSuspend(args: {
+  nextDueMs: number;
+  nowMs: number;
+  gracePeriodDays: number;
+}): boolean {
+  const suspensionMs = args.nextDueMs + args.gracePeriodDays * MS_PER_DAY;
+  return args.nowMs >= suspensionMs;
 }

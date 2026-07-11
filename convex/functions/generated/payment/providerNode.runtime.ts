@@ -16,6 +16,7 @@ import type { OrmTriggerContext } from 'kitcn/orm';
 const procedureRegistry = {
   "createChargeWithSplitAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/providerNode").createChargeWithSplitAction>("payment/providerNode:createChargeWithSplitAction"), () => (require("../../payment/providerNode") as Record<string, unknown>)["createChargeWithSplitAction"])],
   "createSubaccountAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/providerNode").createSubaccountAction>("payment/providerNode:createSubaccountAction"), () => (require("../../payment/providerNode") as Record<string, unknown>)["createSubaccountAction"])],
+  "getChargeStatusAction": ["action", typedProcedureResolver(createGeneratedFunctionReference<"action", "internal", typeof import("../../payment/providerNode").getChargeStatusAction>("payment/providerNode:getChargeStatusAction"), () => (require("../../payment/providerNode") as Record<string, unknown>)["getChargeStatusAction"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;

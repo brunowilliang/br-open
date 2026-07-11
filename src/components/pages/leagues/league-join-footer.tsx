@@ -1,7 +1,8 @@
 import type { ApiOutputs } from "@convex/shared/api";
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import {
   Button,
   Card,
@@ -10,7 +11,6 @@ import {
   Dialog,
   useToast,
 } from "heroui-native";
-import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -45,6 +45,18 @@ function getJoinSuccessToast(status: ViewerMembershipStatus): {
       label: "Quase lá!",
     };
   }
+  if (status === "payment_due") {
+    return {
+      description: "Seu pagamento está atrasado. Pague para não ser suspenso.",
+      label: "Pagar agora",
+    };
+  }
+  if (status === "suspended") {
+    return {
+      description: "Renove sua inscrição para voltar a participar.",
+      label: "Renovar inscrição",
+    };
+  }
   return {
     description: "Solicitação enviada para aprovação.",
     label: "Solicitação enviada",
@@ -75,6 +87,22 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
   const league = useValue(bucket$.data.league);
   const membershipId = useValue(bucket$.viewer.membershipId);
   const membershipStatus = useValue(bucket$.viewer.membershipStatus);
+  // Pre-fetch the pending charge so the "pay" button can navigate instantly
+  // to /checkout/[chargeId] when a valid charge already exists. Fetched for
+  // all chargeable membership statuses (awaiting_payment, payment_due,
+  // suspended) so renewal/late payment is just as fast.
+  const pendingChargeQuery = useQuery({
+    ...crpc.payment.charge.getPendingCharge.queryOptions({
+      sourceId: membershipId ?? "",
+      sourceType: "league_membership",
+    }),
+    enabled:
+      Boolean(membershipId) &&
+      (membershipStatus === "awaiting_payment" ||
+        membershipStatus === "payment_due" ||
+        membershipStatus === "suspended"),
+  });
+  const pendingChargeId = pendingChargeQuery.data?.chargeId ?? null;
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
   const joinMutationIntentRef = useRef<"cancel" | "request">("request");
   const previousMembershipStatusRef = useRef<{
@@ -123,9 +151,22 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     })
   );
 
-  function createChargeForCheckout(targetMembershipId: string) {
+  function handlePayPress() {
+    if (!membershipId) {
+      return;
+    }
+    // Fast path: a valid pending charge already exists — navigate instantly
+    // (same speed as opening it from "my payments"). No provider round-trip.
+    if (pendingChargeId) {
+      router.navigate({
+        params: { chargeId: pendingChargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+      return;
+    }
+    // Slow path: no pending charge yet — create one, then navigate.
     createCharge.mutate({
-      sourceId: targetMembershipId,
+      sourceId: membershipId,
       sourceType: "league_membership",
     });
   }
@@ -171,9 +212,14 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
 
         await invalidateLeagueContext();
 
-        // Paid leagues create a charge on-demand, then route to checkout.
+        // Paid leagues auto-route to checkout after requesting to join.
+        // createCharge has an early-return for existing PENDING charges, so
+        // this is only slow on the very first request.
         if (membership.status === "awaiting_payment") {
-          createChargeForCheckout(membership.id);
+          createCharge.mutate({
+            sourceId: membership.id,
+            sourceType: "league_membership",
+          });
         }
       },
       onError: (error) => {
@@ -291,10 +337,12 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           <View className="flex-row items-center gap-2">
             {canResumeCheckout && membershipId ? (
               <Button
-                isDisabled={requestJoin.isPending || createCharge.isPending}
-                onPress={() => {
-                  createChargeForCheckout(membershipId);
-                }}
+                isDisabled={
+                  requestJoin.isPending ||
+                  createCharge.isPending ||
+                  pendingChargeQuery.isLoading
+                }
+                onPress={handlePayPress}
               >
                 <Button.Label>{joinFooterActionLabel}</Button.Label>
               </Button>

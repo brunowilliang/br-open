@@ -62,7 +62,7 @@ function createLeagueDetailsBucket(leagueId: string) {
       canJoinLeagues: false,
       membershipId: null as null | string,
       membershipStatus: null as LeagueOverview["viewerMembershipStatus"],
-      role: "visitor" as LeagueDetailsRole,
+      role: "guest" as LeagueDetailsRole,
       viewerPlayerProfileId: null as null | string,
     },
     data: {
@@ -84,7 +84,7 @@ function createLeagueDetailsBucket(leagueId: string) {
           scheduleVisibility,
         });
       },
-      canManageLeague: () => bucket$.viewer.role.get() === "owner",
+      canManageLeague: () => bucket$.viewer.role.get() === "organizer",
       canOpenChallenges: () => bucket$.derived.access.get().canOpenChallenges,
       canOpenLeagueMenu: () =>
         buildLeagueDetailsCanOpenLeagueMenu(bucket$.derived.access.get()),
@@ -109,7 +109,7 @@ function createLeagueDetailsBucket(leagueId: string) {
         }),
       joinActionLabel: () =>
         getMembershipActionLabel(bucket$.viewer.membershipStatus.get(), {
-          isManagerOwner: bucket$.derived.canManageLeague.get(),
+          isLeagueOrganizer: bucket$.derived.canManageLeague.get(),
         }),
       menuActionCounts: () =>
         buildLeagueDetailsMenuActionCounts({
@@ -199,7 +199,7 @@ function createLeagueDetailsBucket(leagueId: string) {
         bucket$.viewer.role.set(
           buildLeagueDetailsRole({
             canUseOrganizerCapabilities: input.canUseOrganizerCapabilities,
-            isManagerOwner: input.league.isManagerOwner === true,
+            isLeagueOrganizer: input.league.isLeagueOrganizer === true,
             viewerMembershipStatus: input.league.viewerMembershipStatus,
           })
         );
@@ -221,10 +221,8 @@ function createLeagueDetailsBucket(leagueId: string) {
           });
         }
 
-        if (bucket$.viewer.role.get() !== "owner") {
-          bucket$.viewer.role.set(
-            nextStatus === "active" ? "participant" : "visitor"
-          );
+        if (bucket$.viewer.role.get() !== "organizer") {
+          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
         }
       },
       setViewerMembership: (input: {
@@ -247,10 +245,8 @@ function createLeagueDetailsBucket(leagueId: string) {
           });
         }
 
-        if (bucket$.viewer.role.get() !== "owner") {
-          bucket$.viewer.role.set(
-            nextStatus === "active" ? "participant" : "visitor"
-          );
+        if (bucket$.viewer.role.get() !== "organizer") {
+          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
         }
       },
       reset: () => {
@@ -272,7 +268,7 @@ function createLeagueDetailsBucket(leagueId: string) {
           canJoinLeagues: false,
           membershipId: null,
           membershipStatus: null,
-          role: "visitor",
+          role: "guest",
           viewerPlayerProfileId: null,
         });
       },

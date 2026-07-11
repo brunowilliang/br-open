@@ -54,9 +54,7 @@ type LeagueFormTarget =
       title: string;
     };
 
-function normalizeRouteParam(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
+import { normalizeRouteParam } from "@/lib/router/normalize-param";
 
 function resolveLeagueFormTarget(input: {
   leagueId?: string | string[];
@@ -103,6 +101,8 @@ function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
     approvalMode: values.approvalMode,
+    gracePeriodDays: values.gracePeriodDays,
+    reminderDaysBefore: values.reminderDaysBefore,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,
@@ -123,6 +123,8 @@ function toLeagueScreenValues(league: League): LeagueScreenValues {
     locationNotes: league.locationNotes ?? "",
     maxPlayers: league.maxPlayers,
     approvalMode: league.approvalMode,
+    gracePeriodDays: league.gracePeriodDays,
+    reminderDaysBefore: league.reminderDaysBefore,
     monthlyPriceCents: league.monthlyPriceCents,
     name: league.name,
     priceBillingInterval: league.priceBillingInterval,
@@ -147,6 +149,8 @@ function toUpdateLeagueInput(
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
     approvalMode: values.approvalMode,
+    gracePeriodDays: values.gracePeriodDays,
+    reminderDaysBefore: values.reminderDaysBefore,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,

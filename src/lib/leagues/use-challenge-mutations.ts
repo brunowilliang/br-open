@@ -308,8 +308,8 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       },
     })
   );
-  const adminManageChallenge = useMutation(
-    crpc.league.challenges.adminManage.mutationOptions({
+  const organizerManageChallenge = useMutation(
+    crpc.league.challenges.organizerManage.mutationOptions({
       onSuccess: async (_, variables) => {
         await invalidateLeagueContext();
         toast.show(getAdminManageChallengeSuccessToast(variables));
@@ -327,13 +327,13 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       },
     })
   );
-  const adminSubmitChallengeResult = useMutation(
-    crpc.league.challenges.adminSubmitResult.mutationOptions({
+  const organizerSubmitChallengeResult = useMutation(
+    crpc.league.challenges.organizerSubmitResult.mutationOptions({
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
           description: "Placar salvo e ranking atualizado.",
-          id: "admin-submit-challenge-result-success",
+          id: "organizer-submit-challenge-result-success",
           label: "Placar atualizado",
           variant: "success",
         });
@@ -342,9 +342,9 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível salvar o placar pelo admin."
+            "Não foi possível salvar o placar pelo organizador."
           ),
-          id: "admin-submit-challenge-result-error",
+          id: "organizer-submit-challenge-result-error",
           label: "Erro ao salvar placar",
           variant: "danger",
         });
@@ -352,8 +352,8 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
     })
   );
 
-  const adminRequestResultReminder = useMutation(
-    crpc.league.challenges.adminRequestResultReminder.mutationOptions({
+  const organizerRequestResultReminder = useMutation(
+    crpc.league.challenges.organizerRequestResultReminder.mutationOptions({
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
@@ -390,9 +390,9 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
     confirmChallengeResult.isPending ||
     reviewChallenge.isPending ||
     reviewChallengeResult.isPending ||
-    adminManageChallenge.isPending ||
-    adminSubmitChallengeResult.isPending ||
-    adminRequestResultReminder.isPending;
+    organizerManageChallenge.isPending ||
+    organizerSubmitChallengeResult.isPending ||
+    organizerRequestResultReminder.isPending;
 
   return {
     createChallenge,
@@ -406,9 +406,9 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
     confirmChallengeResult,
     reviewChallenge,
     reviewChallengeResult,
-    adminManageChallenge,
-    adminSubmitChallengeResult,
-    adminRequestResultReminder,
+    organizerManageChallenge,
+    organizerSubmitChallengeResult,
+    organizerRequestResultReminder,
     isPending,
     invalidateLeagueContext,
   };

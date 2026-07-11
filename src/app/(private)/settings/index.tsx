@@ -46,24 +46,10 @@ const sections: SettingsSection[] = [
     title: "Menus",
     items: [
       {
-        title: "Ligas",
-        description: "Crie e administre suas ligas",
-        icon: ChampionIcon,
-        href: "/settings/leagues",
-        requiresOrganizer: true,
-      },
-      {
         title: "Notificações",
         description: "Push e central de notificações",
         icon: BellDotIcon,
         href: "/settings/notifications",
-      },
-      {
-        title: "Pagamentos",
-        description: "Receba pagamentos via PIX",
-        icon: Wallet01Icon,
-        href: "/settings/organization/payments" as Href,
-        requiresOrganizer: true,
       },
       {
         title: "Meus pagamentos",

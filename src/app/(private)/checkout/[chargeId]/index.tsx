@@ -11,6 +11,7 @@ import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { formatMsAsMMSS } from "@/lib/format/time";
 import { formatLeaguePriceParts } from "@/lib/leagues/presentation";
 import { Button, Card, Label, Skeleton, useToast } from "heroui-native";
 
@@ -38,16 +39,6 @@ function useCountdown(expiresAt: string | null) {
   }, [expiresAt]);
 
   return remainingMs;
-}
-
-function formatCountdown(ms: number) {
-  if (ms <= 0) {
-    return "00:00";
-  }
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export default function CheckoutScreen() {
@@ -93,9 +84,9 @@ export default function CheckoutScreen() {
 
   const checkout = checkoutQuery.data ?? null;
   const remainingMs = useCountdown(checkout?.expiresAt ?? null);
+  const isLoading = checkoutQuery.isLoading && !checkout;
   const isExpired =
     Boolean(checkout) && checkout?.status !== "PAID" && remainingMs <= 0;
-  const isLoading = checkoutQuery.isLoading && !checkout;
 
   const priceParts = useMemo(() => {
     const cents = checkout?.amountCents ?? 0;
@@ -118,28 +109,22 @@ export default function CheckoutScreen() {
     });
   }
 
-  // Resolve the current view state.
-  let viewState: "expired" | "idle" | "loading" | "paid" | "pending";
-  if (isLoading) {
-    viewState = "loading";
-  } else if (checkout?.status === "PAID") {
-    viewState = "paid";
-  } else if (isExpired || checkout?.status === "EXPIRED") {
-    viewState = "expired";
-  } else if (checkout) {
-    viewState = "pending";
-  } else {
-    viewState = "idle";
-  }
+  // Resolve the current view state. While loading we still render the pending
+  // layout with skeletons wrapping each element (Skeleton isLoading), so the
+  // transition into the loaded state preserves shape/position.
+  const isPaid = checkout?.status === "PAID";
+  const isPendingExpired = isExpired || checkout?.status === "EXPIRED";
 
   return (
     <Page>
       <Page.Header>
         <Page.Header.Left />
         <Page.Header.Center>
-          <Page.Header.Title>
-            {checkout?.sourceLabel ?? "Pagamento"}
-          </Page.Header.Title>
+          <Skeleton className="h-6 w-35 rounded-xl" isLoading={isLoading}>
+            <Page.Header.Title>
+              {checkout?.sourceLabel ?? "Pagamento"}
+            </Page.Header.Title>
+          </Skeleton>
           <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
         </Page.Header.Center>
         <Page.Header.Right>
@@ -155,48 +140,8 @@ export default function CheckoutScreen() {
       </Page.Header>
 
       <Page.View className="flex-1 gap-6 px-4">
-        {/* Price summary */}
-        {priceParts.amount === "Grátis" ? null : (
-          <View className="w-full items-center gap-1 pt-2">
-            <Text color="muted" size="sm">
-              Valor da inscrição
-            </Text>
-            <View className="flex-row items-baseline gap-1">
-              <Text size="3xl" weight="semibold">
-                {priceParts.amount}
-              </Text>
-              {priceParts.suffix ? (
-                <Text color="muted" size="sm">
-                  {priceParts.suffix}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        )}
-
-        {viewState === "loading" ? (
-          /* Loading — skeleton matching the pending layout */
-          <>
-            {/* Countdown skeleton */}
-            <View className="w-full items-center gap-1">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-6 w-16" />
-            </View>
-
-            {/* QR code skeleton (same size as the real QR: 256x256) */}
-            <Skeleton className="size-64 self-center rounded-3xl" />
-
-            {/* Copia e cola skeleton */}
-            <View className="w-full gap-3">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-16 w-full rounded-2xl" />
-              <Skeleton className="h-12 w-full rounded-2xl" />
-            </View>
-          </>
-        ) : null}
-
-        {viewState === "paid" ? (
-          /* Paid state */
+        {/* Paid state */}
+        {isPaid ? (
           <View className="flex-1 items-center justify-center gap-3">
             <View className="w-full gap-3 rounded-2xl bg-success-soft p-8">
               <Text
@@ -215,8 +160,8 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {viewState === "expired" ? (
-          /* Expired state */
+        {/* Expired state */}
+        {isPendingExpired ? (
           <View className="flex-1 items-center justify-center gap-4">
             <View className="w-full gap-3 rounded-2xl bg-warning-soft p-8">
               <Text
@@ -234,52 +179,102 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {viewState === "pending" && checkout ? (
-          /* Pending — show QR + copia e cola + countdown */
+        {/* Pending / loading layout.
+            While loading, the same structure is rendered with skeletons
+            wrapping each element, so there is no layout jump when data
+            arrives. */}
+        {isPaid || isPendingExpired ? null : (
           <>
+            {/* Price summary */}
+            {priceParts.amount === "Grátis" ? null : (
+              <View className="w-full items-center gap-1 pt-2">
+                <Text color="muted" size="sm">
+                  Valor da inscrição
+                </Text>
+                <Skeleton
+                  className="h-10 w-40 rounded-xl"
+                  isLoading={isLoading}
+                >
+                  <View className="h-10 flex-row items-baseline gap-1">
+                    <Text size="3xl" weight="semibold">
+                      {priceParts.amount}
+                    </Text>
+                    {priceParts.suffix ? (
+                      <Text color="muted" size="sm">
+                        {priceParts.suffix}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Skeleton>
+              </View>
+            )}
+
             {/* Countdown */}
-            <View className="w-full items-center">
+            <View className="w-full items-center gap-1">
               <Text color="muted" size="sm">
                 Expira em
               </Text>
-              <Text
-                color={remainingMs < DANGER_THRESHOLD_MS ? "danger" : undefined}
-                weight="semibold"
-              >
-                {formatCountdown(remainingMs)}
-              </Text>
+              <Skeleton className="h-6 w-20 rounded-xl" isLoading={isLoading}>
+                <Text
+                  color={
+                    remainingMs < DANGER_THRESHOLD_MS ? "danger" : undefined
+                  }
+                  weight="semibold"
+                >
+                  {formatMsAsMMSS(remainingMs)}
+                </Text>
+              </Skeleton>
             </View>
 
             {/* QR Code */}
-            {checkout.qrCodeUrl ? (
-              <Image
-                className="size-64 self-center rounded-3xl"
-                fallback="none"
-                source={{
-                  uri: checkout.qrCodeUrl,
-                }}
-              />
-            ) : null}
+            <Skeleton
+              className="size-64 self-center rounded-3xl"
+              isLoading={isLoading}
+            >
+              <View className="size-64 items-center justify-center self-center rounded-3xl">
+                {checkout?.qrCodeUrl ? (
+                  <Image
+                    className="size-64 rounded-3xl"
+                    fallback="none"
+                    source={{
+                      uri: checkout.qrCodeUrl,
+                    }}
+                  />
+                ) : null}
+              </View>
+            </Skeleton>
 
             {/* Copia e cola */}
             <View className="w-full gap-3">
               <Label className="-mb-2 pl-2">Copia e cola</Label>
-              <Card>
-                <Text numberOfLines={2} size="sm">
-                  {checkout.brCode}
-                </Text>
-              </Card>
-              <Button onPress={copyBrCode} variant="tertiary">
-                <Button.Label>Copiar código PIX</Button.Label>
-                <HugeIcons className="size-4.5" icon={CopyIcon} />
-              </Button>
+              <Skeleton
+                className="h-18 w-full rounded-3xl"
+                isLoading={isLoading}
+              >
+                <Card>
+                  <Text numberOfLines={2} size="sm">
+                    {checkout?.brCode ?? ""}
+                  </Text>
+                </Card>
+              </Skeleton>
+              <Skeleton
+                className="h-12 w-full rounded-2xl"
+                isLoading={isLoading}
+              >
+                <Button onPress={copyBrCode} variant="tertiary">
+                  <Button.Label>Copiar código PIX</Button.Label>
+                  <HugeIcons className="size-4.5" icon={CopyIcon} />
+                </Button>
+              </Skeleton>
             </View>
 
             {/* Help text */}
-            <Text className="px-2 text-center" color="muted" size="sm">
-              Abra o app do seu banco e escaneie o QR code ou cole o código
-              acima para pagar.
-            </Text>
+            <Skeleton className="mx-6 h-10 rounded-md" isLoading={isLoading}>
+              <Text className="px-2 text-center" color="muted" size="sm">
+                Abra o app do seu banco e escaneie o QR code ou cole o código
+                acima para pagar.
+              </Text>
+            </Skeleton>
 
             {/* DEV ONLY: simulate payment */}
             {__DEV__ ? (
@@ -291,12 +286,12 @@ export default function CheckoutScreen() {
                 <Button.Label>
                   {simulatePayment.isPending
                     ? "Simulando..."
-                    : "🧪 Simular pagamento"}
+                    : "Simular pagamento"}
                 </Button.Label>
               </Button>
             ) : null}
           </>
-        ) : null}
+        )}
       </Page.View>
     </Page>
   );

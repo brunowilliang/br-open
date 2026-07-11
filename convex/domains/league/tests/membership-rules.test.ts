@@ -53,6 +53,6 @@ describe("league membership rules", () => {
           "membership-2",
         ],
       })
-    ).toBe("O ranking enviado não corresponde aos participantes ativos.");
+    ).toBe("O ranking enviado não corresponde aos jogadores ativos.");
   });
 });

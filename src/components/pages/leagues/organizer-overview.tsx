@@ -9,19 +9,19 @@ import { useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
 
 import {
-  buildAdminActivityRateCard,
-  buildAdminJoinRequestsAlert,
-  buildAdminMonthlyMatchesCard,
-  buildAdminOngoingChallengesCard,
-  buildAdminOccupationCard,
-  buildAdminValidationsAlert,
-  summarizeAdminPendingActions,
-} from "@/lib/leagues/admin-overview-derived";
+  buildOrganizerActivityRateCard,
+  buildOrganizerJoinRequestsAlert,
+  buildOrganizerMonthlyMatchesCard,
+  buildOrganizerOngoingChallengesCard,
+  buildOrganizerOccupationCard,
+  buildOrganizerValidationsAlert,
+  summarizeOrganizerPendingActions,
+} from "@/lib/leagues/organizer-overview-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import { WidgetAlert } from "./widget-alert";
 import { WidgetCard } from "./widget-card";
 
-export function AdminOverview() {
+export function OrganizerOverview() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const challenges = useValue(bucket$.data.challenges);
@@ -29,17 +29,17 @@ export function AdminOverview() {
   const membershipOverview = useValue(bucket$.data.membershipOverview);
 
   const now = Date.now();
-  const joinRequests = buildAdminJoinRequestsAlert({
+  const joinRequests = buildOrganizerJoinRequestsAlert({
     pendingRequestsCount: membershipOverview?.pendingRequests.length ?? 0,
   });
-  const validations = buildAdminValidationsAlert({ challenges });
-  const occupation = buildAdminOccupationCard({
+  const validations = buildOrganizerValidationsAlert({ challenges });
+  const occupation = buildOrganizerOccupationCard({
     activeCount: membershipOverview?.ranking.length ?? 0,
     maxPlayers: league?.maxPlayers ?? null,
   });
-  const monthlyMatches = buildAdminMonthlyMatchesCard({ challenges, now });
-  const ongoing = buildAdminOngoingChallengesCard({ challenges });
-  const activityRate = buildAdminActivityRateCard({
+  const monthlyMatches = buildOrganizerMonthlyMatchesCard({ challenges, now });
+  const ongoing = buildOrganizerOngoingChallengesCard({ challenges });
+  const activityRate = buildOrganizerActivityRateCard({
     challenges,
     now,
     ranking: membershipOverview?.ranking ?? [],
@@ -62,7 +62,7 @@ export function AdminOverview() {
 
       {validations ? (
         <WidgetAlert
-          description={summarizeAdminPendingActions(validations.actions)}
+          description={summarizeOrganizerPendingActions(validations.actions)}
           status="warning"
           title={`${validations.total} ${
             validations.total === 1

@@ -40,6 +40,14 @@ export const OPENPIX_CHARGE_EXPIRED = "OPENPIX:CHARGE_EXPIRED" as const;
 export const OPENPIX_CHARGE_COMPLETED = "OPENPIX:CHARGE_COMPLETED" as const;
 
 /**
+ * Fired when a charge is refunded via the Woovi dashboard. The payload shape
+ * mirrors the charge-expired event (charge with correlationID + status).
+ * We dispatch to `markChargeRefunded` which already handles the membership
+ * side effect (status → left, rankingPosition → null) and notification.
+ */
+export const OPENPIX_CHARGE_REFUNDED = "OPENPIX:CHARGE_REFUNDED" as const;
+
+/**
  * Catch-all for events we acknowledge but don't process. Using a closed
  * union (not `string`) lets TS narrow the handled variants above by the
  * literal `event` value.
@@ -92,6 +100,14 @@ export type ChargeCompletedPayload = {
   };
 };
 
+export type ChargeRefundedPayload = {
+  event: typeof OPENPIX_CHARGE_REFUNDED;
+  charge: {
+    correlationID: string;
+    status: string;
+  };
+};
+
 /**
  * Any inbound Woovi webhook. Narrow with `payload.event === ...` before
  * reading `payload.charge` / `payload.transaction`.
@@ -100,7 +116,8 @@ export type WooviWebhookPayload =
   | OtherWooviEventPayload
   | TransactionReceivedPayload
   | ChargeExpiredPayload
-  | ChargeCompletedPayload;
+  | ChargeCompletedPayload
+  | ChargeRefundedPayload;
 
 // ---------------------------------------------------------------------------
 // Runtime validators — used by webhook.ts to parse incoming payloads safely.
@@ -141,6 +158,11 @@ const chargeCompletedPayloadSchema = z.object({
   transaction: transactionSchema,
 });
 
+const chargeRefundedPayloadSchema = z.object({
+  charge: chargeBaseSchema,
+  event: z.literal(OPENPIX_CHARGE_REFUNDED),
+});
+
 const otherEventPayloadSchema = z
   .object({
     data: z.unknown().optional(),
@@ -160,6 +182,7 @@ const otherEventPayloadSchema = z
 export const wooviWebhookPayloadSchema = z.union([
   chargeCompletedPayloadSchema,
   chargeExpiredPayloadSchema,
+  chargeRefundedPayloadSchema,
   otherEventPayloadSchema,
   transactionReceivedPayloadSchema,
 ]);

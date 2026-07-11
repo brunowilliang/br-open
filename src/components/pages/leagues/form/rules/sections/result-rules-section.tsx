@@ -251,7 +251,7 @@ export const ResultRulesSection = ({ isDisabled }: RuleSectionProps) => {
           <Label>Validação do resultado</Label>
           <Description className="-mt-1.5 mb-1">
             Define se o resultado confirmado entre os jogadores já vale ou
-            precisa da aprovação do admin.
+            precisa da aprovação do organizador.
           </Description>
           <Segment
             isDisabled={isDisabled}

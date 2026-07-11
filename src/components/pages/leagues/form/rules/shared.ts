@@ -1,3 +1,4 @@
+import { getSelectedOption } from "@/lib/collections";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import type { RuleInfo } from "@/components/pages/leagues/rule-card";
 
@@ -56,7 +57,7 @@ const CHALLENGE_RULE_INFO: Record<string, RuleInfo> = {
 const RULE_INFO = {
   challengeValidation: {
     description:
-      "Define quem precisa confirmar o desafio para ele valer. Em Automático, basta os dois jogadores combinarem. Em Admin, o administrador da liga precisa aprovar antes de o desafio ser válido.",
+      "Define quem precisa confirmar o desafio para ele valer. Em Automático, basta os dois jogadores combinarem. Em modo manual, o organizador da liga precisa aprovar antes de o desafio ser válido.",
     title: "Validação do desafio",
   },
   winBehavior: {
@@ -76,12 +77,12 @@ const RULE_INFO = {
   },
   resultValidation: {
     description:
-      "Define quem precisa confirmar o resultado para ele valer. Em Automático, basta os dois jogadores marcarem o placar. Em Admin, o administrador precisa aprovar antes de atualizar o ranking.",
+      "Define quem precisa confirmar o resultado para ele valer. Em Automático, basta os dois jogadores marcarem o placar. Em modo manual, o organizador precisa aprovar antes de atualizar o ranking.",
     title: "Validação do resultado",
   },
   newPlayerPlacement: {
     description:
-      "Define em qual posição do ranking um novo participante entra na liga. Final da fila coloca o jogador na última posição, fazendo ele subir desafio a desafio.",
+      "Define em qual posição do ranking um novo jogador entra na liga. Final da fila coloca o jogador na última posição, fazendo ele subir desafio a desafio.",
     title: "Entrada de novo jogador",
   },
   inactivityPenalty: {
@@ -125,17 +126,6 @@ const RULE_INFO = {
     title: "Formato do último set",
   },
 } satisfies Record<string, RuleInfo>;
-
-function getSelectedOption<T extends { label: string; value: string }>(
-  options: readonly T[],
-  value: string | undefined
-) {
-  if (!value) {
-    return;
-  }
-
-  return options.find((option) => option.value === value);
-}
 
 export {
   CHALLENGE_RULE_INFO,

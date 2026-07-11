@@ -150,7 +150,8 @@ export function serializeResultSubmission(
     challengeId: resultSubmission.challengeId,
     submittedByMembershipId: resultSubmission.submittedByMembershipId,
     confirmedByMembershipId: resultSubmission.confirmedByMembershipId ?? null,
-    adminReviewedByUserId: resultSubmission.adminReviewedByUserId ?? null,
+    organizerReviewedByUserId:
+      resultSubmission.organizerReviewedByUserId ?? null,
     reviewAction:
       (resultSubmission.reviewAction as
         | LeagueChallengeResultSubmission["reviewAction"]

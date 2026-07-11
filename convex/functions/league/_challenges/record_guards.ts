@@ -132,7 +132,7 @@ export async function getActiveMembershipByIdOrThrow(
   if (!currentMembership) {
     throw new CRPCError({
       code: "BAD_REQUEST",
-      message: "O participante informado não está ativo na liga.",
+      message: "O jogador informado não está ativo na liga.",
     });
   }
 
@@ -144,10 +144,10 @@ export async function getViewerContextOrThrow(
   leagueId: Id<"league">
 ) {
   const currentLeague = await getLeagueRecordOrThrow(ctx, leagueId);
-  const isManagerOwner = await canManageLeague(ctx, currentLeague);
+  const isLeagueOrganizer = await canManageLeague(ctx, currentLeague);
   const viewerContext = await getViewerContext(ctx, ctx.userId);
   const activeMembership =
-    isManagerOwner || viewerContext.activeActor.kind !== "player"
+    isLeagueOrganizer || viewerContext.activeActor.kind !== "player"
       ? null
       : await getActiveMembershipForPlayerProfile(
           ctx,
@@ -155,7 +155,7 @@ export async function getViewerContextOrThrow(
           viewerContext.activeActor.id as Id<"playerProfile">
         );
 
-  if (!(isManagerOwner || activeMembership)) {
+  if (!(isLeagueOrganizer || activeMembership)) {
     throw new CRPCError({
       code: "FORBIDDEN",
       message: "Você não pode acessar os desafios dessa liga.",
@@ -165,16 +165,16 @@ export async function getViewerContextOrThrow(
   return {
     activeMembership,
     currentLeague,
-    isManagerOwner,
+    isLeagueOrganizer,
   };
 }
 
 export function assertParticipantAccess(input: {
   challenge: LeagueChallengeRecord;
-  isManagerOwner: boolean;
+  isLeagueOrganizer: boolean;
   viewerMembership: LeagueMembershipRecord | null;
 }) {
-  if (input.isManagerOwner) {
+  if (input.isLeagueOrganizer) {
     return;
   }
 

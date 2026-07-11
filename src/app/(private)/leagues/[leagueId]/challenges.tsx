@@ -8,7 +8,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { ChallengeCard } from "@/components/pages/leagues/challenge-card";
-import { ChallengeAdminActionDialog } from "@/components/pages/leagues/challenge-admin-action-dialog";
+import { ChallengeOrganizerActionDialog } from "@/components/pages/leagues/challenge-organizer-action-dialog";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { ChallengeResultDialog } from "@/components/pages/leagues/challenge-result-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -37,7 +37,7 @@ import {
 } from "@/lib/leagues/challenge-menu-actions";
 import { useChallengeMutations } from "@/lib/leagues/use-challenge-mutations";
 
-type AdminActionTarget = {
+type OrganizerActionTarget = {
   action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
   challenge: ChallengeItem;
 };
@@ -84,9 +84,9 @@ export default function LeagueChallengesRoute() {
     confirmChallengeResult,
     reviewChallenge,
     reviewChallengeResult,
-    adminManageChallenge,
-    adminSubmitChallengeResult,
-    adminRequestResultReminder,
+    organizerManageChallenge,
+    organizerSubmitChallengeResult,
+    organizerRequestResultReminder,
     isPending,
   } = useChallengeMutations({ leagueId, bucket$, toast });
 
@@ -105,7 +105,7 @@ export default function LeagueChallengesRoute() {
     action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
     challengeId: string;
   }) => {
-    await adminManageChallenge.mutateAsync(input);
+    await organizerManageChallenge.mutateAsync(input);
   };
   const onCancel = (challengeId: string) => {
     cancelChallenge.mutate({ challengeId });
@@ -157,7 +157,7 @@ export default function LeagueChallengesRoute() {
     reviewChallengeResult.mutate(input);
   };
   const onRequestResultReminder = (challengeId: string) => {
-    adminRequestResultReminder.mutate({ challengeId });
+    organizerRequestResultReminder.mutate({ challengeId });
   };
   const onRespondCancellation = (input: {
     action: "accept" | "reject";
@@ -189,7 +189,7 @@ export default function LeagueChallengesRoute() {
       winnerMembershipId: string;
     };
   }) => {
-    await adminSubmitChallengeResult.mutateAsync(input);
+    await organizerSubmitChallengeResult.mutateAsync(input);
   };
 
   useEffect(() => {
@@ -226,8 +226,8 @@ export default function LeagueChallengesRoute() {
   const [counterProposalTarget, setCounterProposalTarget] =
     useState<ChallengeItem | null>(null);
   const [resultTarget, setResultTarget] = useState<ChallengeItem | null>(null);
-  const [adminActionTarget, setAdminActionTarget] =
-    useState<AdminActionTarget | null>(null);
+  const [adminActionTarget, setOrganizerActionTarget] =
+    useState<OrganizerActionTarget | null>(null);
 
   // Se a aba "Atenção" (antiga "Pendentes") ficar vazia após uma ação (ex.:
   // admin resolveu todos os pendentes), caímos para "Em andamento" para não
@@ -267,7 +267,7 @@ export default function LeagueChallengesRoute() {
   const menuCallbacks: ChallengeMenuCallbacks = {
     onAccept,
     onAdminManage: (target) => {
-      setAdminActionTarget(target);
+      setOrganizerActionTarget(target);
     },
     onCancel,
     onConfirmResult,
@@ -573,14 +573,14 @@ export default function LeagueChallengesRoute() {
             ) : null}
 
             {adminActionTarget ? (
-              <ChallengeAdminActionDialog
+              <ChallengeOrganizerActionDialog
                 description={`${getAdminActionCopy(adminActionTarget.action).description} ${adminActionTarget.challenge.challenger.player.fullName} x ${adminActionTarget.challenge.challenged.player.fullName}.`}
                 isDanger={getAdminActionCopy(adminActionTarget.action).isDanger}
                 isOpen
                 isPending={isPending}
                 onOpenChange={(nextOpen) => {
                   if (!nextOpen) {
-                    setAdminActionTarget(null);
+                    setOrganizerActionTarget(null);
                   }
                 }}
                 onSubmit={async () => {
@@ -588,7 +588,7 @@ export default function LeagueChallengesRoute() {
                     action: adminActionTarget.action,
                     challengeId: adminActionTarget.challenge.id,
                   });
-                  setAdminActionTarget(null);
+                  setOrganizerActionTarget(null);
                 }}
                 submitLabel={
                   getAdminActionCopy(adminActionTarget.action).submitLabel

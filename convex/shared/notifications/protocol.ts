@@ -2,6 +2,7 @@ export const NOTIFICATION_EVENT_TYPES = [
   "league.membership.requested",
   "league.membership.approved",
   "league.membership.payment_confirmed",
+  "league.membership.payment_due",
   "league.membership.payment_expired",
   "league.membership.payment_refunded",
   "league.membership.rejected",
@@ -21,8 +22,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   "league.challenge.result_correction_requested",
   "league.challenge.result_invalidated",
   "league.challenge.result_reminder_requested",
-  "league.challenge.admin_approved",
-  "league.challenge.admin_rejected",
+  "league.challenge.organizer_approved",
+  "league.challenge.organizer_rejected",
 ] as const;
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];

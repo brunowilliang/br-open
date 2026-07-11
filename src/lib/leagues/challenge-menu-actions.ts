@@ -6,7 +6,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 
-import { buildChallengeAdminMenuActionIds } from "./challenge-route-view";
+import { buildChallengeOrganizerMenuActionIds } from "./challenge-route-view";
 
 export type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
@@ -323,7 +323,7 @@ function pushAdminMenuActions(
   challenge: ChallengeItem,
   callbacks: ChallengeMenuCallbacks
 ) {
-  for (const actionId of buildChallengeAdminMenuActionIds(challenge)) {
+  for (const actionId of buildChallengeOrganizerMenuActionIds(challenge)) {
     switch (actionId) {
       case "approve_challenge":
         actions.push({
@@ -383,7 +383,7 @@ function pushAdminMenuActions(
       case "submit_result":
         actions.push({
           icon: Edit02Icon,
-          id: `${challenge.id}-admin-submit-result`,
+          id: `${challenge.id}-organizer-submit-result`,
           label: challenge.latestResultSubmission
             ? "Editar placar"
             : "Lançar placar",
@@ -402,10 +402,10 @@ function pushAdminMenuActions(
           },
         });
         break;
-      case "admin_cancel":
+      case "organizer_cancel":
         actions.push({
           icon: Cancel01Icon,
-          id: `${challenge.id}-admin-cancel`,
+          id: `${challenge.id}-organizer-cancel`,
           isDanger: true,
           label: "Cancelar",
           onPress: () => {
@@ -416,10 +416,10 @@ function pushAdminMenuActions(
           },
         });
         break;
-      case "admin_invalidate":
+      case "organizer_invalidate":
         actions.push({
           icon: Cancel01Icon,
-          id: `${challenge.id}-admin-invalidate`,
+          id: `${challenge.id}-organizer-invalidate`,
           isDanger: true,
           label: "Invalidar",
           onPress: () => {

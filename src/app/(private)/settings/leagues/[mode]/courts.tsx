@@ -5,6 +5,8 @@ import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { getSelectedOption } from "@/lib/collections";
+import { formatMinuteToHHMM } from "@/lib/format/time";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import type {
   LeagueCourt,
@@ -88,21 +90,6 @@ function buildCourtId(): string {
   return `court-${Date.now()}-${courtIdCounter}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
-}
-
-function formatMinutes(totalMinutes: number) {
-  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-  const minutes = String(totalMinutes % 60).padStart(2, "0");
-
-  return `${hours}:${minutes}`;
-}
-
-function getSelectedOption(value?: string) {
-  if (!value) {
-    return;
-  }
-
-  return TIME_OPTIONS.find((option) => option.value === value);
 }
 
 function getDayLabel(day: LeagueCourtDay) {
@@ -573,8 +560,13 @@ export default function LeagueCourtsRoute() {
                                         >
                                           <ListGroup.ItemContent>
                                             <ListGroup.ItemTitle>
-                                              {formatMinutes(range.startMinute)}{" "}
-                                              - {formatMinutes(range.endMinute)}
+                                              {formatMinuteToHHMM(
+                                                range.startMinute
+                                              )}{" "}
+                                              -{" "}
+                                              {formatMinuteToHHMM(
+                                                range.endMinute
+                                              )}
                                             </ListGroup.ItemTitle>
                                           </ListGroup.ItemContent>
                                           <ListGroup.ItemSuffix className="flex-row gap-1">
@@ -777,7 +769,7 @@ export default function LeagueCourtsRoute() {
                       }}
                       presentation="popover"
                       selectionMode="single"
-                      value={getSelectedOption(rangeStartMinute)}
+                      value={getSelectedOption(TIME_OPTIONS, rangeStartMinute)}
                     >
                       <Select.Trigger className="bg-surface-secondary">
                         <Select.Value
@@ -829,7 +821,7 @@ export default function LeagueCourtsRoute() {
                       }}
                       presentation="popover"
                       selectionMode="single"
-                      value={getSelectedOption(rangeEndMinute)}
+                      value={getSelectedOption(TIME_OPTIONS, rangeEndMinute)}
                     >
                       <Select.Trigger className="bg-surface-secondary">
                         <Select.Value

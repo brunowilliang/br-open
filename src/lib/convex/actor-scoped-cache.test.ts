@@ -77,7 +77,7 @@ describe("actor-scoped cache", () => {
     const bucket$ = getLeagueDetailsBucket$(leagueBucketId);
 
     bucket$.actions.setActiveRoute("rules");
-    queryClient.setQueryData(leagueDetailKey, { isManagerOwner: false });
+    queryClient.setQueryData(leagueDetailKey, { isLeagueOrganizer: false });
     queryClient.setQueryData<ViewerContext>(
       viewerContextKey,
       makeViewerContext()

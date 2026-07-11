@@ -250,7 +250,7 @@ export const ChallengeRulesSection = ({ isDisabled }: RuleSectionProps) => {
           <Label>Validação do desafio</Label>
           <Description className="-mt-1.5 mb-1">
             Define se o desafio confirmado entre os jogadores já vale ou precisa
-            da aprovação do admin.
+            da aprovação do organizador.
           </Description>
           <Segment
             isDisabled={isDisabled}

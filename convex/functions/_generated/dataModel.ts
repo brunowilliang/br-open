@@ -376,6 +376,7 @@ export type DataModel = {
       coverStorageId?: null | string;
       createdAt: number;
       description?: null | string;
+      gracePeriodDays?: null | number;
       locationNotes?: null | string;
       maxPlayers?: null | number;
       mode: string;
@@ -383,6 +384,7 @@ export type DataModel = {
       name: string;
       organizationId: Id<"organization">;
       priceBillingInterval?: null | string;
+      reminderDaysBefore?: null | number;
       ruleConfig: any;
       state: string;
       updatedAt: number;
@@ -401,6 +403,7 @@ export type DataModel = {
       | "coverStorageId"
       | "createdAt"
       | "description"
+      | "gracePeriodDays"
       | "locationNotes"
       | "maxPlayers"
       | "mode"
@@ -408,6 +411,7 @@ export type DataModel = {
       | "name"
       | "organizationId"
       | "priceBillingInterval"
+      | "reminderDaysBefore"
       | "ruleConfig"
       | "state"
       | "updatedAt"
@@ -491,7 +495,7 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
-  leagueChallengeAdminAction: {
+  leagueChallengeOrganizerAction: {
     document: {
       action: string;
       challengeId: Id<"leagueChallenge">;
@@ -500,7 +504,7 @@ export type DataModel = {
       performedByUserId?: null | Id<"user">;
       reason?: null | string;
       toStatus: string;
-      _id: Id<"leagueChallengeAdminAction">;
+      _id: Id<"leagueChallengeOrganizerAction">;
       _creationTime: number;
     };
     fieldPaths:
@@ -566,10 +570,10 @@ export type DataModel = {
   };
   leagueChallengeResultSubmission: {
     document: {
-      adminReviewedByUserId?: null | Id<"user">;
       challengeId: Id<"leagueChallenge">;
       confirmedAt?: null | number;
       confirmedByMembershipId?: null | Id<"leagueMembership">;
+      organizerReviewedByUserId?: null | Id<"user">;
       reviewAction?: null | string;
       reviewedAt?: null | number;
       score: any;
@@ -582,10 +586,10 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
-      | "adminReviewedByUserId"
       | "challengeId"
       | "confirmedAt"
       | "confirmedByMembershipId"
+      | "organizerReviewedByUserId"
       | "reviewAction"
       | "reviewedAt"
       | "score"
@@ -595,9 +599,9 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
-      adminReviewedByUserId: ["adminReviewedByUserId", "_creationTime"];
       challengeId_submittedAt: ["challengeId", "submittedAt", "_creationTime"];
       confirmedByMembershipId: ["confirmedByMembershipId", "_creationTime"];
+      organizerReviewedByUserId: ["organizerReviewedByUserId", "_creationTime"];
       submittedByMembershipId: ["submittedByMembershipId", "_creationTime"];
       winnerMembershipId: ["winnerMembershipId", "_creationTime"];
     };

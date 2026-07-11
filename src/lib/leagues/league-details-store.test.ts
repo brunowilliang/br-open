@@ -16,6 +16,8 @@ function makeLeagueOverview(
   return {
     activePlayerCount: 0,
     approvalMode: "auto",
+    gracePeriodDays: 7,
+    reminderDaysBefore: 3,
     avatarStorageId: null,
     categories: [],
     city: "Sao Paulo",
@@ -23,7 +25,7 @@ function makeLeagueOverview(
     coverStorageId: null,
     createdAt: 1,
     id: "league-1",
-    isManagerOwner: false,
+    isLeagueOrganizer: false,
     maxPlayers: null,
     mode: "challenges",
     monthlyPriceCents: 9000,
@@ -112,7 +114,7 @@ describe("leagueDetailsStore$", () => {
       canJoinLeagues: false,
       canUseOrganizerCapabilities: true,
       league: makeLeagueOverview({
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
         viewerMembershipStatus: "active",
       }),
       viewerActor: {
@@ -121,7 +123,7 @@ describe("leagueDetailsStore$", () => {
       },
     });
 
-    expect(String(bucket$.viewer.role)).toBe("owner");
+    expect(String(bucket$.viewer.role)).toBe("organizer");
     expect(bucket$.derived.canOpenRequests()).toBe(true);
   });
 
@@ -152,7 +154,7 @@ describe("leagueDetailsStore$", () => {
       canJoinLeagues: false,
       canUseOrganizerCapabilities: true,
       league: makeLeagueOverview({
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
       }),
       viewerActor: {
         id: "org-1",
