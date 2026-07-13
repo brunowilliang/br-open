@@ -118,9 +118,10 @@ export default function PlayerProfile() {
         setAvatarPreviewUri(null);
         setPendingAvatarFile(null);
         toast.show({
-          description: "Perfil atualizado com sucesso.",
+          description:
+            "Suas alterações já estão visíveis para outros jogadores.",
           id: "update-player-profile-success",
-          label: "Perfil atualizado",
+          label: "Perfil salvo",
           variant: "success",
         });
       },
@@ -128,10 +129,10 @@ export default function PlayerProfile() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar o perfil."
+            "Não foi possível salvar suas alterações. Tente novamente."
           ),
           id: "update-player-profile-error",
-          label: "Erro ao atualizar perfil",
+          label: "Falha ao salvar perfil",
           variant: "danger",
         });
       },
@@ -161,9 +162,10 @@ export default function PlayerProfile() {
       valuesWithAvatar = await uploadPendingAvatar(values);
     } catch {
       toast.show({
-        description: "Não foi possível enviar o avatar.",
+        description:
+          "Não foi possível enviar o avatar. Verifique sua conexão e tente novamente.",
         id: "player-avatar-submit-upload-error",
-        label: "Erro no upload",
+        label: "Falha no envio da foto",
         variant: "danger",
       });
       return;
@@ -191,9 +193,10 @@ export default function PlayerProfile() {
       setCropAsset(asset);
     } catch {
       toast.show({
-        description: "Não foi possível abrir a biblioteca de imagens.",
+        description:
+          "Não foi possível abrir a galeria de fotos. Confira as permissões do app.",
         id: "player-avatar-picker-error",
-        label: "Erro ao selecionar imagem",
+        label: "Sem acesso à galeria",
         variant: "danger",
       });
     }
@@ -225,14 +228,14 @@ export default function PlayerProfile() {
       toast.show({
         description: "O avatar será enviado quando você salvar o perfil.",
         id: "player-avatar-crop-success",
-        label: "Avatar pronto",
+        label: "Foto ajustada",
         variant: "success",
       });
     } catch {
       toast.show({
-        description: "Não foi possível recortar o avatar.",
+        description: "Não foi possível recortar a imagem. Tente novamente.",
         id: "player-avatar-crop-error",
-        label: "Erro ao recortar imagem",
+        label: "Falha ao ajustar foto",
         variant: "danger",
       });
     } finally {

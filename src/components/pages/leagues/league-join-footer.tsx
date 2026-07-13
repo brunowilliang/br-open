@@ -35,30 +35,31 @@ function getJoinSuccessToast(status: ViewerMembershipStatus): {
 } {
   if (status === "active") {
     return {
-      description: "Você entrou como jogador na liga.",
-      label: "Entrada confirmada",
+      description: "Você já pode participar dos desafios desta liga.",
+      label: "Inscrição confirmada",
     };
   }
   if (status === "awaiting_payment") {
     return {
-      description: "Você será redirecionado para o pagamento via PIX.",
+      description: "Agora é só pagar o PIX para confirmar sua inscrição.",
       label: "Quase lá!",
     };
   }
   if (status === "payment_due") {
     return {
-      description: "Seu pagamento está atrasado. Pague para não ser suspenso.",
-      label: "Pagar agora",
+      description:
+        "Sua inscrição está em atraso. Regularize para evitar suspensão.",
+      label: "Pagamento em atraso",
     };
   }
   if (status === "suspended") {
     return {
-      description: "Renove sua inscrição para voltar a participar.",
-      label: "Renovar inscrição",
+      description: "Renove sua inscrição para voltar a participar da liga.",
+      label: "Inscrição suspensa",
     };
   }
   return {
-    description: "Solicitação enviada para aprovação.",
+    description: "O organizador vai avaliar sua entrada. Você será notificado.",
     label: "Solicitação enviada",
   };
 }
@@ -135,10 +136,10 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível gerar o PIX."
+            "Não foi possível gerar o código de pagamento. Tente novamente."
           ),
           id: "create-charge-error",
-          label: "Erro ao gerar cobrança",
+          label: "Falha ao gerar PIX",
           variant: "danger",
         });
       },
@@ -187,7 +188,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           setIsCancelRequestDialogOpen(false);
 
           toast.show({
-            description: "Sua solicitação foi cancelada.",
+            description: "Você pode solicitar entrada novamente quando quiser.",
             id: "cancel-join-request-success",
             label: "Solicitação cancelada",
             variant: "success",
@@ -240,15 +241,15 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           description: getToastErrorMessage(
             error,
             isCancelAction
-              ? "Não foi possível cancelar a solicitação."
-              : "Não foi possível solicitar entrada."
+              ? "Não foi possível cancelar sua solicitação. Tente novamente."
+              : "Não foi possível enviar sua solicitação. Tente novamente."
           ),
           id: isCancelAction
             ? "cancel-join-request-error"
             : "request-join-error",
           label: isCancelAction
-            ? "Erro ao cancelar"
-            : "Erro ao solicitar entrada",
+            ? "Falha ao cancelar"
+            : "Falha ao solicitar entrada",
           variant: "danger",
         });
       },

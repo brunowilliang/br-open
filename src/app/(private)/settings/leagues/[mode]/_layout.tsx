@@ -302,7 +302,7 @@ export default function LeagueFormLayout() {
           crpc.league.management.listMine.queryFilter()
         );
         toast.show({
-          description: "Liga criada com sucesso.",
+          description: "Sua liga já está disponível para os jogadores.",
           id: "create-league-success",
           label: "Liga criada",
           variant: "success",
@@ -313,10 +313,10 @@ export default function LeagueFormLayout() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível criar a liga."
+            "Não foi possível criar a liga. Tente novamente."
           ),
           id: "create-league-error",
-          label: "Erro ao criar liga",
+          label: "Falha ao criar liga",
           variant: "danger",
         });
       },
@@ -336,9 +336,9 @@ export default function LeagueFormLayout() {
           ),
         ]);
         toast.show({
-          description: "Liga atualizada com sucesso.",
+          description: "As informações da liga foram atualizadas.",
           id: "update-league-success",
-          label: "Liga atualizada",
+          label: "Alterações salvas",
           variant: "success",
         });
       },
@@ -346,10 +346,10 @@ export default function LeagueFormLayout() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar a liga."
+            "Não foi possível atualizar a liga. Tente novamente."
           ),
           id: "update-league-error",
-          label: "Erro ao atualizar liga",
+          label: "Falha ao salvar alterações",
           variant: "danger",
         });
       },
@@ -362,9 +362,9 @@ export default function LeagueFormLayout() {
           crpc.league.management.listMine.queryFilter()
         );
         toast.show({
-          description: "Liga deletada com sucesso.",
+          description: "A liga foi excluída permanentemente.",
           id: "delete-league-success",
-          label: "Liga deletada",
+          label: "Liga removida",
           variant: "success",
         });
         router.replace("/settings/leagues");
@@ -373,10 +373,10 @@ export default function LeagueFormLayout() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível deletar a liga."
+            "Não foi possível excluir a liga. Tente novamente."
           ),
           id: "delete-league-error",
-          label: "Erro ao deletar liga",
+          label: "Falha ao remover liga",
           variant: "danger",
         });
       },

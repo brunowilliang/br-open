@@ -226,10 +226,10 @@ export default function SettingsNotificationsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar notificações."
+            "Não foi possível atualizar suas preferências de notificação. Tente novamente."
           ),
           id: "notification-preference-error",
-          label: "Erro nas notificações",
+          label: "Preferência não salva",
           variant: "danger",
         });
       },
@@ -242,10 +242,10 @@ export default function SettingsNotificationsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível registrar este dispositivo."
+            "Não foi possível registrar este dispositivo para push. Tente novamente."
           ),
           id: "notification-device-error",
-          label: "Token não registrado",
+          label: "Dispositivo não registrado",
           variant: "danger",
         });
       },
@@ -257,10 +257,10 @@ export default function SettingsNotificationsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível abrir a notificação no modo correto."
+            "Não conseguimos abrir a notificação no modo correto. Tente novamente."
           ),
           id: "notification-set-active-actor-error",
-          label: "Modo não alterado",
+          label: "Não foi possível abrir",
           variant: "danger",
         });
       },
@@ -351,10 +351,13 @@ export default function SettingsNotificationsRoute() {
     toast.show({
       description:
         registration.permissionStatus === "denied"
-          ? "Ative as permissões de notificação no sistema."
-          : "Não foi possível obter token de push neste dispositivo.",
+          ? "Ative as permissões de notificação nos ajustes do sistema."
+          : "Não foi possível ativar o push neste dispositivo agora.",
       id: "notification-token-missing",
-      label: "Push ainda não está pronto",
+      label:
+        registration.permissionStatus === "denied"
+          ? "Notificações bloqueadas"
+          : "Push indisponível",
       variant: "warning",
     });
   }

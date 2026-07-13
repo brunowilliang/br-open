@@ -90,7 +90,7 @@ export default function Settings() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível trocar o modo."
+            "Não foi possível alternar entre os modos. Tente novamente."
           ),
           id: "settings-set-active-actor-error",
           label: "Modo não alterado",
@@ -107,10 +107,10 @@ export default function Settings() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível encerrar sua sessão."
+            "Não conseguimos encerrar sua sessão. Tente novamente."
           ),
           id: "settings-sign-out-error",
-          label: "Erro ao sair",
+          label: "Não foi possível sair",
           variant: "danger",
         });
       },

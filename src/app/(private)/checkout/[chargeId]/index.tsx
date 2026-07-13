@@ -72,10 +72,10 @@ export default function CheckoutScreen() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível simular o pagamento."
+            "Não foi possível simular o pagamento. Tente novamente."
           ),
           id: "simulate-payment-error",
-          label: "Erro na simulação",
+          label: "Simulação falhou",
           variant: "danger",
         });
       },
@@ -102,9 +102,9 @@ export default function CheckoutScreen() {
     }
     await Clipboard.setStringAsync(checkout.brCode);
     toast.show({
-      description: "Código PIX copiado para a área de transferência.",
+      description: "Cole no app do seu banco para concluir o pagamento.",
       id: "copy-brcode",
-      label: "Código copiado",
+      label: "Código PIX copiado",
       variant: "success",
     });
   }

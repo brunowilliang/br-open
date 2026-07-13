@@ -44,9 +44,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         await invalidateLeagueContext();
         bucket$.actions.setChallengeCreateTarget(null);
         toast.show({
-          description: "Desafio enviado com sucesso.",
+          description:
+            "Seu adversário foi notificado e pode responder a qualquer momento.",
           id: "create-challenge-success",
-          label: "Desafio criado",
+          label: "Desafio enviado",
           variant: "success",
         });
       },
@@ -64,7 +65,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Proposta aceita com sucesso.",
+          description: "A partida está confirmada.",
           id: "accept-challenge-proposal-success",
           label: "Desafio aceito",
           variant: "success",
@@ -74,10 +75,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível aceitar a proposta."
+            "Não foi possível aceitar o desafio. Tente novamente."
           ),
           id: "accept-challenge-proposal-error",
-          label: "Erro ao aceitar desafio",
+          label: "Falha ao aceitar",
           variant: "danger",
         });
       },
@@ -88,7 +89,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Proposta recusada com sucesso.",
+          description: "A proposta foi recusada.",
           id: "decline-challenge-proposal-success",
           label: "Desafio recusado",
           variant: "success",
@@ -98,10 +99,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível recusar a proposta."
+            "Não foi possível recusar o desafio. Tente novamente."
           ),
           id: "decline-challenge-proposal-error",
-          label: "Erro ao recusar desafio",
+          label: "Falha ao recusar",
           variant: "danger",
         });
       },
@@ -112,7 +113,8 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Contraproposta enviada com sucesso.",
+          description:
+            "Seu adversário pode aceitar ou recusar a nova proposta.",
           id: "counter-propose-challenge-success",
           label: "Contraproposta enviada",
           variant: "success",
@@ -122,10 +124,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível reenviar a proposta."
+            "Não foi possível enviar a contraproposta. Tente novamente."
           ),
           id: "counter-propose-challenge-error",
-          label: "Erro ao reenviar proposta",
+          label: "Falha ao enviar contraproposta",
           variant: "danger",
         });
       },
@@ -136,7 +138,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Desafio cancelado com sucesso.",
+          description: "A partida foi cancelada.",
           id: "cancel-challenge-success",
           label: "Desafio cancelado",
           variant: "success",
@@ -146,10 +148,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível cancelar o desafio."
+            "Não foi possível cancelar o desafio. Tente novamente."
           ),
           id: "cancel-challenge-error",
-          label: "Erro ao cancelar desafio",
+          label: "Falha ao cancelar",
           variant: "danger",
         });
       },
@@ -160,7 +162,8 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Solicitação de cancelamento enviada com sucesso.",
+          description:
+            "Seu adversário será notificado para aceitar ou recusar.",
           id: "request-challenge-cancellation-success",
           label: "Cancelamento solicitado",
           variant: "success",
@@ -170,10 +173,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível solicitar o cancelamento da partida."
+            "Não foi possível solicitar o cancelamento. Tente novamente."
           ),
           id: "request-challenge-cancellation-error",
-          label: "Erro ao solicitar cancelamento",
+          label: "Falha ao solicitar cancelamento",
           variant: "danger",
         });
       },
@@ -186,8 +189,8 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description:
             variables.action === "accept"
-              ? "Cancelamento aceito com sucesso."
-              : "Cancelamento recusado com sucesso.",
+              ? "A partida foi cancelada."
+              : "A partida segue no estado anterior.",
           id:
             variables.action === "accept"
               ? "accept-challenge-cancellation-success"
@@ -203,10 +206,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível responder à solicitação de cancelamento."
+            "Não foi possível responder à solicitação. Tente novamente."
           ),
           id: "respond-challenge-cancellation-error",
-          label: "Erro ao responder cancelamento",
+          label: "Falha ao responder",
           variant: "danger",
         });
       },
@@ -217,7 +220,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Placar enviado com sucesso.",
+          description: "Aguardando confirmação do adversário.",
           id: "submit-challenge-result-success",
           label: "Placar enviado",
           variant: "success",
@@ -227,10 +230,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível enviar o placar."
+            "Não foi possível registrar o placar. Tente novamente."
           ),
           id: "submit-challenge-result-error",
-          label: "Erro ao enviar placar",
+          label: "Falha ao enviar placar",
           variant: "danger",
         });
       },
@@ -241,7 +244,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Placar confirmado com sucesso.",
+          description: "O resultado foi registrado no ranking.",
           id: "confirm-challenge-result-success",
           label: "Placar confirmado",
           variant: "success",
@@ -251,10 +254,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível confirmar o placar."
+            "Não foi possível confirmar o placar. Tente novamente."
           ),
           id: "confirm-challenge-result-error",
-          label: "Erro ao confirmar placar",
+          label: "Falha ao confirmar placar",
           variant: "danger",
         });
       },
@@ -265,9 +268,9 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Validação do desafio atualizada com sucesso.",
+          description: "O status do desafio foi atualizado.",
           id: "review-challenge-success",
-          label: "Desafio validado",
+          label: "Validação atualizada",
           variant: "success",
         });
       },
@@ -275,10 +278,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível validar o desafio."
+            "Não foi possível atualizar a validação. Tente novamente."
           ),
           id: "review-challenge-error",
-          label: "Erro ao validar desafio",
+          label: "Falha ao validar desafio",
           variant: "danger",
         });
       },
@@ -289,7 +292,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Validação do resultado atualizada com sucesso.",
+          description: "O status do resultado foi atualizado.",
           id: "review-challenge-result-success",
           label: "Resultado validado",
           variant: "success",
@@ -299,10 +302,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível validar o resultado."
+            "Não foi possível atualizar a validação. Tente novamente."
           ),
           id: "review-challenge-result-error",
-          label: "Erro ao validar resultado",
+          label: "Falha ao validar resultado",
           variant: "danger",
         });
       },
@@ -332,9 +335,9 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Placar salvo e ranking atualizado.",
+          description: "O placar foi salvo e o ranking foi atualizado.",
           id: "organizer-submit-challenge-result-success",
-          label: "Placar atualizado",
+          label: "Placar registrado",
           variant: "success",
         });
       },
@@ -342,10 +345,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível salvar o placar pelo organizador."
+            "Não foi possível registrar o placar. Tente novamente."
           ),
           id: "organizer-submit-challenge-result-error",
-          label: "Erro ao salvar placar",
+          label: "Falha ao salvar placar",
           variant: "danger",
         });
       },
@@ -358,7 +361,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         await invalidateLeagueContext();
         toast.show({
           description:
-            "Os jogadores foram notificados para registrar o placar.",
+            "Os jogadores receberam a notificação para registrar o placar.",
           id: "admin-request-result-reminder-success",
           label: "Lembrete enviado",
           variant: "success",
@@ -368,10 +371,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível enviar o lembrete."
+            "Não foi possível enviar o lembrete. Tente novamente."
           ),
           id: "admin-request-result-reminder-error",
-          label: "Erro ao enviar lembrete",
+          label: "Falha ao enviar lembrete",
           variant: "danger",
         });
       },

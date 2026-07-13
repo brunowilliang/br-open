@@ -55,9 +55,9 @@ export default function LeagueRequestsRoute() {
       onSuccess: async () => {
         await invalidateMembershipContext();
         toast.show({
-          description: "Participante aprovado com sucesso.",
+          description: "O jogador já aparece no ranking da liga.",
           id: "approve-membership-success",
-          label: "Solicitação aprovada",
+          label: "Participante aprovado",
           variant: "success",
         });
       },
@@ -65,10 +65,10 @@ export default function LeagueRequestsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível aprovar a solicitação."
+            "Não foi possível aprovar a solicitação. Tente novamente."
           ),
           id: "approve-membership-error",
-          label: "Erro ao aprovar solicitação",
+          label: "Falha ao aprovar",
           variant: "danger",
         });
       },
@@ -80,9 +80,9 @@ export default function LeagueRequestsRoute() {
       onSuccess: async () => {
         await invalidateMembershipContext();
         toast.show({
-          description: "Solicitação reprovada com sucesso.",
+          description: "A solicitação foi recusada.",
           id: "reject-membership-success",
-          label: "Solicitação reprovada",
+          label: "Solicitação recusada",
           variant: "success",
         });
       },
@@ -90,10 +90,10 @@ export default function LeagueRequestsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível reprovar a solicitação."
+            "Não foi possível recusar a solicitação. Tente novamente."
           ),
           id: "reject-membership-error",
-          label: "Erro ao reprovar solicitação",
+          label: "Falha ao recusar",
           variant: "danger",
         });
       },

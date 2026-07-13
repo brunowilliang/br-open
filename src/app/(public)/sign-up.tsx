@@ -42,10 +42,10 @@ export default function SignUp() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível criar sua conta."
+            "Não foi possível criar sua conta. Tente novamente em instantes."
           ),
           id: "sign-up-auth-error",
-          label: "Não foi possível cadastrar",
+          label: "Falha no cadastro",
           variant: "danger",
         });
       },

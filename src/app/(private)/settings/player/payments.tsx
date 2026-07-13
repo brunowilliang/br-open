@@ -142,10 +142,10 @@ export default function PlayerPaymentsSettings() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível gerar o PIX."
+            "Não foi possível gerar um novo código PIX. Tente novamente."
           ),
           id: "generate-new-charge-error",
-          label: "Erro ao gerar PIX",
+          label: "Falha ao gerar PIX",
           variant: "danger",
         });
       },

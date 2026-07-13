@@ -89,9 +89,10 @@ export default function LeagueRankingRoute() {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Desafio enviado com sucesso.",
+          description:
+            "Seu adversário foi notificado e pode responder a qualquer momento.",
           id: "create-challenge-success",
-          label: "Desafio criado",
+          label: "Desafio enviado",
           variant: "success",
         });
       },
@@ -110,7 +111,7 @@ export default function LeagueRankingRoute() {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Jogador removido com sucesso.",
+          description: "O jogador foi retirado do ranking desta liga.",
           id: "remove-membership-success",
           label: "Jogador removido",
           variant: "success",
@@ -121,10 +122,10 @@ export default function LeagueRankingRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível remover o jogador."
+            "Não foi possível remover o jogador. Tente novamente."
           ),
           id: "remove-membership-error",
-          label: "Erro ao remover jogador",
+          label: "Falha ao remover jogador",
           variant: "danger",
         });
       },
@@ -136,7 +137,7 @@ export default function LeagueRankingRoute() {
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "Ranking atualizado com sucesso.",
+          description: "A nova ordem foi salva.",
           id: "reorder-ranking-success",
           label: "Ranking atualizado",
           variant: "success",
@@ -146,10 +147,10 @@ export default function LeagueRankingRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar o ranking."
+            "Não foi possível salvar a nova ordem. Tente novamente."
           ),
           id: "reorder-ranking-error",
-          label: "Erro ao atualizar ranking",
+          label: "Falha ao atualizar ranking",
           variant: "danger",
         });
       },

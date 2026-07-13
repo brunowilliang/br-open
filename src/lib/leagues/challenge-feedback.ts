@@ -24,7 +24,7 @@ export function getCreateChallengeErrorToast(
   if (message?.includes("O adversário já atingiu o limite")) {
     return {
       description:
-        "Esse jogador já atingiu o limite de desafios em andamento nessa liga.",
+        "Esse jogador já tem o máximo de desafios ativos nesta liga.",
       id: "create-challenge-opponent-limit-error",
       label: "Adversário indisponível",
       variant: "danger",
@@ -34,7 +34,7 @@ export function getCreateChallengeErrorToast(
   if (message?.includes("limite mensal de desafios")) {
     return {
       description:
-        "Você já atingiu o limite de desafios disponíveis para este mês.",
+        "Você já usou todos os seus desafios neste mês. O contador renova no próximo ciclo.",
       id: "create-challenge-monthly-limit-error",
       label: "Limite mensal atingido",
       variant: "danger",
@@ -44,7 +44,7 @@ export function getCreateChallengeErrorToast(
   if (message?.includes("limite de desafios ativos")) {
     return {
       description:
-        "Você já está com o máximo de desafios ativos permitido nessa liga.",
+        "Você já tem o máximo de desafios em andamento. Conclua um para criar outro.",
       id: "create-challenge-active-limit-error",
       label: "Limite de desafios ativos",
       variant: "danger",
@@ -52,9 +52,10 @@ export function getCreateChallengeErrorToast(
   }
 
   return {
-    description: message || "Não foi possível criar o desafio.",
+    description:
+      message || "Não foi possível enviar o desafio. Tente novamente.",
     id: "create-challenge-error",
-    label: "Erro ao criar desafio",
+    label: "Falha ao criar desafio",
     variant: "danger",
   };
 }
@@ -65,28 +66,28 @@ export function getAdminManageChallengeSuccessToast(input: {
   switch (input.action) {
     case "cancel":
       return {
-        description: "A ação do organizador foi aplicada com sucesso.",
+        description: "O cancelamento foi aplicado pelo organizador.",
         id: "admin-manage-challenge-cancel-success",
         label: "Desafio cancelado",
         variant: "success",
       };
     case "invalidate":
       return {
-        description: "A ação do organizador foi aplicada com sucesso.",
+        description: "A invalidação foi aplicada pelo organizador.",
         id: "admin-manage-challenge-invalidate-success",
         label: "Desafio invalidado",
         variant: "success",
       };
     case "reopen_challenge":
       return {
-        description: "O desafio foi reaberto com sucesso.",
+        description: "O desafio está disponível novamente.",
         id: "admin-manage-challenge-reopen-challenge-success",
         label: "Desafio reaberto",
         variant: "success",
       };
     default:
       return {
-        description: "O resultado foi reaberto com sucesso.",
+        description: "O resultado pode ser editado novamente.",
         id: "admin-manage-challenge-reopen-result-success",
         label: "Resultado reaberto",
         variant: "success",
@@ -103,32 +104,36 @@ export function getAdminManageChallengeErrorToast(input: {
       return {
         description:
           input.message ||
-          "Não foi possível cancelar o desafio pelo organizador.",
+          "Não foi possível cancelar o desafio. Tente novamente.",
         id: "admin-manage-challenge-cancel-error",
-        label: "Erro ao cancelar desafio",
+        label: "Falha ao cancelar desafio",
         variant: "danger",
       };
     case "invalidate":
       return {
         description:
           input.message ||
-          "Não foi possível invalidar o desafio pelo organizador.",
+          "Não foi possível invalidar o desafio. Tente novamente.",
         id: "admin-manage-challenge-invalidate-error",
-        label: "Erro ao invalidar desafio",
+        label: "Falha ao invalidar desafio",
         variant: "danger",
       };
     case "reopen_challenge":
       return {
-        description: input.message || "Não foi possível reabrir o desafio.",
+        description:
+          input.message ||
+          "Não foi possível reabrir o desafio. Tente novamente.",
         id: "admin-manage-challenge-reopen-challenge-error",
-        label: "Erro ao reabrir desafio",
+        label: "Falha ao reabrir desafio",
         variant: "danger",
       };
     default:
       return {
-        description: input.message || "Não foi possível reabrir o resultado.",
+        description:
+          input.message ||
+          "Não foi possível reabrir o resultado. Tente novamente.",
         id: "admin-manage-challenge-reopen-result-error",
-        label: "Erro ao reabrir resultado",
+        label: "Falha ao reabrir resultado",
         variant: "danger",
       };
   }

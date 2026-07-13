@@ -189,9 +189,10 @@ export function useOrganizationLogo(
       setCropAsset(asset);
     } catch {
       toast.show({
-        description: "Não foi possível abrir a biblioteca de imagens.",
+        description:
+          "Não foi possível abrir a galeria de fotos. Confira as permissões do app.",
         id: "organization-logo-picker-error",
-        label: "Erro ao selecionar imagem",
+        label: "Sem acesso à galeria",
         variant: "danger",
       });
     }
@@ -222,9 +223,9 @@ export function useOrganizationLogo(
       setCropAsset(null);
     } catch {
       toast.show({
-        description: "Não foi possível recortar a imagem.",
+        description: "Não foi possível recortar a imagem. Tente novamente.",
         id: "organization-logo-crop-error",
-        label: "Erro ao recortar imagen",
+        label: "Falha ao ajustar imagem",
         variant: "danger",
       });
     } finally {
@@ -794,18 +795,20 @@ function PaymentSection() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível conectar a conta."
+            "Não foi possível vincular sua chave PIX. Tente novamente."
           ),
           id: "payment-onboarding-error",
-          label: "Erro ao conectar conta",
+          label: "Falha ao conectar conta",
           variant: "danger",
         });
       },
       onSuccess: async () => {
         toast.show({
-          description: isEditing ? "Chave PIX atualizada" : "Conta conectada",
+          description: isEditing
+            ? "A nova chave já está ativa para recebimentos."
+            : "Sua chave PIX foi vinculada e já pode receber pagamentos.",
           id: "payment-onboarding-success",
-          label: isEditing ? "Chave atualizada" : "Conta conectada",
+          label: isEditing ? "Chave PIX atualizada" : "Conta conectada",
           variant: "success",
         });
         setIsEditing(false);

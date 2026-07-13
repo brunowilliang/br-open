@@ -51,7 +51,7 @@ export default function SignIn() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível autenticar."
+            "Verifique seu e-mail e senha e tente novamente."
           ),
           id: "sign-in-auth-error",
           label: "Não foi possível entrar",
@@ -158,10 +158,10 @@ export default function SignIn() {
       toast.show({
         description: getToastErrorMessage(
           error,
-          "Não foi possível autenticar com a Apple."
+          "Não conseguimos conectar sua conta Apple. Tente novamente."
         ),
         id: "sign-in-apple-error",
-        label: "Não foi possível entrar",
+        label: "Falha no login com a Apple",
         variant: "danger",
       });
     } finally {
@@ -190,10 +190,10 @@ export default function SignIn() {
       toast.show({
         description: getToastErrorMessage(
           error,
-          "Não foi possível autenticar com o Google."
+          "Não conseguimos conectar sua conta Google. Tente novamente."
         ),
         id: "sign-in-google-error",
-        label: "Não foi possível entrar",
+        label: "Falha no login com o Google",
         variant: "danger",
       });
     }
