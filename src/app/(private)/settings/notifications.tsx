@@ -32,9 +32,9 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
-import { formatDateTimeShort } from "@/lib/format/date";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { formatDateTimeShort } from "@/lib/format/date";
 import {
   getPushPermissionStatusAsync,
   type NotificationPermissionStatus,
@@ -134,14 +134,14 @@ function NotificationFeedItem(props: {
         <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-1">
             {props.notification.isRead ? null : (
-              <View className="size-2 rounded-full bg-accent" />
+              <View className="size-1.5 rounded-full bg-accent" />
             )}
             <Text
               className={
                 props.notification.isRead ? "text-muted" : "text-accent"
               }
               numberOfLines={1}
-              variant="title"
+              weight="semibold"
             >
               {props.notification.title}
             </Text>

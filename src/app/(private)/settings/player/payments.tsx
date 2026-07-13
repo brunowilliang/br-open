@@ -2,16 +2,17 @@ import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { formatShortDate } from "@/lib/format/date";
 import {
-  getPaymentStatusColor,
   formatPaymentStatus,
+  getPaymentStatusColor,
 } from "@/lib/payments/status";
-import { Wallet01Icon } from "@hugeicons/core-free-icons";
+import { MoreVerticalIcon, Wallet01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
@@ -19,6 +20,7 @@ import {
   Card,
   Chip,
   Description,
+  Menu,
   PressableFeedback,
   useToast,
 } from "heroui-native";
@@ -57,36 +59,46 @@ function PaymentCard(props: {
   const showGenerateNew = item.status === "EXPIRED" && props.onGenerateNew;
 
   const content = (
-    <Card className="flex-row items-start gap-3">
-      <View className="flex-1 gap-1">
-        <View className="flex-row items-center justify-between gap-2">
-          <Text numberOfLines={1} variant="title">
-            {item.sourceLabel ?? "Pagamento"}
-          </Text>
-          <Chip
-            color={getPaymentStatusColor(item.status)}
-            size="sm"
-            variant="soft"
-          >
-            <Chip.Label>{formatPaymentStatus(item.status)}</Chip.Label>
-          </Chip>
+    <Card className="relative gap-1">
+      {showGenerateNew ? (
+        <View className="absolute top-2 right-2 z-10">
+          <Menu>
+            <Menu.Trigger asChild>
+              <Button
+                className="size-7"
+                isDisabled={props.isGenerating}
+                isIconOnly
+                size="sm"
+                variant="tertiary"
+              >
+                <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
+              </Button>
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Overlay className="bg-backdrop" />
+              <Menu.Content presentation="popover">
+                <Menu.Item onPress={() => props.onGenerateNew?.(item)}>
+                  <Menu.ItemTitle className="flex-none">
+                    Gerar novo Pix
+                  </Menu.ItemTitle>
+                </Menu.Item>
+              </Menu.Content>
+            </Menu.Portal>
+          </Menu>
         </View>
-        <Text weight="medium">{formatCurrencyCents(item.amountCents)}</Text>
+      ) : null}
+      <Chip color={getPaymentStatusColor(item.status)} size="sm" variant="soft">
+        <Chip.Label>{formatPaymentStatus(item.status)}</Chip.Label>
+      </Chip>
+      <Text numberOfLines={1} weight="semibold">
+        {item.sourceLabel ?? "Pagamento"}
+      </Text>
+      <View className="flex-row items-center justify-between">
+        <Text weight="semibold">{formatCurrencyCents(item.amountCents)}</Text>
         {dateLabel ? (
-          <Text color="muted" size="xs">
+          <Text color="muted" variant="description">
             {dateLabel}
           </Text>
-        ) : null}
-        {showGenerateNew ? (
-          <Button
-            className="mt-1 self-start"
-            isDisabled={props.isGenerating}
-            onPress={() => props.onGenerateNew?.(item)}
-            size="sm"
-            variant="tertiary"
-          >
-            <Button.Label>Gerar novo PIX</Button.Label>
-          </Button>
         ) : null}
       </View>
       {props.onPress ? <PressableFeedback.Highlight /> : null}

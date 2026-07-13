@@ -40,15 +40,16 @@ export default function Home() {
     ...crpc.player.profile.get.queryOptions(),
     enabled: !isOrganizationActor,
   });
-  const notificationStatus = useQuery({
-    ...crpc.notification.settings.status.queryOptions(),
-    enabled: !isOrganizationActor,
-  });
+  const notificationStatus = useQuery(
+    crpc.notification.settings.status.queryOptions()
+  );
 
-  const userName =
-    playerProfile.data?.fullName ?? activeActor?.displayName ?? "";
-  const userAvatarSource =
-    playerProfile.data?.avatarUrl ?? activeActor?.avatarUrl ?? undefined;
+  const userName = isOrganizationActor
+    ? (activeActor?.displayName ?? "")
+    : (playerProfile.data?.fullName ?? activeActor?.displayName ?? "");
+  const userAvatarSource = isOrganizationActor
+    ? (activeActor?.avatarUrl ?? undefined)
+    : (playerProfile.data?.avatarUrl ?? activeActor?.avatarUrl ?? undefined);
   const greeting = `${getGreetingLabel()},`;
   const unreadCount = notificationStatus.data?.unreadCount ?? 0;
 
@@ -61,20 +62,32 @@ export default function Home() {
       <Page>
         <Page.Header>
           <View className="flex-1 flex-row items-center justify-between gap-4">
-            <View className="flex-row items-center gap-3">
-              <Image
-                alt={userName}
-                className="size-10 rounded-full"
-                fallback="green"
-                source={userAvatarSource}
-              />
-              <View>
-                <Text>{greeting}</Text>
-                <Text className="-mt-1" variant="title">
-                  {userName}
-                </Text>
+            <PressableFeedback
+              className="rounded-2xl"
+              onPress={() => router.navigate("/settings/organization/profile")}
+            >
+              <View className="flex-row items-center gap-3">
+                <Badge.Anchor>
+                  <Image
+                    alt={userName}
+                    className="size-10 rounded-full"
+                    fallback="green"
+                    source={userAvatarSource}
+                  />
+                  {unreadCount > 0 ? (
+                    <Badge color="danger" size="sm">
+                      {unreadCount}
+                    </Badge>
+                  ) : null}
+                </Badge.Anchor>
+                <View>
+                  <Text>{greeting}</Text>
+                  <Text className="-mt-1" variant="title">
+                    {userName}
+                  </Text>
+                </View>
               </View>
-            </View>
+            </PressableFeedback>
             <Button
               isIconOnly
               onPress={() => router.navigate("/settings")}

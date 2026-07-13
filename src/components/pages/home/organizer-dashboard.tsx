@@ -1,7 +1,7 @@
-import type { ApiOutputs } from "@convex/shared/api";
 import { formatCurrencyCents, formatTrendPercent } from "@/lib/format/currency";
 import { formatRelativeTime } from "@/lib/format/relative-time";
 import { PAYMENT_STATUS_META } from "@/lib/payments/status";
+import type { ApiOutputs } from "@convex/shared/api";
 import { Description } from "heroui-native";
 import { useMemo } from "react";
 import { View } from "react-native";
@@ -84,9 +84,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
             </Text>
           </View>
         ) : null}
-        <Description>
-          Você recebe automaticamente via PIX em cada pagamento.
-        </Description>
+        <Description>Total líquido recebido neste mês.</Description>
       </Card>
 
       {/* KPI Grid 2×2 */}
@@ -107,7 +105,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
       <View className="flex-row gap-2">
         <KpiCard
           icon={Wallet01Icon}
-          label="Pagamentos no mês"
+          label="Pagtos/mês"
           value={String(metrics.paymentsThisMonth)}
         />
         <KpiCard
