@@ -14,10 +14,11 @@ import {
 import { SocialAuthButton } from "heroui-native-pro";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Platform, ScrollView, View } from "react-native";
+import { Platform, View } from "react-native";
 import { z } from "zod";
 
 import { Image, LogoImage } from "@/components/core/image";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import {
   useSignInMutationOptions,
@@ -200,107 +201,113 @@ export default function SignIn() {
   }
 
   return (
-    <ScrollView
-      className="bg-background"
-      contentContainerClassName="grow gap-5 items-center justify-center px-4"
-    >
-      <View className="w-full items-center">
-        <Image.Background
-          className="aspect-square size-25"
-          source={LogoImage}
-        />
-        <Text variant="title">Faça seu Login</Text>
-      </View>
+    <Page>
+      <Page.Header overlay>
+        <Page.Header.Left>
+          <Page.Header.BackButton />
+        </Page.Header.Left>
+        <Page.Header.Center />
+        <Page.Header.Right />
+      </Page.Header>
+      <Page.ScrollView contentContainerClassName="gap-5 items-center justify-center px-4">
+        <View className="w-full items-center">
+          <Image.Background
+            className="aspect-square size-25"
+            source={LogoImage}
+          />
+          <Text variant="title">De volta pra quadra.</Text>
+        </View>
 
-      <View className="w-full gap-2">
-        <Controller
-          control={form.control}
-          name="email"
-          render={({ field, fieldState }) => (
-            <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-              <Label>E-mail</Label>
-              <Input
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isSubmitPending}
-                keyboardType="email-address"
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                placeholder="voce@email.com"
-                returnKeyType="next"
-                textContentType="emailAddress"
-                value={field.value ?? ""}
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
+        <View className="w-full gap-2">
+          <Controller
+            control={form.control}
+            name="email"
+            render={({ field, fieldState }) => (
+              <TextField isInvalid={Boolean(fieldState.error)} isRequired>
+                <Label>E-mail</Label>
+                <Input
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!isSubmitPending}
+                  keyboardType="email-address"
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="voce@email.com"
+                  returnKeyType="next"
+                  textContentType="emailAddress"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="password"
-          render={({ field, fieldState }) => (
-            <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-              <Label>Senha</Label>
-              <Input
-                autoCapitalize="none"
-                autoComplete="current-password"
-                editable={!isSubmitPending}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                onSubmitEditing={handleSubmitPress}
-                placeholder="Sua senha"
-                returnKeyType="done"
-                secureTextEntry
-                textContentType="password"
-                value={field.value ?? ""}
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
-      </View>
+          <Controller
+            control={form.control}
+            name="password"
+            render={({ field, fieldState }) => (
+              <TextField isInvalid={Boolean(fieldState.error)} isRequired>
+                <Label>Senha</Label>
+                <Input
+                  autoCapitalize="none"
+                  autoComplete="current-password"
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  onSubmitEditing={handleSubmitPress}
+                  placeholder="Sua senha"
+                  returnKeyType="done"
+                  secureTextEntry
+                  textContentType="password"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
+        </View>
 
-      <Button
-        className="w-full"
-        isDisabled={isSubmitPending}
-        onPress={handleSubmitPress}
-        variant="primary"
-      >
-        <Button.Label>
-          {isSubmitPending ? "Entrando..." : "Entrar"}
-        </Button.Label>
-      </Button>
-
-      <View className="mx-15 flex-row items-center gap-3">
-        <Separator className="flex-1" />
-        <Text className="text-muted text-sm">ou</Text>
-        <Separator className="flex-1" />
-      </View>
-
-      <View className="flex-row gap-3">
-        <SocialAuthButton
-          className="flex-1"
+        <Button
+          className="w-full"
           isDisabled={isSubmitPending}
-          onPress={handleApplePress}
-          provider="apple"
-        />
-        <SocialAuthButton
-          className="flex-1"
-          isDisabled={isSubmitPending}
-          onPress={handleGooglePress}
-          provider="google"
-        />
-      </View>
+          onPress={handleSubmitPress}
+          variant="primary"
+        >
+          <Button.Label>
+            {isSubmitPending ? "Entrando..." : "Entrar"}
+          </Button.Label>
+        </Button>
 
-      <Button
-        className="w-full"
-        isDisabled={isSubmitPending}
-        onPress={() => router.navigate("/sign-up")}
-        variant="ghost"
-      >
-        <Button.Label>Criar conta</Button.Label>
-      </Button>
-    </ScrollView>
+        <View className="mx-15 flex-row items-center gap-3">
+          <Separator className="flex-1" />
+          <Text className="text-muted text-sm">ou</Text>
+          <Separator className="flex-1" />
+        </View>
+
+        <View className="flex-row gap-3">
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={handleApplePress}
+            provider="apple"
+          />
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={handleGooglePress}
+            provider="google"
+          />
+        </View>
+
+        <Button
+          className="w-full"
+          isDisabled={isSubmitPending}
+          onPress={() => router.navigate("/sign-up")}
+          variant="ghost"
+        >
+          <Button.Label>Criar conta</Button.Label>
+        </Button>
+      </Page.ScrollView>
+    </Page>
   );
 }
