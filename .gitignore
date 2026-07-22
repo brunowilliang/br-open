@@ -27,6 +27,7 @@ yarn-error.*
 *.pem
 # local env files
 .env*.local
+convex/.env
 # build output
 build/
 # firebase ( kept out of git, shipped via EAS tarball )
