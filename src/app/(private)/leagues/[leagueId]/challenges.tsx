@@ -1,27 +1,28 @@
 import { useValue } from "@legendapp/state/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Tabs, useToast } from "heroui-native";
 import { Badge } from "heroui-native-pro";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { ChallengeCard } from "@/components/pages/leagues/challenge-card";
-import { ChallengeAdminActionDialog } from "@/components/pages/leagues/challenge-admin-action-dialog";
+import { ChallengeOrganizerActionDialog } from "@/components/pages/leagues/challenge-organizer-action-dialog";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { ChallengeResultDialog } from "@/components/pages/leagues/challenge-result-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC } from "@/lib/convex/crpc";
-import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { buildChallengeCardScoreSummary } from "@/lib/leagues/challenge-card-score-summary";
 import {
-  getAdminManageChallengeErrorToast,
-  getAdminManageChallengeSuccessToast,
-  getCreateChallengeErrorToast,
-} from "@/lib/leagues/challenge-feedback";
+  formatProposalSummary,
+  formatScoreSummary,
+  formatStatus,
+  getAdminActionCopy,
+  getScoreValueClassName,
+  resolveChallengesError,
+} from "@/lib/leagues/challenge-formatters";
 import {
   buildChallengeRouteEmptyState,
   buildChallengeRouteInitialTab,
@@ -34,233 +35,18 @@ import {
   type ChallengeItem,
   type ChallengeMenuCallbacks,
 } from "@/lib/leagues/challenge-menu-actions";
+import { useChallengeMutations } from "@/lib/leagues/use-challenge-mutations";
 
-type AdminActionTarget = {
+type OrganizerActionTarget = {
   action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
   challenge: ChallengeItem;
 };
 
-const CHALLENGE_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-  year: "numeric",
-});
-
-type ChallengeStatusChip = {
-  color: "accent" | "danger" | "default" | "success" | "warning";
-  label: string;
-  variant: "primary" | "secondary" | "soft" | "tertiary";
-};
-
-function formatMatchDate(matchDate: string) {
-  const [year, month, day] = matchDate.split("-").map(Number);
-
-  if (!(year && month && day)) {
-    return matchDate;
-  }
-
-  return CHALLENGE_DATE_FORMATTER.format(
-    new Date(Date.UTC(year, month - 1, day))
-  );
-}
-
-function formatMinute(minute: number) {
-  const hour = Math.floor(minute / 60);
-  const currentMinute = minute % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
-}
-
-function formatProposalSummary(challenge: ChallengeItem) {
-  return `${formatMatchDate(challenge.currentProposal.matchDate)} às ${formatMinute(
-    challenge.currentProposal.startMinute
-  )} · ${challenge.currentProposal.courtName}`;
-}
-
-function formatStatus(status: ChallengeItem["status"]) {
-  switch (status) {
-    case "pending_opponent_response":
-      return {
-        color: "warning",
-        label: "Aguardando resposta",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_creator_reapproval":
-      return {
-        color: "warning",
-        label: "Aguardando reaprovação",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_admin_challenge_validation":
-      return {
-        color: "accent",
-        label: "Validação do admin",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "confirmed":
-      return {
-        color: "success",
-        label: "Confirmado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_cancellation_acceptance":
-      return {
-        color: "warning",
-        label: "Cancelamento pendente",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_result_submission":
-      return {
-        color: "warning",
-        label: "Pendente de placar",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_result_confirmation":
-      return {
-        color: "accent",
-        label: "Confirmar placar",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_admin_result_validation":
-      return {
-        color: "accent",
-        label: "Validar resultado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_result_correction":
-      return {
-        color: "warning",
-        label: "Corrigir placar",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "pending_admin_decision":
-      return {
-        color: "warning",
-        label: "Decisão do admin",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "finished":
-      return {
-        color: "default",
-        label: "Finalizado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "declined":
-      return {
-        color: "danger",
-        label: "Recusado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "cancelled":
-      return {
-        color: "danger",
-        label: "Cancelado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    case "invalidated":
-      return {
-        color: "danger",
-        label: "Invalidado",
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-    default:
-      return {
-        color: "default",
-        label: status,
-        variant: "soft",
-      } satisfies ChallengeStatusChip;
-  }
-}
-
-function formatScoreSummary(challenge: ChallengeItem) {
-  const scoreSets = challenge.latestResultSubmission?.score.sets;
-
-  if (!(scoreSets && scoreSets.length > 0)) {
-    return null;
-  }
-
-  return buildChallengeCardScoreSummary({
-    matchConfig: challenge.matchConfigSnapshot,
-    sets: scoreSets,
-  });
-}
-
-function getScoreValueClassName(input: {
-  hasScoreSummary: boolean;
-  isWinner: boolean;
-}) {
-  if (input.isWinner) {
-    return "font-semibold text-accent";
-  }
-
-  return input.hasScoreSummary ? "text-foreground" : "text-muted";
-}
-
-function getAdminActionCopy(action: AdminActionTarget["action"]) {
-  switch (action) {
-    case "cancel":
-      return {
-        description: "Tem certeza que deseja cancelar este desafio?",
-        isDanger: true,
-        submitLabel: "Sim",
-        title: "Cancelar desafio",
-      };
-    case "invalidate":
-      return {
-        description: "Tem certeza que deseja invalidar este desafio?",
-        isDanger: true,
-        submitLabel: "Sim",
-        title: "Invalidar desafio",
-      };
-    case "reopen_challenge":
-      return {
-        description: "Tem certeza que deseja reabrir este desafio?",
-        isDanger: false,
-        submitLabel: "Sim",
-        title: "Reabrir desafio",
-      };
-    case "reopen_result":
-      return {
-        description: "Tem certeza que deseja reabrir o resultado?",
-        isDanger: false,
-        submitLabel: "Sim",
-        title: "Reabrir resultado",
-      };
-    default:
-      return {
-        description: "",
-        isDanger: false,
-        submitLabel: "Salvar",
-        title: "Ação administrativa",
-      };
-  }
-}
-
-function resolveChallengesError(input: {
-  challengesError: unknown;
-  isChallengesError: boolean;
-  isOccupiedSlotsError: boolean;
-  occupiedSlotsError: unknown;
-}) {
-  if (input.isChallengesError) {
-    return input.challengesError;
-  }
-
-  if (input.isOccupiedSlotsError) {
-    return input.occupiedSlotsError;
-  }
-
-  return null;
-}
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tela de desafios aglutina mutations, dialogs e tabs; estados renderizados inline
 export default function LeagueChallengesRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;
   }>();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   const crpc = useCRPC();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
@@ -286,362 +72,23 @@ export default function LeagueChallengesRoute() {
     occupiedSlotsError: occupiedSlotsQuery.error,
   });
 
-  async function invalidateLeagueContext() {
-    await Promise.all([
-      queryClient.invalidateQueries(
-        crpc.league.discovery.getById.queryFilter({ leagueId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.membership.getOverview.queryFilter({ leagueId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.challenges.listForLeague.queryFilter({ leagueId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.challenges.listOccupiedSlots.queryFilter({ leagueId })
-      ),
-    ]);
-  }
-
-  const createChallenge = useMutation(
-    crpc.league.challenges.create.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        bucket$.actions.setChallengeCreateTarget(null);
-        toast.show({
-          description: "Desafio enviado com sucesso.",
-          id: "create-challenge-success",
-          label: "Desafio criado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show(
-          getCreateChallengeErrorToast(
-            getToastErrorMessage(error, "Não foi possível criar o desafio.")
-          )
-        );
-      },
-    })
-  );
-  const acceptChallengeProposal = useMutation(
-    crpc.league.challenges.acceptProposal.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Proposta aceita com sucesso.",
-          id: "accept-challenge-proposal-success",
-          label: "Desafio aceito",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível aceitar a proposta."
-          ),
-          id: "accept-challenge-proposal-error",
-          label: "Erro ao aceitar desafio",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const declineChallengeProposal = useMutation(
-    crpc.league.challenges.declineProposal.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Proposta recusada com sucesso.",
-          id: "decline-challenge-proposal-success",
-          label: "Desafio recusado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível recusar a proposta."
-          ),
-          id: "decline-challenge-proposal-error",
-          label: "Erro ao recusar desafio",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const counterProposeChallenge = useMutation(
-    crpc.league.challenges.counterPropose.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Contraproposta enviada com sucesso.",
-          id: "counter-propose-challenge-success",
-          label: "Contraproposta enviada",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível reenviar a proposta."
-          ),
-          id: "counter-propose-challenge-error",
-          label: "Erro ao reenviar proposta",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const cancelChallenge = useMutation(
-    crpc.league.challenges.cancel.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Desafio cancelado com sucesso.",
-          id: "cancel-challenge-success",
-          label: "Desafio cancelado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível cancelar o desafio."
-          ),
-          id: "cancel-challenge-error",
-          label: "Erro ao cancelar desafio",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const requestChallengeCancellation = useMutation(
-    crpc.league.challenges.requestCancellation.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Solicitação de cancelamento enviada com sucesso.",
-          id: "request-challenge-cancellation-success",
-          label: "Cancelamento solicitado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível solicitar o cancelamento da partida."
-          ),
-          id: "request-challenge-cancellation-error",
-          label: "Erro ao solicitar cancelamento",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const respondChallengeCancellation = useMutation(
-    crpc.league.challenges.respondCancellationRequest.mutationOptions({
-      onSuccess: async (_, variables) => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            variables.action === "accept"
-              ? "Cancelamento aceito com sucesso."
-              : "Cancelamento recusado com sucesso.",
-          id:
-            variables.action === "accept"
-              ? "accept-challenge-cancellation-success"
-              : "reject-challenge-cancellation-success",
-          label:
-            variables.action === "accept"
-              ? "Cancelamento aceito"
-              : "Cancelamento recusado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível responder à solicitação de cancelamento."
-          ),
-          id: "respond-challenge-cancellation-error",
-          label: "Erro ao responder cancelamento",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const submitChallengeResult = useMutation(
-    crpc.league.challenges.submitResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Placar enviado com sucesso.",
-          id: "submit-challenge-result-success",
-          label: "Placar enviado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível enviar o placar."
-          ),
-          id: "submit-challenge-result-error",
-          label: "Erro ao enviar placar",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const confirmChallengeResult = useMutation(
-    crpc.league.challenges.confirmResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Placar confirmado com sucesso.",
-          id: "confirm-challenge-result-success",
-          label: "Placar confirmado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível confirmar o placar."
-          ),
-          id: "confirm-challenge-result-error",
-          label: "Erro ao confirmar placar",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const reviewChallenge = useMutation(
-    crpc.league.challenges.reviewChallenge.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Validação do desafio atualizada com sucesso.",
-          id: "review-challenge-success",
-          label: "Desafio validado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível validar o desafio."
-          ),
-          id: "review-challenge-error",
-          label: "Erro ao validar desafio",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const reviewChallengeResult = useMutation(
-    crpc.league.challenges.reviewResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Validação do resultado atualizada com sucesso.",
-          id: "review-challenge-result-success",
-          label: "Resultado validado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível validar o resultado."
-          ),
-          id: "review-challenge-result-error",
-          label: "Erro ao validar resultado",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const adminManageChallenge = useMutation(
-    crpc.league.challenges.adminManage.mutationOptions({
-      onSuccess: async (_, variables) => {
-        await invalidateLeagueContext();
-        toast.show(getAdminManageChallengeSuccessToast(variables));
-      },
-      onError: (error, variables) => {
-        toast.show(
-          getAdminManageChallengeErrorToast({
-            action: variables.action,
-            message: getToastErrorMessage(
-              error,
-              "Não foi possível aplicar a ação."
-            ),
-          })
-        );
-      },
-    })
-  );
-  const adminSubmitChallengeResult = useMutation(
-    crpc.league.challenges.adminSubmitResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Placar salvo e ranking atualizado.",
-          id: "admin-submit-challenge-result-success",
-          label: "Placar atualizado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar o placar pelo admin."
-          ),
-          id: "admin-submit-challenge-result-error",
-          label: "Erro ao salvar placar",
-          variant: "danger",
-        });
-      },
-    })
-  );
-
-  const adminRequestResultReminder = useMutation(
-    crpc.league.challenges.adminRequestResultReminder.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            "Os jogadores foram notificados para registrar o placar.",
-          id: "admin-request-result-reminder-success",
-          label: "Lembrete enviado",
-          variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível enviar o lembrete."
-          ),
-          id: "admin-request-result-reminder-error",
-          label: "Erro ao enviar lembrete",
-          variant: "danger",
-        });
-      },
-    })
-  );
+  const {
+    createChallenge,
+    acceptChallengeProposal,
+    declineChallengeProposal,
+    counterProposeChallenge,
+    cancelChallenge,
+    requestChallengeCancellation,
+    respondChallengeCancellation,
+    submitChallengeResult,
+    confirmChallengeResult,
+    reviewChallenge,
+    reviewChallengeResult,
+    organizerManageChallenge,
+    organizerSubmitChallengeResult,
+    organizerRequestResultReminder,
+    isPending,
+  } = useChallengeMutations({ bucket$, leagueId, toast });
 
   const challenges = challengesQuery.data ?? [];
   const courts = league?.courts ?? [];
@@ -649,21 +96,6 @@ export default function LeagueChallengesRoute() {
     league?.ruleConfig.matchConfig.defaultDurationMinutes ?? 0;
   const error = challengesError;
   const isLoading = challengesQuery.isPending || occupiedSlotsQuery.isPending;
-  const isPending =
-    createChallenge.isPending ||
-    acceptChallengeProposal.isPending ||
-    declineChallengeProposal.isPending ||
-    counterProposeChallenge.isPending ||
-    cancelChallenge.isPending ||
-    requestChallengeCancellation.isPending ||
-    respondChallengeCancellation.isPending ||
-    submitChallengeResult.isPending ||
-    confirmChallengeResult.isPending ||
-    reviewChallenge.isPending ||
-    reviewChallengeResult.isPending ||
-    adminManageChallenge.isPending ||
-    adminSubmitChallengeResult.isPending ||
-    adminRequestResultReminder.isPending;
   const occupiedSlots = occupiedSlotsQuery.data ?? [];
 
   const onAccept = (challengeId: string) => {
@@ -673,7 +105,7 @@ export default function LeagueChallengesRoute() {
     action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
     challengeId: string;
   }) => {
-    await adminManageChallenge.mutateAsync(input);
+    await organizerManageChallenge.mutateAsync(input);
   };
   const onCancel = (challengeId: string) => {
     cancelChallenge.mutate({ challengeId });
@@ -725,7 +157,7 @@ export default function LeagueChallengesRoute() {
     reviewChallengeResult.mutate(input);
   };
   const onRequestResultReminder = (challengeId: string) => {
-    adminRequestResultReminder.mutate({ challengeId });
+    organizerRequestResultReminder.mutate({ challengeId });
   };
   const onRespondCancellation = (input: {
     action: "accept" | "reject";
@@ -757,7 +189,7 @@ export default function LeagueChallengesRoute() {
       winnerMembershipId: string;
     };
   }) => {
-    await adminSubmitChallengeResult.mutateAsync(input);
+    await organizerSubmitChallengeResult.mutateAsync(input);
   };
 
   useEffect(() => {
@@ -794,8 +226,8 @@ export default function LeagueChallengesRoute() {
   const [counterProposalTarget, setCounterProposalTarget] =
     useState<ChallengeItem | null>(null);
   const [resultTarget, setResultTarget] = useState<ChallengeItem | null>(null);
-  const [adminActionTarget, setAdminActionTarget] =
-    useState<AdminActionTarget | null>(null);
+  const [adminActionTarget, setOrganizerActionTarget] =
+    useState<OrganizerActionTarget | null>(null);
 
   // Se a aba "Atenção" (antiga "Pendentes") ficar vazia após uma ação (ex.:
   // admin resolveu todos os pendentes), caímos para "Em andamento" para não
@@ -835,7 +267,7 @@ export default function LeagueChallengesRoute() {
   const menuCallbacks: ChallengeMenuCallbacks = {
     onAccept,
     onAdminManage: (target) => {
-      setAdminActionTarget(target);
+      setOrganizerActionTarget(target);
     },
     onCancel,
     onConfirmResult,
@@ -1141,14 +573,14 @@ export default function LeagueChallengesRoute() {
             ) : null}
 
             {adminActionTarget ? (
-              <ChallengeAdminActionDialog
+              <ChallengeOrganizerActionDialog
                 description={`${getAdminActionCopy(adminActionTarget.action).description} ${adminActionTarget.challenge.challenger.player.fullName} x ${adminActionTarget.challenge.challenged.player.fullName}.`}
                 isDanger={getAdminActionCopy(adminActionTarget.action).isDanger}
                 isOpen
                 isPending={isPending}
                 onOpenChange={(nextOpen) => {
                   if (!nextOpen) {
-                    setAdminActionTarget(null);
+                    setOrganizerActionTarget(null);
                   }
                 }}
                 onSubmit={async () => {
@@ -1156,7 +588,7 @@ export default function LeagueChallengesRoute() {
                     action: adminActionTarget.action,
                     challengeId: adminActionTarget.challenge.id,
                   });
-                  setAdminActionTarget(null);
+                  setOrganizerActionTarget(null);
                 }}
                 submitLabel={
                   getAdminActionCopy(adminActionTarget.action).submitLabel

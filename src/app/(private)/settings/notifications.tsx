@@ -25,7 +25,7 @@ import {
 import { useEffect, useState } from "react";
 import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -34,6 +34,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { formatDateTimeShort } from "@/lib/format/date";
 import {
   getPushPermissionStatusAsync,
   type NotificationPermissionStatus,
@@ -51,13 +52,6 @@ import {
 type NotificationItem = ApiOutputs["notification"]["feed"]["list"][number];
 type NotificationStatus = ApiOutputs["notification"]["settings"]["status"];
 type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
-
-const NOTIFICATION_DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  month: "short",
-});
 
 function getPushDescription(status?: NotificationStatus) {
   if (!status) {
@@ -140,14 +134,14 @@ function NotificationFeedItem(props: {
         <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-1">
             {props.notification.isRead ? null : (
-              <View className="size-2 rounded-full bg-accent" />
+              <View className="size-1.5 rounded-full bg-accent" />
             )}
             <Text
               className={
                 props.notification.isRead ? "text-muted" : "text-accent"
               }
               numberOfLines={1}
-              variant="title"
+              weight="semibold"
             >
               {props.notification.title}
             </Text>
@@ -156,9 +150,7 @@ function NotificationFeedItem(props: {
             {props.notification.body}
           </Text>
           <Text color="muted" size="xs">
-            {NOTIFICATION_DATE_FORMATTER.format(
-              new Date(props.notification.occurredAt)
-            )}
+            {formatDateTimeShort(new Date(props.notification.occurredAt))}
           </Text>
         </View>
         <Menu className="absolute top-2 right-2">
@@ -229,34 +221,34 @@ export default function SettingsNotificationsRoute() {
 
   const setPreference = useMutation(
     crpc.notification.settings.setPreference.mutationOptions({
-      onSuccess: invalidateNotifications,
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar notificações."
+            "Não foi possível atualizar suas preferências de notificação. Tente novamente."
           ),
           id: "notification-preference-error",
-          label: "Erro nas notificações",
+          label: "Preferência não salva",
           variant: "danger",
         });
       },
+      onSuccess: invalidateNotifications,
     })
   );
   const upsertDevice = useMutation(
     crpc.notification.settings.upsertDevice.mutationOptions({
-      onSuccess: invalidateNotifications,
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível registrar este dispositivo."
+            "Não foi possível registrar este dispositivo para push. Tente novamente."
           ),
           id: "notification-device-error",
-          label: "Token não registrado",
+          label: "Dispositivo não registrado",
           variant: "danger",
         });
       },
+      onSuccess: invalidateNotifications,
     })
   );
   const setActiveActor = useMutation(
@@ -265,10 +257,10 @@ export default function SettingsNotificationsRoute() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível abrir a notificação no modo correto."
+            "Não conseguimos abrir a notificação no modo correto. Tente novamente."
           ),
           id: "notification-set-active-actor-error",
-          label: "Modo não alterado",
+          label: "Não foi possível abrir",
           variant: "danger",
         });
       },
@@ -359,10 +351,13 @@ export default function SettingsNotificationsRoute() {
     toast.show({
       description:
         registration.permissionStatus === "denied"
-          ? "Ative as permissões de notificação no sistema."
-          : "Não foi possível obter token de push neste dispositivo.",
+          ? "Ative as permissões de notificação nos ajustes do sistema."
+          : "Não foi possível ativar o push neste dispositivo agora.",
       id: "notification-token-missing",
-      label: "Push ainda não está pronto",
+      label:
+        registration.permissionStatus === "denied"
+          ? "Notificações bloqueadas"
+          : "Push indisponível",
       variant: "warning",
     });
   }

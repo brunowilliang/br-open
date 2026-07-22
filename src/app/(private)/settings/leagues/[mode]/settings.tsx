@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import {
@@ -7,9 +7,13 @@ import {
   ToggleableRuleCard,
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
+import { WidgetAlert } from "@/components/pages/leagues/widget-alert";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { useCRPC } from "@/lib/convex/crpc";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
+import { useQuery } from "@tanstack/react-query";
+import { type Href, useRouter } from "expo-router";
 import {
   Alert02Icon,
   CheckmarkCircle02Icon,
@@ -39,19 +43,30 @@ const visibilityOptions = [
 
 const scheduleVisibilityOptions = [
   { label: "Aberta para todos", value: "public" as const },
-  { label: "Somente membros", value: "members_only" as const },
+  { label: "Somente jogadores", value: "members_only" as const },
 ];
 
 const priceBillingIntervalOptions = [
+  { label: "Único", value: "once" as const },
   { label: "Semanal", value: "week" as const },
   { label: "Mensal", value: "month" as const },
   { label: "Trimestral", value: "quarter" as const },
   { label: "Anual", value: "year" as const },
 ];
 
+const approvalModeOptions = [
+  { label: "Automática", value: "auto" as const },
+  { label: "Manual", value: "manual" as const },
+];
+
 const DEFAULT_PAID_PRICE_CENTS = 9000;
 
 const SETTINGS_RULE_INFO = {
+  approvalMode: {
+    description:
+      "Automática: o jogador vai direto pro pagamento. Manual: você aprova a solicitação antes do jogador pagar.",
+    title: "Aprovação de jogadores",
+  },
   limitedSpots: {
     description:
       "Controla quantos jogadores podem entrar na liga. Ativo: novos jogadores só entram até atingir o limite. Desativo: a liga aceita jogadores sem limite.",
@@ -69,6 +84,16 @@ export default function LeagueSettingsRoute() {
     useLeagueFormRoute();
   const isDisabled = isSubmitPending;
   const subtitle = mode === "create" ? "Criar Liga" : "Editar Liga";
+  const router = useRouter();
+  const crpc = useCRPC();
+
+  // The organizer must have an active Woovi subaccount before they can charge
+  // players for a paid league. Fetched unconditionally (cheap authQuery) so the
+  // guard works in both create and edit modes.
+  const wooviStatusQuery = useQuery(
+    crpc.payment.onboarding.getStatus.queryOptions()
+  );
+  const wooviStatus = wooviStatusQuery.data?.status ?? null;
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -85,33 +110,52 @@ export default function LeagueSettingsRoute() {
       "maxPlayers",
       "monthlyPriceCents",
       "priceBillingInterval",
+      "approvalMode",
+      "gracePeriodDays",
+      "reminderDaysBefore",
     ],
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isWooviDialogOpen, setIsWooviDialogOpen] = useState(false);
   const visibility = useWatch({
     control,
-    name: "visibility",
     defaultValue: getValues("visibility"),
+    name: "visibility",
   });
   const maxPlayers = useWatch({
     control,
-    name: "maxPlayers",
     defaultValue: getValues("maxPlayers"),
+    name: "maxPlayers",
   });
   const monthlyPriceCents = useWatch({
     control,
-    name: "monthlyPriceCents",
     defaultValue: getValues("monthlyPriceCents"),
+    name: "monthlyPriceCents",
   });
   const priceBillingInterval = useWatch({
     control,
-    name: "priceBillingInterval",
     defaultValue: getValues("priceBillingInterval"),
+    name: "priceBillingInterval",
+  });
+  const approvalMode = useWatch({
+    control,
+    defaultValue: getValues("approvalMode"),
+    name: "approvalMode",
+  });
+  const gracePeriodDays = useWatch({
+    control,
+    defaultValue: getValues("gracePeriodDays"),
+    name: "gracePeriodDays",
+  });
+  const reminderDaysBefore = useWatch({
+    control,
+    defaultValue: getValues("reminderDaysBefore"),
+    name: "reminderDaysBefore",
   });
   const scheduleVisibility = useWatch({
     control,
-    name: "ruleConfig.scheduleVisibility",
     defaultValue: getValues("ruleConfig.scheduleVisibility") ?? "public",
+    name: "ruleConfig.scheduleVisibility",
   });
   const visibilityError = errors.visibility?.message;
   const maxPlayersError = errors.maxPlayers?.message;
@@ -138,6 +182,13 @@ export default function LeagueSettingsRoute() {
   }
 
   function togglePaidPrice() {
+    // Turning charging ON requires an active Woovi subaccount. If not connected,
+    // block the toggle and prompt the organizer to set up payments instead.
+    if (!hasPaidPrice && wooviStatus !== "active") {
+      setIsWooviDialogOpen(true);
+      return;
+    }
+
     setValue(
       "monthlyPriceCents",
       hasPaidPrice ? 0 : DEFAULT_PAID_PRICE_CENTS,
@@ -312,6 +363,14 @@ export default function LeagueSettingsRoute() {
           <ToggleableRuleCard
             description="Ative para definir uma mensalidade para a liga."
             enabled={hasPaidPrice}
+            error={
+              hasPaidPrice && wooviStatus !== "active" ? (
+                <WidgetAlert
+                  status="warning"
+                  title="Conta de pagamento não conectada — os jogadores não conseguirão pagar."
+                />
+              ) : null
+            }
             info={SETTINGS_RULE_INFO.paidPrice}
             isDisabled={isDisabled}
             label="Cobrança"
@@ -376,6 +435,85 @@ export default function LeagueSettingsRoute() {
                 </Segment.Group>
               </Segment>
               <FieldError>{priceBillingIntervalError ?? ""}</FieldError>
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Aprovação de jogadores</Label>
+              <Segment
+                isDisabled={isDisabled}
+                onValueChange={(nextValue) => {
+                  if (nextValue) {
+                    setValue(
+                      "approvalMode",
+                      nextValue as LeagueScreenValues["approvalMode"],
+                      fieldUpdateOptions
+                    );
+                  }
+                }}
+                value={approvalMode}
+              >
+                <Segment.Group>
+                  <Segment.Indicator />
+                  {approvalModeOptions.map((option) => (
+                    <Segment.Item key={option.value} value={option.value}>
+                      <Segment.Label>{option.label}</Segment.Label>
+                    </Segment.Item>
+                  ))}
+                </Segment.Group>
+              </Segment>
+              <Description>
+                {SETTINGS_RULE_INFO.approvalMode.description}
+              </Description>
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Carência (dias)</Label>
+              <NumberStepper
+                className="self-start"
+                defaultValue={gracePeriodDays ?? 7}
+                isDisabled={isDisabled}
+                maxValue={90}
+                minValue={0}
+                onValueChange={(nextValue) => {
+                  setValue("gracePeriodDays", nextValue, fieldUpdateOptions);
+                }}
+                step={1}
+                value={gracePeriodDays ?? 7}
+              >
+                <NumberStepper.DecrementButton />
+                <NumberStepper.Value />
+                <NumberStepper.IncrementButton />
+              </NumberStepper>
+              <Description>
+                Dias que o jogador tem após o vencimento antes de ser suspenso.
+              </Description>
+              <FieldError>{errors.gracePeriodDays?.message ?? ""}</FieldError>
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Lembrete antes do vencimento (dias)</Label>
+              <NumberStepper
+                className="self-start"
+                defaultValue={reminderDaysBefore ?? 3}
+                isDisabled={isDisabled}
+                maxValue={60}
+                minValue={0}
+                onValueChange={(nextValue) => {
+                  setValue("reminderDaysBefore", nextValue, fieldUpdateOptions);
+                }}
+                step={1}
+                value={reminderDaysBefore ?? 3}
+              >
+                <NumberStepper.DecrementButton />
+                <NumberStepper.Value />
+                <NumberStepper.IncrementButton />
+              </NumberStepper>
+              <Description>
+                Quantos dias antes do vencimento o jogador recebe um lembrete.
+              </Description>
+              <FieldError>
+                {errors.reminderDaysBefore?.message ?? ""}
+              </FieldError>
             </TextField>
           </ToggleableRuleCard>
 
@@ -443,6 +581,54 @@ export default function LeagueSettingsRoute() {
                   variant="danger-soft"
                 >
                   <Button.Label>Deletar liga</Button.Label>
+                </Button>
+              </View>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog>
+
+        <Dialog
+          isOpen={isWooviDialogOpen}
+          onOpenChange={(nextOpen) => {
+            if (isDisabled) {
+              return;
+            }
+            setIsWooviDialogOpen(nextOpen);
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Overlay />
+            <Dialog.Content className="gap-4 p-5">
+              {isDisabled ? null : (
+                <Dialog.Close className="absolute top-4 right-4 z-100" />
+              )}
+              <Dialog.Title>Configure sua conta de pagamento</Dialog.Title>
+              <Description>
+                Para ativar a cobrança na liga, conecte sua conta de pagamento
+                para receber os pagamentos via PIX.
+              </Description>
+
+              <View className="flex-row gap-2 self-end">
+                <Button
+                  isDisabled={isDisabled}
+                  onPress={() => {
+                    setIsWooviDialogOpen(false);
+                  }}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <Button.Label>Agora não</Button.Label>
+                </Button>
+                <Button
+                  isDisabled={isDisabled}
+                  onPress={() => {
+                    setIsWooviDialogOpen(false);
+                    router.navigate("/settings/organization/profile" as Href);
+                  }}
+                  size="sm"
+                  variant="primary"
+                >
+                  <Button.Label>Configurar</Button.Label>
                 </Button>
               </View>
             </Dialog.Content>

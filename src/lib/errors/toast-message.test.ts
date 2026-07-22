@@ -7,7 +7,7 @@ describe("getToastErrorMessage", () => {
   it("surfaces the backend message for a CRPC error with a custom message", () => {
     const error = new CRPCClientError({
       code: "NOT_FOUND",
-      functionName: "league/challenges:adminManage",
+      functionName: "league/challenges:organizerManage",
       message:
         "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
     });

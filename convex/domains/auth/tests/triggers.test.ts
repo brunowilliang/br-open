@@ -61,8 +61,8 @@ describe("auth triggers", () => {
     let wasInsertCalled = false;
     let wasUpdateCalled = false;
     const existingPlayerProfile = {
-      id: "playerProfile_123",
       fullName: "Bruno Garcia",
+      id: "playerProfile_123",
       nickname: "Bruno",
     } as unknown as Awaited<ReturnType<typeof ensureInitialPlayerProfile>>;
     const ctx = {
@@ -71,14 +71,14 @@ describe("auth triggers", () => {
           wasInsertCalled = true;
           throw new Error("Insert should not run for an existing profile.");
         },
-        update: () => {
-          wasUpdateCalled = true;
-          throw new Error("Update should not run for a complete profile.");
-        },
         query: {
           playerProfile: {
             findFirst: async () => existingPlayerProfile,
           },
+        },
+        update: () => {
+          wasUpdateCalled = true;
+          throw new Error("Update should not run for a complete profile.");
         },
       },
     } as unknown as EnsureInitialPlayerProfileCtx;
@@ -96,8 +96,8 @@ describe("auth triggers", () => {
   it("fills missing names when the player profile already exists", async () => {
     let updatedValues: Record<string, unknown> | null = null;
     const existingPlayerProfile = {
-      id: "playerProfile_123",
       fullName: null,
+      id: "playerProfile_123",
       nickname: "",
       userId: "user_456",
     };

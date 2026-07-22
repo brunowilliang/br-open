@@ -4,7 +4,6 @@
     "slug": "br-open",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "bropen",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -14,19 +13,18 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0485F7",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.brunoidonate.bropen"
+      "package": "com.brunoidonate.bropen",
+      "runtimeVersion": "1.0.0"
     },
     "plugins": [
       "expo-dev-client",
@@ -34,16 +32,21 @@
       [
         "expo-splash-screen",
         {
+          "imageWidth": 180,
           "backgroundColor": "#0485F7",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 176
+          "image": "./assets/images/splash-icon-light.png",
+          "dark": {
+            "backgroundColor": "#18181B",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
         }
       ],
       [
         "expo-notifications",
         {
           "defaultChannel": "default",
-          "color": "#0485F7"
+          "color": "#0485F7",
+          "googleServicesFile": "./google-services.json"
         }
       ],
       "expo-font",
@@ -56,6 +59,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "install": {
+      "exclude": ["typescript"]
     },
     "extra": {
       "router": {},

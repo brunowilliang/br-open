@@ -1,4 +1,11 @@
 import type { ApiOutputs } from "@convex/shared/api";
+import {
+  ORGANIZER_ATTENTION_CHALLENGE_STATUSES as ORGANIZER_ATTENTION_STATUSES,
+  ORGANIZER_ONGOING_CHALLENGE_STATUSES as ORGANIZER_ONGOING_STATUSES,
+  CLOSED_CHALLENGE_STATUSES as CLOSED_STATUSES,
+} from "@convex/domains/league/challenge-status";
+
+export { ORGANIZER_ATTENTION_STATUSES, ORGANIZER_ONGOING_STATUSES };
 
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
@@ -41,31 +48,6 @@ export type ChallengeTabCountItem = {
   status: ChallengeItem["status"];
 };
 
-const CLOSED_STATUSES = new Set<ChallengeTabCountItem["status"]>([
-  "cancelled",
-  "declined",
-  "finished",
-  "invalidated",
-]);
-
-export const ADMIN_ATTENTION_STATUSES = new Set<
-  ChallengeTabCountItem["status"]
->([
-  "pending_admin_challenge_validation",
-  "pending_admin_result_validation",
-  "pending_admin_decision",
-  "pending_result_correction",
-]);
-
-export const ADMIN_ONGOING_STATUSES = new Set<ChallengeTabCountItem["status"]>([
-  "pending_opponent_response",
-  "pending_creator_reapproval",
-  "confirmed",
-  "pending_cancellation_acceptance",
-  "pending_result_submission",
-  "pending_result_confirmation",
-]);
-
 function isViewerParticipant(
   challenge: ChallengeTabCountItem,
   viewerPlayerProfileId?: string | null
@@ -77,7 +59,7 @@ function isViewerParticipant(
 }
 
 /**
- * Determina se um desafio requer a AÇÃO IMEDIATA do participante (viewer).
+ * Determina se um desafio requer a AÇÃO IMEDIATA do jogador (viewer).
  * Espelha isParticipantAttentionChallenge de challenge-route-view.ts.
  * Se alterar um, altere o outro.
  */
@@ -169,10 +151,10 @@ export function buildChallengeTabCounts(input: {
 }): ChallengeTabCounts {
   if (input.canManage) {
     const attention = input.challenges.filter((challenge) =>
-      ADMIN_ATTENTION_STATUSES.has(challenge.status)
+      ORGANIZER_ATTENTION_STATUSES.has(challenge.status)
     ).length;
     const ongoing = input.challenges.filter((challenge) =>
-      ADMIN_ONGOING_STATUSES.has(challenge.status)
+      ORGANIZER_ONGOING_STATUSES.has(challenge.status)
     ).length;
     const history = input.challenges.filter((challenge) =>
       CLOSED_STATUSES.has(challenge.status)

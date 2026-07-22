@@ -58,12 +58,12 @@ describe("user delete foreign key actions", () => {
     ).toBe("set null");
     expect(
       getOnDeleteAction(
-        leagueTables.leagueChallengeResultSubmission.adminReviewedByUserId
+        leagueTables.leagueChallengeResultSubmission.organizerReviewedByUserId
       )
     ).toBe("set null");
     expect(
       getOnDeleteAction(
-        leagueTables.leagueChallengeAdminAction.performedByUserId
+        leagueTables.leagueChallengeOrganizerAction.performedByUserId
       )
     ).toBe("set null");
   });

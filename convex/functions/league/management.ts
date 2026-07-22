@@ -6,6 +6,9 @@ import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
 import {
   CreateLeagueSchema,
+  DEFAULT_LEAGUE_APPROVAL_MODE,
+  DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+  DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
   DeleteLeagueSchema,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
@@ -21,68 +24,59 @@ import {
   normalizeLeagueVisibility,
 } from "../../domains/league/contract";
 import { league } from "../../domains/league/tables";
+import { deleteStorageIds, resolveStorageUrl } from "../../shared/media-rules";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
-import {
-  requireActiveManager,
-  requireActiveOrganization,
-} from "../viewer/context";
+import { requireActiveManager } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 
-async function resolveLeagueMediaUrl(
-  ctx: QueryCtx | MutationCtx,
-  storageId?: null | string
-) {
-  if (
-    !storageId ||
-    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
-  ) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
+const isDeletableLeagueStorageId = (id: string) =>
+  !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(id);
 
 async function serializeLeague(
   ctx: QueryCtx | MutationCtx,
   record: LeagueRecord
 ) {
   const [avatarUrl, coverUrl] = await Promise.all([
-    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
-    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+    resolveStorageUrl(ctx, record.avatarStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
+    resolveStorageUrl(ctx, record.coverStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
   ]);
 
   return leagueSchema.parse({
     ...record,
-    visibility: normalizeLeagueVisibility(record.visibility),
+    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
     avatarStorageId: record.avatarStorageId ?? null,
-    coverStorageId: record.coverStorageId ?? null,
     avatarUrl,
-    coverUrl,
     courts: record.courts ?? [],
+    coverStorageId: record.coverStorageId ?? null,
+    coverUrl,
+    createdAt: record.createdAt.getTime(),
+    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
     maxPlayers: record.maxPlayers ?? null,
     monthlyPriceCents:
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+    reminderDaysBefore:
+      record.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
     ruleConfig: {
       ...record.ruleConfig,
-      scheduleVisibility:
-        record.ruleConfig?.scheduleVisibility ??
-        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
       resultValidationMode:
         record.ruleConfig?.resultValidationMode ??
         DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
     },
-    createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
+    visibility: normalizeLeagueVisibility(record.visibility),
   });
 }
 
@@ -100,23 +94,17 @@ async function getManagedLeagueOrThrow(
   if (!currentLeague) {
     throw new CRPCError({
       code: "FORBIDDEN",
-      message: "Liga não encontrada para esse gestor.",
+      message: "Liga não encontrada para esse organizador.",
     });
   }
 
   return currentLeague;
 }
 
-async function deleteLeagueStorageIds(ctx: MutationCtx, storageIds: string[]) {
-  for (const storageId of storageIds) {
-    await ctx.storage.delete(storageId as Id<"_storage">);
-  }
-}
-
 export const listMine = authQuery
   .output(leagueSchema.array())
   .query(async ({ ctx }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const leagues = await ctx.orm.query.league.findMany({
       limit: 100,
@@ -133,7 +121,7 @@ export const getById = authQuery
   .input(LeagueByIdSchema)
   .output(leagueSchema)
   .query(async ({ ctx, input }) => {
-    const organizationId = await requireActiveOrganization(ctx);
+    const organizationId = await requireActiveManager(ctx);
 
     const currentLeague = await getManagedLeagueOrThrow(ctx, {
       leagueId: input.leagueId as Id<"league">,
@@ -163,11 +151,11 @@ export const create = authMutation
       .insert(league)
       .values({
         ...input,
-        organizationId,
-        mode: DEFAULT_LEAGUE_MODE,
-        coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,
+        coverStorageId: input.coverStorageId,
         createdAt: now,
+        mode: DEFAULT_LEAGUE_MODE,
+        organizationId,
         updatedAt: now,
       })
       .returning();
@@ -196,21 +184,22 @@ export const update = authMutation
     const [updatedLeague] = await ctx.orm
       .update(league)
       .set({
-        name: input.name,
-        description: input.description,
-        city: input.city,
-        state: input.state,
-        locationNotes: input.locationNotes,
-        visibility: input.visibility,
+        approvalMode: input.approvalMode,
+        avatarStorageId: input.avatarStorageId,
         categories: input.categories,
+        city: input.city,
         courts: input.courts,
+        coverStorageId: input.coverStorageId,
+        description: input.description,
+        locationNotes: input.locationNotes,
         maxPlayers: input.maxPlayers,
         monthlyPriceCents: input.monthlyPriceCents,
+        name: input.name,
         priceBillingInterval: input.priceBillingInterval,
         ruleConfig: input.ruleConfig,
-        coverStorageId: input.coverStorageId,
-        avatarStorageId: input.avatarStorageId,
+        state: input.state,
         updatedAt: now,
+        visibility: input.visibility,
       })
       .where(
         and(
@@ -220,7 +209,7 @@ export const update = authMutation
       )
       .returning();
 
-    await deleteLeagueStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     return serializeLeague(ctx, updatedLeague);
   });
@@ -254,7 +243,7 @@ export const remove = authMutation
         )!
       );
 
-    await deleteLeagueStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     return { success: true };
   });

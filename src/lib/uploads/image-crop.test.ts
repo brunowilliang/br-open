@@ -1,14 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
+import { clamp } from "@/lib/numbers";
 import {
   buildImageCropArea,
   buildImageCropPickerOptions,
-  clamp,
   clampImageOffset,
   getImageDisplay,
   getMaskFrame,
   getMaskWidthBounds,
-  getTouchDistance,
 } from "./image-crop";
 
 describe("image crop helpers", () => {
@@ -166,22 +165,6 @@ describe("image crop helpers", () => {
       });
       expect(result.x).toBe(-100);
       expect(result.y).toBe(-100);
-    });
-  });
-
-  describe("getTouchDistance", () => {
-    it("computes the Euclidean distance between two touches", () => {
-      expect(
-        getTouchDistance([
-          { pageX: 0, pageY: 0 },
-          { pageX: 30, pageY: 40 },
-        ])
-      ).toBe(50);
-    });
-
-    it("returns 0 when fewer than two touches are present", () => {
-      expect(getTouchDistance([{ pageX: 0, pageY: 0 }])).toBe(0);
-      expect(getTouchDistance([])).toBe(0);
     });
   });
 });

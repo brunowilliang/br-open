@@ -17,7 +17,7 @@ import { useController, useFormContext } from "react-hook-form";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";

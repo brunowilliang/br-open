@@ -64,15 +64,15 @@ type LeagueFormController = {
 };
 
 const LEAGUE_MEDIA_CROP_CONFIG = {
-  cover: {
-    aspectRatio: 16 / 9,
-    height: 900,
-    width: 1600,
-  },
   avatar: {
     aspectRatio: 1,
     height: 900,
     width: 900,
+  },
+  cover: {
+    aspectRatio: 16 / 9,
+    height: 900,
+    width: 1600,
   },
 } as const satisfies Record<LeagueMediaKind, LeagueMediaCropConfig>;
 
@@ -106,8 +106,8 @@ export function useLeagueFormController(
   const form = useForm<LeagueScreenValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(LeagueSchema),
+    reValidateMode: "onChange",
   });
   const generateUploadUrl = useMutation(
     crpc.league.management.generateUploadUrl.mutationOptions()
@@ -210,9 +210,10 @@ export function useLeagueFormController(
         inputWithUploadedMedia = await uploadPendingMedia(input);
       } catch {
         toast.show({
-          description: "Não foi possível enviar a imagem.",
+          description:
+            "Não foi possível enviar a imagem. Verifique sua conexão e tente novamente.",
           id: "league-media-submit-upload-error",
-          label: "Erro no upload",
+          label: "Falha no envio da imagem",
           variant: "danger",
         });
         return;
@@ -253,9 +254,10 @@ export function useLeagueFormController(
         bucket$.actions.setCropRequest({ asset, kind });
       } catch {
         toast.show({
-          description: "Não foi possível abrir a biblioteca de imagens.",
+          description:
+            "Não foi possível abrir a galeria de fotos. Confira as permissões do app.",
           id: `league-${kind}-picker-error`,
-          label: "Erro ao selecionar imagem",
+          label: "Sem acesso à galeria",
           variant: "danger",
         });
       }
@@ -288,14 +290,14 @@ export function useLeagueFormController(
         toast.show({
           description: "A imagem será enviada quando você salvar a liga.",
           id: `league-${kind}-crop-success`,
-          label: kind === "avatar" ? "Avatar pronto" : "Banner pronto",
+          label: kind === "avatar" ? "Avatar ajustado" : "Banner ajustado",
           variant: "success",
         });
       } catch {
         toast.show({
-          description: "Não foi possível recortar a imagem.",
+          description: "Não foi possível recortar a imagem. Tente novamente.",
           id: `league-${kind}-crop-error`,
-          label: "Erro ao recortar imagem",
+          label: "Falha ao ajustar imagem",
           variant: "danger",
         });
       } finally {
@@ -328,7 +330,6 @@ export function useLeagueFormController(
   );
 
   return {
-    form,
     cropper: {
       aspectRatio: cropConfig?.aspectRatio ?? null,
       asset: cropRequest?.asset ?? null,
@@ -343,6 +344,7 @@ export function useLeagueFormController(
       title:
         cropRequest?.kind === "avatar" ? "Ajustar avatar" : "Ajustar banner",
     },
+    form,
   };
 }
 

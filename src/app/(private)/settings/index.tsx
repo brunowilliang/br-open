@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
@@ -10,11 +10,13 @@ import {
   ChampionIcon,
   Logout03Icon,
   TennisRacketIcon,
+  Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
 import {
   Card,
+  Chip,
   Description,
   ListGroup,
   PressableFeedback,
@@ -27,44 +29,28 @@ import { Fragment } from "react";
 import { View } from "react-native";
 
 type SettingsItem = {
+  badge?: number;
   description: string;
-  href: Href;
+  href?: Href;
   icon: ComponentProps<typeof HugeIcons>["icon"];
+  id: string;
+  isDisabled?: boolean;
+  onPress?: () => void;
+  playerOnly?: boolean;
   requiresOrganizer?: boolean;
   title: string;
+  variant?: "danger";
 };
-
-type SettingsSection = {
-  items: SettingsItem[];
-  title: string;
-};
-
-const sections: SettingsSection[] = [
-  {
-    title: "Menus",
-    items: [
-      {
-        title: "Ligas",
-        description: "Crie e administre suas ligas",
-        icon: ChampionIcon,
-        href: "/settings/leagues",
-        requiresOrganizer: true,
-      },
-      {
-        title: "Notificações",
-        description: "Push e central de notificações",
-        icon: BellDotIcon,
-        href: "/settings/notifications",
-      },
-    ],
-  },
-];
 
 export default function Settings() {
   const crpc = useCRPC();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const notificationStatus = useQuery(
+    crpc.notification.settings.status.queryOptions()
+  );
+  const unreadCount = notificationStatus.data?.unreadCount ?? 0;
   const activeActor = viewerContext.data?.activeActor ?? null;
   const organizationActor = viewerContext.data?.availableActors.find(
     (actor) => actor.kind === "organization"
@@ -104,7 +90,7 @@ export default function Settings() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível trocar o modo."
+            "Não foi possível alternar entre os modos. Tente novamente."
           ),
           id: "settings-set-active-actor-error",
           label: "Modo não alterado",
@@ -121,10 +107,10 @@ export default function Settings() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível encerrar sua sessão."
+            "Não conseguimos encerrar sua sessão. Tente novamente."
           ),
           id: "settings-sign-out-error",
-          label: "Erro ao sair",
+          label: "Não foi possível sair",
           variant: "danger",
         });
       },
@@ -154,14 +140,45 @@ export default function Settings() {
         description: "Gerencie o perfil da sua organização",
         href: "/settings/organization/profile" as Href,
         icon: ChampionIcon,
+        id: "profile",
         title: "Perfil da organização",
       }
     : {
         description: "Gerencie seu perfil como jogador",
         href: "/settings/player/profile",
         icon: TennisRacketIcon,
+        id: "profile",
         title: "Perfil do jogador",
       };
+
+  const menusItems: SettingsItem[] = [
+    profileItem,
+    {
+      badge: unreadCount,
+      description: "Push e central de notificações",
+      href: "/settings/notifications",
+      icon: BellDotIcon,
+      id: "notifications",
+      title: "Notificações",
+    },
+    {
+      description: "Cobranças, vencimentos e histórico",
+      href: "/settings/player/payments" as Href,
+      icon: Wallet01Icon,
+      id: "payments",
+      playerOnly: true,
+      title: "Meus pagamentos",
+    },
+    {
+      description: "Encerrar sessão neste dispositivo",
+      icon: Logout03Icon,
+      id: "sign-out",
+      isDisabled: handleSignOutPress.isPending,
+      onPress: () => handleSignOutPress.mutate(),
+      title: handleSignOutPress.isPending ? "Saindo..." : "Sair",
+      variant: "danger",
+    },
+  ];
 
   return (
     <Page>
@@ -225,70 +242,61 @@ export default function Settings() {
             </Card>
           </PressableFeedback>
         )}
-        <Description>Perfil</Description>
+        <Description>Menus</Description>
         <ListGroup>
-          <ListGroup.Item onPress={() => router.navigate(profileItem.href)}>
-            <ListGroup.ItemPrefix>
-              <HugeIcons icon={profileItem.icon} />
-            </ListGroup.ItemPrefix>
-            <ListGroup.ItemContent>
-              <ListGroup.ItemTitle>{profileItem.title}</ListGroup.ItemTitle>
-              <ListGroup.ItemDescription>
-                {profileItem.description}
-              </ListGroup.ItemDescription>
-            </ListGroup.ItemContent>
-            <ListGroup.ItemSuffix />
-          </ListGroup.Item>
-        </ListGroup>
-        {sections.map((section) => (
-          <Fragment key={section.title}>
-            <Description>{section.title}</Description>
-            <ListGroup>
-              {section.items
-                .filter(
-                  (item) =>
-                    !(item.requiresOrganizer && !canShowOrganizerResources)
+          {menusItems
+            .filter(
+              (item) =>
+                !(
+                  (item.requiresOrganizer && !canShowOrganizerResources) ||
+                  (item.playerOnly && isOrganizationActor)
                 )
-                .map((item, index) => (
-                  <Fragment key={item.title}>
-                    {index > 0 ? <Separator className="mx-4" /> : null}
-                    <ListGroup.Item onPress={() => router.navigate(item.href)}>
-                      <ListGroup.ItemPrefix>
-                        <HugeIcons icon={item.icon} />
-                      </ListGroup.ItemPrefix>
-                      <ListGroup.ItemContent>
-                        <ListGroup.ItemTitle>{item.title}</ListGroup.ItemTitle>
-                        <ListGroup.ItemDescription>
-                          {item.description}
-                        </ListGroup.ItemDescription>
-                      </ListGroup.ItemContent>
-                      <ListGroup.ItemSuffix />
-                    </ListGroup.Item>
-                  </Fragment>
-                ))}
-            </ListGroup>
-          </Fragment>
-        ))}
-        <Description>Conta</Description>
-        <ListGroup>
-          <ListGroup.Item
-            className={handleSignOutPress.isPending ? "opacity-50" : undefined}
-            disabled={handleSignOutPress.isPending}
-            onPress={() => handleSignOutPress.mutate()}
-          >
-            <ListGroup.ItemPrefix>
-              <HugeIcons className="text-danger" icon={Logout03Icon} />
-            </ListGroup.ItemPrefix>
-            <ListGroup.ItemContent>
-              <ListGroup.ItemTitle className="text-danger">
-                {handleSignOutPress.isPending ? "Saindo..." : "Sair"}
-              </ListGroup.ItemTitle>
-              <ListGroup.ItemDescription>
-                Encerrar sessão neste dispositivo
-              </ListGroup.ItemDescription>
-            </ListGroup.ItemContent>
-            <ListGroup.ItemSuffix />
-          </ListGroup.Item>
+            )
+            .map((item, index) => (
+              <Fragment key={item.id}>
+                {index > 0 ? <Separator className="mx-4" /> : null}
+                <ListGroup.Item
+                  className={item.isDisabled ? "opacity-50" : undefined}
+                  disabled={item.isDisabled}
+                  onPress={() => {
+                    if (item.onPress) {
+                      item.onPress();
+                    } else if (item.href) {
+                      router.navigate(item.href);
+                    }
+                  }}
+                >
+                  <ListGroup.ItemPrefix>
+                    <HugeIcons
+                      className={
+                        item.variant === "danger" ? "text-danger" : undefined
+                      }
+                      icon={item.icon}
+                    />
+                  </ListGroup.ItemPrefix>
+                  <ListGroup.ItemContent>
+                    <View className="flex-row items-center gap-2">
+                      <ListGroup.ItemTitle
+                        className={
+                          item.variant === "danger" ? "text-danger" : undefined
+                        }
+                      >
+                        {item.title}
+                      </ListGroup.ItemTitle>
+                      {item.badge && item.badge > 0 ? (
+                        <Chip color="danger" size="sm" variant="soft">
+                          <Chip.Label>{item.badge}</Chip.Label>
+                        </Chip>
+                      ) : null}
+                    </View>
+                    <ListGroup.ItemDescription>
+                      {item.description}
+                    </ListGroup.ItemDescription>
+                  </ListGroup.ItemContent>
+                  <ListGroup.ItemSuffix />
+                </ListGroup.Item>
+              </Fragment>
+            ))}
         </ListGroup>
       </Page.ScrollView>
     </Page>

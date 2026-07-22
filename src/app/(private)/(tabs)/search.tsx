@@ -1,7 +1,7 @@
 import { LeagueCard } from "@/components/pages/home/league-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { filterLeaguesBySearchQuery } from "@convex/domains/league/discovery-list";
@@ -88,8 +88,8 @@ export default function Search() {
               name={item.name}
               onPress={() => {
                 router.navigate({
-                  pathname: "/leagues/[leagueId]",
                   params: { leagueId: item.id },
+                  pathname: "/leagues/[leagueId]",
                 });
               }}
               state={item.state}

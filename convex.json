@@ -10,5 +10,8 @@
     "staticApi": true,
     "staticDataModel": true,
     "fileType": "ts"
+  },
+  "node": {
+    "externalPackages": ["@woovi/node-sdk"]
   }
 }

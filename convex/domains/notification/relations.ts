@@ -4,20 +4,24 @@ import type { tables } from "../../functions/schema";
 export const defineNotificationRelations = (
   r: RelationsBuilder<typeof tables>
 ) => ({
-  notificationPreference: {
-    user: r.one.user({
-      from: r.notificationPreference.userId,
-      to: r.user.id,
+  notificationDelivery: {
+    device: r.one.notificationDevice({
+      from: r.notificationDelivery.deviceId,
+      to: r.notificationDevice.id,
+    }),
+    feed: r.one.notificationFeed({
+      from: r.notificationDelivery.feedId,
+      to: r.notificationFeed.id,
     }),
   },
   notificationDevice: {
-    user: r.one.user({
-      from: r.notificationDevice.userId,
-      to: r.user.id,
-    }),
     deliveries: r.many.notificationDelivery({
       from: r.notificationDevice.id,
       to: r.notificationDelivery.deviceId,
+    }),
+    user: r.one.user({
+      from: r.notificationDevice.userId,
+      to: r.user.id,
     }),
   },
   notificationFeed: {
@@ -43,14 +47,10 @@ export const defineNotificationRelations = (
       to: r.playerProfile.id,
     }),
   },
-  notificationDelivery: {
-    device: r.one.notificationDevice({
-      from: r.notificationDelivery.deviceId,
-      to: r.notificationDevice.id,
-    }),
-    feed: r.one.notificationFeed({
-      from: r.notificationDelivery.feedId,
-      to: r.notificationFeed.id,
+  notificationPreference: {
+    user: r.one.user({
+      from: r.notificationPreference.userId,
+      to: r.user.id,
     }),
   },
 });

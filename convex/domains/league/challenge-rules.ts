@@ -8,14 +8,14 @@ import {
 export const ACTIVE_CHALLENGE_BLOCKING_STATUSES = new Set([
   "pending_opponent_response",
   "pending_creator_reapproval",
-  "pending_admin_challenge_validation",
+  "pending_organizer_challenge_validation",
   "confirmed",
   "pending_cancellation_acceptance",
   "pending_result_submission",
   "pending_result_confirmation",
-  "pending_admin_result_validation",
+  "pending_organizer_result_validation",
   "pending_result_correction",
-  "pending_admin_decision",
+  "pending_organizer_decision",
 ] as const);
 
 export type ActiveChallengeBlockingStatus =
@@ -177,7 +177,6 @@ function isSameOrderedList(left: string[], right: string[]) {
   return left.every((item, index) => item === right[index]);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: set validation keeps tennis score rules centralized for shared frontend/backend use
 function getSetValidationError(input: {
   matchConfig: LeagueMatchConfig;
   set: LeagueChallengeScore["sets"][number];
@@ -327,7 +326,7 @@ export function resolveAcceptedChallengeStatus(
   input: ResolveAcceptedChallengeStatusInput
 ) {
   return input.challengeValidationMode === "manual"
-    ? "pending_admin_challenge_validation"
+    ? "pending_organizer_challenge_validation"
     : "confirmed";
 }
 
@@ -335,12 +334,12 @@ export function resolveScoreConfirmationStatus(
   input: ResolveScoreConfirmationStatusInput
 ) {
   return input.resultValidationMode === "manual"
-    ? "pending_admin_result_validation"
+    ? "pending_organizer_result_validation"
     : "finished";
 }
 
 export function resolveNoResponseStatus() {
-  return "pending_admin_decision";
+  return "pending_organizer_decision";
 }
 
 export function resolveMissingResultStatus(

@@ -1,5 +1,10 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
+import { formatDateToUtcKey, formatDayLabel } from "@/lib/format/date";
+import { formatMinuteToHHMM as formatScheduleMinute } from "@/lib/format/time";
+
+export { formatDateToUtcKey, formatScheduleMinute };
+
 type ScheduleItem = ApiOutputs["league"]["challenges"]["listScheduled"][number];
 
 const MINUTES_PER_HOUR = 60;
@@ -39,11 +44,6 @@ export const SCHEDULE_WINDOW_OPTIONS: Array<{
   { label: "7 dias", value: 7 },
   { label: "15 dias", value: 15 },
 ];
-
-const DAY_LABEL_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  weekday: "short",
-});
 
 /**
  * Constrói a lista de tabs de data, de "Hoje" até `windowDays - 1` dias à
@@ -87,20 +87,7 @@ function buildDateTabLabel(input: {
     return "Amanhã";
   }
 
-  return DAY_LABEL_FORMATTER.format(
-    Date.UTC(
-      input.date.getUTCFullYear(),
-      input.date.getUTCMonth(),
-      input.date.getUTCDate()
-    )
-  ).replace(".", "");
-}
-
-export function formatDateToUtcKey(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDayLabel(input.date);
 }
 
 /**
@@ -138,10 +125,4 @@ export function buildScheduleDayView(input: {
   evening.sort(sortByStartMinute);
 
   return { afternoon, evening, morning };
-}
-
-export function formatScheduleMinute(minute: number): string {
-  const hour = Math.floor(minute / MINUTES_PER_HOUR);
-  const currentMinute = minute % MINUTES_PER_HOUR;
-  return `${String(hour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
 }

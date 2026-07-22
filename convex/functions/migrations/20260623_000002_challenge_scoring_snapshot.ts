@@ -5,10 +5,9 @@ import { renameScoringValues } from "./20260623_000001_toggleable_rule_config";
 // migrated independently of the league rule config. This migration rewrites
 // any no_ad scoring values inside the snapshot to no_advantage.
 export const migration = defineMigration({
-  id: "20260623_000002_challenge_scoring_snapshot",
   description: "challenge_scoring_snapshot",
+  id: "20260623_000002_challenge_scoring_snapshot",
   up: {
-    table: "leagueChallenge",
     migrateOne: (ctx, doc) => {
       const record = doc as Record<string, unknown>;
       const renamedMatchConfig = renameScoringValues(
@@ -22,5 +21,6 @@ export const migration = defineMigration({
         matchConfigSnapshot: renamedMatchConfig,
       });
     },
+    table: "leagueChallenge",
   },
 });

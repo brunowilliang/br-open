@@ -13,7 +13,7 @@ import {
 } from "heroui-native";
 import { useController, useFormContext } from "react-hook-form";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";

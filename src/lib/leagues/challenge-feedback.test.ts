@@ -10,7 +10,7 @@ describe("getCreateChallengeErrorToast", () => {
 
     expect(result).toEqual({
       description:
-        "Esse jogador já atingiu o limite de desafios em andamento nessa liga.",
+        "Esse jogador já tem o máximo de desafios ativos nesta liga.",
       id: "create-challenge-opponent-limit-error",
       label: "Adversário indisponível",
       variant: "danger",
@@ -24,7 +24,7 @@ describe("getCreateChallengeErrorToast", () => {
 
     expect(result).toEqual({
       description:
-        "Você já está com o máximo de desafios ativos permitido nessa liga.",
+        "Você já tem o máximo de desafios em andamento. Conclua um para criar outro.",
       id: "create-challenge-active-limit-error",
       label: "Limite de desafios ativos",
       variant: "danger",

@@ -1,6 +1,7 @@
 import { eq, type InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
+import { internal } from "../_generated/api";
 import type { Id } from "../../functions/_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 
@@ -12,8 +13,10 @@ import {
   RequestLeagueJoinSchema,
   ReviewLeagueMembershipSchema,
 } from "../../domains/league/contract";
+import { resolveStorageUrl } from "../../shared/media-rules";
 import {
   canLeagueAcceptMember,
+  isLeaguePaid,
   resolveApprovedMembershipRankingPosition,
   resolveRankingReorderError,
 } from "../../domains/league/membership-rules";
@@ -41,15 +44,15 @@ function serializeLeagueMembership(
   }
 ) {
   return leagueMembershipSchema.parse({
+    createdAt: record.createdAt.getTime(),
     id: record.id,
     leagueId: record.leagueId,
-    playerProfileId: record.playerProfileId,
-    status: record.status,
-    rankingPosition: record.rankingPosition ?? null,
-    createdAt: record.createdAt.getTime(),
-    updatedAt: record.updatedAt.getTime(),
-    reviewedAt: record.reviewedAt ? record.reviewedAt.getTime() : null,
     player,
+    playerProfileId: record.playerProfileId,
+    rankingPosition: record.rankingPosition ?? null,
+    reviewedAt: record.reviewedAt ? record.reviewedAt.getTime() : null,
+    status: record.status,
+    updatedAt: record.updatedAt.getTime(),
   });
 }
 
@@ -77,7 +80,7 @@ async function getManagedLeagueOrThrow(ctx: OrmCtx, leagueId: Id<"league">) {
   if (!currentLeague || currentLeague.organizationId !== organizationId) {
     throw new CRPCError({
       code: "FORBIDDEN",
-      message: "Liga não encontrada para esse gestor.",
+      message: "Liga não encontrada para esse organizador.",
     });
   }
 
@@ -127,21 +130,6 @@ async function getMembershipByIdOrThrow(
   return currentMembership;
 }
 
-async function resolvePlayerProfileAvatarUrl(
-  ctx: OrmCtx,
-  storageId?: null | string
-) {
-  if (!storageId) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
-
 async function getOptionalPlayerSummary(
   ctx: OrmCtx,
   playerProfileId: Id<"playerProfile">
@@ -164,10 +152,7 @@ async function getOptionalPlayerSummary(
     playerProfile.fullName?.trim() ||
     user?.name ||
     "Jogador";
-  const avatarUrl = await resolvePlayerProfileAvatarUrl(
-    ctx,
-    playerProfile.avatarStorageId
-  );
+  const avatarUrl = await resolveStorageUrl(ctx, playerProfile.avatarStorageId);
 
   return {
     avatarUrl: avatarUrl ?? user?.image ?? null,
@@ -339,7 +324,21 @@ export const requestJoin = authMutation
       playerProfileId
     );
 
-    if (currentMembership?.status === "pending") {
+    if (
+      currentMembership?.status === "pending" ||
+      currentMembership?.status === "awaiting_payment"
+    ) {
+      // If the user was awaiting payment, expire the pending charge so the
+      // checkout doesn't show a stale PIX that can never activate.
+      if (currentMembership.status === "awaiting_payment") {
+        await ctx.runMutation(
+          internal.payment.charge.expireChargeForMembership,
+          {
+            sourceId: currentMembership.id,
+          }
+        );
+      }
+
       const updatedMembership = await updateMembership(ctx, currentMembership, {
         rankingPosition: null,
         reviewedAt: null,
@@ -363,13 +362,13 @@ export const requestJoin = authMutation
     if (!isDiscoverable) {
       throw new CRPCError({
         code: "FORBIDDEN",
-        message: "Essa liga não está disponível para participação.",
+        message: "Essa liga não está disponível para jogadores.",
       });
     }
 
     if (currentMembership?.status === "active") {
       const normalizedMembership =
-        currentMembership.rankingPosition == null
+        currentMembership.rankingPosition === null
           ? await updateMembership(ctx, currentMembership, {
               rankingPosition: await getNextRankingPosition(ctx, leagueId),
               updatedAt: now,
@@ -385,16 +384,33 @@ export const requestJoin = authMutation
       );
     }
 
-    assertLeagueHasAvailableSpot({
-      activeMembershipCount: await countActiveLeagueMemberships(ctx, leagueId),
-      maxPlayers: currentLeague.maxPlayers ?? null,
-    });
+    // A suspended member is renewing (their previous cycle expired). They
+    // already held a spot, so the capacity check is skipped — renewing must
+    // not be blocked by new entrants who joined during the suspension.
+    const isRenewingSuspended = currentMembership?.status === "suspended";
+    if (!isRenewingSuspended) {
+      assertLeagueHasAvailableSpot({
+        activeMembershipCount: await countActiveLeagueMemberships(
+          ctx,
+          leagueId
+        ),
+        maxPlayers: currentLeague.maxPlayers ?? null,
+      });
+    }
+
+    // Any paid league (auto or manual) sends the player straight to checkout
+    // (`awaiting_payment`). Free leagues keep the manager-approval queue
+    // (`pending`). In the manual flow, the manager approval happens AFTER
+    // payment: the webhook routes the paid membership to `pending` instead
+    // of `active` (see applyPaidCharge), and the manager approves from there.
+    const isPaidLeague = isLeaguePaid(currentLeague);
+    const joinStatus = isPaidLeague ? "awaiting_payment" : "pending";
 
     const membershipRecord = currentMembership
       ? await updateMembership(ctx, currentMembership, {
           rankingPosition: null,
           reviewedAt: null,
-          status: "pending",
+          status: joinStatus,
           updatedAt: now,
         })
       : (
@@ -406,24 +422,29 @@ export const requestJoin = authMutation
               playerProfileId,
               rankingPosition: null,
               reviewedAt: null,
-              status: "pending",
+              status: joinStatus,
               updatedAt: now,
             })
             .returning()
         )[0];
 
-    const recipientUserIds = await getOrganizationMemberUserIds(
-      ctx,
-      currentLeague.organizationId as Id<"organization">
-    );
+    // Notify managers only for free leagues — they must approve the request
+    // before the player joins. Paid leagues go straight to checkout; the
+    // manager is notified later (after payment) when approval is required.
+    if (!isPaidLeague) {
+      const recipientUserIds = await getOrganizationMemberUserIds(
+        ctx,
+        currentLeague.organizationId as Id<"organization">
+      );
 
-    await scheduleLeagueNotification(ctx, {
-      actorUserId: ctx.userId,
-      eventType: "league.membership.requested",
-      leagueId,
-      metadata: { membershipId: membershipRecord.id },
-      recipientUserIds,
-    });
+      await scheduleLeagueNotification(ctx, {
+        actorUserId: ctx.userId,
+        eventType: "league.membership.requested",
+        leagueId,
+        metadata: { membershipId: membershipRecord.id },
+        recipientUserIds,
+      });
+    }
 
     return serializeLeagueMembership(
       membershipRecord,
@@ -513,6 +534,9 @@ export const approve = authMutation
       });
     }
 
+    // In the manual flow, payment has already happened by the time the
+    // manager approves (the webhook routed paid+manual to `pending`).
+    // So approval always moves the membership to `active`.
     const rankingPosition = resolveApprovedMembershipRankingPosition({
       currentRankingPosition: currentMembership.rankingPosition,
       highestRankingPosition: await getHighestRankingPosition(ctx, leagueId),

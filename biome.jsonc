@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "javascript": {
+    "globals": ["__DEV__"]
+  },
   "assist": {
     "actions": {
       "source": {
@@ -17,10 +20,15 @@
         "noGlobalDirnameFilename": "off"
       },
       "complexity": {
-        "noUselessSwitchCase": "off"
+        "noUselessSwitchCase": "off",
+        "noExcessiveCognitiveComplexity": "off"
       },
       "style": {
         "noExportedImports": "off",
+        "noNestedTernary": "off",
+        "noIncrementDecrement": "off",
+        "useDestructuring": "off",
+        "useErrorCause": "off",
         "useConsistentTypeDefinitions": {
           "level": "error",
           "fix": "safe",
@@ -32,16 +40,28 @@
       },
       "suspicious": {
         "noEmptyBlockStatements": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noShadow": "off",
+        "noUnnecessaryConditions": "off",
+        "noLeakedRender": "off"
       },
       "performance": {
-        "noNamespaceImport": "off"
+        "noNamespaceImport": "off",
+        "useTopLevelRegex": "off",
+        "noJsxPropsBind": "off",
+        "noAwaitInLoops": "off"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
       }
     }
   },
   "overrides": [
     {
-      "includes": ["convex/functions/migrations/*.ts"],
+      "includes": [
+        "convex/functions/migrations/*.ts",
+        "convex/functions/**/*.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

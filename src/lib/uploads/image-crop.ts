@@ -1,11 +1,4 @@
-import {
-  createElement,
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createElement, Fragment, useEffect, useMemo, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 
 export type ImageCropArea = {
@@ -53,11 +46,6 @@ type Offset = {
   y: number;
 };
 
-type TouchPoint = {
-  pageX: number;
-  pageY: number;
-};
-
 const DEFAULT_CANCEL_LABEL = "Cancelar";
 const DEFAULT_DESCRIPTION = "Arraste a foto e pince para dar zoom.";
 const DEFAULT_PROCESSING_LABEL = "Salvando...";
@@ -75,29 +63,31 @@ function getImageCropRuntime() {
   const {
     Image: NativeImage,
     Modal,
-    PanResponder,
     useWindowDimensions,
     View,
   } = require("react-native") as typeof import("react-native");
+  const { Gesture, GestureDetector, GestureHandlerRootView } =
+    require("react-native-gesture-handler") as typeof import("react-native-gesture-handler");
+  const { createAnimatedComponent, useAnimatedStyle, useSharedValue } =
+    require("react-native-reanimated") as typeof import("react-native-reanimated");
 
   return {
     Button,
+    createAnimatedComponent,
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
     Modal,
     NativeImage,
-    PanResponder,
     Text,
+    useAnimatedStyle,
+    useSharedValue,
     useWindowDimensions,
     View,
   };
 }
 
-export function clamp(value: number, minimum: number, maximum: number) {
-  if (maximum < minimum) {
-    return minimum;
-  }
-
-  return Math.min(Math.max(value, minimum), maximum);
-}
+import { clamp } from "@/lib/numbers";
 
 export function getMaskWidthBounds(input: {
   aspectRatio: number;
@@ -158,20 +148,6 @@ export function getImageDisplay(input: {
   };
 }
 
-function getImageFrame(input: {
-  display: { height: number; width: number };
-  offset: Offset;
-  stageHeight: number;
-  stageWidth: number;
-}): ImageCropFrame {
-  return {
-    height: input.display.height,
-    width: input.display.width,
-    x: (input.stageWidth - input.display.width) / 2 + input.offset.x,
-    y: (input.stageHeight - input.display.height) / 2 + input.offset.y,
-  };
-}
-
 export function clampImageOffset(input: {
   display: { height: number; width: number };
   maskFrame: ImageCropFrame;
@@ -197,36 +173,6 @@ export function clampImageOffset(input: {
   return {
     x: clamp(input.offset.x, minX, maxX),
     y: clamp(input.offset.y, minY, maxY),
-  };
-}
-
-function isSameOffset(firstOffset: Offset, secondOffset: Offset) {
-  return firstOffset.x === secondOffset.x && firstOffset.y === secondOffset.y;
-}
-
-export function getTouchDistance(touches: TouchPoint[]) {
-  const [firstTouch, secondTouch] = touches;
-
-  if (!(firstTouch && secondTouch)) {
-    return 0;
-  }
-
-  return Math.hypot(
-    secondTouch.pageX - firstTouch.pageX,
-    secondTouch.pageY - firstTouch.pageY
-  );
-}
-
-function getPrimaryTouchOffset(touches: TouchPoint[]): Offset | null {
-  const [primaryTouch] = touches;
-
-  if (!primaryTouch) {
-    return null;
-  }
-
-  return {
-    x: primaryTouch.pageX,
-    y: primaryTouch.pageY,
   };
 }
 
@@ -339,24 +285,30 @@ export async function cropImage(input: {
 export function ImageCropper(props: ImageCropperProps) {
   const {
     Button,
+    createAnimatedComponent,
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
     Modal,
     NativeImage,
-    PanResponder,
     Text,
+    useAnimatedStyle,
+    useSharedValue,
     useWindowDimensions,
     View,
   } = getImageCropRuntime();
+
+  const AnimatedView = useMemo(
+    () => createAnimatedComponent(View),
+    [createAnimatedComponent, View]
+  );
+
   const { width: screenWidth } = useWindowDimensions();
-  const [imageOffset, setImageOffset] = useState<Offset>({ x: 0, y: 0 });
   const [stageSize, setStageSize] = useState({ height: 0, width: 0 });
-  const [zoom, setZoom] = useState(MIN_ZOOM);
-  const dragStartTouchRef = useRef<Offset | null>(null);
-  const dragStartRef = useRef<Offset>({ x: 0, y: 0 });
-  const imageOffsetRef = useRef<Offset>({ x: 0, y: 0 });
-  const pinchStartRef = useRef({ distance: 0, zoom: MIN_ZOOM });
   const isVisible = Boolean(props.asset && props.aspectRatio);
   const isInteractionLocked = Boolean(props.isProcessing);
   const aspectRatio = props.aspectRatio ?? 1;
+
   const maskWidthBounds = useMemo(
     () =>
       getMaskWidthBounds({
@@ -379,175 +331,134 @@ export function ImageCropper(props: ImageCropperProps) {
       }),
     [aspectRatio, currentMaskWidth, stageSize.height, stageSize.width]
   );
-  const imageDisplay = useMemo(
+  const baseDisplay = useMemo(
     () =>
       props.asset && maskFrame
         ? getImageDisplay({
             asset: props.asset,
             maskFrame,
-            zoom,
+            zoom: MIN_ZOOM,
           })
         : null,
-    [maskFrame, props.asset, zoom]
-  );
-  const imageFrame = useMemo(
-    () =>
-      imageDisplay && maskFrame
-        ? getImageFrame({
-            display: imageDisplay,
-            offset: imageOffset,
-            stageHeight: stageSize.height,
-            stageWidth: stageSize.width,
-          })
-        : null,
-    [imageDisplay, imageOffset, maskFrame, stageSize.height, stageSize.width]
+    [maskFrame, props.asset]
   );
   const selectedAssetUri = props.asset?.uri;
 
+  const scale = useSharedValue(MIN_ZOOM);
+  const savedScale = useSharedValue(MIN_ZOOM);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const maskX = useSharedValue(0);
+  const maskY = useSharedValue(0);
+  const maskW = useSharedValue(0);
+  const maskH = useSharedValue(0);
+  const stageW = useSharedValue(0);
+  const stageH = useSharedValue(0);
+  const baseW = useSharedValue(0);
+  const baseH = useSharedValue(0);
+
+  if (maskFrame) {
+    maskX.value = maskFrame.x;
+    maskY.value = maskFrame.y;
+    maskW.value = maskFrame.width;
+    maskH.value = maskFrame.height;
+  }
+  stageW.value = stageSize.width;
+  stageH.value = stageSize.height;
+  if (baseDisplay) {
+    baseW.value = baseDisplay.width;
+    baseH.value = baseDisplay.height;
+  }
+
   useEffect(() => {
     if (isVisible && selectedAssetUri && maskWidthBounds.maxWidth > 0) {
-      const resetOffset = { x: 0, y: 0 };
-
-      imageOffsetRef.current = resetOffset;
-      setImageOffset(resetOffset);
-      setZoom(MIN_ZOOM);
+      scale.value = MIN_ZOOM;
+      savedScale.value = MIN_ZOOM;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
     }
-  }, [isVisible, maskWidthBounds.maxWidth, selectedAssetUri]);
+  }, [
+    isVisible,
+    maskWidthBounds.maxWidth,
+    selectedAssetUri,
+    scale,
+    savedScale,
+    translateX,
+    translateY,
+    savedTranslateX,
+    savedTranslateY,
+  ]);
 
-  useEffect(() => {
-    if (!(imageDisplay && maskFrame)) {
-      return;
-    }
+  const animatedImageStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
-    setImageOffset((currentOffset) => {
-      const nextOffset = clampImageOffset({
-        display: imageDisplay,
-        maskFrame,
-        offset: currentOffset,
-        stageHeight: stageSize.height,
-        stageWidth: stageSize.width,
-      });
-
-      const resolvedOffset = isSameOffset(currentOffset, nextOffset)
-        ? currentOffset
-        : nextOffset;
-
-      imageOffsetRef.current = resolvedOffset;
-      return resolvedOffset;
+  const pinchGesture = Gesture.Pinch()
+    .enabled(!isInteractionLocked)
+    .onUpdate((e) => {
+      const next = savedScale.value * e.scale;
+      scale.value =
+        next < MIN_ZOOM ? MIN_ZOOM : next > MAX_ZOOM ? MAX_ZOOM : next;
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      const s = scale.value;
+      const dw = baseW.value * s;
+      const dh = baseH.value * s;
+      const bx = (stageW.value - dw) / 2;
+      const by = (stageH.value - dh) / 2;
+      const minX = maskX.value + maskW.value - bx - dw;
+      const maxX = maskX.value - bx;
+      const minY = maskY.value + maskH.value - by - dh;
+      const maxY = maskY.value - by;
+      translateX.value =
+        translateX.value < minX
+          ? minX
+          : translateX.value > maxX
+            ? maxX
+            : translateX.value;
+      translateY.value =
+        translateY.value < minY
+          ? minY
+          : translateY.value > maxY
+            ? maxY
+            : translateY.value;
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
     });
-  }, [imageDisplay, maskFrame, stageSize.height, stageSize.width]);
 
-  const imagePanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          !isInteractionLocked &&
-          (_.nativeEvent.touches.length >= 2 ||
-            Math.abs(gestureState.dx) > 2 ||
-            Math.abs(gestureState.dy) > 2),
-        onMoveShouldSetPanResponderCapture: () => !isInteractionLocked,
-        onPanResponderGrant: (event) => {
-          const touches = event.nativeEvent.touches as TouchPoint[];
+  const panGesture = Gesture.Pan()
+    .enabled(!isInteractionLocked)
+    .onUpdate((e) => {
+      const s = scale.value;
+      const dw = baseW.value * s;
+      const dh = baseH.value * s;
+      const bx = (stageW.value - dw) / 2;
+      const by = (stageH.value - dh) / 2;
+      const minX = maskX.value + maskW.value - bx - dw;
+      const maxX = maskX.value - bx;
+      const minY = maskY.value + maskH.value - by - dh;
+      const maxY = maskY.value - by;
+      const rawX = savedTranslateX.value + e.translationX;
+      const rawY = savedTranslateY.value + e.translationY;
+      translateX.value = rawX < minX ? minX : rawX > maxX ? maxX : rawX;
+      translateY.value = rawY < minY ? minY : rawY > maxY ? maxY : rawY;
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
 
-          dragStartRef.current = imageOffsetRef.current;
-          dragStartTouchRef.current = getPrimaryTouchOffset(touches);
-          pinchStartRef.current = {
-            distance: getTouchDistance(touches),
-            zoom,
-          };
-        },
-        onPanResponderMove: (event, gestureState) => {
-          if (!(imageDisplay && maskFrame) || isInteractionLocked) {
-            return;
-          }
-
-          const touches = event.nativeEvent.touches as TouchPoint[];
-
-          if (touches.length >= 2) {
-            const distance = getTouchDistance(touches);
-
-            if (pinchStartRef.current.distance <= 0) {
-              pinchStartRef.current = { distance, zoom };
-            }
-
-            const nextZoom = clamp(
-              pinchStartRef.current.zoom *
-                (distance / pinchStartRef.current.distance),
-              MIN_ZOOM,
-              MAX_ZOOM
-            );
-            const nextDisplay = props.asset
-              ? getImageDisplay({
-                  asset: props.asset,
-                  maskFrame,
-                  zoom: nextZoom,
-                })
-              : imageDisplay;
-
-            setZoom(nextZoom);
-            setImageOffset((currentOffset) => {
-              const nextOffset = clampImageOffset({
-                display: nextDisplay,
-                maskFrame,
-                offset: currentOffset,
-                stageHeight: stageSize.height,
-                stageWidth: stageSize.width,
-              });
-
-              imageOffsetRef.current = nextOffset;
-              return nextOffset;
-            });
-            return;
-          }
-
-          const currentTouchOffset = getPrimaryTouchOffset(touches);
-          const dragStartTouch = dragStartTouchRef.current;
-          const dragDelta =
-            currentTouchOffset && dragStartTouch
-              ? {
-                  x: currentTouchOffset.x - dragStartTouch.x,
-                  y: currentTouchOffset.y - dragStartTouch.y,
-                }
-              : {
-                  x: gestureState.dx,
-                  y: gestureState.dy,
-                };
-          const nextOffset = clampImageOffset({
-            display: imageDisplay,
-            maskFrame,
-            offset: {
-              x: dragStartRef.current.x + dragDelta.x,
-              y: dragStartRef.current.y + dragDelta.y,
-            },
-            stageHeight: stageSize.height,
-            stageWidth: stageSize.width,
-          });
-
-          imageOffsetRef.current = nextOffset;
-          setImageOffset(nextOffset);
-        },
-        onPanResponderRelease: () => {
-          dragStartTouchRef.current = null;
-          pinchStartRef.current = { distance: 0, zoom };
-        },
-        onPanResponderTerminate: () => {
-          dragStartTouchRef.current = null;
-          pinchStartRef.current = { distance: 0, zoom };
-        },
-        onStartShouldSetPanResponder: () => !isInteractionLocked,
-        onStartShouldSetPanResponderCapture: () => !isInteractionLocked,
-      }),
-    [
-      imageDisplay,
-      isInteractionLocked,
-      maskFrame,
-      PanResponder.create,
-      props.asset,
-      stageSize.height,
-      stageSize.width,
-      zoom,
-    ]
-  );
+  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
 
   function handleStageLayout(event: LayoutChangeEvent) {
     const { height, width } = event.nativeEvent.layout;
@@ -562,9 +473,23 @@ export function ImageCropper(props: ImageCropperProps) {
   }
 
   function handleConfirm() {
-    if (props.isProcessing || !(props.asset && imageFrame && maskFrame)) {
+    if (props.isProcessing || !(props.asset && maskFrame && baseDisplay)) {
       return;
     }
+
+    const currentZoom = scale.value;
+    const effectiveDisplay = {
+      height: baseDisplay.height * currentZoom,
+      width: baseDisplay.width * currentZoom,
+    };
+    const baseX = (stageSize.width - baseDisplay.width) / 2;
+    const baseY = (stageSize.height - baseDisplay.height) / 2;
+    const imageFrame: ImageCropFrame = {
+      height: effectiveDisplay.height,
+      width: effectiveDisplay.width,
+      x: baseX + translateX.value,
+      y: baseY + translateY.value,
+    };
 
     props.onConfirm(
       buildImageCropArea({
@@ -575,6 +500,9 @@ export function ImageCropper(props: ImageCropperProps) {
     );
   }
 
+  const baseLeft = baseDisplay ? (stageSize.width - baseDisplay.width) / 2 : 0;
+  const baseTop = baseDisplay ? (stageSize.height - baseDisplay.height) / 2 : 0;
+
   return createElement(
     Modal,
     {
@@ -583,134 +511,144 @@ export function ImageCropper(props: ImageCropperProps) {
       visible: isVisible,
     },
     createElement(
-      View,
-      { className: "flex-1 bg-black pt-safe-offset-4 pb-safe-offset-4" },
+      GestureHandlerRootView,
+      { style: { flex: 1 } },
       createElement(
         View,
-        { className: "px-4 py-3" },
-        createElement(
-          Text,
-          { className: "text-center text-white", variant: "title" },
-          props.title ?? DEFAULT_TITLE
-        ),
-        createElement(
-          Text,
-          {
-            className: "mt-1 text-center text-white/60",
-            variant: "description",
-          },
-          props.description ?? DEFAULT_DESCRIPTION
-        )
-      ),
-      createElement(
-        View,
-        {
-          className: "flex-1 overflow-hidden",
-          onLayout: handleStageLayout,
-          pointerEvents: isInteractionLocked ? "none" : "auto",
-          ...imagePanResponder.panHandlers,
-        },
-        props.asset && imageFrame
-          ? createElement(
-              View,
-              {
-                pointerEvents: "none",
-                style: {
-                  height: imageFrame.height,
-                  left: imageFrame.x,
-                  position: "absolute",
-                  top: imageFrame.y,
-                  width: imageFrame.width,
-                },
-              },
-              createElement(NativeImage, {
-                resizeMode: "cover",
-                source: { uri: props.asset.uri },
-                style: {
-                  height: "100%",
-                  width: "100%",
-                },
-              })
-            )
-          : null,
-        maskFrame
-          ? createElement(
-              Fragment,
-              null,
-              createElement(View, {
-                className: OVERLAY_CLASS_NAME,
-                pointerEvents: "none",
-                style: { height: maskFrame.y, left: 0, right: 0, top: 0 },
-              }),
-              createElement(View, {
-                className: OVERLAY_CLASS_NAME,
-                pointerEvents: "none",
-                style: {
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  top: maskFrame.y + maskFrame.height,
-                },
-              }),
-              createElement(View, {
-                className: OVERLAY_CLASS_NAME,
-                pointerEvents: "none",
-                style: {
-                  height: maskFrame.height,
-                  left: 0,
-                  top: maskFrame.y,
-                  width: maskFrame.x,
-                },
-              }),
-              createElement(View, {
-                className: OVERLAY_CLASS_NAME,
-                pointerEvents: "none",
-                style: {
-                  height: maskFrame.height,
-                  left: maskFrame.x + maskFrame.width,
-                  right: 0,
-                  top: maskFrame.y,
-                },
-              }),
-              createElement(View, {
-                className: "absolute border-2 border-white/90",
-                pointerEvents: "none",
-                style: {
-                  height: maskFrame.height,
-                  left: maskFrame.x,
-                  top: maskFrame.y,
-                  width: maskFrame.width,
-                },
-              })
-            )
-          : null
-      ),
-      createElement(
-        View,
-        { className: "gap-3 px-4 pt-4" },
+        { className: "flex-1 bg-black pt-safe-offset-4 pb-safe-offset-4" },
         createElement(
           View,
-          { className: "flex-row gap-3" },
+          { className: "px-4 py-3" },
           createElement(
-            Button,
-            {
-              className: "flex-1",
-              isDisabled: props.isProcessing,
-              onPress: props.onCancel,
-              variant: "secondary",
-            },
-            props.cancelLabel ?? DEFAULT_CANCEL_LABEL
+            Text,
+            { className: "text-center text-white", variant: "title" },
+            props.title ?? DEFAULT_TITLE
           ),
           createElement(
-            Button,
+            Text,
             {
-              className: "flex-1",
-              isDisabled: props.isProcessing,
-              onPress: handleConfirm,
+              className: "mt-1 text-center text-white/60",
+              variant: "description",
             },
-            props.isProcessing
-              ? (props.processingLabel ?? DEFAULT_PROCESSING_LABEL)
-              : (props.saveLabel ?? DEFAULT_SAVE_LABEL)
+            props.description ?? DEFAULT_DESCRIPTION
+          )
+        ),
+        createElement(
+          GestureDetector,
+          { gesture: composedGesture },
+          createElement(
+            View,
+            {
+              className: "flex-1 overflow-hidden",
+              onLayout: handleStageLayout,
+              pointerEvents: isInteractionLocked ? "none" : "auto",
+            },
+            baseDisplay && props.asset
+              ? createElement(
+                  AnimatedView,
+                  {
+                    pointerEvents: "none",
+                    style: [
+                      {
+                        height: baseDisplay.height,
+                        left: baseLeft,
+                        position: "absolute",
+                        top: baseTop,
+                        width: baseDisplay.width,
+                      },
+                      animatedImageStyle,
+                    ],
+                  },
+                  createElement(NativeImage, {
+                    resizeMode: "cover",
+                    source: { uri: props.asset.uri },
+                    style: {
+                      height: "100%",
+                      width: "100%",
+                    },
+                  })
+                )
+              : null,
+            maskFrame
+              ? createElement(
+                  Fragment,
+                  null,
+                  createElement(View, {
+                    className: OVERLAY_CLASS_NAME,
+                    pointerEvents: "none",
+                    style: { height: maskFrame.y, left: 0, right: 0, top: 0 },
+                  }),
+                  createElement(View, {
+                    className: OVERLAY_CLASS_NAME,
+                    pointerEvents: "none",
+                    style: {
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      top: maskFrame.y + maskFrame.height,
+                    },
+                  }),
+                  createElement(View, {
+                    className: OVERLAY_CLASS_NAME,
+                    pointerEvents: "none",
+                    style: {
+                      height: maskFrame.height,
+                      left: 0,
+                      top: maskFrame.y,
+                      width: maskFrame.x,
+                    },
+                  }),
+                  createElement(View, {
+                    className: OVERLAY_CLASS_NAME,
+                    pointerEvents: "none",
+                    style: {
+                      height: maskFrame.height,
+                      left: maskFrame.x + maskFrame.width,
+                      right: 0,
+                      top: maskFrame.y,
+                    },
+                  }),
+                  createElement(View, {
+                    className: "absolute border-2 border-white/90",
+                    pointerEvents: "none",
+                    style: {
+                      height: maskFrame.height,
+                      left: maskFrame.x,
+                      top: maskFrame.y,
+                      width: maskFrame.width,
+                    },
+                  })
+                )
+              : null
+          )
+        ),
+        createElement(
+          View,
+          { className: "gap-3 px-4 pt-4" },
+          createElement(
+            View,
+            { className: "flex-row gap-3" },
+            createElement(
+              Button,
+              {
+                className: "flex-1",
+                isDisabled: props.isProcessing,
+                onPress: props.onCancel,
+                variant: "secondary",
+              },
+              props.cancelLabel ?? DEFAULT_CANCEL_LABEL
+            ),
+            createElement(
+              Button,
+              {
+                className: "flex-1",
+                isDisabled: props.isProcessing,
+                onPress: handleConfirm,
+              },
+              props.isProcessing
+                ? (props.processingLabel ?? DEFAULT_PROCESSING_LABEL)
+                : (props.saveLabel ?? DEFAULT_SAVE_LABEL)
+            )
           )
         )
       )

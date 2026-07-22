@@ -27,6 +27,11 @@ yarn-error.*
 *.pem
 # local env files
 .env*.local
+convex/.env
+# build output
+build/
+# firebase ( kept out of git, shipped via EAS tarball )
+google-services.json
 # typescript
 *.tsbuildinfo
 app-example

@@ -19,7 +19,7 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -54,9 +54,7 @@ type LeagueFormTarget =
       title: string;
     };
 
-function normalizeRouteParam(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
+import { normalizeRouteParam } from "@/lib/router/normalize-param";
 
 function resolveLeagueFormTarget(input: {
   leagueId?: string | string[];
@@ -94,17 +92,20 @@ function resolveLeagueFormTarget(input: {
 
 function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
   return {
+    approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
     categories: values.categories,
     city: values.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
+    gracePeriodDays: values.gracePeriodDays,
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,
+    reminderDaysBefore: values.reminderDaysBefore,
     ruleConfig: values.ruleConfig,
     state: values.state,
     visibility: values.visibility,
@@ -113,17 +114,20 @@ function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
 
 function toLeagueScreenValues(league: League): LeagueScreenValues {
   return {
+    approvalMode: league.approvalMode,
     avatarStorageId: league.avatarStorageId,
     categories: league.categories,
     city: league.city,
     courts: league.courts,
     coverStorageId: league.coverStorageId,
     description: league.description ?? "",
+    gracePeriodDays: league.gracePeriodDays,
     locationNotes: league.locationNotes ?? "",
     maxPlayers: league.maxPlayers,
     monthlyPriceCents: league.monthlyPriceCents,
     name: league.name,
     priceBillingInterval: league.priceBillingInterval,
+    reminderDaysBefore: league.reminderDaysBefore,
     ruleConfig: league.ruleConfig,
     state: league.state,
     visibility: league.visibility,
@@ -135,18 +139,21 @@ function toUpdateLeagueInput(
   values: LeagueScreenValues
 ): UpdateLeagueInput {
   return {
+    approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
     categories: values.categories,
     city: values.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
+    gracePeriodDays: values.gracePeriodDays,
     leagueId,
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,
+    reminderDaysBefore: values.reminderDaysBefore,
     ruleConfig: values.ruleConfig,
     state: values.state,
     visibility: values.visibility,
@@ -290,33 +297,44 @@ export default function LeagueFormLayout() {
   });
   const createLeague = useMutation(
     crpc.league.management.create.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível criar a liga. Tente novamente."
+          ),
+          id: "create-league-error",
+          label: "Falha ao criar liga",
+          variant: "danger",
+        });
+      },
       onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.league.management.listMine.queryFilter()
         );
         toast.show({
-          description: "Liga criada com sucesso.",
+          description: "Sua liga já está disponível para os jogadores.",
           id: "create-league-success",
           label: "Liga criada",
           variant: "success",
         });
         router.replace("/settings/leagues");
       },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível criar a liga."
-          ),
-          id: "create-league-error",
-          label: "Erro ao criar liga",
-          variant: "danger",
-        });
-      },
     })
   );
   const updateLeague = useMutation(
     crpc.league.management.update.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível atualizar a liga. Tente novamente."
+          ),
+          id: "update-league-error",
+          label: "Falha ao salvar alterações",
+          variant: "danger",
+        });
+      },
       onSuccess: async (updatedLeague) => {
         await Promise.all([
           queryClient.invalidateQueries(
@@ -329,49 +347,38 @@ export default function LeagueFormLayout() {
           ),
         ]);
         toast.show({
-          description: "Liga atualizada com sucesso.",
+          description: "As informações da liga foram atualizadas.",
           id: "update-league-success",
-          label: "Liga atualizada",
+          label: "Alterações salvas",
           variant: "success",
-        });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível atualizar a liga."
-          ),
-          id: "update-league-error",
-          label: "Erro ao atualizar liga",
-          variant: "danger",
         });
       },
     })
   );
   const deleteLeague = useMutation(
     crpc.league.management.remove.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível excluir a liga. Tente novamente."
+          ),
+          id: "delete-league-error",
+          label: "Falha ao remover liga",
+          variant: "danger",
+        });
+      },
       onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.league.management.listMine.queryFilter()
         );
         toast.show({
-          description: "Liga deletada com sucesso.",
+          description: "A liga foi excluída permanentemente.",
           id: "delete-league-success",
-          label: "Liga deletada",
+          label: "Liga removida",
           variant: "success",
         });
         router.replace("/settings/leagues");
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível deletar a liga."
-          ),
-          id: "delete-league-error",
-          label: "Erro ao deletar liga",
-          variant: "danger",
-        });
       },
     })
   );

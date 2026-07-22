@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { actorKindSchema } from "../auth/actor-context";
 import { NOTIFICATION_EVENT_TYPES } from "../../shared/notifications/protocol";
 import type {
   NotificationPermissionStatus,
@@ -47,10 +48,14 @@ export const notificationFeedItemSchema = z.object({
   isRead: z.boolean(),
   occurredAt: z.number(),
   readAt: z.number().nullable(),
-  recipientActorKind: z.enum(["player", "organization"]),
+  recipientActorKind: actorKindSchema,
   recipientOrganizationId: z.string().nullable(),
   recipientPlayerProfileId: z.string().nullable(),
   recipientUserId: z.string(),
+  retractedAt: z.number().nullable(),
+  sourceEntityId: z.string().nullable(),
+  sourceEntityType: z.string().nullable(),
+  status: z.enum(["active", "retracted"]).default("active"),
   title: z.string(),
 });
 

@@ -368,6 +368,7 @@ export type DataModel = {
   };
   league: {
     document: {
+      approvalMode?: null | string;
       avatarStorageId?: null | string;
       categories: any;
       city: string;
@@ -375,13 +376,16 @@ export type DataModel = {
       coverStorageId?: null | string;
       createdAt: number;
       description?: null | string;
+      gracePeriodDays?: null | number;
       locationNotes?: null | string;
       maxPlayers?: null | number;
       mode: string;
       monthlyPriceCents?: null | number;
       name: string;
       organizationId: Id<"organization">;
+      platformFeePercent?: null | number;
       priceBillingInterval?: null | string;
+      reminderDaysBefore?: null | number;
       ruleConfig: any;
       state: string;
       updatedAt: number;
@@ -392,6 +396,7 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "approvalMode"
       | "avatarStorageId"
       | "categories"
       | "city"
@@ -399,13 +404,16 @@ export type DataModel = {
       | "coverStorageId"
       | "createdAt"
       | "description"
+      | "gracePeriodDays"
       | "locationNotes"
       | "maxPlayers"
       | "mode"
       | "monthlyPriceCents"
       | "name"
       | "organizationId"
+      | "platformFeePercent"
       | "priceBillingInterval"
+      | "reminderDaysBefore"
       | "ruleConfig"
       | "state"
       | "updatedAt"
@@ -489,7 +497,7 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
-  leagueChallengeAdminAction: {
+  leagueChallengeOrganizerAction: {
     document: {
       action: string;
       challengeId: Id<"leagueChallenge">;
@@ -498,7 +506,7 @@ export type DataModel = {
       performedByUserId?: null | Id<"user">;
       reason?: null | string;
       toStatus: string;
-      _id: Id<"leagueChallengeAdminAction">;
+      _id: Id<"leagueChallengeOrganizerAction">;
       _creationTime: number;
     };
     fieldPaths:
@@ -564,10 +572,10 @@ export type DataModel = {
   };
   leagueChallengeResultSubmission: {
     document: {
-      adminReviewedByUserId?: null | Id<"user">;
       challengeId: Id<"leagueChallenge">;
       confirmedAt?: null | number;
       confirmedByMembershipId?: null | Id<"leagueMembership">;
+      organizerReviewedByUserId?: null | Id<"user">;
       reviewAction?: null | string;
       reviewedAt?: null | number;
       score: any;
@@ -580,10 +588,10 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
-      | "adminReviewedByUserId"
       | "challengeId"
       | "confirmedAt"
       | "confirmedByMembershipId"
+      | "organizerReviewedByUserId"
       | "reviewAction"
       | "reviewedAt"
       | "score"
@@ -593,9 +601,9 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
-      adminReviewedByUserId: ["adminReviewedByUserId", "_creationTime"];
       challengeId_submittedAt: ["challengeId", "submittedAt", "_creationTime"];
       confirmedByMembershipId: ["confirmedByMembershipId", "_creationTime"];
+      organizerReviewedByUserId: ["organizerReviewedByUserId", "_creationTime"];
       submittedByMembershipId: ["submittedByMembershipId", "_creationTime"];
       winnerMembershipId: ["winnerMembershipId", "_creationTime"];
     };
@@ -605,6 +613,7 @@ export type DataModel = {
   leagueMembership: {
     document: {
       createdAt: number;
+      lastRenewalReminderSentAt?: null | number;
       leagueId: Id<"league">;
       playerProfileId: Id<"playerProfile">;
       rankingPosition?: null | number;
@@ -618,6 +627,7 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "createdAt"
+      | "lastRenewalReminderSentAt"
       | "leagueId"
       | "playerProfileId"
       | "rankingPosition"
@@ -857,6 +867,10 @@ export type DataModel = {
       recipientOrganizationId?: null | Id<"organization">;
       recipientPlayerProfileId?: null | Id<"playerProfile">;
       recipientUserId: Id<"user">;
+      retractedAt?: null | number;
+      sourceEntityId?: null | string;
+      sourceEntityType?: null | string;
+      status?: null | "active" | "retracted";
       title: string;
       _id: Id<"notificationFeed">;
       _creationTime: number;
@@ -875,6 +889,10 @@ export type DataModel = {
       | "recipientOrganizationId"
       | "recipientPlayerProfileId"
       | "recipientUserId"
+      | "retractedAt"
+      | "sourceEntityId"
+      | "sourceEntityType"
+      | "status"
       | "title";
     indexes: {
       by_id: ["_id"];
@@ -909,6 +927,7 @@ export type DataModel = {
         "occurredAt",
         "_creationTime",
       ];
+      sourceEntity: ["sourceEntityType", "sourceEntityId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -941,6 +960,7 @@ export type DataModel = {
       logo?: null | string;
       metadata?: null | any;
       name: string;
+      paymentAccount?: null | any;
       slug: string;
       updatedAt?: null | number;
       _id: Id<"organization">;
@@ -953,6 +973,7 @@ export type DataModel = {
       | "logo"
       | "metadata"
       | "name"
+      | "paymentAccount"
       | "slug"
       | "updatedAt";
     indexes: {
@@ -960,6 +981,63 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       name: ["name", "_creationTime"];
       organization_slug_unique: ["slug", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  paymentCharge: {
+    document: {
+      amountCents: number;
+      brCode?: null | string;
+      correlationId: string;
+      createdAt: number;
+      expiresAt?: null | number;
+      organizationId: Id<"organization">;
+      paidAt?: null | number;
+      playerProfileId: Id<"playerProfile">;
+      providerChargeId?: null | string;
+      providerTransactionId?: null | string;
+      qrCodeImage?: null | string;
+      sourceId: string;
+      sourceLabel?: null | string;
+      sourceType: string;
+      splitConfig?: null | any;
+      status: string;
+      updatedAt: number;
+      _id: Id<"paymentCharge">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "amountCents"
+      | "brCode"
+      | "correlationId"
+      | "createdAt"
+      | "expiresAt"
+      | "organizationId"
+      | "paidAt"
+      | "playerProfileId"
+      | "providerChargeId"
+      | "providerTransactionId"
+      | "qrCodeImage"
+      | "sourceId"
+      | "sourceLabel"
+      | "sourceType"
+      | "splitConfig"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      correlationId: ["correlationId", "_creationTime"];
+      playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
+      sourceType_sourceId_status: [
+        "sourceType",
+        "sourceId",
+        "status",
+        "_creationTime",
+      ];
     };
     searchIndexes: {};
     vectorIndexes: {};

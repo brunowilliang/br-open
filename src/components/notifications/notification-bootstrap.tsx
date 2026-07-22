@@ -152,9 +152,7 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
       try {
         await markRead.mutateAsync({ notificationId });
         await invalidateNotifications();
-      } catch {
-        return;
-      }
+      } catch {}
     },
     [invalidateNotifications, markRead]
   );

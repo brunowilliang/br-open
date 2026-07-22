@@ -2,6 +2,7 @@ import { observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
 
 import type { ImageCropAsset, CroppedImage } from "@/lib/uploads/image-crop";
+import { normalizeRouteParam } from "@/lib/router/normalize-param";
 
 export type LeagueMediaKind = "avatar" | "cover";
 export type LeagueFormMode = "create" | "edit";
@@ -32,53 +33,8 @@ export const leagueFormStore$ = observable({
   activeSessionKey: CREATE_LEAGUE_FORM_SESSION_KEY,
 });
 
-function normalizeLeagueId(rawLeagueId?: string | string[]) {
-  return Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
-}
-
 function createLeagueFormBucket(sessionKey: string) {
   const bucket$ = observable({
-    identity: {
-      isRulesLocked: false,
-      mode: "create" as LeagueFormMode,
-      sessionKey,
-      showDelete: false,
-      title: "Criar Liga",
-    },
-    media: {
-      avatarUrl: null as string | null,
-      coverUrl: null as string | null,
-      pendingFiles: {
-        avatar: null as CroppedImage | null,
-        cover: null as CroppedImage | null,
-      },
-      previewUrls: {
-        avatar: null as string | null,
-        cover: null as string | null,
-      },
-    },
-    crop: {
-      request: null as null | {
-        asset: ImageCropAsset;
-        kind: LeagueMediaKind;
-      },
-    },
-    status: {
-      externalPending: false,
-      formSubmitting: false,
-      uploadingMediaKind: null as LeagueMediaKind | null,
-    },
-    derived: {
-      avatarUrl: () =>
-        bucket$.media.previewUrls.avatar.get() ?? bucket$.media.avatarUrl.get(),
-      coverUrl: () =>
-        bucket$.media.previewUrls.cover.get() ?? bucket$.media.coverUrl.get(),
-      isMediaBusy: () => Boolean(bucket$.status.uploadingMediaKind.get()),
-      isSubmitPending: () =>
-        bucket$.status.externalPending.get() ||
-        bucket$.status.formSubmitting.get() ||
-        bucket$.derived.isMediaBusy.get(),
-    },
     actions: {
       clearMedia: () => {
         bucket$.crop.request.set(null);
@@ -109,6 +65,14 @@ function createLeagueFormBucket(sessionKey: string) {
       deleteLeague: async () => {
         await leagueFormCallbacks.get(sessionKey)?.onDelete?.();
       },
+      // Drop this session from the module-scoped buckets/callbacks maps.
+      // reset() keeps the bucket around so a remount finds it; dispose()
+      // fully frees memory (callbacks capture form/toast props and would
+      // otherwise leak if the screen unmounts without an explicit reset).
+      dispose: () => {
+        leagueFormBuckets.delete(sessionKey);
+        leagueFormCallbacks.delete(sessionKey);
+      },
       mediaPress: async (kind: LeagueMediaKind) => {
         await leagueFormCallbacks.get(sessionKey)?.onMediaPress?.(kind);
       },
@@ -135,14 +99,6 @@ function createLeagueFormBucket(sessionKey: string) {
         if (leagueFormStore$.activeSessionKey.get() === sessionKey) {
           leagueFormStore$.activeSessionKey.set(CREATE_LEAGUE_FORM_SESSION_KEY);
         }
-        leagueFormCallbacks.delete(sessionKey);
-      },
-      // Drop this session from the module-scoped buckets/callbacks maps.
-      // reset() keeps the bucket around so a remount finds it; dispose()
-      // fully frees memory (callbacks capture form/toast props and would
-      // otherwise leak if the screen unmounts without an explicit reset).
-      dispose: () => {
-        leagueFormBuckets.delete(sessionKey);
         leagueFormCallbacks.delete(sessionKey);
       },
       setCropRequest: (
@@ -175,6 +131,47 @@ function createLeagueFormBucket(sessionKey: string) {
         leagueFormCallbacks.delete(sessionKey);
       },
     },
+    crop: {
+      request: null as null | {
+        asset: ImageCropAsset;
+        kind: LeagueMediaKind;
+      },
+    },
+    derived: {
+      avatarUrl: () =>
+        bucket$.media.previewUrls.avatar.get() ?? bucket$.media.avatarUrl.get(),
+      coverUrl: () =>
+        bucket$.media.previewUrls.cover.get() ?? bucket$.media.coverUrl.get(),
+      isMediaBusy: () => Boolean(bucket$.status.uploadingMediaKind.get()),
+      isSubmitPending: () =>
+        bucket$.status.externalPending.get() ||
+        bucket$.status.formSubmitting.get() ||
+        bucket$.derived.isMediaBusy.get(),
+    },
+    identity: {
+      isRulesLocked: false,
+      mode: "create" as LeagueFormMode,
+      sessionKey,
+      showDelete: false,
+      title: "Criar Liga",
+    },
+    media: {
+      avatarUrl: null as string | null,
+      coverUrl: null as string | null,
+      pendingFiles: {
+        avatar: null as CroppedImage | null,
+        cover: null as CroppedImage | null,
+      },
+      previewUrls: {
+        avatar: null as string | null,
+        cover: null as string | null,
+      },
+    },
+    status: {
+      externalPending: false,
+      formSubmitting: false,
+      uploadingMediaKind: null as LeagueMediaKind | null,
+    },
   });
 
   return bucket$;
@@ -189,7 +186,7 @@ export function getEditLeagueFormSessionKey(leagueId: string) {
 }
 
 export function getLeagueFormSessionKey(rawLeagueId?: string | string[]) {
-  const leagueId = normalizeLeagueId(rawLeagueId);
+  const leagueId = normalizeRouteParam(rawLeagueId);
 
   return leagueId
     ? getEditLeagueFormSessionKey(leagueId)

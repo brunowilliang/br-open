@@ -1,3 +1,5 @@
+import { formatMinuteToHHMM } from "@/lib/format/time";
+
 type OccupiedChallengeSlot = {
   challengeId: string;
   courtId: string;
@@ -28,13 +30,6 @@ function rangesOverlap(input: {
     input.leftStartMinute < input.rightEndMinute &&
     input.rightStartMinute < input.leftEndMinute
   );
-}
-
-function formatMinute(minute: number) {
-  const hour = Math.floor(minute / 60);
-  const currentMinute = minute % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
 }
 
 export function buildChallengeTimeOptions(input: {
@@ -72,7 +67,7 @@ export function buildChallengeTimeOptions(input: {
       options.push({
         description: isDisabled ? "Horário já reservado" : undefined,
         isDisabled,
-        label: formatMinute(minute),
+        label: formatMinuteToHHMM(minute),
         value: String(minute),
       });
     }

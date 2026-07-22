@@ -112,8 +112,6 @@ function getRecipientActor(
       return { kind: "organization", organizationId };
     }
   }
-
-  return;
 }
 
 function getRecipientActorPayload(data: NotificationResponseData) {

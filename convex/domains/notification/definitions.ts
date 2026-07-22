@@ -9,7 +9,7 @@ export type {
   NotificationPushCategoryId,
 } from "../../shared/notifications/protocol";
 
-export type NotificationRecipientRole = "manager" | "player";
+export type NotificationRecipientRole = "organizer" | "player";
 
 export type NotificationContentInput = {
   actorName?: string | null;
@@ -47,156 +47,212 @@ const getLeagueRequestsUrl = (input: NotificationContentInput) =>
 const getLeagueChallengesUrl = (input: NotificationContentInput) =>
   `/leagues/${input.leagueId}/challenges`;
 
+// Deep-link a player-facing payment notification to the checkout screen.
+// Requires `chargeId` in the notification metadata (set by the charge
+// cron / webhook). Falls back to the league root when missing so old
+// notifications still resolve.
+const getCheckoutUrl = (input: NotificationContentInput) => {
+  const chargeId =
+    input.metadata && "chargeId" in input.metadata
+      ? (input.metadata.chargeId as string | undefined)
+      : undefined;
+  if (!chargeId) {
+    return getLeagueUrl(input);
+  }
+  return `/checkout/${chargeId}`;
+};
+
 const definitions: Record<NotificationEventType, NotificationDefinition> = {
-  "league.membership.requested": {
-    categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],
-    getUrl: getLeagueRequestsUrl,
-    template: (input) => ({
-      title: "Nova solicitação de entrada",
-      body: `${getActorName(input.actorName)} pediu para entrar na liga ${
-        input.leagueName
-      }.`,
-    }),
-  },
-  "league.membership.approved": {
-    template: (input) => ({
-      title: "Solicitação aprovada",
-      body: `Sua entrada na liga ${input.leagueName} foi aprovada.`,
-    }),
-  },
-  "league.membership.rejected": {
-    template: (input) => ({
-      title: "Solicitação recusada",
-      body: `Sua entrada na liga ${input.leagueName} foi recusada.`,
-    }),
-  },
-  "league.membership.removed": {
-    template: (input) => ({
-      title: "Você saiu do ranking",
-      body: `Seu acesso à liga ${input.leagueName} foi removido.`,
-    }),
-  },
-  "league.challenge.created": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Novo desafio recebido",
-      body: `${getActorName(input.actorName)} desafiou você na liga ${
-        input.leagueName
-      }.`,
-    }),
-  },
-  "league.challenge.counter_proposed": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Contraproposta recebida",
-      body: `${getActorName(input.actorName)} sugeriu outro horário em ${
-        input.leagueName
-      }.`,
-    }),
-  },
-  "league.challenge.proposal_accepted": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Desafio aceito",
-      body: `${getActorName(input.actorName)} aceitou o desafio em ${
-        input.leagueName
-      }.`,
-    }),
-  },
-  "league.challenge.proposal_declined": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Desafio recusado",
-      body: `${getActorName(input.actorName)} recusou o desafio em ${
-        input.leagueName
-      }.`,
-    }),
-  },
-  "league.challenge.cancelled": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Desafio cancelado",
-      body: `Um desafio da liga ${input.leagueName} foi cancelado.`,
-    }),
-  },
-  "league.challenge.cancellation_requested": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      title: "Pedido de cancelamento",
-      body: `${getActorName(input.actorName)} pediu para cancelar o desafio em ${
-        input.leagueName
-      }.`,
-    }),
-  },
   "league.challenge.cancellation_accepted": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Cancelamento aceito",
       body: `${getActorName(input.actorName)} aceitou o cancelamento em ${
         input.leagueName
       }.`,
+      title: "Cancelamento aceito",
     }),
   },
   "league.challenge.cancellation_rejected": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Cancelamento recusado",
       body: `${getActorName(input.actorName)} recusou o cancelamento em ${
         input.leagueName
       }.`,
+      title: "Cancelamento recusado",
     }),
   },
-  "league.challenge.result_submitted": {
+  "league.challenge.cancellation_requested": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Placar enviado",
-      body: `${getActorName(input.actorName)} enviou o placar do desafio em ${
+      body: `${getActorName(input.actorName)} pediu para cancelar o desafio em ${
         input.leagueName
       }.`,
+      title: "Pedido de cancelamento",
+    }),
+  },
+  "league.challenge.cancelled": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `Um desafio da liga ${input.leagueName} foi cancelado.`,
+      title: "Desafio cancelado",
+    }),
+  },
+  "league.challenge.counter_proposed": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `${getActorName(input.actorName)} sugeriu outro horário em ${
+        input.leagueName
+      }.`,
+      title: "Contraproposta recebida",
+    }),
+  },
+  "league.challenge.created": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `${getActorName(input.actorName)} desafiou você na liga ${
+        input.leagueName
+      }.`,
+      title: "Novo desafio recebido",
+    }),
+  },
+  "league.challenge.organizer_approved": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `O organizador aprovou o desafio em ${input.leagueName}.`,
+      title: "Desafio aprovado",
+    }),
+  },
+  "league.challenge.organizer_rejected": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `O organizador recusou o desafio em ${input.leagueName}.`,
+      title: "Desafio recusado",
+    }),
+  },
+  "league.challenge.proposal_accepted": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `${getActorName(input.actorName)} aceitou o desafio em ${
+        input.leagueName
+      }.`,
+      title: "Desafio aceito",
+    }),
+  },
+  "league.challenge.proposal_declined": {
+    getUrl: getLeagueChallengesUrl,
+    template: (input) => ({
+      body: `${getActorName(input.actorName)} recusou o desafio em ${
+        input.leagueName
+      }.`,
+      title: "Desafio recusado",
     }),
   },
   "league.challenge.result_confirmed": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Placar confirmado",
       body: `${getActorName(input.actorName)} confirmou o placar em ${
         input.leagueName
       }.`,
+      title: "Placar confirmado",
     }),
   },
   "league.challenge.result_correction_requested": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Correção de placar",
       body: `O organizador pediu correção no placar da liga ${input.leagueName}.`,
+      title: "Correção de placar",
     }),
   },
   "league.challenge.result_invalidated": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Placar invalidado",
       body: `O placar do desafio em ${input.leagueName} foi invalidado.`,
+      title: "Placar invalidado",
     }),
   },
   "league.challenge.result_reminder_requested": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Lembrete do organizador",
       body: `O organizador da liga ${input.leagueName} está aguardando o placar do seu desafio.`,
+      title: "Lembrete do organizador",
     }),
   },
-  "league.challenge.admin_approved": {
+  "league.challenge.result_submitted": {
     getUrl: getLeagueChallengesUrl,
     template: (input) => ({
-      title: "Desafio aprovado",
-      body: `O organizador aprovou o desafio em ${input.leagueName}.`,
+      body: `${getActorName(input.actorName)} enviou o placar do desafio em ${
+        input.leagueName
+      }.`,
+      title: "Placar enviado",
     }),
   },
-  "league.challenge.admin_rejected": {
-    getUrl: getLeagueChallengesUrl,
+  "league.membership.approved": {
     template: (input) => ({
-      title: "Desafio recusado",
-      body: `O organizador recusou o desafio em ${input.leagueName}.`,
+      body: `Sua entrada na liga ${input.leagueName} foi aprovada.`,
+      title: "Solicitação aprovada",
+    }),
+  },
+  "league.membership.payment_confirmed": {
+    getUrl: getLeagueUrl,
+    template: (input) => ({
+      body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
+      title: "Pagamento confirmado",
+    }),
+  },
+  "league.membership.payment_due": {
+    getUrl: getCheckoutUrl,
+    template: (input) => ({
+      body: `O pagamento da sua inscrição na liga ${input.leagueName} venceu. Pague para não ser suspenso.`,
+      title: "Pagamento atrasado",
+    }),
+  },
+  "league.membership.payment_expired": {
+    getUrl: getCheckoutUrl,
+    template: (input) => ({
+      body: `O PIX da sua inscrição na liga ${input.leagueName} expirou. Gere um novo para concluir.`,
+      title: "PIX expirado",
+    }),
+  },
+  "league.membership.payment_refunded": {
+    template: (input) => ({
+      body: `A liga ${input.leagueName} atingiu o limite de jogadores enquanto você pagava. O reembolso será processado.`,
+      title: "Inscrição não concluída",
+    }),
+  },
+  "league.membership.rejected": {
+    template: (input) => ({
+      body: `Sua entrada na liga ${input.leagueName} foi recusada.`,
+      title: "Solicitação recusada",
+    }),
+  },
+  "league.membership.removed": {
+    template: (input) => ({
+      body: `Seu acesso à liga ${input.leagueName} foi removido.`,
+      title: "Você saiu do ranking",
+    }),
+  },
+  "league.membership.renewal_due": {
+    getUrl: getCheckoutUrl,
+    template: (input) => ({
+      body: `Sua inscrição na liga ${input.leagueName} venceu. Renove para voltar a participar.`,
+      title: "Inscrição vencida",
+    }),
+  },
+  "league.membership.renewal_reminder": {
+    getUrl: getCheckoutUrl,
+    template: (input) => ({
+      body: `Sua inscrição na liga ${input.leagueName} vence em breve. Renove para continuar participando.`,
+      title: "Renovação em 3 dias",
+    }),
+  },
+  "league.membership.requested": {
+    categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],
+    getUrl: getLeagueRequestsUrl,
+    template: (input) => ({
+      body: `${getActorName(input.actorName)} pediu para entrar na liga ${
+        input.leagueName
+      }.`,
+      title: "Nova solicitação de entrada",
     }),
   },
 };

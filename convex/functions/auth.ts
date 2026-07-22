@@ -1,8 +1,10 @@
 import { expo } from "@better-auth/expo";
 import { i18n } from "@better-auth/i18n";
+import { emailOTP } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { importPKCS8, SignJWT } from "jose";
 import { convex } from "kitcn/auth";
+import { Resend } from "resend";
 import { authTranslations } from "../lib/auth-i18n";
 import { buildTrustedOrigins } from "../lib/auth-trusted-origins";
 import { getEnv } from "../lib/get-env";
@@ -82,10 +84,11 @@ export default defineAuth(() => {
       : {};
 
   return {
+    baseURL: env.BETTER_AUTH_URL ?? env.SITE_URL,
     emailAndPassword: {
       enabled: true,
+      requireEmailVerification: false,
     },
-    baseURL: env.BETTER_AUTH_URL ?? env.SITE_URL,
     plugins: [
       i18n({
         defaultLocale: "pt-BR",
@@ -106,6 +109,25 @@ export default defineAuth(() => {
         authConfig,
         jwks: env.JWKS,
       }),
+      emailOTP({
+        async sendVerificationOTP({ email, otp, type }) {
+          if (!env.RESEND_EMAIL_API_KEY) {
+            return;
+          }
+
+          const resend = new Resend(env.RESEND_EMAIL_API_KEY);
+
+          await resend.emails.send({
+            from: env.RESEND_FROM_EMAIL,
+            html:
+              type === "email-verification"
+                ? `<p>Use o código <strong>${otp}</strong> para verificar seu e-mail no BR Open.</p>`
+                : `<p>Seu código: <strong>${otp}</strong></p>`,
+            subject: "Seu código — BR Open",
+            to: email,
+          });
+        },
+      }),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 30,
@@ -116,12 +138,12 @@ export default defineAuth(() => {
       ...googleProvider,
     },
     telemetry: { enabled: false },
+    triggers: authTriggers,
     trustedOrigins: [
       ...buildTrustedOrigins({
         siteUrl: env.SITE_URL,
       }),
       "https://appleid.apple.com",
     ],
-    triggers: authTriggers,
   };
 });

@@ -162,10 +162,10 @@ describe("upsert organization schema", () => {
 
   it("accepts an edit with description, website, contactEmail", () => {
     const parsed = upsertOrganizationSchema.parse({
+      address: fullAddress,
       description: "Bio",
       name: "Clube",
       organizerType: "clube",
-      address: fullAddress,
       website: "https://bropen.com",
       ...validContact,
     });

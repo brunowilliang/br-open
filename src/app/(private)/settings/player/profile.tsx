@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
   FieldError,
@@ -23,6 +24,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
   cropImage,
   type CroppedImage,
@@ -72,6 +74,9 @@ const PLAYER_AVATAR_CROP_TARGET = {
 } as const;
 
 export default function PlayerProfile() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ firstRun?: string }>();
+  const isFirstRun = params.firstRun === "true";
   const crpc = useCRPC();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -85,8 +90,8 @@ export default function PlayerProfile() {
   const form = useForm<PlayerProfileFormValues, unknown, PlayerProfileValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(PlayerProfileFormSchema),
+    reValidateMode: "onChange",
   });
   const generateUploadUrl = useMutation(
     crpc.player.profile.generateUploadUrl.mutationOptions()
@@ -106,6 +111,17 @@ export default function PlayerProfile() {
 
   const updateProfile = useMutation(
     crpc.player.profile.upsert.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível salvar suas alterações. Tente novamente."
+          ),
+          id: "update-player-profile-error",
+          label: "Falha ao salvar perfil",
+          variant: "danger",
+        });
+      },
       onSuccess: async (nextProfile) => {
         await queryClient.invalidateQueries(
           crpc.player.profile.get.queryFilter()
@@ -118,22 +134,16 @@ export default function PlayerProfile() {
         setAvatarPreviewUri(null);
         setPendingAvatarFile(null);
         toast.show({
-          description: "Perfil atualizado com sucesso.",
+          description: isFirstRun
+            ? "Seu perfil foi criado. Bem-vindo ao BR Open!"
+            : "Suas alterações já estão visíveis para outros jogadores.",
           id: "update-player-profile-success",
-          label: "Perfil atualizado",
+          label: "Perfil salvo",
           variant: "success",
         });
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível atualizar o perfil."
-          ),
-          id: "update-player-profile-error",
-          label: "Erro ao atualizar perfil",
-          variant: "danger",
-        });
+        if (isFirstRun) {
+          router.replace("/");
+        }
       },
     })
   );
@@ -161,9 +171,10 @@ export default function PlayerProfile() {
       valuesWithAvatar = await uploadPendingAvatar(values);
     } catch {
       toast.show({
-        description: "Não foi possível enviar o avatar.",
+        description:
+          "Não foi possível enviar o avatar. Verifique sua conexão e tente novamente.",
         id: "player-avatar-submit-upload-error",
-        label: "Erro no upload",
+        label: "Falha no envio da foto",
         variant: "danger",
       });
       return;
@@ -191,9 +202,10 @@ export default function PlayerProfile() {
       setCropAsset(asset);
     } catch {
       toast.show({
-        description: "Não foi possível abrir a biblioteca de imagens.",
+        description:
+          "Não foi possível abrir a galeria de fotos. Confira as permissões do app.",
         id: "player-avatar-picker-error",
-        label: "Erro ao selecionar imagem",
+        label: "Sem acesso à galeria",
         variant: "danger",
       });
     }
@@ -225,14 +237,14 @@ export default function PlayerProfile() {
       toast.show({
         description: "O avatar será enviado quando você salvar o perfil.",
         id: "player-avatar-crop-success",
-        label: "Avatar pronto",
+        label: "Foto ajustada",
         variant: "success",
       });
     } catch {
       toast.show({
-        description: "Não foi possível recortar o avatar.",
+        description: "Não foi possível recortar a imagem. Tente novamente.",
         id: "player-avatar-crop-error",
-        label: "Erro ao recortar imagem",
+        label: "Falha ao ajustar foto",
         variant: "danger",
       });
     } finally {
@@ -285,10 +297,12 @@ export default function PlayerProfile() {
       <Page>
         <Page.Header>
           <Page.Header.Left>
-            <Page.Header.BackButton />
+            {isFirstRun ? null : <Page.Header.BackButton />}
           </Page.Header.Left>
           <Page.Header.Center>
-            <Page.Header.Title>Perfil</Page.Header.Title>
+            <Page.Header.Title>
+              {isFirstRun ? "Complete seu perfil" : "Perfil do jogador"}
+            </Page.Header.Title>
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>
@@ -450,12 +464,19 @@ export default function PlayerProfile() {
                     <Label>Telefone/WhatsApp</Label>
                     <Input
                       editable={!isSubmitPending}
+                      keyboardType="phone-pad"
                       onBlur={field.onBlur}
-                      onChangeText={field.onChange}
+                      onChangeText={(text) =>
+                        field.onChange(
+                          formatPhoneBR(
+                            applyPhoneInputChange(field.value ?? "", text)
+                          )
+                        )
+                      }
                       onSubmitEditing={handleSubmitPress}
                       placeholder="(00) 00000-0000"
                       textContentType="telephoneNumber"
-                      value={field.value ?? ""}
+                      value={formatPhoneBR(field.value ?? "")}
                     />
                     <FieldError>{fieldState.error?.message ?? ""}</FieldError>
                   </TextField>
@@ -469,7 +490,11 @@ export default function PlayerProfile() {
                 onPress={handleSubmitPress}
               >
                 <Button.Label>
-                  {isSubmitPending ? "Salvando..." : "Salvar alterações"}
+                  {isSubmitPending
+                    ? "Salvando..."
+                    : isFirstRun
+                      ? "Completar"
+                      : "Salvar alterações"}
                 </Button.Label>
               </Button>
             </Page.Footer>

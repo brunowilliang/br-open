@@ -77,11 +77,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -146,445 +146,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
-            | "finished"
-            | "declined"
-            | "cancelled"
-            | "invalidated";
-          updatedAt: number;
-        }
-      >;
-      adminManage: FunctionReference<
-        "mutation",
-        "public",
-        {
-          action:
-            | "cancel"
-            | "invalidate"
-            | "reopen_challenge"
-            | "reopen_result";
-          challengeId: string;
-        },
-        {
-          cancellationRequestedAt?: number | null;
-          cancellationRequestedByMembershipId?: string | null;
-          cancelledAt?: number | null;
-          challengeValidationMode: "automatic" | "manual";
-          challenged: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          challenger: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          confirmedAt?: number | null;
-          createdAt: number;
-          currentProposal: {
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          };
-          finishedAt?: number | null;
-          id: string;
-          invalidatedAt?: number | null;
-          latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
-            challengeId: string;
-            confirmedAt?: number | null;
-            confirmedByMembershipId?: string | null;
-            id: string;
-            reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
-            reviewedAt?: number | null;
-            score: {
-              sets: Array<{
-                challengedGames: number;
-                challengerGames: number;
-                kind: "set" | "super_tiebreak";
-              }>;
-              winnerMembershipId: string;
-            };
-            submittedAt: number;
-            submittedByMembershipId: string;
-            winnerMembershipId?: string | null;
-          } | null;
-          leagueId: string;
-          lockedAt?: number | null;
-          matchConfigSnapshot: {
-            bestOfSets: number;
-            defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
-            gamesPerSet: number;
-            hasTieBreak: boolean;
-            scoringMode: "advantage" | "no_advantage";
-            setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
-            tieBreakMustWinByTwo: boolean;
-            tieBreakPoints: number;
-          };
-          proposals: Array<{
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          }>;
-          resultValidationMode: "automatic" | "manual";
-          status:
-            | "pending_opponent_response"
-            | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
-            | "confirmed"
-            | "pending_cancellation_acceptance"
-            | "pending_result_submission"
-            | "pending_result_confirmation"
-            | "pending_admin_result_validation"
-            | "pending_result_correction"
-            | "pending_admin_decision"
-            | "finished"
-            | "declined"
-            | "cancelled"
-            | "invalidated";
-          updatedAt: number;
-        }
-      >;
-      adminRequestResultReminder: FunctionReference<
-        "mutation",
-        "public",
-        { challengeId: string },
-        {
-          cancellationRequestedAt?: number | null;
-          cancellationRequestedByMembershipId?: string | null;
-          cancelledAt?: number | null;
-          challengeValidationMode: "automatic" | "manual";
-          challenged: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          challenger: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          confirmedAt?: number | null;
-          createdAt: number;
-          currentProposal: {
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          };
-          finishedAt?: number | null;
-          id: string;
-          invalidatedAt?: number | null;
-          latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
-            challengeId: string;
-            confirmedAt?: number | null;
-            confirmedByMembershipId?: string | null;
-            id: string;
-            reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
-            reviewedAt?: number | null;
-            score: {
-              sets: Array<{
-                challengedGames: number;
-                challengerGames: number;
-                kind: "set" | "super_tiebreak";
-              }>;
-              winnerMembershipId: string;
-            };
-            submittedAt: number;
-            submittedByMembershipId: string;
-            winnerMembershipId?: string | null;
-          } | null;
-          leagueId: string;
-          lockedAt?: number | null;
-          matchConfigSnapshot: {
-            bestOfSets: number;
-            defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
-            gamesPerSet: number;
-            hasTieBreak: boolean;
-            scoringMode: "advantage" | "no_advantage";
-            setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
-            tieBreakMustWinByTwo: boolean;
-            tieBreakPoints: number;
-          };
-          proposals: Array<{
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          }>;
-          resultValidationMode: "automatic" | "manual";
-          status:
-            | "pending_opponent_response"
-            | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
-            | "confirmed"
-            | "pending_cancellation_acceptance"
-            | "pending_result_submission"
-            | "pending_result_confirmation"
-            | "pending_admin_result_validation"
-            | "pending_result_correction"
-            | "pending_admin_decision"
-            | "finished"
-            | "declined"
-            | "cancelled"
-            | "invalidated";
-          updatedAt: number;
-        }
-      >;
-      adminSubmitResult: FunctionReference<
-        "mutation",
-        "public",
-        {
-          challengeId: string;
-          score: {
-            sets: Array<{
-              challengedGames: number;
-              challengerGames: number;
-              kind: "set" | "super_tiebreak";
-            }>;
-            winnerMembershipId: string;
-          };
-        },
-        {
-          cancellationRequestedAt?: number | null;
-          cancellationRequestedByMembershipId?: string | null;
-          cancelledAt?: number | null;
-          challengeValidationMode: "automatic" | "manual";
-          challenged: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          challenger: {
-            membershipId: string;
-            player: {
-              avatarUrl?: string | null;
-              fullName: string;
-              nickname: string;
-            };
-            playerProfileId: string;
-            rankingPosition?: number | null;
-          };
-          confirmedAt?: number | null;
-          createdAt: number;
-          currentProposal: {
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          };
-          finishedAt?: number | null;
-          id: string;
-          invalidatedAt?: number | null;
-          latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
-            challengeId: string;
-            confirmedAt?: number | null;
-            confirmedByMembershipId?: string | null;
-            id: string;
-            reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
-            reviewedAt?: number | null;
-            score: {
-              sets: Array<{
-                challengedGames: number;
-                challengerGames: number;
-                kind: "set" | "super_tiebreak";
-              }>;
-              winnerMembershipId: string;
-            };
-            submittedAt: number;
-            submittedByMembershipId: string;
-            winnerMembershipId?: string | null;
-          } | null;
-          leagueId: string;
-          lockedAt?: number | null;
-          matchConfigSnapshot: {
-            bestOfSets: number;
-            defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
-            gamesPerSet: number;
-            hasTieBreak: boolean;
-            scoringMode: "advantage" | "no_advantage";
-            setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
-            tieBreakMustWinByTwo: boolean;
-            tieBreakPoints: number;
-          };
-          proposals: Array<{
-            challengeId: string;
-            courtId: string;
-            courtName: string;
-            createdAt: number;
-            endMinute: number;
-            id: string;
-            matchDate: string;
-            proposedByMembershipId: string;
-            responseDeadlineAt: number;
-            revisionNumber: number;
-            startMinute: number;
-            status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
-          }>;
-          resultValidationMode: "automatic" | "manual";
-          status:
-            | "pending_opponent_response"
-            | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
-            | "confirmed"
-            | "pending_cancellation_acceptance"
-            | "pending_result_submission"
-            | "pending_result_confirmation"
-            | "pending_admin_result_validation"
-            | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -646,11 +215,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -715,14 +284,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -784,11 +353,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -853,14 +422,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -928,11 +497,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -997,14 +566,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1073,11 +642,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1142,14 +711,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1211,11 +780,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1280,14 +849,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1349,11 +918,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1418,14 +987,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1487,11 +1056,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1556,14 +1125,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1595,6 +1164,437 @@ export const api: {
           matchDate: string;
           startMinute: number;
         }>
+      >;
+      organizerManage: FunctionReference<
+        "mutation",
+        "public",
+        {
+          action:
+            | "cancel"
+            | "invalidate"
+            | "reopen_challenge"
+            | "reopen_result";
+          challengeId: string;
+        },
+        {
+          cancellationRequestedAt?: number | null;
+          cancellationRequestedByMembershipId?: string | null;
+          cancelledAt?: number | null;
+          challengeValidationMode: "automatic" | "manual";
+          challenged: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          challenger: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          confirmedAt?: number | null;
+          createdAt: number;
+          currentProposal: {
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          };
+          finishedAt?: number | null;
+          id: string;
+          invalidatedAt?: number | null;
+          latestResultSubmission?: {
+            challengeId: string;
+            confirmedAt?: number | null;
+            confirmedByMembershipId?: string | null;
+            id: string;
+            organizerReviewedByUserId?: string | null;
+            reviewAction?:
+              | "approved"
+              | "correction_requested"
+              | "invalidated"
+              | null;
+            reviewedAt?: number | null;
+            score: {
+              sets: Array<{
+                challengedGames: number;
+                challengerGames: number;
+                kind: "set" | "super_tiebreak";
+              }>;
+              winnerMembershipId: string;
+            };
+            submittedAt: number;
+            submittedByMembershipId: string;
+            winnerMembershipId?: string | null;
+          } | null;
+          leagueId: string;
+          lockedAt?: number | null;
+          matchConfigSnapshot: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakAtGamesAll: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakAtGamesAll: number;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          proposals: Array<{
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          }>;
+          resultValidationMode: "automatic" | "manual";
+          status:
+            | "pending_opponent_response"
+            | "pending_creator_reapproval"
+            | "pending_organizer_challenge_validation"
+            | "confirmed"
+            | "pending_cancellation_acceptance"
+            | "pending_result_submission"
+            | "pending_result_confirmation"
+            | "pending_organizer_result_validation"
+            | "pending_result_correction"
+            | "pending_organizer_decision"
+            | "finished"
+            | "declined"
+            | "cancelled"
+            | "invalidated";
+          updatedAt: number;
+        }
+      >;
+      organizerRequestResultReminder: FunctionReference<
+        "mutation",
+        "public",
+        { challengeId: string },
+        {
+          cancellationRequestedAt?: number | null;
+          cancellationRequestedByMembershipId?: string | null;
+          cancelledAt?: number | null;
+          challengeValidationMode: "automatic" | "manual";
+          challenged: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          challenger: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          confirmedAt?: number | null;
+          createdAt: number;
+          currentProposal: {
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          };
+          finishedAt?: number | null;
+          id: string;
+          invalidatedAt?: number | null;
+          latestResultSubmission?: {
+            challengeId: string;
+            confirmedAt?: number | null;
+            confirmedByMembershipId?: string | null;
+            id: string;
+            organizerReviewedByUserId?: string | null;
+            reviewAction?:
+              | "approved"
+              | "correction_requested"
+              | "invalidated"
+              | null;
+            reviewedAt?: number | null;
+            score: {
+              sets: Array<{
+                challengedGames: number;
+                challengerGames: number;
+                kind: "set" | "super_tiebreak";
+              }>;
+              winnerMembershipId: string;
+            };
+            submittedAt: number;
+            submittedByMembershipId: string;
+            winnerMembershipId?: string | null;
+          } | null;
+          leagueId: string;
+          lockedAt?: number | null;
+          matchConfigSnapshot: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakAtGamesAll: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakAtGamesAll: number;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          proposals: Array<{
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          }>;
+          resultValidationMode: "automatic" | "manual";
+          status:
+            | "pending_opponent_response"
+            | "pending_creator_reapproval"
+            | "pending_organizer_challenge_validation"
+            | "confirmed"
+            | "pending_cancellation_acceptance"
+            | "pending_result_submission"
+            | "pending_result_confirmation"
+            | "pending_organizer_result_validation"
+            | "pending_result_correction"
+            | "pending_organizer_decision"
+            | "finished"
+            | "declined"
+            | "cancelled"
+            | "invalidated";
+          updatedAt: number;
+        }
+      >;
+      organizerSubmitResult: FunctionReference<
+        "mutation",
+        "public",
+        {
+          challengeId: string;
+          score: {
+            sets: Array<{
+              challengedGames: number;
+              challengerGames: number;
+              kind: "set" | "super_tiebreak";
+            }>;
+            winnerMembershipId: string;
+          };
+        },
+        {
+          cancellationRequestedAt?: number | null;
+          cancellationRequestedByMembershipId?: string | null;
+          cancelledAt?: number | null;
+          challengeValidationMode: "automatic" | "manual";
+          challenged: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          challenger: {
+            membershipId: string;
+            player: {
+              avatarUrl?: string | null;
+              fullName: string;
+              nickname: string;
+            };
+            playerProfileId: string;
+            rankingPosition?: number | null;
+          };
+          confirmedAt?: number | null;
+          createdAt: number;
+          currentProposal: {
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          };
+          finishedAt?: number | null;
+          id: string;
+          invalidatedAt?: number | null;
+          latestResultSubmission?: {
+            challengeId: string;
+            confirmedAt?: number | null;
+            confirmedByMembershipId?: string | null;
+            id: string;
+            organizerReviewedByUserId?: string | null;
+            reviewAction?:
+              | "approved"
+              | "correction_requested"
+              | "invalidated"
+              | null;
+            reviewedAt?: number | null;
+            score: {
+              sets: Array<{
+                challengedGames: number;
+                challengerGames: number;
+                kind: "set" | "super_tiebreak";
+              }>;
+              winnerMembershipId: string;
+            };
+            submittedAt: number;
+            submittedByMembershipId: string;
+            winnerMembershipId?: string | null;
+          } | null;
+          leagueId: string;
+          lockedAt?: number | null;
+          matchConfigSnapshot: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakAtGamesAll: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakAtGamesAll: number;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          proposals: Array<{
+            challengeId: string;
+            courtId: string;
+            courtName: string;
+            createdAt: number;
+            endMinute: number;
+            id: string;
+            matchDate: string;
+            proposedByMembershipId: string;
+            responseDeadlineAt: number;
+            revisionNumber: number;
+            startMinute: number;
+            status:
+              | "active"
+              | "accepted"
+              | "replaced"
+              | "declined"
+              | "cancelled";
+          }>;
+          resultValidationMode: "automatic" | "manual";
+          status:
+            | "pending_opponent_response"
+            | "pending_creator_reapproval"
+            | "pending_organizer_challenge_validation"
+            | "confirmed"
+            | "pending_cancellation_acceptance"
+            | "pending_result_submission"
+            | "pending_result_confirmation"
+            | "pending_organizer_result_validation"
+            | "pending_result_correction"
+            | "pending_organizer_decision"
+            | "finished"
+            | "declined"
+            | "cancelled"
+            | "invalidated";
+          updatedAt: number;
+        }
       >;
       requestCancellation: FunctionReference<
         "mutation",
@@ -1650,11 +1650,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1719,14 +1719,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1788,11 +1788,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1857,14 +1857,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -1926,11 +1926,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -1995,14 +1995,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -2068,11 +2068,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -2137,14 +2137,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -2216,11 +2216,11 @@ export const api: {
           id: string;
           invalidatedAt?: number | null;
           latestResultSubmission?: {
-            adminReviewedByUserId?: string | null;
             challengeId: string;
             confirmedAt?: number | null;
             confirmedByMembershipId?: string | null;
             id: string;
+            organizerReviewedByUserId?: string | null;
             reviewAction?:
               | "approved"
               | "correction_requested"
@@ -2285,14 +2285,14 @@ export const api: {
           status:
             | "pending_opponent_response"
             | "pending_creator_reapproval"
-            | "pending_admin_challenge_validation"
+            | "pending_organizer_challenge_validation"
             | "confirmed"
             | "pending_cancellation_acceptance"
             | "pending_result_submission"
             | "pending_result_confirmation"
-            | "pending_admin_result_validation"
+            | "pending_organizer_result_validation"
             | "pending_result_correction"
-            | "pending_admin_decision"
+            | "pending_organizer_decision"
             | "finished"
             | "declined"
             | "cancelled"
@@ -2308,6 +2308,7 @@ export const api: {
         { leagueId: string },
         {
           activePlayerCount: number;
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2329,15 +2330,17 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
-          isManagerOwner: boolean;
+          isLeagueOrganizer: boolean;
           locationNotes?: string | null;
           maxPlayers: number | null;
           mode: "challenges";
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2383,9 +2386,12 @@ export const api: {
           };
           state: string;
           updatedAt: number;
+          viewerMembershipId?: string | null;
           viewerMembershipStatus?:
             | "pending"
+            | "awaiting_payment"
             | "active"
+            | "payment_due"
             | "rejected"
             | "removed"
             | "left"
@@ -2399,6 +2405,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2420,6 +2427,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2427,7 +2435,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2481,6 +2490,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2502,6 +2512,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2509,7 +2520,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2564,6 +2576,7 @@ export const api: {
         "mutation",
         "public",
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
@@ -2582,11 +2595,13 @@ export const api: {
           }>;
           coverStorageId: string | null;
           description?: string;
+          gracePeriodDays: number;
           locationNotes?: string;
           maxPlayers: number | null;
           monthlyPriceCents: number;
           name: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2634,6 +2649,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2655,6 +2671,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2662,7 +2679,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2717,6 +2735,7 @@ export const api: {
         "public",
         { leagueId: string },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2738,6 +2757,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2745,7 +2765,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2799,6 +2820,7 @@ export const api: {
         "public",
         {},
         Array<{
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2820,6 +2842,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2827,7 +2850,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2886,6 +2910,7 @@ export const api: {
         "mutation",
         "public",
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<string>;
           city: string;
@@ -2904,12 +2929,14 @@ export const api: {
           }>;
           coverStorageId: string | null;
           description?: string;
+          gracePeriodDays: number;
           leagueId: string;
           locationNotes?: string;
           maxPlayers: number | null;
           monthlyPriceCents: number;
           name: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -2957,6 +2984,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<string>;
@@ -2978,6 +3006,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          gracePeriodDays: number;
           id: string;
           locationNotes?: string | null;
           maxPlayers: number | null;
@@ -2985,7 +3014,8 @@ export const api: {
           monthlyPriceCents: number;
           name: string;
           organizationId: string;
-          priceBillingInterval: "week" | "month" | "quarter" | "year";
+          priceBillingInterval: "week" | "month" | "quarter" | "year" | "once";
+          reminderDaysBefore: number;
           ruleConfig: {
             challengeValidationMode: "automatic" | "manual";
             hasInactivityPenalty: boolean;
@@ -3054,7 +3084,9 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
+            | "payment_due"
             | "rejected"
             | "removed"
             | "left"
@@ -3081,7 +3113,9 @@ export const api: {
             reviewedAt?: number | null;
             status:
               | "pending"
+              | "awaiting_payment"
               | "active"
+              | "payment_due"
               | "rejected"
               | "removed"
               | "left"
@@ -3102,7 +3136,9 @@ export const api: {
             reviewedAt?: number | null;
             status:
               | "pending"
+              | "awaiting_payment"
               | "active"
+              | "payment_due"
               | "rejected"
               | "removed"
               | "left"
@@ -3129,7 +3165,9 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
+            | "payment_due"
             | "rejected"
             | "removed"
             | "left"
@@ -3155,7 +3193,9 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
+            | "payment_due"
             | "rejected"
             | "removed"
             | "left"
@@ -3187,7 +3227,9 @@ export const api: {
           reviewedAt?: number | null;
           status:
             | "pending"
+            | "awaiting_payment"
             | "active"
+            | "payment_due"
             | "rejected"
             | "removed"
             | "left"
@@ -3210,7 +3252,13 @@ export const api: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_due"
+            | "league.membership.payment_expired"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -3225,8 +3273,8 @@ export const api: {
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
-            | "league.challenge.admin_approved"
-            | "league.challenge.admin_rejected";
+            | "league.challenge.organizer_approved"
+            | "league.challenge.organizer_rejected";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -3235,6 +3283,10 @@ export const api: {
           recipientOrganizationId: string | null;
           recipientPlayerProfileId: string | null;
           recipientUserId: string;
+          retractedAt: number | null;
+          sourceEntityId: string | null;
+          sourceEntityType: string | null;
+          status: "active" | "retracted";
           title: string;
         }>
       >;
@@ -3255,7 +3307,13 @@ export const api: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_due"
+            | "league.membership.payment_expired"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -3270,8 +3328,8 @@ export const api: {
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
-            | "league.challenge.admin_approved"
-            | "league.challenge.admin_rejected";
+            | "league.challenge.organizer_approved"
+            | "league.challenge.organizer_rejected";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -3280,6 +3338,10 @@ export const api: {
           recipientOrganizationId: string | null;
           recipientPlayerProfileId: string | null;
           recipientUserId: string;
+          retractedAt: number | null;
+          sourceEntityId: string | null;
+          sourceEntityType: string | null;
+          status: "active" | "retracted";
           title: string;
         }
       >;
@@ -3393,6 +3455,12 @@ export const api: {
             | "outro"
             | null;
           organizerTypeLabel?: string | null;
+          paymentAccount?: {
+            name: string;
+            onboardedAt: string | null;
+            pixKey: string;
+            status: "pending" | "active" | "rejected";
+          } | null;
           phone?: string | null;
           slug: string;
           sports?: Array<
@@ -3496,6 +3564,12 @@ export const api: {
             | "outro"
             | null;
           organizerTypeLabel?: string | null;
+          paymentAccount?: {
+            name: string;
+            onboardedAt: string | null;
+            pixKey: string;
+            status: "pending" | "active" | "rejected";
+          } | null;
           phone?: string | null;
           slug: string;
           sports?: Array<
@@ -3515,6 +3589,121 @@ export const api: {
           > | null;
           sportsLabel?: string | null;
           website?: string | null;
+        }
+      >;
+    };
+  };
+  payment: {
+    charge: {
+      createCharge: FunctionReference<
+        "action",
+        "public",
+        { sourceId: string; sourceType: string },
+        {
+          brCode: string;
+          chargeId: string;
+          expiresAt: string | null;
+          qrCodeUrl: string;
+          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+        }
+      >;
+      getCheckoutContext: FunctionReference<
+        "query",
+        "public",
+        { chargeId: string },
+        {
+          amountCents: number;
+          brCode: string;
+          chargeId: string;
+          expiresAt: string | null;
+          qrCodeUrl: string;
+          sourceId: string;
+          sourceLabel: string | null;
+          sourceType: string;
+          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+        }
+      >;
+      getPendingCharge: FunctionReference<
+        "query",
+        "public",
+        { sourceId: string; sourceType: string },
+        { chargeId: string } | null
+      >;
+      listMine: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          items: Array<{
+            amountCents: number;
+            chargeId: string;
+            expiresAt: string | null;
+            paidAt: string | null;
+            sourceId: string;
+            sourceLabel: string | null;
+            sourceType: string;
+            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          }>;
+        }
+      >;
+      simulatePayment: FunctionReference<
+        "mutation",
+        "public",
+        { chargeId: string },
+        { activated: boolean; membershipId: string | null }
+      >;
+    };
+    dashboard: {
+      getOverview: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          account: {
+            name: string | null;
+            pixKey: string | null;
+            status: "pending" | "active" | "rejected" | null;
+          };
+          metrics: {
+            activeSubscribers: number;
+            overdueCount: number;
+            paymentsThisMonth: number;
+            projectedMonthlyCents: number;
+            receivedLastMonthCents: number;
+            receivedThisMonthCents: number;
+          };
+          recentCharges: Array<{
+            amountCents: number;
+            chargeId: string;
+            createdAt: string;
+            organizerCents: number;
+            paidAt: string | null;
+            playerName: string | null;
+            sourceLabel: string | null;
+            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          }>;
+        }
+      >;
+    };
+    onboarding: {
+      getStatus: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          name: string | null;
+          pixKey: string | null;
+          status: "pending" | "active" | "rejected" | null;
+        }
+      >;
+      start: FunctionReference<
+        "action",
+        "public",
+        { pixKey: string },
+        {
+          name: string;
+          pixKey: string;
+          status: "pending" | "active" | "rejected";
         }
       >;
     };
@@ -3895,7 +4084,13 @@ export const internal: {
           eventType:
             | "league.membership.requested"
             | "league.membership.approved"
+            | "league.membership.payment_confirmed"
+            | "league.membership.payment_due"
+            | "league.membership.payment_expired"
+            | "league.membership.payment_refunded"
             | "league.membership.rejected"
+            | "league.membership.renewal_due"
+            | "league.membership.renewal_reminder"
             | "league.membership.removed"
             | "league.challenge.created"
             | "league.challenge.counter_proposed"
@@ -3910,11 +4105,13 @@ export const internal: {
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
-            | "league.challenge.admin_approved"
-            | "league.challenge.admin_rejected";
+            | "league.challenge.organizer_approved"
+            | "league.challenge.organizer_rejected";
           leagueId: string;
           metadata?: Record<string, any>;
           recipientUserIds: Array<string>;
+          sourceEntityId?: string;
+          sourceEntityType?: string;
         },
         any
       >;
@@ -3939,7 +4136,160 @@ export const internal: {
         any
       >;
       releaseLock: FunctionReference<"mutation", "internal", {}, any>;
+      retractNotifications: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          exceptEventTypes?: Array<string>;
+          sourceEntityId: string;
+          sourceEntityType: string;
+        },
+        { retractedCount: number }
+      >;
       sendPending: FunctionReference<"action", "internal", {}, any>;
+      sweepStaleInProgressDeliveries: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        any
+      >;
+    };
+  };
+  payment: {
+    charge: {
+      applyPaidCharge: FunctionReference<
+        "mutation",
+        "internal",
+        { correlationId: string; providerTransactionId?: string },
+        { activated: boolean; membershipId: string | null }
+      >;
+      expireChargeForMembership: FunctionReference<
+        "mutation",
+        "internal",
+        { sourceId: string },
+        any
+      >;
+      expireStaleCharges: FunctionReference<"mutation", "internal", {}, any>;
+      findPendingChargeForSource: FunctionReference<
+        "mutation",
+        "internal",
+        { sourceId: string; sourceType: string },
+        {
+          brCode: string;
+          chargeId: string;
+          expiresAt: string | null;
+          qrCodeUrl: string;
+          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+        } | null
+      >;
+      findStaleChargesForReconciliation: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        any
+      >;
+      markChargeExpired: FunctionReference<
+        "mutation",
+        "internal",
+        { correlationId: string },
+        any
+      >;
+      markChargeRefunded: FunctionReference<
+        "mutation",
+        "internal",
+        { correlationId: string },
+        any
+      >;
+      reconcileCharges: FunctionReference<"action", "internal", {}, any>;
+      resolveActiveManagerOrg: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        { organizationId: string }
+      >;
+      resolveOrganizationForOnboarding: FunctionReference<
+        "mutation",
+        "internal",
+        { organizationId: string },
+        { name: string | null }
+      >;
+      resolvePaymentAccount: FunctionReference<
+        "mutation",
+        "internal",
+        { organizationId: string },
+        any
+      >;
+      resolveSourceForCharge: FunctionReference<
+        "mutation",
+        "internal",
+        { sourceId: string; sourceType: string; userId: string },
+        any
+      >;
+      saveCharge: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amountCents: number;
+          brCode: string;
+          correlationId: string;
+          expiresAt: string | null;
+          organizationId: string;
+          playerProfileId: string;
+          providerChargeId: string;
+          qrCodeImage: string;
+          sourceId: string;
+          sourceLabel: string;
+          sourceType: string;
+          splitConfig: any;
+          status: string;
+        },
+        any
+      >;
+      sendRenewalReminders: FunctionReference<"mutation", "internal", {}, any>;
+    };
+    onboarding: {
+      upsertAccount: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string; organizationId: string; pixKey: string },
+        any
+      >;
+    };
+    providerNode: {
+      createChargeWithSplitAction: FunctionReference<
+        "action",
+        "internal",
+        {
+          amountCents: number;
+          comment: string;
+          correlationId: string;
+          expiresInSeconds: number;
+          organizerCents: number;
+          recipientPixKey: string;
+        },
+        {
+          brCode: string;
+          correlationId: string;
+          expiresDate: string | null;
+          paymentLinkUrl: string;
+          qrCodeImage: string;
+          status: string;
+          transactionID: string;
+          value: number;
+        }
+      >;
+      createSubaccountAction: FunctionReference<
+        "action",
+        "internal",
+        { name: string; pixKey: string },
+        { name: string; pixKey: string }
+      >;
+      getChargeStatusAction: FunctionReference<
+        "action",
+        "internal",
+        { correlationId: string },
+        { status: string }
+      >;
     };
   };
   seed: {

@@ -23,10 +23,10 @@ import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { usePageContext } from "@/components/core/NewPage/context";
 import { Text } from "@/components/core/text";
-import { AdminOverview } from "@/components/pages/leagues/admin-overview";
+import { GuestOverview } from "@/components/pages/leagues/guest-overview";
 import { LeagueJoinFooter } from "@/components/pages/leagues/league-join-footer";
-import { ParticipantOverview } from "@/components/pages/leagues/participant-overview";
-import { VisitorOverview } from "@/components/pages/leagues/visitor-overview";
+import { OrganizerOverview } from "@/components/pages/leagues/organizer-overview";
+import { PlayerOverview } from "@/components/pages/leagues/player-overview";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -231,7 +231,7 @@ export default function LeagueOverviewRoute() {
       <Page.ScrollView
         contentContainerClassName={cn(
           "grow",
-          showStatusState && "centered px-4"
+          showStatusState && "centered gap-4 px-4"
         )}
       >
         {isError && <ErrorState message="Não foi possível carregar a liga." />}
@@ -239,18 +239,16 @@ export default function LeagueOverviewRoute() {
         {!(isError || isLoading) && league && (
           <>
             <LeagueBanner league={league} />
-            <View className="gap-4 p-4">
-              {role === "owner" && <AdminOverview />}
-              {role === "participant" && (
-                <ParticipantOverview league={league} />
-              )}
-              {role === "visitor" && <VisitorOverview league={league} />}
+            <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
+              {role === "organizer" && <OrganizerOverview />}
+              {role === "player" && <PlayerOverview league={league} />}
+              {role === "guest" && <GuestOverview league={league} />}
             </View>
           </>
         )}
       </Page.ScrollView>
 
-      {role === "visitor" && league && <LeagueJoinFooter leagueId={leagueId} />}
+      {role === "guest" && league && <LeagueJoinFooter leagueId={leagueId} />}
     </Page>
   );
 }

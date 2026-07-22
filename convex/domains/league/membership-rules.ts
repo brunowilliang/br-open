@@ -14,7 +14,7 @@ type RankingReorderInput = {
 };
 
 const RANKING_REORDER_ERROR =
-  "O ranking enviado não corresponde aos participantes ativos.";
+  "O ranking enviado não corresponde aos jogadores ativos.";
 
 export function canLeagueAcceptMember(input: LeagueAvailabilityInput) {
   return (
@@ -53,4 +53,17 @@ export function resolveRankingReorderError(input: RankingReorderInput) {
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Payment-related helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when the league requires payment (has a positive price).
+ */
+export function isLeaguePaid(league: {
+  monthlyPriceCents?: number | null;
+}): boolean {
+  return (league.monthlyPriceCents ?? 0) > 0;
 }

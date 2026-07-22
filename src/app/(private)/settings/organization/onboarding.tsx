@@ -139,8 +139,8 @@ export default function OrganizationOnboarding() {
   const form = useForm<OnboardingFormValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(OnboardingFormSchema),
+    reValidateMode: "onChange",
   });
 
   const logo = useOrganizationLogo(
@@ -157,10 +157,10 @@ export default function OrganizationOnboarding() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível criar a organização."
+            "Não foi possível concluir o cadastro da organização. Tente novamente."
           ),
           id: "organization-onboarding-error",
-          label: "Erro ao criar organização",
+          label: "Falha ao criar organização",
           variant: "danger",
         });
       },
@@ -177,7 +177,7 @@ export default function OrganizationOnboarding() {
           crpc.organization.profile.get.queryFilter()
         );
         toast.show({
-          description: "Sua organização foi criada.",
+          description: "Você já pode criar e gerenciar ligas como organizador.",
           id: "organization-onboarding-success",
           label: "Organização criada",
           variant: "success",
@@ -205,9 +205,10 @@ export default function OrganizationOnboarding() {
         )) ?? logoStorageId;
     } catch {
       toast.show({
-        description: "Não foi possível enviar a imagem.",
+        description:
+          "Não foi possível enviar o logo. Verifique sua conexão e tente novamente.",
         id: "organization-logo-submit-error",
-        label: "Erro no upload",
+        label: "Falha no envio da imagem",
         variant: "danger",
       });
       return;

@@ -1,19 +1,29 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
   Button,
   FieldError,
   Input,
   Label,
+  Separator,
   TextField,
   useToast,
 } from "heroui-native";
+import { SocialAuthButton } from "heroui-native-pro";
 import { Controller, useForm } from "react-hook-form";
-import { ScrollView, Text, View } from "react-native";
+import { View } from "react-native";
 import { z } from "zod";
 
-import { useSignUpMutationOptions } from "@/lib/convex/auth-client";
+import { Image, LogoImage } from "@/components/core/image";
+import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+import { PasswordInput } from "@/components/ui/password-input";
+import {
+  authClient,
+  useSignUpMutationOptions,
+  useSocialAuth,
+} from "@/lib/convex/auth-client";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const SignUpFormSchema = z
@@ -33,7 +43,6 @@ const SignUpFormSchema = z
   });
 
 export default function SignUp() {
-  const router = useRouter();
   const { toast } = useToast();
 
   const signUp = useMutation(
@@ -42,24 +51,29 @@ export default function SignUp() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível criar sua conta."
+            "Não foi possível criar sua conta. Tente novamente em instantes."
           ),
           id: "sign-up-auth-error",
-          label: "Não foi possível cadastrar",
+          label: "Falha no cadastro",
           variant: "danger",
         });
       },
     })
   );
 
+  const socialAuth = useSocialAuth("sign-up");
+
   const form = useForm({
     defaultValues: {},
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(SignUpFormSchema),
+    reValidateMode: "onChange",
   });
 
-  const isSubmitPending = signUp.isPending || form.formState.isSubmitting;
+  const isSubmitPending =
+    signUp.isPending || socialAuth.isPending || form.formState.isSubmitting;
+  const OTP_SEND_TIMESTAMP_KEY = "otp-send-timestamp";
+
   const submitForm = form.handleSubmit(async (values) => {
     signUp.reset();
 
@@ -69,7 +83,15 @@ export default function SignUp() {
       password: values.password,
     });
 
-    router.replace("/");
+    await SecureStore.setItemAsync(
+      OTP_SEND_TIMESTAMP_KEY,
+      Date.now().toString()
+    );
+
+    await authClient.emailOtp.sendVerificationOtp({
+      email: values.email,
+      type: "email-verification",
+    });
   });
 
   function handleSubmitPress() {
@@ -77,22 +99,24 @@ export default function SignUp() {
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: "Criar conta" }} />
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="grow items-center justify-center px-4"
-      >
-        <View className="w-full items-center gap-2">
-          <Text className="text-center font-semibold text-2xl text-foreground">
-            BR Open
-          </Text>
-          <Text className="text-center text-base text-muted">
-            Crie sua conta para acompanhar torneios, ligas e resultados.
-          </Text>
-        </View>
+    <Page>
+      <Page.Header overlay>
+        <Page.Header.Left>
+          <Page.Header.BackButton />
+        </Page.Header.Left>
+        <Page.Header.Center>
+          <Page.Header.Title>Criar conta</Page.Header.Title>
+        </Page.Header.Center>
+        <Page.Header.Right />
+      </Page.Header>
+      <Page.ScrollView contentContainerClassName="gap-5 centered px-4">
+        <Image.Background
+          className="aspect-square size-20"
+          fallback="none"
+          source={LogoImage}
+        />
 
-        <View className="w-full gap-4">
+        <View className="w-full gap-2">
           <Controller
             control={form.control}
             name="name"
@@ -144,7 +168,7 @@ export default function SignUp() {
             render={({ field, fieldState }) => (
               <TextField isInvalid={Boolean(fieldState.error)} isRequired>
                 <Label>Senha</Label>
-                <Input
+                <PasswordInput
                   autoCapitalize="none"
                   autoComplete="new-password"
                   editable={!isSubmitPending}
@@ -152,7 +176,6 @@ export default function SignUp() {
                   onChangeText={field.onChange}
                   placeholder="Crie uma senha"
                   returnKeyType="next"
-                  secureTextEntry
                   textContentType="newPassword"
                   value={field.value ?? ""}
                 />
@@ -167,7 +190,7 @@ export default function SignUp() {
             render={({ field, fieldState }) => (
               <TextField isInvalid={Boolean(fieldState.error)} isRequired>
                 <Label>Confirmar senha</Label>
-                <Input
+                <PasswordInput
                   autoCapitalize="none"
                   autoComplete="new-password"
                   editable={!isSubmitPending}
@@ -176,7 +199,6 @@ export default function SignUp() {
                   onSubmitEditing={handleSubmitPress}
                   placeholder="Repita sua senha"
                   returnKeyType="done"
-                  secureTextEntry
                   textContentType="newPassword"
                   value={field.value ?? ""}
                 />
@@ -184,26 +206,40 @@ export default function SignUp() {
               </TextField>
             )}
           />
-
-          <Button
-            isDisabled={isSubmitPending}
-            onPress={handleSubmitPress}
-            variant="primary"
-          >
-            <Button.Label>
-              {isSubmitPending ? "Criando..." : "Criar conta"}
-            </Button.Label>
-          </Button>
-
-          <Button
-            isDisabled={isSubmitPending}
-            onPress={() => router.back()}
-            variant="ghost"
-          >
-            <Button.Label>Já tenho conta</Button.Label>
-          </Button>
         </View>
-      </ScrollView>
-    </>
+
+        <Button
+          className="w-full"
+          isDisabled={isSubmitPending}
+          onPress={handleSubmitPress}
+          variant="primary"
+        >
+          <Button.Label>
+            {isSubmitPending ? "Criando..." : "Criar conta"}
+          </Button.Label>
+        </Button>
+
+        <View className="mx-10 flex-row items-center gap-3">
+          <Separator className="flex-1" />
+          <Text className="text-muted text-sm">ou</Text>
+          <Separator className="flex-1" />
+        </View>
+
+        <View className="flex-row gap-3">
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={socialAuth.handleApplePress}
+            provider="apple"
+          />
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={socialAuth.handleGooglePress}
+            provider="google"
+          />
+        </View>
+      </Page.ScrollView>
+    </Page>
   );
 }

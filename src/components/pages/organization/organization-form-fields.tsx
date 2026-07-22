@@ -1,9 +1,13 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
   AccordionLayoutTransition,
+  Button,
+  Description,
   FieldError,
-  InputGroup,
   Input,
+  InputGroup,
   Label,
   PressableFeedback,
   Select,
@@ -14,22 +18,34 @@ import {
 } from "heroui-native";
 import { useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { Controller, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
+import { z } from "zod";
 
 import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { useCRPC } from "@/lib/convex/crpc";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import {
+  applyPixInputChange,
+  formatPixKey,
+  isNumericPixKey,
+  isValidPixKey,
+  PIX_KEY_TYPES,
+  rawPixKey,
+  type PixKeyType,
+} from "@/lib/payments/pix-key";
 import { uploadImageToStorage } from "@/lib/uploads/convex-storage-upload";
 import {
   cropImage,
+  ImageCropper,
+  pickImageCropAsset,
   type CroppedImage,
   type ImageCropArea,
   type ImageCropAsset,
-  ImageCropper,
-  pickImageCropAsset,
 } from "@/lib/uploads/image-crop";
 import { fetchAddressByCep, ViaCepNotFoundError } from "@/lib/uploads/viacep";
 import {
@@ -74,15 +90,15 @@ export const ORGANIZER_TYPE_LABELS: Record<
   string
 > = {
   academia: "Academia",
+  centro_de_treinamento: "Centro de treinamento",
   clube: "Clube",
   condominio: "Condomínio",
   confederacao: "Confederação",
-  centro_de_treinamento: "Centro de treinamento",
   escola: "Escola",
   federacao: "Federação",
   liga: "Liga",
-  particular: "Particular",
   outro: "Outro",
+  particular: "Particular",
 };
 
 export const ORGANIZER_TYPE_OPTIONS = ORGANIZER_TYPES.map((value) => ({
@@ -95,6 +111,7 @@ export const SPORT_LABELS: Record<(typeof SPORTS)[number], string> = {
   beach_tennis: "Beach Tennis",
   futebol_society: "Futebol society",
   futevolei: "Futevôlei",
+  outro: "Outro",
   padel: "Padel",
   pickleball: "Pickleball",
   raquetinha: "Raquetinha",
@@ -103,7 +120,6 @@ export const SPORT_LABELS: Record<(typeof SPORTS)[number], string> = {
   tenis_de_mesa: "Tênis de mesa",
   volei_de_praia: "Vôlei de praia",
   volei_de_quadra: "Vôlei de quadra",
-  outro: "Outro",
 };
 
 export const SPORT_OPTIONS = SPORTS.map((value) => ({
@@ -173,9 +189,10 @@ export function useOrganizationLogo(
       setCropAsset(asset);
     } catch {
       toast.show({
-        description: "Não foi possível abrir a biblioteca de imagens.",
+        description:
+          "Não foi possível abrir a galeria de fotos. Confira as permissões do app.",
         id: "organization-logo-picker-error",
-        label: "Erro ao selecionar imagem",
+        label: "Sem acesso à galeria",
         variant: "danger",
       });
     }
@@ -206,9 +223,9 @@ export function useOrganizationLogo(
       setCropAsset(null);
     } catch {
       toast.show({
-        description: "Não foi possível recortar a imagem.",
+        description: "Não foi possível recortar a imagem. Tente novamente.",
         id: "organization-logo-crop-error",
-        label: "Erro ao recortar imagen",
+        label: "Falha ao ajustar imagem",
         variant: "danger",
       });
     } finally {
@@ -619,7 +636,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
               isInvalid={Boolean(fieldState.error)}
               isRequired
             >
-              <Label>Telefone / WhatsApp</Label>
+              <Label>Telefone/WhatsApp</Label>
               <Input
                 editable={!isSubmitPending}
                 keyboardType="phone-pad"
@@ -635,6 +652,9 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
         />
       </ExpandableSection>
 
+      {/* ---- Pagamentos (última seção) ---- */}
+      <PaymentSection />
+
       {/* ImageCropper rendered as sibling */}
       <ImageCropper
         aspectRatio={1}
@@ -646,6 +666,289 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
         title="Ajustar logo"
       />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Payment section — PIX key onboarding/edit (same ExpandableSection pattern)
+// ---------------------------------------------------------------------------
+
+type PixKeyFormValues = {
+  pixKey: string;
+  pixKeyType: PixKeyType;
+};
+
+function PixKeyFields(props: {
+  form: ReturnType<typeof useForm<PixKeyFormValues>>;
+  isPending: boolean;
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  return (
+    <>
+      <Controller
+        control={props.form.control}
+        name="pixKeyType"
+        render={({ field: typeField }) => (
+          <TextField isRequired>
+            <Label>Tipo de chave</Label>
+            <Select
+              onValueChange={(nextValue) => {
+                if (nextValue && !Array.isArray(nextValue)) {
+                  typeField.onChange(nextValue.value as PixKeyType);
+                  props.form.setValue("pixKey", "");
+                }
+              }}
+              selectionMode="single"
+              value={{
+                label:
+                  PIX_KEY_TYPES.find((o) => o.value === typeField.value)
+                    ?.label ?? "CPF",
+                value: (typeField.value as string) ?? "cpf",
+              }}
+            >
+              <Select.Trigger className="bg-surface-secondary">
+                <Select.Value
+                  className="font-normal"
+                  numberOfLines={1}
+                  placeholder="Escolha um tipo"
+                />
+                <Select.TriggerIndicator />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Overlay />
+                <Select.Content presentation="popover" width="trigger">
+                  <Select.ListLabel className="mb-2">
+                    Escolha um tipo
+                  </Select.ListLabel>
+                  {PIX_KEY_TYPES.map((option) => (
+                    <SelectOptionItem
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                    />
+                  ))}
+                </Select.Content>
+              </Select.Portal>
+            </Select>
+          </TextField>
+        )}
+      />
+
+      <Controller
+        control={props.form.control}
+        name="pixKey"
+        render={({ field, fieldState }) => (
+          <TextField isRequired>
+            <Label>Chave PIX</Label>
+            <Input
+              autoCapitalize="none"
+              className="w-full"
+              isInvalid={Boolean(fieldState.error)}
+              keyboardType={
+                isNumericPixKey(props.form.getValues("pixKeyType"))
+                  ? "numeric"
+                  : "default"
+              }
+              onBlur={field.onBlur}
+              onChangeText={(text) => {
+                const formType = props.form.getValues("pixKeyType");
+                const prev = String(field.value ?? "");
+                const digits = applyPixInputChange(prev, text, formType);
+                field.onChange(formatPixKey(digits, formType));
+              }}
+              placeholder="Digite sua chave PIX"
+              value={String(field.value ?? "")}
+              variant="secondary"
+            />
+            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+          </TextField>
+        )}
+      />
+
+      <Button
+        className="w-full"
+        isDisabled={props.isPending}
+        onPress={() => props.onSubmit()}
+      >
+        <Button.Label>
+          {props.isPending ? "Conectando..." : props.submitLabel}
+        </Button.Label>
+      </Button>
+    </>
+  );
+}
+
+function PaymentSection() {
+  const crpc = useCRPC();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+
+  const statusQuery = useQuery(
+    crpc.payment.onboarding.getStatus.queryOptions()
+  );
+
+  const startOnboarding = useMutation(
+    crpc.payment.onboarding.start.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível vincular sua chave PIX. Tente novamente."
+          ),
+          id: "payment-onboarding-error",
+          label: "Falha ao conectar conta",
+          variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        toast.show({
+          description: isEditing
+            ? "A nova chave já está ativa para recebimentos."
+            : "Sua chave PIX foi vinculada e já pode receber pagamentos.",
+          id: "payment-onboarding-success",
+          label: isEditing ? "Chave PIX atualizada" : "Conta conectada",
+          variant: "success",
+        });
+        setIsEditing(false);
+        await queryClient.invalidateQueries(
+          crpc.payment.onboarding.getStatus.queryFilter()
+        );
+        await queryClient.invalidateQueries(
+          crpc.payment.dashboard.getOverview.queryFilter()
+        );
+      },
+    })
+  );
+
+  const pixForm = useForm<PixKeyFormValues>({
+    defaultValues: { pixKey: "", pixKeyType: "cpf" },
+    resolver: zodResolver(
+      z.object({
+        pixKey: z.string().min(1, "Informe a chave PIX."),
+        pixKeyType: z.custom<PixKeyType>(
+          (v) => v !== undefined && v !== null && v !== ""
+        ),
+      })
+    ),
+  });
+
+  const onSubmit = pixForm.handleSubmit(async (values) => {
+    if (!isValidPixKey(values.pixKey, values.pixKeyType)) {
+      pixForm.setError("pixKey", {
+        message: "Chave PIX inválida para o tipo selecionado.",
+      });
+      return;
+    }
+    const raw = rawPixKey(values.pixKey, values.pixKeyType);
+    await startOnboarding.mutateAsync({ pixKey: raw });
+  });
+
+  function handleEditPixKey() {
+    setIsEditing(true);
+    pixForm.reset({ pixKey: "", pixKeyType: "cpf" });
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false);
+    pixForm.reset({ pixKey: "", pixKeyType: "cpf" });
+  }
+
+  const account = statusQuery.data ?? null;
+  const isConnected = account?.status === "active";
+
+  let description: string;
+  if (statusQuery.isPending) {
+    description = "Carregando...";
+  } else if (isConnected) {
+    description = "Conta conectada";
+  } else if (account?.status === "pending") {
+    description = "Validando conta...";
+  } else if (account?.status === "rejected") {
+    description = "Conta rejeitada";
+  } else {
+    description = "Receba pagamentos via PIX nas suas ligas";
+  }
+
+  const defaultExpanded = !(isConnected || statusQuery.isPending);
+
+  return (
+    <ExpandableSection
+      defaultExpanded={defaultExpanded}
+      description={description}
+      title="Pagamentos"
+    >
+      {statusQuery.isPending ? (
+        <View className="flex-row items-center gap-2 py-2">
+          <Spinner size="sm" />
+          <Description>Carregando dados da conta...</Description>
+        </View>
+      ) : isConnected && !isEditing ? (
+        <>
+          {account?.name ? (
+            <TextField>
+              <Description>Nome da conta</Description>
+              <Label>{account.name}</Label>
+            </TextField>
+          ) : null}
+          {account?.pixKey ? (
+            <TextField>
+              <Description>Chave PIX</Description>
+              <Label>{account.pixKey}</Label>
+            </TextField>
+          ) : null}
+          <Description>
+            Os pagamentos das suas ligas são recebidos automaticamente nesta
+            conta via PIX.
+          </Description>
+          <Button onPress={handleEditPixKey} variant="secondary">
+            <Button.Label>Editar chave PIX</Button.Label>
+          </Button>
+        </>
+      ) : isEditing ? (
+        <>
+          <PixKeyFields
+            form={pixForm}
+            isPending={startOnboarding.isPending}
+            onSubmit={() => onSubmit().catch(() => undefined)}
+            submitLabel="Salvar chave"
+          />
+          <Button
+            isDisabled={startOnboarding.isPending}
+            onPress={handleCancelEdit}
+            variant="ghost"
+          >
+            <Button.Label>Cancelar</Button.Label>
+          </Button>
+        </>
+      ) : account?.status === "rejected" ? (
+        <>
+          <Description className="text-danger">
+            Conta rejeitada. Tente conectar novamente.
+          </Description>
+          <PixKeyFields
+            form={pixForm}
+            isPending={startOnboarding.isPending}
+            onSubmit={() => onSubmit().catch(() => undefined)}
+            submitLabel="Conectar conta"
+          />
+        </>
+      ) : (
+        <>
+          <Description>
+            Quando um jogador paga por uma liga, o valor é dividido — você
+            recebe sua parte automaticamente via PIX.
+          </Description>
+          <PixKeyFields
+            form={pixForm}
+            isPending={startOnboarding.isPending}
+            onSubmit={() => onSubmit().catch(() => undefined)}
+            submitLabel="Conectar conta"
+          />
+        </>
+      )}
+    </ExpandableSection>
   );
 }
 

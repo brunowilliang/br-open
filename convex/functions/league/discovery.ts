@@ -4,6 +4,9 @@ import type { Id } from "../../functions/_generated/dataModel";
 import type { QueryCtx } from "../../functions/generated/server";
 
 import {
+  DEFAULT_LEAGUE_APPROVAL_MODE,
+  DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
+  DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
   DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
   DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
   DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
@@ -18,60 +21,57 @@ import {
 } from "../../domains/league/contract";
 import { getActiveMembershipLeagueIds } from "../../domains/league/discovery-list";
 import type { league, leagueMembership } from "../../domains/league/tables";
+import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
 import { getViewerContext } from "../viewer/context";
 
 type LeagueRecord = InferSelectModel<typeof league>;
 type LeagueMembershipRecord = InferSelectModel<typeof leagueMembership>;
 
-async function resolveLeagueMediaUrl(ctx: QueryCtx, storageId?: null | string) {
-  if (
-    !storageId ||
-    (LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(storageId)
-  ) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
+const isDeletableLeagueStorageId = (id: string) =>
+  !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(id);
 
 async function serializeLeague(ctx: QueryCtx, record: LeagueRecord) {
   const [avatarUrl, coverUrl] = await Promise.all([
-    resolveLeagueMediaUrl(ctx, record.avatarStorageId),
-    resolveLeagueMediaUrl(ctx, record.coverStorageId),
+    resolveStorageUrl(ctx, record.avatarStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
+    resolveStorageUrl(ctx, record.coverStorageId, {
+      isDeletable: isDeletableLeagueStorageId,
+    }),
   ]);
 
   return leagueSchema.parse({
     ...record,
-    visibility: normalizeLeagueVisibility(record.visibility),
+    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
     avatarStorageId: record.avatarStorageId ?? null,
-    coverStorageId: record.coverStorageId ?? null,
     avatarUrl,
-    coverUrl,
     courts: record.courts ?? [],
+    coverStorageId: record.coverStorageId ?? null,
+    coverUrl,
+    createdAt: record.createdAt.getTime(),
+    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
     maxPlayers: record.maxPlayers ?? null,
     monthlyPriceCents:
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+    reminderDaysBefore:
+      record.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
     ruleConfig: {
       ...record.ruleConfig,
-      scheduleVisibility:
-        record.ruleConfig?.scheduleVisibility ??
-        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
       resultValidationMode:
         record.ruleConfig?.resultValidationMode ??
         DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
     },
-    createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
+    visibility: normalizeLeagueVisibility(record.visibility),
   });
 }
 
@@ -88,7 +88,8 @@ async function serializeLeagueDiscovery(
   ctx: QueryCtx,
   record: LeagueRecord,
   options: {
-    isManagerOwner: boolean;
+    isLeagueOrganizer: boolean;
+    viewerMembershipId?: LeagueMembershipRecord["id"] | null;
     viewerMembershipStatus?: LeagueMembershipRecord["status"] | null;
   }
 ) {
@@ -98,7 +99,8 @@ async function serializeLeagueDiscovery(
       ctx,
       record.id as Id<"league">
     ),
-    isManagerOwner: options.isManagerOwner,
+    isLeagueOrganizer: options.isLeagueOrganizer,
+    viewerMembershipId: options.viewerMembershipId ?? null,
     viewerMembershipStatus: options.viewerMembershipStatus ?? null,
   });
 }
@@ -119,14 +121,14 @@ export const getById = authQuery
       });
     }
 
-    const isManagerOwner =
+    const isLeagueOrganizer =
       viewerContext.activeActor.kind === "organization" &&
       currentLeague.organizationId === viewerContext.activeActor.id;
     const isDiscoverable = isLeagueDiscoverableVisibility(
       currentLeague.visibility
     );
 
-    if (!(isManagerOwner || isDiscoverable)) {
+    if (!(isLeagueOrganizer || isDiscoverable)) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "Essa liga não está disponível para visualização.",
@@ -145,7 +147,8 @@ export const getById = authQuery
         : null;
 
     return serializeLeagueDiscovery(ctx, currentLeague, {
-      isManagerOwner,
+      isLeagueOrganizer,
+      viewerMembershipId: currentMembership?.id ?? null,
       viewerMembershipStatus: currentMembership?.status ?? null,
     });
   });
@@ -160,14 +163,14 @@ export const listAvailable = authQuery
     });
 
     const visibleLeagues = leagues.filter((currentLeague) => {
-      const isManagerOwner =
+      const isLeagueOrganizer =
         viewerContext.activeActor.kind === "organization" &&
         currentLeague.organizationId === viewerContext.activeActor.id;
       const isDiscoverable = isLeagueDiscoverableVisibility(
         currentLeague.visibility
       );
 
-      return isManagerOwner || isDiscoverable;
+      return isLeagueOrganizer || isDiscoverable;
     });
 
     return Promise.all(

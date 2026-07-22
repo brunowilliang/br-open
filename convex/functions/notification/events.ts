@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../generated/server";
+import { getLeagueNotificationRecipientUserIds } from "../../domains/notification/recipients";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 
 type ScheduleLeagueNotificationInput = {
@@ -9,13 +10,9 @@ type ScheduleLeagueNotificationInput = {
   leagueId: Id<"league">;
   metadata?: Record<string, unknown>;
   recipientUserIds: Id<"user">[];
+  sourceEntityId?: Id<"leagueChallenge"> | string;
+  sourceEntityType?: "leagueChallenge" | "leagueMembership" | string;
 };
-
-export function getLeagueNotificationRecipientUserIds<
-  UserId extends string,
->(input: { actorUserId?: UserId | null; recipientUserIds: UserId[] }) {
-  return Array.from(new Set(input.recipientUserIds));
-}
 
 export async function scheduleLeagueNotification(
   ctx: MutationCtx,
@@ -36,6 +33,12 @@ export async function scheduleLeagueNotification(
       leagueId: input.leagueId,
       metadata: input.metadata ?? {},
       recipientUserIds,
+      ...(input.sourceEntityType && input.sourceEntityId
+        ? {
+            sourceEntityId: input.sourceEntityId,
+            sourceEntityType: input.sourceEntityType,
+          }
+        : {}),
     }
   );
 }

@@ -63,8 +63,8 @@ export default function OrganizationProfile() {
   const form = useForm<EditFormValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(EditFormSchema),
+    reValidateMode: "onChange",
   });
 
   const logo = useOrganizationLogo(
@@ -102,10 +102,10 @@ export default function OrganizationProfile() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar o perfil."
+            "Não foi possível salvar as informações da organização. Tente novamente."
           ),
           id: "update-organization-profile-error",
-          label: "Erro ao atualizar perfil",
+          label: "Falha ao salvar perfil",
           variant: "danger",
         });
       },
@@ -133,9 +133,9 @@ export default function OrganizationProfile() {
         logo.setLogoPreviewUri(null);
         logo.setPendingLogoFile(null);
         toast.show({
-          description: "Perfil da organização atualizado.",
+          description: "As informações da organização foram atualizadas.",
           id: "update-organization-profile-success",
-          label: "Perfil atualizado",
+          label: "Perfil salvo",
           variant: "success",
         });
       },
@@ -168,9 +168,10 @@ export default function OrganizationProfile() {
         )) ?? logoStorageId;
     } catch {
       toast.show({
-        description: "Não foi possível enviar a imagem.",
+        description:
+          "Não foi possível enviar o logo. Verifique sua conexão e tente novamente.",
         id: "organization-logo-submit-error",
-        label: "Erro no upload",
+        label: "Falha no envio da imagem",
         variant: "danger",
       });
       return;

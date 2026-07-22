@@ -1,4 +1,4 @@
-import { BackButton, Page } from "@/components/core/page";
+import { BackButton, Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -95,8 +95,8 @@ export default function LeagueCategoriesRoute() {
   const [nameError, setNameError] = useState<string | null>(null);
   const categories = useWatch({
     control,
-    name: "categories",
     defaultValue: getValues("categories"),
+    name: "categories",
   });
   const error =
     typeof errors.categories?.message === "string"
@@ -106,8 +106,8 @@ export default function LeagueCategoriesRoute() {
     () =>
       categories.map((category, index) => ({
         id: categoryItemIds[index] ?? `${category}-${index}`,
-        name: category,
         index,
+        name: category,
       })),
     [categories, categoryItemIds]
   );

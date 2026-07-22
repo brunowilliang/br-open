@@ -15,25 +15,27 @@ function makeLeagueOverview(
 ): LeagueOverview {
   return {
     activePlayerCount: 0,
+    approvalMode: "auto",
     avatarStorageId: null,
     categories: [],
     city: "Sao Paulo",
     courts: [],
     coverStorageId: null,
     createdAt: 1,
+    gracePeriodDays: 7,
     id: "league-1",
-    isManagerOwner: false,
+    isLeagueOrganizer: false,
     maxPlayers: null,
     mode: "challenges",
     monthlyPriceCents: 9000,
     name: "Liga 1",
     organizationId: "org-1",
     priceBillingInterval: "month",
+    reminderDaysBefore: 3,
     ruleConfig: {
       challengeValidationMode: "manual",
       hasInactivityPenalty: false,
       lossBehavior: "stay_put",
-      scheduleVisibility: "public",
       matchConfig: {
         bestOfSets: 3,
         defaultDurationMinutes: 90,
@@ -61,11 +63,13 @@ function makeLeagueOverview(
       newPlayerPlacement: "end_of_ranking",
       responseDeadlineHours: { enabled: true, value: 48 },
       resultValidationMode: "automatic",
+      scheduleVisibility: "public",
       walkoverBehavior: "automatic_loss",
       winBehavior: "take_opponent_position",
     },
     state: "active",
     updatedAt: 1,
+    viewerMembershipId: null,
     viewerMembershipStatus: null,
     visibility: "public",
     ...overrides,
@@ -110,7 +114,7 @@ describe("leagueDetailsStore$", () => {
       canJoinLeagues: false,
       canUseOrganizerCapabilities: true,
       league: makeLeagueOverview({
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
         viewerMembershipStatus: "active",
       }),
       viewerActor: {
@@ -119,7 +123,7 @@ describe("leagueDetailsStore$", () => {
       },
     });
 
-    expect(String(bucket$.viewer.role)).toBe("owner");
+    expect(String(bucket$.viewer.role)).toBe("organizer");
     expect(bucket$.derived.canOpenRequests()).toBe(true);
   });
 
@@ -150,7 +154,7 @@ describe("leagueDetailsStore$", () => {
       canJoinLeagues: false,
       canUseOrganizerCapabilities: true,
       league: makeLeagueOverview({
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
       }),
       viewerActor: {
         id: "org-1",

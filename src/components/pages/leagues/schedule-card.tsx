@@ -1,3 +1,4 @@
+import { formatMinuteToHHMM } from "@/lib/format/time";
 import { memo } from "react";
 import { View } from "react-native";
 
@@ -12,12 +13,6 @@ type ScheduleCardProps = {
   courtName: string;
   startMinute: number;
 };
-
-function formatMinute(minute: number) {
-  const hour = Math.floor(minute / 60);
-  const currentMinute = minute % 60;
-  return `${String(hour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
-}
 
 function ScheduleCardImpl(props: ScheduleCardProps) {
   return (
@@ -47,7 +42,7 @@ function ScheduleCardImpl(props: ScheduleCardProps) {
           </Text>
         </View>
         <Text color="muted" numberOfLines={1} variant="description">
-          {`${formatMinute(props.startMinute)} · ${props.courtName}`}
+          {`${formatMinuteToHHMM(props.startMinute)} · ${props.courtName}`}
         </Text>
       </View>
     </View>

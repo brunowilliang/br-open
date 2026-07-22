@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  buildChallengeAdminMenuActionIds,
+  buildChallengeOrganizerMenuActionIds,
   buildChallengeRouteEmptyState,
   buildChallengeRouteInitialTab,
   buildChallengeRouteVisibleChallenges,
@@ -34,12 +34,12 @@ const sampleChallenges: SampleChallenge[] = [
     id: "challenge-b",
     status: "confirmed",
   },
-  // Não envolve viewer; esperando validação do admin.
+  // Não envolve viewer; esperando validação do organizador.
   {
     challenged: { membershipId: "challenged-c", playerProfileId: "other-c" },
     challenger: { membershipId: "challenger-c", playerProfileId: "other-d" },
     id: "challenge-c",
-    status: "pending_admin_result_validation",
+    status: "pending_organizer_result_validation",
   },
   // Não envolve viewer; finalizado.
   {
@@ -77,7 +77,7 @@ describe("buildChallengeRouteInitialTab", () => {
   });
 });
 
-describe("buildChallengeRouteVisibleChallenges (admin)", () => {
+describe("buildChallengeRouteVisibleChallenges (organizer)", () => {
   it("shows only admin-attention challenges on the attention tab", () => {
     const visible = buildChallengeRouteVisibleChallenges({
       activeTab: "attention",
@@ -156,10 +156,10 @@ describe("buildChallengeRouteVisibleChallenges (participant)", () => {
   });
 });
 
-describe("buildChallengeAdminMenuActionIds", () => {
+describe("buildChallengeOrganizerMenuActionIds", () => {
   it("lets managers launch a score for challenges waiting on a score", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: null,
         status: "pending_result_submission",
       })
@@ -168,52 +168,55 @@ describe("buildChallengeAdminMenuActionIds", () => {
 
   it("lets managers launch a score when players never submitted (admin decision)", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: null,
-        status: "pending_admin_decision",
+        status: "pending_organizer_decision",
       })
     ).toContain("submit_result");
   });
 
   it("lets managers nudge players to submit the score on admin decision", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: null,
-        status: "pending_admin_decision",
+        status: "pending_organizer_decision",
       })
     ).toContain("request_result_reminder");
   });
 
   it("lets managers edit score and reopen result for finished challenges", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: { id: "result-1" },
         status: "finished",
       })
-    ).toEqual(["submit_result", "reopen_result", "admin_invalidate"]);
+    ).toEqual(["submit_result", "reopen_result", "organizer_invalidate"]);
   });
 
-  it("keeps response-only challenges limited to cancellation", () => {
+  it("keeps response-only challenges limited to cancellation (not invalidation)", () => {
+    // pending_opponent_response is NOT invalidatable on the backend — cancel
+    // is the only admin stop action for the proposal phase. Mirrors
+    // ADMIN_INVALIDATABLE_STATUSES (excludes pending-proposal statuses).
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: null,
         status: "pending_opponent_response",
       })
-    ).toEqual(["admin_invalidate", "admin_cancel"]);
+    ).toEqual(["organizer_cancel"]);
   });
 
   it("keeps cancel as the last danger action when invalidate is also available", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: null,
         status: "confirmed",
       }).slice(-2)
-    ).toEqual(["admin_invalidate", "admin_cancel"]);
+    ).toEqual(["organizer_invalidate", "organizer_cancel"]);
   });
 
   it("keeps pending_result_correction in the attention bucket with score edit", () => {
     expect(
-      buildChallengeAdminMenuActionIds({
+      buildChallengeOrganizerMenuActionIds({
         latestResultSubmission: { id: "result-2" },
         status: "pending_result_correction",
       })

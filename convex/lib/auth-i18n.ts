@@ -70,9 +70,9 @@ export const authTranslations = {
     INVALID_TWO_FACTOR_COOKIE:
       "Cookie de autenticação de dois fatores inválido.",
     INVALID_USER: "Usuário inválido.",
+    INVALID_USER_CODE: "Código do usuário inválido.",
     INVALID_USERNAME: "Nome de usuário inválido.",
     INVALID_USERNAME_OR_PASSWORD: "Nome de usuário ou senha inválidos.",
-    INVALID_USER_CODE: "Código do usuário inválido.",
     INVITATION_LIMIT_REACHED: "Limite de convites atingido.",
     INVITATION_NOT_FOUND: "Convite não encontrado.",
     INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION:
@@ -138,28 +138,30 @@ export const authTranslations = {
     UNABLE_TO_REMOVE_LAST_TEAM: "Não é possível remover a última equipe.",
     UNEXPECTED_ERROR: "Erro inesperado.",
     UNKNOWN_ERROR: "Algo deu errado.",
-    USER_ALREADY_HAS_PASSWORD:
-      "Usuário já possui uma senha. Informe essa senha para excluir a conta.",
     USER_ALREADY_EXISTS: "Usuário já existe.",
     USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL:
       "Usuário já existe. Use outro e-mail.",
+    USER_ALREADY_HAS_PASSWORD:
+      "Usuário já possui uma senha. Informe essa senha para excluir a conta.",
     USER_EMAIL_NOT_FOUND: "E-mail do usuário não encontrado.",
-    USERNAME_IS_ALREADY_TAKEN: "Nome de usuário já está em uso. Tente outro.",
-    USERNAME_TOO_LONG: "Nome de usuário muito longo.",
-    USERNAME_TOO_SHORT: "Nome de usuário muito curto.",
     USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION:
       "Usuário já é membro desta organização.",
     USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION:
       "Usuário já foi convidado para esta organização.",
-    USER_IS_NOT_ANONYMOUS: "Usuário não é anônimo.",
     USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION:
       "Usuário não é membro da organização.",
     USER_IS_NOT_A_MEMBER_OF_THE_TEAM: "Usuário não é membro da equipe.",
+    USER_IS_NOT_ANONYMOUS: "Usuário não é anônimo.",
     USER_NOT_FOUND: "Usuário não encontrado.",
+    USERNAME_IS_ALREADY_TAKEN: "Nome de usuário já está em uso. Tente outro.",
+    USERNAME_TOO_LONG: "Nome de usuário muito longo.",
+    USERNAME_TOO_SHORT: "Nome de usuário muito curto.",
     VALIDATION_ERROR: "Erro de validação.",
     VERIFICATION_EMAIL_NOT_ENABLED:
       "E-mail de verificação não está habilitado.",
     VERIFICATION_FAILED: "Falha na verificação.",
+    YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION:
+      "Você não é membro desta organização.",
     YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION:
       "Você não tem permissão para acessar esta organização como proprietário.",
     YOU_ARE_NOT_ALLOWED_TO_BAN_USERS:
@@ -198,10 +200,10 @@ export const authTranslations = {
       "Você não tem permissão para obter o usuário.",
     YOU_ARE_NOT_ALLOWED_TO_IMPERSONATE_USERS:
       "Você não tem permissão para assumir usuários.",
-    YOU_ARE_NOT_ALLOWED_TO_INVITE_USERS_TO_THIS_ORGANIZATION:
-      "Você não tem permissão para convidar usuários para esta organização.",
     YOU_ARE_NOT_ALLOWED_TO_INVITE_USER_WITH_THIS_ROLE:
       "Você não tem permissão para convidar um usuário com esta função.",
+    YOU_ARE_NOT_ALLOWED_TO_INVITE_USERS_TO_THIS_ORGANIZATION:
+      "Você não tem permissão para convidar usuários para esta organização.",
     YOU_ARE_NOT_ALLOWED_TO_LIST_A_ROLE:
       "Você não tem permissão para listar funções.",
     YOU_ARE_NOT_ALLOWED_TO_LIST_USERS:
@@ -228,10 +230,10 @@ export const authTranslations = {
       "Você não tem permissão para atualizar esta equipe.",
     YOU_ARE_NOT_ALLOWED_TO_UPDATE_USERS:
       "Você não tem permissão para atualizar usuários.",
-    YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION:
-      "Você não é membro desta organização.",
     YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION:
       "Você não é o destinatário do convite.",
+    YOU_CAN_NOT_ACCESS_THE_MEMBERS_OF_THIS_TEAM:
+      "Você não tem permissão para listar os membros desta equipe.",
     YOU_CANNOT_BAN_YOURSELF: "Você não pode banir a si mesmo.",
     YOU_CANNOT_IMPERSONATE_ADMINS: "Você não pode assumir administradores.",
     YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER:
@@ -239,8 +241,6 @@ export const authTranslations = {
     YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER:
       "Você não pode sair da organização sem deixar um proprietário.",
     YOU_CANNOT_REMOVE_YOURSELF: "Você não pode remover a si mesmo.",
-    YOU_CAN_NOT_ACCESS_THE_MEMBERS_OF_THIS_TEAM:
-      "Você não tem permissão para listar os membros desta equipe.",
     YOU_DO_NOT_HAVE_AN_ACTIVE_TEAM: "Você não possui uma equipe ativa.",
     YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS:
       "Você atingiu o número máximo de organizações.",

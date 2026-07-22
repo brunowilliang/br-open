@@ -6,7 +6,7 @@ import { Button, Menu, Tabs } from "heroui-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/page";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { ScheduleCard } from "@/components/pages/leagues/schedule-card";
 import { EmptyState } from "@/components/ui/empty-state";

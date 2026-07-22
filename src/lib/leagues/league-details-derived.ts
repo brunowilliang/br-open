@@ -1,11 +1,23 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
+import { clampToNonNegativeInt } from "@/lib/numbers";
+import {
+  formatFinalSet,
+  formatInactivity,
+  formatLossBehavior,
+  formatNewPlayerPlacement,
+  formatResponseDeadlineHours,
+  formatScoringMode,
+  formatTieBreak,
+  formatWalkoverBehavior,
+  formatWinBehavior,
+} from "@/lib/leagues/rule-format";
+
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type MembershipOverview = ApiOutputs["league"]["membership"]["getOverview"];
-type RuleConfig = LeagueOverview["ruleConfig"];
 type RankingEntry = MembershipOverview["ranking"][number];
 
-export type LeagueDetailsRole = "visitor" | "participant" | "owner";
+export type LeagueDetailsRole = "guest" | "player" | "organizer";
 
 export type LeagueDetailsAccess = {
   canOpenChallenges: boolean;
@@ -69,29 +81,29 @@ export type LeagueDetailsRulesView = {
 
 export function buildLeagueDetailsRole(input: {
   canUseOrganizerCapabilities: boolean;
-  isManagerOwner: boolean;
+  isLeagueOrganizer: boolean;
   viewerMembershipStatus: null | string | undefined;
 }): LeagueDetailsRole {
-  if (input.canUseOrganizerCapabilities && input.isManagerOwner) {
-    return "owner";
+  if (input.canUseOrganizerCapabilities && input.isLeagueOrganizer) {
+    return "organizer";
   }
 
   if (input.viewerMembershipStatus === "active") {
-    return "participant";
+    return "player";
   }
 
-  return "visitor";
+  return "guest";
 }
 
 export function buildLeagueDetailsAccess(input: {
   role: LeagueDetailsRole;
   scheduleVisibility: "members_only" | "public";
 }): LeagueDetailsAccess {
-  const isMember = input.role === "participant" || input.role === "owner";
+  const isMember = input.role === "player" || input.role === "organizer";
   return {
     canOpenChallenges: isMember,
     canOpenRanking: isMember,
-    canOpenRequests: input.role === "owner",
+    canOpenRequests: input.role === "organizer",
     canOpenRules: true,
     canOpenSchedule: input.scheduleVisibility === "public" ? true : isMember,
   };
@@ -109,20 +121,16 @@ export function buildLeagueDetailsCanOpenLeagueMenu(
   );
 }
 
-function normalizeActionCount(value: number) {
-  return Math.max(0, Math.trunc(value));
-}
-
 export function buildLeagueDetailsMenuActionCounts(input: {
   access: LeagueDetailsAccess;
   challengeActionCount: number;
   requestActionCount: number;
 }) {
   const challenges = input.access.canOpenChallenges
-    ? normalizeActionCount(input.challengeActionCount)
+    ? clampToNonNegativeInt(input.challengeActionCount)
     : 0;
   const requests = input.access.canOpenRequests
-    ? normalizeActionCount(input.requestActionCount)
+    ? clampToNonNegativeInt(input.requestActionCount)
     : 0;
 
   return {
@@ -143,10 +151,28 @@ export function buildLeagueDetailsCanRequestJoin(input: {
   role: LeagueDetailsRole;
   viewerMembershipStatus: null | string | undefined;
 }) {
+  const isAwaitingAction =
+    input.viewerMembershipStatus === "pending" ||
+    input.viewerMembershipStatus === "awaiting_payment" ||
+    input.viewerMembershipStatus === "payment_due" ||
+    input.viewerMembershipStatus === "suspended";
+  return input.canJoinLeagues && input.role === "guest" && !isAwaitingAction;
+}
+
+/**
+ * When the viewer is `awaiting_payment` (initial charge), `payment_due`
+ * (grace period — can still play but needs to pay), or `suspended`
+ * (renewal overdue), the join button becomes a shortcut to the checkout
+ * screen. This is independent of `canRequestJoin` which gates the *initial*
+ * join request.
+ */
+export function buildLeagueDetailsCanResumeCheckout(input: {
+  viewerMembershipStatus: null | string | undefined;
+}) {
   return (
-    input.canJoinLeagues &&
-    input.role === "visitor" &&
-    input.viewerMembershipStatus !== "pending"
+    input.viewerMembershipStatus === "awaiting_payment" ||
+    input.viewerMembershipStatus === "payment_due" ||
+    input.viewerMembershipStatus === "suspended"
   );
 }
 
@@ -154,7 +180,7 @@ export function buildLeagueDetailsShowJoinFooter(input: {
   canJoinLeagues: boolean;
   role: LeagueDetailsRole;
 }) {
-  return input.canJoinLeagues && input.role === "visitor";
+  return input.canJoinLeagues && input.role === "guest";
 }
 
 export function buildLeagueDetailsRequestItems(
@@ -244,7 +270,7 @@ export function buildLeagueDetailsRankingItems(input: {
   return items.map((item) => ({
     ...item,
     isChallengeable:
-      input.role === "participant" &&
+      input.role === "player" &&
       typeof viewerPosition === "number" &&
       item.playerProfileId !== input.viewerPlayerProfileId &&
       item.position < viewerPosition &&
@@ -267,110 +293,6 @@ function buildRankingItem(input: {
     playerProfileId: input.item.playerProfileId,
     position: input.position,
   } satisfies LeagueDetailsRankingItem;
-}
-
-function formatResponseDeadlineHours(hours: number) {
-  switch (hours) {
-    case 12:
-      return "12 horas";
-    case 24:
-      return "24 horas";
-    case 48:
-      return "48 horas";
-    case 72:
-      return "3 dias";
-    case 120:
-      return "5 dias";
-    case 168:
-      return "7 dias";
-    default:
-      return `${hours} horas`;
-  }
-}
-
-function formatWinBehavior(value: RuleConfig["winBehavior"]) {
-  switch (value) {
-    case "climb_one_position":
-      return "Quem vence sobe 1 posição.";
-    default:
-      return "Quem vence assume a posição do adversário.";
-  }
-}
-
-function formatLossBehavior(value: RuleConfig["lossBehavior"]) {
-  switch (value) {
-    case "drop_one_position":
-      return "Quem perde cai 1 posição.";
-    default:
-      return "Quem perde permanece onde está.";
-  }
-}
-
-function formatWalkoverBehavior(value: RuleConfig["walkoverBehavior"]) {
-  switch (value) {
-    case "automatic_loss_and_move_to_end":
-      return "W.O. conta como derrota e leva o jogador ao final do ranking.";
-    case "cancel_challenge":
-      return "W.O. cancela o desafio e libera os jogadores.";
-    default:
-      return "W.O. conta como derrota automática.";
-  }
-}
-
-function formatNewPlayerPlacement(value: RuleConfig["newPlayerPlacement"]) {
-  switch (value) {
-    case "end_of_ranking":
-    default:
-      return "Novos jogadores entram no final do ranking.";
-  }
-}
-
-function formatScoringMode(value: RuleConfig["matchConfig"]["scoringMode"]) {
-  switch (value) {
-    case "no_advantage":
-      return "Sem vantagem";
-    default:
-      return "Com vantagem";
-  }
-}
-
-function formatTieBreak(ruleConfig: RuleConfig) {
-  const { matchConfig } = ruleConfig;
-
-  if (!matchConfig.hasTieBreak) {
-    return "Sets sem tie-break";
-  }
-
-  const differenceRule = matchConfig.tieBreakMustWinByTwo
-    ? "com 2 de diferença"
-    : "ponto decisivo";
-
-  return `Tie-break em ${matchConfig.tieBreakAtGamesAll}x${matchConfig.tieBreakAtGamesAll}, ${matchConfig.tieBreakPoints} pontos, ${differenceRule}`;
-}
-
-function formatFinalSet(ruleConfig: RuleConfig) {
-  const { matchConfig } = ruleConfig;
-
-  switch (matchConfig.finalSetMode) {
-    case "custom_set":
-      return `Último set com ${matchConfig.finalSetGamesPerSet} games`;
-    case "super_tiebreak":
-      return `Último set em super tie-break de ${matchConfig.finalSetSuperTieBreakPoints} pontos`;
-    default:
-      return "Último set igual aos anteriores";
-  }
-}
-
-function formatInactivity(ruleConfig: RuleConfig) {
-  if (!ruleConfig.hasInactivityPenalty) {
-    return "A liga não aplica queda automática por inatividade.";
-  }
-
-  if (ruleConfig.inactivityPenaltyType === "move_to_ranking_end") {
-    return `Após ${ruleConfig.inactivityPenaltyDays} dias sem jogar, o jogador vai para o final do ranking.`;
-  }
-
-  return `Após ${ruleConfig.inactivityPenaltyDays} dias sem jogar, o jogador cai 1 posição.`;
 }
 
 export function buildLeagueRulesView(

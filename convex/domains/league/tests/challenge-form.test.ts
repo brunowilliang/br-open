@@ -12,8 +12,8 @@ function finishedChallenge(input: {
   finishedAt: number;
 }): FormFinishedChallenge {
   return {
-    challengerMembershipId: input.challenger,
     challengedMembershipId: input.challenged,
+    challengerMembershipId: input.challenger,
     finishedAt: input.finishedAt,
     winnerMembershipId: input.winner,
   };

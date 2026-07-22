@@ -36,7 +36,6 @@ import {
 
 type RankingItem = LeagueDetailsRankingItem;
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tela de ranking aglutina mutations, dialogs e reorder; estados renderizados inline
 export default function LeagueRankingRoute() {
   const { leagueId } = useLocalSearchParams<{
     leagueId: string;
@@ -87,15 +86,6 @@ export default function LeagueRankingRoute() {
 
   const createChallenge = useMutation(
     crpc.league.challenges.create.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Desafio enviado com sucesso.",
-          id: "create-challenge-success",
-          label: "Desafio criado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show(
           getCreateChallengeErrorToast(
@@ -103,30 +93,40 @@ export default function LeagueRankingRoute() {
           )
         );
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description:
+            "Seu adversário foi notificado e pode responder a qualquer momento.",
+          id: "create-challenge-success",
+          label: "Desafio enviado",
+          variant: "success",
+        });
+      },
     })
   );
 
   const removeMembership = useMutation(
     crpc.league.membership.remove.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Jogador removido com sucesso.",
-          id: "remove-membership-success",
-          label: "Jogador removido",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         setPendingOrderIds(null);
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível remover o jogador."
+            "Não foi possível remover o jogador. Tente novamente."
           ),
           id: "remove-membership-error",
-          label: "Erro ao remover jogador",
+          label: "Falha ao remover jogador",
           variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O jogador foi retirado do ranking desta liga.",
+          id: "remove-membership-success",
+          label: "Jogador removido",
+          variant: "success",
         });
       },
     })
@@ -134,24 +134,24 @@ export default function LeagueRankingRoute() {
 
   const reorderRanking = useMutation(
     crpc.league.membership.reorderRanking.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Ranking atualizado com sucesso.",
-          id: "reorder-ranking-success",
-          label: "Ranking atualizado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível atualizar o ranking."
+            "Não foi possível salvar a nova ordem. Tente novamente."
           ),
           id: "reorder-ranking-error",
-          label: "Erro ao atualizar ranking",
+          label: "Falha ao atualizar ranking",
           variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "A nova ordem foi salva.",
+          id: "reorder-ranking-success",
+          label: "Ranking atualizado",
+          variant: "success",
         });
       },
     })

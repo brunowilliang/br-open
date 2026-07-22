@@ -14,52 +14,47 @@ import {
 
 export const Page1 = () => (
   <View className="centered size-full overflow-hidden rounded-[50px] bg-surface p-0">
-    <Text className="px-4 text-center" color="accent" variant="heading">
-      {"Torneios, copas e ligas\nno ritmo do seu jogo."}
-    </Text>
+    <View className="centered w-full flex-1 gap-2">
+      <Text className="px-4 text-center" color="accent" variant="heading">
+        Você joga pra ganhar.
+      </Text>
+      <Text className="px-4 text-center text-muted/70">
+        O BR Open é pra quem leva o jogo a sério. Torneios, copas e ligas num só
+        lugar.
+      </Text>
+    </View>
   </View>
 );
 
 export const Page2 = () => (
   <View className="centered size-full overflow-hidden rounded-[50px] bg-surface p-0">
-    <View className="centered w-full flex-1">
-      <Text
-        className="px-4 text-center md:mb-40"
-        color="accent"
-        variant="heading"
-      >
-        {"Descubra.\nInscreva-se.\nAcompanhe."}
+    <View className="centered w-full flex-1 gap-2">
+      <Text className="px-4 text-center" color="accent" variant="heading">
+        Da inscrição ao pódio.
       </Text>
-      <Text className="px-4 text-center text-muted/70 md:mt-20">
-        Encontre competições por cidade, categoria e data. Veja chaves,
-        horários, quadras e resultados sem perder o próximo jogo.
+      <Text className="px-4 text-center text-muted/70">
+        Achou o torneio, jogou, subiu no ranking. Chaves e horários sem rodeio.
       </Text>
     </View>
-    <Text className="absolute bottom-4 px-4 text-muted/40" size="xs">
-      Do primeiro saque ao último ponto
-    </Text>
   </View>
 );
 
 export const Page3 = () => (
-  <View className="centered size-full gap-4 rounded-[50px] bg-surface px-4">
-    <Text className="text-center" color="accent" variant="heading">
-      Para jogadores, clubes e organizadores
-    </Text>
-    <Text className="text-center text-muted/70">
-      O{" "}
-      <Text color="accent" weight="semibold">
-        BR Open
-      </Text>{" "}
-      conecta quem joga com quem organiza: inscrições, rankings, notificações e
-      gestão de competições em uma experiência mobile.
-    </Text>
+  <View className="centered size-full gap-5 rounded-[50px] bg-surface px-4">
+    <View className="gap-2">
+      <Text className="text-center" color="accent" variant="heading">
+        {"Sua próxima vitória\ncomeça aqui"}
+      </Text>
+      <Text className="text-center text-muted/70">
+        {"Crie sua conta e entre na próxima\ncompetição da sua cidade."}
+      </Text>
+    </View>
     <Button
       className="w-full"
       onPress={() => router.navigate("/sign-in")}
       testID="get-started"
     >
-      Começe a jogar agora
+      Começar agora
     </Button>
   </View>
 );
@@ -98,8 +93,8 @@ export default function Onboarding() {
   const nextPage = (newIndex: number = activeIndex + 1) => {
     if (newIndex < onboardingData.length) {
       ref.current?.scrollToIndex({
-        index: newIndex,
         animated: true,
+        index: newIndex,
         viewOffset: itemPadding - itemMargin,
       });
     }
@@ -108,8 +103,8 @@ export default function Onboarding() {
   const prevPage = (newIndex: number = activeIndex - 1) => {
     if (newIndex >= 0 && newIndex < onboardingData.length) {
       ref.current?.scrollToIndex({
-        index: newIndex,
         animated: true,
+        index: newIndex,
         viewOffset: itemPadding - itemMargin,
       });
     }
@@ -146,8 +141,8 @@ export default function Onboarding() {
               }
             }}
             style={{
-              width: itemWidth,
               marginHorizontal: itemMargin,
+              width: itemWidth,
             }}
           >
             {item}

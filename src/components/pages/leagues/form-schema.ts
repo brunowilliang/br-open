@@ -25,22 +25,25 @@ const LeagueMatchConfigFormSchema = LeagueMatchConfigSchema.superRefine(
 );
 
 export const LeagueSchema = z.object({
-  name: CreateLeagueSchema.shape.name,
-  description: CreateLeagueSchema.shape.description,
-  city: CreateLeagueSchema.shape.city,
-  state: CreateLeagueSchema.shape.state,
-  locationNotes: CreateLeagueSchema.shape.locationNotes,
-  visibility: CreateLeagueSchema.shape.visibility,
+  approvalMode: CreateLeagueSchema.shape.approvalMode,
+  avatarStorageId: CreateLeagueSchema.shape.avatarStorageId,
   categories: CreateLeagueSchema.shape.categories,
+  city: CreateLeagueSchema.shape.city,
   courts: CreateLeagueSchema.shape.courts,
+  coverStorageId: CreateLeagueSchema.shape.coverStorageId,
+  description: CreateLeagueSchema.shape.description,
+  gracePeriodDays: CreateLeagueSchema.shape.gracePeriodDays,
+  locationNotes: CreateLeagueSchema.shape.locationNotes,
   maxPlayers: CreateLeagueSchema.shape.maxPlayers,
   monthlyPriceCents: CreateLeagueSchema.shape.monthlyPriceCents,
+  name: CreateLeagueSchema.shape.name,
   priceBillingInterval: CreateLeagueSchema.shape.priceBillingInterval,
-  coverStorageId: CreateLeagueSchema.shape.coverStorageId,
-  avatarStorageId: CreateLeagueSchema.shape.avatarStorageId,
+  reminderDaysBefore: CreateLeagueSchema.shape.reminderDaysBefore,
   ruleConfig: CreateLeagueSchema.shape.ruleConfig.safeExtend({
     matchConfig: LeagueMatchConfigFormSchema,
   }),
+  state: CreateLeagueSchema.shape.state,
+  visibility: CreateLeagueSchema.shape.visibility,
 });
 
 export type LeagueScreenValues = z.infer<typeof LeagueSchema>;

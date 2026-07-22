@@ -1,27 +1,28 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import {
   Button,
   FieldError,
   Input,
   Label,
+  LinkButton,
   Separator,
   TextField,
   useToast,
 } from "heroui-native";
 import { SocialAuthButton } from "heroui-native-pro";
-import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Platform, ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { z } from "zod";
 
 import { Image, LogoImage } from "@/components/core/image";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   useSignInMutationOptions,
-  useSignInSocialMutationOptions,
+  useSocialAuth,
 } from "@/lib/convex/auth-client";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
@@ -32,18 +33,9 @@ const SignInFormSchema = z.object({
     .min(6, "Sua senha deve ter no mínimo 6 caracteres"),
 });
 
-type AppleIdTokenUser = {
-  email?: string;
-  name?: {
-    firstName?: string;
-    lastName?: string;
-  };
-};
-
 export default function SignIn() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAppleSignInPending, setIsAppleSignInPending] = useState(false);
 
   const signIn = useMutation(
     useSignInMutationOptions({
@@ -51,7 +43,7 @@ export default function SignIn() {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível autenticar."
+            "Verifique seu e-mail e senha e tente novamente."
           ),
           id: "sign-in-auth-error",
           label: "Não foi possível entrar",
@@ -61,7 +53,7 @@ export default function SignIn() {
     })
   );
 
-  const signInSocial = useMutation(useSignInSocialMutationOptions());
+  const socialAuth = useSocialAuth("sign-in");
 
   const form = useForm({
     defaultValues: {
@@ -69,15 +61,12 @@ export default function SignIn() {
       password: "",
     },
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(SignInFormSchema),
+    reValidateMode: "onChange",
   });
 
   const isSubmitPending =
-    signIn.isPending ||
-    signInSocial.isPending ||
-    form.formState.isSubmitting ||
-    isAppleSignInPending;
+    signIn.isPending || socialAuth.isPending || form.formState.isSubmitting;
   const handleSubmitPress = form.handleSubmit(async (values) => {
     signIn.reset();
 
@@ -88,219 +77,133 @@ export default function SignIn() {
     });
   });
 
-  function signInWithAppleOAuth() {
-    return signInSocial.mutateAsync({
-      callbackURL: "/",
-      provider: "apple",
-    });
-  }
-
-  async function signInWithNativeApple() {
-    const isAvailable = await AppleAuthentication.isAvailableAsync();
-
-    if (!isAvailable) {
-      throw new Error(
-        "Login nativo com Apple indisponível neste build. Rebuild o app iOS."
-      );
-    }
-
-    const credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-    });
-
-    if (!credential.identityToken) {
-      throw new Error("A Apple não retornou o token de autenticação.");
-    }
-
-    const appleUser: AppleIdTokenUser = {};
-    const firstName = credential.fullName?.givenName ?? undefined;
-    const lastName = credential.fullName?.familyName ?? undefined;
-
-    if (credential.email) {
-      appleUser.email = credential.email;
-    }
-
-    if (firstName || lastName) {
-      appleUser.name = { firstName, lastName };
-    }
-
-    return signInSocial.mutateAsync({
-      callbackURL: "/",
-      idToken: {
-        token: credential.identityToken,
-        ...(Object.keys(appleUser).length > 0 ? { user: appleUser } : {}),
-      },
-      provider: "apple",
-    });
-  }
-
-  async function handleApplePress() {
+  function handleSocialApple() {
     signIn.reset();
-    signInSocial.reset();
-    setIsAppleSignInPending(true);
-
-    try {
-      await (Platform.OS === "ios"
-        ? signInWithNativeApple()
-        : signInWithAppleOAuth());
-    } catch (error) {
-      const isAppleSignInCanceled =
-        error instanceof Error &&
-        error.message === "The user canceled the authorization attempt";
-
-      if (isAppleSignInCanceled) {
-        return;
-      }
-
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível autenticar com a Apple."
-        ),
-        id: "sign-in-apple-error",
-        label: "Não foi possível entrar",
-        variant: "danger",
-      });
-    } finally {
-      setIsAppleSignInPending(false);
-    }
+    socialAuth.handleApplePress();
   }
 
-  async function handleGooglePress() {
+  function handleSocialGoogle() {
     signIn.reset();
-    signInSocial.reset();
-
-    try {
-      await signInSocial.mutateAsync({
-        callbackURL: "/",
-        provider: "google",
-      });
-    } catch (error) {
-      const isGoogleSignInCanceled =
-        error instanceof Error &&
-        error.message === "Authentication did not complete. Try again.";
-
-      if (isGoogleSignInCanceled) {
-        return;
-      }
-
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível autenticar com o Google."
-        ),
-        id: "sign-in-google-error",
-        label: "Não foi possível entrar",
-        variant: "danger",
-      });
-    }
+    socialAuth.handleGooglePress();
   }
 
   return (
-    <ScrollView
-      className="bg-background"
-      contentContainerClassName="grow gap-5 items-center justify-center px-4"
-    >
-      <View className="w-full items-center">
+    <Page>
+      <Page.Header overlay>
+        <Page.Header.Left>
+          <Page.Header.BackButton />
+        </Page.Header.Left>
+        <Page.Header.Center>
+          <Page.Header.Title>Entrar</Page.Header.Title>
+        </Page.Header.Center>
+        <Page.Header.Right />
+      </Page.Header>
+      <Page.ScrollView contentContainerClassName="gap-5 centered px-4">
         <Image.Background
-          className="aspect-square size-25"
+          className="aspect-square size-20"
+          fallback="none"
           source={LogoImage}
         />
-        <Text variant="title">Faça seu Login</Text>
-      </View>
 
-      <View className="w-full gap-2">
-        <Controller
-          control={form.control}
-          name="email"
-          render={({ field, fieldState }) => (
-            <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-              <Label>E-mail</Label>
-              <Input
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isSubmitPending}
-                keyboardType="email-address"
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                placeholder="voce@email.com"
-                returnKeyType="next"
-                textContentType="emailAddress"
-                value={field.value ?? ""}
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
+        <View className="w-full gap-2">
+          <Controller
+            control={form.control}
+            name="email"
+            render={({ field, fieldState }) => (
+              <TextField isInvalid={Boolean(fieldState.error)} isRequired>
+                <Label>E-mail</Label>
+                <Input
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!isSubmitPending}
+                  keyboardType="email-address"
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="voce@email.com"
+                  returnKeyType="next"
+                  textContentType="emailAddress"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="password"
-          render={({ field, fieldState }) => (
-            <TextField isInvalid={Boolean(fieldState.error)} isRequired>
-              <Label>Senha</Label>
-              <Input
-                autoCapitalize="none"
-                autoComplete="current-password"
-                editable={!isSubmitPending}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                onSubmitEditing={handleSubmitPress}
-                placeholder="Sua senha"
-                returnKeyType="done"
-                secureTextEntry
-                textContentType="password"
-                value={field.value ?? ""}
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
-      </View>
+          <Controller
+            control={form.control}
+            name="password"
+            render={({ field, fieldState }) => (
+              <TextField isInvalid={Boolean(fieldState.error)} isRequired>
+                <Label>Senha</Label>
+                <PasswordInput
+                  autoCapitalize="none"
+                  autoComplete="current-password"
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  onSubmitEditing={handleSubmitPress}
+                  placeholder="Sua senha"
+                  returnKeyType="done"
+                  textContentType="password"
+                  value={field.value ?? ""}
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-      <Button
-        className="w-full"
-        isDisabled={isSubmitPending}
-        onPress={handleSubmitPress}
-        variant="primary"
-      >
-        <Button.Label>
-          {isSubmitPending ? "Entrando..." : "Entrar"}
-        </Button.Label>
-      </Button>
+          <LinkButton
+            className="self-end"
+            onPress={() => router.navigate("/forgot-password")}
+            size="sm"
+          >
+            Esqueci minha senha
+          </LinkButton>
+        </View>
 
-      <View className="mx-15 flex-row items-center gap-3">
-        <Separator className="flex-1" />
-        <Text className="text-muted text-sm">ou</Text>
-        <Separator className="flex-1" />
-      </View>
-
-      <View className="flex-row gap-3">
-        <SocialAuthButton
-          className="flex-1"
+        <Button
+          className="w-full"
           isDisabled={isSubmitPending}
-          onPress={handleApplePress}
-          provider="apple"
-        />
-        <SocialAuthButton
-          className="flex-1"
-          isDisabled={isSubmitPending}
-          onPress={handleGooglePress}
-          provider="google"
-        />
-      </View>
+          onPress={handleSubmitPress}
+          variant="primary"
+        >
+          <Button.Label>
+            {isSubmitPending ? "Entrando..." : "Entrar"}
+          </Button.Label>
+        </Button>
 
-      <Button
-        className="w-full"
-        isDisabled={isSubmitPending}
-        onPress={() => router.navigate("/sign-up")}
-        variant="ghost"
-      >
-        <Button.Label>Criar conta</Button.Label>
-      </Button>
-    </ScrollView>
+        <View className="mx-10 flex-row items-center gap-3">
+          <Separator className="flex-1" />
+          <Text className="text-muted text-sm">ou</Text>
+          <Separator className="flex-1" />
+        </View>
+
+        <View className="flex-row gap-3">
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={handleSocialApple}
+            provider="apple"
+            // variant="tertiary"
+          />
+          <SocialAuthButton
+            className="flex-1"
+            isDisabled={isSubmitPending}
+            onPress={handleSocialGoogle}
+            provider="google"
+            // variant="tertiary"
+          />
+        </View>
+
+        <Button
+          className="w-full"
+          isDisabled={isSubmitPending}
+          onPress={() => router.navigate("/sign-up")}
+          variant="ghost"
+        >
+          <Button.Label>Criar conta</Button.Label>
+        </Button>
+      </Page.ScrollView>
+    </Page>
   );
 }

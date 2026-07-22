@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { privateAction, privateMutation } from "../../lib/crpc";
+import { getEnv } from "../../lib/get-env";
 import { z } from "zod";
 import type { MutationCtx } from "../generated/server";
 
@@ -8,10 +9,15 @@ import {
   NotificationDeliveryStateSchema,
   NotificationEventTypeSchema,
 } from "../../domains/notification/contract";
+import { eq } from "kitcn/orm";
 import {
   buildNotificationContent,
   getNotificationPushCategoryId,
 } from "../../domains/notification/definitions";
+import {
+  notificationDelivery,
+  notificationFeed,
+} from "../../domains/notification/tables";
 
 const EXPO_PUSH_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const MAX_DELIVERIES_PER_BATCH = 100;
@@ -41,6 +47,8 @@ const createForRecipientsSchema = z.object({
   leagueId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).optional(),
   recipientUserIds: z.array(z.string().min(1)).min(1),
+  sourceEntityId: z.string().min(1).optional(),
+  sourceEntityType: z.string().min(1).optional(),
 });
 
 type RecipientActor =
@@ -132,8 +140,12 @@ async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
     .query("notificationDelivery")
     .withIndex("state", (q) => q.eq("state", "needs_retry"))
     .first();
+  const maybeDelivery = await ctx.db
+    .query("notificationDelivery")
+    .withIndex("state", (q) => q.eq("state", "maybe_delivered"))
+    .first();
 
-  if (!(pendingDelivery || retryDelivery)) {
+  if (!(pendingDelivery || retryDelivery || maybeDelivery)) {
     return;
   }
 
@@ -154,9 +166,9 @@ async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
     await ctx.db.patch(existingLock._id, { claimedAt: now, expiresAt });
   } else {
     await ctx.db.insert("notificationDeliveryLock", {
-      key: SEND_PENDING_LOCK_KEY,
       claimedAt: now,
       expiresAt,
+      key: SEND_PENDING_LOCK_KEY,
     });
   }
 
@@ -217,7 +229,7 @@ export const createForRecipients = privateMutation
         leagueName: league.name,
         metadata: input.metadata,
         recipientRole:
-          recipientActor.kind === "organization" ? "manager" : "player",
+          recipientActor.kind === "organization" ? "organizer" : "player",
       });
 
       const feedId = await ctx.db.insert("notificationFeed", {
@@ -231,6 +243,9 @@ export const createForRecipients = privateMutation
         recipientOrganizationId: recipientActor.organizationId ?? undefined,
         recipientPlayerProfileId: recipientActor.playerProfileId ?? undefined,
         recipientUserId: recipientActor.userId,
+        sourceEntityId: input.sourceEntityId,
+        sourceEntityType: input.sourceEntityType,
+        status: "active",
         title: content.title,
       });
       const preference = await ctx.orm.query.notificationPreference.findFirst({
@@ -280,8 +295,8 @@ export const claimPendingDeliveries = privateMutation
         deliveryId: z.string(),
         message: z.object({
           body: z.string(),
-          channelId: z.string(),
           categoryId: z.string().optional(),
+          channelId: z.string(),
           data: z.record(z.string(), z.unknown()),
           sound: z.literal("default"),
           title: z.string(),
@@ -304,7 +319,19 @@ export const claimPendingDeliveries = privateMutation
             .withIndex("state", (q) => q.eq("state", "awaiting_delivery"))
             .take(remainingLimit)
         : [];
-    const deliveries = [...retryDeliveries, ...awaitingDeliveries];
+    const remainingAfterAwaiting = remainingLimit - awaitingDeliveries.length;
+    const maybeDeliveries =
+      remainingAfterAwaiting > 0
+        ? await ctx.db
+            .query("notificationDelivery")
+            .withIndex("state", (q) => q.eq("state", "maybe_delivered"))
+            .take(remainingAfterAwaiting)
+        : [];
+    const deliveries = [
+      ...retryDeliveries,
+      ...awaitingDeliveries,
+      ...maybeDeliveries,
+    ];
     const claimed: ClaimedDelivery[] = [];
     const now = Date.now();
 
@@ -497,3 +524,121 @@ export const sendPending = privateAction
 
     return null;
   });
+
+const retractNotificationsSchema = z.object({
+  exceptEventTypes: z.array(z.string()).optional(),
+  sourceEntityId: z.string().min(1),
+  sourceEntityType: z.string().min(1),
+});
+
+/**
+ * Retracts feed rows tied to a source entity (e.g. a challenge that was
+ * cancelled/rescheduled). Sets their `status` to "retracted" and aborts any
+ * pending deliveries by flipping them to "failed".
+ *
+ * Typical caller: `challenges.ts` cancel/counterPropose/admin branches,
+ * invoked via `internal.notification.orchestrator.retractNotifications`
+ * BEFORE emitting the new superseding event.
+ */
+export const retractNotifications = privateMutation
+  .input(retractNotificationsSchema)
+  .output(z.object({ retractedCount: z.number().int().nonnegative() }))
+  .mutation(async ({ ctx, input }) => {
+    // Query by sourceEntityType (more selective than sourceEntityId), then
+    // filter in JS by sourceEntityId. kitcn's findMany where-clause is an
+    // object literal of column -> value; compound and()/eq() is only wired
+    // for update/delete in this ORM. With the sourceEntity index on
+    // (sourceEntityType, sourceEntityId), the JS filter is cheap.
+    const candidateRows = await ctx.orm.query.notificationFeed.findMany({
+      limit: 500,
+      where: { sourceEntityType: input.sourceEntityType },
+    });
+    const feedRows = candidateRows.filter(
+      (row) => row.sourceEntityId === input.sourceEntityId
+    );
+
+    const targetRows = input.exceptEventTypes
+      ? feedRows.filter(
+          (row) => !input.exceptEventTypes?.includes(row.eventType)
+        )
+      : feedRows;
+
+    if (targetRows.length === 0) {
+      return { retractedCount: 0 };
+    }
+
+    const now = new Date();
+    const feedIds = targetRows.map((row) => row.id as Id<"notificationFeed">);
+
+    for (const row of targetRows) {
+      await ctx.orm
+        .update(notificationFeed)
+        .set({
+          retractedAt: now,
+          status: "retracted",
+        })
+        .where(eq(notificationFeed.id, row.id));
+    }
+
+    // Abort pending deliveries tied to the retracted feed rows.
+    const deliveries = await ctx.orm.query.notificationDelivery.findMany({
+      where: { feedId: { in: feedIds } },
+    });
+    const reclamationStates = new Set([
+      "awaiting_delivery",
+      "in_progress",
+      "maybe_delivered",
+      "needs_retry",
+    ]);
+    for (const delivery of deliveries) {
+      if (reclamationStates.has(delivery.state)) {
+        await ctx.orm
+          .update(notificationDelivery)
+          .set({
+            errorMessage: "retracted",
+            state: "failed",
+          })
+          .where(eq(notificationDelivery.id, delivery.id));
+      }
+    }
+
+    return { retractedCount: targetRows.length };
+  });
+
+const STALE_IN_PROGRESS_THRESHOLD_MS = 90_000; // 90s
+
+/**
+ * Recovers `in_progress` deliveries left orphaned by a crashed runner.
+ *
+ * `claimPendingDeliveries` only re-claims `needs_retry`, `awaiting_delivery`,
+ * and `maybe_delivered` — never `in_progress`. If a runner dies after claiming
+ * but before `markDeliveryResults`, those deliveries stay `in_progress`
+ * forever. This sweeper (cron @ 1min) finds them by `lastAttemptAt` age and
+ * resets them to `needs_retry` so the pipeline picks them up again.
+ *
+ * Gated by `DEPLOY_ENV === "production"` so dev/preview crons no-op.
+ */
+export const sweepStaleInProgressDeliveries = privateMutation.mutation(
+  async ({ ctx }) => {
+    if (getEnv().DEPLOY_ENV !== "production") {
+      return { recoveredCount: 0 };
+    }
+    const now = Date.now();
+    const cutoff = now - STALE_IN_PROGRESS_THRESHOLD_MS;
+    const inProgress = await ctx.db
+      .query("notificationDelivery")
+      .withIndex("state", (q) => q.eq("state", "in_progress"))
+      .take(100);
+    const stale = inProgress.filter((delivery) => {
+      const lastAttempt = delivery.lastAttemptAt ?? 0;
+      return lastAttempt < cutoff;
+    });
+    for (const delivery of stale) {
+      await ctx.db.patch(delivery._id, {
+        errorMessage: "stale in_progress recovered",
+        state: "needs_retry",
+      });
+    }
+    return { recoveredCount: stale.length };
+  }
+);

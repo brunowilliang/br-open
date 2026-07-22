@@ -16,8 +16,8 @@ type TargetLeagueMembership<UserId> = {
 type TargetLeagueChallengeStatus =
   | "confirmed"
   | "finished"
-  | "pending_admin_decision"
-  | "pending_admin_result_validation"
+  | "pending_organizer_decision"
+  | "pending_organizer_result_validation"
   | "pending_opponent_response"
   | "pending_result_confirmation"
   | "pending_result_submission";
@@ -125,7 +125,7 @@ const TARGET_CHALLENGE_SCENARIOS = [
     },
     resultValidationMode: "manual",
     startMinute: 840,
-    status: "pending_admin_result_validation",
+    status: "pending_organizer_result_validation",
   },
   {
     challengedIndex: 10,
@@ -134,7 +134,7 @@ const TARGET_CHALLENGE_SCENARIOS = [
     endMinute: 990,
     key: "admin-decision",
     startMinute: 900,
-    status: "pending_admin_decision",
+    status: "pending_organizer_decision",
   },
   {
     challengedIndex: 10,

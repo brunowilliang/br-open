@@ -21,7 +21,7 @@ type LeagueFormErrorGroup = {
 
 const LEAGUE_FORM_ERROR_GROUPS: LeagueFormErrorGroup[] = [
   {
-    fallbackDescription: "Revise os dados principais da liga.",
+    fallbackDescription: "Revise os campos destacados da liga.",
     fields: ["name", "description", "coverStorageId", "avatarStorageId"],
     label: "Detalhes incompletos",
     tab: "details",
@@ -112,7 +112,7 @@ export function resolveLeagueFormInvalidSubmission(
   }
 
   return {
-    description: "Revise os campos marcados antes de salvar.",
+    description: "Revise os campos destacados antes de salvar.",
     label: "Campos incompletos",
     tab: "details",
   };

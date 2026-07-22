@@ -74,9 +74,9 @@ function Root() {
     <>
       <Stack
         screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor },
           animation: "fade",
+          contentStyle: { backgroundColor },
+          headerShown: false,
         }}
       >
         <Stack.Protected guard={effectiveIsAuthenticated}>

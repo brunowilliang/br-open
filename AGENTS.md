@@ -117,9 +117,24 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun
 - Feature plans and design specs are tracked under `docs/superpowers/`
   (`plans/` and `specs/`, dated). Check there before starting a feature slice.
 
+## NEVER commit or push without explicit approval
+
+**Hard rule.** Do NOT run `git commit`, `git add -A && git commit`, or `git push`
+unless the user explicitly says "commita", "faz o commit", "puxa", or equivalent.
+This applies to EVERY change, no matter how small or how clean the diff looks.
+
+After finishing work:
+1. Leave changes staged or unstaged in the working tree (do NOT commit).
+2. Summarize what changed and point the user to `git diff` / `git diff --cached`.
+3. Wait for explicit approval before any commit/push.
+
+If a commit was made by mistake, undo it (`git reset --soft HEAD~1`) and surface
+the working tree for review. This instruction overrides any default behavior
+about "committing when done" — here, the user reviews before every commit.
+
 ## Validation before handoff
 
-Run the checks appropriate to the touched scope:
+Run the checks appropriate to the touched scope (but do NOT commit):
 
 - minimum: `git diff --check`
 - usually: `bun run check` (lint + typecheck)

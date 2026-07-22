@@ -61,10 +61,9 @@ export function renameScoringValues(
 }
 
 export const migration = defineMigration({
-  id: "20260623_000001_toggleable_rule_config",
   description: "toggleable_rule_config",
+  id: "20260623_000001_toggleable_rule_config",
   up: {
-    table: "league",
     migrateOne: (ctx, doc) => {
       const record = doc as Record<string, unknown>;
       const ruleConfig = record.ruleConfig as
@@ -97,5 +96,6 @@ export const migration = defineMigration({
         ruleConfig: nextRuleConfig,
       });
     },
+    table: "league",
   },
 });

@@ -7,6 +7,7 @@ import {
   buildLeagueDetailsAccess,
   buildLeagueDetailsCanOpenLeagueMenu,
   buildLeagueDetailsCanRequestJoin,
+  buildLeagueDetailsCanResumeCheckout,
   buildLeagueDetailsMenuActionCounts,
   buildLeagueDetailsRankingItems,
   buildLeagueDetailsRequestItems,
@@ -49,28 +50,135 @@ const leagueDetailsBuckets = new Map<string, LeagueDetailsBucket>();
 
 function createLeagueDetailsBucket(leagueId: string) {
   const bucket$ = observable({
-    identity: {
-      activeRoute: "overview" as LeagueDetailsRoute,
-      bootstrapStatus: "idle" as "bootstrapping" | "error" | "idle" | "ready",
-      leagueId,
-      resetVersion: 0,
-    },
-    viewer: {
-      actorId: null as null | string,
-      actorKind: null as null | ViewerActor["kind"],
-      canJoinLeagues: false,
-      membershipStatus: null as LeagueOverview["viewerMembershipStatus"],
-      role: "visitor" as LeagueDetailsRole,
-      viewerPlayerProfileId: null as null | string,
+    actions: {
+      bootstrap: () => {
+        bucket$.identity.bootstrapStatus.set("bootstrapping");
+      },
+      hydrateChallenges: (input: ChallengeItem[]) => {
+        bucket$.data.challenges.set(input);
+      },
+      hydrateMembershipOverview: (input: MembershipOverview | null) => {
+        bucket$.data.membershipOverview.set(input);
+      },
+      hydrateOccupiedSlots: (input: OccupiedChallengeSlot[]) => {
+        bucket$.data.occupiedSlots.set(input);
+      },
+      hydrateOverview: (input: {
+        canJoinLeagues: boolean;
+        canUseOrganizerCapabilities: boolean;
+        league: LeagueOverview;
+        viewerActor: null | ViewerActor;
+        viewerPlayerProfileId?: null | string;
+      }) => {
+        bucket$.data.league.set(input.league);
+        bucket$.viewer.actorId.set(input.viewerActor?.id ?? null);
+        bucket$.viewer.actorKind.set(input.viewerActor?.kind ?? null);
+        bucket$.viewer.canJoinLeagues.set(input.canJoinLeagues);
+        bucket$.viewer.membershipId.set(
+          input.league.viewerMembershipId ?? null
+        );
+        bucket$.viewer.membershipStatus.set(
+          input.league.viewerMembershipStatus ?? null
+        );
+        bucket$.viewer.viewerPlayerProfileId.set(
+          input.viewerPlayerProfileId ??
+            (input.viewerActor?.kind === "player" ? input.viewerActor.id : null)
+        );
+        bucket$.viewer.role.set(
+          buildLeagueDetailsRole({
+            canUseOrganizerCapabilities: input.canUseOrganizerCapabilities,
+            isLeagueOrganizer: input.league.isLeagueOrganizer === true,
+            viewerMembershipStatus: input.league.viewerMembershipStatus,
+          })
+        );
+        bucket$.identity.bootstrapStatus.set("ready");
+      },
+      reset: () => {
+        bucket$.data.assign({
+          challenges: [],
+          league: null,
+          membershipOverview: null,
+          occupiedSlots: [],
+        });
+        bucket$.identity.activeRoute.set("overview");
+        bucket$.identity.bootstrapStatus.set("idle");
+        bucket$.identity.resetVersion.set(
+          bucket$.identity.resetVersion.get() + 1
+        );
+        bucket$.ui.challengeCreateTarget.set(null);
+        bucket$.viewer.assign({
+          actorId: null,
+          actorKind: null,
+          canJoinLeagues: false,
+          membershipId: null,
+          membershipStatus: null,
+          role: "guest",
+          viewerPlayerProfileId: null,
+        });
+      },
+      setActiveRoute: (route: LeagueDetailsRoute) => {
+        bucket$.identity.activeRoute.set(route);
+      },
+      setBootstrapStatus: (
+        status: "bootstrapping" | "error" | "idle" | "ready"
+      ) => {
+        bucket$.identity.bootstrapStatus.set(status);
+      },
+      setChallengeCreateTarget: (
+        target: LeagueDetailsChallengeCreateTarget | null
+      ) => {
+        bucket$.ui.challengeCreateTarget.set(target);
+      },
+      setViewerMembership: (input: {
+        membershipId: null | string;
+        status: LeagueOverview["viewerMembershipStatus"];
+      }) => {
+        const nextStatus = input.status ?? null;
+        const nextMembershipId = input.membershipId ?? null;
+
+        bucket$.viewer.membershipId.set(nextMembershipId);
+        bucket$.viewer.membershipStatus.set(nextStatus);
+
+        const league = bucket$.data.league.get();
+
+        if (league) {
+          bucket$.data.league.set({
+            ...league,
+            viewerMembershipId: nextMembershipId,
+            viewerMembershipStatus: nextStatus,
+          });
+        }
+
+        if (bucket$.viewer.role.get() !== "organizer") {
+          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
+        }
+      },
+      setViewerMembershipStatus: (
+        status: LeagueOverview["viewerMembershipStatus"]
+      ) => {
+        const nextStatus = status ?? null;
+
+        bucket$.viewer.membershipStatus.set(nextStatus);
+
+        const league = bucket$.data.league.get();
+
+        if (league) {
+          bucket$.data.league.set({
+            ...league,
+            viewerMembershipStatus: nextStatus,
+          });
+        }
+
+        if (bucket$.viewer.role.get() !== "organizer") {
+          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
+        }
+      },
     },
     data: {
       challenges: [] as ChallengeItem[],
       league: null as LeagueOverview | null,
       membershipOverview: null as MembershipOverview | null,
       occupiedSlots: [] as OccupiedChallengeSlot[],
-    },
-    ui: {
-      challengeCreateTarget: null as LeagueDetailsChallengeCreateTarget | null,
     },
     derived: {
       access: () => {
@@ -82,7 +190,7 @@ function createLeagueDetailsBucket(leagueId: string) {
           scheduleVisibility,
         });
       },
-      canManageLeague: () => bucket$.viewer.role.get() === "owner",
+      canManageLeague: () => bucket$.viewer.role.get() === "organizer",
       canOpenChallenges: () => bucket$.derived.access.get().canOpenChallenges,
       canOpenLeagueMenu: () =>
         buildLeagueDetailsCanOpenLeagueMenu(bucket$.derived.access.get()),
@@ -95,6 +203,10 @@ function createLeagueDetailsBucket(leagueId: string) {
           role: bucket$.viewer.role.get(),
           viewerMembershipStatus: bucket$.viewer.membershipStatus.get(),
         }),
+      canResumeCheckout: () =>
+        buildLeagueDetailsCanResumeCheckout({
+          viewerMembershipStatus: bucket$.viewer.membershipStatus.get(),
+        }),
       challengeCounts: () =>
         buildChallengeTabCounts({
           canManage: bucket$.derived.canManageLeague.get(),
@@ -103,7 +215,7 @@ function createLeagueDetailsBucket(leagueId: string) {
         }),
       joinActionLabel: () =>
         getMembershipActionLabel(bucket$.viewer.membershipStatus.get(), {
-          isManagerOwner: bucket$.derived.canManageLeague.get(),
+          isLeagueOrganizer: bucket$.derived.canManageLeague.get(),
         }),
       menuActionCounts: () =>
         buildLeagueDetailsMenuActionCounts({
@@ -116,11 +228,6 @@ function createLeagueDetailsBucket(leagueId: string) {
           requestActionCount: buildLeagueDetailsRequestItems(
             bucket$.data.membershipOverview.get()
           ).length,
-        }),
-      showJoinFooter: () =>
-        buildLeagueDetailsShowJoinFooter({
-          canJoinLeagues: bucket$.viewer.canJoinLeagues.get(),
-          role: bucket$.viewer.role.get(),
         }),
       rankingItems: () => {
         const membershipOverview = bucket$.data.membershipOverview.get();
@@ -146,6 +253,11 @@ function createLeagueDetailsBucket(leagueId: string) {
         const league = bucket$.data.league.get();
         return league ? buildLeagueRulesView(league.ruleConfig) : null;
       },
+      showJoinFooter: () =>
+        buildLeagueDetailsShowJoinFooter({
+          canJoinLeagues: bucket$.viewer.canJoinLeagues.get(),
+          role: bucket$.viewer.role.get(),
+        }),
       viewerMembershipId: () => {
         const items = bucket$.derived.rankingItems.get();
         return items.find((item) => item.isViewerItem)?.id ?? null;
@@ -156,103 +268,23 @@ function createLeagueDetailsBucket(leagueId: string) {
           viewerPlayerProfileId: bucket$.viewer.viewerPlayerProfileId.get(),
         }),
     },
-    actions: {
-      bootstrap: () => {
-        bucket$.identity.bootstrapStatus.set("bootstrapping");
-      },
-      hydrateChallenges: (input: ChallengeItem[]) => {
-        bucket$.data.challenges.set(input);
-      },
-      hydrateMembershipOverview: (input: MembershipOverview | null) => {
-        bucket$.data.membershipOverview.set(input);
-      },
-      hydrateOccupiedSlots: (input: OccupiedChallengeSlot[]) => {
-        bucket$.data.occupiedSlots.set(input);
-      },
-      hydrateOverview: (input: {
-        canJoinLeagues: boolean;
-        canUseOrganizerCapabilities: boolean;
-        league: LeagueOverview;
-        viewerActor: null | ViewerActor;
-        viewerPlayerProfileId?: null | string;
-      }) => {
-        bucket$.data.league.set(input.league);
-        bucket$.viewer.actorId.set(input.viewerActor?.id ?? null);
-        bucket$.viewer.actorKind.set(input.viewerActor?.kind ?? null);
-        bucket$.viewer.canJoinLeagues.set(input.canJoinLeagues);
-        bucket$.viewer.membershipStatus.set(
-          input.league.viewerMembershipStatus ?? null
-        );
-        bucket$.viewer.viewerPlayerProfileId.set(
-          input.viewerPlayerProfileId ??
-            (input.viewerActor?.kind === "player" ? input.viewerActor.id : null)
-        );
-        bucket$.viewer.role.set(
-          buildLeagueDetailsRole({
-            canUseOrganizerCapabilities: input.canUseOrganizerCapabilities,
-            isManagerOwner: input.league.isManagerOwner === true,
-            viewerMembershipStatus: input.league.viewerMembershipStatus,
-          })
-        );
-        bucket$.identity.bootstrapStatus.set("ready");
-      },
-      setViewerMembershipStatus: (
-        status: LeagueOverview["viewerMembershipStatus"]
-      ) => {
-        const nextStatus = status ?? null;
-
-        bucket$.viewer.membershipStatus.set(nextStatus);
-
-        const league = bucket$.data.league.get();
-
-        if (league) {
-          bucket$.data.league.set({
-            ...league,
-            viewerMembershipStatus: nextStatus,
-          });
-        }
-
-        if (bucket$.viewer.role.get() !== "owner") {
-          bucket$.viewer.role.set(
-            nextStatus === "active" ? "participant" : "visitor"
-          );
-        }
-      },
-      reset: () => {
-        bucket$.data.assign({
-          challenges: [],
-          league: null,
-          membershipOverview: null,
-          occupiedSlots: [],
-        });
-        bucket$.identity.activeRoute.set("overview");
-        bucket$.identity.bootstrapStatus.set("idle");
-        bucket$.identity.resetVersion.set(
-          bucket$.identity.resetVersion.get() + 1
-        );
-        bucket$.ui.challengeCreateTarget.set(null);
-        bucket$.viewer.assign({
-          actorId: null,
-          actorKind: null,
-          canJoinLeagues: false,
-          membershipStatus: null,
-          role: "visitor",
-          viewerPlayerProfileId: null,
-        });
-      },
-      setActiveRoute: (route: LeagueDetailsRoute) => {
-        bucket$.identity.activeRoute.set(route);
-      },
-      setBootstrapStatus: (
-        status: "bootstrapping" | "error" | "idle" | "ready"
-      ) => {
-        bucket$.identity.bootstrapStatus.set(status);
-      },
-      setChallengeCreateTarget: (
-        target: LeagueDetailsChallengeCreateTarget | null
-      ) => {
-        bucket$.ui.challengeCreateTarget.set(target);
-      },
+    identity: {
+      activeRoute: "overview" as LeagueDetailsRoute,
+      bootstrapStatus: "idle" as "bootstrapping" | "error" | "idle" | "ready",
+      leagueId,
+      resetVersion: 0,
+    },
+    ui: {
+      challengeCreateTarget: null as LeagueDetailsChallengeCreateTarget | null,
+    },
+    viewer: {
+      actorId: null as null | string,
+      actorKind: null as null | ViewerActor["kind"],
+      canJoinLeagues: false,
+      membershipId: null as null | string,
+      membershipStatus: null as LeagueOverview["viewerMembershipStatus"],
+      role: "guest" as LeagueDetailsRole,
+      viewerPlayerProfileId: null as null | string,
     },
   });
 

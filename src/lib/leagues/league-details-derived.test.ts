@@ -21,47 +21,50 @@ describe("buildLeagueDetailsRole", () => {
     expect(
       buildLeagueDetailsRole({
         canUseOrganizerCapabilities: true,
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
         viewerMembershipStatus: "active",
       })
-    ).toBe("owner");
+    ).toBe("organizer");
   });
 
   it("resolves participant for an active member who cannot manage the league", () => {
     expect(
       buildLeagueDetailsRole({
         canUseOrganizerCapabilities: false,
-        isManagerOwner: false,
+        isLeagueOrganizer: false,
         viewerMembershipStatus: "active",
       })
-    ).toBe("participant");
+    ).toBe("player");
   });
 
   it("does not elevate a manager owner without organizer capability", () => {
     expect(
       buildLeagueDetailsRole({
         canUseOrganizerCapabilities: false,
-        isManagerOwner: true,
+        isLeagueOrganizer: true,
         viewerMembershipStatus: "active",
       })
-    ).toBe("participant");
+    ).toBe("player");
   });
 
   it("falls back to visitor when the viewer is not an active member", () => {
     expect(
       buildLeagueDetailsRole({
         canUseOrganizerCapabilities: false,
-        isManagerOwner: false,
+        isLeagueOrganizer: false,
         viewerMembershipStatus: "pending",
       })
-    ).toBe("visitor");
+    ).toBe("guest");
   });
 });
 
 describe("buildLeagueDetailsAccess", () => {
   it("opens all operational routes for owner", () => {
     expect(
-      buildLeagueDetailsAccess({ role: "owner", scheduleVisibility: "public" })
+      buildLeagueDetailsAccess({
+        role: "organizer",
+        scheduleVisibility: "public",
+      })
     ).toEqual({
       canOpenChallenges: true,
       canOpenRanking: true,
@@ -74,7 +77,7 @@ describe("buildLeagueDetailsAccess", () => {
   it("keeps requests closed for participants", () => {
     expect(
       buildLeagueDetailsAccess({
-        role: "participant",
+        role: "player",
         scheduleVisibility: "public",
       })
     ).toEqual({
@@ -89,7 +92,7 @@ describe("buildLeagueDetailsAccess", () => {
   it("keeps ranking and challenges closed for visitors", () => {
     expect(
       buildLeagueDetailsAccess({
-        role: "visitor",
+        role: "guest",
         scheduleVisibility: "public",
       })
     ).toEqual({
@@ -104,13 +107,13 @@ describe("buildLeagueDetailsAccess", () => {
   it("restricts schedule to members when visibility is members_only", () => {
     expect(
       buildLeagueDetailsAccess({
-        role: "visitor",
+        role: "guest",
         scheduleVisibility: "members_only",
       })
     ).toMatchObject({ canOpenSchedule: false });
     expect(
       buildLeagueDetailsAccess({
-        role: "participant",
+        role: "player",
         scheduleVisibility: "members_only",
       })
     ).toMatchObject({ canOpenSchedule: true });
@@ -225,7 +228,7 @@ describe("buildLeagueDetailsCanRequestJoin", () => {
     expect(
       buildLeagueDetailsCanRequestJoin({
         canJoinLeagues: true,
-        role: "visitor",
+        role: "guest",
         viewerMembershipStatus: null,
       })
     ).toBe(true);
@@ -235,8 +238,18 @@ describe("buildLeagueDetailsCanRequestJoin", () => {
     expect(
       buildLeagueDetailsCanRequestJoin({
         canJoinLeagues: true,
-        role: "visitor",
+        role: "guest",
         viewerMembershipStatus: "pending",
+      })
+    ).toBe(false);
+  });
+
+  it("blocks requests when the viewer is awaiting payment", () => {
+    expect(
+      buildLeagueDetailsCanRequestJoin({
+        canJoinLeagues: true,
+        role: "guest",
+        viewerMembershipStatus: "awaiting_payment",
       })
     ).toBe(false);
   });
@@ -245,14 +258,14 @@ describe("buildLeagueDetailsCanRequestJoin", () => {
     expect(
       buildLeagueDetailsCanRequestJoin({
         canJoinLeagues: true,
-        role: "participant",
+        role: "player",
         viewerMembershipStatus: "active",
       })
     ).toBe(false);
     expect(
       buildLeagueDetailsCanRequestJoin({
         canJoinLeagues: true,
-        role: "owner",
+        role: "organizer",
         viewerMembershipStatus: "active",
       })
     ).toBe(false);
@@ -264,7 +277,7 @@ describe("buildLeagueDetailsShowJoinFooter", () => {
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
-        role: "visitor",
+        role: "guest",
       })
     ).toBe(true);
   });
@@ -273,19 +286,19 @@ describe("buildLeagueDetailsShowJoinFooter", () => {
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
-        role: "participant",
+        role: "player",
       })
     ).toBe(false);
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
-        role: "owner",
+        role: "organizer",
       })
     ).toBe(false);
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: false,
-        role: "visitor",
+        role: "guest",
       })
     ).toBe(false);
   });
@@ -302,9 +315,9 @@ describe("buildLeagueDetailsRankingItems", () => {
           leagueId: "league-1",
           player: { avatarUrl: null, fullName: "Alice", nickname: "ali" },
           playerProfileId: "player-1",
+          rankingPosition: 1,
           status: "active",
           updatedAt: 1,
-          rankingPosition: 1,
         },
         {
           createdAt: 1,
@@ -312,9 +325,9 @@ describe("buildLeagueDetailsRankingItems", () => {
           leagueId: "league-1",
           player: { avatarUrl: null, fullName: "Bob", nickname: "bob" },
           playerProfileId: "player-2",
+          rankingPosition: 2,
           status: "active",
           updatedAt: 1,
-          rankingPosition: 2,
         },
         {
           createdAt: 1,
@@ -322,9 +335,9 @@ describe("buildLeagueDetailsRankingItems", () => {
           leagueId: "league-1",
           player: { avatarUrl: null, fullName: "Carol", nickname: "car" },
           playerProfileId: "viewer",
+          rankingPosition: 3,
           status: "active",
           updatedAt: 1,
-          rankingPosition: 3,
         },
         {
           createdAt: 1,
@@ -332,12 +345,12 @@ describe("buildLeagueDetailsRankingItems", () => {
           leagueId: "league-1",
           player: { avatarUrl: null, fullName: "Dora", nickname: "dor" },
           playerProfileId: "player-4",
+          rankingPosition: 4,
           status: "active",
           updatedAt: 1,
-          rankingPosition: 4,
         },
       ],
-      role: "participant",
+      role: "player",
       viewerPlayerProfileId: "viewer",
     });
 
@@ -467,7 +480,6 @@ describe("buildLeagueRulesView", () => {
       inactivityPenaltyDays: 21,
       inactivityPenaltyType: "drop_one_position",
       lossBehavior: "stay_put",
-      scheduleVisibility: "public",
       matchConfig: {
         bestOfSets: 3,
         defaultDurationMinutes: 90,
@@ -495,6 +507,7 @@ describe("buildLeagueRulesView", () => {
       newPlayerPlacement: "end_of_ranking",
       responseDeadlineHours: { enabled: true, value: 48 },
       resultValidationMode: "automatic",
+      scheduleVisibility: "public",
       walkoverBehavior: "automatic_loss",
       winBehavior: "take_opponent_position",
     });

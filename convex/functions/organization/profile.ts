@@ -1,6 +1,4 @@
 import { eq, type InferSelectModel } from "kitcn/orm";
-import type { Id } from "../../functions/_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../../functions/generated/server";
 import { z } from "zod";
 import { organization } from "../../domains/auth/tables";
 import {
@@ -9,25 +7,12 @@ import {
   organizationOutputSchema,
   upsertOrganizationSchema,
 } from "../../domains/organization/contract";
+import { paymentAccountSchema } from "../../domains/payment/contract";
+import { deleteStorageIds, resolveStorageUrl } from "../../shared/media-rules";
 import { authMutation, authQuery } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
 
 type OrganizationRecord = InferSelectModel<typeof organization>;
-
-async function resolveOrganizationLogoUrl(
-  ctx: QueryCtx | MutationCtx,
-  storageId?: null | string
-) {
-  if (!storageId) {
-    return null;
-  }
-
-  try {
-    return await ctx.storage.getUrl(storageId as Id<"_storage">);
-  } catch {
-    return null;
-  }
-}
 
 function serializeOrganization(
   record: OrganizationRecord,
@@ -36,6 +21,10 @@ function serializeOrganization(
   const parsedMetadata = organizationMetadataSchema.parse(
     record.metadata ?? {}
   );
+
+  const paymentAccount = record.paymentAccount
+    ? (paymentAccountSchema.safeParse(record.paymentAccount).data ?? null)
+    : null;
 
   return organizationOutputSchema.parse({
     acceptedTerms: parsedMetadata.acceptedTerms ?? null,
@@ -48,21 +37,13 @@ function serializeOrganization(
     name: record.name,
     organizerType: parsedMetadata.organizerType ?? null,
     organizerTypeLabel: parsedMetadata.organizerTypeLabel ?? null,
+    paymentAccount,
     phone: parsedMetadata.phone ?? null,
     slug: record.slug,
     sports: parsedMetadata.sports ?? null,
     sportsLabel: parsedMetadata.sportsLabel ?? null,
     website: parsedMetadata.website ?? null,
   });
-}
-
-async function deleteOrganizationLogoStorageIds(
-  ctx: MutationCtx,
-  storageIds: string[]
-) {
-  for (const storageId of storageIds) {
-    await ctx.storage.delete(storageId as Id<"_storage">);
-  }
 }
 
 export const get = authQuery
@@ -77,17 +58,18 @@ export const get = authQuery
       return null;
     }
 
-    const logoUrl = await resolveOrganizationLogoUrl(
-      ctx,
-      currentOrganization.logo
-    );
+    const logoUrl = await resolveStorageUrl(ctx, currentOrganization.logo);
 
     return serializeOrganization(currentOrganization, logoUrl);
   });
 
 export const generateUploadUrl = authMutation
   .output(z.string())
-  .mutation(async ({ ctx }) => ctx.storage.generateUploadUrl());
+  .mutation(async ({ ctx }) => {
+    await requireActiveManager(ctx);
+
+    return ctx.storage.generateUploadUrl();
+  });
 
 export const upsert = authMutation
   .input(upsertOrganizationSchema)
@@ -133,7 +115,7 @@ export const upsert = authMutation
       })
       .where(eq(organization.id, organizationId));
 
-    await deleteOrganizationLogoStorageIds(ctx, replacedStorageIds);
+    await deleteStorageIds(ctx, replacedStorageIds);
 
     const updatedOrganization = await ctx.orm.query.organization.findFirst({
       where: { id: organizationId },
@@ -143,10 +125,7 @@ export const upsert = authMutation
       throw new Error("Organization was not found after update.");
     }
 
-    const logoUrl = await resolveOrganizationLogoUrl(
-      ctx,
-      updatedOrganization.logo
-    );
+    const logoUrl = await resolveStorageUrl(ctx, updatedOrganization.logo);
 
     return serializeOrganization(updatedOrganization, logoUrl);
   });

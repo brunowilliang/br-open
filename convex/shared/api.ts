@@ -10,12 +10,12 @@ import type { httpRouter } from "../functions/http";
 import type { tables } from "../functions/schema";
 
 export const api = {
+  _http: {
+  },
+  http: undefined as unknown as typeof httpRouter,
   league: {
     challenges: {
       acceptProposal: createApiLeaf<"mutation", typeof import("../functions/league/challenges").acceptProposal>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").acceptProposal>("league/challenges:acceptProposal"), { auth: "required", type: "mutation" }),
-      adminManage: createApiLeaf<"mutation", typeof import("../functions/league/challenges").adminManage>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").adminManage>("league/challenges:adminManage"), { auth: "required", type: "mutation" }),
-      adminRequestResultReminder: createApiLeaf<"mutation", typeof import("../functions/league/challenges").adminRequestResultReminder>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").adminRequestResultReminder>("league/challenges:adminRequestResultReminder"), { auth: "required", type: "mutation" }),
-      adminSubmitResult: createApiLeaf<"mutation", typeof import("../functions/league/challenges").adminSubmitResult>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").adminSubmitResult>("league/challenges:adminSubmitResult"), { auth: "required", type: "mutation" }),
       cancel: createApiLeaf<"mutation", typeof import("../functions/league/challenges").cancel>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").cancel>("league/challenges:cancel"), { auth: "required", type: "mutation" }),
       confirmResult: createApiLeaf<"mutation", typeof import("../functions/league/challenges").confirmResult>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").confirmResult>("league/challenges:confirmResult"), { auth: "required", type: "mutation" }),
       counterPropose: createApiLeaf<"mutation", typeof import("../functions/league/challenges").counterPropose>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").counterPropose>("league/challenges:counterPropose"), { auth: "required", type: "mutation" }),
@@ -25,6 +25,9 @@ export const api = {
       listForLeague: createApiLeaf<"query", typeof import("../functions/league/challenges").listForLeague>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/challenges").listForLeague>("league/challenges:listForLeague"), { auth: "required", type: "query" }),
       listOccupiedSlots: createApiLeaf<"query", typeof import("../functions/league/challenges").listOccupiedSlots>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/challenges").listOccupiedSlots>("league/challenges:listOccupiedSlots"), { auth: "required", type: "query" }),
       listScheduled: createApiLeaf<"query", typeof import("../functions/league/challenges").listScheduled>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/league/challenges").listScheduled>("league/challenges:listScheduled"), { auth: "required", type: "query" }),
+      organizerManage: createApiLeaf<"mutation", typeof import("../functions/league/challenges").organizerManage>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").organizerManage>("league/challenges:organizerManage"), { auth: "required", type: "mutation" }),
+      organizerRequestResultReminder: createApiLeaf<"mutation", typeof import("../functions/league/challenges").organizerRequestResultReminder>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").organizerRequestResultReminder>("league/challenges:organizerRequestResultReminder"), { auth: "required", type: "mutation" }),
+      organizerSubmitResult: createApiLeaf<"mutation", typeof import("../functions/league/challenges").organizerSubmitResult>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").organizerSubmitResult>("league/challenges:organizerSubmitResult"), { auth: "required", type: "mutation" }),
       requestCancellation: createApiLeaf<"mutation", typeof import("../functions/league/challenges").requestCancellation>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").requestCancellation>("league/challenges:requestCancellation"), { auth: "required", type: "mutation" }),
       respondCancellationRequest: createApiLeaf<"mutation", typeof import("../functions/league/challenges").respondCancellationRequest>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").respondCancellationRequest>("league/challenges:respondCancellationRequest"), { auth: "required", type: "mutation" }),
       reviewChallenge: createApiLeaf<"mutation", typeof import("../functions/league/challenges").reviewChallenge>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").reviewChallenge>("league/challenges:reviewChallenge"), { auth: "required", type: "mutation" }),
@@ -74,6 +77,25 @@ export const api = {
       upsert: createApiLeaf<"mutation", typeof import("../functions/organization/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/organization/profile").upsert>("organization/profile:upsert"), { auth: "required", type: "mutation" }),
     },
   },
+  payment: {
+    charge: {
+      createCharge: createApiLeaf<"action", typeof import("../functions/payment/charge").createCharge>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/charge").createCharge>("payment/charge:createCharge"), { auth: "required", type: "action" }),
+      getCheckoutContext: createApiLeaf<"query", typeof import("../functions/payment/charge").getCheckoutContext>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getCheckoutContext>("payment/charge:getCheckoutContext"), { auth: "required", type: "query" }),
+      getPendingCharge: createApiLeaf<"query", typeof import("../functions/payment/charge").getPendingCharge>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").getPendingCharge>("payment/charge:getPendingCharge"), { auth: "required", type: "query" }),
+      listMine: createApiLeaf<"query", typeof import("../functions/payment/charge").listMine>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/charge").listMine>("payment/charge:listMine"), { auth: "required", type: "query" }),
+      simulatePayment: createApiLeaf<"mutation", typeof import("../functions/payment/charge").simulatePayment>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/charge").simulatePayment>("payment/charge:simulatePayment"), { auth: "required", type: "mutation" }),
+    },
+    dashboard: {
+      getOverview: createApiLeaf<"query", typeof import("../functions/payment/dashboard").getOverview>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/dashboard").getOverview>("payment/dashboard:getOverview"), { auth: "required", type: "query" }),
+    },
+    onboarding: {
+      getStatus: createApiLeaf<"query", typeof import("../functions/payment/onboarding").getStatus>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/onboarding").getStatus>("payment/onboarding:getStatus"), { auth: "required", type: "query" }),
+      start: createApiLeaf<"action", typeof import("../functions/payment/onboarding").start>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/onboarding").start>("payment/onboarding:start"), { auth: "required", type: "action" }),
+    },
+    webhook: {
+      handleWooviWebhook: createApiLeaf<"mutation", typeof import("../functions/payment/webhook").handleWooviWebhook>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/webhook").handleWooviWebhook>("payment/webhook:handleWooviWebhook"), { type: "mutation" }),
+    },
+  },
   player: {
     profile: {
       generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
@@ -87,9 +109,6 @@ export const api = {
       get: createApiLeaf<"query", typeof import("../functions/viewer/context").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/viewer/context").get>("viewer/context:get"), { auth: "required", type: "query" }),
       setActiveActor: createApiLeaf<"mutation", typeof import("../functions/viewer/context").setActiveActor>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/viewer/context").setActiveActor>("viewer/context:setActiveActor"), { auth: "required", type: "mutation" }),
     },
-  },
-  http: undefined as unknown as typeof httpRouter,
-  _http: {
   },
 } as const;
 
