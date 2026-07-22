@@ -2,3 +2,5 @@ node_modules
 .git
 .env.local
 convex/.env
+/ios
+/android

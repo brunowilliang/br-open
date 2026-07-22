@@ -9,20 +9,59 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Page } from "@/components/core/NewPage";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
+import { authClient } from "@/lib/convex/auth-client";
 import { getGreetingLabel } from "@/lib/format/user";
 import { Search01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Button, PressableFeedback } from "heroui-native";
 import { Badge } from "heroui-native-pro";
+import { useEffect } from "react";
 import { View } from "react-native";
 
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
+  const session = authClient.useSession();
+
   const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
   const activeActor = viewerContext.data?.activeActor ?? null;
   const isOrganizationActor = activeActor?.kind === "organization";
+
+  const playerProfile = useQuery({
+    ...crpc.player.profile.get.queryOptions(),
+    enabled: !isOrganizationActor,
+  });
+
+  useEffect(() => {
+    if (session.isPending) {
+      return;
+    }
+    if (session.data?.user?.emailVerified === false) {
+      router.replace({
+        pathname: "/verify-email",
+        params: { email: session.data.user.email },
+      });
+      return;
+    }
+    if (
+      playerProfile.data &&
+      !playerProfile.data.gender &&
+      !playerProfile.isPending
+    ) {
+      router.replace({
+        pathname: "/settings/player/profile",
+        params: { firstRun: "true" },
+      });
+    }
+  }, [
+    session.isPending,
+    session.data?.user?.emailVerified,
+    session.data?.user?.email,
+    playerProfile.data,
+    playerProfile.isPending,
+    router,
+  ]);
 
   // Player queries
   const participatingLeagues = useQuery({
@@ -36,10 +75,6 @@ export default function Home() {
     enabled: isOrganizationActor,
   });
 
-  const playerProfile = useQuery({
-    ...crpc.player.profile.get.queryOptions(),
-    enabled: !isOrganizationActor,
-  });
   const notificationStatus = useQuery(
     crpc.notification.settings.status.queryOptions()
   );

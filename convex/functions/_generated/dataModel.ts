@@ -383,6 +383,7 @@ export type DataModel = {
       monthlyPriceCents?: null | number;
       name: string;
       organizationId: Id<"organization">;
+      platformFeePercent?: null | number;
       priceBillingInterval?: null | string;
       reminderDaysBefore?: null | number;
       ruleConfig: any;
@@ -410,6 +411,7 @@ export type DataModel = {
       | "monthlyPriceCents"
       | "name"
       | "organizationId"
+      | "platformFeePercent"
       | "priceBillingInterval"
       | "reminderDaysBefore"
       | "ruleConfig"

@@ -14,9 +14,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,9 +33,13 @@
       [
         "expo-splash-screen",
         {
+          "imageWidth": 180,
           "backgroundColor": "#0485F7",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 176
+          "dark": {
+            "backgroundColor": "#0485F7",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ],
       [

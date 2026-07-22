@@ -16,6 +16,7 @@ import {
   DEFAULT_LEAGUE_APPROVAL_MODE,
   DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
   DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
+  DEFAULT_PLATFORM_FEE_PERCENT,
 } from "../../domains/league/contract";
 import {
   CHARGE_EXPIRES_IN_SECONDS,
@@ -176,7 +177,7 @@ export const createCharge = authAction
     // Compute the split snapshot (organizer vs BR-Open).
     const split = computeSplit({
       amountCents: chargeData.amountCents,
-      feePercent: getEnv().WOOVI_PLATFORM_FEE_PERCENT,
+      feePercent: chargeData.platformFeePercent,
       recipientPixKey: paymentAccount.pixKey,
     });
 
@@ -479,6 +480,8 @@ export const resolveSourceForCharge = privateMutation
     return {
       amountCents: currentLeague.monthlyPriceCents ?? 0,
       organizationId: currentLeague.organizationId as string,
+      platformFeePercent:
+        currentLeague.platformFeePercent ?? DEFAULT_PLATFORM_FEE_PERCENT,
       playerProfileId: membership.playerProfileId as string,
       sourceLabel: currentLeague.name,
     };

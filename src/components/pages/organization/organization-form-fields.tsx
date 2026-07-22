@@ -6,8 +6,8 @@ import {
   Button,
   Description,
   FieldError,
-  InputGroup,
   Input,
+  InputGroup,
   Label,
   PressableFeedback,
   Select,
@@ -30,22 +30,22 @@ import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
-  PIX_KEY_TYPES,
   applyPixInputChange,
   formatPixKey,
   isNumericPixKey,
   isValidPixKey,
+  PIX_KEY_TYPES,
   rawPixKey,
   type PixKeyType,
 } from "@/lib/payments/pix-key";
 import { uploadImageToStorage } from "@/lib/uploads/convex-storage-upload";
 import {
   cropImage,
+  ImageCropper,
+  pickImageCropAsset,
   type CroppedImage,
   type ImageCropArea,
   type ImageCropAsset,
-  ImageCropper,
-  pickImageCropAsset,
 } from "@/lib/uploads/image-crop";
 import { fetchAddressByCep, ViaCepNotFoundError } from "@/lib/uploads/viacep";
 import {
@@ -636,7 +636,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
               isInvalid={Boolean(fieldState.error)}
               isRequired
             >
-              <Label>Telefone / WhatsApp</Label>
+              <Label>Telefone/WhatsApp</Label>
               <Input
                 editable={!isSubmitPending}
                 keyboardType="phone-pad"

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
   Button,
   FieldError,
@@ -18,7 +18,9 @@ import { z } from "zod";
 import { Image, LogoImage } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
+  authClient,
   useSignUpMutationOptions,
   useSocialAuth,
 } from "@/lib/convex/auth-client";
@@ -41,7 +43,6 @@ const SignUpFormSchema = z
   });
 
 export default function SignUp() {
-  const router = useRouter();
   const { toast } = useToast();
 
   const signUp = useMutation(
@@ -71,6 +72,8 @@ export default function SignUp() {
 
   const isSubmitPending =
     signUp.isPending || socialAuth.isPending || form.formState.isSubmitting;
+  const OTP_SEND_TIMESTAMP_KEY = "otp-send-timestamp";
+
   const submitForm = form.handleSubmit(async (values) => {
     signUp.reset();
 
@@ -80,7 +83,15 @@ export default function SignUp() {
       password: values.password,
     });
 
-    router.replace("/");
+    await SecureStore.setItemAsync(
+      OTP_SEND_TIMESTAMP_KEY,
+      Date.now().toString()
+    );
+
+    await authClient.emailOtp.sendVerificationOtp({
+      email: values.email,
+      type: "email-verification",
+    });
   });
 
   function handleSubmitPress() {
@@ -157,7 +168,7 @@ export default function SignUp() {
             render={({ field, fieldState }) => (
               <TextField isInvalid={Boolean(fieldState.error)} isRequired>
                 <Label>Senha</Label>
-                <Input
+                <PasswordInput
                   autoCapitalize="none"
                   autoComplete="new-password"
                   editable={!isSubmitPending}
@@ -165,7 +176,6 @@ export default function SignUp() {
                   onChangeText={field.onChange}
                   placeholder="Crie uma senha"
                   returnKeyType="next"
-                  secureTextEntry
                   textContentType="newPassword"
                   value={field.value ?? ""}
                 />
@@ -180,7 +190,7 @@ export default function SignUp() {
             render={({ field, fieldState }) => (
               <TextField isInvalid={Boolean(fieldState.error)} isRequired>
                 <Label>Confirmar senha</Label>
-                <Input
+                <PasswordInput
                   autoCapitalize="none"
                   autoComplete="new-password"
                   editable={!isSubmitPending}
@@ -189,7 +199,6 @@ export default function SignUp() {
                   onSubmitEditing={handleSubmitPress}
                   placeholder="Repita sua senha"
                   returnKeyType="done"
-                  secureTextEntry
                   textContentType="newPassword"
                   value={field.value ?? ""}
                 />

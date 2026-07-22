@@ -20,11 +20,72 @@
       "layers": [
         {
           "blend-mode": "normal",
-          "image-name": "Frame 13.svg",
-          "name": "Frame 13",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "display-p3:1.00000,1.00000,1.00000,1.00000",
+                  "srgb:0.98824,0.98824,0.98824,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 1
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": -0.5990191783489094
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.38305,0.63965,1.02132,1.00000",
+                  "srgb:0.01569,0.52157,0.96863,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": -0.6018910630841119
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "hidden": false,
+          "image-name": "Prancheta 9.svg",
+          "name": "Prancheta 9",
           "position": {
-            "scale": 1.3,
-            "translation-in-points": [-23.74695118559191, 39.1908504341223]
+            "scale": 1,
+            "translation-in-points": [-20.04406249999988, 20.249999999999886]
+          }
+        },
+        {
+          "fill": {
+            "solid": "srgb:0.98824,0.98824,0.98824,1.00000"
+          },
+          "glass": true,
+          "hidden": true,
+          "image-name": "Prancheta 11.svg",
+          "name": "Prancheta 11"
+        },
+        {
+          "fill": {
+            "solid": "display-p3:0.98824,0.98824,0.98824,1.00000"
+          },
+          "hidden": true,
+          "image-name": "Prancheta 12.svg",
+          "name": "Prancheta 12",
+          "position": {
+            "scale": 1.2,
+            "translation-in-points": [0, 0]
           }
         }
       ],

@@ -35,6 +35,10 @@ export const league = convexTable(
     approvalMode: text(),
     gracePeriodDays: integer(),
     reminderDaysBefore: integer(),
+    // BR-Open platform fee override for this league (0-100). When null,
+    // falls back to DEFAULT_PLATFORM_FEE_PERCENT. Set directly in the
+    // Convex dashboard — no app surface exposes this yet.
+    platformFeePercent: integer(),
     mode: text().notNull(),
     ruleConfig: json<Record<string, unknown>>().notNull(),
     coverStorageId: text(),

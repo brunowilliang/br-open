@@ -6,6 +6,7 @@ import {
   FieldError,
   Input,
   Label,
+  LinkButton,
   Separator,
   TextField,
   useToast,
@@ -18,6 +19,7 @@ import { z } from "zod";
 import { Image, LogoImage } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   useSignInMutationOptions,
   useSocialAuth,
@@ -133,7 +135,7 @@ export default function SignIn() {
             render={({ field, fieldState }) => (
               <TextField isInvalid={Boolean(fieldState.error)} isRequired>
                 <Label>Senha</Label>
-                <Input
+                <PasswordInput
                   autoCapitalize="none"
                   autoComplete="current-password"
                   editable={!isSubmitPending}
@@ -142,7 +144,6 @@ export default function SignIn() {
                   onSubmitEditing={handleSubmitPress}
                   placeholder="Sua senha"
                   returnKeyType="done"
-                  secureTextEntry
                   textContentType="password"
                   value={field.value ?? ""}
                 />
@@ -150,6 +151,14 @@ export default function SignIn() {
               </TextField>
             )}
           />
+
+          <LinkButton
+            className="self-end"
+            onPress={() => router.navigate("/forgot-password")}
+            size="sm"
+          >
+            Esqueci minha senha
+          </LinkButton>
         </View>
 
         <Button

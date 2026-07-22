@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
   FieldError,
@@ -23,6 +24,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
   cropImage,
   type CroppedImage,
@@ -72,6 +74,9 @@ const PLAYER_AVATAR_CROP_TARGET = {
 } as const;
 
 export default function PlayerProfile() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ firstRun?: string }>();
+  const isFirstRun = params.firstRun === "true";
   const crpc = useCRPC();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -118,12 +123,16 @@ export default function PlayerProfile() {
         setAvatarPreviewUri(null);
         setPendingAvatarFile(null);
         toast.show({
-          description:
-            "Suas alterações já estão visíveis para outros jogadores.",
+          description: isFirstRun
+            ? "Seu perfil foi criado. Bem-vindo ao BR Open!"
+            : "Suas alterações já estão visíveis para outros jogadores.",
           id: "update-player-profile-success",
           label: "Perfil salvo",
           variant: "success",
         });
+        if (isFirstRun) {
+          router.replace("/");
+        }
       },
       onError: (error) => {
         toast.show({
@@ -288,10 +297,12 @@ export default function PlayerProfile() {
       <Page>
         <Page.Header>
           <Page.Header.Left>
-            <Page.Header.BackButton />
+            {isFirstRun ? null : <Page.Header.BackButton />}
           </Page.Header.Left>
           <Page.Header.Center>
-            <Page.Header.Title>Perfil do jogador</Page.Header.Title>
+            <Page.Header.Title>
+              {isFirstRun ? "Complete seu perfil" : "Perfil do jogador"}
+            </Page.Header.Title>
           </Page.Header.Center>
           <Page.Header.Right />
         </Page.Header>
@@ -453,12 +464,19 @@ export default function PlayerProfile() {
                     <Label>Telefone/WhatsApp</Label>
                     <Input
                       editable={!isSubmitPending}
+                      keyboardType="phone-pad"
                       onBlur={field.onBlur}
-                      onChangeText={field.onChange}
+                      onChangeText={(text) =>
+                        field.onChange(
+                          formatPhoneBR(
+                            applyPhoneInputChange(field.value ?? "", text)
+                          )
+                        )
+                      }
                       onSubmitEditing={handleSubmitPress}
                       placeholder="(00) 00000-0000"
                       textContentType="telephoneNumber"
-                      value={field.value ?? ""}
+                      value={formatPhoneBR(field.value ?? "")}
                     />
                     <FieldError>{fieldState.error?.message ?? ""}</FieldError>
                   </TextField>
@@ -472,7 +490,11 @@ export default function PlayerProfile() {
                 onPress={handleSubmitPress}
               >
                 <Button.Label>
-                  {isSubmitPending ? "Salvando..." : "Salvar alterações"}
+                  {isSubmitPending
+                    ? "Salvando..."
+                    : isFirstRun
+                      ? "Completar"
+                      : "Salvar alterações"}
                 </Button.Label>
               </Button>
             </Page.Footer>

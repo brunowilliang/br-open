@@ -10,9 +10,6 @@ const envSchema = z.object({
   WOOVI_APP_ID: z.string().optional(),
   WOOVI_BASE_URL: z.string().default("https://api.woovi-sandbox.com"),
   WOOVI_CLIENT_ID: z.string().optional(),
-  // Platform fee percent (0-100). Organizer receives (100 - fee)% of the
-  // charge; BR-Open keeps `fee`%. Default 10 = organizer gets 90%.
-  WOOVI_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).default(10),
   BETTER_AUTH_URL: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().optional(),
   JWKS: z.string().optional(),
@@ -24,6 +21,8 @@ const envSchema = z.object({
   APPLE_TEAM_ID: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  RESEND_EMAIL_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().default("BR Open <no-reply@bropen.app>"),
 });
 
 export const getEnv = createEnv({
@@ -31,7 +30,6 @@ export const getEnv = createEnv({
     "WOOVI_APP_ID",
     "WOOVI_BASE_URL",
     "WOOVI_CLIENT_ID",
-    "WOOVI_PLATFORM_FEE_PERCENT",
     "APPLE_APP_BUNDLE_IDENTIFIER",
     "APPLE_CLIENT_ID",
     "APPLE_CLIENT_SECRET",
@@ -42,6 +40,8 @@ export const getEnv = createEnv({
     "BETTER_AUTH_URL",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
+    "RESEND_EMAIL_API_KEY",
+    "RESEND_FROM_EMAIL",
     "JWKS",
   ],
   schema: envSchema,

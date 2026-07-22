@@ -179,6 +179,16 @@ export const DEFAULT_LEAGUE_APPROVAL_MODE = "auto" as const;
 export const DEFAULT_LEAGUE_GRACE_PERIOD_DAYS = 7;
 export const DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE = 3;
 
+/**
+ * BR-Open platform fee percent (0-100). Applied to every paid league charge:
+ * the organizer receives `(100 - fee)%`, BR-Open keeps `fee%`.
+ *
+ * This is the default used when a league has no explicit override
+ * (`league.platformFeePercent` is `null`). Per-league overrides are set
+ * directly in the Convex dashboard — no app surface exposes this yet.
+ */
+export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
+
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
   "super_tiebreak",
