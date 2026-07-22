@@ -61,9 +61,7 @@
       "reactCompiler": true
     },
     "install": {
-      "exclude": [
-        "typescript"
-      ]
+      "exclude": ["typescript"]
     },
     "extra": {
       "router": {},
