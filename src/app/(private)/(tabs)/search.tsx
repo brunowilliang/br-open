@@ -88,8 +88,8 @@ export default function Search() {
               name={item.name}
               onPress={() => {
                 router.navigate({
-                  pathname: "/leagues/[leagueId]",
                   params: { leagueId: item.id },
+                  pathname: "/leagues/[leagueId]",
                 });
               }}
               state={item.state}

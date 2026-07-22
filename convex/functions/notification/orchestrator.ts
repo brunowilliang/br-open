@@ -166,9 +166,9 @@ async function scheduleNextBatch(ctx: MutationCtx, delayMs = 0) {
     await ctx.db.patch(existingLock._id, { claimedAt: now, expiresAt });
   } else {
     await ctx.db.insert("notificationDeliveryLock", {
-      key: SEND_PENDING_LOCK_KEY,
       claimedAt: now,
       expiresAt,
+      key: SEND_PENDING_LOCK_KEY,
     });
   }
 
@@ -295,8 +295,8 @@ export const claimPendingDeliveries = privateMutation
         deliveryId: z.string(),
         message: z.object({
           body: z.string(),
-          channelId: z.string(),
           categoryId: z.string().optional(),
+          channelId: z.string(),
           data: z.record(z.string(), z.unknown()),
           sound: z.literal("default"),
           title: z.string(),

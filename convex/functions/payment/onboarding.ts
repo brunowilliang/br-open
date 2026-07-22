@@ -31,8 +31,8 @@ export const start = authAction
   .output(
     z.object({
       name: z.string(),
-      status: paymentAccountStatusSchema,
       pixKey: z.string(),
+      status: paymentAccountStatusSchema,
     })
   )
   .action(async ({ ctx, input }) => {
@@ -82,8 +82,8 @@ export const start = authAction
 
     return {
       name: subaccount.name,
-      status: "active",
       pixKey: subaccount.pixKey,
+      status: "active",
     };
   });
 

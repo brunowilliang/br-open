@@ -88,7 +88,7 @@ export default function LeagueChallengesRoute() {
     organizerSubmitChallengeResult,
     organizerRequestResultReminder,
     isPending,
-  } = useChallengeMutations({ leagueId, bucket$, toast });
+  } = useChallengeMutations({ bucket$, leagueId, toast });
 
   const challenges = challengesQuery.data ?? [];
   const courts = league?.courts ?? [];

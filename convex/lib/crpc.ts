@@ -46,8 +46,8 @@ async function getIdentityUser(
   }
 
   return {
-    id: identity.subject as Id<"user">,
     email: identity.email,
+    id: identity.subject as Id<"user">,
     name: identity.name,
   };
 }

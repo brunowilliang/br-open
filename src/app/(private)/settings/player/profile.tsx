@@ -90,8 +90,8 @@ export default function PlayerProfile() {
   const form = useForm<PlayerProfileFormValues, unknown, PlayerProfileValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(PlayerProfileFormSchema),
+    reValidateMode: "onChange",
   });
   const generateUploadUrl = useMutation(
     crpc.player.profile.generateUploadUrl.mutationOptions()
@@ -111,6 +111,17 @@ export default function PlayerProfile() {
 
   const updateProfile = useMutation(
     crpc.player.profile.upsert.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível salvar suas alterações. Tente novamente."
+          ),
+          id: "update-player-profile-error",
+          label: "Falha ao salvar perfil",
+          variant: "danger",
+        });
+      },
       onSuccess: async (nextProfile) => {
         await queryClient.invalidateQueries(
           crpc.player.profile.get.queryFilter()
@@ -133,17 +144,6 @@ export default function PlayerProfile() {
         if (isFirstRun) {
           router.replace("/");
         }
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar suas alterações. Tente novamente."
-          ),
-          id: "update-player-profile-error",
-          label: "Falha ao salvar perfil",
-          variant: "danger",
-        });
       },
     })
   );

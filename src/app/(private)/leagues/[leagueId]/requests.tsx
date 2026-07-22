@@ -52,15 +52,6 @@ export default function LeagueRequestsRoute() {
 
   const approveMembership = useMutation(
     crpc.league.membership.approve.mutationOptions({
-      onSuccess: async () => {
-        await invalidateMembershipContext();
-        toast.show({
-          description: "O jogador já aparece no ranking da liga.",
-          id: "approve-membership-success",
-          label: "Participante aprovado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -72,20 +63,20 @@ export default function LeagueRequestsRoute() {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateMembershipContext();
+        toast.show({
+          description: "O jogador já aparece no ranking da liga.",
+          id: "approve-membership-success",
+          label: "Participante aprovado",
+          variant: "success",
+        });
+      },
     })
   );
 
   const rejectMembership = useMutation(
     crpc.league.membership.reject.mutationOptions({
-      onSuccess: async () => {
-        await invalidateMembershipContext();
-        toast.show({
-          description: "A solicitação foi recusada.",
-          id: "reject-membership-success",
-          label: "Solicitação recusada",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -95,6 +86,15 @@ export default function LeagueRequestsRoute() {
           id: "reject-membership-error",
           label: "Falha ao recusar",
           variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        await invalidateMembershipContext();
+        toast.show({
+          description: "A solicitação foi recusada.",
+          id: "reject-membership-success",
+          label: "Solicitação recusada",
+          variant: "success",
         });
       },
     })

@@ -1,10 +1,9 @@
 import { defineMigration } from "../generated/migrations.gen";
 
 export const migration = defineMigration({
-  id: "20260711_000001_rename_admin_reviewed_field",
   description: "rename_admin_reviewed_field",
+  id: "20260711_000001_rename_admin_reviewed_field",
   up: {
-    table: "leagueChallengeResultSubmission",
     migrateOne: (ctx, doc) => {
       const record = doc as Record<string, unknown>;
       const oldValue = record.adminReviewedByUserId;
@@ -24,5 +23,6 @@ export const migration = defineMigration({
         nextRecord
       );
     },
+    table: "leagueChallengeResultSubmission",
   },
 });

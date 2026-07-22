@@ -66,8 +66,8 @@ export default function SignUp() {
   const form = useForm({
     defaultValues: {},
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(SignUpFormSchema),
+    reValidateMode: "onChange",
   });
 
   const isSubmitPending =

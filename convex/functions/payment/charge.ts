@@ -400,7 +400,7 @@ export const resolvePaymentAccount = privateMutation
       ? paymentAccountSchema.safeParse(org.paymentAccount).data
       : null;
 
-    if (!account || account.status !== "active") {
+    if (account?.status !== "active") {
       throw new CRPCError({
         code: "PRECONDITION_FAILED",
         message:
@@ -410,8 +410,8 @@ export const resolvePaymentAccount = privateMutation
 
     return {
       name: account.name,
-      status: account.status,
       pixKey: account.pixKey,
+      status: account.status,
     };
   });
 
@@ -946,7 +946,7 @@ export const sendRenewalReminders = privateMutation.mutation(
       });
 
       // --- Phase 3: grace period elapsed → suspend ---
-      if (shouldSuspend({ nextDueMs, nowMs: now, gracePeriodDays })) {
+      if (shouldSuspend({ gracePeriodDays, nextDueMs, nowMs: now })) {
         // Only on active/payment_due → suspended transition (avoid re-spam).
         if (
           membership.status === "active" ||

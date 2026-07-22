@@ -39,5 +39,5 @@ export function useOtpCooldown(
     await SecureStore.deleteItemAsync(storageKey);
   }
 
-  return { cooldown, startCooldown, clearCooldown };
+  return { clearCooldown, cooldown, startCooldown };
 }

@@ -221,7 +221,6 @@ export default function SettingsNotificationsRoute() {
 
   const setPreference = useMutation(
     crpc.notification.settings.setPreference.mutationOptions({
-      onSuccess: invalidateNotifications,
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -233,11 +232,11 @@ export default function SettingsNotificationsRoute() {
           variant: "danger",
         });
       },
+      onSuccess: invalidateNotifications,
     })
   );
   const upsertDevice = useMutation(
     crpc.notification.settings.upsertDevice.mutationOptions({
-      onSuccess: invalidateNotifications,
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -249,6 +248,7 @@ export default function SettingsNotificationsRoute() {
           variant: "danger",
         });
       },
+      onSuccess: invalidateNotifications,
     })
   );
   const setActiveActor = useMutation(

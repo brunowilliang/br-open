@@ -72,8 +72,8 @@ function getImageCropRuntime() {
     require("react-native-reanimated") as typeof import("react-native-reanimated");
 
   return {
-    createAnimatedComponent,
     Button,
+    createAnimatedComponent,
     Gesture,
     GestureDetector,
     GestureHandlerRootView,

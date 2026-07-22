@@ -312,8 +312,8 @@ const TO_PROVIDER: Record<PixKeyType, ProviderPixKeyType> = {
 };
 
 const FROM_PROVIDER: Record<ProviderPixKeyType, PixKeyType> = {
-  CPF: "cpf",
   CNPJ: "cnpj",
+  CPF: "cpf",
   EMAIL: "email",
   PHONE: "celular",
   RANDOM: "aleatoria",

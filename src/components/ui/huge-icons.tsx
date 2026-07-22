@@ -4,17 +4,17 @@ import { styled } from "better-styled";
 import { withUniwind } from "uniwind";
 
 const HugeIconsUiwind = withUniwind(HugeiconsIcon, {
-  position: { fromClassName: "className", styleProperty: "position" },
-  top: { fromClassName: "className", styleProperty: "top" },
-  right: { fromClassName: "className", styleProperty: "right" },
-  width: { fromClassName: "className", styleProperty: "width" },
-  height: { fromClassName: "className", styleProperty: "height" },
   color: { fromClassName: "className", styleProperty: "color" },
+  height: { fromClassName: "className", styleProperty: "height" },
+  position: { fromClassName: "className", styleProperty: "position" },
+  right: { fromClassName: "className", styleProperty: "right" },
+  top: { fromClassName: "className", styleProperty: "top" },
+  width: { fromClassName: "className", styleProperty: "width" },
 });
 
 export const HugeIcons = styled(HugeIconsUiwind, {
   base: {
-    icon: DashedLineCircleIcon,
     className: "size-5.5 text-foreground",
+    icon: DashedLineCircleIcon,
   },
 });

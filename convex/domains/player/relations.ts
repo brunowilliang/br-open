@@ -3,13 +3,13 @@ import type { tables } from "../../functions/schema";
 
 export const definePlayerRelations = (r: RelationsBuilder<typeof tables>) => ({
   playerProfile: {
-    user: r.one.user({
-      from: r.playerProfile.userId,
-      to: r.user.id,
-    }),
     leagueMemberships: r.many.leagueMembership({
       from: r.playerProfile.id,
       to: r.leagueMembership.playerProfileId,
+    }),
+    user: r.one.user({
+      from: r.playerProfile.userId,
+      to: r.user.id,
     }),
   },
 });

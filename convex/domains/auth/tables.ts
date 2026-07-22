@@ -11,19 +11,19 @@ import {
 export const user = convexTable(
   "user",
   {
-    name: text().notNull(),
+    createdAt: timestamp().notNull(),
     email: text().notNull().unique(),
     emailVerified: boolean().notNull(),
     image: text(),
-    createdAt: timestamp().notNull(),
-    updatedAt: timestamp().notNull(),
-    userId: text(),
     lastActiveOrganizationId: id("organization").references(
       () => organization.id
     ),
+    name: text().notNull(),
     personalOrganizationId: id("organization").references(
       () => organization.id
     ),
+    updatedAt: timestamp().notNull(),
+    userId: text(),
   },
   (user) => [
     index("email_name").on(user.email, user.name),
@@ -55,14 +55,14 @@ export const userPreference = convexTable(
 export const session = convexTable(
   "session",
   {
-    expiresAt: timestamp().notNull(),
-    token: text().notNull().unique(),
-    createdAt: timestamp().notNull(),
-    updatedAt: timestamp().notNull(),
-    ipAddress: text(),
-    userAgent: text(),
     activeOrganizationId: id("organization").references(() => organization.id),
     activeTeamId: id("team").references(() => team.id),
+    createdAt: timestamp().notNull(),
+    expiresAt: timestamp().notNull(),
+    ipAddress: text(),
+    token: text().notNull().unique(),
+    updatedAt: timestamp().notNull(),
+    userAgent: text(),
     userId: id("user")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -79,20 +79,20 @@ export const session = convexTable(
 export const account = convexTable(
   "account",
   {
+    accessToken: text(),
+    accessTokenExpiresAt: timestamp(),
     accountId: text().notNull(),
+    createdAt: timestamp().notNull(),
+    idToken: text(),
+    password: text(),
     providerId: text().notNull(),
+    refreshToken: text(),
+    refreshTokenExpiresAt: timestamp(),
+    scope: text(),
+    updatedAt: timestamp().notNull(),
     userId: id("user")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    accessToken: text(),
-    refreshToken: text(),
-    idToken: text(),
-    accessTokenExpiresAt: timestamp(),
-    refreshTokenExpiresAt: timestamp(),
-    scope: text(),
-    password: text(),
-    createdAt: timestamp().notNull(),
-    updatedAt: timestamp().notNull(),
   },
   (account) => [
     index("accountId").on(account.accountId),
@@ -105,11 +105,11 @@ export const account = convexTable(
 export const verification = convexTable(
   "verification",
   {
-    identifier: text().notNull(),
-    value: text().notNull(),
-    expiresAt: timestamp().notNull(),
     createdAt: timestamp().notNull(),
+    expiresAt: timestamp().notNull(),
+    identifier: text().notNull(),
     updatedAt: timestamp().notNull(),
+    value: text().notNull(),
   },
   (verification) => [
     index("expiresAt").on(verification.expiresAt),
@@ -118,24 +118,24 @@ export const verification = convexTable(
 );
 
 export const jwks = convexTable("jwks", {
-  publicKey: text().notNull(),
-  privateKey: text().notNull(),
   createdAt: timestamp().notNull(),
   expiresAt: timestamp(),
+  privateKey: text().notNull(),
+  publicKey: text().notNull(),
 });
 
 export const organization = convexTable(
   "organization",
   {
-    name: text().notNull(),
-    slug: text().notNull().unique(),
+    createdAt: timestamp().notNull(),
     logo: text(),
     metadata: json<Record<string, unknown>>(),
+    name: text().notNull(),
     // Embedded payment account (PIX key, status, etc.) — mirrors the
     // metadata pattern: raw JSON here, validated by `paymentAccountSchema`
     // in convex/domains/payment/contract.ts. Null until the org onboards.
     paymentAccount: json<Record<string, unknown>>(),
-    createdAt: timestamp().notNull(),
+    slug: text().notNull().unique(),
     updatedAt: timestamp(),
   },
   (organization) => [index("name").on(organization.name)]
@@ -144,14 +144,14 @@ export const organization = convexTable(
 export const member = convexTable(
   "member",
   {
+    createdAt: timestamp().notNull(),
     organizationId: id("organization")
       .notNull()
       .references(() => organization.id),
+    role: text().notNull(),
     userId: id("user")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    role: text().notNull(),
-    createdAt: timestamp().notNull(),
   },
   (member) => [
     index("organizationId_role").on(member.organizationId, member.role),
@@ -163,11 +163,11 @@ export const member = convexTable(
 export const team = convexTable(
   "team",
   {
+    createdAt: timestamp().notNull(),
     name: text().notNull(),
     organizationId: id("organization")
       .notNull()
       .references(() => organization.id),
-    createdAt: timestamp().notNull(),
     updatedAt: timestamp(),
   },
   (team) => [index("organizationId").on(team.organizationId)]
@@ -176,13 +176,13 @@ export const team = convexTable(
 export const teamMember = convexTable(
   "teamMember",
   {
+    createdAt: timestamp(),
     teamId: id("team")
       .notNull()
       .references(() => team.id),
     userId: id("user")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp(),
   },
   (teamMember) => [
     index("teamId").on(teamMember.teamId),
@@ -193,18 +193,18 @@ export const teamMember = convexTable(
 export const invitation = convexTable(
   "invitation",
   {
-    organizationId: id("organization")
-      .notNull()
-      .references(() => organization.id),
+    createdAt: timestamp().notNull(),
+    email: text().notNull(),
+    expiresAt: timestamp(),
     inviterId: id("user")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    email: text().notNull(),
+    organizationId: id("organization")
+      .notNull()
+      .references(() => organization.id),
     role: text().notNull(),
     status: text().notNull(),
-    expiresAt: timestamp(),
     teamId: id("team").references(() => team.id),
-    createdAt: timestamp().notNull(),
   },
   (invitation) => [
     index("email").on(invitation.email),

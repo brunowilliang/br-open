@@ -59,12 +59,6 @@ export const notificationFeed = convexTable(
     occurredAt: timestamp().notNull(),
     readAt: timestamp(),
     recipientActorKind: text().notNull(),
-    // Retraction: when a challenge is cancelled/rescheduled, prior
-    // notifications about it should be retracted rather than orphaned.
-    retractedAt: timestamp(),
-    sourceEntityId: text(),
-    sourceEntityType: text(),
-    status: textEnum(["active", "retracted"]).default("active"),
     recipientOrganizationId: id("organization").references(
       () => authTables.organization.id,
       { onDelete: "cascade" }
@@ -76,6 +70,12 @@ export const notificationFeed = convexTable(
     recipientUserId: id("user")
       .notNull()
       .references(() => authTables.user.id, { onDelete: "cascade" }),
+    // Retraction: when a challenge is cancelled/rescheduled, prior
+    // notifications about it should be retracted rather than orphaned.
+    retractedAt: timestamp(),
+    sourceEntityId: text(),
+    sourceEntityType: text(),
+    status: textEnum(["active", "retracted"]).default("active"),
     title: text().notNull(),
   },
   (notificationFeed) => [
@@ -156,9 +156,9 @@ export const notificationDelivery = convexTable(
 export const notificationDeliveryLock = convexTable(
   "notificationDeliveryLock",
   {
-    key: text().notNull(),
     claimedAt: timestamp().notNull(),
     expiresAt: timestamp().notNull(),
+    key: text().notNull(),
   },
   (notificationDeliveryLock) => [index("key").on(notificationDeliveryLock.key)]
 );

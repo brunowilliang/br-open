@@ -27,8 +27,8 @@ export const authClient = createAuthClient({
       : [
           expoClient({
             scheme,
-            storagePrefix: scheme,
             storage: SecureStore,
+            storagePrefix: scheme,
           }),
         ]),
   ],
@@ -170,5 +170,5 @@ export function useSocialAuth(mode: SocialAuthMode) {
     }
   }
 
-  return { isPending, handleApplePress, handleGooglePress, reset };
+  return { handleApplePress, handleGooglePress, isPending, reset };
 }

@@ -65,9 +65,6 @@ export default function CheckoutScreen() {
 
   const simulatePayment = useMutation(
     crpc.payment.charge.simulatePayment.mutationOptions({
-      onSuccess: async () => {
-        await invalidateCheckout();
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -78,6 +75,9 @@ export default function CheckoutScreen() {
           label: "Simulação falhou",
           variant: "danger",
         });
+      },
+      onSuccess: async () => {
+        await invalidateCheckout();
       },
     })
   );

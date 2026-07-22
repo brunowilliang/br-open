@@ -44,10 +44,9 @@ function hasPatchValues(patch: Record<string, unknown>) {
 }
 
 export const migration = defineMigration({
-  id: "20260615_083100_backfill_league_membership_player_profiles",
   description: "backfill league membership player profiles",
+  id: "20260615_083100_backfill_league_membership_player_profiles",
   up: {
-    table: "leagueMembership",
     migrateOne: async (ctx, doc) => {
       async function ensureLegacyPlayerProfile(userId: Id<"user">) {
         const existingPlayerProfile = await ctx.db
@@ -102,5 +101,6 @@ export const migration = defineMigration({
 
       return hasPatchValues(patch) ? patch : undefined;
     },
+    table: "leagueMembership",
   },
 });

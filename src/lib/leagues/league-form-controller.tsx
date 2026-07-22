@@ -64,15 +64,15 @@ type LeagueFormController = {
 };
 
 const LEAGUE_MEDIA_CROP_CONFIG = {
-  cover: {
-    aspectRatio: 16 / 9,
-    height: 900,
-    width: 1600,
-  },
   avatar: {
     aspectRatio: 1,
     height: 900,
     width: 900,
+  },
+  cover: {
+    aspectRatio: 16 / 9,
+    height: 900,
+    width: 1600,
   },
 } as const satisfies Record<LeagueMediaKind, LeagueMediaCropConfig>;
 
@@ -106,8 +106,8 @@ export function useLeagueFormController(
   const form = useForm<LeagueScreenValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(LeagueSchema),
+    reValidateMode: "onChange",
   });
   const generateUploadUrl = useMutation(
     crpc.league.management.generateUploadUrl.mutationOptions()
@@ -330,7 +330,6 @@ export function useLeagueFormController(
   );
 
   return {
-    form,
     cropper: {
       aspectRatio: cropConfig?.aspectRatio ?? null,
       asset: cropRequest?.asset ?? null,
@@ -345,6 +344,7 @@ export function useLeagueFormController(
       title:
         cropRequest?.kind === "avatar" ? "Ajustar avatar" : "Ajustar banner",
     },
+    form,
   };
 }
 

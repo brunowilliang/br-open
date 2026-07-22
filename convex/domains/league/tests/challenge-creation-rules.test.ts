@@ -96,8 +96,8 @@ describe("challenge creation rules", () => {
     expect(
       resolveChallengeCreationRuleError({
         ...baseInput,
-        challengerActiveChallengeCount: 99,
         challengedActiveChallengeCount: 99,
+        challengerActiveChallengeCount: 99,
         maxActiveChallengesPerPlayer: Number.POSITIVE_INFINITY,
       })
     ).toBeNull();

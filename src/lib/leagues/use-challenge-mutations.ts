@@ -40,6 +40,13 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
 
   const createChallenge = useMutation(
     crpc.league.challenges.create.mutationOptions({
+      onError: (error) => {
+        toast.show(
+          getCreateChallengeErrorToast(
+            getToastErrorMessage(error, "Não foi possível criar o desafio.")
+          )
+        );
+      },
       onSuccess: async () => {
         await invalidateLeagueContext();
         bucket$.actions.setChallengeCreateTarget(null);
@@ -51,26 +58,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "success",
         });
       },
-      onError: (error) => {
-        toast.show(
-          getCreateChallengeErrorToast(
-            getToastErrorMessage(error, "Não foi possível criar o desafio.")
-          )
-        );
-      },
     })
   );
   const acceptChallengeProposal = useMutation(
     crpc.league.challenges.acceptProposal.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "A partida está confirmada.",
-          id: "accept-challenge-proposal-success",
-          label: "Desafio aceito",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -82,19 +73,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "A partida está confirmada.",
+          id: "accept-challenge-proposal-success",
+          label: "Desafio aceito",
+          variant: "success",
+        });
+      },
     })
   );
   const declineChallengeProposal = useMutation(
     crpc.league.challenges.declineProposal.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "A proposta foi recusada.",
-          id: "decline-challenge-proposal-success",
-          label: "Desafio recusado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -106,20 +97,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "A proposta foi recusada.",
+          id: "decline-challenge-proposal-success",
+          label: "Desafio recusado",
+          variant: "success",
+        });
+      },
     })
   );
   const counterProposeChallenge = useMutation(
     crpc.league.challenges.counterPropose.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            "Seu adversário pode aceitar ou recusar a nova proposta.",
-          id: "counter-propose-challenge-success",
-          label: "Contraproposta enviada",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -131,19 +121,20 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description:
+            "Seu adversário pode aceitar ou recusar a nova proposta.",
+          id: "counter-propose-challenge-success",
+          label: "Contraproposta enviada",
+          variant: "success",
+        });
+      },
     })
   );
   const cancelChallenge = useMutation(
     crpc.league.challenges.cancel.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "A partida foi cancelada.",
-          id: "cancel-challenge-success",
-          label: "Desafio cancelado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -155,20 +146,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "A partida foi cancelada.",
+          id: "cancel-challenge-success",
+          label: "Desafio cancelado",
+          variant: "success",
+        });
+      },
     })
   );
   const requestChallengeCancellation = useMutation(
     crpc.league.challenges.requestCancellation.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            "Seu adversário será notificado para aceitar ou recusar.",
-          id: "request-challenge-cancellation-success",
-          label: "Cancelamento solicitado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -180,10 +170,31 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description:
+            "Seu adversário será notificado para aceitar ou recusar.",
+          id: "request-challenge-cancellation-success",
+          label: "Cancelamento solicitado",
+          variant: "success",
+        });
+      },
     })
   );
   const respondChallengeCancellation = useMutation(
     crpc.league.challenges.respondCancellationRequest.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível responder à solicitação. Tente novamente."
+          ),
+          id: "respond-challenge-cancellation-error",
+          label: "Falha ao responder",
+          variant: "danger",
+        });
+      },
       onSuccess: async (_, variables) => {
         await invalidateLeagueContext();
         toast.show({
@@ -202,30 +213,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "success",
         });
       },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível responder à solicitação. Tente novamente."
-          ),
-          id: "respond-challenge-cancellation-error",
-          label: "Falha ao responder",
-          variant: "danger",
-        });
-      },
     })
   );
   const submitChallengeResult = useMutation(
     crpc.league.challenges.submitResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "Aguardando confirmação do adversário.",
-          id: "submit-challenge-result-success",
-          label: "Placar enviado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -237,19 +228,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "Aguardando confirmação do adversário.",
+          id: "submit-challenge-result-success",
+          label: "Placar enviado",
+          variant: "success",
+        });
+      },
     })
   );
   const confirmChallengeResult = useMutation(
     crpc.league.challenges.confirmResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O resultado foi registrado no ranking.",
-          id: "confirm-challenge-result-success",
-          label: "Placar confirmado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -261,19 +252,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O resultado foi registrado no ranking.",
+          id: "confirm-challenge-result-success",
+          label: "Placar confirmado",
+          variant: "success",
+        });
+      },
     })
   );
   const reviewChallenge = useMutation(
     crpc.league.challenges.reviewChallenge.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O status do desafio foi atualizado.",
-          id: "review-challenge-success",
-          label: "Validação atualizada",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -285,19 +276,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O status do desafio foi atualizado.",
+          id: "review-challenge-success",
+          label: "Validação atualizada",
+          variant: "success",
+        });
+      },
     })
   );
   const reviewChallengeResult = useMutation(
     crpc.league.challenges.reviewResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O status do resultado foi atualizado.",
-          id: "review-challenge-result-success",
-          label: "Resultado validado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -309,14 +300,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O status do resultado foi atualizado.",
+          id: "review-challenge-result-success",
+          label: "Resultado validado",
+          variant: "success",
+        });
+      },
     })
   );
   const organizerManageChallenge = useMutation(
     crpc.league.challenges.organizerManage.mutationOptions({
-      onSuccess: async (_, variables) => {
-        await invalidateLeagueContext();
-        toast.show(getAdminManageChallengeSuccessToast(variables));
-      },
       onError: (error, variables) => {
         toast.show(
           getAdminManageChallengeErrorToast({
@@ -328,19 +324,14 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           })
         );
       },
+      onSuccess: async (_, variables) => {
+        await invalidateLeagueContext();
+        toast.show(getAdminManageChallengeSuccessToast(variables));
+      },
     })
   );
   const organizerSubmitChallengeResult = useMutation(
     crpc.league.challenges.organizerSubmitResult.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O placar foi salvo e o ranking foi atualizado.",
-          id: "organizer-submit-challenge-result-success",
-          label: "Placar registrado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -352,21 +343,20 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O placar foi salvo e o ranking foi atualizado.",
+          id: "organizer-submit-challenge-result-success",
+          label: "Placar registrado",
+          variant: "success",
+        });
+      },
     })
   );
 
   const organizerRequestResultReminder = useMutation(
     crpc.league.challenges.organizerRequestResultReminder.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            "Os jogadores receberam a notificação para registrar o placar.",
-          id: "admin-request-result-reminder-success",
-          label: "Lembrete enviado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -376,6 +366,16 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
           id: "admin-request-result-reminder-error",
           label: "Falha ao enviar lembrete",
           variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description:
+            "Os jogadores receberam a notificação para registrar o placar.",
+          id: "admin-request-result-reminder-success",
+          label: "Lembrete enviado",
+          variant: "success",
         });
       },
     })
@@ -398,21 +398,21 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
     organizerRequestResultReminder.isPending;
 
   return {
-    createChallenge,
     acceptChallengeProposal,
-    declineChallengeProposal,
-    counterProposeChallenge,
     cancelChallenge,
+    confirmChallengeResult,
+    counterProposeChallenge,
+    createChallenge,
+    declineChallengeProposal,
+    invalidateLeagueContext,
+    isPending,
+    organizerManageChallenge,
+    organizerRequestResultReminder,
+    organizerSubmitChallengeResult,
     requestChallengeCancellation,
     respondChallengeCancellation,
-    submitChallengeResult,
-    confirmChallengeResult,
     reviewChallenge,
     reviewChallengeResult,
-    organizerManageChallenge,
-    organizerSubmitChallengeResult,
-    organizerRequestResultReminder,
-    isPending,
-    invalidateLeagueContext,
+    submitChallengeResult,
   };
 }

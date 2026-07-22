@@ -86,6 +86,13 @@ export default function LeagueRankingRoute() {
 
   const createChallenge = useMutation(
     crpc.league.challenges.create.mutationOptions({
+      onError: (error) => {
+        toast.show(
+          getCreateChallengeErrorToast(
+            getToastErrorMessage(error, "Não foi possível criar o desafio.")
+          )
+        );
+      },
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
@@ -96,27 +103,11 @@ export default function LeagueRankingRoute() {
           variant: "success",
         });
       },
-      onError: (error) => {
-        toast.show(
-          getCreateChallengeErrorToast(
-            getToastErrorMessage(error, "Não foi possível criar o desafio.")
-          )
-        );
-      },
     })
   );
 
   const removeMembership = useMutation(
     crpc.league.membership.remove.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O jogador foi retirado do ranking desta liga.",
-          id: "remove-membership-success",
-          label: "Jogador removido",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         setPendingOrderIds(null);
         toast.show({
@@ -129,20 +120,20 @@ export default function LeagueRankingRoute() {
           variant: "danger",
         });
       },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "O jogador foi retirado do ranking desta liga.",
+          id: "remove-membership-success",
+          label: "Jogador removido",
+          variant: "success",
+        });
+      },
     })
   );
 
   const reorderRanking = useMutation(
     crpc.league.membership.reorderRanking.mutationOptions({
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "A nova ordem foi salva.",
-          id: "reorder-ranking-success",
-          label: "Ranking atualizado",
-          variant: "success",
-        });
-      },
       onError: (error) => {
         toast.show({
           description: getToastErrorMessage(
@@ -152,6 +143,15 @@ export default function LeagueRankingRoute() {
           id: "reorder-ranking-error",
           label: "Falha ao atualizar ranking",
           variant: "danger",
+        });
+      },
+      onSuccess: async () => {
+        await invalidateLeagueContext();
+        toast.show({
+          description: "A nova ordem foi salva.",
+          id: "reorder-ranking-success",
+          label: "Ranking atualizado",
+          variant: "success",
         });
       },
     })

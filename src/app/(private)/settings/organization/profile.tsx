@@ -63,8 +63,8 @@ export default function OrganizationProfile() {
   const form = useForm<EditFormValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(EditFormSchema),
+    reValidateMode: "onChange",
   });
 
   const logo = useOrganizationLogo(

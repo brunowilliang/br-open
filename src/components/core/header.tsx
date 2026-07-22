@@ -49,19 +49,19 @@ const HeaderTitle = styled(Text, {
 
 const HeaderSubTitle = styled(Text, {
   base: {
-    variant: "description",
     color: "muted",
     numberOfLines: 2,
+    variant: "description",
   },
 });
 
 const HeaderIcon = styled(HugeIcons, {});
 
 export const Header = withSlots(HeaderRoot, {
-  Left: LeftFrame,
   Center: CenterFrame,
-  Right: RightFrame,
-  Title: HeaderTitle,
-  SubTitle: HeaderSubTitle,
   Icon: HeaderIcon,
+  Left: LeftFrame,
+  Right: RightFrame,
+  SubTitle: HeaderSubTitle,
+  Title: HeaderTitle,
 });

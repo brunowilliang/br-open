@@ -92,20 +92,20 @@ function resolveLeagueFormTarget(input: {
 
 function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
   return {
+    approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
     categories: values.categories,
     city: values.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
+    gracePeriodDays: values.gracePeriodDays,
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
-    approvalMode: values.approvalMode,
-    gracePeriodDays: values.gracePeriodDays,
-    reminderDaysBefore: values.reminderDaysBefore,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,
+    reminderDaysBefore: values.reminderDaysBefore,
     ruleConfig: values.ruleConfig,
     state: values.state,
     visibility: values.visibility,
@@ -114,20 +114,20 @@ function toCreateLeagueInput(values: LeagueScreenValues): CreateLeagueInput {
 
 function toLeagueScreenValues(league: League): LeagueScreenValues {
   return {
+    approvalMode: league.approvalMode,
     avatarStorageId: league.avatarStorageId,
     categories: league.categories,
     city: league.city,
     courts: league.courts,
     coverStorageId: league.coverStorageId,
     description: league.description ?? "",
+    gracePeriodDays: league.gracePeriodDays,
     locationNotes: league.locationNotes ?? "",
     maxPlayers: league.maxPlayers,
-    approvalMode: league.approvalMode,
-    gracePeriodDays: league.gracePeriodDays,
-    reminderDaysBefore: league.reminderDaysBefore,
     monthlyPriceCents: league.monthlyPriceCents,
     name: league.name,
     priceBillingInterval: league.priceBillingInterval,
+    reminderDaysBefore: league.reminderDaysBefore,
     ruleConfig: league.ruleConfig,
     state: league.state,
     visibility: league.visibility,
@@ -139,21 +139,21 @@ function toUpdateLeagueInput(
   values: LeagueScreenValues
 ): UpdateLeagueInput {
   return {
+    approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
     categories: values.categories,
     city: values.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
+    gracePeriodDays: values.gracePeriodDays,
     leagueId,
     locationNotes: values.locationNotes,
     maxPlayers: values.maxPlayers,
-    approvalMode: values.approvalMode,
-    gracePeriodDays: values.gracePeriodDays,
-    reminderDaysBefore: values.reminderDaysBefore,
     monthlyPriceCents: values.monthlyPriceCents,
     name: values.name,
     priceBillingInterval: values.priceBillingInterval,
+    reminderDaysBefore: values.reminderDaysBefore,
     ruleConfig: values.ruleConfig,
     state: values.state,
     visibility: values.visibility,
@@ -297,6 +297,17 @@ export default function LeagueFormLayout() {
   });
   const createLeague = useMutation(
     crpc.league.management.create.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível criar a liga. Tente novamente."
+          ),
+          id: "create-league-error",
+          label: "Falha ao criar liga",
+          variant: "danger",
+        });
+      },
       onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.league.management.listMine.queryFilter()
@@ -309,21 +320,21 @@ export default function LeagueFormLayout() {
         });
         router.replace("/settings/leagues");
       },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível criar a liga. Tente novamente."
-          ),
-          id: "create-league-error",
-          label: "Falha ao criar liga",
-          variant: "danger",
-        });
-      },
     })
   );
   const updateLeague = useMutation(
     crpc.league.management.update.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível atualizar a liga. Tente novamente."
+          ),
+          id: "update-league-error",
+          label: "Falha ao salvar alterações",
+          variant: "danger",
+        });
+      },
       onSuccess: async (updatedLeague) => {
         await Promise.all([
           queryClient.invalidateQueries(
@@ -342,21 +353,21 @@ export default function LeagueFormLayout() {
           variant: "success",
         });
       },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível atualizar a liga. Tente novamente."
-          ),
-          id: "update-league-error",
-          label: "Falha ao salvar alterações",
-          variant: "danger",
-        });
-      },
     })
   );
   const deleteLeague = useMutation(
     crpc.league.management.remove.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível excluir a liga. Tente novamente."
+          ),
+          id: "delete-league-error",
+          label: "Falha ao remover liga",
+          variant: "danger",
+        });
+      },
       onSuccess: async () => {
         await queryClient.invalidateQueries(
           crpc.league.management.listMine.queryFilter()
@@ -368,17 +379,6 @@ export default function LeagueFormLayout() {
           variant: "success",
         });
         router.replace("/settings/leagues");
-      },
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível excluir a liga. Tente novamente."
-          ),
-          id: "delete-league-error",
-          label: "Falha ao remover liga",
-          variant: "danger",
-        });
       },
     })
   );

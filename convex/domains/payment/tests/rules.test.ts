@@ -119,13 +119,13 @@ describe("payment rules", () => {
     };
     const cases: Case[] = [
       // Woovi uses ACTIVE for a charge awaiting payment.
-      { input: "ACTIVE", expected: CHARGE_STATUS_PENDING },
-      { input: "COMPLETED", expected: CHARGE_STATUS_PAID },
-      { input: "EXPIRED", expected: CHARGE_STATUS_EXPIRED },
+      { expected: CHARGE_STATUS_PENDING, input: "ACTIVE" },
+      { expected: CHARGE_STATUS_PAID, input: "COMPLETED" },
+      { expected: CHARGE_STATUS_EXPIRED, input: "EXPIRED" },
       // Unknown / missing — default to PENDING so the charge stays payable.
-      { input: undefined, expected: CHARGE_STATUS_PENDING },
-      { input: null, expected: CHARGE_STATUS_PENDING },
-      { input: "SOMETHING_UNDOCUMENTED", expected: CHARGE_STATUS_PENDING },
+      { expected: CHARGE_STATUS_PENDING, input: undefined },
+      { expected: CHARGE_STATUS_PENDING, input: null },
+      { expected: CHARGE_STATUS_PENDING, input: "SOMETHING_UNDOCUMENTED" },
     ];
 
     for (const { input, expected } of cases) {
@@ -268,9 +268,9 @@ describe("payment rules", () => {
       const nextDue = now - 8 * DAY;
       expect(
         shouldSuspend({
+          gracePeriodDays: 7,
           nextDueMs: nextDue,
           nowMs: now,
-          gracePeriodDays: 7,
         })
       ).toBe(true);
     });
@@ -280,9 +280,9 @@ describe("payment rules", () => {
       const nextDue = now - 3 * DAY;
       expect(
         shouldSuspend({
+          gracePeriodDays: 7,
           nextDueMs: nextDue,
           nowMs: now,
-          gracePeriodDays: 7,
         })
       ).toBe(false);
     });
@@ -292,9 +292,9 @@ describe("payment rules", () => {
       const nextDue = now - 7 * DAY;
       expect(
         shouldSuspend({
+          gracePeriodDays: 7,
           nextDueMs: nextDue,
           nowMs: now,
-          gracePeriodDays: 7,
         })
       ).toBe(true);
     });
@@ -304,9 +304,9 @@ describe("payment rules", () => {
       const nextDue = now;
       expect(
         shouldSuspend({
+          gracePeriodDays: 0,
           nextDueMs: nextDue,
           nowMs: now,
-          gracePeriodDays: 0,
         })
       ).toBe(true);
     });

@@ -36,7 +36,6 @@ import type {
 export function serializeLeagueRecord(record: LeagueRecord) {
   return leagueSchema.parse({
     ...record,
-    visibility: normalizeLeagueVisibility(record.visibility),
     avatarStorageId:
       record.avatarStorageId &&
       !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(
@@ -44,6 +43,7 @@ export function serializeLeagueRecord(record: LeagueRecord) {
       )
         ? record.avatarStorageId
         : null,
+    courts: record.courts ?? [],
     coverStorageId:
       record.coverStorageId &&
       !(LEGACY_DEFAULT_LEAGUE_STORAGE_IDS as readonly string[]).includes(
@@ -51,7 +51,7 @@ export function serializeLeagueRecord(record: LeagueRecord) {
       )
         ? record.coverStorageId
         : null,
-    courts: record.courts ?? [],
+    createdAt: record.createdAt.getTime(),
     maxPlayers: record.maxPlayers ?? null,
     monthlyPriceCents:
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
@@ -59,18 +59,18 @@ export function serializeLeagueRecord(record: LeagueRecord) {
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
     ruleConfig: {
       ...record.ruleConfig,
-      scheduleVisibility:
-        record.ruleConfig?.scheduleVisibility ??
-        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
       resultValidationMode:
         record.ruleConfig?.resultValidationMode ??
         DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
     },
-    createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
+    visibility: normalizeLeagueVisibility(record.visibility),
   });
 }
 
@@ -113,12 +113,12 @@ export async function serializeParticipant(
 ) {
   return {
     membershipId: membership.id as Id<"leagueMembership">,
-    playerProfileId: membership.playerProfileId,
-    rankingPosition: membership.rankingPosition ?? null,
     player: await getPlayerSummary(
       ctx,
       membership.playerProfileId as Id<"playerProfile">
     ),
+    playerProfileId: membership.playerProfileId,
+    rankingPosition: membership.rankingPosition ?? null,
   };
 }
 
@@ -127,18 +127,18 @@ export function serializeProposal(
   proposal: LeagueChallengeProposalRecord
 ) {
   return {
-    id: proposal.id,
     challengeId: proposal.challengeId,
-    proposedByMembershipId: proposal.proposedByMembershipId,
     courtId: proposal.courtId,
     courtName: getCourtNameOrThrow(currentLeague, proposal.courtId),
-    matchDate: proposal.matchDate,
-    startMinute: proposal.startMinute,
+    createdAt: proposal.createdAt.getTime(),
     endMinute: proposal.endMinute,
+    id: proposal.id,
+    matchDate: proposal.matchDate,
+    proposedByMembershipId: proposal.proposedByMembershipId,
     responseDeadlineAt: proposal.responseDeadlineAt.getTime(),
     revisionNumber: proposal.revisionNumber,
+    startMinute: proposal.startMinute,
     status: proposal.status as LeagueChallengeProposal["status"],
-    createdAt: proposal.createdAt.getTime(),
   } satisfies LeagueChallengeProposal;
 }
 
@@ -146,25 +146,25 @@ export function serializeResultSubmission(
   resultSubmission: LeagueChallengeResultSubmissionRecord
 ) {
   return {
-    id: resultSubmission.id,
     challengeId: resultSubmission.challengeId,
-    submittedByMembershipId: resultSubmission.submittedByMembershipId,
+    confirmedAt: resultSubmission.confirmedAt
+      ? resultSubmission.confirmedAt.getTime()
+      : null,
     confirmedByMembershipId: resultSubmission.confirmedByMembershipId ?? null,
+    id: resultSubmission.id,
     organizerReviewedByUserId:
       resultSubmission.organizerReviewedByUserId ?? null,
     reviewAction:
       (resultSubmission.reviewAction as
         | LeagueChallengeResultSubmission["reviewAction"]
         | undefined) ?? null,
-    score: leagueChallengeScoreSchema.parse(resultSubmission.score),
-    winnerMembershipId: resultSubmission.winnerMembershipId ?? null,
-    submittedAt: resultSubmission.submittedAt.getTime(),
-    confirmedAt: resultSubmission.confirmedAt
-      ? resultSubmission.confirmedAt.getTime()
-      : null,
     reviewedAt: resultSubmission.reviewedAt
       ? resultSubmission.reviewedAt.getTime()
       : null,
+    score: leagueChallengeScoreSchema.parse(resultSubmission.score),
+    submittedAt: resultSubmission.submittedAt.getTime(),
+    submittedByMembershipId: resultSubmission.submittedByMembershipId,
+    winnerMembershipId: resultSubmission.winnerMembershipId ?? null,
   } satisfies LeagueChallengeResultSubmission;
 }
 
@@ -218,38 +218,38 @@ export async function serializeChallenge(
   });
 
   return leagueChallengeSchema.parse({
-    id: challenge.id,
-    leagueId: challenge.leagueId,
-    status: effectiveStatus as LeagueChallenge["status"],
-    challengeValidationMode:
-      challenge.challengeValidationMode as LeagueChallenge["challengeValidationMode"],
-    resultValidationMode:
-      challenge.resultValidationMode as LeagueChallenge["resultValidationMode"],
-    challenger: await serializeParticipant(ctx, challengerMembership),
-    challenged: await serializeParticipant(ctx, challengedMembership),
-    matchConfigSnapshot: LeagueMatchConfigSchema.parse(
-      challenge.matchConfigSnapshot
-    ),
-    currentProposal: serializeProposal(currentLeague, currentProposal),
-    proposals: proposals.map((proposal) =>
-      serializeProposal(currentLeague, proposal)
-    ),
-    latestResultSubmission: latestResultSubmission
-      ? serializeResultSubmission(latestResultSubmission)
-      : null,
-    cancellationRequestedByMembershipId:
-      challenge.cancellationRequestedByMembershipId ?? null,
     cancellationRequestedAt: challenge.cancellationRequestedAt
       ? challenge.cancellationRequestedAt.getTime()
       : null,
-    lockedAt: challenge.lockedAt ? challenge.lockedAt.getTime() : null,
-    confirmedAt: challenge.confirmedAt ? challenge.confirmedAt.getTime() : null,
-    finishedAt: challenge.finishedAt ? challenge.finishedAt.getTime() : null,
+    cancellationRequestedByMembershipId:
+      challenge.cancellationRequestedByMembershipId ?? null,
     cancelledAt: challenge.cancelledAt ? challenge.cancelledAt.getTime() : null,
+    challenged: await serializeParticipant(ctx, challengedMembership),
+    challenger: await serializeParticipant(ctx, challengerMembership),
+    challengeValidationMode:
+      challenge.challengeValidationMode as LeagueChallenge["challengeValidationMode"],
+    confirmedAt: challenge.confirmedAt ? challenge.confirmedAt.getTime() : null,
+    createdAt: challenge.createdAt.getTime(),
+    currentProposal: serializeProposal(currentLeague, currentProposal),
+    finishedAt: challenge.finishedAt ? challenge.finishedAt.getTime() : null,
+    id: challenge.id,
     invalidatedAt: challenge.invalidatedAt
       ? challenge.invalidatedAt.getTime()
       : null,
-    createdAt: challenge.createdAt.getTime(),
+    latestResultSubmission: latestResultSubmission
+      ? serializeResultSubmission(latestResultSubmission)
+      : null,
+    leagueId: challenge.leagueId,
+    lockedAt: challenge.lockedAt ? challenge.lockedAt.getTime() : null,
+    matchConfigSnapshot: LeagueMatchConfigSchema.parse(
+      challenge.matchConfigSnapshot
+    ),
+    proposals: proposals.map((proposal) =>
+      serializeProposal(currentLeague, proposal)
+    ),
+    resultValidationMode:
+      challenge.resultValidationMode as LeagueChallenge["resultValidationMode"],
+    status: effectiveStatus as LeagueChallenge["status"],
     updatedAt: challenge.updatedAt.getTime(),
   } satisfies LeagueChallenge);
 }

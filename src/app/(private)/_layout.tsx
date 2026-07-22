@@ -16,7 +16,7 @@ export default function Layout() {
   return (
     <Stack
       initialRouteName="(tabs)"
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor } }}
+      screenOptions={{ contentStyle: { backgroundColor }, headerShown: false }}
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen

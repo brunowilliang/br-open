@@ -137,46 +137,46 @@ export default function Settings() {
 
   const profileItem: SettingsItem = isOrganizationActor
     ? {
-        id: "profile",
         description: "Gerencie o perfil da sua organização",
         href: "/settings/organization/profile" as Href,
         icon: ChampionIcon,
+        id: "profile",
         title: "Perfil da organização",
       }
     : {
-        id: "profile",
         description: "Gerencie seu perfil como jogador",
         href: "/settings/player/profile",
         icon: TennisRacketIcon,
+        id: "profile",
         title: "Perfil do jogador",
       };
 
   const menusItems: SettingsItem[] = [
     profileItem,
     {
+      badge: unreadCount,
+      description: "Push e central de notificações",
+      href: "/settings/notifications",
+      icon: BellDotIcon,
       id: "notifications",
       title: "Notificações",
-      description: "Push e central de notificações",
-      icon: BellDotIcon,
-      href: "/settings/notifications",
-      badge: unreadCount,
     },
     {
-      id: "payments",
-      title: "Meus pagamentos",
       description: "Cobranças, vencimentos e histórico",
-      icon: Wallet01Icon,
       href: "/settings/player/payments" as Href,
+      icon: Wallet01Icon,
+      id: "payments",
       playerOnly: true,
+      title: "Meus pagamentos",
     },
     {
-      id: "sign-out",
-      title: handleSignOutPress.isPending ? "Saindo..." : "Sair",
       description: "Encerrar sessão neste dispositivo",
       icon: Logout03Icon,
-      onPress: () => handleSignOutPress.mutate(),
-      variant: "danger",
+      id: "sign-out",
       isDisabled: handleSignOutPress.isPending,
+      onPress: () => handleSignOutPress.mutate(),
+      title: handleSignOutPress.isPending ? "Saindo..." : "Sair",
+      variant: "danger",
     },
   ];
 

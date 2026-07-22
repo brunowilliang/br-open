@@ -116,9 +116,6 @@ const scrollShadowStyles = StyleSheet.create({
     right: 0,
     zIndex: 10,
   },
-  root: {
-    overflow: "hidden",
-  },
   leftShadow: {
     bottom: 0,
     left: 0,
@@ -132,6 +129,9 @@ const scrollShadowStyles = StyleSheet.create({
     right: 0,
     top: 0,
     zIndex: 10,
+  },
+  root: {
+    overflow: "hidden",
   },
   topShadow: {
     left: 0,

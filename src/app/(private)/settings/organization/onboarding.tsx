@@ -139,8 +139,8 @@ export default function OrganizationOnboarding() {
   const form = useForm<OnboardingFormValues>({
     defaultValues,
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(OnboardingFormSchema),
+    reValidateMode: "onChange",
   });
 
   const logo = useOrganizationLogo(

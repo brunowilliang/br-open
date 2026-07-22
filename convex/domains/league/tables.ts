@@ -14,37 +14,37 @@ import * as playerTables from "../player/tables";
 export const league = convexTable(
   "league",
   {
-    organizationId: id("organization")
-      .notNull()
-      .references(() => authTables.organization.id, { onDelete: "cascade" }),
-    name: text().notNull(),
-    description: text(),
-    city: text().notNull(),
-    state: text().notNull(),
-    locationNotes: text(),
-    visibility: text().notNull(),
-    categories: json<string[]>().notNull(),
-    courts: json<Record<string, unknown>[]>(),
-    maxPlayers: integer(),
-    monthlyPriceCents: integer(),
-    priceBillingInterval: text(),
     // Whether players on this paid league go straight to checkout (`auto`)
     // or land in the organizer's request queue first (`manual`). Only
     // meaningful when `monthlyPriceCents > 0`. Defaults to `auto` via
     // the league serializer (kept nullable for legacy docs).
     approvalMode: text(),
+    avatarStorageId: text(),
+    categories: json<string[]>().notNull(),
+    city: text().notNull(),
+    courts: json<Record<string, unknown>[]>(),
+    coverStorageId: text(),
+    createdAt: timestamp().notNull(),
+    description: text(),
     gracePeriodDays: integer(),
-    reminderDaysBefore: integer(),
+    locationNotes: text(),
+    maxPlayers: integer(),
+    mode: text().notNull(),
+    monthlyPriceCents: integer(),
+    name: text().notNull(),
+    organizationId: id("organization")
+      .notNull()
+      .references(() => authTables.organization.id, { onDelete: "cascade" }),
     // BR-Open platform fee override for this league (0-100). When null,
     // falls back to DEFAULT_PLATFORM_FEE_PERCENT. Set directly in the
     // Convex dashboard — no app surface exposes this yet.
     platformFeePercent: integer(),
-    mode: text().notNull(),
+    priceBillingInterval: text(),
+    reminderDaysBefore: integer(),
     ruleConfig: json<Record<string, unknown>>().notNull(),
-    coverStorageId: text(),
-    avatarStorageId: text(),
-    createdAt: timestamp().notNull(),
+    state: text().notNull(),
     updatedAt: timestamp().notNull(),
+    visibility: text().notNull(),
   },
   (league) => [index("organizationId").on(league.organizationId)]
 );
@@ -52,6 +52,8 @@ export const league = convexTable(
 export const leagueMembership = convexTable(
   "leagueMembership",
   {
+    createdAt: timestamp().notNull(),
+    lastRenewalReminderSentAt: timestamp(),
     leagueId: id("league")
       .notNull()
       .references(() => league.id, { onDelete: "cascade" }),
@@ -60,11 +62,9 @@ export const leagueMembership = convexTable(
       .references(() => playerTables.playerProfile.id, {
         onDelete: "cascade",
       }),
-    status: text().notNull(),
-    lastRenewalReminderSentAt: timestamp(),
     rankingPosition: integer(),
     reviewedAt: timestamp(),
-    createdAt: timestamp().notNull(),
+    status: text().notNull(),
     updatedAt: timestamp().notNull(),
   },
   (leagueMembership) => [
@@ -90,34 +90,34 @@ export const leagueMembership = convexTable(
 export const leagueChallenge = convexTable(
   "leagueChallenge",
   {
-    leagueId: id("league")
-      .notNull()
-      .references(() => league.id, { onDelete: "cascade" }),
-    challengerMembershipId: id("leagueMembership")
-      .notNull()
-      .references(() => leagueMembership.id, { onDelete: "cascade" }),
-    challengedMembershipId: id("leagueMembership")
-      .notNull()
-      .references(() => leagueMembership.id, { onDelete: "cascade" }),
-    status: text().notNull(),
-    currentProposalId: text(),
+    cancellationRequestedAt: timestamp(),
     cancellationRequestedByMembershipId: id("leagueMembership").references(
       () => leagueMembership.id,
       { onDelete: "set null" }
     ),
-    cancellationRequestedAt: timestamp(),
+    cancelledAt: timestamp(),
+    challengedMembershipId: id("leagueMembership")
+      .notNull()
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
+    challengerMembershipId: id("leagueMembership")
+      .notNull()
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     challengeValidationMode: text().notNull(),
-    resultValidationMode: text().notNull(),
+    confirmedAt: timestamp(),
+    createdAt: timestamp().notNull(),
+    currentProposalId: text(),
+    finishedAt: timestamp(),
+    invalidatedAt: timestamp(),
+    leagueId: id("league")
+      .notNull()
+      .references(() => league.id, { onDelete: "cascade" }),
+    lockedAt: timestamp(),
     matchConfigSnapshot: json<Record<string, unknown>>().notNull(),
+    rankingAppliedAt: timestamp(),
     rankingSnapshotAfterResult: json<string[]>(),
     rankingSnapshotBeforeResult: json<string[]>(),
-    rankingAppliedAt: timestamp(),
-    lockedAt: timestamp(),
-    confirmedAt: timestamp(),
-    finishedAt: timestamp(),
-    cancelledAt: timestamp(),
-    invalidatedAt: timestamp(),
-    createdAt: timestamp().notNull(),
+    resultValidationMode: text().notNull(),
+    status: text().notNull(),
     updatedAt: timestamp().notNull(),
   },
   (leagueChallenge) => [
@@ -143,17 +143,17 @@ export const leagueChallenge = convexTable(
 export const leagueChallengeOrganizerAction = convexTable(
   "leagueChallengeOrganizerAction",
   {
+    action: text().notNull(),
     challengeId: id("leagueChallenge")
       .notNull()
       .references(() => leagueChallenge.id, { onDelete: "cascade" }),
-    action: text().notNull(),
-    reason: text(),
+    createdAt: timestamp().notNull(),
+    fromStatus: text().notNull(),
     performedByUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
     }),
-    fromStatus: text().notNull(),
+    reason: text(),
     toStatus: text().notNull(),
-    createdAt: timestamp().notNull(),
   },
   (leagueChallengeOrganizerAction) => [
     index("challengeId").on(leagueChallengeOrganizerAction.challengeId),
@@ -169,17 +169,17 @@ export const leagueChallengeProposal = convexTable(
     challengeId: id("leagueChallenge")
       .notNull()
       .references(() => leagueChallenge.id, { onDelete: "cascade" }),
+    courtId: text().notNull(),
+    createdAt: timestamp().notNull(),
+    endMinute: integer().notNull(),
+    matchDate: text().notNull(),
     proposedByMembershipId: id("leagueMembership")
       .notNull()
       .references(() => leagueMembership.id, { onDelete: "cascade" }),
-    courtId: text().notNull(),
-    matchDate: text().notNull(),
-    startMinute: integer().notNull(),
-    endMinute: integer().notNull(),
     responseDeadlineAt: timestamp().notNull(),
     revisionNumber: integer().notNull(),
+    startMinute: integer().notNull(),
     status: text().notNull(),
-    createdAt: timestamp().notNull(),
   },
   (leagueChallengeProposal) => [
     index("challengeId_revisionNumber").on(
@@ -202,9 +202,7 @@ export const leagueChallengeResultSubmission = convexTable(
     challengeId: id("leagueChallenge")
       .notNull()
       .references(() => leagueChallenge.id, { onDelete: "cascade" }),
-    submittedByMembershipId: id("leagueMembership")
-      .notNull()
-      .references(() => leagueMembership.id, { onDelete: "cascade" }),
+    confirmedAt: timestamp(),
     confirmedByMembershipId: id("leagueMembership").references(
       () => leagueMembership.id,
       { onDelete: "set null" }
@@ -213,14 +211,16 @@ export const leagueChallengeResultSubmission = convexTable(
       onDelete: "set null",
     }),
     reviewAction: text(),
+    reviewedAt: timestamp(),
     score: json<Record<string, unknown>>().notNull(),
+    submittedAt: timestamp().notNull(),
+    submittedByMembershipId: id("leagueMembership")
+      .notNull()
+      .references(() => leagueMembership.id, { onDelete: "cascade" }),
     winnerMembershipId: id("leagueMembership").references(
       () => leagueMembership.id,
       { onDelete: "set null" }
     ),
-    submittedAt: timestamp().notNull(),
-    confirmedAt: timestamp(),
-    reviewedAt: timestamp(),
   },
   (leagueChallengeResultSubmission) => [
     index("challengeId_submittedAt").on(

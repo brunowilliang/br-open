@@ -62,6 +62,11 @@ const approvalModeOptions = [
 const DEFAULT_PAID_PRICE_CENTS = 9000;
 
 const SETTINGS_RULE_INFO = {
+  approvalMode: {
+    description:
+      "Automática: o jogador vai direto pro pagamento. Manual: você aprova a solicitação antes do jogador pagar.",
+    title: "Aprovação de jogadores",
+  },
   limitedSpots: {
     description:
       "Controla quantos jogadores podem entrar na liga. Ativo: novos jogadores só entram até atingir o limite. Desativo: a liga aceita jogadores sem limite.",
@@ -71,11 +76,6 @@ const SETTINGS_RULE_INFO = {
     description:
       "Define se a liga cobra mensalidade dos jogadores. Ao ativar, configure o valor e o período (semanal, mensal, etc.).",
     title: "Cobrança",
-  },
-  approvalMode: {
-    description:
-      "Automática: o jogador vai direto pro pagamento. Manual: você aprova a solicitação antes do jogador pagar.",
-    title: "Aprovação de jogadores",
   },
 } as const;
 
@@ -119,43 +119,43 @@ export default function LeagueSettingsRoute() {
   const [isWooviDialogOpen, setIsWooviDialogOpen] = useState(false);
   const visibility = useWatch({
     control,
-    name: "visibility",
     defaultValue: getValues("visibility"),
+    name: "visibility",
   });
   const maxPlayers = useWatch({
     control,
-    name: "maxPlayers",
     defaultValue: getValues("maxPlayers"),
+    name: "maxPlayers",
   });
   const monthlyPriceCents = useWatch({
     control,
-    name: "monthlyPriceCents",
     defaultValue: getValues("monthlyPriceCents"),
+    name: "monthlyPriceCents",
   });
   const priceBillingInterval = useWatch({
     control,
-    name: "priceBillingInterval",
     defaultValue: getValues("priceBillingInterval"),
+    name: "priceBillingInterval",
   });
   const approvalMode = useWatch({
     control,
-    name: "approvalMode",
     defaultValue: getValues("approvalMode"),
+    name: "approvalMode",
   });
   const gracePeriodDays = useWatch({
     control,
-    name: "gracePeriodDays",
     defaultValue: getValues("gracePeriodDays"),
+    name: "gracePeriodDays",
   });
   const reminderDaysBefore = useWatch({
     control,
-    name: "reminderDaysBefore",
     defaultValue: getValues("reminderDaysBefore"),
+    name: "reminderDaysBefore",
   });
   const scheduleVisibility = useWatch({
     control,
-    name: "ruleConfig.scheduleVisibility",
     defaultValue: getValues("ruleConfig.scheduleVisibility") ?? "public",
+    name: "ruleConfig.scheduleVisibility",
   });
   const visibilityError = errors.visibility?.message;
   const maxPlayersError = errors.maxPlayers?.message;

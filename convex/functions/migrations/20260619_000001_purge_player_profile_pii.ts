@@ -17,10 +17,9 @@ const LEGACY_PII_FIELDS = [
 ] as const;
 
 export const migration = defineMigration({
-  id: "20260619_000001_purge_player_profile_pii",
   description: "purge_player_profile_pii",
+  id: "20260619_000001_purge_player_profile_pii",
   up: {
-    table: "playerProfile",
     migrateOne: (ctx, doc) => {
       const record = doc as Record<string, unknown>;
       const hasAnyPiiField = LEGACY_PII_FIELDS.some(
@@ -44,5 +43,6 @@ export const migration = defineMigration({
         nextRecord
       );
     },
+    table: "playerProfile",
   },
 });

@@ -16,6 +16,9 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
     placeholderContentFit: "cover",
     transition: 300,
   },
+  defaultVariants: {
+    fallback: "blue",
+  },
   variants: {
     fallback: {
       blue: {
@@ -29,15 +32,15 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
       },
     },
   },
-  defaultVariants: {
-    fallback: "blue",
-  },
 });
 
 export const ImageBackgroundStyled = styled(withUniwind(ExpoImageBackground), {
   base: {
     placeholderContentFit: "cover",
     transition: 300,
+  },
+  defaultVariants: {
+    fallback: "blue",
   },
   variants: {
     fallback: {
@@ -48,9 +51,6 @@ export const ImageBackgroundStyled = styled(withUniwind(ExpoImageBackground), {
         placeholder: greenFallback,
       },
     },
-  },
-  defaultVariants: {
-    fallback: "blue",
   },
 });
 

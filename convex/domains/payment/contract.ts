@@ -55,8 +55,8 @@ export const paymentAccountStatusSchema = z.enum([...PAYMENT_ACCOUNT_STATUSES]);
 // `organizationWooviAccount` table.
 
 export const paymentAccountSchema = z.object({
-  onboardedAt: z.string().nullable(),
   name: z.string(),
+  onboardedAt: z.string().nullable(),
   pixKey: z.string(),
   status: paymentAccountStatusSchema,
 });
@@ -140,14 +140,14 @@ export type ListMyPaymentsOutput = z.infer<typeof listMyPaymentsOutputSchema>;
 // ---------------------------------------------------------------------------
 
 export const dashboardRecentChargeSchema = z.object({
+  amountCents: z.number().int().nonnegative(),
   chargeId: z.string(),
+  createdAt: z.string(),
+  organizerCents: z.number().int().nonnegative(),
+  paidAt: z.string().nullable(),
   playerName: z.string().nullable(),
   sourceLabel: z.string().nullable(),
-  amountCents: z.number().int().nonnegative(),
-  organizerCents: z.number().int().nonnegative(),
   status: paymentChargeStatusSchema,
-  paidAt: z.string().nullable(),
-  createdAt: z.string(),
 });
 
 export type DashboardRecentCharge = z.infer<typeof dashboardRecentChargeSchema>;
@@ -159,12 +159,12 @@ export const dashboardOverviewSchema = z.object({
     status: paymentAccountStatusSchema.nullable(),
   }),
   metrics: z.object({
-    receivedThisMonthCents: z.number().int().nonnegative(),
-    receivedLastMonthCents: z.number().int().nonnegative(),
     activeSubscribers: z.number().int().nonnegative(),
     overdueCount: z.number().int().nonnegative(),
     paymentsThisMonth: z.number().int().nonnegative(),
     projectedMonthlyCents: z.number().int().nonnegative(),
+    receivedLastMonthCents: z.number().int().nonnegative(),
+    receivedThisMonthCents: z.number().int().nonnegative(),
   }),
   recentCharges: z.array(dashboardRecentChargeSchema),
 });

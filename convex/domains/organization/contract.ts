@@ -67,22 +67,22 @@ export const addressSchema = z.object({
       .transform((value) => value.replace(/\D/g, ""))
       .pipe(z.string().length(8, "CEP inválido (8 dígitos)."))
   ),
-  street: z.string(),
-  district: z.string().optional(),
   city: z.string(),
+  complement: z.string().optional(),
+  district: z.string().optional(),
+  number: requiredString("Informe o número."),
   state: requiredString("Informe o estado (UF).").pipe(
     z.string().trim().toUpperCase().length(2, "Use a sigla do estado (ex: SP).")
   ),
-  number: requiredString("Informe o número."),
-  complement: z.string().optional(),
+  street: z.string(),
 });
 
 export type OrganizationAddress = z.infer<typeof addressSchema>;
 
 const acceptedTermsSchema = z.object({
-  version: z.string().min(1),
   acceptedAt: z.string().min(1),
   userId: z.string().min(1),
+  version: z.string().min(1),
 });
 
 export type AcceptedTerms = z.infer<typeof acceptedTermsSchema>;
@@ -95,53 +95,53 @@ export type AcceptedTerms = z.infer<typeof acceptedTermsSchema>;
  * the persisted/output schema.
  */
 const acceptedTermsInputSchema = z.object({
-  version: z.string().min(1),
   acceptedAt: z.string().min(1),
   userId: z.string(),
+  version: z.string().min(1),
 });
 
 const logoStorageIdSchema = z.string().min(1, "Imagem inválida.").nullable();
 
 export const organizationMetadataSchema = z
   .object({
+    acceptedTerms: acceptedTermsSchema.nullable().optional(),
+    address: addressSchema.nullable().optional(),
+    contactEmail: z.string().trim().nullable().optional(),
+    description: z.string().trim().nullable().optional(),
     organizerType: organizerTypeEnum.nullable().optional(),
     organizerTypeLabel: z.string().trim().nullable().optional(),
-    address: addressSchema.nullable().optional(),
+    phone: z.string().trim().nullable().optional(),
     sports: z.array(sportsEnum).nullable().optional(),
     sportsLabel: z.string().trim().nullable().optional(),
-    description: z.string().trim().nullable().optional(),
     website: z.string().trim().nullable().optional(),
-    contactEmail: z.string().trim().nullable().optional(),
-    phone: z.string().trim().nullable().optional(),
-    acceptedTerms: acceptedTermsSchema.nullable().optional(),
   })
   .nullish()
   .transform((value) => value ?? {})
   .pipe(
     z.object({
+      acceptedTerms: acceptedTermsSchema.nullable().optional(),
+      address: addressSchema.nullable().optional(),
+      contactEmail: z.string().trim().nullable().optional(),
+      description: z.string().trim().nullable().optional(),
       organizerType: organizerTypeEnum.nullable().optional(),
       organizerTypeLabel: z.string().trim().nullable().optional(),
-      address: addressSchema.nullable().optional(),
+      phone: z.string().trim().nullable().optional(),
       sports: z.array(sportsEnum).nullable().optional(),
       sportsLabel: z.string().trim().nullable().optional(),
-      description: z.string().trim().nullable().optional(),
       website: z.string().trim().nullable().optional(),
-      contactEmail: z.string().trim().nullable().optional(),
-      phone: z.string().trim().nullable().optional(),
-      acceptedTerms: acceptedTermsSchema.nullable().optional(),
     })
   );
 
 export type OrganizationMetadata = z.infer<typeof organizationMetadataSchema>;
 
 const baseOrganizationFields = {
-  name: requiredString("Informe o nome da organização."),
-  logoStorageId: logoStorageIdSchema.optional(),
-  description: z.string().trim().optional(),
-  website: z.string().trim().optional(),
   contactEmail: requiredString("Informe o e-mail de contato.").pipe(
     z.string().trim().email("E-mail inválido.")
   ),
+  description: z.string().trim().optional(),
+  logoStorageId: logoStorageIdSchema.optional(),
+  name: requiredString("Informe o nome da organização."),
+  organizerTypeLabel: z.string().trim().optional(),
   phone: requiredString("Informe o telefone/WhatsApp.").pipe(
     z
       .string()
@@ -155,8 +155,8 @@ const baseOrganizationFields = {
       )
   ),
   sports: z.array(sportsEnum).optional(),
-  organizerTypeLabel: z.string().trim().optional(),
   sportsLabel: z.string().trim().optional(),
+  website: z.string().trim().optional(),
 };
 
 function refineOrganizerAddress(
@@ -219,9 +219,9 @@ function refineOutroLabels(
 export const activateOrganizationSchema = z
   .object({
     ...baseOrganizationFields,
-    organizerType: organizerTypeEnum,
-    address: addressSchema.nullable().optional(),
     acceptedTerms: acceptedTermsInputSchema,
+    address: addressSchema.nullable().optional(),
+    organizerType: organizerTypeEnum,
   })
   .superRefine((value, ctx) => {
     refineOrganizerAddress(value, ctx);
@@ -235,8 +235,8 @@ export type ActivateOrganizationInput = z.infer<
 export const upsertOrganizationSchema = z
   .object({
     ...baseOrganizationFields,
-    organizerType: organizerTypeEnum,
     address: addressSchema.nullable().optional(),
+    organizerType: organizerTypeEnum,
   })
   .superRefine((value, ctx) => {
     refineOrganizerAddress(value, ctx);
@@ -246,22 +246,22 @@ export const upsertOrganizationSchema = z
 export type UpsertOrganizationInput = z.infer<typeof upsertOrganizationSchema>;
 
 export const organizationOutputSchema = z.object({
+  acceptedTerms: acceptedTermsSchema.nullable().optional(),
+  address: addressSchema.nullable().optional(),
+  contactEmail: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
   id: z.string(),
-  name: z.string(),
-  slug: z.string(),
   logoStorageId: logoStorageIdSchema,
   logoUrl: z.string().nullable().optional(),
+  name: z.string(),
   organizerType: organizerTypeEnum.nullable().optional(),
   organizerTypeLabel: z.string().nullable().optional(),
-  address: addressSchema.nullable().optional(),
+  paymentAccount: paymentAccountSchema.nullable().optional(),
+  phone: z.string().nullable().optional(),
+  slug: z.string(),
   sports: z.array(sportsEnum).nullable().optional(),
   sportsLabel: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
   website: z.string().nullable().optional(),
-  contactEmail: z.string().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  acceptedTerms: acceptedTermsSchema.nullable().optional(),
-  paymentAccount: paymentAccountSchema.nullable().optional(),
 });
 
 export type OrganizationOutput = z.infer<typeof organizationOutputSchema>;

@@ -48,35 +48,35 @@ async function serializeLeague(
 
   return leagueSchema.parse({
     ...record,
-    visibility: normalizeLeagueVisibility(record.visibility),
+    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
     avatarStorageId: record.avatarStorageId ?? null,
-    coverStorageId: record.coverStorageId ?? null,
     avatarUrl,
-    coverUrl,
     courts: record.courts ?? [],
+    coverStorageId: record.coverStorageId ?? null,
+    coverUrl,
+    createdAt: record.createdAt.getTime(),
+    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
     maxPlayers: record.maxPlayers ?? null,
     monthlyPriceCents:
       record.monthlyPriceCents ?? DEFAULT_LEAGUE_MONTHLY_PRICE_CENTS,
     priceBillingInterval:
       record.priceBillingInterval ?? DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
-    approvalMode: record.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE,
-    gracePeriodDays: record.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
     reminderDaysBefore:
       record.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
     ruleConfig: {
       ...record.ruleConfig,
-      scheduleVisibility:
-        record.ruleConfig?.scheduleVisibility ??
-        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
       challengeValidationMode:
         record.ruleConfig?.challengeValidationMode ??
         DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
       resultValidationMode:
         record.ruleConfig?.resultValidationMode ??
         DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+      scheduleVisibility:
+        record.ruleConfig?.scheduleVisibility ??
+        DEFAULT_LEAGUE_SCHEDULE_VISIBILITY,
     },
-    createdAt: record.createdAt.getTime(),
     updatedAt: record.updatedAt.getTime(),
+    visibility: normalizeLeagueVisibility(record.visibility),
   });
 }
 
@@ -151,11 +151,11 @@ export const create = authMutation
       .insert(league)
       .values({
         ...input,
-        organizationId,
-        mode: DEFAULT_LEAGUE_MODE,
-        coverStorageId: input.coverStorageId,
         avatarStorageId: input.avatarStorageId,
+        coverStorageId: input.coverStorageId,
         createdAt: now,
+        mode: DEFAULT_LEAGUE_MODE,
+        organizationId,
         updatedAt: now,
       })
       .returning();
@@ -184,22 +184,22 @@ export const update = authMutation
     const [updatedLeague] = await ctx.orm
       .update(league)
       .set({
-        name: input.name,
-        description: input.description,
-        city: input.city,
-        state: input.state,
-        locationNotes: input.locationNotes,
-        visibility: input.visibility,
+        approvalMode: input.approvalMode,
+        avatarStorageId: input.avatarStorageId,
         categories: input.categories,
+        city: input.city,
         courts: input.courts,
+        coverStorageId: input.coverStorageId,
+        description: input.description,
+        locationNotes: input.locationNotes,
         maxPlayers: input.maxPlayers,
         monthlyPriceCents: input.monthlyPriceCents,
+        name: input.name,
         priceBillingInterval: input.priceBillingInterval,
-        approvalMode: input.approvalMode,
         ruleConfig: input.ruleConfig,
-        coverStorageId: input.coverStorageId,
-        avatarStorageId: input.avatarStorageId,
+        state: input.state,
         updatedAt: now,
+        visibility: input.visibility,
       })
       .where(
         and(

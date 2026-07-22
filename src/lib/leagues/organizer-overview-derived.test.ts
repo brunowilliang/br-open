@@ -13,9 +13,9 @@ import {
 
 function makeChallenge(status: ChallengeStatus) {
   return {
-    status,
-    challenger: { membershipId: "m-1", playerProfileId: "p-1" },
     challenged: { membershipId: "m-2", playerProfileId: "p-2" },
+    challenger: { membershipId: "m-1", playerProfileId: "p-1" },
+    status,
   } as never;
 }
 
@@ -101,16 +101,16 @@ function makeFinishedChallenge(
   challengedMembershipId = "m-2"
 ) {
   return {
-    status: "finished",
-    finishedAt,
-    challenger: {
-      membershipId: challengerMembershipId,
-      playerProfileId: "p-1",
-    },
     challenged: {
       membershipId: challengedMembershipId,
       playerProfileId: "p-2",
     },
+    challenger: {
+      membershipId: challengerMembershipId,
+      playerProfileId: "p-1",
+    },
+    finishedAt,
+    status: "finished",
   } as never;
 }
 

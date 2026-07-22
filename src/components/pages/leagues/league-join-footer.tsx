@@ -174,6 +174,36 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
 
   const requestJoin = useMutation(
     crpc.league.membership.requestJoin.mutationOptions({
+      onError: (error) => {
+        const intent = joinMutationIntentRef.current;
+        joinMutationIntentRef.current = "request";
+        const previousMembershipStatus = previousMembershipStatusRef.current;
+        previousMembershipStatusRef.current = null;
+        const isCancelAction = intent === "cancel";
+
+        if (previousMembershipStatus) {
+          bucket$.actions.setViewerMembership({
+            membershipId: previousMembershipStatus.membershipId,
+            status: previousMembershipStatus.status,
+          });
+        }
+
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            isCancelAction
+              ? "Não foi possível cancelar sua solicitação. Tente novamente."
+              : "Não foi possível enviar sua solicitação. Tente novamente."
+          ),
+          id: isCancelAction
+            ? "cancel-join-request-error"
+            : "request-join-error",
+          label: isCancelAction
+            ? "Falha ao cancelar"
+            : "Falha ao solicitar entrada",
+          variant: "danger",
+        });
+      },
       onSuccess: async (membership) => {
         const intent = joinMutationIntentRef.current;
         joinMutationIntentRef.current = "request";
@@ -222,36 +252,6 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
             sourceType: "league_membership",
           });
         }
-      },
-      onError: (error) => {
-        const intent = joinMutationIntentRef.current;
-        joinMutationIntentRef.current = "request";
-        const previousMembershipStatus = previousMembershipStatusRef.current;
-        previousMembershipStatusRef.current = null;
-        const isCancelAction = intent === "cancel";
-
-        if (previousMembershipStatus) {
-          bucket$.actions.setViewerMembership({
-            membershipId: previousMembershipStatus.membershipId,
-            status: previousMembershipStatus.status,
-          });
-        }
-
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            isCancelAction
-              ? "Não foi possível cancelar sua solicitação. Tente novamente."
-              : "Não foi possível enviar sua solicitação. Tente novamente."
-          ),
-          id: isCancelAction
-            ? "cancel-join-request-error"
-            : "request-join-error",
-          label: isCancelAction
-            ? "Falha ao cancelar"
-            : "Falha ao solicitar entrada",
-          variant: "danger",
-        });
       },
     })
   );

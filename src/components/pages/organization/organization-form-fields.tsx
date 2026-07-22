@@ -90,15 +90,15 @@ export const ORGANIZER_TYPE_LABELS: Record<
   string
 > = {
   academia: "Academia",
+  centro_de_treinamento: "Centro de treinamento",
   clube: "Clube",
   condominio: "Condomínio",
   confederacao: "Confederação",
-  centro_de_treinamento: "Centro de treinamento",
   escola: "Escola",
   federacao: "Federação",
   liga: "Liga",
-  particular: "Particular",
   outro: "Outro",
+  particular: "Particular",
 };
 
 export const ORGANIZER_TYPE_OPTIONS = ORGANIZER_TYPES.map((value) => ({
@@ -111,6 +111,7 @@ export const SPORT_LABELS: Record<(typeof SPORTS)[number], string> = {
   beach_tennis: "Beach Tennis",
   futebol_society: "Futebol society",
   futevolei: "Futevôlei",
+  outro: "Outro",
   padel: "Padel",
   pickleball: "Pickleball",
   raquetinha: "Raquetinha",
@@ -119,7 +120,6 @@ export const SPORT_LABELS: Record<(typeof SPORTS)[number], string> = {
   tenis_de_mesa: "Tênis de mesa",
   volei_de_praia: "Vôlei de praia",
   volei_de_quadra: "Vôlei de quadra",
-  outro: "Outro",
 };
 
 export const SPORT_OPTIONS = SPORTS.map((value) => ({

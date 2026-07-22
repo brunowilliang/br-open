@@ -39,8 +39,8 @@ export default function Home() {
     }
     if (session.data?.user?.emailVerified === false) {
       router.replace({
-        pathname: "/verify-email",
         params: { email: session.data.user.email },
+        pathname: "/verify-email",
       });
       return;
     }
@@ -50,8 +50,8 @@ export default function Home() {
       !playerProfile.isPending
     ) {
       router.replace({
-        pathname: "/settings/player/profile",
         params: { firstRun: "true" },
+        pathname: "/settings/player/profile",
       });
     }
   }, [
@@ -228,8 +228,8 @@ export default function Home() {
               name={item.name}
               onPress={() => {
                 router.navigate({
-                  pathname: "/leagues/[leagueId]",
                   params: { leagueId: item.id },
+                  pathname: "/leagues/[leagueId]",
                 });
               }}
               state={item.state}

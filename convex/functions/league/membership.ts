@@ -44,15 +44,15 @@ function serializeLeagueMembership(
   }
 ) {
   return leagueMembershipSchema.parse({
+    createdAt: record.createdAt.getTime(),
     id: record.id,
     leagueId: record.leagueId,
-    playerProfileId: record.playerProfileId,
-    status: record.status,
-    rankingPosition: record.rankingPosition ?? null,
-    createdAt: record.createdAt.getTime(),
-    updatedAt: record.updatedAt.getTime(),
-    reviewedAt: record.reviewedAt ? record.reviewedAt.getTime() : null,
     player,
+    playerProfileId: record.playerProfileId,
+    rankingPosition: record.rankingPosition ?? null,
+    reviewedAt: record.reviewedAt ? record.reviewedAt.getTime() : null,
+    status: record.status,
+    updatedAt: record.updatedAt.getTime(),
   });
 }
 
@@ -368,7 +368,7 @@ export const requestJoin = authMutation
 
     if (currentMembership?.status === "active") {
       const normalizedMembership =
-        currentMembership.rankingPosition == null
+        currentMembership.rankingPosition === null
           ? await updateMembership(ctx, currentMembership, {
               rankingPosition: await getNextRankingPosition(ctx, leagueId),
               updatedAt: now,

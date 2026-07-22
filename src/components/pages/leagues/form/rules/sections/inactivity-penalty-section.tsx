@@ -62,8 +62,8 @@ export const InactivityPenaltySection = ({ isDisabled }: RuleSectionProps) => {
         {
           ...ruleConfig,
           hasInactivityPenalty: false,
-          inactivityPenaltyType: undefined,
           inactivityPenaltyDays: undefined,
+          inactivityPenaltyType: undefined,
         },
         fieldUpdateOptions
       );
@@ -75,8 +75,8 @@ export const InactivityPenaltySection = ({ isDisabled }: RuleSectionProps) => {
       {
         ...ruleConfig,
         hasInactivityPenalty: true,
-        inactivityPenaltyType: inactivityPenaltyType ?? "drop_one_position",
         inactivityPenaltyDays: inactivityPenaltyDays ?? 30,
+        inactivityPenaltyType: inactivityPenaltyType ?? "drop_one_position",
       },
       fieldUpdateOptions
     );

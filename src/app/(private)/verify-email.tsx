@@ -45,7 +45,6 @@ export default function VerifyEmail() {
         throw new Error(error.message);
       }
     },
-    onSuccess: () => startCooldown(),
     onError: (error) => {
       toast.show({
         description: getToastErrorMessage(
@@ -57,6 +56,7 @@ export default function VerifyEmail() {
         variant: "danger",
       });
     },
+    onSuccess: () => startCooldown(),
   });
 
   const verifyEmail = useMutation({
@@ -72,17 +72,6 @@ export default function VerifyEmail() {
         throw new Error(error.message);
       }
     },
-    onSuccess: async () => {
-      await clearCooldown();
-      toast.show({
-        description: "Seu e-mail foi verificado com sucesso.",
-        id: "verify-email-success",
-        label: "E-mail verificado",
-        variant: "success",
-      });
-      await refetchSession();
-      router.replace("/");
-    },
     onError: (error) => {
       setCode("");
       toast.show({
@@ -94,6 +83,17 @@ export default function VerifyEmail() {
         label: "Falha na verificação",
         variant: "danger",
       });
+    },
+    onSuccess: async () => {
+      await clearCooldown();
+      toast.show({
+        description: "Seu e-mail foi verificado com sucesso.",
+        id: "verify-email-success",
+        label: "E-mail verificado",
+        variant: "success",
+      });
+      await refetchSession();
+      router.replace("/");
     },
   });
 

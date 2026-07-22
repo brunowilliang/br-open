@@ -70,13 +70,13 @@ function normalizeCourtName(value: string) {
 
 function buildEmptyAvailability() {
   return {
-    mon: [],
-    tue: [],
-    wed: [],
-    thu: [],
     fri: [],
+    mon: [],
     sat: [],
     sun: [],
+    thu: [],
+    tue: [],
+    wed: [],
   } satisfies LeagueCourt["availability"];
 }
 
@@ -156,8 +156,8 @@ export default function LeagueCourtsRoute() {
   });
   const value = useWatch({
     control,
-    name: "courts",
     defaultValue: getValues("courts"),
+    name: "courts",
   });
   const error =
     typeof formStateErrors.courts?.message === "string"
@@ -281,9 +281,9 @@ export default function LeagueCourtsRoute() {
     onChange([
       ...value,
       {
+        availability: buildEmptyAvailability(),
         id: buildCourtId(),
         name: trimmedName,
-        availability: buildEmptyAvailability(),
       },
     ]);
     closeCourtDialog();

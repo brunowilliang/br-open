@@ -93,8 +93,8 @@ export default function Onboarding() {
   const nextPage = (newIndex: number = activeIndex + 1) => {
     if (newIndex < onboardingData.length) {
       ref.current?.scrollToIndex({
-        index: newIndex,
         animated: true,
+        index: newIndex,
         viewOffset: itemPadding - itemMargin,
       });
     }
@@ -103,8 +103,8 @@ export default function Onboarding() {
   const prevPage = (newIndex: number = activeIndex - 1) => {
     if (newIndex >= 0 && newIndex < onboardingData.length) {
       ref.current?.scrollToIndex({
-        index: newIndex,
         animated: true,
+        index: newIndex,
         viewOffset: itemPadding - itemMargin,
       });
     }
@@ -141,8 +141,8 @@ export default function Onboarding() {
               }
             }}
             style={{
-              width: itemWidth,
               marginHorizontal: itemMargin,
+              width: itemWidth,
             }}
           >
             {item}

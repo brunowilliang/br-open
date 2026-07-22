@@ -88,7 +88,7 @@ function buildSortableIdentityKey<TItem extends SortableCardListItem>(
 ) {
   return items
     .map((item) => item.id)
-    .sort()
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .join("|");
 }
 

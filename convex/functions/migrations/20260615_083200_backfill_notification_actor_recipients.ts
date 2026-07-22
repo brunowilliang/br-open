@@ -52,10 +52,9 @@ function readString(value: unknown) {
 }
 
 export const migration = defineMigration({
-  id: "20260615_083200_backfill_notification_actor_recipients",
   description: "backfill notification actor recipients",
+  id: "20260615_083200_backfill_notification_actor_recipients",
   up: {
-    table: "notificationFeed",
     migrateOne: async (ctx, doc) => {
       async function ensureLegacyPlayerProfile(userId: Id<"user">) {
         const existingPlayerProfile = await ctx.db
@@ -146,5 +145,6 @@ export const migration = defineMigration({
 
       return hasPatchValues(patch) ? patch : undefined;
     },
+    table: "notificationFeed",
   },
 });

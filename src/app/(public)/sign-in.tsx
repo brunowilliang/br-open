@@ -61,8 +61,8 @@ export default function SignIn() {
       password: "",
     },
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(SignInFormSchema),
+    reValidateMode: "onChange",
   });
 
   const isSubmitPending =

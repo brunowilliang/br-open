@@ -95,8 +95,8 @@ export default function LeagueCategoriesRoute() {
   const [nameError, setNameError] = useState<string | null>(null);
   const categories = useWatch({
     control,
-    name: "categories",
     defaultValue: getValues("categories"),
+    name: "categories",
   });
   const error =
     typeof errors.categories?.message === "string"
@@ -106,8 +106,8 @@ export default function LeagueCategoriesRoute() {
     () =>
       categories.map((category, index) => ({
         id: categoryItemIds[index] ?? `${category}-${index}`,
-        name: category,
         index,
+        name: category,
       })),
     [categories, categoryItemIds]
   );

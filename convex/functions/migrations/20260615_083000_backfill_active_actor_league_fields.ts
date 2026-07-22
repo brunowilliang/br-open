@@ -22,10 +22,9 @@ function buildLegacyOrganizationSlug(userId: Id<"user">) {
 }
 
 export const migration = defineMigration({
-  id: "20260615_083000_backfill_active_actor_league_fields",
   description: "backfill active actor league fields",
+  id: "20260615_083000_backfill_active_actor_league_fields",
   up: {
-    table: "league",
     migrateOne: async (ctx, doc) => {
       async function ensureLegacyOrganizationForUser(userId: Id<"user">) {
         const existingMember = await ctx.db
@@ -119,5 +118,6 @@ export const migration = defineMigration({
 
       return hasPatchValues(patch) ? patch : undefined;
     },
+    table: "league",
   },
 });

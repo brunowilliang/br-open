@@ -13,12 +13,9 @@ describe("LeagueSchema", () => {
       throw new Error("Expected create league defaults to require user input.");
     }
 
-    expect(result.error.issues.map((issue) => issue.path.join("."))).toEqual([
-      "name",
-      "city",
-      "state",
-      "categories",
-    ]);
+    expect(
+      result.error.issues.map((issue) => issue.path.join(".")).sort()
+    ).toEqual(["categories", "city", "name", "state"].sort());
   });
 
   it("accepts a valid filled league payload", () => {
@@ -26,11 +23,11 @@ describe("LeagueSchema", () => {
     const result = LeagueSchema.safeParse({
       ...createLeagueDefaultValues,
       avatarStorageId: "avatar-storage-id",
+      categories: ["A"],
+      city: "Florianopolis",
       coverStorageId: "cover-storage-id",
       name: "Liga Centro",
-      city: "Florianopolis",
       state: "SC",
-      categories: ["A"],
     });
 
     expect(result.success).toBe(true);
@@ -51,11 +48,11 @@ describe("LeagueSchema", () => {
     const result = LeagueSchema.safeParse({
       ...createLeagueDefaultValues,
       avatarStorageId: null,
+      categories: ["A"],
+      city: "Florianopolis",
       coverStorageId: null,
       name: "Liga Centro",
-      city: "Florianopolis",
       state: "SC",
-      categories: ["A"],
     });
 
     expect(result.success).toBe(true);
@@ -72,10 +69,9 @@ describe("LeagueSchema", () => {
     const createLeagueDefaultValues = buildCreateLeagueDefaultValues();
     const result = LeagueSchema.safeParse({
       ...createLeagueDefaultValues,
-      name: "Liga Centro",
-      city: "Florianopolis",
-      state: "SC",
       categories: ["A"],
+      city: "Florianopolis",
+      name: "Liga Centro",
       ruleConfig: {
         ...createLeagueDefaultValues.ruleConfig,
         matchConfig: {
@@ -83,6 +79,7 @@ describe("LeagueSchema", () => {
           bestOfSets: 2,
         },
       },
+      state: "SC",
     });
 
     expect(result.success).toBe(false);
@@ -118,10 +115,10 @@ describe("LeagueSchema", () => {
     const createLeagueDefaultValues = buildCreateLeagueDefaultValues();
     const result = LeagueSchema.safeParse({
       ...createLeagueDefaultValues,
-      name: "Liga Centro",
-      city: "Florianopolis",
-      state: "SC",
       categories: ["A"],
+      city: "Florianopolis",
+      name: "Liga Centro",
+      state: "SC",
       visibility: "invite_only",
     });
 

@@ -29,6 +29,6 @@ export const Page = withSlots(PageRoot, {
     BackButton,
   }),
   LegendList: PageAnimatedLegendList,
-  View: PageView,
   ScrollView: PageKeyboardAwareScrollView,
+  View: PageView,
 });

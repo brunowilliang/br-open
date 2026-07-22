@@ -42,8 +42,8 @@ const ATTENTION_STATUS_TO_KIND: Record<
   OrganizerPendingActionKind
 > = {
   pending_organizer_challenge_validation: "challenge_validation",
-  pending_organizer_result_validation: "result_approval",
   pending_organizer_decision: "decision",
+  pending_organizer_result_validation: "result_approval",
   pending_result_correction: "result_correction",
 };
 
@@ -88,11 +88,11 @@ const KIND_LABEL: Record<
     many: "desafios para validar",
     one: "desafio para validar",
   },
+  decision: { many: "disputas para decidir", one: "disputa para decidir" },
   result_approval: {
     many: "resultados para aprovar",
     one: "resultado para aprovar",
   },
-  decision: { many: "disputas para decidir", one: "disputa para decidir" },
   result_correction: {
     many: "placares para corrigir",
     one: "placar para corrigir",

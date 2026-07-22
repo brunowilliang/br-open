@@ -56,9 +56,9 @@ export default function SettingsLeaguesIndex() {
     ? [
         ...(leagues.data ?? []),
         {
-          id: CREATE_CARD_ID,
           city: null,
           coverUrl: null,
+          id: CREATE_CARD_ID,
           name: "Nova liga",
           state: null,
         },
@@ -157,8 +157,8 @@ export default function SettingsLeaguesIndex() {
               }}
               onPress={() => {
                 router.navigate({
-                  pathname: "/leagues/[leagueId]",
                   params: { leagueId: item.id },
+                  pathname: "/leagues/[leagueId]",
                 });
               }}
               state={item.state}

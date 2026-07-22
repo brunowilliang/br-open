@@ -21,13 +21,6 @@ export const hydrationConfig: Pick<DefaultOptions, "dehydrate" | "hydrate"> = {
 
 export function createQueryClient() {
   return new QueryClient({
-    queryCache: new QueryCache({
-      onError: (error) => {
-        if (isCRPCClientError(error)) {
-          console.warn(`[CRPC] ${error.code}:`, error.functionName);
-        }
-      },
-    }),
     defaultOptions: {
       ...hydrationConfig,
       queries: {
@@ -39,5 +32,12 @@ export function createQueryClient() {
         },
       },
     },
+    queryCache: new QueryCache({
+      onError: (error) => {
+        if (isCRPCClientError(error)) {
+          console.warn(`[CRPC] ${error.code}:`, error.functionName);
+        }
+      },
+    }),
   });
 }

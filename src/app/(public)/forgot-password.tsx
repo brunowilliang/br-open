@@ -35,12 +35,12 @@ const EmailSchema = z.object({
 
 const PasswordSchema = z
   .object({
-    password: z
-      .string("Informe uma senha válida.")
-      .min(8, "Sua senha deve ter no mínimo 8 caracteres."),
     confirmPassword: z
       .string("As senhas não conferem.")
       .min(1, "Confirme sua senha."),
+    password: z
+      .string("Informe uma senha válida.")
+      .min(8, "Sua senha deve ter no mínimo 8 caracteres."),
   })
   .refine((values) => values.password === values.confirmPassword, {
     message: "As senhas não conferem.",
@@ -62,15 +62,15 @@ export default function ForgotPassword() {
   const emailForm = useForm({
     defaultValues: { email: "" },
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(EmailSchema),
+    reValidateMode: "onChange",
   });
 
   const passwordForm = useForm({
-    defaultValues: { password: "", confirmPassword: "" },
+    defaultValues: { confirmPassword: "", password: "" },
     mode: "onBlur",
-    reValidateMode: "onChange",
     resolver: zodResolver(PasswordSchema),
+    reValidateMode: "onChange",
   });
 
   const sendOtp = useMutation({
@@ -82,16 +82,6 @@ export default function ForgotPassword() {
         throw new Error(error.message);
       }
     },
-    onSuccess: async () => {
-      await startCooldown();
-      setStep("code");
-      toast.show({
-        description: "Confira sua caixa de entrada e a pasta de spam.",
-        id: "forgot-password-otp-sent",
-        label: "Código enviado",
-        variant: "success",
-      });
-    },
     onError: (error) => {
       toast.show({
         description: getToastErrorMessage(
@@ -101,6 +91,16 @@ export default function ForgotPassword() {
         id: "forgot-password-otp-error",
         label: "Falha no envio",
         variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await startCooldown();
+      setStep("code");
+      toast.show({
+        description: "Confira sua caixa de entrada e a pasta de spam.",
+        id: "forgot-password-otp-sent",
+        label: "Código enviado",
+        variant: "success",
       });
     },
   });
@@ -128,9 +128,6 @@ export default function ForgotPassword() {
         throw new Error(error.message);
       }
     },
-    onSuccess: () => {
-      setStep("password");
-    },
     onError: (error) => {
       setCode("");
       toast.show({
@@ -142,6 +139,9 @@ export default function ForgotPassword() {
         label: "Código inválido",
         variant: "danger",
       });
+    },
+    onSuccess: () => {
+      setStep("password");
     },
   });
 
@@ -156,16 +156,6 @@ export default function ForgotPassword() {
         throw new Error(error.message);
       }
     },
-    onSuccess: async () => {
-      await clearCooldown();
-      toast.show({
-        description: "Sua senha foi redefinida. Faça login com a nova senha.",
-        id: "forgot-password-success",
-        label: "Senha redefinida",
-        variant: "success",
-      });
-      router.back();
-    },
     onError: (error) => {
       toast.show({
         description: getToastErrorMessage(
@@ -176,6 +166,16 @@ export default function ForgotPassword() {
         label: "Falha na redefinição",
         variant: "danger",
       });
+    },
+    onSuccess: async () => {
+      await clearCooldown();
+      toast.show({
+        description: "Sua senha foi redefinida. Faça login com a nova senha.",
+        id: "forgot-password-success",
+        label: "Senha redefinida",
+        variant: "success",
+      });
+      router.back();
     },
   });
 

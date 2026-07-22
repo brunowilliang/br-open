@@ -323,17 +323,17 @@ export const create = authMutation
     const [createdChallenge] = await ctx.orm
       .insert(leagueChallenge)
       .values({
-        leagueId,
-        challengerMembershipId:
-          challengerMembership.id as Id<"leagueMembership">,
         challengedMembershipId:
           challengedMembership.id as Id<"leagueMembership">,
-        status: "pending_opponent_response",
+        challengerMembershipId:
+          challengerMembership.id as Id<"leagueMembership">,
         challengeValidationMode:
           currentLeague.ruleConfig.challengeValidationMode,
-        resultValidationMode: currentLeague.ruleConfig.resultValidationMode,
-        matchConfigSnapshot: currentLeague.ruleConfig.matchConfig,
         createdAt: now,
+        leagueId,
+        matchConfigSnapshot: currentLeague.ruleConfig.matchConfig,
+        resultValidationMode: currentLeague.ruleConfig.resultValidationMode,
+        status: "pending_opponent_response",
         updatedAt: now,
       })
       .returning();
@@ -342,19 +342,19 @@ export const create = authMutation
       .insert(leagueChallengeProposal)
       .values({
         challengeId: createdChallenge.id as Id<"leagueChallenge">,
+        courtId: input.courtId,
+        createdAt: now,
+        endMinute: input.endMinute,
+        matchDate: input.matchDate,
         proposedByMembershipId:
           challengerMembership.id as Id<"leagueMembership">,
-        courtId: input.courtId,
-        matchDate: input.matchDate,
-        startMinute: input.startMinute,
-        endMinute: input.endMinute,
         responseDeadlineAt: resolveResponseDeadline({
           now,
           rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: 1,
+        startMinute: input.startMinute,
         status: "active",
-        createdAt: now,
       })
       .returning();
 
@@ -448,9 +448,9 @@ export const acceptProposal = authMutation
         status: "accepted",
       }),
       ctx.db.patch(syncedChallenge.id as Id<"leagueChallenge">, {
-        status: nextStatus,
-        lockedAt: now.getTime(),
         confirmedAt: nextStatus === "confirmed" ? now.getTime() : undefined,
+        lockedAt: now.getTime(),
+        status: nextStatus,
         updatedAt: now.getTime(),
       }),
     ]);
@@ -470,10 +470,10 @@ export const acceptProposal = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...syncedChallenge,
-      status: nextStatus,
-      lockedAt: now,
       confirmedAt:
         nextStatus === "confirmed" ? now : syncedChallenge.confirmedAt,
+      lockedAt: now,
+      status: nextStatus,
       updatedAt: now,
     });
   });
@@ -634,18 +634,18 @@ export const counterPropose = authMutation
       .insert(leagueChallengeProposal)
       .values({
         challengeId: syncedChallenge.id as Id<"leagueChallenge">,
-        proposedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         courtId: input.courtId,
-        matchDate: input.matchDate,
-        startMinute: input.startMinute,
+        createdAt: now,
         endMinute: input.endMinute,
+        matchDate: input.matchDate,
+        proposedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         responseDeadlineAt: resolveResponseDeadline({
           now,
           rule: currentLeague.ruleConfig.responseDeadlineHours,
         }),
         revisionNumber: currentProposal.revisionNumber + 1,
+        startMinute: input.startMinute,
         status: "active",
-        createdAt: now,
       })
       .returning();
 
@@ -764,8 +764,8 @@ export const cancel = authMutation
         status: "cancelled",
       }),
       ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-        status: "cancelled",
         cancelledAt: now.getTime(),
+        status: "cancelled",
         updatedAt: now.getTime(),
       }),
     ]);
@@ -790,8 +790,8 @@ export const cancel = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "cancelled",
       cancelledAt: now,
+      status: "cancelled",
       updatedAt: now,
     });
   });
@@ -856,10 +856,10 @@ export const requestCancellation = authMutation
     }
 
     await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-      status: "pending_cancellation_acceptance",
       cancellationRequestedAt: now.getTime(),
       cancellationRequestedByMembershipId:
         viewerMembership.id as Id<"leagueMembership">,
+      status: "pending_cancellation_acceptance",
       updatedAt: now.getTime(),
     });
 
@@ -877,10 +877,10 @@ export const requestCancellation = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "pending_cancellation_acceptance",
       cancellationRequestedAt: now,
       cancellationRequestedByMembershipId:
         viewerMembership.id as Id<"leagueMembership">,
+      status: "pending_cancellation_acceptance",
       updatedAt: now,
     });
   });
@@ -949,10 +949,10 @@ export const respondCancellationRequest = authMutation
           status: "cancelled",
         }),
         ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-          status: "cancelled",
           cancellationRequestedAt: null,
           cancellationRequestedByMembershipId: null,
           cancelledAt: now.getTime(),
+          status: "cancelled",
           updatedAt: now.getTime(),
         }),
       ]);
@@ -969,18 +969,18 @@ export const respondCancellationRequest = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: "cancelled",
         cancellationRequestedAt: null,
         cancellationRequestedByMembershipId: null,
         cancelledAt: now,
+        status: "cancelled",
         updatedAt: now,
       });
     }
 
     await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-      status: "confirmed",
       cancellationRequestedAt: null,
       cancellationRequestedByMembershipId: null,
+      status: "confirmed",
       updatedAt: now.getTime(),
     });
 
@@ -996,9 +996,9 @@ export const respondCancellationRequest = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "confirmed",
       cancellationRequestedAt: null,
       cancellationRequestedByMembershipId: null,
+      status: "confirmed",
       updatedAt: now,
     });
   });
@@ -1085,11 +1085,11 @@ export const submitResult = authMutation
       .insert(leagueChallengeResultSubmission)
       .values({
         challengeId: syncedChallenge.id as Id<"leagueChallenge">,
-        submittedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         score: parsedScore,
+        submittedAt: now,
+        submittedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         winnerMembershipId:
           parsedScore.winnerMembershipId as Id<"leagueMembership">,
-        submittedAt: now,
       })
       .returning();
 
@@ -1203,13 +1203,13 @@ export const confirmResult = authMutation
     await ctx.db.patch(
       currentChallenge.id as Id<"leagueChallenge">,
       {
-        status: nextStatus,
         finishedAt: nextStatus === "finished" ? now.getTime() : undefined,
         rankingAppliedAt: nextStatus === "finished" ? now.getTime() : null,
         rankingSnapshotAfterResult:
           rankingSnapshots?.rankingSnapshotAfterResult ?? undefined,
         rankingSnapshotBeforeResult:
           rankingSnapshots?.rankingSnapshotBeforeResult ?? undefined,
+        status: nextStatus,
         updatedAt: now.getTime(),
       } as never
     );
@@ -1226,8 +1226,8 @@ export const confirmResult = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: nextStatus,
       finishedAt: nextStatus === "finished" ? now : currentChallenge.finishedAt,
+      status: nextStatus,
       updatedAt: now,
     });
   });
@@ -1261,8 +1261,8 @@ export const reviewChallenge = authMutation
 
     if (input.action === "approve") {
       await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-        status: "confirmed",
         confirmedAt: now.getTime(),
+        status: "confirmed",
         updatedAt: now.getTime(),
       });
 
@@ -1279,15 +1279,15 @@ export const reviewChallenge = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: "confirmed",
         confirmedAt: now,
+        status: "confirmed",
         updatedAt: now,
       });
     }
 
     await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-      status: "cancelled",
       cancelledAt: now.getTime(),
+      status: "cancelled",
       updatedAt: now.getTime(),
     });
 
@@ -1304,8 +1304,8 @@ export const reviewChallenge = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "cancelled",
       cancelledAt: now,
+      status: "cancelled",
       updatedAt: now,
     });
   });
@@ -1372,13 +1372,13 @@ export const reviewResult = authMutation
       await ctx.db.patch(
         currentChallenge.id as Id<"leagueChallenge">,
         {
-          status: "finished",
           finishedAt: now.getTime(),
           rankingAppliedAt: now.getTime(),
           rankingSnapshotAfterResult:
             rankingSnapshots.rankingSnapshotAfterResult,
           rankingSnapshotBeforeResult:
             rankingSnapshots.rankingSnapshotBeforeResult,
+          status: "finished",
           updatedAt: now.getTime(),
         } as never
       );
@@ -1396,8 +1396,8 @@ export const reviewResult = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: "finished",
         finishedAt: now,
+        status: "finished",
         updatedAt: now,
       });
     }
@@ -1445,8 +1445,8 @@ export const reviewResult = authMutation
     );
 
     await ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-      status: "invalidated",
       invalidatedAt: now.getTime(),
+      status: "invalidated",
       updatedAt: now.getTime(),
     });
 
@@ -1463,8 +1463,8 @@ export const reviewResult = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "invalidated",
       invalidatedAt: now,
+      status: "invalidated",
       updatedAt: now,
     });
   });
@@ -1552,11 +1552,11 @@ export const organizerSubmitResult = authMutation
     await ctx.orm
       .insert(leagueChallengeResultSubmission)
       .values({
-        organizerReviewedByUserId: ctx.userId,
         challengeId: currentChallenge.id as Id<"leagueChallenge">,
         confirmedAt: now,
         confirmedByMembershipId:
           currentChallenge.challengedMembershipId as Id<"leagueMembership">,
+        organizerReviewedByUserId: ctx.userId,
         reviewAction: "approved",
         reviewedAt: now,
         score: parsedScore,
@@ -1653,10 +1653,10 @@ export const organizerManage = authMutation
           status: "cancelled",
         }),
         ctx.db.patch(currentChallenge.id as Id<"leagueChallenge">, {
-          status: "cancelled",
           cancellationRequestedAt: null,
           cancellationRequestedByMembershipId: null,
           cancelledAt: now.getTime(),
+          status: "cancelled",
           updatedAt: now.getTime(),
         }),
       ]);
@@ -1684,10 +1684,10 @@ export const organizerManage = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: "cancelled",
         cancellationRequestedAt: null,
         cancellationRequestedByMembershipId: null,
         cancelledAt: now,
+        status: "cancelled",
         updatedAt: now,
       });
     }
@@ -1721,12 +1721,12 @@ export const organizerManage = authMutation
       await ctx.db.patch(
         currentChallenge.id as Id<"leagueChallenge">,
         {
-          status: "invalidated",
           cancellationRequestedAt: null,
           cancellationRequestedByMembershipId: null,
           finishedAt: null,
           invalidatedAt: now.getTime(),
           rankingAppliedAt: null,
+          status: "invalidated",
           updatedAt: now.getTime(),
         } as never
       );
@@ -1753,12 +1753,12 @@ export const organizerManage = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: "invalidated",
         cancellationRequestedAt: null,
         cancellationRequestedByMembershipId: null,
         finishedAt: null,
         invalidatedAt: now,
         rankingAppliedAt: null,
+        status: "invalidated",
         updatedAt: now,
       });
     }
@@ -1800,7 +1800,6 @@ export const organizerManage = authMutation
         ctx.db.patch(
           currentChallenge.id as Id<"leagueChallenge">,
           {
-            status: nextStatus,
             cancellationRequestedAt: null,
             cancellationRequestedByMembershipId: null,
             cancelledAt: null,
@@ -1809,6 +1808,7 @@ export const organizerManage = authMutation
             invalidatedAt: null,
             lockedAt: null,
             rankingAppliedAt: null,
+            status: nextStatus,
             updatedAt: now.getTime(),
           } as never
         ),
@@ -1837,7 +1837,6 @@ export const organizerManage = authMutation
 
       return serializeChallenge(ctx, currentLeague, {
         ...currentChallenge,
-        status: nextStatus,
         cancellationRequestedAt: null,
         cancellationRequestedByMembershipId: null,
         cancelledAt: null,
@@ -1846,6 +1845,7 @@ export const organizerManage = authMutation
         invalidatedAt: null,
         lockedAt: null,
         rankingAppliedAt: null,
+        status: nextStatus,
         updatedAt: now,
       });
     }
@@ -1874,10 +1874,10 @@ export const organizerManage = authMutation
     await ctx.db.patch(
       currentChallenge.id as Id<"leagueChallenge">,
       {
-        status: "pending_result_correction",
         finishedAt: null,
         invalidatedAt: null,
         rankingAppliedAt: null,
+        status: "pending_result_correction",
         updatedAt: now.getTime(),
       } as never
     );
@@ -1904,10 +1904,10 @@ export const organizerManage = authMutation
 
     return serializeChallenge(ctx, currentLeague, {
       ...currentChallenge,
-      status: "pending_result_correction",
       finishedAt: null,
       invalidatedAt: null,
       rankingAppliedAt: null,
+      status: "pending_result_correction",
       updatedAt: now,
     });
   });

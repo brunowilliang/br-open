@@ -84,11 +84,11 @@ export default defineAuth(() => {
       : {};
 
   return {
+    baseURL: env.BETTER_AUTH_URL ?? env.SITE_URL,
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
     },
-    baseURL: env.BETTER_AUTH_URL ?? env.SITE_URL,
     plugins: [
       i18n({
         defaultLocale: "pt-BR",
@@ -138,12 +138,12 @@ export default defineAuth(() => {
       ...googleProvider,
     },
     telemetry: { enabled: false },
+    triggers: authTriggers,
     trustedOrigins: [
       ...buildTrustedOrigins({
         siteUrl: env.SITE_URL,
       }),
       "https://appleid.apple.com",
     ],
-    triggers: authTriggers,
   };
 });

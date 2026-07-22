@@ -129,14 +129,6 @@ export default function PlayerPaymentsSettings() {
 
   const createCharge = useMutation(
     crpc.payment.charge.createCharge.mutationOptions({
-      onSuccess: async (data) => {
-        setGeneratingSourceId(null);
-        await paymentsQuery.refetch();
-        router.navigate({
-          params: { chargeId: data.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      },
       onError: (error) => {
         setGeneratingSourceId(null);
         toast.show({
@@ -147,6 +139,14 @@ export default function PlayerPaymentsSettings() {
           id: "generate-new-charge-error",
           label: "Falha ao gerar PIX",
           variant: "danger",
+        });
+      },
+      onSuccess: async (data) => {
+        setGeneratingSourceId(null);
+        await paymentsQuery.refetch();
+        router.navigate({
+          params: { chargeId: data.chargeId },
+          pathname: "/checkout/[chargeId]",
         });
       },
     })

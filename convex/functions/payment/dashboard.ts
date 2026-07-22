@@ -35,16 +35,16 @@ export const getOverview = authQuery
     };
 
     // If not connected to Woovi, return zeros early.
-    if (!account || account.status !== "active") {
+    if (account?.status !== "active") {
       return {
         account: accountInfo,
         metrics: {
-          receivedThisMonthCents: 0,
-          receivedLastMonthCents: 0,
           activeSubscribers: 0,
           overdueCount: 0,
           paymentsThisMonth: 0,
           projectedMonthlyCents: 0,
+          receivedLastMonthCents: 0,
+          receivedThisMonthCents: 0,
         },
         recentCharges: [],
       } satisfies DashboardOverview;

@@ -26,6 +26,9 @@
       "style": {
         "noExportedImports": "off",
         "noNestedTernary": "off",
+        "noIncrementDecrement": "off",
+        "useDestructuring": "off",
+        "useErrorCause": "off",
         "useConsistentTypeDefinitions": {
           "level": "error",
           "fix": "safe",
@@ -37,11 +40,19 @@
       },
       "suspicious": {
         "noEmptyBlockStatements": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noShadow": "off",
+        "noUnnecessaryConditions": "off",
+        "noLeakedRender": "off"
       },
       "performance": {
         "noNamespaceImport": "off",
-        "useTopLevelRegex": "off"
+        "useTopLevelRegex": "off",
+        "noJsxPropsBind": "off",
+        "noAwaitInLoops": "off"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
       }
     }
   },

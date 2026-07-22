@@ -12,3 +12,7 @@ pre-commit:
       stage_fixed: true
     - run: bun run typecheck
     - run: bun test
+
+pre-push:
+  jobs:
+    - run: bun run codegen && git diff --exit-code
