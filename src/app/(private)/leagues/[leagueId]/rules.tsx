@@ -8,7 +8,7 @@ import { useValue } from "@legendapp/state/react";
 import { cn } from "better-styled";
 import { useLocalSearchParams } from "expo-router";
 import { Card } from "heroui-native";
-import { useEffect } from "react";
+import { Children, type ReactNode, useEffect } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
@@ -19,14 +19,38 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 
 function RulesItemCard(props: { label: string; value: string }) {
+  // flex-1 preenche a coluna dentro de cada linha do RulesGrid (sempre 2 por linha).
   return (
     <View className="flex-1 rounded-2xl bg-surface-secondary px-4 py-3">
       <Text numberOfLines={1} weight="medium">
         {props.label}
       </Text>
-      <Text color="muted" numberOfLines={2} variant="description">
+      <Text color="muted" numberOfLines={4} variant="description">
         {props.value}
       </Text>
+    </View>
+  );
+}
+
+/**
+ * Distribui os filhos em linhas de exatamente 2 colunas (item | item),
+ * sem depender de flex-wrap ou calc — cada par vira uma `flex-row gap-2` e as
+ * linhas são empilhadas verticalmente. Garante grid 2xN estável em qualquer
+ * largura de tela.
+ */
+function RulesGrid(props: { children: ReactNode }) {
+  const items = Children.toArray(props.children);
+  const rows: ReactNode[][] = [];
+  for (let index = 0; index < items.length; index += 2) {
+    rows.push(items.slice(index, index + 2));
+  }
+  return (
+    <View className="gap-2">
+      {rows.map((row, rowIndex) => (
+        <View className="flex-row gap-2" key={`rules-row-${rowIndex}`}>
+          {row.map((item) => item)}
+        </View>
+      ))}
     </View>
   );
 }
@@ -88,23 +112,25 @@ export default function LeagueRulesRoute() {
                   </Text>
                 </View>
               </Card.Header>
-              <Card.Body className="flex-row flex-wrap gap-2 px-2 pt-0 pb-2">
-                <RulesItemCard
-                  label="Distância"
-                  value={rulesView.challenge.maxDistance}
-                />
-                <RulesItemCard
-                  label="Ativos"
-                  value={rulesView.challenge.activeLimit}
-                />
-                <RulesItemCard
-                  label="Mensal"
-                  value={rulesView.challenge.monthlyLimit}
-                />
-                <RulesItemCard
-                  label="Resposta"
-                  value={rulesView.challenge.responseDeadline}
-                />
+              <Card.Body className="gap-2 px-2 pt-0 pb-2">
+                <RulesGrid>
+                  <RulesItemCard
+                    label="Distância"
+                    value={rulesView.challenge.maxDistance}
+                  />
+                  <RulesItemCard
+                    label="Ativos"
+                    value={rulesView.challenge.activeLimit}
+                  />
+                  <RulesItemCard
+                    label="Mensal"
+                    value={rulesView.challenge.monthlyLimit}
+                  />
+                  <RulesItemCard
+                    label="Resposta"
+                    value={rulesView.challenge.responseDeadline}
+                  />
+                </RulesGrid>
               </Card.Body>
             </Card>
 
@@ -123,23 +149,25 @@ export default function LeagueRulesRoute() {
                   </Text>
                 </View>
               </Card.Header>
-              <Card.Body className="flex-row flex-wrap gap-2 px-2 pt-0 pb-2">
-                <RulesItemCard
-                  label="Entrada"
-                  value={rulesView.progression.newPlayerPlacement}
-                />
-                <RulesItemCard
-                  label="Vitória"
-                  value={rulesView.progression.winBehavior}
-                />
-                <RulesItemCard
-                  label="Derrota"
-                  value={rulesView.progression.lossBehavior}
-                />
-                <RulesItemCard
-                  label="W.O."
-                  value={rulesView.progression.walkoverBehavior}
-                />
+              <Card.Body className="gap-2 px-2 pt-0 pb-2">
+                <RulesGrid>
+                  <RulesItemCard
+                    label="Entrada"
+                    value={rulesView.progression.newPlayerPlacement}
+                  />
+                  <RulesItemCard
+                    label="Vitória"
+                    value={rulesView.progression.winBehavior}
+                  />
+                  <RulesItemCard
+                    label="Derrota"
+                    value={rulesView.progression.lossBehavior}
+                  />
+                  <RulesItemCard
+                    label="W.O."
+                    value={rulesView.progression.walkoverBehavior}
+                  />
+                </RulesGrid>
               </Card.Body>
             </Card>
 
@@ -158,25 +186,33 @@ export default function LeagueRulesRoute() {
                   </Text>
                 </View>
               </Card.Header>
-              <Card.Body className="flex-row flex-wrap gap-2 px-2 pt-0 pb-2">
-                <RulesItemCard label="Formato" value={rulesView.match.format} />
-                <RulesItemCard label="Set" value={rulesView.match.setFormat} />
-                <RulesItemCard
-                  label="Pontuação"
-                  value={rulesView.match.scoring}
-                />
-                <RulesItemCard
-                  label="Duração"
-                  value={rulesView.match.duration}
-                />
-                <RulesItemCard
-                  label="Tie-break"
-                  value={rulesView.match.tieBreak}
-                />
-                <RulesItemCard
-                  label="Decisão"
-                  value={rulesView.match.finalSet}
-                />
+              <Card.Body className="gap-2 px-2 pt-0 pb-2">
+                <RulesGrid>
+                  <RulesItemCard
+                    label="Formato"
+                    value={rulesView.match.format}
+                  />
+                  <RulesItemCard
+                    label="Set"
+                    value={rulesView.match.setFormat}
+                  />
+                  <RulesItemCard
+                    label="Pontuação"
+                    value={rulesView.match.scoring}
+                  />
+                  <RulesItemCard
+                    label="Duração"
+                    value={rulesView.match.duration}
+                  />
+                  <RulesItemCard
+                    label="Tie-break"
+                    value={rulesView.match.tieBreak}
+                  />
+                  <RulesItemCard
+                    label="Decisão"
+                    value={rulesView.match.finalSet}
+                  />
+                </RulesGrid>
               </Card.Body>
             </Card>
 
