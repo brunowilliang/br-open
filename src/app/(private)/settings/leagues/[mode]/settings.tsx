@@ -10,6 +10,7 @@ import {
 import { WidgetAlert } from "@/components/pages/leagues/widget-alert";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC } from "@/lib/convex/crpc";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 import { useQuery } from "@tanstack/react-query";
@@ -259,10 +260,7 @@ export default function LeagueSettingsRoute() {
             </Select.Trigger>
             <Select.Portal>
               <Select.Overlay />
-              <Select.Content presentation="popover" width="trigger">
-                <Select.ListLabel className="mb-2">
-                  Escolha uma opção
-                </Select.ListLabel>
+              <SelectScrollContent label="Escolha uma opção" width="trigger">
                 {visibilityOptions.map((option) => (
                   <SelectOptionItem
                     key={option.value}
@@ -270,7 +268,7 @@ export default function LeagueSettingsRoute() {
                     value={option.value}
                   />
                 ))}
-              </Select.Content>
+              </SelectScrollContent>
             </Select.Portal>
           </Select>
           <Description>
@@ -310,10 +308,7 @@ export default function LeagueSettingsRoute() {
             </Select.Trigger>
             <Select.Portal>
               <Select.Overlay />
-              <Select.Content presentation="popover" width="trigger">
-                <Select.ListLabel className="mb-2">
-                  Escolha uma opção
-                </Select.ListLabel>
+              <SelectScrollContent label="Escolha uma opção" width="trigger">
                 {scheduleVisibilityOptions.map((option) => (
                   <SelectOptionItem
                     key={option.value}
@@ -321,7 +316,7 @@ export default function LeagueSettingsRoute() {
                     value={option.value}
                   />
                 ))}
-              </Select.Content>
+              </SelectScrollContent>
             </Select.Portal>
           </Select>
           <Description>

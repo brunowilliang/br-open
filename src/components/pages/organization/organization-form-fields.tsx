@@ -27,6 +27,7 @@ import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
@@ -450,10 +451,10 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                 </Select.Trigger>
                 <Select.Portal>
                   <Select.Overlay />
-                  <Select.Content presentation="popover" width="trigger">
-                    <Select.ListLabel className="mb-2">
-                      Escolha uma opção
-                    </Select.ListLabel>
+                  <SelectScrollContent
+                    label="Escolha uma opção"
+                    width="trigger"
+                  >
                     {ORGANIZER_TYPE_OPTIONS.map((option) => (
                       <SelectOptionItem
                         key={option.value}
@@ -461,7 +462,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                         value={option.value}
                       />
                     ))}
-                  </Select.Content>
+                  </SelectScrollContent>
                 </Select.Portal>
               </Select>
               <FieldError>{fieldState.error?.message ?? ""}</FieldError>
@@ -529,10 +530,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                   </Select.Trigger>
                   <Select.Portal>
                     <Select.Overlay />
-                    <Select.Content presentation="popover" width="trigger">
-                      <Select.ListLabel className="mb-2">
-                        Modalidades
-                      </Select.ListLabel>
+                    <SelectScrollContent label="Modalidades" width="trigger">
                       {SPORT_OPTIONS.map((option) => (
                         <SelectOptionItem
                           key={option.value}
@@ -540,7 +538,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                           value={option.value}
                         />
                       ))}
-                    </Select.Content>
+                    </SelectScrollContent>
                   </Select.Portal>
                 </Select>
               </TextField>
@@ -725,10 +723,7 @@ function PixKeyFields(props: {
               </Select.Trigger>
               <Select.Portal>
                 <Select.Overlay />
-                <Select.Content presentation="popover" width="trigger">
-                  <Select.ListLabel className="mb-2">
-                    Escolha um tipo
-                  </Select.ListLabel>
+                <SelectScrollContent label="Escolha um tipo" width="trigger">
                   {PIX_KEY_TYPES.map((option) => (
                     <SelectOptionItem
                       key={option.value}
@@ -736,7 +731,7 @@ function PixKeyFields(props: {
                       value={option.value}
                     />
                   ))}
-                </Select.Content>
+                </SelectScrollContent>
               </Select.Portal>
             </Select>
           </TextField>
