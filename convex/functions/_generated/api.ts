@@ -67,11 +67,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -83,10 +79,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -136,11 +129,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -205,11 +194,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -221,10 +206,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -274,11 +256,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -343,11 +321,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -359,10 +333,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -412,11 +383,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -487,11 +454,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -503,10 +466,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -556,11 +516,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -632,11 +588,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -648,10 +600,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -701,11 +650,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -770,11 +715,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -786,10 +727,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -839,11 +777,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -908,11 +842,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -924,10 +854,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -977,11 +904,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1046,11 +969,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1062,10 +981,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1115,11 +1031,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1170,10 +1082,7 @@ export const api: {
         "public",
         {
           action:
-            | "cancel"
-            | "invalidate"
-            | "reopen_challenge"
-            | "reopen_result";
+            "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
           challengeId: string;
         },
         {
@@ -1216,11 +1125,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1232,10 +1137,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1285,11 +1187,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1354,11 +1252,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1370,10 +1264,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1423,11 +1314,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1502,11 +1389,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1518,10 +1401,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1571,11 +1451,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1640,11 +1516,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1656,10 +1528,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1709,11 +1578,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1778,11 +1643,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1794,10 +1655,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1847,11 +1705,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -1916,11 +1770,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -1932,10 +1782,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -1985,11 +1832,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -2058,11 +1901,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -2074,10 +1913,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -2127,11 +1963,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -2206,11 +2038,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           };
           finishedAt?: number | null;
           id: string;
@@ -2222,10 +2050,7 @@ export const api: {
             id: string;
             organizerReviewedByUserId?: string | null;
             reviewAction?:
-              | "approved"
-              | "correction_requested"
-              | "invalidated"
-              | null;
+              "approved" | "correction_requested" | "invalidated" | null;
             reviewedAt?: number | null;
             score: {
               sets: Array<{
@@ -2275,11 +2100,7 @@ export const api: {
             revisionNumber: number;
             startMinute: number;
             status:
-              | "active"
-              | "accepted"
-              | "replaced"
-              | "declined"
-              | "cancelled";
+              "active" | "accepted" | "replaced" | "declined" | "cancelled";
           }>;
           resultValidationMode: "automatic" | "manual";
           status:
@@ -2353,9 +2174,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2449,9 +2268,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2534,9 +2351,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2614,9 +2429,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2693,9 +2506,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2779,9 +2590,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2864,9 +2673,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -2949,9 +2756,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -3028,9 +2833,7 @@ export const api: {
               finalSetGamesPerSet: number;
               finalSetHasTieBreak: boolean;
               finalSetMode:
-                | "same_as_previous"
-                | "custom_set"
-                | "super_tiebreak";
+                "same_as_previous" | "custom_set" | "super_tiebreak";
               finalSetMustWinByTwoGames: boolean;
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
@@ -3954,12 +3757,7 @@ export const internal: {
               | "starts_with"
               | "ends_with";
             value:
-              | string
-              | number
-              | boolean
-              | Array<string>
-              | Array<number>
-              | null;
+              string | number | boolean | Array<string> | Array<number> | null;
           }>;
         },
         any
@@ -3988,12 +3786,7 @@ export const internal: {
               | "starts_with"
               | "ends_with";
             value:
-              | string
-              | number
-              | boolean
-              | Array<string>
-              | Array<number>
-              | null;
+              string | number | boolean | Array<string> | Array<number> | null;
           }>;
         },
         any

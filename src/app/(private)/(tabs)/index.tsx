@@ -1,15 +1,15 @@
 import { Image } from "@/components/core/image";
+import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { LeagueCard } from "@/components/pages/home/league-card";
 import { OrganizerDashboard } from "@/components/pages/home/organizer-dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { ErrorState } from "@/components/ui/error-state";
-import { Page } from "@/components/core/NewPage";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
-import { useCRPC } from "@/lib/convex/crpc";
 import { authClient } from "@/lib/convex/auth-client";
+import { useCRPC } from "@/lib/convex/crpc";
 import { getGreetingLabel } from "@/lib/format/user";
 import { Search01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -98,7 +98,6 @@ export default function Home() {
         <Page.Header>
           <View className="flex-1 flex-row items-center justify-between gap-4">
             <PressableFeedback
-              className="rounded-2xl"
               onPress={() => router.navigate("/settings/organization/profile")}
             >
               <View className="flex-row items-center gap-3">
@@ -162,7 +161,6 @@ export default function Home() {
       <Page.Header>
         <View className="flex-1 flex-row items-center justify-between gap-4">
           <PressableFeedback
-            className="rounded-2xl"
             onPress={() => router.navigate("/settings/player/profile")}
           >
             <View className="flex-row items-center gap-3">

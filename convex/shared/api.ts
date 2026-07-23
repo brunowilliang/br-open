@@ -10,9 +10,6 @@ import type { httpRouter } from "../functions/http";
 import type { tables } from "../functions/schema";
 
 export const api = {
-  _http: {
-  },
-  http: undefined as unknown as typeof httpRouter,
   league: {
     challenges: {
       acceptProposal: createApiLeaf<"mutation", typeof import("../functions/league/challenges").acceptProposal>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/league/challenges").acceptProposal>("league/challenges:acceptProposal"), { auth: "required", type: "mutation" }),
@@ -109,6 +106,9 @@ export const api = {
       get: createApiLeaf<"query", typeof import("../functions/viewer/context").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/viewer/context").get>("viewer/context:get"), { auth: "required", type: "query" }),
       setActiveActor: createApiLeaf<"mutation", typeof import("../functions/viewer/context").setActiveActor>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/viewer/context").setActiveActor>("viewer/context:setActiveActor"), { auth: "required", type: "mutation" }),
     },
+  },
+  http: undefined as unknown as typeof httpRouter,
+  _http: {
   },
 } as const;
 

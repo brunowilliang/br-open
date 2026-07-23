@@ -22,14 +22,12 @@ const envSchema = z.object({
   // secret — see webhook-signature.ts). WOOVI_BASE_URL defaults to sandbox.
   WOOVI_APP_ID: z.string().optional(),
   WOOVI_BASE_URL: z.string().default("https://api.woovi-sandbox.com"),
-  WOOVI_CLIENT_ID: z.string().optional(),
 });
 
 export const getEnv = createEnv({
   readOptionalRuntimeEnv: [
     "WOOVI_APP_ID",
     "WOOVI_BASE_URL",
-    "WOOVI_CLIENT_ID",
     "APPLE_APP_BUNDLE_IDENTIFIER",
     "APPLE_CLIENT_ID",
     "APPLE_CLIENT_SECRET",

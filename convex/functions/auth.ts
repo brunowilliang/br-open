@@ -45,6 +45,10 @@ export default defineAuth(() => {
   const env = getEnv();
   const appleAppBundleIdentifier = env.APPLE_APP_BUNDLE_IDENTIFIER;
   const appleClientId = env.APPLE_CLIENT_ID;
+  // JWT estático assinado offline (180 dias de validade). Mantido como
+  // prioridade porque Better Auth chama este callback em query/mutation ctx,
+  // onde crypto.getRandomValues (usado pelo jose) é proibido. O fallback
+  // `generatedClientSecret` só é alcançado se ambas forem undefined.
   const appleClientSecret = env.APPLE_CLIENT_SECRET;
   const appleKeyId = env.APPLE_KEY_ID;
   const applePrivateKey = env.APPLE_PRIVATE_KEY;
@@ -53,6 +57,19 @@ export default defineAuth(() => {
     appleClientId && appleAppBundleIdentifier
       ? {
           apple: async () => {
+            // JWT estático tem prioridade absoluta. CRÍTICO: precisa curto-
+            // circuitar ANTES de chamar generateAppleClientSecret — o jose
+            // (jws/sign) usa crypto.getRandomValues, que Convex proíbe em
+            // query/mutation ctx. Como APPLE_PRIVATE_KEY agora está populada,
+            // sem este if o generate seria chamado sempre, mesmo com JWT cache.
+            if (appleClientSecret) {
+              return {
+                appBundleIdentifier: appleAppBundleIdentifier,
+                clientId: appleClientId,
+                clientSecret: appleClientSecret,
+              };
+            }
+
             const generatedClientSecret =
               appleTeamId && appleKeyId && applePrivateKey
                 ? await generateAppleClientSecret({
@@ -66,9 +83,7 @@ export default defineAuth(() => {
             return {
               appBundleIdentifier: appleAppBundleIdentifier,
               clientId: appleClientId,
-              // Native iOS idToken sign-in does not use this, but Better Auth
-              // requires the option to exist on the Apple provider.
-              clientSecret: appleClientSecret ?? generatedClientSecret,
+              clientSecret: generatedClientSecret,
             };
           },
         }
