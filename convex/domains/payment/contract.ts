@@ -118,6 +118,7 @@ export type CheckoutContext = z.infer<typeof checkoutContextSchema>;
 
 export const myPaymentItemSchema = z.object({
   amountCents: z.number().int().nonnegative(),
+  canRegenerate: z.boolean(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
   paidAt: z.string().nullable(),

@@ -313,16 +313,49 @@ export const listMine = authQuery
     });
 
     // No league join/cache needed: sourceLabel is snapshotted on each charge.
-    const items = charges.map((charge) => ({
-      amountCents: charge.amountCents,
-      chargeId: charge.id as Id<"paymentCharge">,
-      expiresAt: charge.expiresAt?.toISOString() ?? null,
-      paidAt: charge.paidAt?.toISOString() ?? null,
-      sourceId: charge.sourceId,
-      sourceLabel: charge.sourceLabel ?? null,
-      sourceType: charge.sourceType,
-      status: (charge.status as PaymentChargeStatus) ?? "PENDING",
-    }));
+    // Resolve membership chargeability so the UI can hide "Gerar novo Pix" when
+    // the source (e.g. a cancelled join request) can no longer be charged.
+    const membershipIds = [
+      ...new Set(
+        charges
+          .filter((c) => c.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP)
+          .map((c) => c.sourceId as Id<"leagueMembership">)
+      ),
+    ];
+    const memberships = await Promise.all(
+      membershipIds.map((id) =>
+        ctx.orm.query.leagueMembership.findFirst({ where: { id } })
+      )
+    );
+    const membershipById = new Map(
+      memberships
+        .filter((m): m is NonNullable<typeof m> => m !== null)
+        .map((m) => [m.id, m])
+    );
+
+    const items = charges.map((charge) => {
+      const canRegenerate =
+        charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP
+          ? (() => {
+              const membership = charge.sourceId
+                ? membershipById.get(charge.sourceId as Id<"leagueMembership">)
+                : undefined;
+              return Boolean(membership && canMembershipBeCharged(membership));
+            })()
+          : false;
+
+      return {
+        amountCents: charge.amountCents,
+        canRegenerate,
+        chargeId: charge.id as Id<"paymentCharge">,
+        expiresAt: charge.expiresAt?.toISOString() ?? null,
+        paidAt: charge.paidAt?.toISOString() ?? null,
+        sourceId: charge.sourceId,
+        sourceLabel: charge.sourceLabel ?? null,
+        sourceType: charge.sourceType,
+        status: (charge.status as PaymentChargeStatus) ?? "PENDING",
+      };
+    });
 
     return { items };
   });

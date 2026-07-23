@@ -1,5 +1,4 @@
 import { Page } from "@/components/core/NewPage";
-import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -20,6 +19,7 @@ import {
   Card,
   Chip,
   Description,
+  Label,
   Menu,
   PressableFeedback,
   useToast,
@@ -38,6 +38,7 @@ function formatPaymentDate(iso: null | string) {
 
 type PaymentItem = {
   amountCents: number;
+  canRegenerate: boolean;
   chargeId: string;
   expiresAt: null | string;
   paidAt: null | string;
@@ -56,62 +57,58 @@ function PaymentCard(props: {
   const { item } = props;
   const dateLabel =
     formatPaymentDate(item.paidAt) ?? formatPaymentDate(item.expiresAt);
-  const showGenerateNew = item.status === "EXPIRED" && props.onGenerateNew;
-
-  const content = (
-    <Card className="relative gap-1">
-      {showGenerateNew ? (
-        <View className="absolute top-2 right-2 z-10">
-          <Menu>
-            <Menu.Trigger asChild>
-              <Button
-                className="size-7"
-                isDisabled={props.isGenerating}
-                isIconOnly
-                size="sm"
-                variant="tertiary"
-              >
-                <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
-              </Button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Overlay className="bg-backdrop" />
-              <Menu.Content presentation="popover" width={240}>
-                <Menu.Item onPress={() => props.onGenerateNew?.(item)}>
-                  <Menu.ItemTitle>Gerar novo Pix</Menu.ItemTitle>
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu>
-        </View>
-      ) : null}
-      <Chip color={getPaymentStatusColor(item.status)} size="sm" variant="soft">
-        <Chip.Label>{formatPaymentStatus(item.status)}</Chip.Label>
-      </Chip>
-      <Text numberOfLines={1} weight="semibold">
-        {item.sourceLabel ?? "Pagamento"}
-      </Text>
-      <View className="flex-row items-center justify-between">
-        <Text weight="semibold">{formatCurrencyCents(item.amountCents)}</Text>
-        {dateLabel ? (
-          <Text color="muted" variant="description">
-            {dateLabel}
-          </Text>
-        ) : null}
-      </View>
-      {props.onPress ? <PressableFeedback.Highlight /> : null}
-    </Card>
-  );
-
-  // Pending charges open the checkout; historical (paid/expired/refunded)
-  // charges are informational only — no tap target.
-  if (!props.onPress) {
-    return content;
-  }
+  const showGenerateNew =
+    item.status === "EXPIRED" && item.canRegenerate && props.onGenerateNew;
 
   return (
-    <PressableFeedback animation={false} onPress={() => props.onPress?.(item)}>
-      {content}
+    <PressableFeedback
+      animation={false}
+      onPress={props.onPress ? () => props.onPress?.(item) : undefined}
+    >
+      <Card className="relative gap-2">
+        {showGenerateNew ? (
+          <View className="absolute top-2.5 right-2.5 z-10">
+            <Menu>
+              <Menu.Trigger asChild>
+                <Button
+                  className="size-7"
+                  isDisabled={props.isGenerating}
+                  isIconOnly
+                  size="sm"
+                  variant="tertiary"
+                >
+                  <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
+                </Button>
+              </Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Overlay className="bg-backdrop" />
+                <Menu.Content presentation="popover" width={240}>
+                  <Menu.Item onPress={() => props.onGenerateNew?.(item)}>
+                    <Menu.ItemTitle>Gerar novo Pix</Menu.ItemTitle>
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Portal>
+            </Menu>
+          </View>
+        ) : null}
+        <View className="flex-row items-end justify-between gap-3">
+          <View className="flex-1 gap-1.5">
+            <Label>{item.sourceLabel ?? "Pagamento"}</Label>
+            <View className="flex-row items-center gap-1">
+              <Description>{formatCurrencyCents(item.amountCents)}</Description>
+              <Chip
+                color={getPaymentStatusColor(item.status)}
+                size="sm"
+                variant="soft"
+              >
+                <Chip.Label>{formatPaymentStatus(item.status)}</Chip.Label>
+              </Chip>
+            </View>
+          </View>
+          {dateLabel ? <Description>{dateLabel}</Description> : null}
+        </View>
+        <PressableFeedback.Highlight />
+      </Card>
     </PressableFeedback>
   );
 }
