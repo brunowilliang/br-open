@@ -60,9 +60,6 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "install": {
-      "exclude": ["typescript"]
-    },
     "extra": {
       "router": {},
       "eas": {

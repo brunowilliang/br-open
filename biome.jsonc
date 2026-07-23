@@ -82,6 +82,18 @@
           }
         }
       }
+    },
+    {
+      "includes": ["convex/shared/api.ts"],
+      "assist": {
+        "actions": {
+          "source": {
+            "useSortedKeys": {
+              "level": "off"
+            }
+          }
+        }
+      }
     }
   ]
 }

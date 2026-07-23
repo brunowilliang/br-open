@@ -941,11 +941,7 @@ export type DataModel = {
       _creationTime: number;
     };
     fieldPaths:
-      | "_creationTime"
-      | "_id"
-      | "pushEnabled"
-      | "updatedAt"
-      | "userId";
+      "_creationTime" | "_id" | "pushEnabled" | "updatedAt" | "userId";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
