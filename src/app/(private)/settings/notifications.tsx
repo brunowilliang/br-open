@@ -94,16 +94,16 @@ function NotificationRouteMenu(props: {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Overlay className="bg-backdrop" />
-        <Menu.Content presentation="popover">
+        <Menu.Content presentation="popover" width={240}>
           <Menu.Item onPress={props.onOpenPreferences}>
-            <Menu.ItemTitle className="flex-none">Preferências</Menu.ItemTitle>
+            <Menu.ItemTitle>Preferências</Menu.ItemTitle>
             <HugeIcons icon={PreferenceVerticalIcon} />
           </Menu.Item>
           <Menu.Item
             isDisabled={props.isMarkAllReadDisabled}
             onPress={props.onMarkAllRead}
           >
-            <Menu.ItemTitle className="flex-none">Ler todas</Menu.ItemTitle>
+            <Menu.ItemTitle>Ler todas</Menu.ItemTitle>
             <HugeIcons icon={CheckUnread01Icon} />
           </Menu.Item>
           <Menu.Item
@@ -111,7 +111,7 @@ function NotificationRouteMenu(props: {
             onPress={props.onClearAll}
             variant="danger"
           >
-            <Menu.ItemTitle className="flex-none">Apagar todas</Menu.ItemTitle>
+            <Menu.ItemTitle>Apagar todas</Menu.ItemTitle>
             <HugeIcons className="text-danger" icon={Delete02Icon} />
           </Menu.Item>
         </Menu.Content>
@@ -168,16 +168,14 @@ function NotificationFeedItem(props: {
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Overlay className="bg-backdrop" />
-            <Menu.Content presentation="popover">
+            <Menu.Content presentation="popover" width={240}>
               <Menu.Item
                 onPress={() => {
                   props.onRemove(props.notification);
                 }}
                 variant="danger"
               >
-                <Menu.ItemTitle className="flex-none text-danger">
-                  Remover
-                </Menu.ItemTitle>
+                <Menu.ItemTitle className="text-danger">Remover</Menu.ItemTitle>
                 <HugeIcons
                   className="size-4.5 text-danger"
                   icon={Delete02Icon}

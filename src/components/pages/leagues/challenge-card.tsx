@@ -76,14 +76,12 @@ function ChallengeCardImpl(props: ChallengeCardProps) {
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Overlay className="bg-backdrop" />
-                  <Menu.Content presentation="popover">
+                  <Menu.Content presentation="popover" width={240}>
                     {props.menuActions.map((action) => (
                       <Menu.Item key={action.id} onPress={action.onPress}>
                         <Menu.ItemTitle
                           className={
-                            action.isDanger
-                              ? "flex-none text-danger"
-                              : "flex-none"
+                            action.isDanger ? "text-danger" : undefined
                           }
                         >
                           {action.label}

@@ -215,9 +215,9 @@ export default function LeagueSettingsRoute() {
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Overlay className="bg-backdrop" />
-              <Menu.Content presentation="popover">
+              <Menu.Content presentation="popover" width={240}>
                 <Menu.Item onPress={handleSubmitPress}>
-                  <Menu.ItemTitle className="flex-none">Salvar</Menu.ItemTitle>
+                  <Menu.ItemTitle>Salvar</Menu.ItemTitle>
                   <HugeIcons icon={CheckmarkCircle02Icon} />
                 </Menu.Item>
               </Menu.Content>
