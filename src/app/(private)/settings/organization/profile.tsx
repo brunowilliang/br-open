@@ -1,9 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AccordionLayoutTransition, Button, useToast } from "heroui-native";
+import { Button, useToast } from "heroui-native";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import Animated from "react-native-reanimated";
+import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { ErrorState } from "@/components/ui/error-state";
@@ -229,7 +229,7 @@ export default function OrganizationProfile() {
       {isLoaded ? (
         <>
           <Page.ScrollView contentContainerClassName="px-4 pb-safe-offset-4">
-            <Animated.View className="gap-3" layout={AccordionLayoutTransition}>
+            <View className="gap-3">
               <OrganizationFormFields
                 form={
                   form as unknown as ReturnType<
@@ -241,7 +241,7 @@ export default function OrganizationProfile() {
                 logoSource={logoSource}
                 mode="profile"
               />
-            </Animated.View>
+            </View>
           </Page.ScrollView>
           <Page.Footer className="px-4 pt-4 pb-safe-offset-4">
             <Button

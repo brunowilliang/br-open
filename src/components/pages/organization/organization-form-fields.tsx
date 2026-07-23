@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
-  AccordionLayoutTransition,
   Button,
   Description,
   FieldError,
@@ -20,7 +19,6 @@ import { useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { View } from "react-native";
-import Animated from "react-native-reanimated";
 import { z } from "zod";
 
 import { Image } from "@/components/core/image";
@@ -80,6 +78,8 @@ export type OrganizationFormValues = {
   organizerType?: string;
   organizerTypeLabel?: string;
   phone?: string;
+  pixKey?: string;
+  pixKeyType?: PixKeyType;
   sports?: string[];
   sportsLabel?: string;
   website?: string;
@@ -294,43 +294,36 @@ export async function uploadPendingLogo(
 
 type ExpandableSectionProps = {
   children: React.ReactNode;
-  defaultExpanded?: boolean;
   description?: string;
+  sectionKey: string;
   title: string;
 };
 
+/**
+ * A single accordion item card. Must be rendered inside an `<Accordion>` (the
+ * organization form wraps all sections in one with selectionMode="single" so
+ * only one card stays expanded at a time).
+ */
 function ExpandableSection(props: ExpandableSectionProps) {
   return (
-    // Each card is an Animated.View sibling with `layout` so that when its
-    // Accordion content expands/collapses, the other cards (and the terms
-    // checkbox below) reposition smoothly instead of snapping. Per Reanimated
-    // docs, every sibling of an entering/exiting element needs its own
-    // `layout` prop — wrapping everything in a single Animated.View does NOT
-    // propagate layout animations to children.
-    <Animated.View layout={AccordionLayoutTransition}>
-      <Accordion
-        defaultValue={props.defaultExpanded ? ["section"] : []}
-        selectionMode="single"
-        variant="surface"
-      >
-        <Accordion.Item value="section">
-          <Accordion.Trigger>
-            <View className="flex-1">
-              <Text className="font-medium text-base">{props.title}</Text>
-              {props.description ? (
-                <Text color="muted" variant="description">
-                  {props.description}
-                </Text>
-              ) : null}
-            </View>
-            <Accordion.Indicator />
-          </Accordion.Trigger>
-          <Accordion.Content className="gap-3">
-            {props.children}
-          </Accordion.Content>
-        </Accordion.Item>
-      </Accordion>
-    </Animated.View>
+    <View>
+      <Accordion.Item value={props.sectionKey}>
+        <Accordion.Trigger>
+          <View className="flex-1">
+            <Text className="font-medium text-base">{props.title}</Text>
+            {props.description ? (
+              <Text color="muted" variant="description">
+                {props.description}
+              </Text>
+            ) : null}
+          </View>
+          <Accordion.Indicator />
+        </Accordion.Trigger>
+        <Accordion.Content className="gap-3">
+          {props.children}
+        </Accordion.Content>
+      </Accordion.Item>
+    </View>
   );
 }
 
@@ -365,173 +358,102 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
 
   return (
     <>
-      {/* ---- Detalhes (logo + nome + tipo) ---- */}
-      <ExpandableSection
-        defaultExpanded
-        description="Identidade e tipo da organização."
-        title="Detalhes"
+      <Accordion
+        defaultValue="detalhes"
+        selectionMode="single"
+        variant="surface"
       >
-        <PressableFeedback
-          className="self-center rounded-full"
-          isDisabled={isSubmitPending}
-          onPress={() => logo.handleLogoPress(isSubmitPending)}
+        {/* ---- Detalhes (logo + nome + tipo) ---- */}
+        <ExpandableSection
+          description="Identidade e tipo da organização."
+          sectionKey="detalhes"
+          title="Detalhes"
         >
-          <Image
-            alt={displayName}
-            className="size-30 rounded-full"
-            fallback="green"
-            source={logoSource ?? logo.logoPreviewUri ?? undefined}
-          />
-          <View className="centered absolute inset-0 bg-black/45">
-            <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-            <Text className="text-white" variant="description">
-              {isSubmitPending ? "Salvando..." : "Adicionar logo"}
-            </Text>
-          </View>
-          <PressableFeedback.Highlight />
-        </PressableFeedback>
+          <PressableFeedback
+            className="self-center rounded-full"
+            isDisabled={isSubmitPending}
+            onPress={() => logo.handleLogoPress(isSubmitPending)}
+          >
+            <Image
+              alt={displayName}
+              className="size-30 rounded-full"
+              fallback="green"
+              source={logoSource ?? logo.logoPreviewUri ?? undefined}
+            />
+            <View className="centered absolute inset-0 bg-black/45">
+              <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
+              <Text className="text-white" variant="description">
+                {isSubmitPending ? "Salvando..." : "Adicionar logo"}
+              </Text>
+            </View>
+            <PressableFeedback.Highlight />
+          </PressableFeedback>
 
-        <Controller
-          control={form.control}
-          name={"name"}
-          render={({ field, fieldState }) => (
-            <TextField
-              className="w-full"
-              isInvalid={Boolean(fieldState.error)}
-              isRequired
-            >
-              <Label>Nome da organização</Label>
-              <Input
-                autoCapitalize="words"
-                editable={!isSubmitPending}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                placeholder="Ex.: Clube BR Open"
-                value={String(field.value ?? "")}
-                variant="secondary"
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name={"organizerType"}
-          render={({ field, fieldState }) => (
-            <TextField
-              className="w-full"
-              isInvalid={Boolean(fieldState.error)}
-              isRequired
-            >
-              <Label>Tipo de organização</Label>
-              <Select
-                isDisabled={isSubmitPending}
-                onValueChange={(nextValue) => {
-                  if (nextValue && !Array.isArray(nextValue)) {
-                    form.setValue("organizerType", nextValue.value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    });
-                  }
-                }}
-                selectionMode="single"
-                value={ORGANIZER_TYPE_OPTIONS.find(
-                  (option) => option.value === field.value
-                )}
+          <Controller
+            control={form.control}
+            name={"name"}
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
               >
-                <Select.Trigger className="bg-surface-secondary">
-                  <Select.Value
-                    className="font-normal"
-                    numberOfLines={1}
-                    placeholder="Escolha uma opção"
-                  />
-                  <Select.TriggerIndicator />
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Overlay />
-                  <SelectScrollContent
-                    label="Escolha uma opção"
-                    width="trigger"
-                  >
-                    {ORGANIZER_TYPE_OPTIONS.map((option) => (
-                      <SelectOptionItem
-                        key={option.value}
-                        label={option.label}
-                        value={option.value}
-                      />
-                    ))}
-                  </SelectScrollContent>
-                </Select.Portal>
-              </Select>
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
+                <Label>Nome da organização</Label>
+                <Input
+                  autoCapitalize="words"
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="Ex.: Clube BR Open"
+                  value={String(field.value ?? "")}
+                  variant="secondary"
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
 
-        <ConditionalOutroField
-          form={form}
-          isSubmitPending={isSubmitPending}
-          labelField="organizerTypeLabel"
-          placeholder="Especifique o tipo da organização"
-          triggerField="organizerType"
-        />
-      </ExpandableSection>
-
-      {/* ---- Modalidades ---- */}
-      <ExpandableSection
-        description="Selecione os esportes oferecidos."
-        title="Modalidades"
-      >
-        <Controller
-          control={form.control}
-          name={"sports"}
-          render={({ field }) => {
-            const sports = (
-              Array.isArray(field.value) ? field.value : []
-            ) as string[];
-            const sportsLabel = form.watch("sportsLabel") as string | undefined;
-            const displayLabel = formatSportsLabel(sports, sportsLabel);
-
-            return (
-              <TextField className="w-full">
-                <Label>Quais modalidades sua organização atende?</Label>
+          <Controller
+            control={form.control}
+            name={"organizerType"}
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>Tipo de organização</Label>
                 <Select
                   isDisabled={isSubmitPending}
                   onValueChange={(nextValue) => {
-                    const next = Array.isArray(nextValue)
-                      ? nextValue.map(
-                          (item) => item?.value as (typeof SPORTS)[number]
-                        )
-                      : [];
-                    form.setValue("sports", next, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
+                    if (nextValue && !Array.isArray(nextValue)) {
+                      form.setValue("organizerType", nextValue.value, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      });
+                    }
                   }}
-                  selectionMode="multiple"
-                  value={sports.map((value) =>
-                    SPORT_OPTIONS.find((option) => option.value === value)
+                  selectionMode="single"
+                  value={ORGANIZER_TYPE_OPTIONS.find(
+                    (option) => option.value === field.value
                   )}
                 >
                   <Select.Trigger className="bg-surface-secondary">
-                    <Text
-                      className={
-                        displayLabel
-                          ? "flex-1 text-foreground"
-                          : "flex-1 font-normal text-field-placeholder"
-                      }
+                    <Select.Value
+                      className="font-normal"
                       numberOfLines={1}
-                    >
-                      {displayLabel || "Selecione as modalidades"}
-                    </Text>
+                      placeholder="Escolha uma opção"
+                    />
                     <Select.TriggerIndicator />
                   </Select.Trigger>
                   <Select.Portal>
                     <Select.Overlay />
-                    <SelectScrollContent label="Modalidades" width="trigger">
-                      {SPORT_OPTIONS.map((option) => (
+                    <SelectScrollContent
+                      label="Escolha uma opção"
+                      width="trigger"
+                    >
+                      {ORGANIZER_TYPE_OPTIONS.map((option) => (
                         <SelectOptionItem
                           key={option.value}
                           label={option.label}
@@ -541,127 +463,212 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                     </SelectScrollContent>
                   </Select.Portal>
                 </Select>
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
               </TextField>
-            );
-          }}
-        />
+            )}
+          />
 
-        <ConditionalOutroField
-          form={form}
-          isSubmitPending={isSubmitPending}
-          labelField="sportsLabel"
-          placeholder="Especifique a modalidade"
-          triggerField="sports"
-        />
-      </ExpandableSection>
+          <ConditionalOutroField
+            form={form}
+            isSubmitPending={isSubmitPending}
+            labelField="organizerTypeLabel"
+            placeholder="Especifique o tipo da organização"
+            triggerField="organizerType"
+          />
+        </ExpandableSection>
 
-      {/* ---- Endereço (condicional — só se físico, colapsado por padrão) ---- */}
-      {isPhysical ? (
-        <AddressSection form={form} isSubmitPending={isSubmitPending} />
-      ) : null}
+        {/* ---- Modalidades ---- */}
+        <ExpandableSection
+          description="Selecione os esportes oferecidos."
+          sectionKey="modalidades"
+          title="Modalidades"
+        >
+          <Controller
+            control={form.control}
+            name={"sports"}
+            render={({ field }) => {
+              const sports = (
+                Array.isArray(field.value) ? field.value : []
+              ) as string[];
+              const sportsLabel = form.watch("sportsLabel") as
+                | string
+                | undefined;
+              const displayLabel = formatSportsLabel(sports, sportsLabel);
 
-      {/* ---- Sobre (sempre visível, colapsado por padrão) ---- */}
-      <ExpandableSection
-        defaultExpanded={false}
-        description="Apresentação e contato."
-        title="Sobre"
-      >
-        <Controller
-          control={form.control}
-          name={"description"}
-          render={({ field }) => (
-            <TextField className="w-full">
-              <Label>Descrição</Label>
-              <TextArea
-                editable={!isSubmitPending}
-                onChangeText={field.onChange}
-                placeholder="Conte mais sobre sua organização"
-                value={String(field.value ?? "")}
-                variant="secondary"
-              />
-            </TextField>
-          )}
-        />
+              return (
+                <TextField className="w-full">
+                  <Label>Quais modalidades sua organização atende?</Label>
+                  <Select
+                    isDisabled={isSubmitPending}
+                    onValueChange={(nextValue) => {
+                      const next = Array.isArray(nextValue)
+                        ? nextValue.map(
+                            (item) => item?.value as (typeof SPORTS)[number]
+                          )
+                        : [];
+                      form.setValue("sports", next, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }}
+                    selectionMode="multiple"
+                    value={sports.map((value) =>
+                      SPORT_OPTIONS.find((option) => option.value === value)
+                    )}
+                  >
+                    <Select.Trigger className="bg-surface-secondary">
+                      <Text
+                        className={
+                          displayLabel
+                            ? "flex-1 text-foreground"
+                            : "flex-1 font-normal text-field-placeholder"
+                        }
+                        numberOfLines={1}
+                      >
+                        {displayLabel || "Selecione as modalidades"}
+                      </Text>
+                      <Select.TriggerIndicator />
+                    </Select.Trigger>
+                    <Select.Portal>
+                      <Select.Overlay />
+                      <SelectScrollContent label="Modalidades" width="trigger">
+                        {SPORT_OPTIONS.map((option) => (
+                          <SelectOptionItem
+                            key={option.value}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </SelectScrollContent>
+                    </Select.Portal>
+                  </Select>
+                </TextField>
+              );
+            }}
+          />
 
-        <Controller
-          control={form.control}
-          name={"website"}
-          render={({ field }) => (
-            <TextField className="w-full">
-              <Label>Website</Label>
-              <Input
-                autoCapitalize="none"
-                editable={!isSubmitPending}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                placeholder="https://..."
-                value={String(field.value ?? "")}
-                variant="secondary"
-              />
-            </TextField>
-          )}
-        />
+          <ConditionalOutroField
+            form={form}
+            isSubmitPending={isSubmitPending}
+            labelField="sportsLabel"
+            placeholder="Especifique a modalidade"
+            triggerField="sports"
+          />
+        </ExpandableSection>
 
-        <Controller
-          control={form.control}
-          name={"contactEmail"}
-          render={({ field, fieldState }) => (
-            <TextField
-              className="w-full"
-              isInvalid={Boolean(fieldState.error)}
-              isRequired
-            >
-              <Label>E-mail de contato</Label>
-              <Input
-                autoCapitalize="none"
-                editable={!isSubmitPending}
-                keyboardType="email-address"
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                value={String(field.value ?? "")}
-                variant="secondary"
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
+        {/* ---- Endereço (condicional — só se físico, colapsado por padrão) ---- */}
+        {isPhysical ? (
+          <AddressSection form={form} isSubmitPending={isSubmitPending} />
+        ) : null}
 
-        <Controller
-          control={form.control}
-          name={"phone"}
-          render={({ field, fieldState }) => (
-            <TextField
-              className="w-full"
-              isInvalid={Boolean(fieldState.error)}
-              isRequired
-            >
-              <Label>Telefone/WhatsApp</Label>
-              <Input
-                editable={!isSubmitPending}
-                keyboardType="phone-pad"
-                onBlur={field.onBlur}
-                onChangeText={(text) =>
-                  field.onChange(
-                    formatPhoneBR(
-                      applyPhoneInputChange(String(field.value ?? ""), text)
+        {/* ---- Sobre (sempre visível, colapsado por padrão) ---- */}
+        <ExpandableSection
+          description="Apresentação e contato."
+          sectionKey="sobre"
+          title="Sobre"
+        >
+          <Controller
+            control={form.control}
+            name={"description"}
+            render={({ field }) => (
+              <TextField className="w-full">
+                <Label>Descrição</Label>
+                <TextArea
+                  editable={!isSubmitPending}
+                  onChangeText={field.onChange}
+                  placeholder="Conte mais sobre sua organização"
+                  value={String(field.value ?? "")}
+                  variant="secondary"
+                />
+              </TextField>
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name={"website"}
+            render={({ field }) => (
+              <TextField className="w-full">
+                <Label>Website</Label>
+                <Input
+                  autoCapitalize="none"
+                  editable={!isSubmitPending}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  placeholder="https://..."
+                  value={String(field.value ?? "")}
+                  variant="secondary"
+                />
+              </TextField>
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name={"contactEmail"}
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>E-mail de contato</Label>
+                <Input
+                  autoCapitalize="none"
+                  editable={!isSubmitPending}
+                  keyboardType="email-address"
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  value={String(field.value ?? "")}
+                  variant="secondary"
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name={"phone"}
+            render={({ field, fieldState }) => (
+              <TextField
+                className="w-full"
+                isInvalid={Boolean(fieldState.error)}
+                isRequired
+              >
+                <Label>Telefone/WhatsApp</Label>
+                <Input
+                  editable={!isSubmitPending}
+                  keyboardType="phone-pad"
+                  onBlur={field.onBlur}
+                  onChangeText={(text) =>
+                    field.onChange(
+                      formatPhoneBR(
+                        applyPhoneInputChange(String(field.value ?? ""), text)
+                      )
                     )
-                  )
-                }
-                placeholder="(00) 00000-0000"
-                textContentType="telephoneNumber"
-                value={formatPhoneBR(String(field.value ?? ""))}
-                variant="secondary"
-              />
-              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-            </TextField>
-          )}
-        />
-      </ExpandableSection>
+                  }
+                  placeholder="(00) 00000-0000"
+                  textContentType="telephoneNumber"
+                  value={formatPhoneBR(String(field.value ?? ""))}
+                  variant="secondary"
+                />
+                <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+              </TextField>
+            )}
+          />
+        </ExpandableSection>
 
-      {/* ---- Pagamentos (última seção) ---- */}
-      <PaymentSection />
+        {/* ---- Pagamentos (última seção) ---- */}
+        {mode === "onboarding" ? (
+          <OnboardingPaymentSection form={form} isDisabled={isSubmitPending} />
+        ) : (
+          <PaymentSection />
+        )}
+      </Accordion>
 
-      {/* ImageCropper rendered as sibling */}
+      {/* ImageCropper rendered as sibling (outside the Accordion so it doesn't
+          become an extra accordion child and trigger a trailing separator). */}
       <ImageCropper
         aspectRatio={1}
         asset={logo.cropAsset}
@@ -782,6 +789,117 @@ function PixKeyFields(props: {
   );
 }
 
+/**
+ * Onboarding-only payment section. Unlike {@link PaymentSection} (which manages
+ * its own Pix form and calls the backend directly), this one collects the Pix
+ * key into the shared organization form so it can be provisioned together with
+ * the organization creation in a single submit.
+ */
+function OnboardingPaymentSection(props: {
+  form: UseFormReturn<OrganizationFormValues>;
+  isDisabled: boolean;
+}) {
+  return (
+    <ExpandableSection
+      description="Receba pagamentos via PIX nas suas ligas"
+      sectionKey="pagamentos"
+      title="Pagamentos"
+    >
+      <Description>
+        Quando um jogador paga por uma liga, o valor é dividido — você recebe
+        sua parte automaticamente via PIX. Cadastre sua chave agora para
+        concluir o cadastro.
+      </Description>
+
+      <Controller
+        control={props.form.control}
+        name="pixKeyType"
+        render={({ field: typeField }) => (
+          <TextField isRequired>
+            <Label>Tipo de chave</Label>
+            <Select
+              isDisabled={props.isDisabled}
+              onValueChange={(nextValue) => {
+                if (nextValue && !Array.isArray(nextValue)) {
+                  props.form.setValue(
+                    "pixKeyType",
+                    nextValue.value as PixKeyType,
+                    {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    }
+                  );
+                  props.form.setValue("pixKey", "", {
+                    shouldDirty: true,
+                  });
+                }
+              }}
+              selectionMode="single"
+              value={PIX_KEY_TYPES.find((o) => o.value === typeField.value)}
+            >
+              <Select.Trigger className="bg-surface-secondary">
+                <Select.Value
+                  className="font-normal"
+                  numberOfLines={1}
+                  placeholder="Escolha um tipo"
+                />
+                <Select.TriggerIndicator />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Overlay />
+                <Select.Content presentation="popover" width="trigger">
+                  <Select.ListLabel className="mb-2">
+                    Escolha um tipo
+                  </Select.ListLabel>
+                  {PIX_KEY_TYPES.map((option) => (
+                    <SelectOptionItem
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                    />
+                  ))}
+                </Select.Content>
+              </Select.Portal>
+            </Select>
+          </TextField>
+        )}
+      />
+
+      <Controller
+        control={props.form.control}
+        name="pixKey"
+        render={({ field, fieldState }) => {
+          const keyType =
+            (props.form.getValues("pixKeyType") as PixKeyType | undefined) ??
+            "cpf";
+          return (
+            <TextField isRequired>
+              <Label>Chave PIX</Label>
+              <Input
+                autoCapitalize="none"
+                editable={!props.isDisabled}
+                isInvalid={Boolean(fieldState.error)}
+                keyboardType={isNumericPixKey(keyType) ? "numeric" : "default"}
+                onBlur={field.onBlur}
+                onChangeText={(text) => {
+                  const prev = String(field.value ?? "");
+                  const digits = applyPixInputChange(prev, text, keyType);
+                  field.onChange(formatPixKey(digits, keyType));
+                }}
+                placeholder="Digite sua chave PIX"
+                value={String(field.value ?? "")}
+                variant="secondary"
+              />
+              <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+            </TextField>
+          );
+        }}
+      />
+    </ExpandableSection>
+  );
+}
+
 function PaymentSection() {
   const crpc = useCRPC();
   const queryClient = useQueryClient();
@@ -874,12 +992,10 @@ function PaymentSection() {
     description = "Receba pagamentos via PIX nas suas ligas";
   }
 
-  const defaultExpanded = !(isConnected || statusQuery.isPending);
-
   return (
     <ExpandableSection
-      defaultExpanded={defaultExpanded}
       description={description}
+      sectionKey="pagamentos"
       title="Pagamentos"
     >
       {statusQuery.isPending ? (
@@ -1054,8 +1170,8 @@ function AddressSection(props: {
 
   return (
     <ExpandableSection
-      defaultExpanded={false}
       description="Localização da sede."
+      sectionKey="endereco"
       title="Endereço"
     >
       <Controller
