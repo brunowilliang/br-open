@@ -176,7 +176,7 @@ export default function LeagueOverviewRoute() {
               </Menu.Trigger>
               <Menu.Portal>
                 <Menu.Overlay className="bg-backdrop" />
-                <Menu.Content presentation="popover">
+                <Menu.Content presentation="popover" width={240}>
                   {access.canOpenRules ? (
                     <Menu.Item
                       onPress={() => {
@@ -186,9 +186,7 @@ export default function LeagueOverviewRoute() {
                         });
                       }}
                     >
-                      <Menu.ItemTitle className="flex-none">
-                        Regras
-                      </Menu.ItemTitle>
+                      <Menu.ItemTitle>Regras</Menu.ItemTitle>
                       <HugeIcons icon={BookOpenCheckIcon} />
                     </Menu.Item>
                   ) : null}
@@ -201,9 +199,7 @@ export default function LeagueOverviewRoute() {
                         });
                       }}
                     >
-                      <Menu.ItemTitle className="flex-none">
-                        Agenda
-                      </Menu.ItemTitle>
+                      <Menu.ItemTitle>Agenda</Menu.ItemTitle>
                       <HugeIcons icon={Calendar03Icon} />
                     </Menu.Item>
                   ) : null}
@@ -216,9 +212,7 @@ export default function LeagueOverviewRoute() {
                         });
                       }}
                     >
-                      <Menu.ItemTitle className="flex-none">
-                        Editar
-                      </Menu.ItemTitle>
+                      <Menu.ItemTitle>Editar</Menu.ItemTitle>
                       <HugeIcons icon={Edit02Icon} />
                     </Menu.Item>
                   ) : null}

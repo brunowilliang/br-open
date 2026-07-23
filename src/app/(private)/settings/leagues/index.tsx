@@ -24,7 +24,7 @@ const MenuOptions = () => (
     </Menu.Trigger>
     <Menu.Portal>
       <Menu.Overlay className="bg-backdrop" />
-      <Menu.Content presentation="popover">
+      <Menu.Content presentation="popover" width={240}>
         <Menu.Item
           onPress={() => {
             router.navigate({
@@ -33,7 +33,7 @@ const MenuOptions = () => (
             });
           }}
         >
-          <Menu.ItemTitle className="flex-none">Criar nova liga</Menu.ItemTitle>
+          <Menu.ItemTitle>Criar nova liga</Menu.ItemTitle>
           <HugeIcons icon={Add01Icon} />
         </Menu.Item>
       </Menu.Content>

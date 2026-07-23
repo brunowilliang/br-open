@@ -98,7 +98,7 @@ export default function LeagueScheduleRoute() {
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Overlay className="bg-backdrop" />
-                  <Menu.Content presentation="popover">
+                  <Menu.Content presentation="popover" width={240}>
                     {SCHEDULE_WINDOW_OPTIONS.map((option) => (
                       <Menu.Item
                         key={option.value}
@@ -106,9 +106,7 @@ export default function LeagueScheduleRoute() {
                           setWindowDays(option.value);
                         }}
                       >
-                        <Menu.ItemTitle className="flex-none">
-                          {option.label}
-                        </Menu.ItemTitle>
+                        <Menu.ItemTitle>{option.label}</Menu.ItemTitle>
                       </Menu.Item>
                     ))}
                   </Menu.Content>

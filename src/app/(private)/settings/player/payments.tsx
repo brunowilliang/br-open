@@ -76,11 +76,9 @@ function PaymentCard(props: {
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Overlay className="bg-backdrop" />
-              <Menu.Content presentation="popover">
+              <Menu.Content presentation="popover" width={240}>
                 <Menu.Item onPress={() => props.onGenerateNew?.(item)}>
-                  <Menu.ItemTitle className="flex-none">
-                    Gerar novo Pix
-                  </Menu.ItemTitle>
+                  <Menu.ItemTitle>Gerar novo Pix</Menu.ItemTitle>
                 </Menu.Item>
               </Menu.Content>
             </Menu.Portal>
