@@ -15,6 +15,7 @@ import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
 import { buildChallengeTimeOptions } from "@/lib/leagues/challenge-schedule";
 import type { ApiOutputs } from "@convex/shared/api";
@@ -375,7 +376,7 @@ export const ChallengeProposalDialog = (
               </Select.Trigger>
               <Select.Portal>
                 <Select.Overlay />
-                <Select.Content presentation="popover" width="trigger">
+                <SelectScrollContent width="trigger">
                   {availableCourts.length === 0 ? (
                     <EmptyState
                       description="Escolha outra data ou cadastre disponibilidade nas quadras da liga."
@@ -391,7 +392,7 @@ export const ChallengeProposalDialog = (
                       />
                     ))
                   )}
-                </Select.Content>
+                </SelectScrollContent>
               </Select.Portal>
             </Select>
           </TextField>

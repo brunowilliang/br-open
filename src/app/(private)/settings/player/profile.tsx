@@ -22,6 +22,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
@@ -434,10 +435,10 @@ export default function PlayerProfile() {
                       </Select.Trigger>
                       <Select.Portal>
                         <Select.Overlay />
-                        <Select.Content presentation="popover" width="trigger">
-                          <Select.ListLabel className="mb-2">
-                            Escolha uma opção
-                          </Select.ListLabel>
+                        <SelectScrollContent
+                          label="Escolha uma opção"
+                          width="trigger"
+                        >
                           {genderOptions.map((option) => (
                             <SelectOptionItem
                               key={option.value}
@@ -445,7 +446,7 @@ export default function PlayerProfile() {
                               value={option.value}
                             />
                           ))}
-                        </Select.Content>
+                        </SelectScrollContent>
                       </Select.Portal>
                     </Select>
                     <FieldError>{fieldState.error?.message ?? ""}</FieldError>

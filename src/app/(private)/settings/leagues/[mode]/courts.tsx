@@ -3,8 +3,8 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
 import { formatMinuteToHHMM } from "@/lib/format/time";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
@@ -37,7 +37,7 @@ import {
 } from "heroui-native";
 import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
-import { KeyboardAvoidingView, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, View } from "react-native";
 import Animated from "react-native-reanimated";
 
 const DAY_OPTIONS: Array<{
@@ -780,29 +780,18 @@ export default function LeagueCourtsRoute() {
                       </Select.Trigger>
                       <Select.Portal>
                         <Select.Overlay />
-                        <Select.Content
-                          className="w-full"
-                          presentation="popover"
+                        <SelectScrollContent
+                          label="Hora inicial"
                           width="trigger"
                         >
-                          <Select.ListLabel className="mb-2">
-                            Hora inicial
-                          </Select.ListLabel>
-                          <ScrollShadow
-                            color="surface"
-                            style={{ maxHeight: 450 }}
-                          >
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                              {TIME_OPTIONS.map((option) => (
-                                <SelectOptionItem
-                                  key={`range-start-${option.value}`}
-                                  label={option.label}
-                                  value={option.value}
-                                />
-                              ))}
-                            </ScrollView>
-                          </ScrollShadow>
-                        </Select.Content>
+                          {TIME_OPTIONS.map((option) => (
+                            <SelectOptionItem
+                              key={`range-start-${option.value}`}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </SelectScrollContent>
                       </Select.Portal>
                     </Select>
                   </TextField>
@@ -832,29 +821,15 @@ export default function LeagueCourtsRoute() {
                       </Select.Trigger>
                       <Select.Portal>
                         <Select.Overlay />
-                        <Select.Content
-                          className="w-full"
-                          presentation="popover"
-                          width="trigger"
-                        >
-                          <Select.ListLabel className="mb-2">
-                            Hora final
-                          </Select.ListLabel>
-                          <ScrollShadow
-                            color="surface"
-                            style={{ maxHeight: 450 }}
-                          >
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                              {endTimeOptions.map((option) => (
-                                <SelectOptionItem
-                                  key={`range-end-${option.value}`}
-                                  label={option.label}
-                                  value={option.value}
-                                />
-                              ))}
-                            </ScrollView>
-                          </ScrollShadow>
-                        </Select.Content>
+                        <SelectScrollContent label="Hora final" width="trigger">
+                          {endTimeOptions.map((option) => (
+                            <SelectOptionItem
+                              key={`range-end-${option.value}`}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </SelectScrollContent>
                       </Select.Portal>
                     </Select>
                   </TextField>
