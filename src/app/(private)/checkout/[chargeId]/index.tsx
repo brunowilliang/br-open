@@ -261,10 +261,33 @@ export default function CheckoutScreen() {
                 className="h-12 w-full rounded-2xl"
                 isLoading={isLoading}
               >
-                <Button onPress={copyBrCode} variant="tertiary">
-                  <Button.Label>Copiar código PIX</Button.Label>
-                  <HugeIcons className="size-4.5" icon={CopyIcon} />
-                </Button>
+                <View className="flex-row gap-2">
+                  <Button
+                    className="flex-1"
+                    onPress={copyBrCode}
+                    variant="tertiary"
+                  >
+                    <Button.Label>Copiar código PIX</Button.Label>
+                    <HugeIcons className="size-4.5" icon={CopyIcon} />
+                  </Button>
+                  {/* DEV ONLY: __DEV__ is false on release builds (including the
+                      dev profile on TestFlight), so we gate on EXPO_PUBLIC_IS_DEV
+                      which is set for the development EAS env. */}
+                  {process.env.EXPO_PUBLIC_IS_DEV === "true" ? (
+                    <Button
+                      className="flex-1"
+                      isDisabled={simulatePayment.isPending}
+                      onPress={() => simulatePayment.mutate({ chargeId })}
+                      variant="secondary"
+                    >
+                      <Button.Label>
+                        {simulatePayment.isPending
+                          ? "Simulando..."
+                          : "Simular pagamento"}
+                      </Button.Label>
+                    </Button>
+                  ) : null}
+                </View>
               </Skeleton>
             </View>
 
@@ -275,21 +298,6 @@ export default function CheckoutScreen() {
                 acima para pagar.
               </Text>
             </Skeleton>
-
-            {/* DEV ONLY: simulate payment */}
-            {__DEV__ ? (
-              <Button
-                isDisabled={simulatePayment.isPending}
-                onPress={() => simulatePayment.mutate({ chargeId })}
-                variant="secondary"
-              >
-                <Button.Label>
-                  {simulatePayment.isPending
-                    ? "Simulando..."
-                    : "Simular pagamento"}
-                </Button.Label>
-              </Button>
-            ) : null}
           </>
         )}
       </Page.View>
