@@ -29,6 +29,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
   applyPixInputChange,
   formatPixKey,
@@ -641,9 +642,16 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
                 editable={!isSubmitPending}
                 keyboardType="phone-pad"
                 onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                placeholder="(11) 99999-9999"
-                value={String(field.value ?? "")}
+                onChangeText={(text) =>
+                  field.onChange(
+                    formatPhoneBR(
+                      applyPhoneInputChange(String(field.value ?? ""), text)
+                    )
+                  )
+                }
+                placeholder="(00) 00000-0000"
+                textContentType="telephoneNumber"
+                value={formatPhoneBR(String(field.value ?? ""))}
                 variant="secondary"
               />
               <FieldError>{fieldState.error?.message ?? ""}</FieldError>
