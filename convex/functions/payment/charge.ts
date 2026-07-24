@@ -1187,6 +1187,20 @@ export const simulatePayment = authMutation
       });
     }
 
+    // Ownership: only the charge owner can simulate its payment.
+    const profile = await ctx.orm.query.playerProfile.findFirst({
+      where: { userId: ctx.userId },
+    });
+    if (
+      !profile ||
+      charge.playerProfileId !== (profile.id as Id<"playerProfile">)
+    ) {
+      throw new CRPCError({
+        code: "FORBIDDEN",
+        message: "Você não tem permissão para simular este pagamento.",
+      });
+    }
+
     return ctx.runMutation(internal.payment.charge.applyPaidCharge, {
       correlationId: charge.correlationId,
       providerTransactionId: `dev-simulated-${Date.now()}`,

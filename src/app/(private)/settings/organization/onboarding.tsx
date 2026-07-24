@@ -26,11 +26,7 @@ import {
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import {
-  isValidPixKey,
-  rawPixKey,
-  type PixKeyType,
-} from "@/lib/payments/pix-key";
+import { isValidPixKey, rawPixKey } from "@/lib/payments/pix-key";
 import {
   activateOrganizationSchema,
   addressSchema,
@@ -54,9 +50,7 @@ const OnboardingFormSchema = z
     organizerTypeLabel: z.string().optional(),
     phone: activateOrganizationSchema.shape.phone,
     pixKey: z.string(),
-    pixKeyType: z.custom<PixKeyType>(
-      (v) => v !== undefined && v !== null && v !== ""
-    ),
+    pixKeyType: z.enum(["aleatoria", "celular", "cnpj", "cpf", "email"]),
     sports: z.array(z.string()).optional(),
     sportsLabel: z.string().optional(),
     website: z.string().optional(),

@@ -107,7 +107,7 @@ function PaymentCard(props: {
           </View>
           {dateLabel ? <Description>{dateLabel}</Description> : null}
         </View>
-        <PressableFeedback.Highlight />
+        {props.onPress ? <PressableFeedback.Highlight /> : null}
       </Card>
     </PressableFeedback>
   );
