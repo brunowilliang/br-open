@@ -32,6 +32,8 @@ convex/.env
 build/
 # firebase ( kept out of git, shipped via EAS tarball )
 google-services.json
+# local secrets bundle (Apple/Google/Firebase credentials)
+Secrets/
 # typescript
 *.tsbuildinfo
 app-example
