@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  AccordionLayoutTransition,
   Button,
   Checkbox,
   ControlField,
@@ -12,6 +13,7 @@ import {
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
+import Animated from "react-native-reanimated";
 
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
@@ -318,7 +320,7 @@ export default function OrganizationOnboarding() {
           <Page.Header.Right />
         </Page.Header>
         <Page.ScrollView contentContainerClassName="px-4 pb-safe-offset-4">
-          <View className="gap-3">
+          <Animated.View className="gap-3" layout={AccordionLayoutTransition}>
             <OrganizationFormFields
               form={
                 form as unknown as ReturnType<
@@ -334,7 +336,7 @@ export default function OrganizationOnboarding() {
               control={form.control}
               name="acceptedTerms"
               render={({ field, fieldState }) => (
-                <View>
+                <Animated.View layout={AccordionLayoutTransition}>
                   <ControlField
                     className="gap-2"
                     isDisabled={isSubmitPending}
@@ -362,10 +364,10 @@ export default function OrganizationOnboarding() {
                   {fieldState.error ? (
                     <FieldError>{fieldState.error.message ?? ""}</FieldError>
                   ) : null}
-                </View>
+                </Animated.View>
               )}
             />
-          </View>
+          </Animated.View>
         </Page.ScrollView>
         <Page.Footer className="px-4 pt-4 pb-safe-offset-4">
           <Button
