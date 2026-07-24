@@ -26,6 +26,7 @@ import {
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { isValidPixKey, rawPixKey } from "@/lib/payments/pix-key";
 import {
   activateOrganizationSchema,
   addressSchema,
@@ -48,6 +49,8 @@ const OnboardingFormSchema = z
     organizerType: activateOrganizationSchema.shape.organizerType.optional(),
     organizerTypeLabel: z.string().optional(),
     phone: activateOrganizationSchema.shape.phone,
+    pixKey: z.string(),
+    pixKeyType: z.enum(["aleatoria", "celular", "cnpj", "cpf", "email"]),
     sports: z.array(z.string()).optional(),
     sportsLabel: z.string().optional(),
     website: z.string().optional(),
@@ -58,6 +61,14 @@ const OnboardingFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "Selecione o tipo.",
         path: ["organizerType"],
+      });
+    }
+
+    if (!isValidPixKey(value.pixKey ?? "", value.pixKeyType ?? "cpf")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Chave PIX inválida para o tipo selecionado.",
+        path: ["pixKey"],
       });
     }
 
@@ -125,6 +136,8 @@ const defaultValues: OnboardingFormValues = {
   organizerType: undefined,
   organizerTypeLabel: "",
   phone: "",
+  pixKey: "",
+  pixKeyType: "cpf",
   sports: [],
   sportsLabel: "",
   website: "",
@@ -149,6 +162,10 @@ export default function OrganizationOnboarding() {
 
   const generateUploadUrl = useMutation(
     crpc.organization.profile.generateUploadUrl.mutationOptions()
+  );
+
+  const startPixOnboarding = useMutation(
+    crpc.payment.onboarding.start.mutationOptions()
   );
 
   const activateOrganization = useMutation(
@@ -176,12 +193,47 @@ export default function OrganizationOnboarding() {
         await queryClient.invalidateQueries(
           crpc.organization.profile.get.queryFilter()
         );
-        toast.show({
-          description: "Você já pode criar e gerenciar ligas como organizador.",
-          id: "organization-onboarding-success",
-          label: "Organização criada",
-          variant: "success",
-        });
+
+        // A org foi criada e o usuário agora é owner — provisiona a conta PIX
+        // informada no mesmo formulário. Se falhar, a org já existe, então
+        // redirecionamos para o perfil onde a chave pode ser concluída.
+        const pixKey = form.getValues("pixKey") ?? "";
+        const pixKeyType = form.getValues("pixKeyType") ?? "cpf";
+        if (pixKey) {
+          try {
+            await startPixOnboarding.mutateAsync({
+              pixKey: rawPixKey(pixKey, pixKeyType),
+            });
+            await queryClient.invalidateQueries(
+              crpc.payment.onboarding.getStatus.queryFilter()
+            );
+            toast.show({
+              description:
+                "Você já pode criar e gerenciar ligas como organizador.",
+              id: "organization-onboarding-success",
+              label: "Organização criada",
+              variant: "success",
+            });
+          } catch (error) {
+            toast.show({
+              description: getToastErrorMessage(
+                error,
+                "A organização foi criada, mas não foi possível conectar a chave PIX. Conclua no perfil."
+              ),
+              id: "organization-onboarding-pix-error",
+              label: "Conta criada, PIX pendente",
+              variant: "warning",
+            });
+          }
+        } else {
+          toast.show({
+            description:
+              "Você já pode criar e gerenciar ligas como organizador.",
+            id: "organization-onboarding-success",
+            label: "Organização criada",
+            variant: "success",
+          });
+        }
 
         router.replace("/settings/organization/profile");
       },
@@ -191,6 +243,7 @@ export default function OrganizationOnboarding() {
   const isSubmitPending =
     activateOrganization.isPending ||
     generateUploadUrl.isPending ||
+    startPixOnboarding.isPending ||
     logo.isLogoProcessing;
 
   const submitForm = form.handleSubmit(async (values) => {

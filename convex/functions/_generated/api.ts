@@ -3439,6 +3439,7 @@ export const api: {
         {
           items: Array<{
             amountCents: number;
+            canRegenerate: boolean;
             chargeId: string;
             expiresAt: string | null;
             paidAt: string | null;

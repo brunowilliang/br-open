@@ -13,6 +13,7 @@ import {
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 
 import {
   RULE_INFO,
@@ -78,10 +79,7 @@ export const RankingRulesSection = ({ isDisabled }: RuleSectionProps) => {
             </Select.Trigger>
             <Select.Portal>
               <Select.Overlay />
-              <Select.Content presentation="popover" width="trigger">
-                <Select.ListLabel className="mb-2">
-                  Escolha uma opção
-                </Select.ListLabel>
+              <SelectScrollContent label="Escolha uma opção" width="trigger">
                 {newPlayerPlacementOptions.map((option) => (
                   <SelectOptionItem
                     key={option.value}
@@ -89,7 +87,7 @@ export const RankingRulesSection = ({ isDisabled }: RuleSectionProps) => {
                     value={option.value}
                   />
                 ))}
-              </Select.Content>
+              </SelectScrollContent>
             </Select.Portal>
           </Select>
           <FieldError>

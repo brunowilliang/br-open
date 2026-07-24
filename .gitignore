@@ -32,6 +32,10 @@ convex/.env
 build/
 # firebase ( kept out of git, shipped via EAS tarball )
 google-services.json
+# local secrets bundle (Apple/Google/Firebase credentials)
+Secrets/
+# merge/checkout residue (duplicate files with " 2" suffix)
+* 2.*
 # typescript
 *.tsbuildinfo
 app-example

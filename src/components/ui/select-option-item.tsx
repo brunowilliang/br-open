@@ -24,35 +24,29 @@ export const SelectOptionItem = ({
       label={label}
       value={value}
     >
-      {({ isDisabled: itemIsDisabled, isSelected }) => {
-        let itemLabelClassName = "font-normal text-foreground";
-
-        if (itemIsDisabled) {
-          itemLabelClassName = "font-normal text-muted";
-        }
-
-        if (isSelected) {
-          itemLabelClassName = "font-semibold text-accent";
-        }
-
-        return (
-          <View
-            className={cn(
-              "flex-1 flex-row items-center rounded-xl px-5 py-3.5",
-              isSelected && "bg-surface-secondary",
-              itemIsDisabled && "opacity-50"
-            )}
-          >
-            <View className="flex-1">
-              <Select.ItemLabel className={itemLabelClassName} />
-              {description ? (
-                <Select.ItemDescription>{description}</Select.ItemDescription>
-              ) : null}
-            </View>
-            <Select.ItemIndicator />
+      {({ isDisabled: itemIsDisabled, isSelected }) => (
+        <View
+          className={cn(
+            "flex-1 flex-row items-center rounded-xl px-4",
+            isSelected && "-my-2.5 bg-surface-secondary py-2.5",
+            itemIsDisabled && "opacity-50"
+          )}
+        >
+          <View className="flex-1">
+            <Select.ItemLabel
+              className={cn(
+                "font-normal text-foreground",
+                itemIsDisabled && "text-muted",
+                isSelected && "font-semibold text-accent"
+              )}
+            />
+            {description ? (
+              <Select.ItemDescription>{description}</Select.ItemDescription>
+            ) : null}
           </View>
-        );
-      }}
+          <Select.ItemIndicator />
+        </View>
+      )}
     </Select.Item>
   </>
 );
