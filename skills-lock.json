@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "agent-device": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/agent-device/SKILL.md",
+      "computedHash": "817a81fc498f0a23a6aadcd18dc6079b17430823152d8ce35dcc48d51b34224b"
+    },
     "convex": {
       "source": "get-convex/agent-skills",
       "sourceType": "github",
@@ -36,6 +42,18 @@
       "sourceType": "github",
       "skillPath": "skills/convex-setup-auth/SKILL.md",
       "computedHash": "b1a940758751c5b2fdc6ced105b19927a1655f0c1d4bd2fd5536dc3264202c00"
+    },
+    "dogfood": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/dogfood/SKILL.md",
+      "computedHash": "8e6dfbff0633e355210ce7ae109cb39a3e1347946b6e92aaa607271154526b6b"
+    },
+    "kitcn": {
+      "source": "udecode/kitcn",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kitcn/SKILL.md",
+      "computedHash": "d222b50e01df16dc312ee705884d46a035fc83ab493c72c9d8cf19282b8818e8"
     },
     "serve-sim": {
       "source": "evanbacon/serve-sim",
