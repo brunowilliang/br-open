@@ -18,8 +18,9 @@ import {
   summarizeOrganizerPendingActions,
 } from "@/lib/leagues/organizer-overview-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
+import { formatCount } from "@/lib/format/pluralize";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { WidgetAlert } from "./widget-alert";
-import { WidgetCard } from "./widget-card";
 
 export function OrganizerOverview() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();
@@ -73,32 +74,32 @@ export function OrganizerOverview() {
       ) : null}
 
       <View className="flex-row gap-3">
-        <WidgetCard
-          className="flex-1"
+        <KpiCard
           description={occupation.label}
           icon={UserGroup02Icon}
-          title={`${occupation.activeCount} ativos`}
+          label="Ocupação"
+          value={formatCount(occupation.activeCount, "ativo", "ativos")}
         />
-        <WidgetCard
-          className="flex-1"
+        <KpiCard
           description="disputadas este mês"
           icon={Calendar03Icon}
-          title={`${monthlyMatches.finishedCount} partidas`}
+          label="Partidas"
+          value={`${monthlyMatches.finishedCount} partidas`}
         />
       </View>
 
       <View className="flex-row gap-3">
-        <WidgetCard
-          className="flex-1"
+        <KpiCard
           description="em andamento"
           icon={Target02Icon}
-          title={`${ongoing.ongoingCount} desafios`}
+          label="Desafios"
+          value={`${ongoing.ongoingCount} desafios`}
         />
-        <WidgetCard
-          className="flex-1"
+        <KpiCard
           description="dos jogadores ativos jogaram este mês"
           icon={Activity01Icon}
-          title={`${activityPercent}%`}
+          label="Atividade"
+          value={`${activityPercent}%`}
         />
       </View>
     </View>

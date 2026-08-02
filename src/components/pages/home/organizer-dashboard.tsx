@@ -17,36 +17,9 @@ import {
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { Card, Chip } from "heroui-native";
+import { KpiCard } from "@/components/ui/kpi-card";
 
 type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
-
-function KpiCard(props: {
-  icon: React.ComponentProps<typeof HugeIcons>["icon"];
-  label: string;
-  tint?: "danger" | "default" | "warning";
-  value: string;
-}) {
-  return (
-    <Card className="flex-1 gap-1">
-      <View className="flex-row items-center gap-1.5">
-        <HugeIcons
-          className={`size-4 ${props.tint === "danger" ? "text-danger" : "text-muted"}`}
-          icon={props.icon}
-        />
-        <Description className="flex-1" numberOfLines={1}>
-          {props.label}
-        </Description>
-      </View>
-      <Text
-        color={props.tint === "danger" ? "danger" : undefined}
-        size="xl"
-        weight="semibold"
-      >
-        {props.value}
-      </Text>
-    </Card>
-  );
-}
 
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
   const { metrics, recentCharges } = props.data;
@@ -71,7 +44,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
       <Card className="gap-2">
         <Description>Recebido este mês</Description>
         <Text size="3xl" weight="semibold">
-          {formatCurrencyCents(metrics.receivedThisMonthCents, { whole: true })}
+          {formatCurrencyCents(metrics.receivedThisMonthCents)}
         </Text>
         {trend ? (
           <View className="absolute top-4 right-4 flex-row items-center gap-1">
@@ -97,9 +70,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
         <KpiCard
           icon={Dollar01Icon}
           label="Previsto/mês"
-          value={formatCurrencyCents(metrics.projectedMonthlyCents, {
-            whole: true,
-          })}
+          value={formatCurrencyCents(metrics.projectedMonthlyCents)}
         />
       </View>
       <View className="flex-row gap-2">
@@ -143,7 +114,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
                     {cfg.label}
                   </Chip>
                   <Text size="sm" weight="medium">
-                    {formatCurrencyCents(charge.amountCents, { whole: true })}
+                    {formatCurrencyCents(charge.amountCents)}
                   </Text>
                 </View>
               </Card>

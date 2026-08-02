@@ -18,8 +18,9 @@ import {
   buildPlayerPendingActionsAlert,
   buildPlayerPositionCard,
 } from "@/lib/leagues/player-overview-derived";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { formatCount } from "@/lib/format/pluralize";
 import { WidgetAlert } from "./widget-alert";
-import { WidgetCard } from "./widget-card";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 
@@ -95,42 +96,41 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
 
       <View className="flex-row gap-3">
         {position ? (
-          <WidgetCard
-            className="flex-1"
-            description={`de ${position.totalPlayers} jogadores`}
+          <KpiCard
+            description={`de ${formatCount(position.totalPlayers, "jogador", "jogadores")}`}
             icon={Medal01Icon}
-            title={`#${position.position}º lugar`}
+            label="Posição"
+            value={`#${position.position}º lugar`}
           />
         ) : null}
         {monthlyMatches ? (
-          <WidgetCard
-            className="flex-1"
+          <KpiCard
             description="disputadas este mês"
             icon={Calendar03Icon}
-            title={`${monthlyMatches.finishedCount} partidas`}
+            label="Partidas"
+            value={`${monthlyMatches.finishedCount} partidas`}
           />
         ) : null}
       </View>
 
       <View className="flex-row gap-3">
         {lastMatch ? (
-          <WidgetCard
-            className="flex-1"
+          <KpiCard
             description={`${lastMatch.scoreSummary} · ${lastMatch.whenLabel}`}
             icon={lastMatch.isWin ? CheckmarkCircle02Icon : Cancel01Icon}
-            title={`${lastMatch.isWin ? "Vitória" : "Derrota"} · ${lastMatch.opponentName}`}
+            label="Última partida"
+            value={`${lastMatch.isWin ? "Vitória" : "Derrota"} · ${lastMatch.opponentName}`}
           />
         ) : null}
         {monthlyChallenges ? (
-          <WidgetCard
-            className="flex-1"
-            description={
+          <KpiCard
+            icon={Target02Icon}
+            label="Desafios no mês"
+            value={
               monthlyChallenges.max === null
                 ? "Sem limite mensal"
                 : `${monthlyChallenges.createdCount}/${monthlyChallenges.max} criados`
             }
-            icon={Target02Icon}
-            title="Desafios no mês"
           />
         ) : null}
       </View>

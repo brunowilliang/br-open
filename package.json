@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit && bun run typecheck:convex",
     "codegen": "bunx kitcn codegen",
     "convex:dev": "bunx kitcn dev",
+    "convex:prod": "bunx kitcn deploy",
     "typecheck:convex": "tsc --noEmit --project convex/functions/tsconfig.json",
     "check": "ultracite check && bun run typecheck",
     "test": "bun test",

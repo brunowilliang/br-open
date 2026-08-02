@@ -28,6 +28,7 @@ import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { applyCepInputChange, formatCep } from "@/lib/format/cep";
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
   applyPixInputChange,
@@ -1190,12 +1191,15 @@ function AddressSection(props: {
                 keyboardType="numeric"
                 onBlur={field.onBlur}
                 onChangeText={(text) => {
-                  field.onChange(text);
-                  handleCepChange(text);
+                  const next = formatCep(
+                    applyCepInputChange(String(field.value ?? ""), text)
+                  );
+                  field.onChange(next);
+                  handleCepChange(next);
                 }}
-                placeholder="00000000"
+                placeholder="00000-000"
                 returnKeyType="search"
-                value={String(field.value ?? "")}
+                value={formatCep(String(field.value ?? ""))}
                 variant="secondary"
               />
               {isCepLookingUp ? (
