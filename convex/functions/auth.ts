@@ -127,20 +127,44 @@ export default defineAuth(() => {
       emailOTP({
         async sendVerificationOTP({ email, otp, type }) {
           if (!env.RESEND_EMAIL_API_KEY) {
+            console.error(
+              `[emailOTP] RESEND_EMAIL_API_KEY não configurada — email não enviado para ${email}`
+            );
             return;
           }
 
           const resend = new Resend(env.RESEND_EMAIL_API_KEY);
 
-          await resend.emails.send({
-            from: env.RESEND_FROM_EMAIL,
-            html:
-              type === "email-verification"
-                ? `<p>Use o código <strong>${otp}</strong> para verificar seu e-mail no BR Open.</p>`
-                : `<p>Seu código: <strong>${otp}</strong></p>`,
-            subject: "Seu código — BR Open",
-            to: email,
-          });
+          const { data, error } = await resend.emails
+            .send({
+              from: env.RESEND_FROM_EMAIL,
+              html:
+                type === "email-verification"
+                  ? `<p>Use o código <strong>${otp}</strong> para verificar seu e-mail no BR Open.</p>`
+                  : `<p>Seu código: <strong>${otp}</strong></p>`,
+              subject: "Seu código — BR Open",
+              to: email,
+            })
+            .catch((err: unknown) => {
+              console.error(
+                `[emailOTP] Erro de transporte ao enviar para ${email}:`,
+                err
+              );
+              throw err;
+            });
+
+          if (error) {
+            console.error(
+              `[emailOTP] Resend rejeitou o envio para ${email} (${error.name}): ${error.message}`
+            );
+            throw new Error(
+              `[emailOTP] Falha no envio para ${email}: ${error.message}`
+            );
+          }
+
+          console.log(
+            `[emailOTP] Código OTP enviado para ${email} (tipo: ${type}, id: ${data?.id ?? "?"})`
+          );
         },
       }),
     ],
