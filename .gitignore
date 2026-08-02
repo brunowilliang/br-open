@@ -53,3 +53,7 @@ expo-env.d.ts
 
 # Isso é apenas um teste (futuramente irei apagar)
 docs/site
+
+# local tooling / QA folders
+.maestri/
+qa/
