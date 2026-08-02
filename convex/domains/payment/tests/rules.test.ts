@@ -11,6 +11,7 @@ import {
   canChargeBeRefunded,
   canMembershipBeCharged,
   computeSplit,
+  computeWooviFeeCents,
   normalizeProviderStatus,
   shouldMarkPaymentDue,
   shouldSendRenewalReminder,
@@ -139,6 +140,27 @@ describe("payment rules", () => {
   // computeSplit — organizer vs BR-Open split math
   // -------------------------------------------------------------------------
 
+  describe("computeWooviFeeCents", () => {
+    it("clamps to the R$0.50 minimum below 0.8% of the ticket", () => {
+      expect(computeWooviFeeCents(500)).toBe(50); // R$5.00 -> min
+      expect(computeWooviFeeCents(6250)).toBe(50); // R$62.50 boundary
+      expect(computeWooviFeeCents(6251)).toBe(50);
+    });
+
+    it("applies 0.8% between the minimum and maximum", () => {
+      expect(computeWooviFeeCents(7000)).toBe(56); // 0.8% of R$70.00
+    });
+
+    it("clamps to the R$5.00 maximum at R$625.00 and above", () => {
+      expect(computeWooviFeeCents(62_500)).toBe(500);
+      expect(computeWooviFeeCents(62_501)).toBe(500);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // computeSplit — organizer vs BR-Open split math (DECISAO-004)
+  // -------------------------------------------------------------------------
+
   describe("computeSplit", () => {
     it("splits R$50 at 10% fee -> organizer gets R$45, BR-Open gets R$5", () => {
       const split = computeSplit({
@@ -150,16 +172,22 @@ describe("payment rules", () => {
       expect(split.organizerCents).toBe(4500);
       expect(split.organizerCents + split.brOpenCents).toBe(5000);
       expect(split.recipientPixKey).toBe("org@woovi.com");
+      expect(split.wooviFeeCents).toBe(50);
+      // Platform nets fee - Woovi fee: R$5.00 - R$0.50.
+      expect(split.brOpenCents - split.wooviFeeCents).toBe(450);
     });
 
-    it("at 0% fee the organizer gets the full amount", () => {
+    it("at 0% fee the margin floor still applies (DECISAO-004)", () => {
       const split = computeSplit({
         amountCents: 9000,
         feePercent: 0,
         recipientPixKey: "k",
       });
-      expect(split.brOpenCents).toBe(0);
-      expect(split.organizerCents).toBe(9000);
+      // fee = max(0, Woovi fee + R$1.00) = 72 + 100.
+      expect(split.brOpenCents).toBe(172);
+      expect(split.organizerCents).toBe(8828);
+      expect(split.wooviFeeCents).toBe(72);
+      expect(split.brOpenCents - split.wooviFeeCents).toBe(100);
     });
 
     it("rounds so organizer + brOpen always sums exactly to amountCents", () => {
@@ -169,7 +197,165 @@ describe("payment rules", () => {
         feePercent: 10,
         recipientPixKey: "k",
       });
+      expect(split.brOpenCents).toBe(333);
+      expect(split.organizerCents).toBe(3000);
       expect(split.organizerCents + split.brOpenCents).toBe(3333);
+      expect(split.wooviFeeCents).toBe(50);
+    });
+
+    it("applies the R$1.50 floor below R$15 and 10% from R$15 up (DECISAO-004 table)", () => {
+      const cases = [
+        { amountCents: 500, fee: 150, net: 100, organizer: 350, wooviFee: 50 },
+        {
+          amountCents: 1000,
+          fee: 150,
+          net: 100,
+          organizer: 850,
+          wooviFee: 50,
+        },
+        {
+          amountCents: 1500,
+          fee: 150,
+          net: 100,
+          organizer: 1350,
+          wooviFee: 50,
+        },
+        {
+          amountCents: 2000,
+          fee: 200,
+          net: 150,
+          organizer: 1800,
+          wooviFee: 50,
+        },
+        {
+          amountCents: 9000,
+          fee: 900,
+          net: 828,
+          organizer: 8100,
+          wooviFee: 72,
+        },
+        {
+          amountCents: 20_000,
+          fee: 2000,
+          net: 1840,
+          organizer: 18_000,
+          wooviFee: 160,
+        },
+        {
+          amountCents: 62_500,
+          fee: 6250,
+          net: 5750,
+          organizer: 56_250,
+          wooviFee: 500,
+        },
+      ] as const;
+
+      for (const c of cases) {
+        const split = computeSplit({
+          amountCents: c.amountCents,
+          feePercent: 10,
+          recipientPixKey: "k",
+        });
+        expect(split.brOpenCents).toBe(c.fee);
+        expect(split.organizerCents).toBe(c.organizer);
+        expect(split.wooviFeeCents).toBe(c.wooviFee);
+        expect(split.brOpenCents - split.wooviFeeCents).toBe(c.net);
+      }
+    });
+
+    it("handles the boundary tickets exactly", () => {
+      // Floor boundary: R$14.99 still pays the R$1.50 floor.
+      const at1499 = computeSplit({
+        amountCents: 1499,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(at1499.brOpenCents).toBe(150);
+      expect(at1499.organizerCents).toBe(1349);
+
+      // Woovi fee minimum boundary: 0.8% kicks in at R$62.50.
+      const at6249 = computeSplit({
+        amountCents: 6249,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(at6249.wooviFeeCents).toBe(50);
+      expect(at6249.brOpenCents).toBe(625); // round(624.9)
+      expect(at6249.organizerCents).toBe(5624);
+
+      const at6250 = computeSplit({
+        amountCents: 6250,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(at6250.wooviFeeCents).toBe(50);
+      expect(at6250.brOpenCents).toBe(625);
+      expect(at6250.organizerCents).toBe(5625);
+
+      // Woovi fee maximum boundary: capped at R$5.00 from R$625.00.
+      const at62499 = computeSplit({
+        amountCents: 62_499,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(at62499.wooviFeeCents).toBe(500);
+      expect(at62499.brOpenCents).toBe(6250); // round(6249.9)
+      expect(at62499.organizerCents).toBe(56_249);
+
+      const at62500 = computeSplit({
+        amountCents: 62_500,
+        feePercent: 10,
+        recipientPixKey: "k",
+      });
+      expect(at62500.wooviFeeCents).toBe(500);
+      expect(at62500.brOpenCents).toBe(6250);
+      expect(at62500.organizerCents).toBe(56_250);
+    });
+
+    it("keeps the platform net >= R$1.00 for any ticket", () => {
+      for (let t = 100; t <= 100_000; t += 997) {
+        const split = computeSplit({
+          amountCents: t,
+          feePercent: 10,
+          recipientPixKey: "k",
+        });
+        expect(split.organizerCents).toBeGreaterThanOrEqual(0);
+        expect(split.brOpenCents + split.organizerCents).toBe(t);
+        expect(split.wooviFeeCents).toBeGreaterThanOrEqual(50);
+        expect(split.wooviFeeCents).toBeLessThanOrEqual(500);
+        if (t >= 150) {
+          // Floor guarantees the R$1.00 net margin for real tickets.
+          expect(
+            split.brOpenCents - split.wooviFeeCents
+          ).toBeGreaterThanOrEqual(100);
+        } else {
+          // Ticket below the floor: fee clamps to the ticket, organizer 0.
+          expect(split.brOpenCents).toBe(t);
+          expect(split.organizerCents).toBe(0);
+        }
+      }
+    });
+
+    it("per-league override replaces the percentage but keeps the floor", () => {
+      // 5% of R$10.00 is R$0.50 < floor R$1.50 -> floor applies.
+      const low = computeSplit({
+        amountCents: 1000,
+        feePercent: 5,
+        recipientPixKey: "k",
+      });
+      expect(low.brOpenCents).toBe(150);
+      expect(low.organizerCents).toBe(850);
+      expect(low.wooviFeeCents).toBe(50);
+
+      // 5% of R$200.00 is R$10.00 > floor -> percentage wins.
+      const high = computeSplit({
+        amountCents: 20_000,
+        feePercent: 5,
+        recipientPixKey: "k",
+      });
+      expect(high.brOpenCents).toBe(1000);
+      expect(high.organizerCents).toBe(19_000);
+      expect(high.wooviFeeCents).toBe(160);
     });
   });
 

@@ -76,6 +76,11 @@ export const splitConfigSchema = z.object({
   feePercent: z.number().min(0).max(100),
   organizerCents: z.number().int().nonnegative(),
   recipientPixKey: z.string().min(1),
+  // Woovi PIX-IN fee snapshot (DECISAO-004): clamp(0.8% · amount, R$ 0,50,
+  // R$ 5,00). Always present on charges created after DECISAO-004; optional
+  // in the parse so legacy charges (no value) don't fail validation — treat
+  // the absence as unknown platform revenue (null), not zero.
+  wooviFeeCents: z.number().int().nonnegative().optional(),
 });
 
 export type SplitConfig = z.infer<typeof splitConfigSchema>;

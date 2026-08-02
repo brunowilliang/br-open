@@ -183,6 +183,13 @@ export const DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE = 3;
  * BR-Open platform fee percent (0-100). Applied to every paid league charge:
  * the organizer receives `(100 - fee)%`, BR-Open keeps `fee%`.
  *
+ * DECISAO-004: the final per-charge fee is
+ * `max(feePercent · ticket, Woovi PIX-IN fee + margin)` (see
+ * `computeSplit` in convex/domains/payment/rules.ts). A per-league override
+ * (`league.platformFeePercent`) replaces the PERCENTAGE only — the margin
+ * floor (`PLATFORM_FEE_MIN_MARGIN_CENTS`) and the Woovi fee schedule remain
+ * global constants and always apply, even at `feePercent = 0`.
+ *
  * This is the default used when a league has no explicit override
  * (`league.platformFeePercent` is `null`). Per-league overrides are set
  * directly in the Convex dashboard — no app surface exposes this yet.

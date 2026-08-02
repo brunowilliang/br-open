@@ -125,35 +125,83 @@ export function normalizeProviderStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Split math
+// Split math (DECISAO-004)
 // ---------------------------------------------------------------------------
+
+/**
+ * BR-Open platform fee floor per charge: the platform never nets less than
+ * this margin after paying the Woovi PIX-IN fee. The organizer pays the
+ * difference when the percentage cut would be smaller (tickets below ~R$15
+ * at the default 10%).
+ */
+export const PLATFORM_FEE_MIN_MARGIN_CENTS = 100; // R$ 1,00
+
+/**
+ * Woovi PIX-IN fee schedule (percentual plan, woovi.com/planos-e-precos):
+ * 0.80% per confirmed PIX, minimum R$ 0.50, maximum R$ 5.00. Kept in
+ * integer-friendly units (basis points + cents) so the math stays exact.
+ */
+export const WOOVI_FEE_BPS = 80; // 0.80%
+export const WOOVI_FEE_MIN_CENTS = 50; // R$ 0,50
+export const WOOVI_FEE_MAX_CENTS = 500; // R$ 5,00
+
+/**
+ * Woovi PIX-IN fee for a charge of `amountCents`, in cents:
+ * `clamp(0.8% · amount, R$ 0,50, R$ 5,00)`.
+ */
+export function computeWooviFeeCents(amountCents: number): number {
+  const pct = Math.round((amountCents * WOOVI_FEE_BPS) / 10_000);
+  return Math.min(Math.max(pct, WOOVI_FEE_MIN_CENTS), WOOVI_FEE_MAX_CENTS);
+}
+
+/**
+ * Split as computed at charge time: same shape as `SplitConfig`, but with
+ * `wooviFeeCents` always present (computeSplit always fills it).
+ */
+export type ComputedSplit = Omit<SplitConfig, "wooviFeeCents"> & {
+  wooviFeeCents: number;
+};
 
 /**
  * Computes the split between organizer and BR-Open for a paid league charge.
  *
- * `feePercent` is the BR-Open platform cut (0-100); the organizer receives
- * the remainder. The organizer's share is rounded DOWN to the nearest cent
- * (BR-Open keeps any fractional remainder, which is at most R$0.0099 per
- * charge) so the split always sums exactly to `amountCents`.
+ * `feePercent` is the BR-Open platform cut (0-100). The final BR-Open fee is
+ * `max(feePercent · amount, Woovi fee + margin)`: the platform keeps its
+ * percentage cut, and never nets less than `PLATFORM_FEE_MIN_MARGIN_CENTS`
+ * after the Woovi PIX-IN fee is debited from the main account. The organizer
+ * receives the remainder (`amount - fee`), so the split always sums exactly
+ * to `amountCents`.
  *
- * @example computeSplit(5000, 10) === {
+ * @example computeSplit({ amountCents: 5000, feePercent: 10, recipientPixKey: "<org pix key>" }) === {
  *   brOpenCents: 500,
  *   feePercent: 10,
  *   organizerCents: 4500,
- *   recipientPixKey: "<the org's woovi pix key>"
+ *   recipientPixKey: "<the org's woovi pix key>",
+ *   wooviFeeCents: 50,
  * }
  */
 export function computeSplit(args: {
   amountCents: number;
   feePercent: number;
   recipientPixKey: string;
-}): SplitConfig {
-  const brOpenCents = Math.round(args.amountCents * (args.feePercent / 100));
+}): ComputedSplit {
+  const wooviFeeCents = computeWooviFeeCents(args.amountCents);
+  // Fee never exceeds the ticket (organizer share stays >= 0 — a negative
+  // split would be invalid at the provider). Only reachable for tickets
+  // below the R$1.50 floor, which are not real league prices.
+  const brOpenCents = Math.min(
+    Math.max(
+      Math.round(args.amountCents * (args.feePercent / 100)),
+      wooviFeeCents + PLATFORM_FEE_MIN_MARGIN_CENTS
+    ),
+    args.amountCents
+  );
   return {
     brOpenCents,
     feePercent: args.feePercent,
     organizerCents: args.amountCents - brOpenCents,
     recipientPixKey: args.recipientPixKey,
+    wooviFeeCents,
   };
 }
 
