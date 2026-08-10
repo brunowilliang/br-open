@@ -51,9 +51,11 @@ app-example
 expo-env.d.ts
 # @end expo-cli
 
-# Isso é apenas um teste (futuramente irei apagar)
+# Docs do site!
 docs/site
 
 # local tooling / QA folders
 .maestri/
 qa/
+# heroui-agents-md
+.heroui-docs/
