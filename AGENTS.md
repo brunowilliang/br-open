@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`br-open` is an Expo Router + React Native app (Expo SDK 56, React 19, RN 0.85)
+`br-open` is an Expo Router + React Native app (Expo SDK 57, React 19.2, RN 0.86)
 backed by Convex via the `kitcn` ORM/CRPC layer. The UI uses Uniwind (Tailwind
 v4 for RN) and HeroUI Native (OSS + Pro).
 
@@ -8,14 +8,10 @@ v4 for RN) and HeroUI Native (OSS + Pro).
 
 - Install: `bun install`
 - Start app: `bun run dev` (Expo) — for native, build a dev client: `bun run dev:client`
-- Convex + kitcn codegen loop: `bun convex:dev` (alias for `bunx kitcn dev`)
-- Regenerate kitcn artifacts: `bun run codegen`
-- Typecheck (app **and** convex): `bun run typecheck`
-  - app only: `bun run typecheck` minus convex, i.e. `tsc --noEmit`
-  - convex only: `bun run typecheck:convex`
+- Typecheck: `bun run typecheck` (app **and** convex) — app only: `bun run typecheck` minus convex, i.e. `tsc --noEmit`
 - Lint/format: `bun run check` (runs `ultracite check` **then** `typecheck`) — this is the full gate
 - Auto-fix formatting: `bun run fix` (`ultracite fix`)
-- Tests: `bun test` (all) · `bun test convex` (`bun run test:convex`) · `bun test src`
+- Tests: `bun test` (all) · `bun test src`
   - Tests are co-located as `*.test.ts` next to the file under test.
 - Diff hygiene: `git diff --check`
 
@@ -26,13 +22,10 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun
 - `bun install` **requires `HEROUI_AUTH_TOKEN`** (HeroUI Pro is a paid/trusted
   dep: `heroui-native-pro`, `@heroui-pro/react`). CI passes it as a secret;
   locally it must be exported in the environment or a `.npmrc`/env hook.
-- Two env files: `.env.local` (client: `CONVEX_DEPLOYMENT`,
-  `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`) and `convex/.env`
-  (server: `SITE_URL`, `BETTER_AUTH_SECRET`, plus Apple OAuth vars). Both are
-  gitignored and must exist for `bun convex:dev` to run.
-- `convex/functions/generated/` (kitcn CRPC layer) and
-  `convex/functions/_generated/` (raw Convex codegen) are generated. Never
-  hand-edit; regenerate via `bun run codegen` / `bun convex:dev`.
+- Client env: `.env.local` (`CONVEX_DEPLOYMENT`,
+  `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`) — gitignored.
+  Server-side env (`convex/.env`) and generated `convex/functions/*` output are
+  covered by the backend rule (see Architecture → Backend below).
 
 ## Architecture
 
@@ -47,53 +40,13 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun
   paths, when crossing top-level dirs.
 
 ### Backend (`convex/`)
-- **Functions** live in `convex/functions/<domain>/*.ts` and are written with
-  the kitcn **CRPC** builders from `convex/lib/crpc.ts`, not raw Convex
-  `query`/`mutation`. Available builders: `authQuery`/`authMutation`/`authAction`
-  (require login, inject `ctx.user`/`ctx.userId`), `optionalAuthQuery`/
-  `optionalAuthMutation`, `publicQuery`/`publicMutation`/`publicAction`, and
-  HTTP routes `publicRoute`/`authRoute`/`optionalAuthRoute`. Throw `CRPCError`
-  for auth/expected errors.
-- **Domains** (`convex/domains/*`) are the source of truth for data and rules.
-  Each owns at minimum `tables.ts` + `relations.ts`, plus domain logic
-  (commonly `contract.ts` with zod schemas + rules) and a `tests/` dir. Current
-  domains: `auth`, `league`, `notification`, `player`, `seed`.
-- `convex/functions/schema.ts` is **composition-only**: it imports domain
-  tables/relations and combines them. Keep it that way.
-- `convex/lib/` (env, CRPC, auth helpers), `convex/shared/` (cross-domain
-  shared code), `convex/utils/` (e.g. `contract.zod.ts`).
-- **Auth**: Better Auth wired through kitcn (`defineAuth` from
-  `convex/functions/generated/auth`, configured in `convex/functions/auth.ts`),
-  with `@better-auth/expo`, the organization plugin (orgs + teams), and
-  Apple/Google social login. Default locale `pt-BR`.
 
-## Convex schema & kitcn auth workflow
+Backend code lives in `convex/`. The complete backend guide — kitcn CLI and
+commands, directory layout, CRPC builders, domain structure, auth (Better Auth
+wiring + auth field codegen), migrations and backend conventions — is owned by
+the Backend agent rule. Do not duplicate it here; read the source of truth:
 
-- The preferred auth ownership path is `convex/domains/auth/`.
-- `bunx kitcn add auth --schema --yes` may inject auth tables/relations
-  directly into `convex/functions/schema.ts`. Do **not** keep that inline block.
-- Reconciliation flow:
-  1. Diff generated auth tables/relations in `schema.ts` against
-     `convex/domains/auth/tables.ts` and `relations.ts`.
-  2. Copy only useful deltas (new indexes, org/team relations) into the domain
-     files.
-  3. Reject generated regressions: `text().references(...)` replacing
-     `id(...).references(...)`, weakened nullability, `json(...)` downgraded to
-     `text()`, duplicate auth tables.
-  4. Delete the inline generated block; leave `schema.ts` composition-only.
-  5. Re-run `bun run codegen` then `bun run typecheck`.
-- `convex/functions/plugins.lock.json` may still claim auth ownership lives at
-  `convex/functions/schema.ts`. Treat it as generated/internal; preserve the
-  domain-first structure and verify outputs after cleanup.
-
-## Data & migrations
-
-- Migrations live in `convex/functions/migrations/` (filenaming convention is
-  relaxed for these in `biome.jsonc`).
-- When changing table shapes, account for legacy documents already in the
-  deployment. Prefer migrations for field removal/renames/data reshaping.
-- If old docs would fail schema validation on boot, keep schema compatibility
-  temporarily until a migration clears the old fields.
+→ **`docs/rules/maestri/backend.md`**
 
 ## Style & linting (Ultracite / Biome)
 
@@ -114,8 +67,10 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun
   feature names.
 - For UI/form work, preserve the patterns already used in this repo unless
   explicitly changing them.
-- Feature plans and design specs are tracked under `docs/superpowers/`
-  (`plans/` and `specs/`, dated). Check there before starting a feature slice.
+- The current state of the product — implemented features, architecture and
+  decisions per domain — lives in `docs/spec/` (versioned). Read the doc of the
+  domain before starting a feature slice and update it in the same step (part
+  of done; the orchestrator checks it before closing the task).
 
 ## NEVER commit or push without explicit approval
 
@@ -139,4 +94,4 @@ Run the checks appropriate to the touched scope (but do NOT commit):
 - minimum: `git diff --check`
 - usually: `bun run check` (lint + typecheck)
 - when logic/contracts changed: `bun test`
-- when Convex schema/contracts changed: `bun run codegen` then `bun run check`
+- when the change touches backend (schema/functions/contracts): follow `docs/rules/maestri/backend.md`
