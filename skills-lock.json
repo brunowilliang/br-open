@@ -49,6 +49,12 @@
       "skillPath": "skills/dogfood/SKILL.md",
       "computedHash": "8e6dfbff0633e355210ce7ae109cb39a3e1347946b6e92aaa607271154526b6b"
     },
+    "heroui-native": {
+      "source": "heroui-inc/heroui",
+      "sourceType": "github",
+      "skillPath": "skills/heroui-native/SKILL.md",
+      "computedHash": "d2fc03a13d03678d40799726a144ba72ba1cb08126176ddbf0a0461c901aef29"
+    },
     "kitcn": {
       "source": "udecode/kitcn",
       "sourceType": "github",
