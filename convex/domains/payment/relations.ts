@@ -12,4 +12,16 @@ export const definePaymentRelations = (r: RelationsBuilder<typeof tables>) => ({
       to: r.playerProfile.id,
     }),
   },
+  subaccountBalance: {
+    organization: r.one.organization({
+      from: r.subaccountBalance.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  withdrawals: {
+    organization: r.one.organization({
+      from: r.withdrawals.organizationId,
+      to: r.organization.id,
+    }),
+  },
 });

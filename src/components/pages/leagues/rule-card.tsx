@@ -1,10 +1,12 @@
-import { HugeIcons } from "@/components/ui/huge-icons";
-import { InformationCircleIcon } from "@hugeicons/core-free-icons";
+import {
+  type InfoContent,
+  InfoDialog,
+  InfoTrigger,
+} from "@/components/ui/info-dialog";
 import {
   AccordionLayoutTransition,
   Checkbox,
   Description,
-  Dialog,
   Label,
   PressableFeedback,
   Surface,
@@ -27,15 +29,10 @@ const RULE_CONTENT_ENTERING = FadeIn.duration(180);
 const RULE_CONTENT_EXITING = FadeOut.duration(120);
 const AnimatedSurface = Animated.createAnimatedComponent(Surface);
 
-export type RuleInfo = {
-  description: string;
-  title: string;
-};
-
 type RuleCardProps = {
   children: ReactNode;
   className?: string;
-  info?: RuleInfo;
+  info?: InfoContent;
   variant?: ComponentProps<typeof Surface>["variant"];
 };
 
@@ -61,7 +58,9 @@ export function RuleCard(props: RuleCardProps) {
       >
         {props.children}
         {props.info ? (
-          <RuleInfoTrigger
+          <InfoTrigger
+            className="absolute top-2 right-2 p-1"
+            hint="Abre uma explicação sobre esta regra."
             onPress={() => {
               setIsInfoOpen(true);
             }}
@@ -71,8 +70,8 @@ export function RuleCard(props: RuleCardProps) {
       </AnimatedSurface>
 
       {props.info ? (
-        <RuleInfoDialog
-          info={props.info}
+        <InfoDialog
+          content={props.info}
           isOpen={isInfoOpen}
           onOpenChange={setIsInfoOpen}
         />
@@ -103,61 +102,12 @@ export function RuleExpandableContent(props: RuleExpandableContentProps) {
   );
 }
 
-type RuleInfoTriggerProps = {
-  onPress: () => void;
-  title: string;
-};
-
-/**
- * Icon-only pressable that opens the info dialog. Positioned in the top-right
- * corner of a {@link RuleCard}. Does not own any dialog — the card wires the
- * open state to a sibling {@link RuleInfoDialog}.
- */
-function RuleInfoTrigger(props: RuleInfoTriggerProps) {
-  return (
-    <PressableFeedback
-      accessibilityHint="Abre uma explicação sobre esta regra."
-      accessibilityLabel={`Detalhes: ${props.title}`}
-      accessibilityRole="button"
-      className="absolute top-2 right-2 p-1"
-      onPress={props.onPress}
-    >
-      <HugeIcons className="size-5 text-muted" icon={InformationCircleIcon} />
-    </PressableFeedback>
-  );
-}
-
-type RuleInfoDialogProps = {
-  info: RuleInfo;
-  isOpen: boolean;
-  onOpenChange: (nextOpen: boolean) => void;
-};
-
-/**
- * Read-only explanatory dialog rendered as a sibling of the card surface so it
- * never affects the card layout.
- */
-function RuleInfoDialog(props: RuleInfoDialogProps) {
-  return (
-    <Dialog isOpen={props.isOpen} onOpenChange={props.onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay />
-        <Dialog.Content className="gap-4 p-5">
-          <Dialog.Close className="absolute top-4 right-4 z-100" />
-          <Dialog.Title>{props.info.title}</Dialog.Title>
-          <Description>{props.info.description}</Description>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog>
-  );
-}
-
 type ToggleableRuleCardProps = {
   children?: ReactNode;
   description: string;
   enabled: boolean;
   error?: ReactNode;
-  info?: RuleInfo;
+  info?: InfoContent;
   isDisabled?: boolean;
   label: string;
   onToggle: (nextEnabled: boolean) => void;

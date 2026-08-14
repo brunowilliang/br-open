@@ -92,6 +92,10 @@ export const api = {
     webhook: {
       handleWooviWebhook: createApiLeaf<"mutation", typeof import("../functions/payment/webhook").handleWooviWebhook>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/payment/webhook").handleWooviWebhook>("payment/webhook:handleWooviWebhook"), { type: "mutation" }),
     },
+    withdraw: {
+      getBalance: createApiLeaf<"query", typeof import("../functions/payment/withdraw").getBalance>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/withdraw").getBalance>("payment/withdraw:getBalance"), { auth: "required", type: "query" }),
+      requestWithdraw: createApiLeaf<"action", typeof import("../functions/payment/withdraw").requestWithdraw>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/withdraw").requestWithdraw>("payment/withdraw:requestWithdraw"), { auth: "required", type: "action" }),
+    },
   },
   player: {
     profile: {

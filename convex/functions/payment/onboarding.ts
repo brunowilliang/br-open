@@ -7,12 +7,18 @@ import {
   type PaymentAccount,
 } from "../../domains/payment/contract";
 import { organization } from "../../domains/auth/tables";
+import { maskPixKey } from "../../domains/payment/pix-key";
 import { authAction, authQuery, privateMutation } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { requireActiveManager } from "../viewer/context";
 
 const startOnboardingInput = z.object({
+  // Display name of the account holder (IBX-0002) — shown on the withdraw
+  // destination. Optional for backward compat with the current client
+  // (`start({ pixKey })`); the new form always sends it. Persisted as null
+  // when absent (existing keys have no name).
+  accountName: z.string().trim().min(1).max(80).optional(),
   pixKey: z.string().min(1, "Informe a chave PIX."),
 });
 
@@ -30,6 +36,7 @@ export const start = authAction
   .input(startOnboardingInput)
   .output(
     z.object({
+      accountName: z.string().nullable(),
       name: z.string(),
       pixKey: z.string(),
       status: paymentAccountStatusSchema,
@@ -75,12 +82,14 @@ export const start = authAction
     }
 
     await ctx.runMutation(internal.payment.onboarding.upsertAccount, {
+      accountName: input.accountName ?? null,
       name: subaccount.name,
       organizationId,
       pixKey: subaccount.pixKey,
     });
 
     return {
+      accountName: input.accountName ?? null,
       name: subaccount.name,
       pixKey: subaccount.pixKey,
       status: "active",
@@ -96,6 +105,7 @@ export const start = authAction
 export const getStatus = authQuery
   .output(
     z.object({
+      accountName: z.string().nullable(),
       name: z.string().nullable(),
       pixKey: z.string().nullable(),
       status: paymentAccountStatusSchema.nullable(),
@@ -108,13 +118,14 @@ export const getStatus = authQuery
     });
     const raw = org?.paymentAccount;
     if (!raw) {
-      return { name: null, pixKey: null, status: null };
+      return { accountName: null, name: null, pixKey: null, status: null };
     }
     const parsed = paymentAccountSchema.safeParse(raw);
     if (!parsed.success) {
-      return { name: null, pixKey: null, status: null };
+      return { accountName: null, name: null, pixKey: null, status: null };
     }
     return {
+      accountName: parsed.data.accountName,
       name: parsed.data.name,
       pixKey: maskPixKey(parsed.data.pixKey),
       status: parsed.data.status,
@@ -132,6 +143,7 @@ export const getStatus = authQuery
 export const upsertAccount = privateMutation
   .input(
     z.object({
+      accountName: z.string().nullable().optional(),
       name: z.string(),
       organizationId: z.string(),
       pixKey: z.string(),
@@ -140,6 +152,7 @@ export const upsertAccount = privateMutation
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const account: PaymentAccount = {
+      accountName: input.accountName ?? null,
       name: input.name,
       onboardedAt: now.toISOString(),
       pixKey: input.pixKey,
@@ -153,10 +166,3 @@ export const upsertAccount = privateMutation
       })
       .where(eq(organization.id, input.organizationId as Id<"organization">));
   });
-
-function maskPixKey(key: string): string {
-  if (key.length <= 4) {
-    return key;
-  }
-  return `${key.slice(0, 2)}${"*".repeat(Math.min(key.length - 4, 8))}${key.slice(-2)}`;
-}

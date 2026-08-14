@@ -48,6 +48,13 @@ export const OPENPIX_CHARGE_COMPLETED = "OPENPIX:CHARGE_COMPLETED" as const;
 export const OPENPIX_CHARGE_REFUNDED = "OPENPIX:CHARGE_REFUNDED" as const;
 
 /**
+ * Fired when a withdrawal/movement fails (e.g. subaccount saque): carries
+ * the failed payment (correlationID/endToEndId) and the error code +
+ * description. We mirror it locally by marking the withdrawal `failed`.
+ */
+export const OPENPIX_MOVEMENT_FAILED = "OPENPIX:MOVEMENT_FAILED" as const;
+
+/**
  * Catch-all for events we acknowledge but don't process. Using a closed
  * union (not `string`) lets TS narrow the handled variants above by the
  * literal `event` value.
@@ -108,6 +115,21 @@ export type ChargeRefundedPayload = {
   };
 };
 
+export type MovementFailedPayload = {
+  event: typeof OPENPIX_MOVEMENT_FAILED;
+  payment?: {
+    correlationID?: string;
+    destinationAlias?: string;
+    endToEndId?: string;
+    status?: string;
+    value?: number;
+  };
+  error?: {
+    code?: string;
+    description?: string;
+  };
+};
+
 /**
  * Any inbound Woovi webhook. Narrow with `payload.event === ...` before
  * reading `payload.charge` / `payload.transaction`.
@@ -117,7 +139,8 @@ export type WooviWebhookPayload =
   | TransactionReceivedPayload
   | ChargeExpiredPayload
   | ChargeCompletedPayload
-  | ChargeRefundedPayload;
+  | ChargeRefundedPayload
+  | MovementFailedPayload;
 
 // ---------------------------------------------------------------------------
 // Runtime validators — used by webhook.ts to parse incoming payloads safely.
@@ -163,6 +186,25 @@ const chargeRefundedPayloadSchema = z.object({
   event: z.literal(OPENPIX_CHARGE_REFUNDED),
 });
 
+const movementFailedPayloadSchema = z.object({
+  error: z
+    .object({
+      code: z.string().optional(),
+      description: z.string().optional(),
+    })
+    .optional(),
+  event: z.literal(OPENPIX_MOVEMENT_FAILED),
+  payment: z
+    .object({
+      correlationID: z.string().optional(),
+      destinationAlias: z.string().optional(),
+      endToEndId: z.string().optional(),
+      status: z.string().optional(),
+      value: z.number().optional(),
+    })
+    .optional(),
+});
+
 const otherEventPayloadSchema = z
   .object({
     data: z.unknown().optional(),
@@ -183,6 +225,7 @@ export const wooviWebhookPayloadSchema = z.union([
   chargeCompletedPayloadSchema,
   chargeExpiredPayloadSchema,
   chargeRefundedPayloadSchema,
+  movementFailedPayloadSchema,
   otherEventPayloadSchema,
   transactionReceivedPayloadSchema,
 ]);

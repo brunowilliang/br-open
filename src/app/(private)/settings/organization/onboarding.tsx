@@ -40,6 +40,11 @@ import { z } from "zod";
 const OnboardingFormSchema = z
   .object({
     acceptedTerms: z.boolean(),
+    accountName: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome da conta.")
+      .max(80, "Máximo de 80 caracteres."),
     address: addressSchema.optional(),
     contactEmail: activateOrganizationSchema.shape.contactEmail,
     description: z.string().optional(),
@@ -127,6 +132,7 @@ type OnboardingFormValues = z.input<typeof OnboardingFormSchema>;
 
 const defaultValues: OnboardingFormValues = {
   acceptedTerms: false,
+  accountName: "",
   address: undefined,
   contactEmail: "",
   description: "",
@@ -202,6 +208,7 @@ export default function OrganizationOnboarding() {
         if (pixKey) {
           try {
             await startPixOnboarding.mutateAsync({
+              accountName: form.getValues("accountName")?.trim() ?? "",
               pixKey: rawPixKey(pixKey, pixKeyType),
             });
             await queryClient.invalidateQueries(

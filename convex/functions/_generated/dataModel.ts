@@ -1109,6 +1109,24 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  subaccountBalance: {
+    document: {
+      balanceCents: number;
+      organizationId: Id<"organization">;
+      updatedAt: number;
+      _id: Id<"subaccountBalance">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      "_creationTime" | "_id" | "balanceCents" | "organizationId" | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      organizationId: ["organizationId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   team: {
     document: {
       createdAt: number;
@@ -1239,6 +1257,47 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       expiresAt: ["expiresAt", "_creationTime"];
       identifier: ["identifier", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  withdrawals: {
+    document: {
+      amountCents: number;
+      createdAt: number;
+      failureReason?: null | string;
+      feeCents: number;
+      feeStatus?: null | string;
+      idempotencyKey: string;
+      liquidAmountCents: number;
+      organizationId: Id<"organization">;
+      status: string;
+      updatedAt: number;
+      wooviWithdrawId?: null | string;
+      _id: Id<"withdrawals">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "amountCents"
+      | "createdAt"
+      | "failureReason"
+      | "feeCents"
+      | "feeStatus"
+      | "idempotencyKey"
+      | "liquidAmountCents"
+      | "organizationId"
+      | "status"
+      | "updatedAt"
+      | "wooviWithdrawId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      feeStatus: ["feeStatus", "_creationTime"];
+      idempotencyKey: ["idempotencyKey", "_creationTime"];
+      organizationId_status: ["organizationId", "status", "_creationTime"];
+      wooviWithdrawId: ["wooviWithdrawId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

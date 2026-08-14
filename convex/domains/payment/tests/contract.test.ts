@@ -4,9 +4,11 @@ import {
   PAYMENT_CHARGE_STATUSES,
   PAYMENT_ACCOUNT_STATUSES,
   createChargeOutputSchema,
+  paymentAccountSchema,
   paymentChargeStatusSchema,
   splitConfigSchema,
   paymentAccountStatusSchema,
+  withdrawBalanceSchema,
 } from "../contract";
 
 describe("payment contract", () => {
@@ -51,6 +53,81 @@ describe("payment contract", () => {
 
     it("rejects invalid statuses", () => {
       expect(() => paymentAccountStatusSchema.parse("onboarding")).toThrow();
+    });
+  });
+
+  describe("paymentAccountSchema", () => {
+    it("accepts a snapshot with an account name (IBX-0002)", () => {
+      const result = paymentAccountSchema.parse({
+        accountName: "Liga do Bruno",
+        name: "Bola na Rede LTDA",
+        onboardedAt: "2026-08-11T12:00:00Z",
+        pixKey: "org@example.com",
+        status: "active",
+      });
+      expect(result.accountName).toBe("Liga do Bruno");
+      expect(result.name).toBe("Bola na Rede LTDA");
+    });
+
+    it("parses legacy snapshots without accountName as null", () => {
+      const result = paymentAccountSchema.parse({
+        name: "Bola na Rede LTDA",
+        onboardedAt: "2026-07-22T12:00:00Z",
+        pixKey: "org@example.com",
+        status: "active",
+      });
+      expect(result.accountName).toBeNull();
+    });
+
+    it("rejects an empty pix key", () => {
+      expect(() =>
+        paymentAccountSchema.parse({
+          accountName: null,
+          name: "Bola na Rede LTDA",
+          onboardedAt: null,
+          pixKey: "",
+          status: "active",
+        })
+      ).toThrow();
+    });
+  });
+
+  describe("withdrawBalanceSchema", () => {
+    it("accepts a balance with withdraw destination (IBX-0002)", () => {
+      const result = withdrawBalanceSchema.parse({
+        accountName: "Liga do Bruno",
+        balanceCents: 15_000,
+        feeTiers: [{ feeCents: 500, upToCents: 100_000 }],
+        freeFromCents: 300_000,
+        minWithdrawCents: 2000,
+        pixKey: "or********om",
+      });
+      expect(result.accountName).toBe("Liga do Bruno");
+      expect(result.pixKey).toBe("or********om");
+    });
+
+    it("accepts a null account name for legacy keys", () => {
+      const result = withdrawBalanceSchema.parse({
+        accountName: null,
+        balanceCents: 0,
+        feeTiers: [],
+        freeFromCents: 300_000,
+        minWithdrawCents: 2000,
+        pixKey: "or********om",
+      });
+      expect(result.accountName).toBeNull();
+    });
+
+    it("requires the destination pix key", () => {
+      expect(() =>
+        withdrawBalanceSchema.parse({
+          accountName: null,
+          balanceCents: 0,
+          feeTiers: [],
+          freeFromCents: 300_000,
+          minWithdrawCents: 2000,
+        })
+      ).toThrow();
     });
   });
 

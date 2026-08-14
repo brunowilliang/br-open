@@ -1,13 +1,18 @@
 import { formatCurrencyCents, formatTrendPercent } from "@/lib/format/currency";
 import { formatRelativeTime } from "@/lib/format/relative-time";
 import { PAYMENT_STATUS_META } from "@/lib/payments/status";
+import { useWithdrawApi } from "@/lib/withdraw/api";
+import { buildWithdrawBalanceCard } from "@/lib/withdraw/balance-card";
 import type { ApiOutputs } from "@convex/shared/api";
-import { Description } from "heroui-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { Button, Card, Chip, Description } from "heroui-native";
 import { useMemo } from "react";
 import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { KpiCard } from "@/components/ui/kpi-card";
 import {
   ArrowDown01Icon,
   ArrowUp01Icon,
@@ -16,13 +21,19 @@ import {
   Dollar01Icon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
-import { Card, Chip } from "heroui-native";
-import { KpiCard } from "@/components/ui/kpi-card";
 
 type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
 
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
+  const router = useRouter();
   const { metrics, recentCharges } = props.data;
+  const { getBalanceQueryOptions } = useWithdrawApi();
+  const balanceQuery = useQuery(getBalanceQueryOptions());
+  const balanceCard = buildWithdrawBalanceCard({
+    balance: balanceQuery.data,
+    isError: balanceQuery.isError,
+    isPending: balanceQuery.isPending && balanceQuery.data === undefined,
+  });
 
   const trend = useMemo(
     () =>
@@ -40,25 +51,70 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
 
   return (
     <View className="gap-3">
-      {/* Hero KPI */}
-      <Card className="gap-2">
-        <Description>Recebido este mês</Description>
-        <Text size="3xl" weight="semibold">
-          {formatCurrencyCents(metrics.receivedThisMonthCents)}
-        </Text>
-        {trend ? (
-          <View className="absolute top-4 right-4 flex-row items-center gap-1">
+      {/* Saldo + saque */}
+      {/* <KpiCard
+        action={
+          <Button
+            onPress={() => {
+              router.navigate("/withdraw");
+            }}
+            size="sm"
+          >
+            Sacar
+          </Button>
+        }
+        icon={Wallet01Icon}
+        label="Saldo disponível"
+        size="md"
+        {...balanceCard}
+      /> */}
+
+      <View className="centered py-4">
+        <Text>Saldo disponível</Text>
+        <View className="centered flex-row">
+          <Text size="3xl" weight="semibold">
+            {balanceCard.value ?? "0,00"}
+          </Text>
+          {/* <Button isIconOnly size="sm" variant="ghost">
             <HugeIcons
-              className={`size-3.5 ${trendIsPositive ? "text-success" : "text-danger"}`}
-              icon={trendIsPositive ? ArrowUp01Icon : ArrowDown01Icon}
+              className="size-5 text-muted"
+              icon={InformationCircleIcon}
             />
-            <Text color={trendIsPositive ? "success" : "danger"} size="xs">
-              {trend}
-            </Text>
-          </View>
-        ) : null}
-        <Description>Total líquido recebido neste mês.</Description>
-      </Card>
+          </Button> */}
+        </View>
+        <View className="flex-row gap-2 pt-3">
+          <Button
+            onPress={() => {
+              router.navigate("/withdraw");
+            }}
+            size="sm"
+            variant="secondary"
+          >
+            Realizar Saque
+          </Button>
+        </View>
+      </View>
+
+      {/* Hero KPI */}
+      <KpiCard
+        action={
+          trend ? (
+            <View className="flex-row items-center gap-1">
+              <HugeIcons
+                className={`size-3.5 ${trendIsPositive ? "text-success" : "text-danger"}`}
+                icon={trendIsPositive ? ArrowUp01Icon : ArrowDown01Icon}
+              />
+              <Text color={trendIsPositive ? "success" : "danger"} size="xs">
+                {trend}
+              </Text>
+            </View>
+          ) : undefined
+        }
+        description="Total líquido recebido no mês (após taxas)."
+        label="Recebido este mês"
+        size="lg"
+        value={formatCurrencyCents(metrics.receivedThisMonthCents)}
+      />
 
       {/* KPI Grid 2×2 */}
       <View className="flex-row gap-2">
@@ -95,6 +151,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
             const cfg =
               PAYMENT_STATUS_META[charge.status] ??
               PAYMENT_STATUS_META.PENDING!;
+            // const feeCents = charge.amountCents - charge.organizerCents;
             return (
               <Card
                 className="flex-row items-center justify-between gap-2"
@@ -109,8 +166,13 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
                     {formatRelativeTime(charge.createdAt)}
                   </Description>
                 </View>
-                <View className="flex-col items-end gap-1">
-                  <Chip color={cfg.color} size="sm" variant="soft">
+                <View className="flex-col gap-0.5">
+                  <Chip
+                    className="self-end"
+                    color={cfg.color}
+                    size="sm"
+                    variant="soft"
+                  >
                     {cfg.label}
                   </Chip>
                   <Text size="sm" weight="medium">

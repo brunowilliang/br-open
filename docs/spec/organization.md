@@ -1,6 +1,6 @@
 # Organização, Auth e Ator Ativo — Estado atual
 
-> Verificado em 10-08-2026 contra o código do repo (`src/`, `convex/`).
+> Verificado em 14-08-2026 contra o código do repo (`src/`, `convex/`) — estado pós IBX-0002.
 
 ## Visão geral
 
@@ -75,7 +75,7 @@ O app usa um modelo de ator ativo backend-owned: `user` (Better Auth) é só ide
 
 ### Diferenças do desenho inicial (implementadas com divergências)
 - **Status:** documental
-- **Evidência:** (1) `ORGANIZER_TYPES` tem 10 valores — adicionado `"particular"` em `convex/domains/organization/contract.ts`; (2) `activateOrganizationSchema` EXIGE `contactEmail` e `phone` e aceita `description`/`website`/`organizerTypeLabel`/`sportsLabel`; o metadata final tem 10 campos; (3) o onboarding coleta chave PIX e chama `crpc.payment.onboarding.start` (Woovi) após criar a org (`onboarding.tsx`) — integração de pagamento adicionada depois; `organizationOutputSchema` inclui `paymentAccount` (`convex/domains/payment/contract.ts`); (4) `organization.profile.get` é guardado por `requireActiveManager` (leitura restrita a managers, não a qualquer member); (5) a serialização ficou em `convex/functions/organization/profile.ts` (`serializeOrganization` local) e as funções do domínio `identity.ts` (`parseOrganizationMetadata`, `buildOrganizationDisplayName`) não têm call site em produção — só testes (`identity.test.ts`); (6) campos do formulário extraídos para `organization-form-fields.tsx` compartilhado; (7) `acceptedTerms.userId` vem "" do cliente e é injetado pelo servidor.
+- **Evidência:** (1) `ORGANIZER_TYPES` tem 10 valores — adicionado `"particular"` em `convex/domains/organization/contract.ts`; (2) `activateOrganizationSchema` EXIGE `contactEmail` e `phone` e aceita `description`/`website`/`organizerTypeLabel`/`sportsLabel`; o metadata final tem 10 campos; (3) o onboarding coleta tipo de chave + chave + nome da conta (`accountName`, IBX-0002: obrigatório no form, zod `trim().min(1).max(80)`; opcional no backend por retrocompat) e o form sempre envia `accountName` em `crpc.payment.onboarding.start` (Woovi) após criar a org (`onboarding.tsx`) — integração de pagamento adicionada depois; `organizationOutputSchema` inclui `paymentAccount` (`convex/domains/payment/contract.ts`); (4) `organization.profile.get` é guardado por `requireActiveManager` (leitura restrita a managers, não a qualquer member); (5) a serialização ficou em `convex/functions/organization/profile.ts` (`serializeOrganization` local) e as funções do domínio `identity.ts` (`parseOrganizationMetadata`, `buildOrganizationDisplayName`) não têm call site em produção — só testes (`identity.test.ts`); (6) campos do formulário extraídos para `organization-form-fields.tsx` compartilhado; (7) `acceptedTerms.userId` vem "" do cliente e é injetado pelo servidor.
 
 ## Decisões tomadas
 

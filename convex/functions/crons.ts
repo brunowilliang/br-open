@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { internal } from "./functions/_generated/api";
+import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
@@ -37,6 +37,28 @@ crons.interval(
   "sweep-stale-deliveries",
   { minutes: 1 },
   internal.notification.orchestrator.sweepStaleInProgressDeliveries,
+  {}
+);
+
+// Refresh the cached subaccount balance for every organization with an
+// active payment account (DECISAO-003). Queries can't call the provider, so
+// the withdraw screen reads a cache that this cron reconciles every 5
+// minutes (withdrawals also adjust the cache immediately).
+crons.interval(
+  "refresh-subaccount-balances",
+  { minutes: 5 },
+  internal.payment.withdraw.refreshSubaccountBalances,
+  {}
+);
+
+// Retry the fee debit (subaccount → BR-Open main account) for COMPLETED
+// withdrawals whose fee collection is still pending (BUG-0006) — a
+// transient debit failure at request time used to mean lost revenue.
+// feeStatus flips to "collected" only after the debit returns ok.
+crons.interval(
+  "sweep-pending-withdraw-fees",
+  { minutes: 15 },
+  internal.payment.withdraw.sweepPendingWithdrawFees,
   {}
 );
 

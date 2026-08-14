@@ -3259,6 +3259,7 @@ export const api: {
             | null;
           organizerTypeLabel?: string | null;
           paymentAccount?: {
+            accountName: string | null;
             name: string;
             onboardedAt: string | null;
             pixKey: string;
@@ -3368,6 +3369,7 @@ export const api: {
             | null;
           organizerTypeLabel?: string | null;
           paymentAccount?: {
+            accountName: string | null;
             name: string;
             onboardedAt: string | null;
             pixKey: string;
@@ -3495,6 +3497,7 @@ export const api: {
         "public",
         {},
         {
+          accountName: string | null;
           name: string | null;
           pixKey: string | null;
           status: "pending" | "active" | "rejected" | null;
@@ -3503,11 +3506,37 @@ export const api: {
       start: FunctionReference<
         "action",
         "public",
-        { pixKey: string },
+        { accountName?: string; pixKey: string },
         {
+          accountName: string | null;
           name: string;
           pixKey: string;
           status: "pending" | "active" | "rejected";
+        }
+      >;
+    };
+    withdraw: {
+      getBalance: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          accountName: string | null;
+          balanceCents: number;
+          feeTiers: Array<{ feeCents: number; upToCents: number }>;
+          freeFromCents: number;
+          minWithdrawCents: number;
+          pixKey: string;
+        }
+      >;
+      requestWithdraw: FunctionReference<
+        "action",
+        "public",
+        { amountCents: number; idempotencyKey?: string },
+        {
+          feeCents: number;
+          liquidAmountCents: number;
+          status: "pending" | "failed" | "completed";
         }
       >;
     };
@@ -4045,7 +4074,12 @@ export const internal: {
       upsertAccount: FunctionReference<
         "mutation",
         "internal",
-        { name: string; organizationId: string; pixKey: string },
+        {
+          accountName?: string | null;
+          name: string;
+          organizationId: string;
+          pixKey: string;
+        },
         any
       >;
     };
@@ -4078,11 +4112,115 @@ export const internal: {
         { name: string; pixKey: string },
         { name: string; pixKey: string }
       >;
+      debitSubaccountAction: FunctionReference<
+        "action",
+        "internal",
+        { pixKey: string; valueCents: number },
+        { value: number }
+      >;
       getChargeStatusAction: FunctionReference<
         "action",
         "internal",
         { correlationId: string },
         { status: string }
+      >;
+      getSubaccountBalanceAction: FunctionReference<
+        "action",
+        "internal",
+        { pixKey: string },
+        { balanceCents: number; withdrawBlocked: boolean }
+      >;
+      withdrawSubaccountAction: FunctionReference<
+        "action",
+        "internal",
+        { pixKey: string; valueCents: number },
+        { status: string; transactionId: string | null }
+      >;
+    };
+    withdraw: {
+      completeWithdrawal: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          balanceAfterCents: number;
+          failureReason: string | null;
+          feeCollected: boolean;
+          idempotencyKey: string;
+          wooviWithdrawId: string | null;
+        },
+        any
+      >;
+      failWithdrawal: FunctionReference<
+        "mutation",
+        "internal",
+        { failureReason: string; idempotencyKey: string },
+        any
+      >;
+      isWithdrawFeeStillDue: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        boolean
+      >;
+      listActivePaymentOrgs: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{ organizationId: string; pixKey: string }>
+      >;
+      listUncollectedFees: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{ feeCents: number; id: string; pixKey: string }>
+      >;
+      markWithdrawFailedByProviderId: FunctionReference<
+        "mutation",
+        "internal",
+        { providerId: string; reason: string },
+        any
+      >;
+      markWithdrawFeeCollected: FunctionReference<
+        "mutation",
+        "internal",
+        { id: string },
+        any
+      >;
+      refreshSubaccountBalances: FunctionReference<
+        "action",
+        "internal",
+        {},
+        any
+      >;
+      reserveWithdrawal: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amountCents: number;
+          feeCents: number;
+          idempotencyKey: string;
+          liquidAmountCents: number;
+          organizationId: string;
+        },
+        {
+          created: boolean;
+          failureReason: string | null;
+          feeCents: number;
+          liquidAmountCents: number;
+          status: "pending" | "failed" | "completed";
+        }
+      >;
+      sweepPendingWithdrawFees: FunctionReference<
+        "action",
+        "internal",
+        {},
+        any
+      >;
+      upsertBalanceCache: FunctionReference<
+        "mutation",
+        "internal",
+        { balanceCents: number; organizationId: string },
+        any
       >;
     };
   };

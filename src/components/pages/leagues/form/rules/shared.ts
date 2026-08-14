@@ -1,6 +1,6 @@
 import { getSelectedOption } from "@/lib/collections";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
-import type { RuleInfo } from "@/components/pages/leagues/rule-card";
+import type { InfoContent } from "@/components/ui/info-dialog";
 
 type RuleConfig = LeagueScreenValues["ruleConfig"];
 type MatchConfig = RuleConfig["matchConfig"];
@@ -31,7 +31,7 @@ const scoringModeOptions = [
   },
 ];
 
-const CHALLENGE_RULE_INFO: Record<string, RuleInfo> = {
+const CHALLENGE_RULE_INFO: Record<string, InfoContent> = {
   maxActiveChallengesPerPlayer: {
     description:
       "Limita quantos desafios cada jogador pode manter em aberto ao mesmo tempo. Com valor 1, ele precisa concluir um desafio antes de abrir o próximo.",
@@ -125,7 +125,7 @@ const RULE_INFO = {
       "Define o que acontece com as posições quando o desafiante vence. Assume a posição do adversário faz os dois trocarem de lugar. Sobe 1 posição faz o desafiante subir apenas uma casa.",
     title: "Vitória no desafio",
   },
-} satisfies Record<string, RuleInfo>;
+} satisfies Record<string, InfoContent>;
 
 export {
   CHALLENGE_RULE_INFO,

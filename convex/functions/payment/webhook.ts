@@ -20,8 +20,10 @@ import {
   OPENPIX_CHARGE_COMPLETED,
   OPENPIX_CHARGE_EXPIRED,
   OPENPIX_CHARGE_REFUNDED,
+  OPENPIX_MOVEMENT_FAILED,
   OPENPIX_TRANSACTION_RECEIVED,
 } from "../../domains/payment/webhook-events";
+import { resolveWithdrawalProviderId } from "../../domains/payment/provider-requests";
 import { verifyWooviWebhookSignature } from "../../domains/payment/webhook-signature";
 import { publicRoute, router } from "../../lib/crpc";
 import { internal } from "../_generated/api";
@@ -93,6 +95,26 @@ export const handleWooviWebhook = publicRoute
       await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
         correlationId: payload.charge.correlationID,
       });
+    }
+
+    if (payload.event === OPENPIX_MOVEMENT_FAILED && "payment" in payload) {
+      // Same precedence as the id stored at request time
+      // (providerNode.ts): correlationID first, endToEndId fallback.
+      const providerId = payload.payment
+        ? resolveWithdrawalProviderId(payload.payment)
+        : null;
+      if (providerId) {
+        await ctx.runMutation(
+          internal.payment.withdraw.markWithdrawFailedByProviderId,
+          {
+            providerId,
+            reason:
+              payload.error?.description ??
+              payload.error?.code ??
+              "Falha no saque (Woovi).",
+          }
+        );
+      }
     }
 
     return c.text("OK", 200);

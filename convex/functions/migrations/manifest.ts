@@ -14,6 +14,7 @@ import { migration as migration_7 } from './20260623_000001_toggleable_rule_conf
 import { migration as migration_8 } from './20260623_000002_challenge_scoring_snapshot';
 import { migration as migration_9 } from './20260711_000001_rename_admin_reviewed_field';
 import { migration as migration_10 } from './20260711_000002_rename_admin_status_values';
+import { migration as migration_11 } from './20260814_163103_backfill_withdrawals_fee_status';
 
 export const migrations = defineMigrationSet([
   migration_0,
@@ -27,4 +28,5 @@ export const migrations = defineMigrationSet([
   migration_8,
   migration_9,
   migration_10,
+  migration_11,
 ]);

@@ -55,9 +55,17 @@ export const paymentAccountStatusSchema = z.enum([...PAYMENT_ACCOUNT_STATUSES]);
 // `organizationWooviAccount` table.
 
 export const paymentAccountSchema = z.object({
+  // Display name of the account holder (IBX-0002) — the organizer-facing
+  // label shown on the withdraw destination ("account name + pix key").
+  // Nullable with default so pre-existing snapshots (no field) keep parsing;
+  // the withdraw screen falls back to "Chave PIX" when null.
+  accountName: z.string().nullable().default(null),
   name: z.string(),
   onboardedAt: z.string().nullable(),
-  pixKey: z.string(),
+  // min(1) mirrors splitConfigSchema.recipientPixKey: a snapshot with an
+  // empty key is an invalid account (getStatus/getBalance fall back to
+  // "not configured").
+  pixKey: z.string().min(1),
   status: paymentAccountStatusSchema,
 });
 
@@ -84,6 +92,60 @@ export const splitConfigSchema = z.object({
 });
 
 export type SplitConfig = z.infer<typeof splitConfigSchema>;
+
+// ---------------------------------------------------------------------------
+// Withdrawals (DECISAO-003)
+// ---------------------------------------------------------------------------
+
+/**
+ * Local lifecycle of a withdrawal request. `pending` — row reserved, PIX out
+ * in flight (before the provider returns an id); `completed` — provider
+ * accepted the PIX out (set by `completeWithdrawal`); `failed` — provider
+ * rejected it or `OPENPIX:MOVEMENT_FAILED` arrived (from `pending` or
+ * `completed`). `completed` rows are NOT "in flight": they never gate a new
+ * withdrawal (BUG-0001).
+ */
+export const WITHDRAW_STATUSES = ["pending", "failed", "completed"] as const;
+
+export type WithdrawStatus = (typeof WITHDRAW_STATUSES)[number];
+
+export const withdrawStatusSchema = z.enum(WITHDRAW_STATUSES);
+
+export const withdrawFeeTierSchema = z.object({
+  feeCents: z.number().int().nonnegative(),
+  upToCents: z.number().int().positive(),
+});
+
+/**
+ * `payment/withdraw:getBalance` output — mirrors
+ * `src/lib/withdraw/contract.ts` (WithdrawBalance).
+ */
+export const withdrawBalanceSchema = z.object({
+  // Withdraw destination (IBX-0002): account display name + masked pix key.
+  // accountName is null for keys registered before the field existed — the
+  // client falls back to a generic "Chave PIX" label. pixKey is masked
+  // (same as payment.onboarding.getStatus).
+  accountName: z.string().nullable(),
+  balanceCents: z.number().int().nonnegative(),
+  feeTiers: z.array(withdrawFeeTierSchema),
+  freeFromCents: z.number().int().positive(),
+  minWithdrawCents: z.number().int().positive(),
+  pixKey: z.string().min(1),
+});
+
+export type WithdrawBalance = z.infer<typeof withdrawBalanceSchema>;
+
+/**
+ * `payment/withdraw:requestWithdraw` output — mirrors
+ * `src/lib/withdraw/contract.ts` (WithdrawRequestResult).
+ */
+export const requestWithdrawOutputSchema = z.object({
+  feeCents: z.number().int().nonnegative(),
+  liquidAmountCents: z.number().int().nonnegative(),
+  status: withdrawStatusSchema,
+});
+
+export type RequestWithdrawOutput = z.infer<typeof requestWithdrawOutputSchema>;
 
 // ---------------------------------------------------------------------------
 // Charge output (returned to the client after creating a PIX charge)

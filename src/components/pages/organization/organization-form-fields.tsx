@@ -62,6 +62,7 @@ import { ImageUploadIcon } from "@hugeicons/core-free-icons";
 
 export type OrganizationFormValues = {
   acceptedTerms?: boolean;
+  accountName?: string;
   address?: {
     cep?: string;
     city?: string;
@@ -688,6 +689,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
 // ---------------------------------------------------------------------------
 
 type PixKeyFormValues = {
+  accountName: string;
   pixKey: string;
   pixKeyType: PixKeyType;
 };
@@ -769,6 +771,27 @@ function PixKeyFields(props: {
                 field.onChange(formatPixKey(digits, formType));
               }}
               placeholder="Digite sua chave PIX"
+              value={String(field.value ?? "")}
+              variant="secondary"
+            />
+            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+          </TextField>
+        )}
+      />
+
+      <Controller
+        control={props.form.control}
+        name="accountName"
+        render={({ field, fieldState }) => (
+          <TextField isRequired>
+            <Label>Nome da conta</Label>
+            <Input
+              editable={!props.isPending}
+              isInvalid={Boolean(fieldState.error)}
+              maxLength={80}
+              onBlur={field.onBlur}
+              onChangeText={field.onChange}
+              placeholder="Ex.: Conta da Liga BR Open"
               value={String(field.value ?? "")}
               variant="secondary"
             />
@@ -897,6 +920,27 @@ function OnboardingPaymentSection(props: {
           );
         }}
       />
+
+      <Controller
+        control={props.form.control}
+        name="accountName"
+        render={({ field, fieldState }) => (
+          <TextField isRequired>
+            <Label>Nome da conta</Label>
+            <Input
+              editable={!props.isDisabled}
+              isInvalid={Boolean(fieldState.error)}
+              maxLength={80}
+              onBlur={field.onBlur}
+              onChangeText={field.onChange}
+              placeholder="Ex.: Conta da Liga BR Open"
+              value={String(field.value ?? "")}
+              variant="secondary"
+            />
+            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
+          </TextField>
+        )}
+      />
     </ExpandableSection>
   );
 }
@@ -945,9 +989,14 @@ function PaymentSection() {
   );
 
   const pixForm = useForm<PixKeyFormValues>({
-    defaultValues: { pixKey: "", pixKeyType: "cpf" },
+    defaultValues: { accountName: "", pixKey: "", pixKeyType: "cpf" },
     resolver: zodResolver(
       z.object({
+        accountName: z
+          .string()
+          .trim()
+          .min(1, "Informe o nome da conta.")
+          .max(80, "Máximo de 80 caracteres."),
         pixKey: z.string().min(1, "Informe a chave PIX."),
         pixKeyType: z.custom<PixKeyType>(
           (v) => v !== undefined && v !== null && v !== ""
@@ -964,20 +1013,35 @@ function PaymentSection() {
       return;
     }
     const raw = rawPixKey(values.pixKey, values.pixKeyType);
-    await startOnboarding.mutateAsync({ pixKey: raw });
+    await startOnboarding.mutateAsync({
+      accountName: values.accountName.trim(),
+      pixKey: raw,
+    });
   });
+
+  const account = statusQuery.data ?? null;
+  // MENOR-2 (IBX-0002): o label do card usa o accountName cadastrado; para
+  // chaves legadas (accountName null) cai no nome da subconta (nome da org).
+  const accountLabel = account?.accountName ?? account?.name ?? null;
 
   function handleEditPixKey() {
     setIsEditing(true);
-    pixForm.reset({ pixKey: "", pixKeyType: "cpf" });
+    pixForm.reset({
+      accountName: account?.accountName ?? "",
+      pixKey: "",
+      pixKeyType: "cpf",
+    });
   }
 
   function handleCancelEdit() {
     setIsEditing(false);
-    pixForm.reset({ pixKey: "", pixKeyType: "cpf" });
+    pixForm.reset({
+      accountName: account?.accountName ?? "",
+      pixKey: "",
+      pixKeyType: "cpf",
+    });
   }
 
-  const account = statusQuery.data ?? null;
   const isConnected = account?.status === "active";
 
   let description: string;
@@ -1006,10 +1070,10 @@ function PaymentSection() {
         </View>
       ) : isConnected && !isEditing ? (
         <>
-          {account?.name ? (
+          {accountLabel ? (
             <TextField>
               <Description>Nome da conta</Description>
-              <Label>{account.name}</Label>
+              <Label>{accountLabel}</Label>
             </TextField>
           ) : null}
           {account?.pixKey ? (
