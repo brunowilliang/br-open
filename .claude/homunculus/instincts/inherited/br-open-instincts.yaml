@@ -1,0 +1,882 @@
+# Instincts generated from https://github.com/brunowilliang/br-open
+# Generated: 2026-07-22T15:28:36.619Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: br-open-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, refactor, fix
+
+## Evidence
+
+- 39 commits analyzed
+- Detected conventional commit pattern
+- Examples: docs(payment): add league payment Woovi split implementation plan, feat(payment): add contract with split math and correlationId helper
+
+---
+id: br-open-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Commit Length
+
+## Action
+
+Write moderate-length commit messages (~68 characters)
+
+## Evidence
+
+- Average commit message length: 68 chars
+- Based on 39 commits
+
+---
+id: br-open-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: br-open-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: br-open-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: br-open-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: app, components, lib
+
+---
+id: br-open-test-colocate
+trigger: "when writing tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Test Colocate
+
+## Action
+
+Place test file next to the source file (e.g., Button.test.tsx next to Button.tsx)
+
+## Evidence
+
+- Colocated test pattern detected
+- Tests live alongside source files
+
+---
+id: br-open-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Test Framework
+
+## Action
+
+Use jest as the test framework
+
+## Evidence
+
+- Test framework detected: jest
+- File pattern: *.test.ts
+
+---
+id: br-open-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: br-open-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Test Types
+
+## Action
+
+Write unit, integration tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration
+- Coverage config: no
+
+---
+id: br-open-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~16x per month
+- Files: convex/domains/payment/*, convex/domains/payment/tests/*, convex/functions/_generated/*
+
+---
+id: br-open-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~8x per month
+- Files: src/**/*
+
+---
+id: br-open-workflow-add-or-modify-database-table
+trigger: "when doing add or modify database table"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Add Or Modify Database Table
+
+## Action
+
+Follow the add-or-modify-database-table workflow:
+1. Edit or create table definitions in convex/domains/*/tables.ts
+2. Update relations in convex/domains/*/relations.ts if needed
+3. Update schema.ts and dataModel.ts for schema registration
+4. Regenerate codegen artifacts (convex/functions/_generated/dataModel.ts, convex/functions/generated/server.ts, etc.)
+5. Update contract.ts/types if needed
+6. Write or update tests for the new/changed tables
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: convex/domains/*/tables.ts, convex/domains/*/relations.ts, convex/functions/schema.ts
+
+---
+id: br-open-workflow-add-or-update-api-endpoint
+trigger: "when doing add or update api endpoint"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Add Or Update Api Endpoint
+
+## Action
+
+Follow the add-or-update-api-endpoint workflow:
+1. Create or update function in convex/functions/*/*.ts (e.g., add new mutation/query)
+2. If needed, add supporting code in convex/domains/*/*.ts
+3. Regenerate codegen artifacts (convex/functions/_generated/api.ts, convex/functions/generated/*/*.runtime.ts, convex/functions/generated/server.ts)
+4. Update or add tests in convex/domains/*/tests/*.test.ts or convex/functions/*/*.test.ts
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: convex/functions/*/*.ts, convex/domains/*/*.ts, convex/functions/_generated/api.ts
+
+---
+id: br-open-workflow-feature-development-with-tdd
+trigger: "when doing feature development with tdd"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Feature Development With Tdd
+
+## Action
+
+Follow the feature-development-with-tdd workflow:
+1. Define or update contract/types in convex/domains/*/contract.ts
+2. Implement logic in convex/domains/*/*.ts and/or convex/functions/*/*.ts
+3. Write or update tests in convex/domains/*/tests/*.test.ts
+4. Update documentation/specs/plans if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: convex/domains/*/contract.ts, convex/domains/*/*.ts, convex/functions/*/*.ts
+
+---
+id: br-open-workflow-refactor-consolidate-or-extract-helpers
+trigger: "when doing refactor consolidate or extract helpers"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Refactor Consolidate Or Extract Helpers
+
+## Action
+
+Follow the refactor-consolidate-or-extract-helpers workflow:
+1. Identify duplicated or scattered helpers/types/constants
+2. Extract to a new shared file (e.g., convex/shared/*.ts, src/lib/*, or domain-specific _helpers.ts)
+3. Update all call sites to use the new shared helper
+4. Delete old/duplicated code
+5. Run tests to ensure no regressions
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: convex/shared/*.ts, convex/domains/*/*.ts, src/lib/*
+
+---
+id: br-open-workflow-frontend-ui-migration-or-split
+trigger: "when doing frontend ui migration or split"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Frontend Ui Migration Or Split
+
+## Action
+
+Follow the frontend-ui-migration-or-split workflow:
+1. Identify large or problematic component files (e.g., >500 LOC or causing routing issues)
+2. Split into multiple smaller files (e.g., _sections/, shared.ts, hooks, formatters)
+3. Move files if needed to avoid routing conflicts (e.g., out of app/ to components/)
+4. Update imports and usage throughout the codebase
+5. Delete old/legacy files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/app/(private)/**/*, src/components/pages/**/*, src/lib/leagues/*
+
+---
+id: br-open-workflow-payment-provider-integration-or-pivot
+trigger: "when doing payment provider integration or pivot"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Payment Provider Integration Or Pivot
+
+## Action
+
+Follow the payment-provider-integration-or-pivot workflow:
+1. Add or update payment provider client (e.g., convex/functions/payment/woovi-client.ts, abacatepay-client.ts, providerNode.ts)
+2. Update domain contract, tables, and rules for provider-specific fields
+3. Update or add webhook handler (convex/functions/payment/webhook.ts, convex/domains/payment/webhook-events.ts)
+4. Update env var handling (convex/lib/get-env.ts, convex/.env)
+5. Update frontend payment flows (src/app/(private)/checkout, settings/organization/payments.tsx, etc.)
+6. Regenerate codegen artifacts
+7. Update or add tests for provider logic
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: convex/functions/payment/*, convex/domains/payment/*, convex/lib/get-env.ts
+
+---
+id: br-open-workflow-notification-system-extension
+trigger: "when doing notification system extension"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Notification System Extension
+
+## Action
+
+Follow the notification-system-extension workflow:
+1. Update notificationFeed schema (convex/domains/notification/tables.ts, contract.ts)
+2. Add or update notification orchestration logic (convex/functions/notification/orchestrator.ts, events.ts, feed.ts)
+3. Add new notification event types or delivery states
+4. Wire up notification triggers in relevant domain logic (e.g., league/challenges.ts)
+5. Update or add tests for notification logic
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: convex/domains/notification/tables.ts, convex/domains/notification/contract.ts, convex/functions/notification/orchestrator.ts
+
+---
+id: br-open-workflow-codegen-verification-and-regeneration
+trigger: "when doing codegen verification and regeneration"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/brunowilliang/br-open
+---
+
+# Br Open Workflow Codegen Verification And Regeneration
+
+## Action
+
+Follow the codegen-verification-and-regeneration workflow:
+1. Run codegen command (e.g., bun run codegen)
+2. Check for uncommitted changes in _generated/ and generated/
+3. Update generated files if needed
+4. Commit regenerated files
+5. Optionally, add or update CI workflow to enforce codegen checks
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: convex/functions/_generated/*, convex/functions/generated/*, .github/workflows/ci.yml
+
+---
+id: br-open-instinct-file-naming-camelCase
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct File Naming CamelCase
+
+## Action
+
+Name the file using camelCase (e.g., myHelper.ts)
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Observed in src/components, src/lib
+
+---
+id: br-open-instinct-function-naming-camelCase
+trigger: "When defining a function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Function Naming CamelCase
+
+## Action
+
+Name the function using camelCase (e.g., calculateTotal)
+
+## Evidence
+
+- Pattern in namingConventions.functions
+- Observed in convex/domains/payment/contract.ts
+
+---
+id: br-open-instinct-class-naming-PascalCase
+trigger: "When defining a class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Class Naming PascalCase
+
+## Action
+
+Name the class using PascalCase (e.g., PaymentProcessor)
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: br-open-instinct-constant-naming-SCREAMING_SNAKE_CASE
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Constant Naming SCREAMING_SNAKE_CASE
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE (e.g., MAX_RETRIES)
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: br-open-instinct-import-style-relative
+trigger: "When importing modules within the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Import Style Relative
+
+## Action
+
+Use relative import paths (e.g., import { foo } from './foo')
+
+## Evidence
+
+- Pattern in importStyle
+- Seen in convex/domains/payment/contract.ts
+
+---
+id: br-open-instinct-export-style-named
+trigger: "When exporting functions, classes, or constants"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Export Style Named
+
+## Action
+
+Use named exports (e.g., export function foo())
+
+## Evidence
+
+- Pattern in exportStyle
+- Seen in convex/domains/payment/contract.ts
+
+---
+id: br-open-instinct-test-file-pattern
+trigger: "When adding a new test file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Test File Pattern
+
+## Action
+
+Name the file with the pattern *.test.ts
+
+## Evidence
+
+- Pattern in testing.filePattern
+- Seen in convex/domains/payment/tests/contract.test.ts
+
+---
+id: br-open-instinct-test-framework-jest
+trigger: "When writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Test Framework Jest
+
+## Action
+
+Use Jest as the testing framework
+
+## Evidence
+
+- Pattern in testing.framework
+- Seen in convex/domains/payment/tests/contract.test.ts
+
+---
+id: br-open-instinct-test-types-unit-integration
+trigger: "When deciding what tests to write"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Test Types Unit Integration
+
+## Action
+
+Write both unit and integration tests as appropriate
+
+## Evidence
+
+- Pattern in testing.testTypes
+- Seen in convex/domains/payment/tests/contract.test.ts
+
+---
+id: br-open-instinct-test-colocation
+trigger: "When adding tests for a module"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Test Colocation
+
+## Action
+
+Place test files in the same folder as the code they test (colocated)
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+- Seen in convex/domains/payment/tests/contract.test.ts
+
+---
+id: br-open-instinct-commit-format-conventional
+trigger: "When writing a commit message"
+confidence: 0.95
+domain: git
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Commit Format Conventional
+
+## Action
+
+Use conventional commit format: <type>(<scope>): <description>
+
+## Evidence
+
+- Seen in commit 'feat(payment): add contract with split math and correlationId helper'
+- Pattern in commits.prefixes
+
+---
+id: br-open-instinct-commit-type-prefixes
+trigger: "When choosing a commit type"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Commit Type Prefixes
+
+## Action
+
+Use one of: feat, fix, refactor, chore, docs
+
+## Evidence
+
+- Seen in commit 'fix(payment): inline applyPaidCharge for atomic paid->activate'
+- Pattern in commits.prefixes
+
+---
+id: br-open-instinct-commit-length-guideline
+trigger: "When writing a commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Commit Length Guideline
+
+## Action
+
+Keep the commit message under 80 characters (average is 68)
+
+## Evidence
+
+- Pattern in commits.averageLength
+- Seen in commit examples
+
+---
+id: br-open-instinct-add-or-modify-database-table
+trigger: "When introducing a new entity or changing existing data structure in the backend"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Add Or Modify Database Table
+
+## Action
+
+Edit or create table definitions, update relations, update schema and codegen, update contract/types, and write/update tests
+
+## Evidence
+
+- Workflow: add-or-modify-database-table
+- Seen in files: convex/domains/*/tables.ts, convex/domains/*/relations.ts, convex/functions/schema.ts, convex/functions/_generated/dataModel.ts, convex/domains/*/contract.ts, convex/domains/*/tests/*.test.ts
+
+---
+id: br-open-instinct-add-or-update-api-endpoint
+trigger: "When exposing new backend functionality to frontend or other services"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Add Or Update Api Endpoint
+
+## Action
+
+Create or update function in convex/functions, update supporting code, regenerate codegen, and update/add tests
+
+## Evidence
+
+- Workflow: add-or-update-api-endpoint
+- Seen in files: convex/functions/*/*.ts, convex/domains/*/*.ts, convex/functions/_generated/api.ts
+
+---
+id: br-open-instinct-feature-development-with-tdd
+trigger: "When adding a new business feature or domain logic"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Feature Development With Tdd
+
+## Action
+
+Define/update contract/types, implement logic, write/update tests, and update documentation/specs/plans if needed
+
+## Evidence
+
+- Workflow: feature-development-with-tdd
+- Seen in files: convex/domains/*/contract.ts, convex/domains/*/*.ts, convex/functions/*/*.ts, convex/domains/*/tests/*.test.ts, docs/superpowers/specs/*.md
+
+---
+id: br-open-instinct-refactor-consolidate-or-extract-helpers
+trigger: "When reducing code duplication or clarifying ownership of logic/constants"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Refactor Consolidate Or Extract Helpers
+
+## Action
+
+Extract helpers/types/constants to shared files, update call sites, delete old code, and run tests
+
+## Evidence
+
+- Workflow: refactor-consolidate-or-extract-helpers
+- Seen in files: convex/shared/*.ts, src/lib/*, convex/domains/*/*.ts
+
+---
+id: br-open-instinct-frontend-ui-migration-or-split
+trigger: "When improving frontend maintainability, fixing routing issues, or reducing file size/complexity"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Frontend Ui Migration Or Split
+
+## Action
+
+Split large components, move files to avoid routing conflicts, update imports/usages, and delete legacy files
+
+## Evidence
+
+- Workflow: frontend-ui-migration-or-split
+- Seen in files: src/app/(private)/**/*, src/components/pages/**/*
+
+---
+id: br-open-instinct-payment-provider-integration-or-pivot
+trigger: "When adding, changing, or standardizing a payment provider integration"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Payment Provider Integration Or Pivot
+
+## Action
+
+Add/update provider client, update domain contract/tables/rules, update/add webhook handler, update env var handling, update frontend flows, regenerate codegen, and update/add tests
+
+## Evidence
+
+- Workflow: payment-provider-integration-or-pivot
+- Seen in files: convex/functions/payment/*, convex/domains/payment/*, convex/lib/get-env.ts, convex/.env, src/app/(private)/checkout/*
+
+---
+id: br-open-instinct-notification-system-extension
+trigger: "When extending notification capabilities, adding new events, or improving delivery/retraction"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Notification System Extension
+
+## Action
+
+Update notification schema, orchestration logic, event types, triggers in domain logic, and tests
+
+## Evidence
+
+- Workflow: notification-system-extension
+- Seen in files: convex/domains/notification/tables.ts, convex/functions/notification/orchestrator.ts
+
+---
+id: br-open-instinct-codegen-verification-and-regeneration
+trigger: "When changing schema, API, or domain logic that impacts generated files, or as a pre-merge check"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: brunowilliang/br-open
+---
+
+# Br Open Instinct Codegen Verification And Regeneration
+
+## Action
+
+Run codegen, check for uncommitted changes, update/commit generated files, and optionally update CI workflow
+
+## Evidence
+
+- Workflow: codegen-verification-and-regeneration
+- Seen in files: convex/functions/_generated/*, convex/functions/generated/*, .github/workflows/ci.yml
+
