@@ -8,7 +8,12 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { useToast } from "heroui-native";
 import { convexClient } from "kitcn/auth/client";
-import { createAuthMutations } from "kitcn/react";
+import {
+  AUTH_SESSION_SYNC_GRACE_MS,
+  createAuthMutations,
+  decodeJwtExp,
+  useAuthStore,
+} from "kitcn/react";
 import { useState } from "react";
 import { Platform } from "react-native";
 
@@ -171,4 +176,52 @@ export function useSocialAuth(mode: SocialAuthMode) {
   }
 
   return { handleApplePress, handleGooglePress, isPending, reset };
+}
+
+// ---------------------------------------------------------------------------
+// Change password (logged in) — native better-auth endpoint.
+// ---------------------------------------------------------------------------
+
+type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+/**
+ * Troca a senha logado com `revokeOtherSessions: true`: o servidor revoga
+ * TODAS as sessões e devolve um token novo para a sessão atual — sem semear
+ * esse token no authStore do kitcn o usuário cairia da sessão (mesmo
+ * tratamento que `createAuthMutations` aplica nos sign-in).
+ */
+export function useChangePassword() {
+  const authStore = useAuthStore();
+  const [isChangePasswordPending, setIsChangePasswordPending] = useState(false);
+
+  async function changePassword(input: ChangePasswordInput) {
+    setIsChangePasswordPending(true);
+
+    try {
+      const { data, error } = await authClient.changePassword({
+        ...input,
+        revokeOtherSessions: true,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.token) {
+        authStore.set("token", data.token);
+        authStore.set("expiresAt", decodeJwtExp(data.token));
+        authStore.set(
+          "sessionSyncGraceUntil",
+          Date.now() + AUTH_SESSION_SYNC_GRACE_MS
+        );
+      }
+    } finally {
+      setIsChangePasswordPending(false);
+    }
+  }
+
+  return { changePassword, isChangePasswordPending };
 }

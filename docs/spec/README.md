@@ -37,5 +37,5 @@ de CLI, de máquina e de agente.
 |-----|-------|
 | [arquitetura.md](arquitetura.md) | Stack, estrutura de pastas, backend (kitcn/CRPC), frontend, nomenclatura, gates de verificação |
 | [leagues.md](leagues.md) | Liga inteira: criação, edição, quadras, regras, desafios, agenda, ranking, detalhe, overviews, mídia, descoberta |
-| [payments.md](payments.md) | Pagamentos: PIX, charges, webhooks Woovi, checkout, renovação, saque |
-| [organization.md](organization.md) | Organização, auth (Better Auth), ator ativo, padronização executada |
+| [auth.md](auth.md) | Auth/Conta: login (e-mail+senha, Apple, Google), senha, troca de e-mail OTP, contas vinculadas, e-mails Resend |
+| [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |

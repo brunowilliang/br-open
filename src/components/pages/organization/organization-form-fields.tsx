@@ -25,6 +25,7 @@ import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
+import { ExpandableSection } from "@/components/ui/expandable-section";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -289,47 +290,6 @@ export async function uploadPendingLogo(
   return uploaded.storageId;
 }
 
-// ---------------------------------------------------------------------------
-// Expandable card section — one Accordion card per section so they stay
-// independent (separate cards, not joined like a single Accordion).
-// ---------------------------------------------------------------------------
-
-type ExpandableSectionProps = {
-  children: React.ReactNode;
-  description?: string;
-  sectionKey: string;
-  title: string;
-};
-
-/**
- * A single accordion item card. Must be rendered inside an `<Accordion>` (the
- * organization form wraps all sections in one with selectionMode="single" so
- * only one card stays expanded at a time).
- */
-function ExpandableSection(props: ExpandableSectionProps) {
-  return (
-    <View>
-      <Accordion.Item value={props.sectionKey}>
-        <Accordion.Trigger>
-          <View className="flex-1">
-            <Text className="font-medium text-base">{props.title}</Text>
-            {props.description ? (
-              <Text color="muted" variant="description">
-                {props.description}
-              </Text>
-            ) : null}
-          </View>
-          <Accordion.Indicator />
-        </Accordion.Trigger>
-        <Accordion.Content className="gap-3">
-          {props.children}
-        </Accordion.Content>
-      </Accordion.Item>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Form fields component
 // ---------------------------------------------------------------------------
 

@@ -8,6 +8,7 @@ import { Resend } from "resend";
 import { authTranslations } from "../lib/auth-i18n";
 import { buildTrustedOrigins } from "../lib/auth-trusted-origins";
 import { getEnv } from "../lib/get-env";
+import { buildOtpEmail } from "../domains/auth/otp-email-rules";
 import { authTriggers } from "../domains/auth/triggers";
 import { ac, roles } from "../shared/auth-shared";
 import authConfig from "./auth.config";
@@ -125,6 +126,14 @@ export default defineAuth(() => {
         jwks: env.JWKS,
       }),
       emailOTP({
+        changeEmail: {
+          enabled: true,
+          // Single-OTP (decisão de produto, IBX-0007 QA round 8): a troca
+          // prova posse apenas do e-mail NOVO. O step do código do e-mail
+          // atual foi removido — nunca validava no client (qualquer código
+          // avançava) e só adicionava fricção.
+          verifyCurrentEmail: false,
+        },
         async sendVerificationOTP({ email, otp, type }) {
           if (!env.RESEND_EMAIL_API_KEY) {
             console.error(
@@ -135,14 +144,13 @@ export default defineAuth(() => {
 
           const resend = new Resend(env.RESEND_EMAIL_API_KEY);
 
+          const { html, subject } = buildOtpEmail(type, otp);
+
           const { data, error } = await resend.emails
             .send({
               from: env.RESEND_FROM_EMAIL,
-              html:
-                type === "email-verification"
-                  ? `<p>Use o código <strong>${otp}</strong> para verificar seu e-mail no BR Open.</p>`
-                  : `<p>Seu código: <strong>${otp}</strong></p>`,
-              subject: "Seu código — BR Open",
+              html,
+              subject,
               to: email,
             })
             .catch((err: unknown) => {
