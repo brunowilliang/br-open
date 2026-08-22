@@ -38,4 +38,5 @@ de CLI, de máquina e de agente.
 | [arquitetura.md](arquitetura.md) | Stack, estrutura de pastas, backend (kitcn/CRPC), frontend, nomenclatura, gates de verificação |
 | [leagues.md](leagues.md) | Liga inteira: criação, edição, quadras, regras, desafios, agenda, ranking, detalhe, overviews, mídia, descoberta |
 | [auth.md](auth.md) | Auth/Conta: login (e-mail+senha, Apple, Google), senha, troca de e-mail OTP, contas vinculadas, e-mails Resend |
+| [tournaments.md](tournaments.md) | Torneios (design aprovado, não implementado): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, checkout |
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |

@@ -144,5 +144,8 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Jobs de manutenção de liga** (expirar desafios sem resposta, penalidade de inatividade, reset mensal) — sem evidência de implementação; a penalidade de inatividade segue config-only.
 - **`platformFeePercent`** na tabela `league` sem superfície de UI (comentário no código: "no app surface exposes this yet", `convex/domains/league/contract.ts:189`).
 - **Notificações de desafio** existem como helper (`convex/functions/league/_challenges/notifications.ts`) mas integração de push nativo não foi verificada.
+- **Reembolso automático (estorno Woovi)** — fluxo não existe no app hoje;
+  nasce na feature de torneios e depois se aplica às ligas (BAC-0002;
+  design em `docs/spec/tournaments.md`).
 - **Pasta vazia** `src/components/pages/leagues/form/rules 2/` (cruft de refactor — sem arquivos).
 - Divergência cosmética: label "Somente jogadores" vs "Somente membros" (código manda).

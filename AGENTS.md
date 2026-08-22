@@ -46,7 +46,7 @@ commands, directory layout, CRPC builders, domain structure, auth (Better Auth
 wiring + auth field codegen), migrations and backend conventions — is owned by
 the Backend agent rule. Do not duplicate it here; read the source of truth:
 
-→ **`docs/rules/maestri/backend.md`**
+→ **`docs/agents/backend.md`**
 
 ## Style & linting (Ultracite / Biome)
 
@@ -94,4 +94,4 @@ Run the checks appropriate to the touched scope (but do NOT commit):
 - minimum: `git diff --check`
 - usually: `bun run check` (lint + typecheck)
 - when logic/contracts changed: `bun test`
-- when the change touches backend (schema/functions/contracts): follow `docs/rules/maestri/backend.md`
+- when the change touches backend (schema/functions/contracts): follow `docs/agents/backend.md`

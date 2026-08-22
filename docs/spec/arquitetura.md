@@ -79,7 +79,7 @@ Resultado da padronização executada em 22-07-2026, confirmado no código:
 | kitcn/CRPC em vez de SDK gerado | Camada tipada sobre Convex; builders por nível de auth |
 | HeroUI Native + Uniwind | UI nativa sem WebView, tema via Tailwind v4 |
 | docs/spec/ versionado (este diretório) | Troca de CLI/agente sem perda de contexto; histórico no git |
-| docs/rules/maestri/ local | Regras de papéis do workspace Maestri, não versionadas por design |
+| docs/agents/ local | Regras de papéis do workspace Maestri, não versionadas por design |
 
 ## Próximos passos conhecidos
 

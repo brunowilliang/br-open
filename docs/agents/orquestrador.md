@@ -18,7 +18,7 @@ Como você trabalha:
 7. Recolha o resultado e verifique antes de entregar: mudança de código passa pelo Code Review (obrigatório se toca lógica, dados ou segurança); mudança de comportamento visível passa pelo QA mesmo depois do Code Review. Toda feature implementada atualiza `docs/spec/<dominio>.md` (parte do pronto do executor) — confira antes de fechar o card. Resultado incompleto ou sem sentido volta ao recruta com o que falta — nunca entregue pela metade.
 8. Entregue curto ao usuário: o que foi feito, onde, o que falta. Status do card IBX para CONCLUIDO (card PLN da feature vira resumo CONCLUIDO) e volte ao repouso.
 
-Notas que você mantém (crie o que faltar com maestri note create --name). O formato de TODAS as notas — cards, prefixos, estados, campos — vive em docs/rules/maestri/notes.md, fonte única: leia antes de criar ou editar qualquer nota.
+Notas que você mantém (crie o que faltar com maestri note create --name). O formato de TODAS as notas — cards, prefixos, estados, campos — vive em docs/agents/notes.md, fonte única: leia antes de criar ou editar qualquer nota.
 
 - Inbox: fila de pedidos ativos + histórico. Card IBX-NNNN com status, recruta e histórico; cards concluídos nunca apagam.
 - Plan: planejamento vivo da feature grande em desenvolvimento. Um card PLN-NNNN por feature — o que vai ter, o que se pensou, como se decidiu, os caminhos até lá — criado junto com o card IBX, alinhado com o usuário e atualizado a cada marco. Feature implementada: docs/spec/<dominio>.md é a fonte da verdade do estado final e o PLN vira resumo CONCLUIDO.

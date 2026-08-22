@@ -1,6 +1,6 @@
 # Auth e Conta — Estado atual
 
-> Verificado em 16-08-2026 contra o código do repo (`convex/functions/auth.ts`, `convex/domains/auth/otp-email-rules.ts`, `src/lib/convex/auth-client.ts`, `src/app/(private)/settings/player/profile.tsx`, `src/components/pages/player/`, `src/app/(public)/`) e o pacote instalado `better-auth@1.6.24` — estado pós IBX-0007 (QA round 4).
+> Verificado em 22-08-2026 contra o código do repo (`convex/functions/auth.ts`, `convex/domains/auth/tables.ts`, `convex/domains/auth/otp-email-rules.ts`, `src/lib/convex/auth-client.ts`, `src/app/(private)/settings/player/profile.tsx`, `src/components/pages/player/`, `src/app/(public)/`) e o pacote instalado `better-auth@1.6.24` — estado pós IBX-0007 (QA round 4) + username (IBX-0010 slice 1).
 
 ## Visão geral
 
@@ -16,10 +16,22 @@ Toda a área de Segurança/Contas do perfil (`src/app/(private)/settings/player/
 - **Referências:** `convex/functions/auth.ts` (`defineAuth`), `src/lib/convex/auth-client.ts` (`createAuthClient` com `convexClient()`, `organizationClient`, `emailOTPClient`, `expoClient` + `createAuthMutations`), `convex/lib/auth-i18n.ts`, `convex/lib/auth-trusted-origins.ts`, `convex/functions/auth.config.ts`
 - **Decisões:**
   - `emailAndPassword: {enabled: true, requireEmailVerification: false}` — login por e-mail+senha sem barreira de verificação; verificação por OTP existe como fluxo opcional (branch `email-verification` do e-mail).
-  - Plugins: `i18n` (pt-BR default com `authTranslations`), `organization`, `expo`, `convex` (JWKS), `emailOTP`.
+  - Plugins: `i18n` (pt-BR default com `authTranslations`), `organization`, `expo`, `convex` (JWKS), `username`, `emailOTP`.
   - Sessão: `expiresIn` 30d, `updateAge` 15d. `freshAge` NÃO é sobrescrito → default do better-auth = **24h** (usado pelo check de sessão fresca, ver Contas Vinculadas). Mudar o freshAge global é não-escopo deliberado.
   - Rate limit global não configurado → default: `enabled ?? isProduction` (ligado em prod, desligado em dev) com regras especiais do core (`/sign-in*`, `/sign-up*`, `/change-password`, `/change-email`: 3 req/10s).
   - Env do servidor só via `convex/lib/get-env.ts` (`RESEND_EMAIL_API_KEY`, `RESEND_FROM_EMAIL`, `APPLE_*`, `GOOGLE_*`, `JWKS`, `BETTER_AUTH_URL`/`SITE_URL`).
+
+### Username (identificador único — plugin `username` do better-auth)
+- **Status:** implementado (backend + UI — 22-08-2026, IBX-0010 slice 1; pré-requisito do convite de dupla em torneios)
+- **Data:** 22-08-2026
+- **Referências:** `convex/functions/auth.ts` (`username()` no array de plugins), `src/lib/convex/auth-client.ts` (`usernameClient()`), `convex/domains/auth/tables.ts` (`user.username` `.unique()` + `user.displayUsername`), índice `user.user_username_unique` (criado no deploy de 22-08 em dev e prod); UI: `src/app/(private)/settings/player/profile.tsx` (campo no acordeão Detalhes, seed de `session.user.username`, `updateUser` no submit), `src/components/pages/player/profile-details-section.tsx` (Controller username), `src/lib/account/username-rules.ts` (regras puras + testes), `src/lib/account/use-username-availability.ts` (debounce + query), `src/lib/account/security-errors.ts` (mapa dos 4 erros)
+- **Decisões:**
+  - Defaults do plugin (verificados no source 1.6.24): 3–30 chars, validador `/^[a-zA-Z0-9_.]+$/`, normalização **lowercase** (o valor canônico é sempre minúsculo), unicidade garantida por índice unique do Convex + checagem do plugin (`USERNAME_IS_ALREADY_TAKEN`).
+  - A opção `displayUsername: false` do design NÃO existe nesta versão (1.6.24) — o plugin não tem essa option nem no server nem no client (`usernameClient()` é zero-args). O intent é atendido por **não expor** displayUsername na UI; a coluna `user.displayUsername` existe porque o databaseHook do plugin a escreve na primeira definição de username (guarda o case original), e fica como coluna técnica.
+  - **Login continua por e-mail** (campo existe, mas o sign-in por username do plugin não é usado — fora de escopo v1, ver tournaments.md).
+  - Sem procedure CRPC nova e sem migration: `updateUser({username})` e `isUsernameAvailable({username})` são endpoints nativos do authClient; campos opcionais novos em tabela existente são backward-compatible (regra do guia).
+  - Erros nativos (i18n pt-BR confirmado em produção): `USERNAME_TOO_SHORT`/`USERNAME_TOO_LONG`/`INVALID_USERNAME`/`USERNAME_IS_ALREADY_TAKEN`.
+- **Como funciona (UI):** campo "Username" no acordeão Detalhes do perfil (`variant="secondary"`, `autoCapitalize="none"`), opcional — vazio não chama `updateUser`. Validação client espelha os defaults do servidor (`validateUsernameFormat`: 3–30, `[a-zA-Z0-9_.]`, dica "Sempre em minúsculas"); disponibilidade ao vivo via `useUsernameAvailability` (debounce 500ms → `authClient.isUsernameAvailable`, React Query com key `["auth","username-available",<username>]`; só consulta com formato válido e valor ≠ username atual; estados idle/checking/available/taken — taken vira FieldError, available vira Description verde `@username está disponível.`). Submit: username já definido não pode ser removido (`resolveUsernameSubmitIssue` → FieldError); se mudou, `authClient.updateUser({username})` roda ANTES do upload do avatar e do `player.profile.upsert` (falha aborta o save com toast `getSecurityErrorMessage` + FieldError; sucesso sincroniza o form e `session.refetch()`). O servidor valida tamanho/charset, normaliza para lowercase, checa unicidade e grava `username` + `displayUsername` (nunca exposto na UI). O endpoint público `POST /api/auth/is-username-available` responde `{available}` (verificado vivo em dev `kindred-yak-142` e prod `amiable-albatross-845` em 22-08).
 
 ### Métodos de login
 - **Status:** implementado
