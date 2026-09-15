@@ -175,8 +175,8 @@
   estrutural dele além de formatação — a copia antiga tinha imports quebrados)
   e que morou em `src/components/flow/`: `index.tsx` + `flow-paths.ts` +
   `flow-identifiers.ts` + `flow-accessibility.ts` — diretório EXTINTO no
-  REBUILD PLN-0002 (cadáver em `.backup-pln0002-corpse/flow/`, untracked;
-  o canvas vivo é `src/components/pages/tournaments/bracket-canvas.tsx`).
+  REBUILD PLN-0002; o canvas vivo é
+  `src/components/pages/tournaments/bracket-canvas.tsx`.
   Suporte mapeado pro repo:
   ícones dos controles via HugeIcons (`plus-sign`, `minus-sign`,
   `maximize-02`, `lock`), botões com `PressableFeedback` (RUL-0003) no lugar
@@ -407,7 +407,7 @@
   streaming contínuo de pan/pinça e o visual do cotovelo (interior
   "soldado" aceito no estágio A) aguardam dedo real — preview OTA no
   device do usuário (estágio A do PLN-0002) antes do polimento (estágio
-  B). Cadáver do Flow em `.backup-pln0002-corpse/` (untracked).
+  B).
   Troca de tab de categoria: `key={tree.id}` REMONTA o canvas → fit roda
   de novo por categoria (não herda viewport da anterior).
   Interação: toque curto nos cards abre dialogs/swap; posição é estrutural
