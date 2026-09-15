@@ -7,8 +7,14 @@ import {
   Target02Icon,
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
+import { useMutation } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { useToast } from "heroui-native";
 import { View } from "react-native";
 
+import { useCRPC } from "@/lib/convex/crpc";
+import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { buildLeaguePaymentAlert } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
   buildPlayerInactiveAlertCard,
@@ -27,12 +33,21 @@ type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 export function PlayerOverview(props: { league: LeagueOverview }) {
   const { league } = props;
   const bucket$ = getLeagueDetailsBucket$(league.id);
+  const crpc = useCRPC();
+  const { toast } = useToast();
+  const membershipId = useValue(bucket$.viewer.membershipId);
   const viewerMembershipId = useValue(bucket$.derived.viewerMembershipId);
   const viewerPosition = useValue(bucket$.derived.viewerPosition);
   const rankingItems = useValue(bucket$.derived.rankingItems);
   const challenges = useValue(bucket$.data.challenges);
 
   const now = Date.now();
+  const paymentAlert = buildLeaguePaymentAlert({
+    dueAt: league.viewerMembershipDueAt,
+    now,
+    reminderDaysBefore: league.reminderDaysBefore,
+    status: league.viewerMembershipStatus,
+  });
   const inactiveAlert = buildPlayerInactiveAlertCard({
     challenges,
     now,
@@ -64,8 +79,52 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
     viewerMembershipId,
   });
 
+  const createCharge = useMutation(
+    crpc.payment.charge.createCharge.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível gerar o código de pagamento. Tente novamente."
+          ),
+          id: "create-charge-error",
+          label: "Falha ao gerar PIX",
+          variant: "danger",
+        });
+      },
+      onSuccess: (result) => {
+        router.navigate({
+          params: { chargeId: result.chargeId },
+          pathname: "/checkout/[chargeId]",
+        });
+      },
+    })
+  );
+
   return (
     <View className="gap-3">
+      {paymentAlert ? (
+        <WidgetAlert
+          action={
+            paymentAlert.actionLabel && membershipId
+              ? {
+                  isDisabled: createCharge.isPending,
+                  label: paymentAlert.actionLabel,
+                  onPress: () => {
+                    createCharge.mutate({
+                      sourceId: membershipId,
+                      sourceType: "league_membership",
+                    });
+                  },
+                }
+              : undefined
+          }
+          description={paymentAlert.description}
+          status={paymentAlert.severity}
+          title={paymentAlert.title}
+        />
+      ) : null}
+
       {inactiveAlert ? (
         <WidgetAlert
           description={

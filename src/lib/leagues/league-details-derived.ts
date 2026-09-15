@@ -1,6 +1,10 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
+import { formatShortDate } from "@/lib/format/date";
+import { DAY_MS } from "@/lib/format/relative-time";
 import { clampToNonNegativeInt } from "@/lib/numbers";
+import { getMembershipActionLabel } from "@/lib/leagues/presentation";
+import { formatBrazilDueDayLabel } from "@/lib/payments/membership-due";
 import {
   formatFinalSet,
   formatInactivity,
@@ -79,6 +83,12 @@ export type LeagueDetailsRulesView = {
   };
 };
 
+/**
+ * `payment_due` (membro em carência) SEGUE membro: o pagamento está atrasado,
+ * mas o acesso permanece até o fim da carência e o aviso de pagamento com o
+ * CTA de pagar vive no overview de membro (IBX-0039). `awaiting_payment`
+ * (entrada ainda não ativada) e `suspended` seguem como visitante.
+ */
 export function buildLeagueDetailsRole(input: {
   canUseOrganizerCapabilities: boolean;
   isLeagueOrganizer: boolean;
@@ -88,11 +98,78 @@ export function buildLeagueDetailsRole(input: {
     return "organizer";
   }
 
-  if (input.viewerMembershipStatus === "active") {
-    return "player";
+  return input.viewerMembershipStatus === "active" ||
+    input.viewerMembershipStatus === "payment_due"
+    ? "player"
+    : "guest";
+}
+
+export type LeaguePaymentAlert = {
+  /** Label do CTA dentro do alerta; null quando o CTA já vive na tela. */
+  actionLabel: null | string;
+  description: string;
+  severity: "danger" | "warning";
+  title: string;
+};
+
+/**
+ * Aviso de pagamento da inscrição na liga (IBX-0039). Cobre o membro em
+ * carência (`payment_due`), o suspenso (`suspended`, que segue como visitante
+ * e cujo CTA vive no rodapé) e o membro `active` dentro da janela de lembrete
+ * (`reminderDaysBefore` antes do vencimento).
+ *
+ * `dueAt` é o vencimento do ciclo atual (`viewerMembershipDueAt` no contrato —
+ * C5). Enquanto a liga não entregar o campo, chame com `null`: sem data não há
+ * como saber se o membro `active` está na janela, então o aviso de renovação
+ * simplesmente não aparece e os casos por status seguem valendo.
+ */
+export function buildLeaguePaymentAlert(input: {
+  dueAt?: null | number;
+  now: number;
+  reminderDaysBefore: number;
+  status: null | string | undefined;
+}): LeaguePaymentAlert | null {
+  if (input.status === "payment_due") {
+    return {
+      actionLabel: getMembershipActionLabel(input.status),
+      description:
+        "O pagamento da sua mensalidade venceu. Pague para não ser suspenso.",
+      severity: "warning",
+      title: "Pagamento atrasado",
+    };
   }
 
-  return "guest";
+  if (input.status === "suspended") {
+    return {
+      actionLabel: null,
+      description:
+        "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar.",
+      severity: "danger",
+      title: "Inscrição suspensa",
+    };
+  }
+
+  if (input.status !== "active" || !input.dueAt) {
+    return null;
+  }
+
+  const msUntilDue = input.dueAt - input.now;
+
+  if (msUntilDue <= 0 || msUntilDue > input.reminderDaysBefore * DAY_MS) {
+    return null;
+  }
+
+  return {
+    actionLabel: "Renovar mensalidade",
+    description: `Renove até ${formatShortDate(
+      new Date(input.dueAt)
+    )} para continuar jogando sem interrupção.`,
+    severity: "warning",
+    title: `Mensalidade vence ${formatBrazilDueDayLabel(
+      input.dueAt,
+      input.now
+    )}`,
+  };
 }
 
 export function buildLeagueDetailsAccess(input: {
@@ -160,18 +237,16 @@ export function buildLeagueDetailsCanRequestJoin(input: {
 }
 
 /**
- * When the viewer is `awaiting_payment` (initial charge), `payment_due`
- * (grace period — can still play but needs to pay), or `suspended`
- * (renewal overdue), the join button becomes a shortcut to the checkout
- * screen. This is independent of `canRequestJoin` which gates the *initial*
- * join request.
+ * Quando o rodapé da liga vira atalho direto para o checkout em vez de
+ * solicitar entrada. Vale para quem ainda cai no rodapé (`awaiting_payment` e
+ * `suspended`). Desde o IBX-0039 o `payment_due` é membro e o CTA dele vive no
+ * aviso de pagamento do overview, não no rodapé.
  */
 export function buildLeagueDetailsCanResumeCheckout(input: {
   viewerMembershipStatus: null | string | undefined;
 }) {
   return (
     input.viewerMembershipStatus === "awaiting_payment" ||
-    input.viewerMembershipStatus === "payment_due" ||
     input.viewerMembershipStatus === "suspended"
   );
 }

@@ -150,7 +150,13 @@ function createLeagueDetailsBucket(leagueId: string) {
         }
 
         if (bucket$.viewer.role.get() !== "organizer") {
-          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
+          bucket$.viewer.role.set(
+            buildLeagueDetailsRole({
+              canUseOrganizerCapabilities: false,
+              isLeagueOrganizer: false,
+              viewerMembershipStatus: nextStatus,
+            })
+          );
         }
       },
       setViewerMembershipStatus: (
@@ -170,7 +176,13 @@ function createLeagueDetailsBucket(leagueId: string) {
         }
 
         if (bucket$.viewer.role.get() !== "organizer") {
-          bucket$.viewer.role.set(nextStatus === "active" ? "player" : "guest");
+          bucket$.viewer.role.set(
+            buildLeagueDetailsRole({
+              canUseOrganizerCapabilities: false,
+              isLeagueOrganizer: false,
+              viewerMembershipStatus: nextStatus,
+            })
+          );
         }
       },
     },

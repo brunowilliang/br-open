@@ -251,6 +251,35 @@ describe("leagueDetailsStore$", () => {
     expect(bucket$.derived.joinActionLabel()).toBe("Solicitar entrada");
   });
 
+  it("keeps a member in grace period on the member surfaces", () => {
+    const bucket$ = getLeagueDetailsBucket$("league-1");
+
+    bucket$.actions.hydrateOverview({
+      canJoinLeagues: true,
+      canUseOrganizerCapabilities: false,
+      league: makeLeagueOverview(),
+      viewerActor: {
+        id: "player-1",
+        kind: "player",
+      },
+    });
+
+    bucket$.actions.setViewerMembership({
+      membershipId: "membership-1",
+      status: "payment_due",
+    });
+
+    expect(String(bucket$.viewer.role)).toBe("player");
+    expect(bucket$.derived.canOpenChallenges()).toBe(true);
+    expect(bucket$.derived.showJoinFooter()).toBe(false);
+
+    bucket$.actions.setViewerMembershipStatus("suspended");
+
+    expect(String(bucket$.viewer.role)).toBe("guest");
+    expect(bucket$.derived.showJoinFooter()).toBe(true);
+    expect(bucket$.derived.canResumeCheckout()).toBe(true);
+  });
+
   it("marks bucket resets so mounted league layouts can rehydrate cached data", () => {
     const bucket$ = getLeagueDetailsBucket$("league-1");
 
