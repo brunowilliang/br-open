@@ -10,6 +10,8 @@ import { definePaymentRelations } from "../domains/payment/relations";
 import * as paymentTables from "../domains/payment/tables";
 import { definePlayerRelations } from "../domains/player/relations";
 import * as playerTables from "../domains/player/tables";
+import { defineTournamentRelations } from "../domains/tournament/relations";
+import * as tournamentTables from "../domains/tournament/tables";
 
 export const tables = {
   ...authTables,
@@ -17,6 +19,7 @@ export const tables = {
   ...notificationTables,
   ...paymentTables,
   ...playerTables,
+  ...tournamentTables,
 };
 
 export default defineSchema(tables).relations((r) => ({
@@ -25,4 +28,5 @@ export default defineSchema(tables).relations((r) => ({
   ...defineNotificationRelations(r),
   ...definePaymentRelations(r),
   ...definePlayerRelations(r),
+  ...defineTournamentRelations(r),
 }));
