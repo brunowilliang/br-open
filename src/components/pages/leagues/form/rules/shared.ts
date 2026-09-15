@@ -3,7 +3,6 @@ import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema"
 import type { InfoContent } from "@/components/ui/info-dialog";
 
 type RuleConfig = LeagueScreenValues["ruleConfig"];
-type MatchConfig = RuleConfig["matchConfig"];
 
 type RuleSectionProps = {
   isDisabled?: boolean;
@@ -19,17 +18,6 @@ const validationModeOptions = [
     value: "manual" as const,
   },
 ] as const;
-
-const scoringModeOptions = [
-  {
-    label: "Com vantagem",
-    value: "advantage" as const,
-  },
-  {
-    label: "Sem vantagem",
-    value: "no_advantage" as const,
-  },
-];
 
 const CHALLENGE_RULE_INFO: Record<string, InfoContent> = {
   maxActiveChallengesPerPlayer: {
@@ -55,30 +43,10 @@ const CHALLENGE_RULE_INFO: Record<string, InfoContent> = {
 };
 
 const RULE_INFO = {
-  bestOfSets: {
-    description:
-      "Define o formato da partida. O vencedor é quem atingir a maioria dos sets. Melhor de 3 exige vencer 2 sets; Melhor de 5 exige vencer 3.",
-    title: "Melhor de quantos sets?",
-  },
   challengeValidation: {
     description:
       "Define quem precisa confirmar o desafio para ele valer. Em Automático, basta os dois jogadores combinarem. Em modo manual, o organizador da liga precisa aprovar antes de o desafio ser válido.",
     title: "Validação do desafio",
-  },
-  defaultDurationMinutes: {
-    description:
-      "Tempo sugerido automaticamente quando uma partida é marcada na agenda. Serve apenas como referência inicial e pode ser ajustado caso a caso.",
-    title: "Duração padrão da partida",
-  },
-  finalSetMode: {
-    description:
-      "Define como o último set é disputado. Pode seguir as mesmas regras dos demais, ter regras próprias, ou ser decidido por um super tie-break.",
-    title: "Formato do último set",
-  },
-  gamesPerSet: {
-    description:
-      "Quantidade de games necessários para vencer cada set. O padrão do tênis é 6, com diferença mínima de 2.",
-    title: "Quantos games por set?",
   },
   inactivityPenalty: {
     description:
@@ -97,23 +65,8 @@ const RULE_INFO = {
   },
   resultValidation: {
     description:
-      "Define quem precisa confirmar o resultado para ele valer. Em Automático, basta os dois jogadores marcarem o placar. Em modo manual, o organizador precisa aprovar antes de atualizar o ranking.",
+      "Define quem precisa confirmar o resultado para ele valer. Em Automático, basta os dois jogadores marcarem o resultado. Em modo manual, o organizador precisa aprovar antes de atualizar o ranking.",
     title: "Validação do resultado",
-  },
-  scoringMode: {
-    description:
-      "Define a regra de pontuação dentro de cada game. Vantagem é a regra tradicional do tênis. Sem vantagem (no-ad) acelera: no 40-40 o próximo ponto decide o game.",
-    title: "Pontuação dos games",
-  },
-  setMustWinByTwoGames: {
-    description:
-      "Exige diferença mínima de 2 games para fechar o set. No 5-5, por exemplo, o set continua até alguém abrir 2 games ou entrar o tie-break.",
-    title: "Vencer o set por 2 games",
-  },
-  tieBreak: {
-    description:
-      "Define se os sets usam tie-break para desempate. Ao ativar, configure em qual placar o tie-break entra, quantos pontos e se exige diferença de 2.",
-    title: "Tie-break",
   },
   walkoverBehavior: {
     description:
@@ -131,7 +84,6 @@ export {
   CHALLENGE_RULE_INFO,
   RULE_INFO,
   getSelectedOption,
-  scoringModeOptions,
   validationModeOptions,
 };
-export type { MatchConfig, RuleConfig, RuleSectionProps };
+export type { RuleConfig, RuleSectionProps };

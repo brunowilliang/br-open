@@ -5,10 +5,9 @@ import {
   Select,
   TextField,
 } from "heroui-native";
-import { NumberStepper } from "heroui-native-pro";
+import { NumberStepper, Segment } from "heroui-native-pro";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 
-import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import {
   RuleCard,
   RuleExpandableContent,
@@ -17,14 +16,17 @@ import {
 } from "@/components/pages/leagues/rule-card";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
-
 import {
-  RULE_INFO,
+  buildMatchConfigPaths,
+  resolveMatchConfigFieldError,
+} from "./use-match-config-form";
+import {
+  MATCH_RULE_INFO,
   getSelectedOption,
   scoringModeOptions,
   type MatchConfig,
   type RuleSectionProps,
-} from "../shared";
+} from "./shared";
 
 const finalSetModeOptions = [
   {
@@ -41,21 +43,33 @@ const finalSetModeOptions = [
   },
 ];
 
-export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
-  const { control, setValue } = useFormContext<LeagueScreenValues>();
+type FinalSetWatchValues = [
+  MatchConfig["finalSetMode"],
+  MatchConfig["finalSetGamesPerSet"],
+  MatchConfig["finalSetScoringMode"],
+  MatchConfig["finalSetMustWinByTwoGames"],
+  MatchConfig["finalSetHasTieBreak"],
+  MatchConfig["finalSetTieBreakPoints"],
+  MatchConfig["finalSetTieBreakMustWinByTwo"],
+  MatchConfig["finalSetSuperTieBreakPoints"],
+  MatchConfig["finalSetSuperTieBreakMustWinByTwo"],
+];
+
+export const FinalSetSection = ({ isDisabled, prefix }: RuleSectionProps) => {
+  const paths = buildMatchConfigPaths(prefix);
+  const { control, setValue } = useFormContext();
   const { errors } = useFormState({
     control,
     name: [
-      "ruleConfig.matchConfig.finalSetMode",
-      "ruleConfig.matchConfig.finalSetGamesPerSet",
-      "ruleConfig.matchConfig.finalSetScoringMode",
-      "ruleConfig.matchConfig.finalSetMustWinByTwoGames",
-      "ruleConfig.matchConfig.finalSetHasTieBreak",
-      "ruleConfig.matchConfig.finalSetTieBreakAtGamesAll",
-      "ruleConfig.matchConfig.finalSetTieBreakPoints",
-      "ruleConfig.matchConfig.finalSetTieBreakMustWinByTwo",
-      "ruleConfig.matchConfig.finalSetSuperTieBreakPoints",
-      "ruleConfig.matchConfig.finalSetSuperTieBreakMustWinByTwo",
+      paths.finalSetMode,
+      paths.finalSetGamesPerSet,
+      paths.finalSetScoringMode,
+      paths.finalSetMustWinByTwoGames,
+      paths.finalSetHasTieBreak,
+      paths.finalSetTieBreakPoints,
+      paths.finalSetTieBreakMustWinByTwo,
+      paths.finalSetSuperTieBreakPoints,
+      paths.finalSetSuperTieBreakMustWinByTwo,
     ],
   });
   const [
@@ -64,7 +78,6 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
     finalSetScoringMode,
     finalSetMustWinByTwoGames,
     finalSetHasTieBreak,
-    finalSetTieBreakAtGamesAll,
     finalSetTieBreakPoints,
     finalSetTieBreakMustWinByTwo,
     finalSetSuperTieBreakPoints,
@@ -72,23 +85,24 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
   ] = useWatch({
     control,
     name: [
-      "ruleConfig.matchConfig.finalSetMode",
-      "ruleConfig.matchConfig.finalSetGamesPerSet",
-      "ruleConfig.matchConfig.finalSetScoringMode",
-      "ruleConfig.matchConfig.finalSetMustWinByTwoGames",
-      "ruleConfig.matchConfig.finalSetHasTieBreak",
-      "ruleConfig.matchConfig.finalSetTieBreakAtGamesAll",
-      "ruleConfig.matchConfig.finalSetTieBreakPoints",
-      "ruleConfig.matchConfig.finalSetTieBreakMustWinByTwo",
-      "ruleConfig.matchConfig.finalSetSuperTieBreakPoints",
-      "ruleConfig.matchConfig.finalSetSuperTieBreakMustWinByTwo",
+      paths.finalSetMode,
+      paths.finalSetGamesPerSet,
+      paths.finalSetScoringMode,
+      paths.finalSetMustWinByTwoGames,
+      paths.finalSetHasTieBreak,
+      paths.finalSetTieBreakPoints,
+      paths.finalSetTieBreakMustWinByTwo,
+      paths.finalSetSuperTieBreakPoints,
+      paths.finalSetSuperTieBreakMustWinByTwo,
     ],
-  });
+  }) as FinalSetWatchValues;
 
   return (
-    <RuleCard info={RULE_INFO.finalSetMode}>
+    <RuleCard info={MATCH_RULE_INFO.finalSetMode}>
       <TextField
-        isInvalid={Boolean(errors.ruleConfig?.matchConfig?.finalSetMode)}
+        isInvalid={Boolean(
+          resolveMatchConfigFieldError(errors, paths.finalSetMode)
+        )}
       >
         <Label>Formato do último set</Label>
         <Description className="-mt-1.5 mb-1">
@@ -100,7 +114,7 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
           onValueChange={(nextValue) => {
             if (nextValue && !Array.isArray(nextValue)) {
               setValue(
-                "ruleConfig.matchConfig.finalSetMode",
+                paths.finalSetMode,
                 nextValue.value as MatchConfig["finalSetMode"],
                 fieldUpdateOptions
               );
@@ -131,7 +145,8 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
           </Select.Portal>
         </Select>
         <FieldError>
-          {errors.ruleConfig?.matchConfig?.finalSetMode?.message ?? ""}
+          {resolveMatchConfigFieldError(errors, paths.finalSetMode)?.message ??
+            ""}
         </FieldError>
       </TextField>
 
@@ -139,7 +154,7 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
         <RuleExpandableContent>
           <TextField
             isInvalid={Boolean(
-              errors.ruleConfig?.matchConfig?.finalSetGamesPerSet
+              resolveMatchConfigFieldError(errors, paths.finalSetGamesPerSet)
             )}
             isRequired
           >
@@ -155,7 +170,7 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
               minValue={1}
               onValueChange={(nextValue) => {
                 setValue(
-                  "ruleConfig.matchConfig.finalSetGamesPerSet",
+                  paths.finalSetGamesPerSet,
                   nextValue,
                   fieldUpdateOptions
                 );
@@ -168,14 +183,14 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
               <NumberStepper.IncrementButton />
             </NumberStepper>
             <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetGamesPerSet?.message ??
-                ""}
+              {resolveMatchConfigFieldError(errors, paths.finalSetGamesPerSet)
+                ?.message ?? ""}
             </FieldError>
           </TextField>
 
           <TextField
             isInvalid={Boolean(
-              errors.ruleConfig?.matchConfig?.finalSetScoringMode
+              resolveMatchConfigFieldError(errors, paths.finalSetScoringMode)
             )}
           >
             <Label>Pontuação do último set</Label>
@@ -187,7 +202,7 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
               onValueChange={(nextValue) => {
                 if (nextValue && !Array.isArray(nextValue)) {
                   setValue(
-                    "ruleConfig.matchConfig.finalSetScoringMode",
+                    paths.finalSetScoringMode,
                     nextValue.value as MatchConfig["finalSetScoringMode"],
                     fieldUpdateOptions
                   );
@@ -218,8 +233,8 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
               </Select.Portal>
             </Select>
             <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetScoringMode?.message ??
-                ""}
+              {resolveMatchConfigFieldError(errors, paths.finalSetScoringMode)
+                ?.message ?? ""}
             </FieldError>
           </TextField>
 
@@ -229,15 +244,17 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             label="Vencer o último set por 2 games"
             onToggle={(nextEnabled) => {
               setValue(
-                "ruleConfig.matchConfig.finalSetMustWinByTwoGames",
+                paths.finalSetMustWinByTwoGames,
                 nextEnabled,
                 fieldUpdateOptions
               );
             }}
           />
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.finalSetMustWinByTwoGames
-              ?.message ?? ""}
+            {resolveMatchConfigFieldError(
+              errors,
+              paths.finalSetMustWinByTwoGames
+            )?.message ?? ""}
           </FieldError>
 
           <RuleToggleRow
@@ -246,87 +263,60 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             label="Tie-break no último set"
             onToggle={(nextEnabled) => {
               setValue(
-                "ruleConfig.matchConfig.finalSetHasTieBreak",
+                paths.finalSetHasTieBreak,
                 nextEnabled,
                 fieldUpdateOptions
               );
             }}
           />
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.finalSetHasTieBreak?.message ?? ""}
+            {resolveMatchConfigFieldError(errors, paths.finalSetHasTieBreak)
+              ?.message ?? ""}
           </FieldError>
 
           {finalSetHasTieBreak ? (
             <RuleExpandableContent>
               <TextField
                 isInvalid={Boolean(
-                  errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
-                )}
-                isRequired
-              >
-                <Label>Em qual placar entra o tie-break final?</Label>
-                <Description className="-mt-1.5 mb-1">
-                  Exemplo: informe 6 para tie-break final em 6x6.
-                </Description>
-                <NumberStepper
-                  className="self-start"
-                  defaultValue={finalSetTieBreakAtGamesAll}
-                  isDisabled={isDisabled}
-                  maxValue={12}
-                  minValue={1}
-                  onValueChange={(nextValue) => {
-                    setValue(
-                      "ruleConfig.matchConfig.finalSetTieBreakAtGamesAll",
-                      nextValue,
-                      fieldUpdateOptions
-                    );
-                  }}
-                  step={1}
-                  value={finalSetTieBreakAtGamesAll}
-                >
-                  <NumberStepper.DecrementButton />
-                  <NumberStepper.Value />
-                  <NumberStepper.IncrementButton />
-                </NumberStepper>
-                <FieldError>
-                  {errors.ruleConfig?.matchConfig?.finalSetTieBreakAtGamesAll
-                    ?.message ?? ""}
-                </FieldError>
-              </TextField>
-
-              <TextField
-                isInvalid={Boolean(
-                  errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
+                  resolveMatchConfigFieldError(
+                    errors,
+                    paths.finalSetTieBreakPoints
+                  )
                 )}
                 isRequired
               >
                 <Label>Quantos pontos no tie-break final?</Label>
                 <Description className="-mt-1.5 mb-1">
-                  Pontuação padrão do tie-break no último set.
+                  Quantos pontos decidem o tie-break do último set.
                 </Description>
-                <NumberStepper
-                  className="self-start"
-                  defaultValue={finalSetTieBreakPoints}
+                <Segment
                   isDisabled={isDisabled}
-                  maxValue={30}
-                  minValue={1}
                   onValueChange={(nextValue) => {
                     setValue(
-                      "ruleConfig.matchConfig.finalSetTieBreakPoints",
-                      nextValue,
+                      paths.finalSetTieBreakPoints,
+                      Number(nextValue),
                       fieldUpdateOptions
                     );
                   }}
-                  step={1}
-                  value={finalSetTieBreakPoints}
+                  value={String(finalSetTieBreakPoints)}
                 >
-                  <NumberStepper.DecrementButton />
-                  <NumberStepper.Value />
-                  <NumberStepper.IncrementButton />
-                </NumberStepper>
+                  <Segment.Group>
+                    <Segment.ScrollView>
+                      <Segment.Indicator />
+                      <Segment.Item value="7">
+                        <Segment.Label>7 pontos</Segment.Label>
+                      </Segment.Item>
+                      <Segment.Item value="10">
+                        <Segment.Label>10 pontos</Segment.Label>
+                      </Segment.Item>
+                    </Segment.ScrollView>
+                  </Segment.Group>
+                </Segment>
                 <FieldError>
-                  {errors.ruleConfig?.matchConfig?.finalSetTieBreakPoints
-                    ?.message ?? ""}
+                  {resolveMatchConfigFieldError(
+                    errors,
+                    paths.finalSetTieBreakPoints
+                  )?.message ?? ""}
                 </FieldError>
               </TextField>
 
@@ -336,15 +326,17 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
                 label="Vencer o tie-break final por 2 pontos"
                 onToggle={(nextEnabled) => {
                   setValue(
-                    "ruleConfig.matchConfig.finalSetTieBreakMustWinByTwo",
+                    paths.finalSetTieBreakMustWinByTwo,
                     nextEnabled,
                     fieldUpdateOptions
                   );
                 }}
               />
               <FieldError>
-                {errors.ruleConfig?.matchConfig?.finalSetTieBreakMustWinByTwo
-                  ?.message ?? ""}
+                {resolveMatchConfigFieldError(
+                  errors,
+                  paths.finalSetTieBreakMustWinByTwo
+                )?.message ?? ""}
               </FieldError>
             </RuleExpandableContent>
           ) : null}
@@ -355,37 +347,46 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
         <RuleExpandableContent>
           <TextField
             isInvalid={Boolean(
-              errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
+              resolveMatchConfigFieldError(
+                errors,
+                paths.finalSetSuperTieBreakPoints
+              )
             )}
             isRequired
           >
             <Label>Quantos pontos no super tie-break?</Label>
             <Description className="-mt-1.5 mb-1">
-              Pontuação padrão do super tie-break no lugar do último set.
+              Pontuação que decide o último set em super tie-break. 10 é o
+              padrão oficial.
             </Description>
-            <NumberStepper
-              className="self-start"
-              defaultValue={finalSetSuperTieBreakPoints}
+            <Segment
               isDisabled={isDisabled}
-              maxValue={30}
-              minValue={1}
               onValueChange={(nextValue) => {
                 setValue(
-                  "ruleConfig.matchConfig.finalSetSuperTieBreakPoints",
-                  nextValue,
+                  paths.finalSetSuperTieBreakPoints,
+                  Number(nextValue),
                   fieldUpdateOptions
                 );
               }}
-              step={1}
-              value={finalSetSuperTieBreakPoints}
+              value={String(finalSetSuperTieBreakPoints)}
             >
-              <NumberStepper.DecrementButton />
-              <NumberStepper.Value />
-              <NumberStepper.IncrementButton />
-            </NumberStepper>
+              <Segment.Group>
+                <Segment.ScrollView>
+                  <Segment.Indicator />
+                  <Segment.Item value="7">
+                    <Segment.Label>7 pontos</Segment.Label>
+                  </Segment.Item>
+                  <Segment.Item value="10">
+                    <Segment.Label>10 pontos</Segment.Label>
+                  </Segment.Item>
+                </Segment.ScrollView>
+              </Segment.Group>
+            </Segment>
             <FieldError>
-              {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakPoints
-                ?.message ?? ""}
+              {resolveMatchConfigFieldError(
+                errors,
+                paths.finalSetSuperTieBreakPoints
+              )?.message ?? ""}
             </FieldError>
           </TextField>
 
@@ -395,15 +396,17 @@ export const FinalSetSection = ({ isDisabled }: RuleSectionProps) => {
             label="Vencer o super tie-break por 2 pontos"
             onToggle={(nextEnabled) => {
               setValue(
-                "ruleConfig.matchConfig.finalSetSuperTieBreakMustWinByTwo",
+                paths.finalSetSuperTieBreakMustWinByTwo,
                 nextEnabled,
                 fieldUpdateOptions
               );
             }}
           />
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.finalSetSuperTieBreakMustWinByTwo
-              ?.message ?? ""}
+            {resolveMatchConfigFieldError(
+              errors,
+              paths.finalSetSuperTieBreakMustWinByTwo
+            )?.message ?? ""}
           </FieldError>
         </RuleExpandableContent>
       ) : null}

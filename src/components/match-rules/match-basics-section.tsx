@@ -2,30 +2,44 @@ import { Description, FieldError, Label, TextField } from "heroui-native";
 import { NumberStepper, Segment } from "heroui-native-pro";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 
-import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import {
   RuleCard,
   ToggleableRuleCard,
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
-
 import {
-  RULE_INFO,
+  buildMatchConfigPaths,
+  resolveMatchConfigFieldError,
+} from "./use-match-config-form";
+import {
+  MATCH_RULE_INFO,
   scoringModeOptions,
   type MatchConfig,
   type RuleSectionProps,
-} from "../shared";
+} from "./shared";
 
-export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
-  const { control, setValue } = useFormContext<LeagueScreenValues>();
+type MatchBasicsWatchValues = [
+  MatchConfig["bestOfSets"],
+  MatchConfig["gamesPerSet"],
+  MatchConfig["defaultDurationMinutes"],
+  MatchConfig["scoringMode"],
+  MatchConfig["setMustWinByTwoGames"],
+];
+
+export const MatchBasicsSection = ({
+  isDisabled,
+  prefix,
+}: RuleSectionProps) => {
+  const paths = buildMatchConfigPaths(prefix);
+  const { control, setValue } = useFormContext();
   const { errors } = useFormState({
     control,
     name: [
-      "ruleConfig.matchConfig.bestOfSets",
-      "ruleConfig.matchConfig.gamesPerSet",
-      "ruleConfig.matchConfig.defaultDurationMinutes",
-      "ruleConfig.matchConfig.scoringMode",
-      "ruleConfig.matchConfig.setMustWinByTwoGames",
+      paths.bestOfSets,
+      paths.gamesPerSet,
+      paths.defaultDurationMinutes,
+      paths.scoringMode,
+      paths.setMustWinByTwoGames,
     ],
   });
   const [
@@ -37,19 +51,21 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
   ] = useWatch({
     control,
     name: [
-      "ruleConfig.matchConfig.bestOfSets",
-      "ruleConfig.matchConfig.gamesPerSet",
-      "ruleConfig.matchConfig.defaultDurationMinutes",
-      "ruleConfig.matchConfig.scoringMode",
-      "ruleConfig.matchConfig.setMustWinByTwoGames",
+      paths.bestOfSets,
+      paths.gamesPerSet,
+      paths.defaultDurationMinutes,
+      paths.scoringMode,
+      paths.setMustWinByTwoGames,
     ],
-  });
+  }) as MatchBasicsWatchValues;
 
   return (
     <>
-      <RuleCard info={RULE_INFO.bestOfSets}>
+      <RuleCard info={MATCH_RULE_INFO.bestOfSets}>
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.matchConfig?.bestOfSets)}
+          isInvalid={Boolean(
+            resolveMatchConfigFieldError(errors, paths.bestOfSets)
+          )}
           isRequired
         >
           <Label>Melhor de quantos sets?</Label>
@@ -59,11 +75,7 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
           <Segment
             isDisabled={isDisabled}
             onValueChange={(nextValue) => {
-              setValue(
-                "ruleConfig.matchConfig.bestOfSets",
-                Number(nextValue),
-                fieldUpdateOptions
-              );
+              setValue(paths.bestOfSets, Number(nextValue), fieldUpdateOptions);
             }}
             value={String(bestOfSets)}
           >
@@ -83,14 +95,17 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             </Segment.Group>
           </Segment>
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.bestOfSets?.message ?? ""}
+            {resolveMatchConfigFieldError(errors, paths.bestOfSets)?.message ??
+              ""}
           </FieldError>
         </TextField>
       </RuleCard>
 
-      <RuleCard info={RULE_INFO.gamesPerSet}>
+      <RuleCard info={MATCH_RULE_INFO.gamesPerSet}>
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.matchConfig?.gamesPerSet)}
+          isInvalid={Boolean(
+            resolveMatchConfigFieldError(errors, paths.gamesPerSet)
+          )}
           isRequired
         >
           <Label>Quantos games por set?</Label>
@@ -104,16 +119,7 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             maxValue={12}
             minValue={1}
             onValueChange={(nextValue) => {
-              setValue(
-                "ruleConfig.matchConfig.gamesPerSet",
-                nextValue,
-                fieldUpdateOptions
-              );
-              setValue(
-                "ruleConfig.matchConfig.tieBreakAtGamesAll",
-                nextValue,
-                fieldUpdateOptions
-              );
+              setValue(paths.gamesPerSet, nextValue, fieldUpdateOptions);
             }}
             step={1}
             value={gamesPerSet}
@@ -123,15 +129,16 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             <NumberStepper.IncrementButton />
           </NumberStepper>
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.gamesPerSet?.message ?? ""}
+            {resolveMatchConfigFieldError(errors, paths.gamesPerSet)?.message ??
+              ""}
           </FieldError>
         </TextField>
       </RuleCard>
 
-      <RuleCard info={RULE_INFO.defaultDurationMinutes}>
+      <RuleCard info={MATCH_RULE_INFO.defaultDurationMinutes}>
         <TextField
           isInvalid={Boolean(
-            errors.ruleConfig?.matchConfig?.defaultDurationMinutes
+            resolveMatchConfigFieldError(errors, paths.defaultDurationMinutes)
           )}
           isRequired
         >
@@ -147,7 +154,7 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             minValue={15}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.matchConfig.defaultDurationMinutes",
+                paths.defaultDurationMinutes,
                 nextValue,
                 fieldUpdateOptions
               );
@@ -160,15 +167,17 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             <NumberStepper.IncrementButton />
           </NumberStepper>
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.defaultDurationMinutes?.message ??
-              ""}
+            {resolveMatchConfigFieldError(errors, paths.defaultDurationMinutes)
+              ?.message ?? ""}
           </FieldError>
         </TextField>
       </RuleCard>
 
-      <RuleCard info={RULE_INFO.scoringMode}>
+      <RuleCard info={MATCH_RULE_INFO.scoringMode}>
         <TextField
-          isInvalid={Boolean(errors.ruleConfig?.matchConfig?.scoringMode)}
+          isInvalid={Boolean(
+            resolveMatchConfigFieldError(errors, paths.scoringMode)
+          )}
         >
           <Label>Pontuação dos games</Label>
           <Description className="-mt-1.5 mb-1">
@@ -178,7 +187,7 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             isDisabled={isDisabled}
             onValueChange={(nextValue) => {
               setValue(
-                "ruleConfig.matchConfig.scoringMode",
+                paths.scoringMode,
                 nextValue as MatchConfig["scoringMode"],
                 fieldUpdateOptions
               );
@@ -197,7 +206,8 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
             </Segment.Group>
           </Segment>
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.scoringMode?.message ?? ""}
+            {resolveMatchConfigFieldError(errors, paths.scoringMode)?.message ??
+              ""}
           </FieldError>
         </TextField>
       </RuleCard>
@@ -207,19 +217,15 @@ export const MatchBasicsSection = ({ isDisabled }: RuleSectionProps) => {
         enabled={setMustWinByTwoGames}
         error={
           <FieldError>
-            {errors.ruleConfig?.matchConfig?.setMustWinByTwoGames?.message ??
-              ""}
+            {resolveMatchConfigFieldError(errors, paths.setMustWinByTwoGames)
+              ?.message ?? ""}
           </FieldError>
         }
-        info={RULE_INFO.setMustWinByTwoGames}
+        info={MATCH_RULE_INFO.setMustWinByTwoGames}
         isDisabled={isDisabled}
         label="Vencer o set por 2 games"
         onToggle={(nextEnabled) => {
-          setValue(
-            "ruleConfig.matchConfig.setMustWinByTwoGames",
-            nextEnabled,
-            fieldUpdateOptions
-          );
+          setValue(paths.setMustWinByTwoGames, nextEnabled, fieldUpdateOptions);
         }}
       />
     </>
