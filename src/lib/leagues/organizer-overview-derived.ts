@@ -94,8 +94,8 @@ const KIND_LABEL: Record<
     one: "resultado para aprovar",
   },
   result_correction: {
-    many: "placares para corrigir",
-    one: "placar para corrigir",
+    many: "resultados para corrigir",
+    one: "resultado para corrigir",
   },
 };
 

@@ -1,23 +1,19 @@
 import type { FieldErrors } from "react-hook-form";
 
+import {
+  resolveFormInvalidSubmission,
+  type FormErrorGroup,
+  type FormInvalidSubmission,
+} from "@/lib/forms/invalid-submission";
 import type { LeagueFormTabValue } from "@/lib/leagues/league-form-navigation";
 
 import type { LeagueScreenValues } from "./form-schema";
 
 export type LeagueScreenTab = LeagueFormTabValue;
 
-type LeagueFormInvalidSubmission = {
-  description: string;
-  label: string;
-  tab: LeagueScreenTab;
-};
+type LeagueFormInvalidSubmission = FormInvalidSubmission<LeagueScreenTab>;
 
-type LeagueFormErrorGroup = {
-  fallbackDescription: string;
-  fields: Array<keyof LeagueScreenValues>;
-  label: string;
-  tab: LeagueScreenTab;
-};
+type LeagueFormErrorGroup = FormErrorGroup<LeagueScreenValues, LeagueScreenTab>;
 
 const LEAGUE_FORM_ERROR_GROUPS: LeagueFormErrorGroup[] = [
   {
@@ -63,57 +59,19 @@ const LEAGUE_FORM_ERROR_GROUPS: LeagueFormErrorGroup[] = [
   },
 ];
 
-function getFirstErrorMessage(error: unknown): string | null {
-  if (!error || typeof error !== "object") {
-    return null;
-  }
-
-  if (
-    "message" in error &&
-    typeof error.message === "string" &&
-    error.message.trim()
-  ) {
-    return error.message;
-  }
-
-  const values = Array.isArray(error)
-    ? error
-    : Object.values(error as Record<string, unknown>);
-
-  for (const value of values) {
-    const message = getFirstErrorMessage(value);
-
-    if (message) {
-      return message;
-    }
-  }
-
-  return null;
-}
-
 export function resolveLeagueFormInvalidSubmission(
   errors: FieldErrors<LeagueScreenValues>
 ): LeagueFormInvalidSubmission {
-  for (const group of LEAGUE_FORM_ERROR_GROUPS) {
-    for (const field of group.fields) {
-      const fieldError = errors[field];
-
-      if (!fieldError) {
-        continue;
-      }
-
-      return {
-        description:
-          getFirstErrorMessage(fieldError) ?? group.fallbackDescription,
-        label: group.label,
-        tab: group.tab,
-      };
-    }
-  }
-
-  return {
-    description: "Revise os campos destacados antes de salvar.",
-    label: "Campos incompletos",
-    tab: "details",
-  };
+  return resolveFormInvalidSubmission({
+    errors,
+    fallback: {
+      description: "Revise os campos destacados antes de salvar.",
+      label: "Campos incompletos",
+      tab: "details",
+    },
+    groups: LEAGUE_FORM_ERROR_GROUPS,
+    // Campo com erro sem mensagem usa o fallback do grupo (paridade com o
+    // comportamento original da liga).
+    stopOnSilentError: true,
+  });
 }

@@ -11,7 +11,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 
 import { ChallengeRulesSection } from "@/components/pages/leagues/form/rules/sections/challenge-rules-section";
-import { MatchRulesSection } from "@/components/pages/leagues/form/rules/sections/match-rules-section";
+import { MatchRulesSection } from "@/components/match-rules/match-rules-section";
 import { RankingRulesSection } from "@/components/pages/leagues/form/rules/sections/ranking-rules-section";
 import { ResultRulesSection } from "@/components/pages/leagues/form/rules/sections/result-rules-section";
 
@@ -97,7 +97,10 @@ export default function LeagueRulesRoute() {
             </Tabs.Content>
 
             <Tabs.Content className="gap-2 pt-2" value="partidas">
-              <MatchRulesSection isDisabled={isDisabled} />
+              <MatchRulesSection
+                isDisabled={isDisabled}
+                prefix="ruleConfig.matchConfig"
+              />
             </Tabs.Content>
           </Tabs>
         </View>

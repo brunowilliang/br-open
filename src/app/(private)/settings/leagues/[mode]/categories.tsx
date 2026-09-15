@@ -1,6 +1,7 @@
 import { BackButton, Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -332,7 +333,7 @@ export default function LeagueCategoriesRoute() {
           <Dialog.Overlay />
           <KeyboardAvoidingView behavior="padding">
             <Dialog.Content className="gap-4 p-5">
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
               <Dialog.Title>
                 {isEditing ? "Editar Categoria" : "Criar Categoria"}
               </Dialog.Title>

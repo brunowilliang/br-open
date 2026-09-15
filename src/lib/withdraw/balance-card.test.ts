@@ -52,7 +52,7 @@ describe("buildWithdrawBalanceCard", () => {
     });
 
     expect(card.isLoading).toBe(true);
-    expect(card.value).toBe("—");
+    expect(card.value).toBe("Indisponível");
     expect(card.info).toBeUndefined();
   });
 

@@ -18,6 +18,7 @@ import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -518,7 +519,7 @@ export default function LeagueRankingRoute() {
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
             {isRemovePending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Detalhes do jogador</Dialog.Title>
 
@@ -587,7 +588,7 @@ export default function LeagueRankingRoute() {
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
             {isRemovePending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Remover jogador</Dialog.Title>
             <Description>

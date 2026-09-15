@@ -16,6 +16,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -389,7 +390,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
             {requestJoin.isPending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Cancelar solicitação</Dialog.Title>
             <Description>

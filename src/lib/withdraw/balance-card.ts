@@ -26,7 +26,7 @@ export function buildWithdrawBalanceCard(input: {
         ? "Não foi possível carregar o saldo."
         : undefined,
       isLoading: input.isPending,
-      value: "—",
+      value: "Indisponível",
     };
   }
 

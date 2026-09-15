@@ -27,6 +27,33 @@ describe("buildChallengeCardScoreSummary", () => {
     });
   });
 
+  it("shows every line for a best-of-one score with more than one line", () => {
+    expect(
+      buildChallengeCardScoreSummary({
+        matchConfig: {
+          ...DEFAULT_LEAGUE_MATCH_CONFIG,
+          bestOfSets: 1,
+        },
+        sets: [
+          {
+            challengedGames: 4,
+            challengerGames: 6,
+            kind: "set",
+          },
+          {
+            challengedGames: 8,
+            challengerGames: 10,
+            kind: "tiebreak",
+          },
+        ],
+      })
+    ).toEqual({
+      challengedScore: "0",
+      challengerScore: "2",
+      setsSummary: "6x4 | 10x8",
+    });
+  });
+
   it("shows sets won and per-set breakdown for best-of-three matches", () => {
     expect(
       buildChallengeCardScoreSummary({

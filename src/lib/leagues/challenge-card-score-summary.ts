@@ -21,7 +21,10 @@ export function buildChallengeCardScoreSummary(
     return null;
   }
 
-  if (input.matchConfig.bestOfSets === 1) {
+  // Best-of-one antigo tinha sempre 1 linha e o card mostrava os games
+  // direto; com a lista livre o placar pode ter 2+ linhas (ex.: tie-break
+  // avulso) e aí vale a contagem normal, sem truncar.
+  if (input.matchConfig.bestOfSets === 1 && input.sets.length === 1) {
     const [firstSet] = input.sets;
 
     if (!firstSet) {

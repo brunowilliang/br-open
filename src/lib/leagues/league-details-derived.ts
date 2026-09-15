@@ -316,11 +316,11 @@ export function buildLeagueRulesView(
     inactivity: formatInactivity(ruleConfig),
     match: {
       duration: `${ruleConfig.matchConfig.defaultDurationMinutes} min`,
-      finalSet: formatFinalSet(ruleConfig),
+      finalSet: formatFinalSet(ruleConfig.matchConfig),
       format: `Melhor de ${ruleConfig.matchConfig.bestOfSets} sets`,
       scoring: formatScoringMode(ruleConfig.matchConfig.scoringMode),
       setFormat: `${ruleConfig.matchConfig.gamesPerSet} games`,
-      tieBreak: formatTieBreak(ruleConfig),
+      tieBreak: formatTieBreak(ruleConfig.matchConfig),
     },
     progression: {
       lossBehavior: formatLossBehavior(ruleConfig.lossBehavior),

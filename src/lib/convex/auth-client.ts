@@ -1,7 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { expoClient } from "@better-auth/expo/client";
 import { ac, roles } from "@convex/auth-shared";
-import { organizationClient, emailOTPClient } from "better-auth/client/plugins";
+import {
+  emailOTPClient,
+  organizationClient,
+  usernameClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
@@ -27,6 +31,7 @@ export const authClient = createAuthClient({
     convexClient(),
     organizationClient({ ac, roles, teams: { enabled: true } }),
     emailOTPClient(),
+    usernameClient(),
     ...(Platform.OS === "web"
       ? []
       : [

@@ -76,7 +76,7 @@ describe("summarizeOrganizerPendingActions", () => {
     ]);
 
     expect(summary).toBe(
-      "2 desafios para validar · 1 resultado para aprovar · 1 disputa para decidir · 1 placar para corrigir"
+      "2 desafios para validar · 1 resultado para aprovar · 1 disputa para decidir · 1 resultado para corrigir"
     );
   });
 

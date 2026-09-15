@@ -95,17 +95,17 @@ function buildDateTabLabel(input: {
  * ordenada por `startMinute`. Períodos vazios ficam como array vazio; a UI
  * decide se renderiza ou não.
  */
-export function buildScheduleDayView(input: {
-  challenges: readonly ScheduleItem[];
+export function buildScheduleDayView<T extends ScheduleDayItem>(input: {
+  challenges: readonly T[];
   matchDate: string;
-}): ScheduleDayView {
+}): { afternoon: T[]; evening: T[]; morning: T[] } {
   const dayChallenges = input.challenges.filter(
     (challenge) => challenge.matchDate === input.matchDate
   );
 
-  const morning: ScheduleItem[] = [];
-  const afternoon: ScheduleItem[] = [];
-  const evening: ScheduleItem[] = [];
+  const morning: T[] = [];
+  const afternoon: T[] = [];
+  const evening: T[] = [];
 
   for (const challenge of dayChallenges) {
     if (challenge.startMinute < AFTERNOON_START_MINUTE) {
@@ -117,8 +117,7 @@ export function buildScheduleDayView(input: {
     }
   }
 
-  const sortByStartMinute = (a: ScheduleItem, b: ScheduleItem) =>
-    a.startMinute - b.startMinute;
+  const sortByStartMinute = (a: T, b: T) => a.startMinute - b.startMinute;
 
   morning.sort(sortByStartMinute);
   afternoon.sort(sortByStartMinute);
@@ -126,3 +125,5 @@ export function buildScheduleDayView(input: {
 
   return { afternoon, evening, morning };
 }
+
+type ScheduleDayItem = { matchDate: string; startMinute: number };

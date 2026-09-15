@@ -29,6 +29,7 @@ type ChallengeCardProps = {
   challengedAvatarUrl?: string | null;
   challengerAvatarUrl?: string | null;
   isMenuDisabled: boolean;
+  isWalkover?: boolean;
   menuActions: ChallengeMenuAction[];
   proposalSummary: string;
   scoreSummary?: ChallengeCardScoreSummary | null;
@@ -55,12 +56,25 @@ function ChallengeCardImpl(props: ChallengeCardProps) {
         </View>
         <View className="min-w-0 flex-1 gap-2">
           <View className="flex-row items-center justify-between gap-3">
-            <Chip
-              color={props.statusChip.color}
-              variant={props.statusChip.variant}
-            >
-              {props.statusChip.label}
-            </Chip>
+            <View className="flex-row items-center gap-1.5">
+              {props.isWalkover ? (
+                <Chip
+                  className="self-center"
+                  color="warning"
+                  size="sm"
+                  variant="soft"
+                >
+                  W.O.
+                </Chip>
+              ) : null}
+              <Chip
+                className="self-center"
+                color={props.statusChip.color}
+                variant={props.statusChip.variant}
+              >
+                {props.statusChip.label}
+              </Chip>
+            </View>
             {props.menuActions.length > 0 ? (
               <Menu>
                 <Menu.Trigger asChild>

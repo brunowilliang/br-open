@@ -221,10 +221,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível registrar o placar. Tente novamente."
+            "Não foi possível registrar o resultado. Tente novamente."
           ),
           id: "submit-challenge-result-error",
-          label: "Falha ao enviar placar",
+          label: "Falha ao enviar resultado",
           variant: "danger",
         });
       },
@@ -233,7 +233,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: "Aguardando confirmação do adversário.",
           id: "submit-challenge-result-success",
-          label: "Placar enviado",
+          label: "Resultado enviado",
           variant: "success",
         });
       },
@@ -245,10 +245,10 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível confirmar o placar. Tente novamente."
+            "Não foi possível confirmar o resultado. Tente novamente."
           ),
           id: "confirm-challenge-result-error",
-          label: "Falha ao confirmar placar",
+          label: "Falha ao confirmar resultado",
           variant: "danger",
         });
       },
@@ -257,7 +257,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: "O resultado foi registrado no ranking.",
           id: "confirm-challenge-result-success",
-          label: "Placar confirmado",
+          label: "Resultado confirmado",
           variant: "success",
         });
       },
@@ -336,19 +336,19 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         toast.show({
           description: getToastErrorMessage(
             error,
-            "Não foi possível registrar o placar. Tente novamente."
+            "Não foi possível registrar o resultado. Tente novamente."
           ),
           id: "organizer-submit-challenge-result-error",
-          label: "Falha ao salvar placar",
+          label: "Falha ao salvar resultado",
           variant: "danger",
         });
       },
       onSuccess: async () => {
         await invalidateLeagueContext();
         toast.show({
-          description: "O placar foi salvo e o ranking foi atualizado.",
+          description: "O resultado foi salvo e o ranking foi atualizado.",
           id: "organizer-submit-challenge-result-success",
-          label: "Placar registrado",
+          label: "Resultado registrado",
           variant: "success",
         });
       },
@@ -372,7 +372,7 @@ export function useChallengeMutations(input: UseChallengeMutationsInput) {
         await invalidateLeagueContext();
         toast.show({
           description:
-            "Os jogadores receberam a notificação para registrar o placar.",
+            "Os jogadores receberam a notificação para registrar o resultado.",
           id: "admin-request-result-reminder-success",
           label: "Lembrete enviado",
           variant: "success",

@@ -4,6 +4,7 @@ import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import {
+  Description,
   FieldError,
   Input,
   Label,
@@ -16,6 +17,12 @@ import { View } from "react-native";
 import { ImageUploadIcon } from "@hugeicons/core-free-icons";
 
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
+import {
+  USERNAME_FIELD_HINT,
+  USERNAME_TAKEN_MESSAGE,
+  normalizeUsername,
+} from "@/lib/account/username-rules";
+import type { UsernameAvailabilityStatus } from "@/lib/account/use-username-availability";
 
 export const genderOptions = [
   { label: "Masculino", value: "Masculino" as const },
@@ -29,6 +36,7 @@ export type ProfileDetailsFormValues = {
   gender?: string;
   nickname: string;
   phone?: null | string;
+  username?: string;
 };
 
 type ProfileDetailsSectionProps = {
@@ -37,6 +45,7 @@ type ProfileDetailsSectionProps = {
   isSubmitPending: boolean;
   onAvatarPress: () => void;
   onPhoneSubmitEditing?: () => void;
+  usernameStatus: UsernameAvailabilityStatus;
 };
 
 /**
@@ -50,6 +59,7 @@ export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
     isSubmitPending,
     onAvatarPress,
     onPhoneSubmitEditing,
+    usernameStatus,
   } = props;
   const displayName =
     (form.watch("fullName") as string | undefined) || "Seu perfil";
@@ -124,6 +134,50 @@ export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
             <FieldError>{fieldState.error?.message ?? ""}</FieldError>
           </TextField>
         )}
+      />
+
+      <Controller
+        control={form.control}
+        name="username"
+        render={({ field, fieldState }) => {
+          const isTaken = usernameStatus === "taken";
+
+          return (
+            <TextField
+              className="w-full"
+              isInvalid={Boolean(fieldState.error) || isTaken}
+            >
+              <Label>Username</Label>
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isSubmitPending}
+                onBlur={field.onBlur}
+                onChangeText={field.onChange}
+                placeholder="maria.silva"
+                textContentType="username"
+                value={field.value ?? ""}
+                variant="secondary"
+              />
+              <Description
+                className={
+                  usernameStatus === "available" ? "text-success" : undefined
+                }
+              >
+                {usernameStatus === "available"
+                  ? `@${normalizeUsername(field.value ?? "")} está disponível.`
+                  : usernameStatus === "checking"
+                    ? "Verificando disponibilidade..."
+                    : USERNAME_FIELD_HINT}
+              </Description>
+              <FieldError>
+                {isTaken
+                  ? USERNAME_TAKEN_MESSAGE
+                  : (fieldState.error?.message ?? "")}
+              </FieldError>
+            </TextField>
+          );
+        }}
       />
 
       <Controller

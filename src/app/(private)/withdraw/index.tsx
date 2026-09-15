@@ -10,6 +10,7 @@ import { Text } from "@/components/core/text";
 import { Amount } from "@/components/pages/withdraw/keyboard/amount";
 import { Keyboard } from "@/components/pages/withdraw/keyboard/keyboard";
 import { useAmountInputController } from "@/components/pages/withdraw/keyboard/use-amount-input-controller";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -241,7 +242,7 @@ export default function WithdrawScreen() {
         <Dialog.Portal>
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Detalhes do saque</Dialog.Title>
 
             {pixKey ? (

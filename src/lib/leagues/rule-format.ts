@@ -1,4 +1,5 @@
 import type { ApiOutputs } from "@convex/shared/api";
+import type { LeagueMatchConfig } from "@convex/domains/league/contract";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type RuleConfig = LeagueOverview["ruleConfig"];
@@ -94,10 +95,7 @@ export function formatScoringMode(
       return "Com vantagem";
   }
 }
-
-export function formatTieBreak(ruleConfig: RuleConfig): string {
-  const { matchConfig } = ruleConfig;
-
+export function formatTieBreak(matchConfig: LeagueMatchConfig): string {
   if (!matchConfig.hasTieBreak) {
     return "Sets sem tie-break";
   }
@@ -106,12 +104,10 @@ export function formatTieBreak(ruleConfig: RuleConfig): string {
     ? "com 2 de diferença"
     : "ponto decisivo";
 
-  return `Tie-break em ${matchConfig.tieBreakAtGamesAll}x${matchConfig.tieBreakAtGamesAll}, ${matchConfig.tieBreakPoints} pontos, ${differenceRule}`;
+  return `Tie-break em ${matchConfig.gamesPerSet}x${matchConfig.gamesPerSet}, ${matchConfig.tieBreakPoints} pontos, ${differenceRule}`;
 }
 
-export function formatFinalSet(ruleConfig: RuleConfig): string {
-  const { matchConfig } = ruleConfig;
-
+export function formatFinalSet(matchConfig: LeagueMatchConfig): string {
   switch (matchConfig.finalSetMode) {
     case "custom_set":
       return `Último set com ${matchConfig.finalSetGamesPerSet} games`;

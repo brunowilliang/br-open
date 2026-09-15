@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/core/text";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
@@ -43,13 +44,15 @@ type ChallengeProposalDialogProps = {
   challengeIdToIgnore?: string;
   courts: LeagueCourt[];
   defaultDurationMinutes: number;
+  /** Sobrescreve a descrição league-phrased (adaptação por domínio — RUL-0005). */
+  description?: string;
   initialValue?: ChallengeProposalDialogValue;
   isOpen: boolean;
   isPending?: boolean;
   onOpenChange: (nextOpen: boolean) => void;
   occupiedSlots: OccupiedChallengeSlot[];
   onSubmit: (value: ChallengeProposalDialogValue) => Promise<void> | void;
-  opponentName: string;
+  opponentName?: string;
   title: string;
 };
 
@@ -125,6 +128,7 @@ export const ChallengeProposalDialog = (
     challengeIdToIgnore,
     courts,
     defaultDurationMinutes,
+    description,
     initialValue,
     isOpen,
     isPending,
@@ -246,6 +250,9 @@ export const ChallengeProposalDialog = (
     setErrorMessage("");
     await onSubmit({
       courtId,
+      // Derived from the start minute + the match duration; consumers treat
+      // it as an opaque contract field (IBX-0030 keeps the tournament UI
+      // free of a duration input).
       endMinute: Number(startMinute) + defaultDurationMinutes,
       matchDate: matchDate.value,
       startMinute: Number(startMinute),
@@ -267,27 +274,47 @@ export const ChallengeProposalDialog = (
         <Dialog.Overlay />
         <Dialog.Content className="gap-4 p-5">
           {isPending ? null : (
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
           <Description>
-            Preencha{" "}
-            <Text color="foreground" variant="description" weight="semibold">
-              data
-            </Text>
-            ,{" "}
-            <Text color="foreground" variant="description" weight="semibold">
-              horário
-            </Text>{" "}
-            e{" "}
-            <Text color="foreground" variant="description" weight="semibold">
-              quadra
-            </Text>{" "}
-            para combinar o desafio com{" "}
-            <Text color="foreground" variant="description" weight="semibold">
-              {opponentName}
-            </Text>
-            .
+            {description ?? (
+              <>
+                Preencha{" "}
+                <Text
+                  color="foreground"
+                  variant="description"
+                  weight="semibold"
+                >
+                  data
+                </Text>
+                ,{" "}
+                <Text
+                  color="foreground"
+                  variant="description"
+                  weight="semibold"
+                >
+                  horário
+                </Text>{" "}
+                e{" "}
+                <Text
+                  color="foreground"
+                  variant="description"
+                  weight="semibold"
+                >
+                  quadra
+                </Text>{" "}
+                para combinar o desafio com{" "}
+                <Text
+                  color="foreground"
+                  variant="description"
+                  weight="semibold"
+                >
+                  {opponentName}
+                </Text>
+                .
+              </>
+            )}
           </Description>
 
           <DatePicker

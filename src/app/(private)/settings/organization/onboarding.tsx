@@ -23,6 +23,7 @@ import {
   useOrganizationLogo,
   type OrganizationFormValues,
 } from "@/components/pages/organization/organization-form-fields";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -387,7 +388,7 @@ export default function OrganizationOnboarding() {
         <Dialog.Portal>
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Termos e condições</Dialog.Title>
             <Dialog.Description>
               Ao ativar o modo organizador, você concorda com as regras de uso

@@ -8,7 +8,7 @@ import { useValue } from "@legendapp/state/react";
 import { cn } from "better-styled";
 import { useLocalSearchParams } from "expo-router";
 import { Card } from "heroui-native";
-import { Children, type ReactNode, useEffect } from "react";
+import { useEffect } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
@@ -16,44 +16,8 @@ import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
+import { RulesGrid, RulesItemCard } from "@/components/ui/rules-grid";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
-
-function RulesItemCard(props: { label: string; value: string }) {
-  // flex-1 preenche a coluna dentro de cada linha do RulesGrid (sempre 2 por linha).
-  return (
-    <View className="flex-1 rounded-2xl bg-surface-secondary px-4 py-3">
-      <Text numberOfLines={1} weight="medium">
-        {props.label}
-      </Text>
-      <Text color="muted" numberOfLines={4} variant="description">
-        {props.value}
-      </Text>
-    </View>
-  );
-}
-
-/**
- * Distribui os filhos em linhas de exatamente 2 colunas (item | item),
- * sem depender de flex-wrap ou calc — cada par vira uma `flex-row gap-2` e as
- * linhas são empilhadas verticalmente. Garante grid 2xN estável em qualquer
- * largura de tela.
- */
-function RulesGrid(props: { children: ReactNode }) {
-  const items = Children.toArray(props.children);
-  const rows: ReactNode[][] = [];
-  for (let index = 0; index < items.length; index += 2) {
-    rows.push(items.slice(index, index + 2));
-  }
-  return (
-    <View className="gap-2">
-      {rows.map((row, rowIndex) => (
-        <View className="flex-row gap-2" key={`rules-row-${rowIndex}`}>
-          {row.map((item) => item)}
-        </View>
-      ))}
-    </View>
-  );
-}
 
 export default function LeagueRulesRoute() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();

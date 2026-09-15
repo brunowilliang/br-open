@@ -292,8 +292,8 @@ export function buildChallengeMenuActions(input: {
       id: `${challenge.id}-submit-result`,
       label:
         challenge.status === "pending_result_confirmation"
-          ? "Reeditar placar"
-          : "Enviar placar",
+          ? "Reeditar resultado"
+          : "Enviar resultado",
       onPress: () => {
         callbacks.setResultTarget(challenge);
       },
@@ -304,7 +304,7 @@ export function buildChallengeMenuActions(input: {
     actions.push({
       icon: Tick02Icon,
       id: `${challenge.id}-confirm-result`,
-      label: "Confirmar placar",
+      label: "Confirmar resultado",
       onPress: () => {
         callbacks.onConfirmResult(challenge.id);
       },
@@ -385,8 +385,8 @@ function pushAdminMenuActions(
           icon: Edit02Icon,
           id: `${challenge.id}-organizer-submit-result`,
           label: challenge.latestResultSubmission
-            ? "Editar placar"
-            : "Lançar placar",
+            ? "Editar resultado"
+            : "Lançar resultado",
           onPress: () => {
             callbacks.setResultTarget(challenge);
           },
@@ -396,7 +396,7 @@ function pushAdminMenuActions(
         actions.push({
           icon: Megaphone01Icon,
           id: `${challenge.id}-request-result-reminder`,
-          label: "Pedir placar",
+          label: "Pedir resultado",
           onPress: () => {
             callbacks.onRequestResultReminder(challenge.id);
           },

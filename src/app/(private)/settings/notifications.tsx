@@ -27,6 +27,7 @@ import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -597,7 +598,7 @@ export default function SettingsNotificationsRoute() {
         <Dialog.Portal>
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Preferências</Dialog.Title>
             <ListGroup variant="secondary">
               <PressableFeedback animation={false} onPress={handlePushRowPress}>
@@ -647,7 +648,7 @@ export default function SettingsNotificationsRoute() {
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
             {isClearPending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Apagar notificações</Dialog.Title>
             <Description>

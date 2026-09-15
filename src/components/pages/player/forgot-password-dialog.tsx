@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Text } from "@/components/core/text";
 import { shouldSendOtpOnOpen } from "@/lib/account/otp-open-send";
@@ -287,10 +288,10 @@ export function ForgotPasswordDialog(props: ForgotPasswordDialogProps) {
         <KeyboardAvoidingView behavior="padding">
           <Dialog.Content className="p-5">
             {isPending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             {/* GOTCHA: em RN, position:absolute ancora no PAI DIRETO (não no
-                ancestral posicionado como no CSS) — o Dialog.Close absolute
+                ancestral posicionado como no CSS) — o DialogCloseButton absolute
                 fica filho direto do Dialog.Content (padrão das referências),
                 FORA deste wrapper. O Pressable só dismissa o teclado; toques
                 em inputs/botões filhos vencem o responder. */}

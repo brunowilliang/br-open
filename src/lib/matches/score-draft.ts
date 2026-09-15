@@ -1,0 +1,152 @@
+import type { LeagueChallengeScore } from "@convex/domains/league/contract";
+
+type LeagueScoreSet = LeagueChallengeScore["sets"][number];
+
+/** Mini-placar do tie-break anexo a uma linha, no vocabulário neutro A/B. */
+export type ScoreDraftTieBreak = { aPoints: number; bPoints: number };
+
+/**
+ * Linha do resultado — lista livre, na ordem em que o jogo aconteceu. Uma
+ * linha de placar ({aGames, bGames} com kind "set"/"super_tiebreak") ou uma
+ * linha avulsa de tie-break (kind "tiebreak"), com o mini-placar anexo
+ * opcional em qualquer linha. Mesmo shape do contrato do torneio; a liga
+ * fala challenger/challenged e a conversão mora aqui.
+ */
+export type ScoreDraftSet = {
+  aGames: number;
+  bGames: number;
+  kind: LeagueScoreSet["kind"];
+  tieBreak?: null | ScoreDraftTieBreak;
+};
+
+export type ScoreDraftSide = "a" | "b";
+
+export type ScoreDraftScoreboard = {
+  aLineWins: number;
+  bLineWins: number;
+  winnerSide: null | ScoreDraftSide;
+};
+
+/** Linha nova em branco — o tipo da linha é escolhido no menu (+). */
+export function buildEmptyDraftSet(
+  kind: LeagueScoreSet["kind"]
+): ScoreDraftSet {
+  return { aGames: 0, bGames: 0, kind };
+}
+
+/** Converte o draft A/B para o vocabulário challenger/challenged da liga. */
+export function toLeagueScoreSets(sets: ScoreDraftSet[]): LeagueScoreSet[] {
+  return sets.map((set) => ({
+    challengedGames: set.bGames,
+    challengerGames: set.aGames,
+    kind: set.kind,
+    ...(set.tieBreak
+      ? {
+          tieBreak: {
+            challengedPoints: set.tieBreak.bPoints,
+            challengerPoints: set.tieBreak.aPoints,
+          },
+        }
+      : {}),
+  }));
+}
+
+/** Converte linhas da liga para o draft A/B (hydrate do dialog). */
+export function toScoreDraftSets(sets: LeagueScoreSet[]): ScoreDraftSet[] {
+  return sets.map((set) => ({
+    aGames: set.challengerGames,
+    bGames: set.challengedGames,
+    kind: set.kind,
+    ...(set.tieBreak
+      ? {
+          tieBreak: {
+            aPoints: set.tieBreak.challengerPoints,
+            bPoints: set.tieBreak.challengedPoints,
+          },
+        }
+      : {}),
+  }));
+}
+
+export function isDraftSetBlank(set: ScoreDraftSet) {
+  return set.aGames === 0 && set.bGames === 0;
+}
+
+export function trimTrailingBlankSets(sets: ScoreDraftSet[]) {
+  const trimmedSets = [...sets];
+
+  while (trimmedSets.length > 0) {
+    const lastSet = trimmedSets.at(-1);
+
+    if (!(lastSet && isDraftSetBlank(lastSet))) {
+      break;
+    }
+
+    trimmedSets.pop();
+  }
+
+  return trimmedSets;
+}
+
+/**
+ * Rótulo de uma linha: placares numeram ("Set 1", contando placares e super
+ * tie-breaks); a linha avulsa de tie-break e o super tie-break têm nome
+ * próprio.
+ */
+export function getLineLabel(lines: ScoreDraftSet[], lineIndex: number) {
+  const line = lines[lineIndex];
+
+  if (!line || line.kind === "tiebreak") {
+    return "Tie-break";
+  }
+
+  if (line.kind === "super_tiebreak") {
+    return "Super tie-break";
+  }
+
+  const scoreLineNumber = lines
+    .slice(0, lineIndex + 1)
+    .filter((item) => item.kind !== "tiebreak").length;
+
+  return `Set ${scoreLineNumber}`;
+}
+
+/**
+ * Contagem crua de linhas vencidas: mais games decide a linha; empate em
+ * games é decidido pelo tie-break anexo (mais pontos no TB — 6x6 com TB 7-3
+ * é linha do lado A); TB empatado, como o empate sem TB, não é linha de
+ * ninguém.
+ */
+export function buildScoreboard(sets: ScoreDraftSet[]): ScoreDraftScoreboard {
+  let aLineWins = 0;
+  let bLineWins = 0;
+
+  for (const set of sets) {
+    if (set.aGames > set.bGames) {
+      aLineWins += 1;
+      continue;
+    }
+
+    if (set.bGames > set.aGames) {
+      bLineWins += 1;
+      continue;
+    }
+
+    if (!set.tieBreak || set.tieBreak.aPoints === set.tieBreak.bPoints) {
+      continue;
+    }
+
+    if (set.tieBreak.aPoints > set.tieBreak.bPoints) {
+      aLineWins += 1;
+    } else {
+      bLineWins += 1;
+    }
+  }
+
+  return {
+    aLineWins,
+    bLineWins,
+    winnerSide:
+      aLineWins > bLineWins ? "a" : bLineWins > aLineWins ? "b" : null,
+  };
+}

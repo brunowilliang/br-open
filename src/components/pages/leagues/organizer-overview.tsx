@@ -20,7 +20,7 @@ import {
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import { formatCount } from "@/lib/format/pluralize";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { WidgetAlert } from "./widget-alert";
+import { WidgetAlert } from "@/components/ui/widget-alert";
 
 export function OrganizerOverview() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();

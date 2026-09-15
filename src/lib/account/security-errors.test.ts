@@ -31,9 +31,7 @@ describe("getSecurityErrorMessage", () => {
         ),
         FALLBACK
       )
-    ).toBe(
-      "Essa é sua última forma de login — conecte outra antes de remover."
-    );
+    ).toBe("Essa é sua última forma de login. Conecte outra antes de remover.");
   });
 
   test("mapeia LINKING_DIFFERENT_EMAILS_NOT_ALLOWED para Apple ID com e-mail privado", () => {
@@ -146,6 +144,33 @@ describe("getSecurityErrorMessage", () => {
     ).toBe(FALLBACK);
     expect(getSecurityErrorMessage(new Error("boom"), FALLBACK)).toBe(FALLBACK);
     expect(getSecurityErrorMessage(null, FALLBACK)).toBe(FALLBACK);
+  });
+
+  test("mapeia os erros do username (plugin username)", () => {
+    expect(
+      getSecurityErrorMessage(
+        authError("USERNAME_TOO_SHORT", "Username too short"),
+        FALLBACK
+      )
+    ).toBe("O username deve ter no mínimo 3 caracteres.");
+    expect(
+      getSecurityErrorMessage(
+        authError("USERNAME_TOO_LONG", "Username too long"),
+        FALLBACK
+      )
+    ).toBe("O username deve ter no máximo 30 caracteres.");
+    expect(
+      getSecurityErrorMessage(
+        authError("INVALID_USERNAME", "Invalid username"),
+        FALLBACK
+      )
+    ).toBe("Use apenas letras, números, ponto e underline.");
+    expect(
+      getSecurityErrorMessage(
+        authError("USERNAME_IS_ALREADY_TAKEN", "Username is already taken"),
+        FALLBACK
+      )
+    ).toBe("Esse username já está em uso. Escolha outro.");
   });
 
   test("prioriza o code sobre o message quando ambos mapeiam", () => {

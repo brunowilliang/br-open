@@ -10,10 +10,10 @@ import { Page } from "@/components/core/NewPage";
 import { ChallengeCard } from "@/components/pages/leagues/challenge-card";
 import { ChallengeOrganizerActionDialog } from "@/components/pages/leagues/challenge-organizer-action-dialog";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
-import { ChallengeResultDialog } from "@/components/pages/leagues/challenge-result-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
+import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
 import { useCRPC } from "@/lib/convex/crpc";
 import {
   formatProposalSummary,
@@ -36,6 +36,16 @@ import {
   type ChallengeMenuCallbacks,
 } from "@/lib/leagues/challenge-menu-actions";
 import { useChallengeMutations } from "@/lib/leagues/use-challenge-mutations";
+import { toLeagueScoreSets, toScoreDraftSets } from "@/lib/matches/score-draft";
+import type { LeagueChallengeScore } from "@convex/domains/league/contract";
+
+// IBX-0026: placeholder de set do W.O. — mesma convenção do WALKOVER_SET do
+// bracket de torneio, no vocabulário challenger/challenged da liga.
+const LEAGUE_WALKOVER_SET = {
+  challengedGames: 0,
+  challengerGames: 0,
+  kind: "set",
+} as const;
 
 type OrganizerActionTarget = {
   action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
@@ -168,12 +178,9 @@ export default function LeagueChallengesRoute() {
   const onSubmitResult = async (input: {
     challengeId: string;
     score: {
-      sets: Array<{
-        challengedGames: number;
-        challengerGames: number;
-        kind: "set" | "super_tiebreak";
-      }>;
-      winnerMembershipId: string;
+      sets: LeagueChallengeScore["sets"];
+      walkover?: boolean;
+      winnerMembershipId?: null | string;
     };
   }) => {
     await submitChallengeResult.mutateAsync(input);
@@ -181,12 +188,9 @@ export default function LeagueChallengesRoute() {
   const onAdminSubmitResult = async (input: {
     challengeId: string;
     score: {
-      sets: Array<{
-        challengedGames: number;
-        challengerGames: number;
-        kind: "set" | "super_tiebreak";
-      }>;
-      winnerMembershipId: string;
+      sets: LeagueChallengeScore["sets"];
+      walkover?: boolean;
+      winnerMembershipId?: null | string;
     };
   }) => {
     await organizerSubmitChallengeResult.mutateAsync(input);
@@ -226,6 +230,13 @@ export default function LeagueChallengesRoute() {
   const [counterProposalTarget, setCounterProposalTarget] =
     useState<ChallengeItem | null>(null);
   const [resultTarget, setResultTarget] = useState<ChallengeItem | null>(null);
+  const initialResultSets = useMemo(
+    () =>
+      resultTarget?.latestResultSubmission
+        ? toScoreDraftSets(resultTarget.latestResultSubmission.score.sets)
+        : undefined,
+    [resultTarget]
+  );
   const [adminActionTarget, setOrganizerActionTarget] =
     useState<OrganizerActionTarget | null>(null);
 
@@ -323,6 +334,7 @@ export default function LeagueChallengesRoute() {
           isWinner: winnerMembershipId === challenge.challenger.membershipId,
         })}
         isMenuDisabled={isPending}
+        isWalkover={Boolean(challenge.latestResultSubmission?.score.walkover)}
         key={challenge.id}
         menuActions={buildItemMenuActions(challenge)}
         proposalSummary={formatProposalSummary(challenge)}
@@ -530,45 +542,54 @@ export default function LeagueChallengesRoute() {
             ) : null}
 
             {resultTarget ? (
-              <ChallengeResultDialog
-                challengedMembershipId={resultTarget.challenged.membershipId}
-                challengedName={resultTarget.challenged.player.fullName}
-                challengerMembershipId={resultTarget.challenger.membershipId}
-                challengerName={resultTarget.challenger.player.fullName}
-                initialScore={resultTarget.latestResultSubmission?.score.sets}
+              <ScoreResultDialog
+                initialSets={initialResultSets}
                 isOpen
                 isPending={isPending}
-                matchConfig={resultTarget.matchConfigSnapshot}
                 onOpenChange={(nextOpen) => {
                   if (!nextOpen) {
                     setResultTarget(null);
                   }
                 }}
                 onSubmit={async (value) => {
+                  // IBX-0026: W.O. carrega 1 set placeholder 0-0 + flag —
+                  // mesma convenção do torneio (WALKOVER_SET no bracket).
+                  const score = {
+                    sets: value.walkover
+                      ? [LEAGUE_WALKOVER_SET]
+                      : toLeagueScoreSets(value.sets),
+                    walkover: value.walkover,
+                    winnerMembershipId: value.explicitWinnerId,
+                  };
                   if (canManage) {
                     await onAdminSubmitResult({
                       challengeId: resultTarget.id,
-                      score: value,
+                      score,
                     });
                   } else {
                     await onSubmitResult({
                       challengeId: resultTarget.id,
-                      score: value,
+                      score,
                     });
                   }
                   setResultTarget(null);
                 }}
+                sideAId={resultTarget.challenger.membershipId}
+                sideAName={resultTarget.challenger.player.fullName}
+                sideBId={resultTarget.challenged.membershipId}
+                sideBName={resultTarget.challenged.player.fullName}
                 title={(() => {
                   if (canManage) {
                     return resultTarget.latestResultSubmission
-                      ? "Editar placar"
-                      : "Lançar placar";
+                      ? "Editar resultado"
+                      : "Lançar resultado";
                   }
 
                   return resultTarget.status === "pending_result_confirmation"
-                    ? "Reeditar placar"
-                    : "Enviar placar";
+                    ? "Reeditar resultado"
+                    : "Enviar resultado";
                 })()}
+                walkoverEnabled
               />
             ) : null}
 

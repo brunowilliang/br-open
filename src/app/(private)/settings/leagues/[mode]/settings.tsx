@@ -7,7 +7,8 @@ import {
   ToggleableRuleCard,
   fieldUpdateOptions,
 } from "@/components/pages/leagues/rule-card";
-import { WidgetAlert } from "@/components/pages/leagues/widget-alert";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+import { WidgetAlert } from "@/components/ui/widget-alert";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
@@ -362,7 +363,7 @@ export default function LeagueSettingsRoute() {
               hasPaidPrice && wooviStatus !== "active" ? (
                 <WidgetAlert
                   status="warning"
-                  title="Conta de pagamento não conectada — os jogadores não conseguirão pagar."
+                  title="Conta de pagamento não conectada: os jogadores não conseguirão pagar."
                 />
               ) : null
             }
@@ -549,7 +550,7 @@ export default function LeagueSettingsRoute() {
             <Dialog.Overlay />
             <Dialog.Content className="gap-4 p-5">
               {isDisabled ? null : (
-                <Dialog.Close className="absolute top-4 right-4 z-100" />
+                <DialogCloseButton className="absolute top-4 right-4 z-100" />
               )}
               <Dialog.Title>Deletar liga</Dialog.Title>
               <Description>
@@ -595,7 +596,7 @@ export default function LeagueSettingsRoute() {
             <Dialog.Overlay />
             <Dialog.Content className="gap-4 p-5">
               {isDisabled ? null : (
-                <Dialog.Close className="absolute top-4 right-4 z-100" />
+                <DialogCloseButton className="absolute top-4 right-4 z-100" />
               )}
               <Dialog.Title>Configure sua conta de pagamento</Dialog.Title>
               <Description>

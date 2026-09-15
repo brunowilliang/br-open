@@ -29,6 +29,14 @@ import {
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { getSecurityErrorMessage } from "@/lib/account/security-errors";
+import {
+  USERNAME_CANNOT_REMOVE_MESSAGE,
+  normalizeUsername,
+  resolveUsernameSubmitIssue,
+  validateUsernameFormat,
+} from "@/lib/account/username-rules";
+import { useUsernameAvailability } from "@/lib/account/use-username-availability";
 import {
   cropImage,
   type CroppedImage,
@@ -52,6 +60,20 @@ const PlayerProfileFormSchema = z
     gender: playerProfileSchema.shape.gender.optional(),
     nickname: playerProfileSchema.shape.nickname,
     phone: z.string().nullable().optional(),
+    username: z
+      .string()
+      .optional()
+      .superRefine((value, ctx) => {
+        if (!value) {
+          return;
+        }
+
+        const message = validateUsernameFormat(value);
+
+        if (message) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+        }
+      }),
   })
   .pipe(upsertPlayerProfileSchema);
 
@@ -65,6 +87,7 @@ const defaultValues: PlayerProfileFormValues = {
   gender: undefined,
   nickname: "",
   phone: "",
+  username: "",
 };
 
 const PLAYER_AVATAR_CROP_TARGET = {
@@ -80,6 +103,7 @@ export default function PlayerProfile() {
   const { toast } = useToast();
   const playerProfile = useQuery(crpc.player.profile.get.queryOptions());
   const session = authClient.useSession();
+  const currentUsername = session.data?.user?.username ?? "";
   const accounts = useQuery({
     queryFn: async (): Promise<AuthAccount[]> => {
       const { data, error } = await authClient.listAccounts();
@@ -98,6 +122,7 @@ export default function PlayerProfile() {
   const [pendingAvatarFile, setPendingAvatarFile] =
     useState<CroppedImage | null>(null);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isUsernameUpdatePending, setIsUsernameUpdatePending] = useState(false);
 
   const form = useForm<PlayerProfileFormValues, unknown, PlayerProfileValues>({
     defaultValues,
@@ -117,9 +142,10 @@ export default function PlayerProfile() {
     form.reset({
       ...playerProfile.data,
       avatarDraftUri: undefined,
+      username: currentUsername,
     });
     form.trigger().catch(() => undefined);
-  }, [form, playerProfile.data]);
+  }, [currentUsername, form, playerProfile.data]);
 
   const updateProfile = useMutation(
     crpc.player.profile.upsert.mutationOptions({
@@ -165,6 +191,7 @@ export default function PlayerProfile() {
     generateUploadUrl.isPending ||
     form.formState.isSubmitting ||
     isAvatarProcessing ||
+    isUsernameUpdatePending ||
     playerProfile.isPending;
   const canSubmit =
     (form.formState.isDirty || Boolean(pendingAvatarFile)) &&
@@ -175,6 +202,49 @@ export default function PlayerProfile() {
 
   const submitForm = form.handleSubmit(async (values) => {
     updateProfile.reset();
+
+    const usernameIssue = resolveUsernameSubmitIssue({
+      currentUsername,
+      value: form.getValues("username") ?? "",
+    });
+
+    if (usernameIssue === "cannot_remove") {
+      form.setError("username", {
+        message: USERNAME_CANNOT_REMOVE_MESSAGE,
+        type: "manual",
+      });
+      return;
+    }
+
+    let didUpdateUsername = false;
+    const nextUsername = normalizeUsername(form.getValues("username") ?? "");
+
+    if (nextUsername && nextUsername !== normalizeUsername(currentUsername)) {
+      setIsUsernameUpdatePending(true);
+      const { error } = await authClient.updateUser({
+        username: nextUsername,
+      });
+      setIsUsernameUpdatePending(false);
+
+      if (error) {
+        const message = getSecurityErrorMessage(
+          error,
+          "Não foi possível salvar seu username. Tente novamente."
+        );
+
+        form.setError("username", { message, type: "manual" });
+        toast.show({
+          description: message,
+          id: "update-username-error",
+          label: "Falha ao salvar username",
+          variant: "danger",
+        });
+        return;
+      }
+
+      form.setValue("username", nextUsername, { shouldDirty: false });
+      didUpdateUsername = true;
+    }
 
     let valuesWithAvatar: PlayerProfileValues;
 
@@ -192,6 +262,13 @@ export default function PlayerProfile() {
     }
 
     await updateProfile.mutateAsync(valuesWithAvatar);
+
+    // Refetch só no FIM do submit: no meio, o efeito de hidratação reagiria
+    // com playerProfile.data stale (ainda não invalidado) e reverteria no
+    // form edições não salvas se uma etapa posterior falhasse.
+    if (didUpdateUsername) {
+      await session.refetch();
+    }
   });
 
   function handleSubmitPress() {
@@ -304,6 +381,10 @@ export default function PlayerProfile() {
   const isProfileLoaded = !(isProfileLoading || isProfileError);
   const currentEmail = session.data?.user?.email;
   const accountRows = accounts.data ?? [];
+  const usernameStatus = useUsernameAvailability({
+    currentUsername,
+    value: form.watch("username") ?? "",
+  });
 
   return (
     <>
@@ -366,6 +447,7 @@ export default function PlayerProfile() {
                       isSubmitPending={isSubmitPending}
                       onAvatarPress={handleAvatarPress}
                       onPhoneSubmitEditing={handleSubmitPress}
+                      usernameStatus={usernameStatus}
                     />
                   </ExpandableSection>
 

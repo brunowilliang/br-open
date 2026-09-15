@@ -9,6 +9,7 @@ import {
   authClient,
   useSignOutMutationOptions,
 } from "@/lib/convex/auth-client";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { maskEmail } from "@/lib/format/email";
 import { formatSecondsAsMMSS } from "@/lib/format/time";
 import { useOtpCooldown } from "@/lib/hooks/use-otp-cooldown";
@@ -218,10 +219,10 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
         <KeyboardAvoidingView behavior="padding">
           <Dialog.Content className="p-5">
             {isPending ? null : (
-              <Dialog.Close className="absolute top-4 right-4 z-100" />
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             {/* GOTCHA: em RN, position:absolute ancora no PAI DIRETO (não no
-                ancestral posicionado como no CSS) — o Dialog.Close absolute
+                ancestral posicionado como no CSS) — o DialogCloseButton absolute
                 fica filho direto do Dialog.Content (padrão das referências),
                 FORA deste wrapper. O Pressable só dismissa o teclado; toques
                 em inputs/botões filhos vencem o responder. */}

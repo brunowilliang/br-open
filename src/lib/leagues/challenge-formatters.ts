@@ -54,13 +54,13 @@ export function formatStatus(status: ChallengeItem["status"]) {
     case "pending_result_submission":
       return {
         color: "warning",
-        label: "Pendente de placar",
+        label: "Pendente de resultado",
         variant: "soft",
       } satisfies ChallengeStatusChip;
     case "pending_result_confirmation":
       return {
         color: "accent",
-        label: "Confirmar placar",
+        label: "Confirmar resultado",
         variant: "soft",
       } satisfies ChallengeStatusChip;
     case "pending_organizer_result_validation":
@@ -72,7 +72,7 @@ export function formatStatus(status: ChallengeItem["status"]) {
     case "pending_result_correction":
       return {
         color: "warning",
-        label: "Corrigir placar",
+        label: "Corrigir resultado",
         variant: "soft",
       } satisfies ChallengeStatusChip;
     case "pending_organizer_decision":

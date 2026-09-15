@@ -13,10 +13,11 @@
 const CODE_MESSAGES: Record<string, string> = {
   CREDENTIAL_ACCOUNT_NOT_FOUND: "Sua conta não tem senha cadastrada.",
   FAILED_TO_UNLINK_LAST_ACCOUNT:
-    "Essa é sua última forma de login — conecte outra antes de remover.",
+    "Essa é sua última forma de login. Conecte outra antes de remover.",
   INVALID_EMAIL: "Informe um e-mail válido.",
   INVALID_OTP: "Código inválido. Confira os dígitos e tente novamente.",
   INVALID_PASSWORD: "Senha atual incorreta. Tente novamente.",
+  INVALID_USERNAME: "Use apenas letras, números, ponto e underline.",
   LINKING_DIFFERENT_EMAILS_NOT_ALLOWED:
     "Esse Apple ID usa um e-mail privado diferente do e-mail da sua conta. Use o Apple ID do mesmo e-mail.",
   OTP_EXPIRED: "O código expirou. Solicite um novo.",
@@ -25,6 +26,9 @@ const CODE_MESSAGES: Record<string, string> = {
   TOO_MANY_ATTEMPTS:
     "Muitas tentativas com o código. Aguarde um pouco e tente de novo.",
   USER_NOT_FOUND: "Não encontramos uma conta com esse e-mail.",
+  USERNAME_IS_ALREADY_TAKEN: "Esse username já está em uso. Escolha outro.",
+  USERNAME_TOO_LONG: "O username deve ter no máximo 30 caracteres.",
+  USERNAME_TOO_SHORT: "O username deve ter no mínimo 3 caracteres.",
 };
 
 type PartialAuthError = { code?: string; message?: string };

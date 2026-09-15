@@ -790,7 +790,7 @@ function OnboardingPaymentSection(props: {
       title="Pagamentos"
     >
       <Description>
-        Quando um jogador paga por uma liga, o valor é dividido — você recebe
+        Quando um jogador paga por uma liga, o valor é dividido e você recebe
         sua parte automaticamente via PIX. Cadastre sua chave agora para
         concluir o cadastro.
       </Description>
@@ -1081,7 +1081,7 @@ function PaymentSection() {
       ) : (
         <>
           <Description>
-            Quando um jogador paga por uma liga, o valor é dividido — você
+            Quando um jogador paga por uma liga, o valor é dividido e você
             recebe sua parte automaticamente via PIX.
           </Description>
           <PixKeyFields

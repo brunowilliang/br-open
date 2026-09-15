@@ -8,7 +8,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
-import { ScheduleCard } from "@/components/pages/leagues/schedule-card";
+import { ScheduleCard } from "@/components/ui/schedule-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";

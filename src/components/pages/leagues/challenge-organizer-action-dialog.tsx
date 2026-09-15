@@ -1,6 +1,8 @@
 import { Button, Description, Dialog } from "heroui-native";
 import { View } from "react-native";
 
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+
 type ChallengeOrganizerActionDialogProps = {
   description: string;
   isDanger?: boolean;
@@ -45,7 +47,7 @@ export const ChallengeOrganizerActionDialog = (
         <Dialog.Overlay />
         <Dialog.Content className="gap-4 p-5">
           {isPending ? null : (
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
           <Description>{description}</Description>

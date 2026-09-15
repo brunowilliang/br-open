@@ -20,7 +20,7 @@ import {
 } from "@/lib/leagues/player-overview-derived";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCount } from "@/lib/format/pluralize";
-import { WidgetAlert } from "./widget-alert";
+import { WidgetAlert } from "@/components/ui/widget-alert";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 
@@ -155,8 +155,10 @@ function summarizePendingActions(actions: { kind: string }[]): string {
 
   if (counts.register_result > 0) {
     parts.push(
-      `${counts.register_result} placar ${
-        counts.register_result === 1 ? "para registrar" : "para registrar"
+      `${counts.register_result} ${
+        counts.register_result === 1
+          ? "resultado para registrar"
+          : "resultados para registrar"
       }`
     );
   }
@@ -175,8 +177,8 @@ function summarizePendingActions(actions: { kind: string }[]): string {
     parts.push(
       `${counts.request_correction} ${
         counts.request_correction === 1
-          ? "placar para corrigir"
-          : "placares para corrigir"
+          ? "resultado para corrigir"
+          : "resultados para corrigir"
       }`
     );
   }

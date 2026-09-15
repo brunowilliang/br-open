@@ -1,8 +1,8 @@
 import { Page } from "@/components/core/NewPage";
 import {
-  CreateLeagueCard,
-  LeagueCard,
-} from "@/components/pages/home/league-card";
+  CreateCompetitionCard,
+  CompetitionCard,
+} from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -143,9 +143,18 @@ export default function SettingsLeaguesIndex() {
         recycleItems
         renderItem={({ item }) =>
           item.id === CREATE_CARD_ID ? (
-            <CreateLeagueCard />
+            <CreateCompetitionCard
+              description="Toque para criar uma nova liga"
+              label="Nova liga"
+              onPress={() => {
+                router.navigate({
+                  params: { mode: "new" },
+                  pathname: "/settings/leagues/[mode]",
+                });
+              }}
+            />
           ) : (
-            <LeagueCard
+            <CompetitionCard
               city={item.city}
               coverUrl={item.coverUrl}
               name={item.name}
