@@ -159,7 +159,7 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
               >
                 <View className="flex-1 gap-0.5">
                   <Text numberOfLines={1} size="sm" weight="medium">
-                    {charge.playerName ?? "—"}
+                    {charge.playerName ?? "Não informado"}
                   </Text>
                   <Description numberOfLines={1}>
                     {charge.sourceLabel ? `${charge.sourceLabel} · ` : ""}

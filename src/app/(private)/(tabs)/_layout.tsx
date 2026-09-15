@@ -32,7 +32,7 @@ const ORGANIZER_TAB_ITEMS = [
   {
     icon: ChampionIcon,
     label: "Ligas",
-    value: "ligas",
+    value: "competitions",
   },
 ] as const satisfies readonly FloatingTabBarItem[];
 
@@ -61,7 +61,7 @@ export default function TabsLayout(): React.ReactElement {
         options={{ href: isOrganizationActor ? null : undefined }}
       />
       <Tabs.Screen
-        name="ligas"
+        name="competitions"
         options={{ href: isOrganizationActor ? undefined : null }}
       />
     </Tabs>

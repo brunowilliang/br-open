@@ -28,6 +28,12 @@ const monthDayFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
 });
 
+const monthDayUtcFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
 export function formatShortDate(date: Date): string {
   return shortDateFormatter.format(date);
 }
@@ -50,6 +56,16 @@ export function formatDayLabel(date: Date): string {
 
 export function formatMonthDay(date: Date): string {
   return monthDayFormatter.format(date);
+}
+
+export function formatMatchMonthDay(matchDate: string): string {
+  const [year, month, day] = matchDate.split("-").map(Number);
+
+  if (!(year && month && day)) {
+    return matchDate;
+  }
+
+  return monthDayUtcFormatter.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 export function formatDateToUtcKey(date: Date): string {

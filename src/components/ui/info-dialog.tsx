@@ -2,6 +2,7 @@ import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { Description, Dialog, PressableFeedback } from "heroui-native";
 import { View } from "react-native";
 
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
 
 /**
@@ -58,7 +59,7 @@ export function InfoDialog(props: InfoDialogProps) {
         <Dialog.Portal>
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
-            <Dialog.Close className="absolute top-4 right-4 z-100" />
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>{props.content.title}</Dialog.Title>
             <Description>{props.content.description}</Description>
           </Dialog.Content>

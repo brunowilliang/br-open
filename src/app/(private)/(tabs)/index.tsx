@@ -1,7 +1,7 @@
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
-import { LeagueCard } from "@/components/pages/home/league-card";
+import { CompetitionCard } from "@/components/ui/competition-card";
 import { OrganizerDashboard } from "@/components/pages/home/organizer-dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -220,7 +220,7 @@ export default function Home() {
           numColumns={2}
           recycleItems
           renderItem={({ item }) => (
-            <LeagueCard
+            <CompetitionCard
               city={item.city}
               coverUrl={item.coverUrl}
               name={item.name}
