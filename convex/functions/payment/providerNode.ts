@@ -432,3 +432,67 @@ export const debitSubaccountAction = privateAction
     }
     return { value: data.value };
   });
+
+// ---------------------------------------------------------------------------
+// Charge refund (tournament cancellation — IBX-0010 slice 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Refunds a charge IN FULL via the provider's REST API
+ * `POST /api/v1/charge/{correlationID}/refund` (official docs:
+ * developers.woovi.com — "charge refund create"). The refund's own
+ * correlationID is deterministic (`refund-<chargeCorrelationId>`), so
+ * retrying with the same key is idempotent on the provider side.
+ *
+ * Response statuses (SDK types charge-refund/create): CONFIRMED when the
+ * refund is settled, IN_PROCESSING while it settles, REJECTED on failure.
+ * The ACTION only relays the raw status — the outcome mapping lives in
+ * `tournament/lifecycle.processRefunds` (M5): CONFIRMED → refunded,
+ * IN_PROCESSING → stays pending for the sweep, REJECTED → failed (sweep
+ * retries with the same idempotent key).
+ */
+export const refundChargeAction = privateAction
+  .input(
+    z.object({
+      chargeCorrelationId: z.string().min(1),
+      valueCents: z.number().int().positive(),
+    })
+  )
+  .output(z.object({ status: z.string() }))
+  .action(async ({ input }) => {
+    const { WOOVI_APP_ID, WOOVI_BASE_URL } = getEnv();
+    if (!WOOVI_APP_ID) {
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WOOVI_APP_ID must be configured.",
+      });
+    }
+    const baseUrl = WOOVI_BASE_URL ?? "https://api.woovi-sandbox.com";
+    const response = await providerFetch(
+      `${baseUrl}/api/v1/charge/${encodeURIComponent(
+        input.chargeCorrelationId
+      )}/refund`,
+      {
+        body: JSON.stringify({
+          comment: "Estorno BR-Open — cancelamento de torneio",
+          correlationID: `refund-${input.chargeCorrelationId}`,
+          value: input.valueCents,
+        }),
+        headers: {
+          Authorization: WOOVI_APP_ID,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }
+    );
+    if (!response.ok) {
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: await toLegibleProviderError(response),
+      });
+    }
+    const data = (await response.json()) as {
+      refund?: { status?: string };
+    };
+    return { status: data.refund?.status ?? "IN_PROCESSING" };
+  });

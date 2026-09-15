@@ -47,13 +47,16 @@ export const paymentCharge = convexTable(
         onDelete: "cascade",
       }),
     // Provider's internal charge id (`transactionID`/`identifier` at charge
-    // creation). Stored for diagnostics; matching is via `correlationId`.
     providerChargeId: text(),
     // Provider's PIX transaction id (end-to-end identifier), returned on
     // `OPENPIX:TRANSACTION_RECEIVED`. Distinct from `providerChargeId`.
     providerTransactionId: text(),
     // HTTPS URL of the QR PNG (provider returns a URL, not base64).
     qrCodeImage: text(),
+    // Refund lifecycle (IBX-0010): "pending" — refund requested at the
+    // provider, not confirmed yet; "failed" — provider rejected (sweep
+    // retries); "refunded" — provider confirmed. Null = never refunded.
+    refundStatus: text(),
     sourceId: text().notNull(),
     // Snapshot of the source's human label (e.g. the league name) captured
     // at charge time so list/history views don't need a join.

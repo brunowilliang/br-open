@@ -62,4 +62,14 @@ crons.interval(
   {}
 );
 
+// Retry tournament refunds that failed or never confirmed (IBX-0010).
+// Charges in refundStatus pending/failed get an idempotent provider retry
+// (`refund-<correlationId>` key) — same sweep pattern as withdraw fees.
+crons.interval(
+  "sweep-pending-tournament-refunds",
+  { minutes: 15 },
+  internal.tournament.lifecycle.sweepPendingRefunds,
+  {}
+);
+
 export default crons;

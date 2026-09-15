@@ -1,7 +1,10 @@
 import { eq } from "kitcn/orm";
+import type { InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import { isLeaguePaid } from "../../domains/league/membership-rules";
+import type { MutationCtx } from "../generated/server";
+import { tournamentEntry } from "../../domains/tournament/tables";
 import { leagueMembership } from "../../domains/league/tables";
 import {
   checkoutContextSchema,
@@ -44,11 +47,11 @@ import type { Id } from "../_generated/dataModel";
 import { scheduleLeagueNotification } from "../notification/events";
 import { getViewerContext } from "../viewer/context";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
-
-// Source type discriminator. Today only league membership charges exist; the
-// polymorphic pair (sourceType + sourceId) is ready for future sources
-// (event_registration, tournament_entry, ...).
 const SOURCE_TYPE_LEAGUE_MEMBERSHIP = "league_membership";
+const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
+// Source type discriminators. The polymorphic pair (sourceType + sourceId)
+// identifies what was paid for — league memberships and tournament entries
+// today; the webhook/handlers dispatch on it.
 
 // ---------------------------------------------------------------------------
 // Charge creation (authAction — calls the provider SDK via a Node action)
@@ -465,6 +468,10 @@ export const resolveSourceForCharge = privateMutation
     })
   )
   .mutation(async ({ ctx, input }) => {
+    if (input.sourceType === SOURCE_TYPE_TOURNAMENT_ENTRY) {
+      return resolveTournamentEntrySource(ctx, input.sourceId);
+    }
+
     if (input.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
       throw new CRPCError({
         code: "NOT_FOUND",
@@ -521,6 +528,65 @@ export const resolveSourceForCharge = privateMutation
   });
 
 /**
+ * Tournament entry source resolution: entry must be awaiting payment and
+ * belong to a published tournament with a priced category. The payer is
+ * the entry creator (`createdByUserId`); the amount is the category's
+ * entry fee (one charge per entry, not per player).
+ */
+async function resolveTournamentEntrySource(
+  ctx: MutationCtx,
+  sourceId: string
+) {
+  const entry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { id: sourceId as Id<"tournamentEntry"> },
+  });
+  if (!entry) {
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Inscrição não encontrada.",
+    });
+  }
+  if (entry.status !== "awaiting_payment") {
+    throw new CRPCError({
+      code: "BAD_REQUEST",
+      message: "Essa inscrição não está aguardando pagamento.",
+    });
+  }
+
+  const category = await ctx.orm.query.tournamentCategory.findFirst({
+    where: { id: entry.categoryId as Id<"tournamentCategory"> },
+  });
+  if (!category) {
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Categoria não encontrada.",
+    });
+  }
+  const tournamentRecord = await ctx.orm.query.tournament.findFirst({
+    where: { id: category.tournamentId as Id<"tournament"> },
+  });
+  if (!tournamentRecord) {
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Torneio não encontrado.",
+    });
+  }
+
+  const playerProfile = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: entry.playerAId as Id<"playerProfile"> },
+  });
+
+  return {
+    amountCents: category.entryFeeCents,
+    organizationId: tournamentRecord.organizationId as string,
+    platformFeePercent:
+      tournamentRecord.platformFeePercent ?? DEFAULT_PLATFORM_FEE_PERCENT,
+    playerProfileId: (playerProfile?.id ?? entry.playerAId) as string,
+    sourceLabel: `${tournamentRecord.name} — ${category.displayName}`,
+  };
+}
+
+/**
  * Atomic "charge paid → apply source side effect" pipeline.
  *
  * Replaces the previous two-step `markChargePaid` → `activateMembership`
@@ -575,8 +641,12 @@ export const applyPaidCharge = privateMutation
       })
       .where(eq(paymentCharge.id, charge.id));
 
-    // Dispatch on source type. Today only league_membership has a side
-    // effect; other sources leave the charge PAID for a reconciler.
+    // Dispatch on source type: league_membership and tournament_entry have
+    // side effects; other sources leave the charge PAID for a reconciler.
+    if (charge.sourceType === SOURCE_TYPE_TOURNAMENT_ENTRY) {
+      return applyPaidTournamentEntryCharge(ctx, charge);
+    }
+
     if (charge.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
       return { activated: false, membershipId: null };
     }
@@ -686,6 +756,83 @@ export const applyPaidCharge = privateMutation
 
     return { activated: !requiresManualApproval, membershipId };
   });
+
+/**
+ * Paid tournament entry charge → entry active (payment is the only gate in
+ * approvalMode auto; in manual, the entry already passed approval before
+ * checkout). Notifies creator + partner with `tournament.entry.confirmed`.
+ */
+async function applyPaidTournamentEntryCharge(
+  ctx: MutationCtx,
+  charge: InferSelectModel<typeof paymentCharge>
+) {
+  const entryId = charge.sourceId as Id<"tournamentEntry">;
+  const entry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { id: entryId },
+  });
+  if (!(entry && entry.status === "awaiting_payment")) {
+    // Charge PAID but entry no longer awaiting — reconciler territory.
+    return { activated: false, membershipId: null };
+  }
+
+  const category = await ctx.orm.query.tournamentCategory.findFirst({
+    where: { id: entry.categoryId as Id<"tournamentCategory"> },
+  });
+  const tournamentRecord = category
+    ? await ctx.orm.query.tournament.findFirst({
+        where: { id: category.tournamentId as Id<"tournament"> },
+      })
+    : null;
+  if (!(category && tournamentRecord)) {
+    return { activated: false, membershipId: null };
+  }
+
+  // M1: the charge only activates an entry while registrations are open.
+  // If the tournament moved past `published` between checkout and the
+  // webhook (race), the money must come back — mark refund-pending and
+  // hand off to the refund action; it never stays trapped in a dead entry.
+  if (tournamentRecord.status !== "published") {
+    const refundAt = new Date();
+    await ctx.orm
+      .update(paymentCharge)
+      .set({ refundStatus: "pending", updatedAt: refundAt })
+      .where(eq(paymentCharge.id, charge.id as Id<"paymentCharge">));
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournament.lifecycle.processRefunds,
+      { tournamentId: tournamentRecord.id as string }
+    );
+    return { activated: false, membershipId: null };
+  }
+
+  const now = new Date();
+  await ctx.orm
+    .update(tournamentEntry)
+    .set({ status: "active", updatedAt: now })
+    .where(eq(tournamentEntry.id, entryId));
+
+  const recipients = [
+    ...(entry.createdByUserId ? [entry.createdByUserId as Id<"user">] : []),
+    ...(entry.partnerUserId ? [entry.partnerUserId as Id<"user">] : []),
+  ];
+  if (recipients.length > 0) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.notification.orchestrator.createForRecipients,
+      {
+        actorUserId: null,
+        eventType: "tournament.entry.confirmed",
+        metadata: { chargeId: charge.id },
+        recipientUserIds: recipients,
+        sourceEntityId: entryId,
+        sourceEntityType: "tournamentEntry",
+        tournamentId: tournamentRecord.id,
+      }
+    );
+  }
+
+  return { activated: true, membershipId: null };
+}
 
 export const markChargeExpired = privateMutation
   .input(z.object({ correlationId: z.string() }))
