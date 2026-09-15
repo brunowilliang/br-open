@@ -85,9 +85,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -105,14 +110,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -212,9 +215,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -232,14 +240,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -339,9 +345,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -359,14 +370,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -472,9 +481,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -492,14 +506,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -606,9 +618,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -626,14 +643,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -733,9 +748,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -753,14 +773,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -860,9 +878,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -880,14 +903,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -987,9 +1008,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1007,14 +1033,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1143,9 +1167,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1163,14 +1192,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1270,9 +1297,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1290,14 +1322,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1344,9 +1374,14 @@ export const api: {
             sets: Array<{
               challengedGames: number;
               challengerGames: number;
-              kind: "set" | "super_tiebreak";
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: {
+                challengedPoints: number;
+                challengerPoints: number;
+              } | null;
             }>;
-            winnerMembershipId: string;
+            walkover?: boolean;
+            winnerMembershipId?: string | null;
           };
         },
         {
@@ -1407,9 +1442,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1427,14 +1467,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1534,9 +1572,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1554,14 +1597,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1661,9 +1702,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1681,14 +1727,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1788,9 +1832,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1808,14 +1857,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1919,9 +1966,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -1939,14 +1991,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -1993,9 +2043,14 @@ export const api: {
             sets: Array<{
               challengedGames: number;
               challengerGames: number;
-              kind: "set" | "super_tiebreak";
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: {
+                challengedPoints: number;
+                challengerPoints: number;
+              } | null;
             }>;
-            winnerMembershipId: string;
+            walkover?: boolean;
+            winnerMembershipId?: string | null;
           };
         },
         {
@@ -2056,9 +2111,14 @@ export const api: {
               sets: Array<{
                 challengedGames: number;
                 challengerGames: number;
-                kind: "set" | "super_tiebreak";
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: {
+                  challengedPoints: number;
+                  challengerPoints: number;
+                } | null;
               }>;
-              winnerMembershipId: string;
+              walkover?: boolean;
+              winnerMembershipId?: string | null;
             };
             submittedAt: number;
             submittedByMembershipId: string;
@@ -2076,14 +2136,12 @@ export const api: {
             finalSetScoringMode: "advantage" | "no_advantage";
             finalSetSuperTieBreakMustWinByTwo: boolean;
             finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakAtGamesAll: number;
             finalSetTieBreakMustWinByTwo: boolean;
             finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
             setMustWinByTwoGames: boolean;
-            tieBreakAtGamesAll: number;
             tieBreakMustWinByTwo: boolean;
             tieBreakPoints: number;
           };
@@ -2179,14 +2237,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2273,14 +2329,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2356,14 +2410,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2434,14 +2486,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2511,14 +2561,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2595,14 +2643,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2678,14 +2724,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2761,14 +2805,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -2838,14 +2880,12 @@ export const api: {
               finalSetScoringMode: "advantage" | "no_advantage";
               finalSetSuperTieBreakMustWinByTwo: boolean;
               finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakAtGamesAll: number;
               finalSetTieBreakMustWinByTwo: boolean;
               finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
               setMustWinByTwoGames: boolean;
-              tieBreakAtGamesAll: number;
               tieBreakMustWinByTwo: boolean;
               tieBreakPoints: number;
             };
@@ -3073,11 +3113,27 @@ export const api: {
             | "league.challenge.cancellation_rejected"
             | "league.challenge.result_submitted"
             | "league.challenge.result_confirmed"
+            | "league.challenge.result_edited"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
+            | "league.challenge.walkover_submitted"
+            | "league.challenge.walkover_confirmed"
             | "league.challenge.organizer_approved"
-            | "league.challenge.organizer_rejected";
+            | "league.challenge.organizer_rejected"
+            | "tournament.partner.invited"
+            | "tournament.partner.responded"
+            | "tournament.entry.created"
+            | "tournament.entry.confirmed"
+            | "tournament.entry.rejected"
+            | "tournament.bracket.published"
+            | "tournament.match.reassigned"
+            | "tournament.match.scheduled"
+            | "tournament.match.rescheduled"
+            | "tournament.match.result"
+            | "tournament.match.result_edited"
+            | "tournament.finished"
+            | "tournament.cancelled";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -3128,11 +3184,27 @@ export const api: {
             | "league.challenge.cancellation_rejected"
             | "league.challenge.result_submitted"
             | "league.challenge.result_confirmed"
+            | "league.challenge.result_edited"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
+            | "league.challenge.walkover_submitted"
+            | "league.challenge.walkover_confirmed"
             | "league.challenge.organizer_approved"
-            | "league.challenge.organizer_rejected";
+            | "league.challenge.organizer_rejected"
+            | "tournament.partner.invited"
+            | "tournament.partner.responded"
+            | "tournament.entry.created"
+            | "tournament.entry.confirmed"
+            | "tournament.entry.rejected"
+            | "tournament.bracket.published"
+            | "tournament.match.reassigned"
+            | "tournament.match.scheduled"
+            | "tournament.match.rescheduled"
+            | "tournament.match.result"
+            | "tournament.match.result_edited"
+            | "tournament.finished"
+            | "tournament.cancelled";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -3578,6 +3650,1095 @@ export const api: {
       >;
     };
   };
+  tournament: {
+    bracket: {
+      draw: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        { success: true }
+      >;
+      listBracket: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          categoryId: string;
+          courtId: string | null;
+          createdAt: number;
+          endMinute: number | null;
+          entryAId: string | null;
+          entryBId: string | null;
+          id: string;
+          matchDate: string | null;
+          round: number;
+          rowVersion: number;
+          scheduledById: string | null;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          } | null;
+          slotInRound: number;
+          startMinute: number | null;
+          status: "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+          updatedAt: number;
+          walkover: boolean;
+          winnerEntryId: string | null;
+        }>
+      >;
+      start: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        { success: true }
+      >;
+      swapSlots: FunctionReference<
+        "mutation",
+        "public",
+        {
+          categoryId: string;
+          round?: number;
+          sideA: "a" | "b";
+          sideB: "a" | "b";
+          slotA: number;
+          slotB: number;
+          tournamentId: string;
+        },
+        { success: true }
+      >;
+    };
+    discovery: {
+      getById: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        {
+          activeEntryCount: number;
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          categories: Array<{
+            displayName: string;
+            entryFeeCents: number;
+            gender: "male" | "female" | "mixed";
+            id: string;
+            maxEntries: number | null;
+            modality: "singles" | "doubles";
+            tournamentId: string;
+          }>;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          isTournamentOrganizer: boolean;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          viewerEntryIds: Array<string>;
+          visibility: "public" | "private";
+        }
+      >;
+      listAvailable: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }>
+      >;
+      listParticipating: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }>
+      >;
+    };
+    entries: {
+      approve: FunctionReference<
+        "mutation",
+        "public",
+        { entryId: string },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      cancel: FunctionReference<
+        "mutation",
+        "public",
+        { entryId: string },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      create: FunctionReference<
+        "mutation",
+        "public",
+        { categoryId: string; partnerUsername?: string },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      listForTournament: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerA: {
+            avatarUrl: string | null;
+            fullName: string | null;
+            nickname: string | null;
+            playerProfileId: string;
+            username: string | null;
+          } | null;
+          playerAId: string;
+          playerB: {
+            avatarUrl: string | null;
+            fullName: string | null;
+            nickname: string | null;
+            playerProfileId: string;
+            username: string | null;
+          } | null;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }>
+      >;
+      reject: FunctionReference<
+        "mutation",
+        "public",
+        { entryId: string },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      respondPartnerInvite: FunctionReference<
+        "mutation",
+        "public",
+        { accept: boolean; entryId: string },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      setEntryRound: FunctionReference<
+        "mutation",
+        "public",
+        { entryId: string; entryRound: number | null },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+      setSeed: FunctionReference<
+        "mutation",
+        "public",
+        { entryId: string; seedRank: number | null },
+        {
+          categoryId: string;
+          createdAt: number;
+          createdByUserId: string | null;
+          entryRound: number | null;
+          id: string;
+          partnerUserId: string | null;
+          playerAId: string;
+          playerBId: string | null;
+          seedRank: number | null;
+          status:
+            | "pending_partner"
+            | "pending_approval"
+            | "awaiting_payment"
+            | "active"
+            | "rejected"
+            | "cancelled";
+          updatedAt: number;
+        }
+      >;
+    };
+    lifecycle: {
+      cancel: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        { success: true }
+      >;
+    };
+    management: {
+      create: FunctionReference<
+        "mutation",
+        "public",
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          categories: Array<{
+            entryFeeCents: number;
+            gender: "male" | "female" | "mixed";
+            maxEntries: number | null;
+            modality: "singles" | "doubles";
+          }>;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          description?: string;
+          locationNotes?: string;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          visibility: "public" | "private";
+        },
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }
+      >;
+      generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
+      getById: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        {
+          categories: Array<{
+            displayName: string;
+            entryFeeCents: number;
+            gender: "male" | "female" | "mixed";
+            id: string;
+            maxEntries: number | null;
+            modality: "singles" | "doubles";
+            tournamentId: string;
+          }>;
+          tournament: {
+            approvalMode: "auto" | "manual";
+            avatarStorageId: string | null;
+            avatarUrl?: string | null;
+            city: string;
+            courts: Array<{
+              availability: {
+                fri: Array<{ endMinute: number; startMinute: number }>;
+                mon: Array<{ endMinute: number; startMinute: number }>;
+                sat: Array<{ endMinute: number; startMinute: number }>;
+                sun: Array<{ endMinute: number; startMinute: number }>;
+                thu: Array<{ endMinute: number; startMinute: number }>;
+                tue: Array<{ endMinute: number; startMinute: number }>;
+                wed: Array<{ endMinute: number; startMinute: number }>;
+              };
+              id: string;
+              name: string;
+            }>;
+            coverStorageId: string | null;
+            coverUrl?: string | null;
+            createdAt: number;
+            description?: string | null;
+            id: string;
+            locationNotes?: string | null;
+            matchConfig: {
+              bestOfSets: number;
+              defaultDurationMinutes: number;
+              finalSetGamesPerSet: number;
+              finalSetHasTieBreak: boolean;
+              finalSetMode:
+                "same_as_previous" | "custom_set" | "super_tiebreak";
+              finalSetMustWinByTwoGames: boolean;
+              finalSetScoringMode: "advantage" | "no_advantage";
+              finalSetSuperTieBreakMustWinByTwo: boolean;
+              finalSetSuperTieBreakPoints: number;
+              finalSetTieBreakMustWinByTwo: boolean;
+              finalSetTieBreakPoints: number;
+              gamesPerSet: number;
+              hasTieBreak: boolean;
+              scoringMode: "advantage" | "no_advantage";
+              setMustWinByTwoGames: boolean;
+              tieBreakMustWinByTwo: boolean;
+              tieBreakPoints: number;
+            };
+            name: string;
+            registrationDeadlineAt: number;
+            startDate: number;
+            state: string;
+            status:
+              | "draft"
+              | "published"
+              | "drawn"
+              | "ongoing"
+              | "finished"
+              | "cancelled";
+            updatedAt: number;
+            visibility: "public" | "private";
+          };
+        }
+      >;
+      listMine: FunctionReference<
+        "query",
+        "public",
+        {},
+        Array<{
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }>
+      >;
+      publish: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        { success: true }
+      >;
+      update: FunctionReference<
+        "mutation",
+        "public",
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          categories: Array<{
+            entryFeeCents: number;
+            gender: "male" | "female" | "mixed";
+            maxEntries: number | null;
+            modality: "singles" | "doubles";
+          }>;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          description?: string;
+          locationNotes?: string;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          tournamentId: string;
+          visibility: "public" | "private";
+        },
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            finalSetGamesPerSet: number;
+            finalSetHasTieBreak: boolean;
+            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
+            finalSetMustWinByTwoGames: boolean;
+            finalSetScoringMode: "advantage" | "no_advantage";
+            finalSetSuperTieBreakMustWinByTwo: boolean;
+            finalSetSuperTieBreakPoints: number;
+            finalSetTieBreakMustWinByTwo: boolean;
+            finalSetTieBreakPoints: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }
+      >;
+    };
+    matches: {
+      editResult: FunctionReference<
+        "mutation",
+        "public",
+        {
+          matchId: string;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          };
+          walkover?: boolean;
+        },
+        {
+          categoryId: string;
+          courtId: string | null;
+          createdAt: number;
+          endMinute: number | null;
+          entryAId: string | null;
+          entryBId: string | null;
+          id: string;
+          matchDate: string | null;
+          round: number;
+          rowVersion: number;
+          scheduledById: string | null;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          } | null;
+          slotInRound: number;
+          startMinute: number | null;
+          status: "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+          updatedAt: number;
+          walkover: boolean;
+          winnerEntryId: string | null;
+        }
+      >;
+      listForTournament: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          categoryId: string;
+          courtId: string | null;
+          createdAt: number;
+          endMinute: number | null;
+          entryAId: string | null;
+          entryBId: string | null;
+          id: string;
+          matchDate: string | null;
+          round: number;
+          rowVersion: number;
+          scheduledById: string | null;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          } | null;
+          slotInRound: number;
+          startMinute: number | null;
+          status: "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+          updatedAt: number;
+          walkover: boolean;
+          winnerEntryId: string | null;
+        }>
+      >;
+      publishResult: FunctionReference<
+        "mutation",
+        "public",
+        {
+          matchId: string;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          };
+          walkover?: boolean;
+        },
+        {
+          categoryId: string;
+          courtId: string | null;
+          createdAt: number;
+          endMinute: number | null;
+          entryAId: string | null;
+          entryBId: string | null;
+          id: string;
+          matchDate: string | null;
+          round: number;
+          rowVersion: number;
+          scheduledById: string | null;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          } | null;
+          slotInRound: number;
+          startMinute: number | null;
+          status: "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+          updatedAt: number;
+          walkover: boolean;
+          winnerEntryId: string | null;
+        }
+      >;
+      scheduleMatch: FunctionReference<
+        "mutation",
+        "public",
+        {
+          courtId: string;
+          endMinute: number;
+          matchDate: string;
+          matchId: string;
+          startMinute: number;
+        },
+        {
+          categoryId: string;
+          courtId: string | null;
+          createdAt: number;
+          endMinute: number | null;
+          entryAId: string | null;
+          entryBId: string | null;
+          id: string;
+          matchDate: string | null;
+          round: number;
+          rowVersion: number;
+          scheduledById: string | null;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          } | null;
+          slotInRound: number;
+          startMinute: number | null;
+          status: "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+          updatedAt: number;
+          walkover: boolean;
+          winnerEntryId: string | null;
+        }
+      >;
+    };
+    players: {
+      searchByUsername: FunctionReference<
+        "query",
+        "public",
+        { username: string },
+        {
+          avatarUrl: string | null;
+          fullName: string | null;
+          nickname: string | null;
+          playerProfileId: string;
+          username: string | null;
+        } | null
+      >;
+    };
+  };
   viewer: {
     context: {
       activateOrganization: FunctionReference<
@@ -3925,16 +5086,33 @@ export const internal: {
             | "league.challenge.cancellation_rejected"
             | "league.challenge.result_submitted"
             | "league.challenge.result_confirmed"
+            | "league.challenge.result_edited"
             | "league.challenge.result_correction_requested"
             | "league.challenge.result_invalidated"
             | "league.challenge.result_reminder_requested"
+            | "league.challenge.walkover_submitted"
+            | "league.challenge.walkover_confirmed"
             | "league.challenge.organizer_approved"
-            | "league.challenge.organizer_rejected";
-          leagueId: string;
+            | "league.challenge.organizer_rejected"
+            | "tournament.partner.invited"
+            | "tournament.partner.responded"
+            | "tournament.entry.created"
+            | "tournament.entry.confirmed"
+            | "tournament.entry.rejected"
+            | "tournament.bracket.published"
+            | "tournament.match.reassigned"
+            | "tournament.match.scheduled"
+            | "tournament.match.rescheduled"
+            | "tournament.match.result"
+            | "tournament.match.result_edited"
+            | "tournament.finished"
+            | "tournament.cancelled";
+          leagueId?: string;
           metadata?: Record<string, any>;
           recipientUserIds: Array<string>;
           sourceEntityId?: string;
           sourceEntityType?: string;
+          tournamentId?: string;
         },
         any
       >;
@@ -4130,6 +5308,12 @@ export const internal: {
         { pixKey: string },
         { balanceCents: number; withdrawBlocked: boolean }
       >;
+      refundChargeAction: FunctionReference<
+        "action",
+        "internal",
+        { chargeCorrelationId: string; valueCents: number },
+        { status: string }
+      >;
       withdrawSubaccountAction: FunctionReference<
         "action",
         "internal",
@@ -4261,6 +5445,29 @@ export const internal: {
         usersCreated: number;
       }
     >;
+  };
+  tournament: {
+    lifecycle: {
+      applyRefundOutcome: FunctionReference<
+        "mutation",
+        "internal",
+        { chargeId: string; outcome: "pending" | "refunded" | "failed" },
+        any
+      >;
+      listRefundableCharges: FunctionReference<
+        "query",
+        "internal",
+        { tournamentId: string },
+        Array<{ amountCents: number; chargeId: string; correlationId: string }>
+      >;
+      processRefunds: FunctionReference<
+        "action",
+        "internal",
+        { tournamentId: string },
+        any
+      >;
+      sweepPendingRefunds: FunctionReference<"mutation", "internal", {}, any>;
+    };
   };
 } = anyApi as any;
 

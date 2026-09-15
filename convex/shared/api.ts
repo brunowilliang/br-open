@@ -104,6 +104,50 @@ export const api = {
       upsert: createApiLeaf<"mutation", typeof import("../functions/player/profile").upsert>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").upsert>("player/profile:upsert"), { auth: "required", type: "mutation" }),
     },
   },
+  tournament: {
+    bracket: {
+      draw: createApiLeaf<"mutation", typeof import("../functions/tournament/bracket").draw>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/bracket").draw>("tournament/bracket:draw"), { auth: "required", type: "mutation" }),
+      listBracket: createApiLeaf<"query", typeof import("../functions/tournament/bracket").listBracket>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/bracket").listBracket>("tournament/bracket:listBracket"), { auth: "required", type: "query" }),
+      start: createApiLeaf<"mutation", typeof import("../functions/tournament/bracket").start>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/bracket").start>("tournament/bracket:start"), { auth: "required", type: "mutation" }),
+      swapSlots: createApiLeaf<"mutation", typeof import("../functions/tournament/bracket").swapSlots>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/bracket").swapSlots>("tournament/bracket:swapSlots"), { auth: "required", type: "mutation" }),
+    },
+    discovery: {
+      getById: createApiLeaf<"query", typeof import("../functions/tournament/discovery").getById>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/discovery").getById>("tournament/discovery:getById"), { auth: "required", type: "query" }),
+      listAvailable: createApiLeaf<"query", typeof import("../functions/tournament/discovery").listAvailable>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/discovery").listAvailable>("tournament/discovery:listAvailable"), { auth: "required", type: "query" }),
+      listParticipating: createApiLeaf<"query", typeof import("../functions/tournament/discovery").listParticipating>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/discovery").listParticipating>("tournament/discovery:listParticipating"), { auth: "required", type: "query" }),
+    },
+    entries: {
+      approve: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").approve>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").approve>("tournament/entries:approve"), { auth: "required", type: "mutation" }),
+      cancel: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").cancel>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").cancel>("tournament/entries:cancel"), { auth: "required", type: "mutation" }),
+      create: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").create>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").create>("tournament/entries:create"), { auth: "required", type: "mutation" }),
+      listForTournament: createApiLeaf<"query", typeof import("../functions/tournament/entries").listForTournament>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/entries").listForTournament>("tournament/entries:listForTournament"), { auth: "required", type: "query" }),
+      reject: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").reject>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").reject>("tournament/entries:reject"), { auth: "required", type: "mutation" }),
+      respondPartnerInvite: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").respondPartnerInvite>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").respondPartnerInvite>("tournament/entries:respondPartnerInvite"), { auth: "required", type: "mutation" }),
+      setEntryRound: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").setEntryRound>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").setEntryRound>("tournament/entries:setEntryRound"), { auth: "required", type: "mutation" }),
+      setSeed: createApiLeaf<"mutation", typeof import("../functions/tournament/entries").setSeed>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/entries").setSeed>("tournament/entries:setSeed"), { auth: "required", type: "mutation" }),
+    },
+    lifecycle: {
+      cancel: createApiLeaf<"mutation", typeof import("../functions/tournament/lifecycle").cancel>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/lifecycle").cancel>("tournament/lifecycle:cancel"), { auth: "required", type: "mutation" }),
+    },
+    management: {
+      create: createApiLeaf<"mutation", typeof import("../functions/tournament/management").create>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").create>("tournament/management:create"), { auth: "required", type: "mutation" }),
+      generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/tournament/management").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").generateUploadUrl>("tournament/management:generateUploadUrl"), { auth: "required", type: "mutation" }),
+      getById: createApiLeaf<"query", typeof import("../functions/tournament/management").getById>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/management").getById>("tournament/management:getById"), { auth: "required", type: "query" }),
+      listMine: createApiLeaf<"query", typeof import("../functions/tournament/management").listMine>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/management").listMine>("tournament/management:listMine"), { auth: "required", type: "query" }),
+      publish: createApiLeaf<"mutation", typeof import("../functions/tournament/management").publish>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").publish>("tournament/management:publish"), { auth: "required", type: "mutation" }),
+      remove: createApiLeaf<"mutation", typeof import("../functions/tournament/management").remove>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").remove>("tournament/management:remove"), { auth: "required", type: "mutation" }),
+      update: createApiLeaf<"mutation", typeof import("../functions/tournament/management").update>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").update>("tournament/management:update"), { auth: "required", type: "mutation" }),
+    },
+    matches: {
+      editResult: createApiLeaf<"mutation", typeof import("../functions/tournament/matches").editResult>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/matches").editResult>("tournament/matches:editResult"), { auth: "required", type: "mutation" }),
+      listForTournament: createApiLeaf<"query", typeof import("../functions/tournament/matches").listForTournament>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/matches").listForTournament>("tournament/matches:listForTournament"), { auth: "required", type: "query" }),
+      publishResult: createApiLeaf<"mutation", typeof import("../functions/tournament/matches").publishResult>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/matches").publishResult>("tournament/matches:publishResult"), { auth: "required", type: "mutation" }),
+      scheduleMatch: createApiLeaf<"mutation", typeof import("../functions/tournament/matches").scheduleMatch>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/matches").scheduleMatch>("tournament/matches:scheduleMatch"), { auth: "required", type: "mutation" }),
+    },
+    players: {
+      searchByUsername: createApiLeaf<"query", typeof import("../functions/tournament/players").searchByUsername>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/tournament/players").searchByUsername>("tournament/players:searchByUsername"), { auth: "required", type: "query" }),
+    },
+  },
   viewer: {
     context: {
       activateOrganization: createApiLeaf<"mutation", typeof import("../functions/viewer/context").activateOrganization>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/viewer/context").activateOrganization>("viewer/context:activateOrganization"), { auth: "required", type: "mutation" }),

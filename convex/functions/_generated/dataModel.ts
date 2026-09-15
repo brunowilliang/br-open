@@ -994,6 +994,7 @@ export type DataModel = {
       providerChargeId?: null | string;
       providerTransactionId?: null | string;
       qrCodeImage?: null | string;
+      refundStatus?: null | string;
       sourceId: string;
       sourceLabel?: null | string;
       sourceType: string;
@@ -1017,6 +1018,7 @@ export type DataModel = {
       | "providerChargeId"
       | "providerTransactionId"
       | "qrCodeImage"
+      | "refundStatus"
       | "sourceId"
       | "sourceLabel"
       | "sourceType"
@@ -1169,9 +1171,229 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  tournament: {
+    document: {
+      approvalMode?: null | string;
+      avatarStorageId?: null | string;
+      city: string;
+      courts?: null | any;
+      coverStorageId?: null | string;
+      createdAt: number;
+      description?: null | string;
+      locationNotes?: null | string;
+      matchConfig: any;
+      maxEntriesHint?: null | number;
+      name: string;
+      organizationId: Id<"organization">;
+      platformFeePercent?: null | number;
+      registrationDeadlineAt: number;
+      startDate: number;
+      state: string;
+      status: string;
+      updatedAt: number;
+      visibility: string;
+      _id: Id<"tournament">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "approvalMode"
+      | "avatarStorageId"
+      | "city"
+      | "courts"
+      | "coverStorageId"
+      | "createdAt"
+      | "description"
+      | "locationNotes"
+      | "matchConfig"
+      | "maxEntriesHint"
+      | "name"
+      | "organizationId"
+      | "platformFeePercent"
+      | "registrationDeadlineAt"
+      | "startDate"
+      | "state"
+      | "status"
+      | "updatedAt"
+      | "visibility";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      organizationId: ["organizationId", "_creationTime"];
+      status: ["status", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentCategory: {
+    document: {
+      createdAt: number;
+      displayName: string;
+      entryFeeCents: number;
+      gender: string;
+      maxEntries?: null | number;
+      modality: string;
+      tournamentId: Id<"tournament">;
+      updatedAt: number;
+      _id: Id<"tournamentCategory">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "displayName"
+      | "entryFeeCents"
+      | "gender"
+      | "maxEntries"
+      | "modality"
+      | "tournamentId"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      tournamentId: ["tournamentId", "_creationTime"];
+      tournamentId_modality_gender: [
+        "tournamentId",
+        "modality",
+        "gender",
+        "_creationTime",
+      ];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentEntry: {
+    document: {
+      categoryId: Id<"tournamentCategory">;
+      createdAt: number;
+      createdByUserId?: null | Id<"user">;
+      entryRound?: null | number;
+      partnerUserId?: null | Id<"user">;
+      playerAId: Id<"playerProfile">;
+      playerBId?: null | Id<"playerProfile">;
+      seedRank?: null | number;
+      status: string;
+      updatedAt: number;
+      _id: Id<"tournamentEntry">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "categoryId"
+      | "createdAt"
+      | "createdByUserId"
+      | "entryRound"
+      | "partnerUserId"
+      | "playerAId"
+      | "playerBId"
+      | "seedRank"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      categoryId_playerAId: ["categoryId", "playerAId", "_creationTime"];
+      categoryId_playerBId: ["categoryId", "playerBId", "_creationTime"];
+      categoryId_status: ["categoryId", "status", "_creationTime"];
+      createdByUserId: ["createdByUserId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentMatch: {
+    document: {
+      categoryId: Id<"tournamentCategory">;
+      courtId?: null | string;
+      createdAt: number;
+      endMinute?: null | number;
+      entryAId?: null | Id<"tournamentEntry">;
+      entryBId?: null | Id<"tournamentEntry">;
+      matchDate?: null | string;
+      publishedAt?: null | number;
+      round: number;
+      rowVersion: number;
+      scheduledById?: null | Id<"user">;
+      score?: null | any;
+      slotInRound: number;
+      startMinute?: null | number;
+      status: string;
+      updatedAt: number;
+      walkover: boolean;
+      winnerEntryId?: null | Id<"tournamentEntry">;
+      _id: Id<"tournamentMatch">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "categoryId"
+      | "courtId"
+      | "createdAt"
+      | "endMinute"
+      | "entryAId"
+      | "entryBId"
+      | "matchDate"
+      | "publishedAt"
+      | "round"
+      | "rowVersion"
+      | "scheduledById"
+      | "score"
+      | "slotInRound"
+      | "startMinute"
+      | "status"
+      | "updatedAt"
+      | "walkover"
+      | "winnerEntryId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      categoryId_round_slotInRound: [
+        "categoryId",
+        "round",
+        "slotInRound",
+        "_creationTime",
+      ];
+      entryAId: ["entryAId", "_creationTime"];
+      entryBId: ["entryBId", "_creationTime"];
+      matchDate: ["matchDate", "_creationTime"];
+      winnerEntryId: ["winnerEntryId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentMatchEdit: {
+    document: {
+      after: any;
+      before: any;
+      createdAt: number;
+      editedByUserId?: null | Id<"user">;
+      matchId: Id<"tournamentMatch">;
+      _id: Id<"tournamentMatchEdit">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "after"
+      | "before"
+      | "createdAt"
+      | "editedByUserId"
+      | "matchId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      matchId: ["matchId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   user: {
     document: {
       createdAt: number;
+      displayUsername?: null | string;
       email: string;
       emailVerified: boolean;
       image?: null | string;
@@ -1180,6 +1402,7 @@ export type DataModel = {
       personalOrganizationId?: null | Id<"organization">;
       updatedAt: number;
       userId?: null | string;
+      username?: null | string;
       _id: Id<"user">;
       _creationTime: number;
     };
@@ -1187,6 +1410,7 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "createdAt"
+      | "displayUsername"
       | "email"
       | "emailVerified"
       | "image"
@@ -1194,7 +1418,8 @@ export type DataModel = {
       | "name"
       | "personalOrganizationId"
       | "updatedAt"
-      | "userId";
+      | "userId"
+      | "username";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
@@ -1203,6 +1428,7 @@ export type DataModel = {
       name: ["name", "_creationTime"];
       personalOrganizationId: ["personalOrganizationId", "_creationTime"];
       user_email_unique: ["email", "_creationTime"];
+      user_username_unique: ["username", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
