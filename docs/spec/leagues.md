@@ -35,17 +35,159 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Referências:** `convex/domains/league/contract.ts` — helper `toggleableRule<T>` + tipo `ToggleableRule<T>` (linhas ~65-88), `resolveRuleValue`, `NO_RESPONSE_DEADLINE_HORIZON_YEARS = 100`, `DEFAULT_LEAGUE_RULE_CONFIG` (linhas 252-267), `ChallengeRuleConfigSchema` com `maxChallengeDistance`, `maxActiveChallengesPerPlayer`, `maxChallengesPerMonth`, `responseDeadlineHours` enrolados em `toggleableRule(...)` (linhas 460-501); os enums obrigatórios (`challengeValidationMode`, `resultValidationMode`, `winBehavior`, `lossBehavior`, `walkoverBehavior`, `newPlayerPlacement`) seguem como required sem toggle. `convex/domains/league/challenge-rules.ts` — `resolveResponseDeadline` (sentinel far-future quando desabilitado), `resolveChallengeCreationRuleError` numérico. `convex/functions/league/_challenges/scheduling_guards.ts` (linhas 168-180) — `resolveChallengeCreationRuleError` com `resolveRuleValue(rule, Number.POSITIVE_INFINITY)`. UI: `src/components/pages/leagues/rule-card.tsx` (`ToggleableRuleCard` + `RuleExpandableContent` com `accessibilityRole="checkbox"`), `form/rules/sections/challenge-rules-section.tsx` (4 `ToggleableRuleCard` + `RuleCard` de `challengeValidationMode`), `result-rules-section.tsx` (`resultValidationMode` na tab Resultado), `src/app/(private)/settings/leagues/[mode]/rules.tsx` (4 tabs: Desafios/Resultado/Ranking/Partidas), `settings.tsx` (toggles "Limitar vagas" e "Cobrança"; `togglePaidPrice` bloqueia se `wooviStatus !== "active"`). Migrations: `20260623_000001_toggleable_rule_config.ts` e `20260623_000002_challenge_scoring_snapshot.ts`. Seed: `convex/domains/seed/data.ts` (`defaultSeedRuleConfig` com shape `{ enabled, value }` + `scheduleVisibility`). Testes: `contract.test.ts`, `challenge-creation-rules.test.ts` (casos `Infinity`).
 - **Decisões:** "no deadline" é timestamp far-future (coluna `responseDeadlineAt` `notNull()`); resolução do valor efetivo fica no caller; valor preservado ao desabilitar (validação do `value` continua com `enabled:false`). Scoring renomeado na implementação: `LeagueScoringModeOptions = ["advantage", "no_advantage"]` (contract.ts linha 63), label "Sem vantagem" em `src/lib/leagues/rule-format.ts` e `form/rules/shared.ts` (antes `no_ad`/"No-ad").
 
+### Match config compartilhado — bestOf {1,3,5} + tie-break derivado (R10/R11)
+- **Status:** implementado
+- **Data:** 22/08/2026
+- **Referências:** `convex/domains/league/contract.ts` —
+  `LeagueMatchConfigSchema.superRefine` exige `bestOfSets` ∈ {1, 3, 5}
+  (`SUPPORTED_BEST_OF_SET_COUNTS`, R10) e `tieBreakPoints`/
+  `finalSetTieBreakPoints`/`finalSetSuperTieBreakPoints` ∈ {7, 10}
+  (`SUPPORTED_TIE_BREAK_POINTS`, R11; presets oficiais do tênis — set TB a
+  7, super TB a 10). **R11:
+  `tieBreakAtGamesAll`/`finalSetTieBreakAtGamesAll` REMOVIDOS** do schema —
+  o gatilho do TB é derivado na validação: TB em X-X onde X = `gamesPerSet`
+  do set (`challenge-rules.ts:getSetValidationError`; último set custom usa
+  `finalSetGamesPerSet`). No input da liga o
+  `.default(DEFAULT).catch(DEFAULT)` do `ruleConfig.matchConfig` segue como
+  healing de docs legados; Zod stripa a chave extra de docs antigos sem
+  disparar o catch (testado em `league/tests/contract.test.ts` — "legado
+  R11"). Auditoria dev+prod pré-tighten: todos os docs já 6/7/10 (derivação
+  neutra). Sem migration.
+- **IBX-0034 (10-09): mini-placar do tie-break por set** — campo
+  `tieBreak` opcional no schema de set; **REWORK-2 (10-09): o placar manual é
+  LIVRE** — a validação por forma (padrão 7x6, direção, alvo, win-by-2, teto)
+  saiu do caminho manual e o cluster INTEIRO foi REMOVIDO (`getSetValidationError`,
+  `buildChallengeScoreProgress`, `getRequiredSetWins`, `getExpectedSetKind`,
+  `isChallengeScoreSetBlank`, `resolveChallengeScoreWinnerMembershipId`,
+  `validateChallengeScore` — zero call sites fora dos testes, checado por grep).
+  **Rodada 4 (10-09): a derivação CONTA o TB anexo** — linha empatada em games
+  é decidida pelo `tieBreak` anexo (mais pontos vence a linha; TB empatado ou
+  ausente = linha de ninguém); linha não-empatada segue pelos games. Sem
+  migration, sem mudança de config (o config do TB continua no
+  wizard/regras, mas não valida mais resultado manual).
+- **UI do form (R11, entregue):** campo "em qual placar entra o tie-break"
+  REMOVIDO do set normal e do último set (o gatilho acompanha os games);
+  "pontos no tie-break" e "pontos no super tie-break" viraram SEGMENTO
+  7|10 ("7 pontos"/"10 pontos", molde do bestOf —
+  `match-rules/match-basics-section.tsx:73-81`; set em
+  `tie-break-section.tsx:58-80`, último set + super TB em
+  `final-set-section.tsx:305-314,376-384`); toggle Tie-break preservado;
+  espelho gamesPerSet→tieBreakAtGamesAll EXTINTO; `MATCH_CONFIG_FIELDS`
+  sem as 2 chaves (`use-match-config-form.ts:3`); `/rules` read-only DERIVA
+  o empate de gamesPerSet (`formatTieBreak` — "Tie-break em 6x6" para set
+  de 6, `rule-format.ts:98-107`); `MATCH_RULE_INFO.tieBreak` reescrito
+  ("O tie-break entra quando o set chega em games-a-games.",
+  `match-rules/shared.ts:55-58`).
+- **Decisões:** uma regra a menos para o organizador configurar (o gatilho
+  acompanha os games por set) e placares sempre coerentes com os presets
+  oficiais; mesmo schema compartilhado com torneio (detalhes do lado do
+  torneio em tournaments.md, "Backend implementado"). **Forms NÃO espelham
+  o refine {7,10}** — herdam do schema-base (o segmento elimina a entrada
+  inválida na UI); o `superRefine` bestOf dos forms ficou redundante pelo
+  mesmo motivo (aceito como está — LOW de cleanup futuro).
+
+### Seções de partida do form como módulo global (RUL-0005, R10)
+- **Status:** implementado
+- **Data:** 22/08/2026 (IBX-0010 R10 — regra de partida no torneio)
+- **Referências:** `src/components/match-rules/` (NOVO módulo global) —
+  `match-rules-section.tsx` compõe `match-basics-section.tsx` +
+  `tie-break-section.tsx` + `final-set-section.tsx`, todos parametrizados
+  por `RuleSectionProps.prefix` (`shared.ts:7-11` — `"ruleConfig.matchConfig"`
+  na liga, `"matchConfig"` no torneio); `use-match-config-form.ts` resolve
+  os paths RHF (`buildMatchConfigPaths(prefix)`) e erros aninhados
+  (`resolveMatchConfigFieldError`) das seções compartilhadas;
+  `MATCH_RULE_INFO` vive em `match-rules/shared.ts` (:24-60). As seções de
+  partida SAÍRAM de `form/rules/sections/` (arquivos removidos; a aba
+  Partidas de `settings/leagues/[mode]/rules.tsx` monta
+  `MatchRulesSection prefix="ruleConfig.matchConfig"` — rules.tsx:14,100-103);
+  as seções de desafio/resultado/ranking continuam em
+  `form/rules/sections/`. `CHALLENGE_RULE_INFO` restaurado byte-a-byte no
+  `form/rules/shared.ts` da liga (:22-43) junto de `RULE_INFO`
+  (:45+) — nada de conteúdo perdido na extração.
+- **Decisões:** uma só implementação das seções de regras de partida para
+  liga e torneio; a liga continua passando o prefixo antigo, o contrato e o
+  payload NÃO mudaram (slice de frontend puro).
+
 ### Desafios (lifecycle completo de propostas + resultados)
 - **Status:** implementado
 - **Data:** 24/05/2026
-- **Referências:** `convex/functions/league/challenges.ts` (18 procedures), `convex/domains/league/challenge-rules.ts`, `challenge-status.ts`, `challenge-form.ts`, `tables.ts` (`leagueChallenge`, `leagueChallengeProposal`, `leagueChallengeResultSubmission`, `leagueChallengeOrganizerAction`), `src/app/(private)/leagues/[leagueId]/challenges.tsx`, `src/components/pages/leagues/challenge-proposal-dialog.tsx`, `challenge-result-dialog.tsx`, `challenge-card.tsx`, `challenge-organizer-action-dialog.tsx`, `src/lib/leagues/use-challenge-mutations.ts`, `challenge-route-view.ts`, `challenge-menu-actions.ts`, `challenge-tab-counts.ts`, `challenge-feedback.ts`, `challenge-formatters.ts`.
+- **Referências:** `convex/functions/league/challenges.ts` (18 procedures), `convex/domains/league/challenge-rules.ts`, `challenge-status.ts`, `challenge-form.ts`, `tables.ts` (`leagueChallenge`, `leagueChallengeProposal`, `leagueChallengeResultSubmission`, `leagueChallengeOrganizerAction`), `src/app/(private)/leagues/[leagueId]/challenges.tsx`, `src/components/pages/leagues/challenge-proposal-dialog.tsx`, `src/components/ui/score-result-dialog.tsx` (GLOBAL, IBX-0024), `src/lib/matches/score-draft.ts`, `challenge-card.tsx`, `challenge-organizer-action-dialog.tsx`, `src/lib/leagues/use-challenge-mutations.ts`, `challenge-route-view.ts`, `challenge-menu-actions.ts`, `challenge-tab-counts.ts`, `challenge-feedback.ts`, `challenge-formatters.ts`.
 - **Decisões:** modelo de negociação com proposta ativa única, contrapropostas com histórico (`revisionNumber`, status `active|accepted|replaced|declined|cancelled`), reset do deadline (`buildResponseDeadline`), lock após aceite (`resolveAcceptedChallengeStatus`), bloqueio de slot nos estados ativos (`ACTIVE_CHALLENGE_BLOCKING_STATUSES`). Nomenclatura "admin" → "organizer" (`pending_organizer_challenge_validation`, `pending_organizer_result_validation`, `pending_organizer_decision`). Lifecycle com 14 estados, incluindo `pending_cancellation_acceptance`: o cancelamento é por solicitação aceita pelo outro lado (`requestCancellation` + `respondCancellationRequest` com `cancellationRequestedAt/By`), além do `cancel` direto. Score com schema próprio (`leagueChallengeScoreSchema`: sets com `kind: set|super_tiebreak`, winner por membership) e validação dirigida pelo `matchConfigSnapshot` (`validateChallengeScore`, `buildChallengeScoreProgress`, `getSetValidationError`). Tabela `leagueChallengeOrganizerAction` com trilha de auditoria das ações do organizador. Resultado com validação manual: `reviewResult` (approve/request_correction/invalidate) e `organizerSubmitResult` (organizador preenche placar quando o jogador não confirma). Regras de criação (`resolveChallengeCreationRuleError`): não se desafiar, posição acima, distância máxima, limites ativos/mensais. `challengeValidationMode`/`resultValidationMode` (automatic/manual) com defaults `automatic`.
 - **Como funciona:** jogador cria desafio com proposta completa (data, hora, quadra) contra um membro ativo; o outro aceita/recusa/contrapropõe; aceite trava a proposta e confirma (ou vai para validação manual do organizador); após a partida, um jogador submete placar, o outro confirma; o organizador valida quando o modo é manual, pode pedir correção, invalidar, cancelar/invalidar/reabrir (`organizerManage` com ações `cancel|invalidate|reopen_challenge|reopen_result`) e lembrar resultado (`organizerRequestResultReminder`). Abas unificadas para jogador/organizador: `active|attention|ongoing|history` (`buildChallengeRouteVisibleChallenges`), com contadores de badge (`buildChallengeTabCounts`) e menus derivados de `challenge-status.ts` (paridade backend/frontend garantida por `challenge-status-parity.test.ts`).
+
+### Dialog de placar do desafio (GLOBAL — IBX-0024 + IBX-0034, RUL-0005/RUL-0019)
+- **Status:** implementado
+- **Data:** 26/08 (IBX-0024); 10/09 (IBX-0034: fluxo set a set → LISTA LIVRE)
+- O "lançar placar" do desafio e o "lançar resultado" do torneio eram o
+  mesmo conceito duplicado em 2 componentes — extraído para o núcleo
+  GLOBAL `src/components/ui/score-result-dialog.tsx` (lados A/B neutros,
+  W.O. por `walkoverEnabled`; submissão `{sets, walkover, winnerId}` com
+  vencedor EXPLÍCITO) com puras em `src/lib/matches/score-draft.ts`. Na
+  liga: `challenges.tsx` consome com payload `{sets,
+  winnerMembershipId}` e título dinâmico preservado;
+  `challenge-result-dialog.tsx` EXTINTO (grep 0).
+- **IBX-0034 (10-09, RUL-0019) — resultado como lista livre (rounds 2-4):**
+  o dialog tem um topo FIXO (`absolute top-4 right-4`): o botão "Adicionar"
+  (label SEMPRE visível, agora o `Menu.Trigger` — o menu do corpo foi
+  extinto no round 5; desabilitado enquanto o submit pende) ao lado do X de
+  fechar GLOBAL (`DialogCloseButton`,
+  `src/components/ui/dialog-close-button.tsx`, adotado por todos os
+  dialogs, posição preservada). O menu oferece
+  "Adicionar set" (par de `NumberStepper` 0-99 com "x" e os nomes dos
+  jogadores — entrada numérica, NUNCA chips/ToggleButtonGroup),
+  "Adicionar tie-break" (linha avulsa de pontos, só com 1+ set na lista)
+  e "Registrar W.O." (entrou no menu no round 3; o link standalone saiu
+  do corpo). DENTRO de cada linha o botão "Tie-break" (centralizado sob
+  os steppers) anexa o mini-placar — UM por linha, sem botão de
+  "adicionar outro" quando já existe, remoção pelo X (`Cancel01Icon`) da
+  própria sub-linha; o X do header remove a linha. Sem gates: set 3x3
+  fecha como qualquer linha, sem erro inline, sem labels de regra, sem
+  limites por gamesPerSet (`isTieBreakDue`/`applyTieBreakToSet`/
+  `getDraftSetError`/chips EXTINTOS no round 2). SEM scoreboard (faixa e
+  resumo extintos no round 3; `buildMatchVictorySummary` removido): a
+  contagem de linhas (`buildScoreboard`) só alimenta o desfecho — round 4:
+  mais games decide a linha; EMPATE em games é decidido pelo TB anexo
+  (mais pontos no TB — 6x6 com TB 7-3 é linha do lado A; TB empatado não
+  conta). O "Quem venceu?" aparece ON-DEMAND na hora de salvar quando o
+  conjunto fica indefinido (nada aparece nem bloqueia antes). Submit
+  exige 1+ linha e vencedor (derivado ou escolhido). W.O. no menu
+  (2 botões grandes + voltar; payload `[LEAGUE_WALKOVER_SET]` + flag).
+  Hydrate preserva `initialSets` (trim de linhas zeradas à direita). As
+  animações são da família rule-card
+  (FadeIn 180ms / FadeOut 120ms + AccordionLayoutTransition).
+- **Corpo scrollável + gesto (10-09, rodada 8):** o corpo (lista + empty
+  state + "Quem venceu?") vive num `ScrollShadow color="surface"` com
+  `maxHeight = min(450, metade da janela)` + `ScrollView` (molde do repo:
+  `challenge-proposal-dialog.tsx:457` / `select-scroll-content.tsx`, e a
+  seção Scrollable Content da doc do HeroUI Native); FICOS: título, o par
+  do topo (Adicionar + X) e o rodapé (Salvar + mensagem de erro acima) —
+  o botão de salvar nunca sai da tela. `isSwipeable={false}` neste dialog:
+  o drag-to-dismiss (default true) brigaria com o scroll vertical do
+  corpo; fechamento pelo X.
+- **BACKEND POUSADO (10-09, REWORK-2):** o contrato combinado está no ar no
+  zod: `leagueChallengeScoreSetSchema.kind` ganhou `"tiebreak"` (linha avulsa
+  de pontos) e `leagueChallengeScoreSchema.winnerMembershipId` virou NULLISH —
+  o vencedor EXPLÍCITO é obrigatório só quando as linhas empatam (derivado por
+  linhas vencidas caso contrário; `resolveChallengeScoreOutcome` em
+  `challenge-rules.ts`). Validação manual LIVRE: sem gamesPerSet/2-de-diferença/
+  empate-proibido/teto de sets; só sanidade (ints ≥ 0, 1+ linha) + exatamente 1
+  vencedor (explícito incoerente = erro). Binding alinhado no Front
+  (10-09): os casts saíram (handlers de `challenges.tsx` tipam com
+  `LeagueChallengeScore` direto; `ScoreDraftSet.kind` importa o tipo do
+  contrato) e o dialog manda `winnerMembershipId` explícito SÓ quando as
+  linhas empatam ou em W.O. (null quando o placar decide).
+
+### W.O. no resultado do desafio + edição de resultado publicada (IBX-0026/0028)
+- **Status:** implementado
+- **Data:** 31-08-2026
+- **Referências:** `convex/domains/league/contract.ts` (`leagueChallengeScoreSchema.walkover?`), `convex/domains/league/challenge-rules.ts` (`resolveWalkoverScoreError`, `applyChallengeResultToRanking` walkover-aware), `convex/functions/league/challenges.ts` (`submitResult`, `confirmResult`, `organizerSubmitResult` — editor único), `convex/functions/league/_challenges/ranking.ts` (`recordOrganizerChallengeAction` com action `edit_result` + `reason`), `src/app/(private)/leagues/[leagueId]/challenges.tsx` (`walkoverEnabled` + `LEAGUE_WALKOVER_SET`), protocolo de notificações (`league.challenge.walkover_submitted|walkover_confirmed|result_edited`).
+- **Decisões:** W.O. espelha a convenção do torneio (payload = 1 set placeholder 0-0 + flag; `LEAGUE_WALKOVER_SET` no vocabulário challenger/challenged) — backward compat, scores antigos parseam sem flag. NENHUM estado novo no lifecycle: submit → `pending_result_confirmation` (perdedor confirma; modo manual → `pending_organizer_result_validation`) — ninguém se auto-declara vencedor sem contraparte ou organizador. `walkoverBehavior: "cancel_challenge"` desliga W.O. como resultado na liga (manda cancelar); `"automatic_loss_and_move_to_end"` manda o perdedor pro fim do ranking (vencedor toma a posição); `"automatic_loss"` mantém o efeito padrão. Ranking com snapshots/reversão como nos resultados jogados. Editor único de resultado publicado = organizador (`organizerSubmitResult` já aceitava `finished`); edição detectada (finished + submission existente) gera auditoria `leagueChallengeOrganizerAction` action `edit_result` com `reason` JSON `{before, after}` + notificação `result_edited` aos 2 jogadores; re-ranking restaura o snapshot e reaplica.
+- **Como funciona:** jogador ou organizador submete `{sets:[0-0], walkover:true, winnerMembershipId}` → valida `resolveWalkoverScoreError` (vencedor ∈ lados, 1 set zerado, behavior não-cancelamento) em vez de `validateChallengeScore` → fluxo de confirmação normal com notificações `walkover_submitted`/`walkover_confirmed`. Edição pelo organizador: novo submission confirmado + restore/re-apply de ranking + auditoria + `result_edited`. Delta de UI pendente (Frontend): chip "W.O." no card quando `submission.score.walkover` (flag já serializada ao cliente).
 
 ### Agenda / Schedule
 - **Status:** implementado
 - **Data:** 26/06/2026
-- **Referências:** `convex/domains/league/contract.ts` — `LeagueScheduleVisibilityOptions`, `DEFAULT_LEAGUE_SCHEDULE_VISIBILITY = "public"`, campo `scheduleVisibility` no `ChallengeRuleConfigSchema` (linha 498), `leagueScheduleItemSchema`. `convex/functions/league/challenges.ts` (linhas 120-133) — `league.challenges.listScheduled` (`authQuery`): se `scheduleVisibility !== "public"` exige `getViewerContextOrThrow` (FORBIDDEN para visitante); filtra status `confirmed` + `matchDate >= hoje`; ordena por `matchDate`/`startMinute`. `src/app/(private)/leagues/[leagueId]/schedule.tsx` — rota standalone (Page.Header + ScrollView), janela `7|15 dias`, tabs de data via `buildScheduleDateTabs`, sempre abre em "Hoje", períodos manhã/tarde/noite via `buildScheduleDayView`. `src/app/(private)/leagues/[leagueId]/index.tsx` — item "Agenda" no menu `⋮` quando `access.canOpenSchedule`. `src/lib/leagues/league-details-derived.ts` — `canOpenSchedule: scheduleVisibility === "public" ? true : isMember`. `src/lib/leagues/schedule-view.ts` — `buildScheduleDateTabs`, `buildScheduleDayView`, `SCHEDULE_WINDOW_OPTIONS` (7/15), `SCHEDULE_PERIOD_META` (manhã <720, tarde <1080, noite >=1080), `formatScheduleMinute`; testes em `schedule-view.test.ts`. `src/components/pages/leagues/schedule-card.tsx` — card simplificado (fotos sobrepostas, `NOME x NOME`, `HH:MM · Quadra`). `settings.tsx` — "Visibilidade da agenda" (`scheduleVisibilityOptions`: "Aberta para todos"/"Somente jogadores").
+- **Referências:** `convex/domains/league/contract.ts` — `LeagueScheduleVisibilityOptions`, `DEFAULT_LEAGUE_SCHEDULE_VISIBILITY = "public"`, campo `scheduleVisibility` no `ChallengeRuleConfigSchema` (linha 498), `leagueScheduleItemSchema`. `convex/functions/league/challenges.ts` (linhas 120-133) — `league.challenges.listScheduled` (`authQuery`): se `scheduleVisibility !== "public"` exige `getViewerContextOrThrow` (FORBIDDEN para visitante); filtra status `confirmed` + `matchDate >= hoje`; ordena por `matchDate`/`startMinute`. `src/app/(private)/leagues/[leagueId]/schedule.tsx` — rota standalone (Page.Header + ScrollView), janela `7|15 dias`, tabs de data via `buildScheduleDateTabs`, sempre abre em "Hoje", períodos manhã/tarde/noite via `buildScheduleDayView`. `src/app/(private)/leagues/[leagueId]/index.tsx` — item "Agenda" no menu `⋮` quando `access.canOpenSchedule`. `src/lib/leagues/league-details-derived.ts` — `canOpenSchedule: scheduleVisibility === "public" ? true : isMember`. `src/lib/leagues/schedule-view.ts` — `buildScheduleDateTabs`, `buildScheduleDayView`, `SCHEDULE_WINDOW_OPTIONS` (7/15), `SCHEDULE_PERIOD_META` (manhã <720, tarde <1080, noite >=1080), `formatScheduleMinute`; testes em `schedule-view.test.ts`. `src/components/ui/schedule-card.tsx` (GLOBAL — RUL-0005; era `src/components/pages/leagues/schedule-card.tsx`) — card simplificado (fotos sobrepostas, `NOME x NOME`, `HH:MM · Quadra`), usado pela agenda da liga e pela do torneio. `settings.tsx` — "Visibilidade da agenda" (`scheduleVisibilityOptions`: "Aberta para todos"/"Somente jogadores").
 - **Decisões:** filtro de janela client-side; flag vive no `ruleConfig` com fallback `?? "public"` no backend e no client; serialização com fallback sem migração de dados (docs legados caem no default).
 
 ### Ranking (posições + reordenação manual + efeito automático de resultados)
@@ -58,7 +200,7 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 ### Detalhe da liga (cluster de rotas + store Legend-State)
 - **Status:** implementado
 - **Data:** 15/06/2026
-- **Referências:** `src/app/(private)/leagues/[leagueId]/_layout.tsx` (layout com `Tabs` + `FloatingTabBar` e bootstrap/hydration do store), `index.tsx` (overview com banner, menu com Regras/Editar), `ranking.tsx`, `challenges.tsx`, `requests.tsx` (owner-only, redireciona quem não pode), `rules.tsx` (regras read-only em grid 2xN), `schedule.tsx` (agenda — rota nova, além do refactor), `src/lib/leagues/league-details-store.ts` (store singleton com buckets por `leagueId`), `league-details-derived.ts`, `league-navigation-tabs.ts`, `challenge-route-view.ts`, `challenge-tab-counts.ts`, `schedule-view.ts`, `src/components/pages/leagues/{preview,guest-overview,player-overview,organizer-overview,league-join-footer,schedule-card}.tsx`.
+- **Referências:** `src/app/(private)/leagues/[leagueId]/_layout.tsx` (layout com `Tabs` + `FloatingTabBar` e bootstrap/hydration do store), `index.tsx` (overview com banner, menu com Regras/Editar), `ranking.tsx`, `challenges.tsx`, `requests.tsx` (owner-only, redireciona quem não pode), `rules.tsx` (regras read-only em grid 2xN — desde o R10 com `RulesGrid`/`RulesItemCard` GLOBALIZADOS em `src/components/ui/rules-grid.tsx`, cutover da liga com a tela de torneio reutilizando; helpers locais removidos), `schedule.tsx` (agenda — rota nova, além do refactor), `src/lib/leagues/league-details-store.ts` (store singleton com buckets por `leagueId`), `league-details-derived.ts`, `league-navigation-tabs.ts`, `challenge-route-view.ts`, `challenge-tab-counts.ts`, `schedule-view.ts`, `src/components/pages/leagues/{guest-overview,player-overview,organizer-overview,league-join-footer}.tsx` (o `schedule-card.tsx` virou o global `src/components/ui/schedule-card.tsx`; a lista espelha o diretório real).
 - **Decisões:** o modelo de 3 papéis é `guest|player|organizer` (`LeagueDetailsRole` em `league-details-derived.ts`; `buildLeagueDetailsRole` resolve organizer > player ativo > guest) e o access inclui `canOpenSchedule` (regido por `scheduleVisibility: public|members_only`). O store é `observable` do Legend-State v3 (`@legendapp/state@~3.0.0-beta.48`) com buckets por `leagueId` (`getLeagueDetailsBucket$`) e deriveds (access, counts, rankingItems, requestItems, rulesView, viewerPosition); React Query é dono do servidor (queries em `_layout.tsx`, invalidação em `use-challenge-mutations.ts`). `requests.tsx` falha fechado para não-organizador. Navegação por `FloatingTabBar` + rotas (sem tab-query-param).
 - **Como funciona:** `_layout.tsx` hidrata `discovery.getById` + `viewer.context.get`, deriva papel/access no bucket, hidrata membros (`membership.getOverview`, só se `canOpenRanking||canOpenRequests`), desafios (`challenges.listForLeague`, só se `canOpenChallenges`) e slots ocupados; cada rota consome os deriveds do bucket e executa mutações com invalidação via React Query.
 
@@ -71,9 +213,9 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 ### Descoberta e participação (público)
 - **Status:** implementado
 - **Data:** 19/05/2026
-- **Referências:** `convex/functions/league/discovery.ts` (`getById`, `listAvailable`, `listParticipating`), `convex/domains/league/discovery-list.ts` (busca sem acento, `getActiveMembershipLeagueIds`), `src/app/(private)/(tabs)/search.tsx` (busca com `listAvailable` + filtro local), `(tabs)/index.tsx` e `(tabs)/ligas.tsx` (grid de ligas do jogador via `listParticipating`; card "Nova liga" para organizador), `src/components/pages/leagues/league-join-footer.tsx` (join + checkout/status), `convex/functions/league/membership.ts` (`requestJoin`, `approve`, `reject`, `remove`).
+- **Referências:** `convex/functions/league/discovery.ts` (`getById`, `listAvailable`, `listParticipating`), `convex/domains/league/discovery-list.ts` (busca sem acento, `getActiveMembershipLeagueIds`), `src/app/(private)/(tabs)/search.tsx` (busca com `listAvailable` + filtro local), `(tabs)/index.tsx` e `(tabs)/competitions.tsx` ("Minhas Competições", ex-`ligas.tsx`; grid do jogador via `listParticipating` da liga e do torneio; cards "Nova liga"/"Novo torneio" para organizador via `CreateCompetitionCard`), `src/components/pages/leagues/league-join-footer.tsx` (join + checkout/status), `convex/functions/league/membership.ts` (`requestJoin`, `approve`, `reject`, `remove`).
 - **Decisões:** discovery completo com visibilidade (`isLeagueDiscoverableVisibility`, privadas só para o organizador), contagem de ativos (`activePlayerCount`), estado do viewer (`viewerMembershipId/Status`) e join com fluxo de pagamento. **Ligas pagas** (Woovi/PIX) com `approvalMode auto|manual`, `monthlyPriceCents`, `maxPlayers`, `gracePeriodDays`, `reminderDaysBefore` e status de membro `awaiting_payment|payment_due|suspended` (config em `settings.tsx` do form, checkout em `src/app/(private)/checkout/[chargeId]/`; fee da plataforma em `DECISAO-004` no `contract.ts`).
-- **Como funciona:** jogador entra por `search` (listAvailable), pede entrada (`requestJoin`), organizador aprova/recusa (`approve`/`reject`); em liga paga, entrada vira checkout (`awaiting_payment`) ou fila (`pending`) conforme `approvalMode`; `listParticipating` alimenta as abas Home/Ligas.
+- **Como funciona:** jogador entra por `search` (listAvailable), pede entrada (`requestJoin`), organizador aprova/recusa (`approve`/`reject`); em liga paga, entrada vira checkout (`awaiting_payment`) ou fila (`pending`) conforme `approvalMode`; `listParticipating` alimenta a Home do jogador e a aba Minhas Competições (junto com `tournament.discovery.listParticipating`).
 
 ### Upload de perfil do jogador (cleanup centralizado)
 - **Status:** implementado
@@ -137,6 +279,8 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Contrato Zod como fonte da verdade** (`convex/domains/league/contract.ts`), com serializers aplicando fallbacks para docs legados; código gerado por codegen (kitcn/CRPC).
 - **Regras puras e testáveis** em `convex/domains/league/*` sem contexto Convex; funções deployáveis finas em `convex/functions/league/` (com submódulo `_challenges/`).
 - **Agenda fora da floating tab bar**, acessível pelo menu `⋮`; visibilidade `public`/`members_only` no `ruleConfig`.
+- **W.O. espelha o torneio:** mesmo payload (1 set placeholder 0-0 + flag `walkover` no score) e regra M4 de vencedor ∈ lados (`resolveWalkoverScoreError`); sem estado novo no lifecycle — confirmação do perdedor ou organizador arbitra. `walkoverBehavior` da liga governa o efeito (`automatic_loss_and_move_to_end` manda o perdedor pro fim; `cancel_challenge` rejeita W.O. como resultado).
+- **Editor único de resultado publicado:** o organizador corrige placar/vencedor/W.O. de desafio `finished` via `organizerSubmitResult`; edição gera auditoria `leagueChallengeOrganizerAction` (`edit_result`, reason JSON before/after) + `league.challenge.result_edited`; ranking restaura snapshot e reaplica com o novo resultado.
 - Migrações idempotentes e versionadas em `convex/functions/migrations/` (12 arquivos, incl. rename de status e de scoring).
 
 ## Próximos passos

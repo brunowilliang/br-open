@@ -38,5 +38,6 @@ de CLI, de máquina e de agente.
 | [arquitetura.md](arquitetura.md) | Stack, estrutura de pastas, backend (kitcn/CRPC), frontend, nomenclatura, gates de verificação |
 | [leagues.md](leagues.md) | Liga inteira: criação, edição, quadras, regras, desafios, agenda, ranking, detalhe, overviews, mídia, descoberta |
 | [auth.md](auth.md) | Auth/Conta: login (e-mail+senha, Apple, Google), senha, troca de e-mail OTP, contas vinculadas, e-mails Resend |
-| [tournaments.md](tournaments.md) | Torneios (design aprovado, não implementado): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, checkout |
+| [tournaments.md](tournaments.md) | Torneios (implementado — domínio, CRPC e telas): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, chave navegável, inscrições, agenda, checkout |
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |
+| [payments.md](payments.md) | Payments: mensalidade de liga via PIX com split Woovi, checkout, webhook, renovação com carência, dashboard do organizador, hub do jogador, saque (withdraw) |
