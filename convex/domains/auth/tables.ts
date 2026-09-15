@@ -12,6 +12,11 @@ export const user = convexTable(
   "user",
   {
     createdAt: timestamp().notNull(),
+    // Coluna técnica exigida pelo schema do plugin username; neste app fica
+    // SEMPRE null: o auto-fill do databaseHook só roda no create com username
+    // no corpo (sign-up), e o sign-up do app não envia username. Nunca usada
+    // pela UI (não existe "display username" no app).
+    displayUsername: text(),
     email: text().notNull().unique(),
     emailVerified: boolean().notNull(),
     image: text(),
@@ -24,6 +29,10 @@ export const user = convexTable(
     ),
     updatedAt: timestamp().notNull(),
     userId: text(),
+    // Username plugin (better-auth): identificador único normalizado
+    // (lowercase) — pré-requisito do convite de dupla em torneios. Login
+    // segue por e-mail; o campo é opcional e só é definido via updateUser.
+    username: text().unique(),
   },
   (user) => [
     index("email_name").on(user.email, user.name),

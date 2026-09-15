@@ -2,6 +2,7 @@ import { expo } from "@better-auth/expo";
 import { i18n } from "@better-auth/i18n";
 import { emailOTP } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
+import { username } from "better-auth/plugins/username";
 import { importPKCS8, SignJWT } from "jose";
 import { convex } from "kitcn/auth";
 import { Resend } from "resend";
@@ -125,6 +126,15 @@ export default defineAuth(() => {
         authConfig,
         jwks: env.JWKS,
       }),
+      // Username (22-08-2026, torneios IBX-0010 slice 1): identificador
+      // único para o convite de dupla. Defaults do plugin: 3–30 chars,
+      // `/^[a-zA-Z0-9_.]+$/`, normalização lowercase, unique no user.
+      // Sem opções nesta versão (1.6.24) — "displayUsername: false" do design
+      // é atendido por NÃO expor o campo na UI; a coluna displayUsername é
+      // técnica (exigida pelo schema do plugin) e fica SEMPRE null neste app:
+      // o auto-fill do databaseHook só roda no create com username no corpo,
+      // e o sign-up do app não envia username. Login continua por e-mail.
+      username(),
       emailOTP({
         changeEmail: {
           enabled: true,
