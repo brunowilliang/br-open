@@ -19,11 +19,27 @@ export const NOTIFICATION_EVENT_TYPES = [
   "league.challenge.cancellation_rejected",
   "league.challenge.result_submitted",
   "league.challenge.result_confirmed",
+  "league.challenge.result_edited",
   "league.challenge.result_correction_requested",
   "league.challenge.result_invalidated",
   "league.challenge.result_reminder_requested",
+  "league.challenge.walkover_submitted",
+  "league.challenge.walkover_confirmed",
   "league.challenge.organizer_approved",
   "league.challenge.organizer_rejected",
+  "tournament.partner.invited",
+  "tournament.partner.responded",
+  "tournament.entry.created",
+  "tournament.entry.confirmed",
+  "tournament.entry.rejected",
+  "tournament.bracket.published",
+  "tournament.match.reassigned",
+  "tournament.match.scheduled",
+  "tournament.match.rescheduled",
+  "tournament.match.result",
+  "tournament.match.result_edited",
+  "tournament.finished",
+  "tournament.cancelled",
 ] as const;
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
@@ -31,31 +47,30 @@ export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
 export const NOTIFICATION_PUSH_CATEGORY_IDS = {
   leagueMembershipRequest: "league_membership_request",
 } as const;
-
 export type NotificationPushCategoryId =
   (typeof NOTIFICATION_PUSH_CATEGORY_IDS)[keyof typeof NOTIFICATION_PUSH_CATEGORY_IDS];
 
-export const NOTIFICATION_ACTION_IDS = {
+export const NOTIFICATION_ACTION_IDS: Record<string, string> = {
   leagueMembershipRequestApprove: "league_membership_request_approve",
   leagueMembershipRequestReject: "league_membership_request_reject",
-} as const;
+};
 
 export type NotificationActionId =
   (typeof NOTIFICATION_ACTION_IDS)[keyof typeof NOTIFICATION_ACTION_IDS];
 
-export const NOTIFICATION_EVENT_CATEGORY_IDS = {
+export const NOTIFICATION_EVENT_CATEGORY_IDS: Partial<
+  Record<NotificationEventType, NotificationPushCategoryId>
+> = {
   "league.membership.requested":
     NOTIFICATION_PUSH_CATEGORY_IDS.leagueMembershipRequest,
-} as const satisfies Partial<
-  Record<NotificationEventType, NotificationPushCategoryId>
->;
+};
 
-export const NOTIFICATION_CATEGORY_ACTION_IDS = {
+export const NOTIFICATION_CATEGORY_ACTION_IDS: Record<
+  NotificationPushCategoryId,
+  readonly NotificationActionId[]
+> = {
   [NOTIFICATION_PUSH_CATEGORY_IDS.leagueMembershipRequest]: [
     NOTIFICATION_ACTION_IDS.leagueMembershipRequestApprove,
     NOTIFICATION_ACTION_IDS.leagueMembershipRequestReject,
   ],
-} as const satisfies Record<
-  NotificationPushCategoryId,
-  readonly NotificationActionId[]
->;
+};

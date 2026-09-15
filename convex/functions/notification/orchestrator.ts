@@ -41,15 +41,35 @@ type ClaimedDelivery = {
   };
 };
 
-const createForRecipientsSchema = z.object({
-  actorUserId: z.string().nullable(),
-  eventType: NotificationEventTypeSchema,
-  leagueId: z.string().min(1),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  recipientUserIds: z.array(z.string().min(1)).min(1),
-  sourceEntityId: z.string().min(1).optional(),
-  sourceEntityType: z.string().min(1).optional(),
-});
+const createForRecipientsSchema = z
+  .object({
+    actorUserId: z.string().nullable(),
+    eventType: NotificationEventTypeSchema,
+    // Generic source pair: exactly one of leagueId/tournamentId. The
+    // orchestrator resolves the source record (name + organizationId) from
+    // whichever id is present — no more hardcoded league lookup.
+    leagueId: z.string().min(1).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    recipientUserIds: z.array(z.string().min(1)).min(1),
+    sourceEntityId: z.string().min(1).optional(),
+    sourceEntityType: z.string().min(1).optional(),
+    tournamentId: z.string().min(1).optional(),
+  })
+  .superRefine((value, refinementCtx) => {
+    if (!(value.leagueId || value.tournamentId)) {
+      refinementCtx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "leagueId ou tournamentId é obrigatório.",
+      });
+    }
+
+    if (value.leagueId && value.tournamentId) {
+      refinementCtx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "leagueId e tournamentId são mutuamente exclusivos.",
+      });
+    }
+  });
 
 type RecipientActor =
   | {
@@ -65,8 +85,9 @@ type RecipientActor =
       userId: Id<"user">;
     };
 
-type LeagueNotificationRecord = {
+type NotificationSourceRecord = {
   id: string;
+  kind: "league" | "tournament";
   name: string;
   organizationId: Id<"organization">;
 };
@@ -92,17 +113,67 @@ async function getActorName(ctx: MutationCtx, actorUserId: Id<"user"> | null) {
     playerProfile?.nickname?.trim() || playerProfile?.fullName || user?.name
   );
 }
+/**
+ * Events whose recipients are ORGANIZERS (managers of the source's
+ * organization). Everyone else resolves a player actor.
+ */
+const ORGANIZER_RECIPIENT_EVENTS: Record<string, true> = {
+  "league.membership.requested": true,
+  "tournament.entry.created": true,
+};
+
+function eventTypeAppliesToOrganizer(
+  eventType: z.infer<typeof NotificationEventTypeSchema>
+) {
+  return Boolean(ORGANIZER_RECIPIENT_EVENTS[eventType]);
+}
+
+/**
+ * Resolves the notification source record (name + owning organization) from
+ * whichever source id is present. Replaces the former hardcoded league
+ * lookup — leagues and tournaments share the same pipeline.
+ */
+async function resolveNotificationSource(
+  ctx: MutationCtx,
+  input: { leagueId?: string; tournamentId?: string }
+): Promise<NotificationSourceRecord | null> {
+  if (input.tournamentId) {
+    const tournament = await ctx.orm.query.tournament.findFirst({
+      where: { id: input.tournamentId as Id<"tournament"> },
+    });
+    return (
+      tournament && {
+        id: tournament.id as string,
+        kind: "tournament",
+        name: tournament.name,
+        organizationId: tournament.organizationId as Id<"organization">,
+      }
+    );
+  }
+
+  const league = await ctx.orm.query.league.findFirst({
+    where: { id: input.leagueId as Id<"league"> },
+  });
+  return (
+    league && {
+      id: league.id as string,
+      kind: "league",
+      name: league.name,
+      organizationId: league.organizationId as Id<"organization">,
+    }
+  );
+}
 
 async function resolveRecipientActor(input: {
   ctx: MutationCtx;
   eventType: z.infer<typeof NotificationEventTypeSchema>;
-  league: LeagueNotificationRecord;
   recipientUserId: Id<"user">;
+  source: NotificationSourceRecord;
 }): Promise<RecipientActor | null> {
-  if (input.eventType === "league.membership.requested") {
+  if (eventTypeAppliesToOrganizer(input.eventType)) {
     return {
       kind: "organization",
-      organizationId: input.league.organizationId as Id<"organization">,
+      organizationId: input.source.organizationId,
       playerProfileId: null,
       userId: input.recipientUserId,
     };
@@ -197,11 +268,9 @@ async function releaseSendPendingLock(ctx: MutationCtx) {
 export const createForRecipients = privateMutation
   .input(createForRecipientsSchema)
   .mutation(async ({ ctx, input }) => {
-    const league = await ctx.orm.query.league.findFirst({
-      where: { id: input.leagueId as Id<"league"> },
-    });
+    const source = await resolveNotificationSource(ctx, input);
 
-    if (!league) {
+    if (!source) {
       return null;
     }
 
@@ -214,8 +283,8 @@ export const createForRecipients = privateMutation
       const recipientActor = await resolveRecipientActor({
         ctx,
         eventType: input.eventType,
-        league,
         recipientUserId: recipientUserId as Id<"user">,
+        source,
       });
 
       if (!recipientActor) {
@@ -225,11 +294,12 @@ export const createForRecipients = privateMutation
       const content = buildNotificationContent({
         actorName,
         eventType: input.eventType,
-        leagueId: league.id,
-        leagueName: league.name,
         metadata: input.metadata,
         recipientRole:
           recipientActor.kind === "organization" ? "organizer" : "player",
+        ...(source.kind === "league"
+          ? { leagueId: source.id, leagueName: source.name }
+          : { tournamentId: source.id, tournamentName: source.name }),
       });
 
       const feedId = await ctx.db.insert("notificationFeed", {
