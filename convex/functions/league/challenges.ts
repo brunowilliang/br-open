@@ -6,10 +6,11 @@ import {
   canPlayersCancelChallenge,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
+  resolveChallengeScoreOutcome,
   resolveResponseDeadline,
   resolveReopenedChallengeStatus,
   resolveScoreConfirmationStatus,
-  validateChallengeScore,
+  resolveWalkoverScoreError,
   type LeagueChallengeStatus,
 } from "../../domains/league/challenge-rules";
 import {
@@ -21,7 +22,6 @@ import {
   LeagueChallengeByIdSchema,
   leagueChallengeSchema,
   leagueChallengeScoreSchema,
-  LeagueMatchConfigSchema,
   leagueScheduleItemSchema,
   RequestLeagueChallengeCancellationSchema,
   RespondLeagueChallengeCancellationSchema,
@@ -29,6 +29,8 @@ import {
   ReviewLeagueChallengeSchema,
   SubmitLeagueChallengeResultSchema,
   type LeagueChallengeScore,
+  type LeagueWalkoverBehavior,
+  type ResolvedLeagueChallengeScore,
 } from "../../domains/league/contract";
 import {
   ADMIN_CANCELABLE_CHALLENGE_STATUSES,
@@ -84,6 +86,45 @@ import {
   serializeChallenge,
 } from "./_challenges/serializers";
 import { syncTimeDrivenChallengeStatus } from "./_challenges/status_helpers";
+
+/**
+ * REWORK-2 (10/09): desfecho de um placar MANUAL submetido — W.O. segue o
+ * caminho próprio (resolveWalkoverScoreError exige o vencedor explícito);
+ * placar jogado é LIVRE e resolve o vencedor por linhas vencidas ou pelo
+ * explícito quando as linhas empatam. Sem erro, sempre devolve vencedor.
+ */
+function resolveManualScoreOutcome(input: {
+  challengedMembershipId: string;
+  challengerMembershipId: string;
+  score: LeagueChallengeScore;
+  walkoverBehavior: LeagueWalkoverBehavior;
+}):
+  | { error: null; winnerMembershipId: string }
+  | { error: string; winnerMembershipId: null } {
+  if (input.score.walkover) {
+    const error = resolveWalkoverScoreError({
+      challengedMembershipId: input.challengedMembershipId,
+      challengerMembershipId: input.challengerMembershipId,
+      score: input.score,
+      walkoverBehavior: input.walkoverBehavior,
+    });
+    if (error || !input.score.winnerMembershipId) {
+      return {
+        error:
+          error ??
+          "O vencedor do W.O. precisa ser um dos participantes do desafio.",
+        winnerMembershipId: null,
+      };
+    }
+    return { error: null, winnerMembershipId: input.score.winnerMembershipId };
+  }
+
+  return resolveChallengeScoreOutcome({
+    challengedMembershipId: input.challengedMembershipId,
+    challengerMembershipId: input.challengerMembershipId,
+    score: input.score,
+  });
+}
 
 export const listForLeague = authQuery
   .input(LeagueByIdSchema)
@@ -1064,32 +1105,34 @@ export const submitResult = authMutation
     }
 
     const parsedScore = leagueChallengeScoreSchema.parse(input.score);
-    const matchConfigSnapshot = LeagueMatchConfigSchema.parse(
-      syncedChallenge.matchConfigSnapshot
-    );
-    const scoreValidationError = validateChallengeScore({
+    const scoreOutcome = resolveManualScoreOutcome({
       challengedMembershipId: String(syncedChallenge.challengedMembershipId),
       challengerMembershipId: String(syncedChallenge.challengerMembershipId),
-      matchConfig: matchConfigSnapshot,
       score: parsedScore,
+      walkoverBehavior: currentLeague.ruleConfig.walkoverBehavior,
     });
 
-    if (scoreValidationError) {
+    if (scoreOutcome.error !== null) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: scoreValidationError,
+        message: scoreOutcome.error,
       });
     }
+
+    const resolvedScore = {
+      ...parsedScore,
+      winnerMembershipId: scoreOutcome.winnerMembershipId,
+    };
 
     await ctx.orm
       .insert(leagueChallengeResultSubmission)
       .values({
         challengeId: syncedChallenge.id as Id<"leagueChallenge">,
-        score: parsedScore,
+        score: resolvedScore,
         submittedAt: now,
         submittedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         winnerMembershipId:
-          parsedScore.winnerMembershipId as Id<"leagueMembership">,
+          scoreOutcome.winnerMembershipId as Id<"leagueMembership">,
       })
       .returning();
 
@@ -1102,7 +1145,9 @@ export const submitResult = authMutation
       actorUserId: ctx.userId,
       challenge: syncedChallenge,
       ctx,
-      eventType: "league.challenge.result_submitted",
+      eventType: parsedScore.walkover
+        ? "league.challenge.walkover_submitted"
+        : "league.challenge.result_submitted",
       recipientMembershipIds: [
         (viewerMembership.id === syncedChallenge.challengerMembershipId
           ? syncedChallenge.challengedMembershipId
@@ -1188,7 +1233,7 @@ export const confirmResult = authMutation
             challenge: currentChallenge,
             ctx,
             currentLeague,
-            score: latestResultSubmission.score as LeagueChallengeScore,
+            score: latestResultSubmission.score as ResolvedLeagueChallengeScore,
           })
         : null;
 
@@ -1214,11 +1259,16 @@ export const confirmResult = authMutation
       } as never
     );
 
+    const submissionIsWalkover =
+      (latestResultSubmission.score as LeagueChallengeScore).walkover === true;
+
     await scheduleChallengeNotification({
       actorUserId: ctx.userId,
       challenge: currentChallenge,
       ctx,
-      eventType: "league.challenge.result_confirmed",
+      eventType: submissionIsWalkover
+        ? "league.challenge.walkover_confirmed"
+        : "league.challenge.result_confirmed",
       recipientMembershipIds: [
         latestResultSubmission.submittedByMembershipId as Id<"leagueMembership">,
       ],
@@ -1357,7 +1407,7 @@ export const reviewResult = authMutation
         challenge: currentChallenge,
         ctx,
         currentLeague,
-        score: latestResultSubmission.score as LeagueChallengeScore,
+        score: latestResultSubmission.score as ResolvedLeagueChallengeScore,
       });
 
       await ctx.db.patch(
@@ -1486,7 +1536,7 @@ export const organizerSubmitResult = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o organizador da liga pode editar o placar."
+      "Só o organizador da liga pode editar o resultado."
     );
 
     // Sincroniza status derivados do tempo (ex.: proposta sem resposta após o
@@ -1510,30 +1560,39 @@ export const organizerSubmitResult = authMutation
 
     const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
 
+    // IBX-0028: editar um resultado já confirmado/validado (desafio finished
+    // com submission resolvida) é uma edição auditada — diferente da primeira
+    // publicação do resultado.
+    const isResultEdit =
+      currentStatus === "finished" && Boolean(latestResultSubmission);
+
     if (!ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Esse desafio ainda não pode receber placar pelo organizador.",
+        message:
+          "Esse desafio ainda não pode receber resultado pelo organizador.",
       });
     }
 
     const parsedScore = leagueChallengeScoreSchema.parse(input.score);
-    const matchConfigSnapshot = LeagueMatchConfigSchema.parse(
-      currentChallenge.matchConfigSnapshot
-    );
-    const scoreValidationError = validateChallengeScore({
+    const scoreOutcome = resolveManualScoreOutcome({
       challengedMembershipId: String(currentChallenge.challengedMembershipId),
       challengerMembershipId: String(currentChallenge.challengerMembershipId),
-      matchConfig: matchConfigSnapshot,
       score: parsedScore,
+      walkoverBehavior: currentLeague.ruleConfig.walkoverBehavior,
     });
 
-    if (scoreValidationError) {
+    if (scoreOutcome.error !== null) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: scoreValidationError,
+        message: scoreOutcome.error,
       });
     }
+
+    const resolvedScore = {
+      ...parsedScore,
+      winnerMembershipId: scoreOutcome.winnerMembershipId,
+    };
 
     if (currentChallenge.rankingAppliedAt) {
       await restoreChallengeRankingSnapshot({
@@ -1546,8 +1605,27 @@ export const organizerSubmitResult = authMutation
       challenge: currentChallenge,
       ctx,
       currentLeague,
-      score: parsedScore,
+      score: resolvedScore,
     });
+
+    if (isResultEdit && latestResultSubmission) {
+      await recordOrganizerChallengeAction({
+        action: "edit_result",
+        challenge: currentChallenge,
+        ctx,
+        fromStatus: "finished",
+        performedByUserId: ctx.userId as Id<"user">,
+        reason: JSON.stringify({
+          after: resolvedScore,
+          before: {
+            sets: latestResultSubmission.score.sets,
+            walkover: latestResultSubmission.score.walkover === true,
+            winnerMembershipId: latestResultSubmission.winnerMembershipId,
+          },
+        }),
+        toStatus: "finished",
+      });
+    }
 
     await ctx.orm
       .insert(leagueChallengeResultSubmission)
@@ -1559,12 +1637,12 @@ export const organizerSubmitResult = authMutation
         organizerReviewedByUserId: ctx.userId,
         reviewAction: "approved",
         reviewedAt: now,
-        score: parsedScore,
+        score: resolvedScore,
         submittedAt: now,
         submittedByMembershipId:
           currentChallenge.challengerMembershipId as Id<"leagueMembership">,
         winnerMembershipId:
-          parsedScore.winnerMembershipId as Id<"leagueMembership">,
+          scoreOutcome.winnerMembershipId as Id<"leagueMembership">,
       })
       .returning();
 
@@ -1588,7 +1666,9 @@ export const organizerSubmitResult = authMutation
       actorUserId: ctx.userId,
       challenge: currentChallenge,
       ctx,
-      eventType: "league.challenge.result_confirmed",
+      eventType: isResultEdit
+        ? "league.challenge.result_edited"
+        : "league.challenge.result_confirmed",
       recipientMembershipIds: [
         currentChallenge.challengerMembershipId as Id<"leagueMembership">,
         currentChallenge.challengedMembershipId as Id<"leagueMembership">,
@@ -1775,7 +1855,7 @@ export const organizerManage = authMutation
         throw new CRPCError({
           code: "BAD_REQUEST",
           message:
-            "Esse desafio já possui placar. Use a ação de reabrir resultado.",
+            "Esse desafio já possui resultado. Use a ação de reabrir resultado.",
         });
       }
 
@@ -1860,7 +1940,7 @@ export const organizerManage = authMutation
     if (!latestResultSubmission) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Esse desafio ainda não possui placar para reabrir.",
+        message: "Esse desafio ainda não possui resultado para reabrir.",
       });
     }
 
@@ -1914,7 +1994,7 @@ export const organizerManage = authMutation
 
 /**
  * Status em que o admin pode enviar um lembrete aos jogadores pedindo que
- * registrem o placar. São os status onde o placar ainda está pendente de
+ * registrem o resultado. São os status onde o resultado ainda está pendente de
  * ação de um jogador e o desafio não está finalizado/cancelado.
  */
 export const organizerRequestResultReminder = authMutation
@@ -1934,7 +2014,7 @@ export const organizerRequestResultReminder = authMutation
     await assertCanManageLeague(
       ctx,
       currentLeague,
-      "Só o organizador da liga pode enviar lembretes de placar."
+      "Só o organizador da liga pode enviar lembretes de resultado."
     );
 
     // Sincroniza status derivados do tempo antes de validar, alinhando o
@@ -1960,7 +2040,7 @@ export const organizerRequestResultReminder = authMutation
     if (!ADMIN_RESULT_REMINDER_CHALLENGE_STATUSES.has(currentStatus)) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Esse desafio não está aguardando placar dos jogadores.",
+        message: "Esse desafio não está aguardando resultado dos jogadores.",
       });
     }
 

@@ -8,7 +8,7 @@ import {
 import { leagueChallengeOrganizerAction } from "../../../domains/league/tables";
 import type {
   League,
-  LeagueChallengeScore,
+  ResolvedLeagueChallengeScore,
 } from "../../../domains/league/contract";
 import type { LeagueChallengeRecord, OrmMutationCtx } from "./types";
 
@@ -16,7 +16,9 @@ export async function applyChallengeRankingResult(input: {
   challenge: LeagueChallengeRecord;
   ctx: OrmMutationCtx;
   currentLeague: League;
-  score: LeagueChallengeScore;
+  // REWORK-2: placar JÁ RESOLVIDO — todas as mutations validam antes de
+  // chegar aqui (o vencedor pode vir do placar ou do explícito do payload).
+  score: ResolvedLeagueChallengeScore;
 }) {
   const activeMemberships = await input.ctx.orm.query.leagueMembership.findMany(
     {
@@ -38,6 +40,8 @@ export async function applyChallengeRankingResult(input: {
     challengerMembershipId: String(input.challenge.challengerMembershipId),
     lossBehavior: input.currentLeague.ruleConfig.lossBehavior,
     rankingMembershipIds,
+    walkover: input.score.walkover === true,
+    walkoverBehavior: input.currentLeague.ruleConfig.walkoverBehavior,
     winBehavior: input.currentLeague.ruleConfig.winBehavior,
     winnerMembershipId: input.score.winnerMembershipId,
   });
@@ -99,11 +103,18 @@ export async function restoreChallengeRankingSnapshot(input: {
 }
 
 export async function recordOrganizerChallengeAction(input: {
-  action: "cancel" | "invalidate" | "reopen_challenge" | "reopen_result";
+  action:
+    | "cancel"
+    | "edit_result"
+    | "invalidate"
+    | "reopen_challenge"
+    | "reopen_result";
   challenge: LeagueChallengeRecord;
   ctx: OrmMutationCtx;
   fromStatus: LeagueChallengeStatus;
   performedByUserId: Id<"user">;
+  /** IBX-0028: resumo JSON da edição (antes/depois) para trilha de auditoria. */
+  reason?: string;
   toStatus: LeagueChallengeStatus;
 }) {
   await input.ctx.orm.insert(leagueChallengeOrganizerAction).values({
@@ -112,6 +123,7 @@ export async function recordOrganizerChallengeAction(input: {
     createdAt: new Date(),
     fromStatus: input.fromStatus,
     performedByUserId: input.performedByUserId,
+    reason: input.reason,
     toStatus: input.toStatus,
   });
 }

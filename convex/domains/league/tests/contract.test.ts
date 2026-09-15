@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   AdminManageLeagueChallengeSchema,
   ChallengeRuleConfigSchema,
+  LeagueMatchConfigSchema,
   LeagueScoringModeOptions,
 } from "../contract";
 
@@ -31,14 +32,12 @@ const validRuleConfig = {
     finalSetScoringMode: "advantage",
     finalSetSuperTieBreakMustWinByTwo: true,
     finalSetSuperTieBreakPoints: 10,
-    finalSetTieBreakAtGamesAll: 6,
     finalSetTieBreakMustWinByTwo: true,
     finalSetTieBreakPoints: 7,
     gamesPerSet: 6,
     hasTieBreak: true,
     scoringMode: "advantage",
     setMustWinByTwoGames: true,
-    tieBreakAtGamesAll: 6,
     tieBreakMustWinByTwo: true,
     tieBreakPoints: 7,
   },
@@ -108,5 +107,140 @@ describe("LeagueScoringModeOptions", () => {
   it("uses no_advantage instead of no_ad", () => {
     expect(LeagueScoringModeOptions).toContain("no_advantage");
     expect(LeagueScoringModeOptions).not.toContain("no_ad");
+  });
+});
+
+describe("LeagueMatchConfigSchema", () => {
+  it("aceita melhor de 1, 3 e 5 sets", () => {
+    for (const bestOfSets of [1, 3, 5]) {
+      const result = LeagueMatchConfigSchema.safeParse({
+        ...validRuleConfig.matchConfig,
+        bestOfSets,
+      });
+
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("rejeita melhor de 2 e 4 (sem cair no default)", () => {
+    for (const bestOfSets of [2, 4]) {
+      const result = LeagueMatchConfigSchema.safeParse({
+        ...validRuleConfig.matchConfig,
+        bestOfSets,
+      });
+
+      expect(result.success).toBe(false);
+    }
+  });
+
+  it("aponta o erro para bestOfSets com a mensagem do produto", () => {
+    const result = LeagueMatchConfigSchema.safeParse({
+      ...validRuleConfig.matchConfig,
+      bestOfSets: 2,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["bestOfSets"]);
+      expect(result.error.issues[0]?.message).toBe(
+        "Escolha melhor de 1, 3 ou 5 sets."
+      );
+    }
+  });
+});
+
+describe("LeagueMatchConfigSchema tie-break points", () => {
+  it("aceita 7 e 10 pontos no tie-break (set, último set e super TB)", () => {
+    for (const points of [7, 10]) {
+      const result = LeagueMatchConfigSchema.safeParse({
+        ...validRuleConfig.matchConfig,
+        finalSetSuperTieBreakPoints: points,
+        finalSetTieBreakPoints: points,
+        tieBreakPoints: points,
+      });
+
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("rejeita 2 e 5 pontos com a mensagem de produto", () => {
+    for (const points of [2, 5]) {
+      const result = LeagueMatchConfigSchema.safeParse({
+        ...validRuleConfig.matchConfig,
+        tieBreakPoints: points,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const issue = result.error.issues.find(
+          (item) => item.path[0] === "tieBreakPoints"
+        );
+        expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
+      }
+    }
+  });
+
+  it("rejeita finalSetTieBreakPoints fora de {7, 10}", () => {
+    const result = LeagueMatchConfigSchema.safeParse({
+      ...validRuleConfig.matchConfig,
+      finalSetTieBreakPoints: 5,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path[0] === "finalSetTieBreakPoints"
+      );
+      expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
+    }
+  });
+
+  it("rejeita finalSetSuperTieBreakPoints fora de {7, 10}", () => {
+    for (const points of [2, 5]) {
+      const result = LeagueMatchConfigSchema.safeParse({
+        ...validRuleConfig.matchConfig,
+        finalSetSuperTieBreakPoints: points,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const issue = result.error.issues.find(
+          (item) => item.path[0] === "finalSetSuperTieBreakPoints"
+        );
+        expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
+      }
+    }
+  });
+});
+
+describe("LeagueMatchConfigSchema legado (R11)", () => {
+  it("stripa a chave tieBreakAtGamesAll de docs antigos sem erro", () => {
+    const result = LeagueMatchConfigSchema.safeParse({
+      ...validRuleConfig.matchConfig,
+      finalSetTieBreakAtGamesAll: 6,
+      tieBreakAtGamesAll: 6,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("tieBreakAtGamesAll");
+      expect(result.data).not.toHaveProperty("finalSetTieBreakAtGamesAll");
+    }
+  });
+
+  it("ChallengeRuleConfigSchema não dispara o .catch com matchConfig legado", () => {
+    const result = ChallengeRuleConfigSchema.safeParse({
+      ...validRuleConfig,
+      matchConfig: {
+        ...validRuleConfig.matchConfig,
+        tieBreakAtGamesAll: 6,
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.matchConfig.bestOfSets).toBe(3);
+      expect(result.data.matchConfig).not.toHaveProperty("tieBreakAtGamesAll");
+    }
   });
 });

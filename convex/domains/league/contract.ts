@@ -34,6 +34,9 @@ export const LeagueWalkoverBehaviorOptions = [
   "cancel_challenge",
 ] as const;
 
+export type LeagueWalkoverBehavior =
+  (typeof LeagueWalkoverBehaviorOptions)[number];
+
 export const LeagueNewPlayerPlacementOptions = ["end_of_ranking"] as const;
 
 export const LeagueInactivityPenaltyTypeOptions = [
@@ -198,6 +201,9 @@ export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
 
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
+  // REWORK-2 (10/09): linha avulsa de tie-break — pontos livres, sem
+  // relação com o set anterior (o placar manual é LIVRE).
+  "tiebreak",
   "super_tiebreak",
 ] as const;
 
@@ -237,14 +243,12 @@ export const DEFAULT_LEAGUE_MATCH_CONFIG = {
   finalSetScoringMode: "advantage",
   finalSetSuperTieBreakMustWinByTwo: true,
   finalSetSuperTieBreakPoints: 10,
-  finalSetTieBreakAtGamesAll: 6,
   finalSetTieBreakMustWinByTwo: true,
   finalSetTieBreakPoints: 7,
   gamesPerSet: 6,
   hasTieBreak: true,
   scoringMode: "advantage",
   setMustWinByTwoGames: true,
-  tieBreakAtGamesAll: 6,
   tieBreakMustWinByTwo: true,
   tieBreakPoints: 7,
 } as const;
@@ -407,55 +411,114 @@ export const LeagueCourtsSchema = z
       seenCourtNames.set(normalizedName, index);
     }
   });
+export const SUPPORTED_BEST_OF_SET_COUNTS = [1, 3, 5] as const;
 
-export const LeagueMatchConfigSchema = z.object({
-  bestOfSets: requiredNumber(
-    "Informe quantos sets a partida pode ter.",
-    "Informe uma quantidade de sets valida."
-  ).min(1, "Informe uma quantidade de sets valida."),
-  defaultDurationMinutes: requiredNumber(
-    "Informe a duracao padrao da partida.",
-    "Informe uma duracao valida."
-  ).min(1, "Informe uma duracao valida."),
-  finalSetGamesPerSet: requiredNumber(
-    "Informe quantos games o ultimo set deve ter.",
-    "Informe uma quantidade de games valida para o ultimo set."
-  ).min(1, "Informe uma quantidade de games valida para o ultimo set."),
-  finalSetHasTieBreak: z.boolean(),
-  finalSetMode: z.enum(LeagueFinalSetModeOptions),
-  finalSetMustWinByTwoGames: z.boolean(),
-  finalSetScoringMode: z.enum(LeagueScoringModeOptions),
-  finalSetSuperTieBreakMustWinByTwo: z.boolean(),
-  finalSetSuperTieBreakPoints: requiredNumber(
-    "Informe quantos pontos o super tie-break deve ter.",
-    "Informe uma pontuacao valida para o super tie-break."
-  ).min(1, "Informe uma pontuacao valida para o super tie-break."),
-  finalSetTieBreakAtGamesAll: requiredNumber(
-    "Informe em qual placar o tie-break do ultimo set comeca.",
-    "Informe um placar de tie-break valido para o ultimo set."
-  ).min(1, "Informe um placar de tie-break valido para o ultimo set."),
-  finalSetTieBreakMustWinByTwo: z.boolean(),
-  finalSetTieBreakPoints: requiredNumber(
-    "Informe quantos pontos o tie-break do ultimo set deve ter.",
-    "Informe uma pontuacao de tie-break valida para o ultimo set."
-  ).min(1, "Informe uma pontuacao de tie-break valida para o ultimo set."),
-  gamesPerSet: requiredNumber(
-    "Informe quantos games cada set deve ter.",
-    "Informe uma quantidade de games valida."
-  ).min(1, "Informe uma quantidade de games valida."),
-  hasTieBreak: z.boolean(),
-  scoringMode: z.enum(LeagueScoringModeOptions),
-  setMustWinByTwoGames: z.boolean(),
-  tieBreakAtGamesAll: requiredNumber(
-    "Informe em qual placar o tie-break comeca.",
-    "Informe um placar de tie-break valido."
-  ).min(1, "Informe um placar de tie-break valido."),
-  tieBreakMustWinByTwo: z.boolean(),
-  tieBreakPoints: requiredNumber(
-    "Informe quantos pontos o tie-break deve ter.",
-    "Informe uma pontuacao de tie-break valida."
-  ).min(1, "Informe uma pontuacao de tie-break valida."),
-});
+export function getBestOfSetValidationError(bestOfSets: number) {
+  return SUPPORTED_BEST_OF_SET_COUNTS.includes(
+    bestOfSets as (typeof SUPPORTED_BEST_OF_SET_COUNTS)[number]
+  )
+    ? null
+    : "Escolha melhor de 1, 3 ou 5 sets.";
+}
+
+export const SUPPORTED_TIE_BREAK_POINTS = [7, 10] as const;
+
+export function getTieBreakPointsValidationError(points: number) {
+  return SUPPORTED_TIE_BREAK_POINTS.includes(
+    points as (typeof SUPPORTED_TIE_BREAK_POINTS)[number]
+  )
+    ? null
+    : "Escolha 7 ou 10 pontos no tie-break.";
+}
+
+export const LeagueMatchConfigSchema = z
+  .object({
+    bestOfSets: requiredNumber(
+      "Informe quantos sets a partida pode ter.",
+      "Informe uma quantidade de sets valida."
+    ).min(1, "Informe uma quantidade de sets valida."),
+    defaultDurationMinutes: requiredNumber(
+      "Informe a duracao padrao da partida.",
+      "Informe uma duracao valida."
+    ).min(1, "Informe uma duracao valida."),
+    finalSetGamesPerSet: requiredNumber(
+      "Informe quantos games o ultimo set deve ter.",
+      "Informe uma quantidade de games valida para o ultimo set."
+    ).min(1, "Informe uma quantidade de games valida para o ultimo set."),
+    finalSetHasTieBreak: z.boolean(),
+    finalSetMode: z.enum(LeagueFinalSetModeOptions),
+    finalSetMustWinByTwoGames: z.boolean(),
+    finalSetScoringMode: z.enum(LeagueScoringModeOptions),
+    finalSetSuperTieBreakMustWinByTwo: z.boolean(),
+    finalSetSuperTieBreakPoints: requiredNumber(
+      "Informe quantos pontos o super tie-break deve ter.",
+      "Informe uma pontuacao valida para o super tie-break."
+    ).min(1, "Informe uma pontuacao valida para o super tie-break."),
+    finalSetTieBreakMustWinByTwo: z.boolean(),
+    finalSetTieBreakPoints: requiredNumber(
+      "Informe quantos pontos o tie-break do ultimo set deve ter.",
+      "Informe uma pontuacao de tie-break valida para o ultimo set."
+    ).min(1, "Informe uma pontuacao de tie-break valida para o ultimo set."),
+    gamesPerSet: requiredNumber(
+      "Informe quantos games cada set deve ter.",
+      "Informe uma quantidade de games valida."
+    ).min(1, "Informe uma quantidade de games valida."),
+    hasTieBreak: z.boolean(),
+    scoringMode: z.enum(LeagueScoringModeOptions),
+    setMustWinByTwoGames: z.boolean(),
+    tieBreakMustWinByTwo: z.boolean(),
+    tieBreakPoints: requiredNumber(
+      "Informe quantos pontos o tie-break deve ter.",
+      "Informe uma pontuacao de tie-break valida."
+    ).min(1, "Informe uma pontuacao de tie-break valida."),
+  })
+  .superRefine((value, ctx) => {
+    const bestOfSetError = getBestOfSetValidationError(value.bestOfSets);
+
+    if (bestOfSetError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: bestOfSetError,
+        path: ["bestOfSets"],
+      });
+    }
+
+    const tieBreakPointsError = getTieBreakPointsValidationError(
+      value.tieBreakPoints
+    );
+
+    if (tieBreakPointsError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: tieBreakPointsError,
+        path: ["tieBreakPoints"],
+      });
+    }
+
+    const finalSetTieBreakPointsError = getTieBreakPointsValidationError(
+      value.finalSetTieBreakPoints
+    );
+
+    if (finalSetTieBreakPointsError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: finalSetTieBreakPointsError,
+        path: ["finalSetTieBreakPoints"],
+      });
+    }
+
+    const finalSetSuperTieBreakPointsError = getTieBreakPointsValidationError(
+      value.finalSetSuperTieBreakPoints
+    );
+
+    if (finalSetSuperTieBreakPointsError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: finalSetSuperTieBreakPointsError,
+        path: ["finalSetSuperTieBreakPoints"],
+      });
+    }
+  });
 
 export const ChallengeRuleConfigSchema = z
   .object({
@@ -786,12 +849,40 @@ export const leagueChallengeScoreSetSchema = z.object({
   challengedGames: z.number().int().min(0),
   challengerGames: z.number().int().min(0),
   kind: z.enum(LeagueChallengeScoreSetKindOptions),
+  // IBX-0034 (PLN-0003): optional tie-break mini-score for sets decided in
+  // a tie-break (7x6 with TB 7-3). Absent on old results — validation only
+  // applies when present; super tie-break sets never carry it. nullish:
+  // client drafts naturally carry null when unset.
+  tieBreak: z
+    .object({
+      challengedPoints: z.number().int().min(0),
+      challengerPoints: z.number().int().min(0),
+    })
+    .nullish(),
 });
 
-export const leagueChallengeScoreSchema = z.object({
-  sets: z.array(leagueChallengeScoreSetSchema).min(1),
-  winnerMembershipId: leagueMembershipIdSchema,
-});
+export const leagueChallengeScoreSchema = z
+  .object({
+    sets: z.array(leagueChallengeScoreSetSchema).min(1),
+    // IBX-0026: a W.O. (walkover) declares a winner without a played score —
+    // it carries exactly one all-zero placeholder set (same convention as the
+    // tournament's PublishMatchResultSchema). Absent for played scores.
+    walkover: z.boolean().optional(),
+    // REWORK-2 (10/09): vencedor EXPLÍCITO do payload — obrigatório só
+    // quando as linhas empatam (o placar não decide); null quando o placar
+    // resolve. A validação (resolveChallengeScoreOutcome) garante que o
+    // resultado final tem exatamente 1 vencedor.
+    winnerMembershipId: leagueMembershipIdSchema.nullish(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.walkover && value.sets.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Em W.O. não há resultado por sets.",
+        path: ["sets"],
+      });
+    }
+  });
 
 export const leagueChallengeProposalSchema = z.object({
   challengeId: z.string().min(1, "Desafio inválido."),
@@ -807,6 +898,10 @@ export const leagueChallengeProposalSchema = z.object({
   startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
   status: z.enum(LeagueChallengeProposalStatusOptions),
 });
+
+export type ResolvedLeagueChallengeScore = LeagueChallengeScore & {
+  winnerMembershipId: string;
+};
 
 export const leagueChallengeResultSubmissionSchema = z.object({
   challengeId: z.string().min(1, "Desafio inválido."),

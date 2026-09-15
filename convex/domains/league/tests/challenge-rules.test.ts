@@ -3,24 +3,24 @@ import { describe, expect, it } from "bun:test";
 import {
   ACTIVE_CHALLENGE_BLOCKING_STATUSES,
   applyChallengeResultToRanking,
-  buildChallengeScoreProgress,
   buildResponseDeadline,
   canPlayersCancelChallenge,
-  getExpectedSetKind,
-  getRequiredSetWins,
   isChallengeSlotBlocked,
   resolveAcceptedChallengeStatus,
-  resolveChallengeScoreWinnerMembershipId,
   resolveChallengeRankingRestore,
+  resolveChallengeScoreOutcome,
   resolveConfirmedChallengeResult,
   resolveMissingResultStatus,
   resolveNoResponseStatus,
   resolveReopenedChallengeStatus,
   resolveResponseDeadline,
   resolveScoreConfirmationStatus,
-  validateChallengeScore,
+  resolveWalkoverScoreError,
 } from "../challenge-rules";
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "../contract";
+import {
+  DEFAULT_LEAGUE_MATCH_CONFIG,
+  type LeagueChallengeScore,
+} from "../contract";
 
 describe("league challenge rules", () => {
   it("resets the response deadline on each counterproposal", () => {
@@ -220,119 +220,6 @@ describe("league challenge rules", () => {
     ).toBe("pending_creator_reapproval");
   });
 
-  it("calculates the number of sets needed to win from the best-of format", () => {
-    expect(getRequiredSetWins(1)).toBe(1);
-    expect(getRequiredSetWins(3)).toBe(2);
-    expect(getRequiredSetWins(5)).toBe(3);
-  });
-
-  it("reveals the deciding third set only after a best-of-three match reaches one set each", () => {
-    const initialProgress = buildChallengeScoreProgress({
-      matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
-        bestOfSets: 3,
-      },
-      sets: [],
-    });
-
-    expect(initialProgress.visibleSetCount).toBe(2);
-
-    const splitMatchProgress = buildChallengeScoreProgress({
-      matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
-        bestOfSets: 3,
-      },
-      sets: [
-        {
-          challengedGames: 3,
-          challengerGames: 6,
-          kind: "set",
-        },
-        {
-          challengedGames: 6,
-          challengerGames: 4,
-          kind: "set",
-        },
-      ],
-    });
-
-    expect(splitMatchProgress.visibleSetCount).toBe(3);
-    expect(splitMatchProgress.winnerSide).toBeNull();
-  });
-
-  it("reveals the fourth and fifth sets progressively in a best-of-five match", () => {
-    const threeSetProgress = buildChallengeScoreProgress({
-      matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
-        bestOfSets: 5,
-      },
-      sets: [
-        {
-          challengedGames: 3,
-          challengerGames: 6,
-          kind: "set",
-        },
-        {
-          challengedGames: 6,
-          challengerGames: 4,
-          kind: "set",
-        },
-        {
-          challengedGames: 4,
-          challengerGames: 6,
-          kind: "set",
-        },
-      ],
-    });
-
-    expect(threeSetProgress.visibleSetCount).toBe(4);
-    expect(threeSetProgress.winnerSide).toBeNull();
-
-    const fourSetProgress = buildChallengeScoreProgress({
-      matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
-        bestOfSets: 5,
-      },
-      sets: [
-        {
-          challengedGames: 3,
-          challengerGames: 6,
-          kind: "set",
-        },
-        {
-          challengedGames: 6,
-          challengerGames: 4,
-          kind: "set",
-        },
-        {
-          challengedGames: 4,
-          challengerGames: 6,
-          kind: "set",
-        },
-        {
-          challengedGames: 6,
-          challengerGames: 3,
-          kind: "set",
-        },
-      ],
-    });
-
-    expect(fourSetProgress.visibleSetCount).toBe(5);
-    expect(fourSetProgress.winnerSide).toBeNull();
-  });
-
-  it("uses a super tie-break only in the deciding set when configured", () => {
-    const matchConfig = {
-      ...DEFAULT_LEAGUE_MATCH_CONFIG,
-      bestOfSets: 3,
-      finalSetMode: "super_tiebreak" as const,
-    };
-
-    expect(getExpectedSetKind(matchConfig, 0)).toBe("set");
-    expect(getExpectedSetKind(matchConfig, 1)).toBe("set");
-    expect(getExpectedSetKind(matchConfig, 2)).toBe("super_tiebreak");
-  });
-
   it("validates and resolves the winner for a straight-sets best-of-three result", () => {
     const score = {
       sets: [
@@ -350,29 +237,14 @@ describe("league challenge rules", () => {
       winnerMembershipId: "membership-1",
     };
 
-    expect(
-      validateChallengeScore({
-        challengedMembershipId: "membership-2",
-        challengerMembershipId: "membership-1",
-        matchConfig: {
-          ...DEFAULT_LEAGUE_MATCH_CONFIG,
-          bestOfSets: 3,
-        },
-        score,
-      })
-    ).toBeNull();
+    const outcome = resolveChallengeScoreOutcome({
+      challengedMembershipId: "membership-2",
+      challengerMembershipId: "membership-1",
+      score,
+    });
 
-    expect(
-      resolveChallengeScoreWinnerMembershipId({
-        challengedMembershipId: "membership-2",
-        challengerMembershipId: "membership-1",
-        matchConfig: {
-          ...DEFAULT_LEAGUE_MATCH_CONFIG,
-          bestOfSets: 3,
-        },
-        sets: score.sets,
-      })
-    ).toBe("membership-1");
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-1");
   });
 
   it("describes the automatic challenge cycle from acceptance to ranking update", () => {
@@ -397,15 +269,11 @@ describe("league challenge rules", () => {
 
     expect(acceptedStatus).toBe("confirmed");
     expect(
-      validateChallengeScore({
+      resolveChallengeScoreOutcome({
         challengedMembershipId: "membership-2",
         challengerMembershipId: "membership-4",
-        matchConfig: {
-          ...DEFAULT_LEAGUE_MATCH_CONFIG,
-          bestOfSets: 3,
-        },
         score,
-      })
+      }).error
     ).toBeNull();
     expect(
       resolveConfirmedChallengeResult({
@@ -592,15 +460,11 @@ describe("league challenge rules", () => {
     });
   });
 
-  it("rejects a best-of-three score without the deciding set after a one-set-each split", () => {
+  it("split 1-1 sem linha decisiva é aceito com vencedor explícito", () => {
     expect(
-      validateChallengeScore({
+      resolveChallengeScoreOutcome({
         challengedMembershipId: "membership-2",
         challengerMembershipId: "membership-1",
-        matchConfig: {
-          ...DEFAULT_LEAGUE_MATCH_CONFIG,
-          bestOfSets: 3,
-        },
         score: {
           sets: [
             {
@@ -617,6 +481,421 @@ describe("league challenge rules", () => {
           winnerMembershipId: "membership-1",
         },
       })
-    ).toBe("Esse placar ainda não define o vencedor da partida.");
+    ).toEqual({ error: null, winnerMembershipId: "membership-1" });
+  });
+});
+
+describe("placar manual livre (REWORK-2)", () => {
+  const freeScore = (input: {
+    sets: LeagueChallengeScore["sets"];
+    winnerMembershipId?: null | string;
+  }) => ({
+    challengedMembershipId: "membership-2",
+    challengerMembershipId: "membership-1",
+    score: input,
+  });
+
+  it("deriva o vencedor pelas linhas vencidas (explícito null)", () => {
+    const outcome = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [
+          { challengedGames: 3, challengerGames: 6, kind: "set" },
+          { challengedGames: 4, challengerGames: 6, kind: "set" },
+        ],
+        winnerMembershipId: null,
+      })
+    );
+
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-1");
+  });
+
+  it("aceita 3x3 e números livres; empate total exige vencedor explícito", () => {
+    const explicit = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [{ challengedGames: 3, challengerGames: 3, kind: "set" }],
+        winnerMembershipId: "membership-2",
+      })
+    );
+
+    expect(explicit.error).toBeNull();
+    expect(explicit.winnerMembershipId).toBe("membership-2");
+
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [{ challengedGames: 3, challengerGames: 3, kind: "set" }],
+          winnerMembershipId: null,
+        })
+      ).error
+    ).toBe("O placar não define o vencedor; informe o vencedor do confronto.");
+  });
+
+  it("linha avulsa de tie-break conta como linha e aceita pontos livres", () => {
+    const outcome = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [
+          { challengedGames: 3, challengerGames: 6, kind: "set" },
+          { challengedGames: 3, challengerGames: 7, kind: "tiebreak" },
+        ],
+        winnerMembershipId: null,
+      })
+    );
+
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-1");
+  });
+
+  it("tieBreak anexo é livre (sem forma exigida), inclusive em super TB", () => {
+    const sets: LeagueChallengeScore["sets"] = [
+      {
+        challengedGames: 7,
+        challengerGames: 6,
+        kind: "set",
+        tieBreak: { challengedPoints: 6, challengerPoints: 7 },
+      },
+      {
+        challengedGames: 5,
+        challengerGames: 7,
+        kind: "set",
+        tieBreak: { challengedPoints: 3, challengerPoints: 7 },
+      },
+      {
+        challengedGames: 8,
+        challengerGames: 10,
+        kind: "super_tiebreak",
+        tieBreak: { challengedPoints: 8, challengerPoints: 10 },
+      },
+    ];
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({ sets, winnerMembershipId: null })
+      ).error
+    ).toBeNull();
+  });
+
+  it("6x6 com TB anexo decide a linha (sem vencedor explícito)", () => {
+    const outcome = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [
+          {
+            challengedGames: 6,
+            challengerGames: 6,
+            kind: "set",
+            tieBreak: { challengedPoints: 3, challengerPoints: 7 },
+          },
+        ],
+        winnerMembershipId: null,
+      })
+    );
+
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-1");
+  });
+
+  it("6x6 sem TB é empate real (explícito exigido)", () => {
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [{ challengedGames: 6, challengerGames: 6, kind: "set" }],
+          winnerMembershipId: null,
+        })
+      ).error
+    ).toBe("O placar não define o vencedor; informe o vencedor do confronto.");
+  });
+
+  it("7x6 com TB segue decidido pelos games da linha", () => {
+    const outcome = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [
+          {
+            challengedGames: 6,
+            challengerGames: 7,
+            kind: "set",
+            // TB invertido de propósito: na linha, os games mandam.
+            tieBreak: { challengedPoints: 7, challengerPoints: 3 },
+          },
+        ],
+        winnerMembershipId: null,
+      })
+    );
+
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-1");
+  });
+
+  it("TB anexo empatado = linha de ninguém", () => {
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [
+            {
+              challengedGames: 6,
+              challengerGames: 6,
+              kind: "set",
+              tieBreak: { challengedPoints: 5, challengerPoints: 5 },
+            },
+          ],
+          winnerMembershipId: null,
+        })
+      ).error
+    ).toBe("O placar não define o vencedor; informe o vencedor do confronto.");
+  });
+
+  it("multi-linha: o TB anexo decide o confronto", () => {
+    const outcome = resolveChallengeScoreOutcome(
+      freeScore({
+        sets: [
+          {
+            challengedGames: 6,
+            challengerGames: 6,
+            kind: "set",
+            tieBreak: { challengedPoints: 7, challengerPoints: 3 },
+          },
+          { challengedGames: 4, challengerGames: 4, kind: "set" },
+        ],
+        winnerMembershipId: null,
+      })
+    );
+
+    // Linha 1 vai pro desafiado pelo TB; linha 2 (4x4 sem TB) é de ninguém.
+    expect(outcome.error).toBeNull();
+    expect(outcome.winnerMembershipId).toBe("membership-2");
+  });
+
+  it("rejeita vencedor explícito que contradiz o placar", () => {
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [
+            { challengedGames: 3, challengerGames: 6, kind: "set" },
+            { challengedGames: 4, challengerGames: 6, kind: "set" },
+          ],
+          winnerMembershipId: "membership-2",
+        })
+      ).error
+    ).toBe("O vencedor informado não corresponde ao resultado.");
+  });
+
+  it("rejeita vencedor fora dos participantes", () => {
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [{ challengedGames: 3, challengerGames: 6, kind: "set" }],
+          winnerMembershipId: "membership-3",
+        })
+      ).error
+    ).toBe("O vencedor informado não participa dessa partida.");
+  });
+
+  it("sanidade da regra: valores inválidos e placar vazio são rejeitados", () => {
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({
+          sets: [{ challengedGames: -1, challengerGames: 6, kind: "set" }],
+          winnerMembershipId: null,
+        })
+      ).error
+    ).toBe("Placar inválido.");
+
+    expect(
+      resolveChallengeScoreOutcome(
+        freeScore({ sets: [], winnerMembershipId: null })
+      ).error
+    ).toBe("Informe pelo menos uma linha do placar.");
+  });
+});
+
+describe("walkover no resultado do desafio (IBX-0026)", () => {
+  const walkoverScore = (winnerMembershipId: string) => ({
+    sets: [{ challengedGames: 0, challengerGames: 0, kind: "set" as const }],
+    walkover: true,
+    winnerMembershipId,
+  });
+
+  it("aceita W.O. com vencedor participante e placeholder de 1 set zerado", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: walkoverScore("membership-1"),
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBeNull();
+  });
+
+  it("não-walkover passa direto (backward compat)", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: {
+          sets: [{ challengedGames: 6, challengerGames: 3, kind: "set" }],
+          winnerMembershipId: "membership-1",
+        },
+        walkoverBehavior: "cancel_challenge",
+      })
+    ).toBeNull();
+  });
+
+  it("liga com walkoverBehavior cancel_challenge rejeita W.O. como resultado", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: walkoverScore("membership-1"),
+        walkoverBehavior: "cancel_challenge",
+      })
+    ).toContain("Cancele o desafio");
+  });
+
+  it("rejeita vencedor fora dos lados do desafio", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: walkoverScore("membership-3"),
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBe("O vencedor do W.O. precisa ser um dos participantes do desafio.");
+  });
+
+  it("rejeita placar por sets em W.O.", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: {
+          sets: [
+            { challengedGames: 6, challengerGames: 0, kind: "set" },
+            { challengedGames: 6, challengerGames: 0, kind: "set" },
+          ],
+          walkover: true,
+          winnerMembershipId: "membership-1",
+        },
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBe("Em W.O. não há resultado por sets.");
+  });
+
+  it("rejeita placeholder com games diferentes de 0-0", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: {
+          sets: [{ challengedGames: 6, challengerGames: 0, kind: "set" }],
+          walkover: true,
+          winnerMembershipId: "membership-1",
+        },
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBe("Em W.O. não há resultado por sets.");
+  });
+
+  it("aceita tieBreak null no placeholder (contrato nullish: null = ausente)", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: {
+          sets: [
+            {
+              challengedGames: 0,
+              challengerGames: 0,
+              kind: "set",
+              tieBreak: null,
+            },
+          ],
+          walkover: true,
+          winnerMembershipId: "membership-1",
+        },
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBeNull();
+  });
+
+  it("rejeita mini-placar de tie-break no placeholder de W.O.", () => {
+    expect(
+      resolveWalkoverScoreError({
+        challengedMembershipId: "membership-2",
+        challengerMembershipId: "membership-1",
+        score: {
+          sets: [
+            {
+              challengedGames: 0,
+              challengerGames: 0,
+              kind: "set",
+              tieBreak: { challengedPoints: 3, challengerPoints: 7 },
+            },
+          ],
+          walkover: true,
+          winnerMembershipId: "membership-1",
+        },
+        walkoverBehavior: "automatic_loss",
+      })
+    ).toBe("Em W.O. não há resultado por sets.");
+  });
+});
+
+describe("efeito de W.O. no ranking (IBX-0026)", () => {
+  const ranking = ["m1", "m2", "m3", "m4", "m5"];
+
+  it("automatic_loss mantém o efeito padrão (vencedor toma a posição)", () => {
+    expect(
+      applyChallengeResultToRanking({
+        challengedMembershipId: "m2",
+        challengerMembershipId: "m4",
+        lossBehavior: "stay_put",
+        rankingMembershipIds: ranking,
+        walkover: true,
+        walkoverBehavior: "automatic_loss",
+        winBehavior: "take_opponent_position",
+        winnerMembershipId: "m4",
+      })
+    ).toEqual(["m1", "m4", "m3", "m2", "m5"]);
+  });
+
+  it("automatic_loss_and_move_to_end manda o perdedor pro fim", () => {
+    expect(
+      applyChallengeResultToRanking({
+        challengedMembershipId: "m2",
+        challengerMembershipId: "m4",
+        lossBehavior: "stay_put",
+        rankingMembershipIds: ranking,
+        walkover: true,
+        walkoverBehavior: "automatic_loss_and_move_to_end",
+        winBehavior: "take_opponent_position",
+        winnerMembershipId: "m4",
+      })
+    ).toEqual(["m1", "m4", "m3", "m5", "m2"]);
+  });
+
+  it("move_to_end com desafiado vencedor: desafiante cai pro fim", () => {
+    expect(
+      applyChallengeResultToRanking({
+        challengedMembershipId: "m5",
+        challengerMembershipId: "m1",
+        lossBehavior: "stay_put",
+        rankingMembershipIds: ranking,
+        walkover: true,
+        walkoverBehavior: "automatic_loss_and_move_to_end",
+        winBehavior: "take_opponent_position",
+        winnerMembershipId: "m5",
+      })
+    ).toEqual(["m2", "m3", "m4", "m5", "m1"]);
+  });
+
+  it("sem W.O. o comportamento fica exatamente como antes", () => {
+    expect(
+      applyChallengeResultToRanking({
+        challengedMembershipId: "m2",
+        challengerMembershipId: "m4",
+        lossBehavior: "stay_put",
+        rankingMembershipIds: ranking,
+        winBehavior: "take_opponent_position",
+        winnerMembershipId: "m4",
+      })
+    ).toEqual(["m1", "m4", "m3", "m2", "m5"]);
   });
 });
