@@ -1,0 +1,193 @@
+import {
+  Calendar03Icon,
+  Home01Icon,
+  UserMultipleIcon,
+  VolleyballIcon,
+} from "@hugeicons/core-free-icons";
+import { useValue } from "@legendapp/state/react";
+import { useQuery } from "@tanstack/react-query";
+import { Tabs, useGlobalSearchParams } from "expo-router";
+import { useThemeColor } from "heroui-native";
+import { useEffect } from "react";
+
+import {
+  FloatingTabBar,
+  type FloatingTabBarItem,
+} from "@/components/navigation/floating-tab-bar";
+import { useCRPC } from "@/lib/convex/crpc";
+import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
+import type { TournamentNavigationTabValue } from "@/lib/tournaments/tournament-details-derived";
+
+const TOURNAMENT_TAB_ICONS = {
+  bracket: VolleyballIcon,
+  entries: UserMultipleIcon,
+  overview: Home01Icon,
+  schedule: Calendar03Icon,
+} satisfies Record<TournamentNavigationTabValue, FloatingTabBarItem["icon"]>;
+
+const TOURNAMENT_TAB_ROUTE_NAMES = {
+  bracket: "bracket",
+  entries: "entries",
+  overview: "index",
+  schedule: "schedule",
+} satisfies Record<TournamentNavigationTabValue, string>;
+
+const TOURNAMENT_DETAIL_SCREEN_NAMES = [
+  "index",
+  "bracket",
+  "entries",
+  "schedule",
+] as const;
+
+export default function TournamentDetailsLayout() {
+  const { tournamentId: rawTournamentId } = useGlobalSearchParams<{
+    tournamentId?: string | string[];
+  }>();
+  const tournamentId = Array.isArray(rawTournamentId)
+    ? rawTournamentId[0]
+    : rawTournamentId;
+
+  if (!tournamentId) {
+    return <TournamentDetailsTabs tournamentId={undefined} />;
+  }
+
+  return <TournamentDetailsLayoutContent tournamentId={tournamentId} />;
+}
+
+function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
+  const { tournamentId } = props;
+  const crpc = useCRPC();
+  const bucket$ = getTournamentDetailsBucket$(tournamentId);
+  const resetVersion = useValue(bucket$.identity.resetVersion);
+
+  const viewerQuery = useQuery(crpc.viewer.context.get.queryOptions());
+  const tournamentQuery = useQuery(
+    crpc.tournament.discovery.getById.queryOptions({ tournamentId })
+  );
+  const shouldFetchMatches = useValue(bucket$.derived.shouldFetchMatches);
+  const matchesQuery = useQuery({
+    ...crpc.tournament.matches.listForTournament.queryOptions({ tournamentId }),
+    enabled: shouldFetchMatches,
+  });
+  const entriesQuery = useQuery(
+    crpc.tournament.entries.listForTournament.queryOptions({ tournamentId })
+  );
+
+  useEffect(() => {
+    bucket$.actions.reset();
+    bucket$.actions.bootstrap();
+  }, [bucket$]);
+
+  useEffect(() => {
+    if (viewerQuery.data) {
+      bucket$.actions.hydrateViewer(
+        viewerQuery.data.activeActor?.kind === "player"
+          ? viewerQuery.data.activeActor.id
+          : null
+      );
+    }
+  }, [bucket$, viewerQuery.data]);
+
+  useEffect(() => {
+    if (resetVersion === 0) {
+      return;
+    }
+
+    if (tournamentQuery.data) {
+      bucket$.actions.hydrateDiscovery(tournamentQuery.data);
+      bucket$.actions.setBootstrapStatus("ready");
+    }
+  }, [bucket$, resetVersion, tournamentQuery.data]);
+
+  useEffect(() => {
+    if (tournamentQuery.isError) {
+      bucket$.actions.setBootstrapStatus("error");
+    }
+  }, [bucket$, tournamentQuery.isError]);
+
+  useEffect(() => {
+    if (entriesQuery.data) {
+      bucket$.actions.hydrateEntries(entriesQuery.data);
+    }
+  }, [bucket$, entriesQuery.data]);
+
+  useEffect(() => {
+    if (matchesQuery.data) {
+      bucket$.actions.hydrateMatches(matchesQuery.data);
+    }
+  }, [bucket$, matchesQuery.data]);
+
+  return <TournamentDetailsTabs tournamentId={tournamentId} />;
+}
+
+function TournamentDetailsTabs(props: { tournamentId?: string }) {
+  const backgroundColor = useThemeColor("background");
+
+  return (
+    <Tabs
+      detachInactiveScreens={false}
+      screenOptions={{
+        animation: "fade",
+        headerShown: false,
+        sceneStyle: { backgroundColor },
+      }}
+      tabBar={(tabBarProps) =>
+        props.tournamentId ? (
+          <TournamentTabsWithFloatingTabBar
+            tabBarProps={tabBarProps}
+            tournamentId={props.tournamentId}
+          />
+        ) : null
+      }
+    >
+      {TOURNAMENT_DETAIL_SCREEN_NAMES.map((name) => (
+        <Tabs.Screen key={name} name={name} />
+      ))}
+    </Tabs>
+  );
+}
+
+function TournamentTabsWithFloatingTabBar(props: {
+  tabBarProps: Parameters<
+    NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
+  >[0];
+  tournamentId: string;
+}) {
+  const { tabBarProps, tournamentId } = props;
+  const bucket$ = getTournamentDetailsBucket$(tournamentId);
+  const tabItems = useValue(bucket$.derived.tabItems);
+  const items = tabItems.map((item) => ({
+    ...item,
+    icon: TOURNAMENT_TAB_ICONS[item.value],
+  }));
+
+  return (
+    <FloatingTabBar
+      {...tabBarProps}
+      getNavigationParams={(input) => ({
+        ...input.routeParams,
+        tournamentId,
+      })}
+      items={items}
+      resolveValueFromRouteName={resolveTournamentTabValueFromRouteName}
+      routeNames={TOURNAMENT_TAB_ROUTE_NAMES}
+    />
+  );
+}
+
+function resolveTournamentTabValueFromRouteName(
+  routeName: string
+): TournamentNavigationTabValue | null {
+  switch (routeName) {
+    case "bracket":
+      return "bracket";
+    case "entries":
+      return "entries";
+    case "index":
+      return "overview";
+    case "schedule":
+      return "schedule";
+    default:
+      return null;
+  }
+}
