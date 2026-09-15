@@ -70,6 +70,29 @@ export function canChargeBeRefunded(charge: ChargeLike): boolean {
   );
 }
 
+/**
+ * Whether a charge still carries a usable PIX: PENDING and not past its
+ * `expiresAt`.
+ *
+ * One rule behind both ends of the checkout (BUG-0025): the charge
+ * `createCharge` reuses and the `pendingCharge` the checkout resolves, so the
+ * screen can only ever show a PIX that "Gerar novo Pix" would also hand back.
+ *
+ * A PENDING charge past its expiration is NOT usable even before the hourly
+ * sweeper flips it to EXPIRED — the provider refuses the payment.
+ */
+export function hasUsablePix(args: {
+  charge: { expiresAt: null | Date; status: string } | null | undefined;
+  nowMs: number;
+}): boolean {
+  return Boolean(
+    args.charge &&
+      args.charge.status === CHARGE_STATUS_PENDING &&
+      args.charge.expiresAt &&
+      args.charge.expiresAt.getTime() > args.nowMs
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Membership charge precondition
 // ---------------------------------------------------------------------------
@@ -89,9 +112,29 @@ const CHARGEABLE_MEMBERSHIP_STATUSES: ReadonlySet<string> = new Set([
  * Accepts `awaiting_payment` (initial charge), `payment_due` (grace period —
  * player is generating a new charge before the cycle lapses), and `suspended`
  * (player was suspended for non-payment and is re-paying to reactivate).
+ *
+ * Early renewal (IBX-0039): an `active` membership is also chargeable while the
+ * league renewal window is open — pass `renewal` with the current due date to
+ * enable it. Without `renewal` (callers that don't resolve the billing cycle),
+ * `active` stays non-chargeable, which is the pre-IBX-0039 behaviour.
  */
-export function canMembershipBeCharged(membership: MembershipLike): boolean {
-  return CHARGEABLE_MEMBERSHIP_STATUSES.has(membership.status);
+export function canMembershipBeCharged(
+  membership: MembershipLike,
+  renewal?: null | {
+    nextDueMs: number;
+    nowMs: number;
+    reminderDaysBefore: number;
+  }
+): boolean {
+  if (CHARGEABLE_MEMBERSHIP_STATUSES.has(membership.status)) {
+    return true;
+  }
+
+  if (membership.status !== LEAGUE_MEMBERSHIP_STATUSES.ACTIVE || !renewal) {
+    return false;
+  }
+
+  return isWithinRenewalWindow(renewal);
 }
 
 // ---------------------------------------------------------------------------
@@ -249,4 +292,147 @@ export function shouldSuspend(args: {
 }): boolean {
   const suspensionMs = args.nextDueMs + args.gracePeriodDays * MS_PER_DAY;
   return args.nowMs >= suspensionMs;
+}
+
+// ---------------------------------------------------------------------------
+// Billing cycle helpers (IBX-0039: early renewal + period stacking)
+// ---------------------------------------------------------------------------
+
+/**
+ * Billing interval in ms per league `priceBillingInterval` value. `once` means
+ * the charge never renews (`Infinity`) — callers must skip cycle math for it.
+ *
+ * Lives in the domain (not in the payment cron file) because the league detail
+ * query also needs it, to expose the viewer's due date
+ * (`viewerMembershipDueAt`).
+ */
+export const BILLING_INTERVAL_MS: Record<string, number> = {
+  month: 30 * MS_PER_DAY,
+  once: Number.POSITIVE_INFINITY,
+  quarter: 90 * MS_PER_DAY,
+  week: 7 * MS_PER_DAY,
+  year: 365 * MS_PER_DAY,
+};
+
+/**
+ * Billing interval of a league, defaulting to `month` when the league has no
+ * interval or an unknown one (mirrors the league serializer default).
+ */
+export function resolveBillingIntervalMs(
+  priceBillingInterval?: null | string
+): number {
+  return (
+    BILLING_INTERVAL_MS[priceBillingInterval ?? "month"] ??
+    (BILLING_INTERVAL_MS.month as number)
+  );
+}
+
+/**
+ * Whether the membership is inside the league renewal window — the due date is
+ * at most `reminderDaysBefore` days away.
+ *
+ * This is the *charging* window (early renewal is allowed inside it) and is
+ * deliberately wider than `shouldSendRenewalReminder`: it also true after the
+ * due date, covering the gap where a membership is still `active` only because
+ * the daily cron has not flipped it to `payment_due` yet.
+ */
+export function isWithinRenewalWindow(args: {
+  nextDueMs: number;
+  nowMs: number;
+  reminderDaysBefore: number;
+}): boolean {
+  return args.nextDueMs - args.nowMs <= args.reminderDaysBefore * MS_PER_DAY;
+}
+
+/**
+ * End of the period the next PAID charge buys: the new period stacks on top of
+ * the due date the member already paid for (`currentDueMs + intervalMs`), never
+ * on the payment date — renewing early must not shrink the current period (and
+ * paying late must not gift a full interval from today).
+ *
+ * Falls back to `paidAtMs + intervalMs` on the first payment, when there is no
+ * cycle yet.
+ */
+export function computeStackedPeriodEndMs(args: {
+  currentDueMs: null | number | undefined;
+  intervalMs: number;
+  paidAtMs: number;
+}): number {
+  const baseMs = Math.max(args.paidAtMs, args.currentDueMs ?? 0);
+  return baseMs + args.intervalMs;
+}
+
+/**
+ * Fixed offset of the Brazilian calendar (UTC-3). Brazil dropped DST in 2019,
+ * so a constant is exact — and the app must use THE SAME offset when it labels
+ * the renewal date, otherwise the notification and the league screen would
+ * disagree near midnight.
+ */
+export const BRAZIL_UTC_OFFSET_MS = -3 * 60 * 60 * 1000;
+
+/**
+ * Whole days between now and `nextDueMs` on the Brazilian calendar: 0 means
+ * "due today", 1 "due tomorrow", negative once the due day has passed.
+ *
+ * Calendar days (not a 24h window) are what the reminder text needs: a due date
+ * later today must read "vence hoje", never "vence amanhã". The day boundary is
+ * the Brazilian one (`BRAZIL_UTC_OFFSET_MS`) applied to both terms — counting in
+ * UTC would call a due instant in the 21:00-23:59 BRT window "tomorrow", one day
+ * ahead of what the member sees in the app (review MEDIUM).
+ */
+export function renewalDaysLeft(args: {
+  nextDueMs: number;
+  nowMs: number;
+}): number {
+  return (
+    Math.floor((args.nextDueMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY) -
+    Math.floor((args.nowMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY)
+  );
+}
+
+/**
+ * Whether applying a paid charge would push the league over its player cap —
+ * i.e. whether the over-enrollment guard must refund instead of activating
+ * (BUG-0023).
+ *
+ * `otherActiveMembers` counts the league's *other* `active` memberships: the
+ * membership being charged is never counted as a new occupant of the slot it
+ * already owns. A renewal of an already-`active` membership holds its slot, so
+ * it can never overfill the league and is always allowed — refunding it would
+ * evict a paying member (the regression this rule encodes).
+ */
+export function wouldExceedLeagueCapacity(args: {
+  isRenewal: boolean;
+  maxPlayers: null | number | undefined;
+  otherActiveMembers: number;
+}): boolean {
+  if (args.isRenewal) {
+    return false;
+  }
+
+  if (args.maxPlayers === null || args.maxPlayers === undefined) {
+    return false;
+  }
+
+  return args.otherActiveMembers >= args.maxPlayers;
+}
+
+/**
+ * Whether the caller owns the payable source of a charge (BUG-0022).
+ *
+ * A charge may only be created — or an existing PENDING one reused — by the
+ * player who owns the source: the membership's player, or the tournament
+ * entry's payer (`playerAId`, always the entry creator). A caller without a
+ * player profile never owns a source, so nobody charges on someone else's
+ * behalf.
+ */
+export function ownsPayableSource(args: {
+  callerProfileId: null | string | undefined;
+  ownerProfileId: null | string | undefined;
+}): boolean {
+  return Boolean(
+    args.callerProfileId &&
+      args.ownerProfileId &&
+      args.callerProfileId === args.ownerProfileId
+  );
 }

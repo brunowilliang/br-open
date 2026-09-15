@@ -60,9 +60,12 @@ const getTournamentUrl = (input: NotificationContentInput) =>
   `/tournaments/${input.tournamentId}`;
 
 // Deep-link a player-facing payment notification to the checkout screen.
-// Requires `chargeId` in the notification metadata (set by the charge
-// cron / webhook). Falls back to the source root when missing so old
-// notifications still resolve.
+// `getCheckoutUrl` only returns `/checkout/<chargeId>` when the caller passed a
+// `chargeId` in the metadata, and callers must only do that for a charge that is
+// still PENDING for the membership (IBX-0039) — a PAID/EXPIRED charge has no QR
+// code to show and the checkout would render "pagamento confirmado". Without a
+// usable `chargeId` the link falls back to the league (where the player
+// generates a new PIX) or the tournament.
 const getCheckoutUrl = (input: NotificationContentInput) => {
   const chargeId =
     input.metadata && "chargeId" in input.metadata
@@ -73,6 +76,55 @@ const getCheckoutUrl = (input: NotificationContentInput) => {
   }
   return `/checkout/${chargeId}`;
 };
+
+/**
+ * Whole days left until the membership renews, sent by the renewal cron in the
+ * notification metadata (IBX-0039). Null when there is no countdown to show
+ * (rows created before that change).
+ */
+function readDaysLeft(metadata?: Record<string, unknown>): number | null {
+  const daysLeft = metadata?.daysLeft;
+  return typeof daysLeft === "number" ? daysLeft : null;
+}
+
+/**
+ * Reminder wording with the real countdown. `daysLeft` counts UTC calendar days
+ * until the due date: 0 = still due today, 1 = due tomorrow, more = N days
+ * ahead (so the text never claims a number of days it doesn't have).
+ *
+ * The day the reminder is written stays the same row and is rewritten daily, so
+ * the wording must follow the days left rather than a fixed phrase.
+ */
+function buildRenewalReminderText(
+  leagueName: string | undefined,
+  daysLeft: number | null
+): NotificationTemplate {
+  if (daysLeft === null) {
+    return {
+      body: `Sua inscrição na liga ${leagueName} vence em breve. Renove para continuar participando.`,
+      title: "Renovação próxima",
+    };
+  }
+
+  if (daysLeft <= 0) {
+    return {
+      body: `Sua inscrição na liga ${leagueName} vence hoje. Renove para continuar participando.`,
+      title: "Renovação hoje",
+    };
+  }
+
+  if (daysLeft === 1) {
+    return {
+      body: `Sua inscrição na liga ${leagueName} vence amanhã. Renove para continuar participando.`,
+      title: "Renovação amanhã",
+    };
+  }
+
+  return {
+    body: `Sua inscrição na liga ${leagueName} vence em ${daysLeft} dias. Renove para continuar participando.`,
+    title: `Renovação em ${daysLeft} dias`,
+  };
+}
 
 const definitions: Record<NotificationEventType, NotificationDefinition> = {
   "league.challenge.cancellation_accepted": {
@@ -277,10 +329,11 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
   },
   "league.membership.renewal_reminder": {
     getUrl: getCheckoutUrl,
-    template: (input) => ({
-      body: `Sua inscrição na liga ${input.leagueName} vence em breve. Renove para continuar participando.`,
-      title: "Renovação em 3 dias",
-    }),
+    // The cron rewrites this same feed row every day with the real days left
+    // (IBX-0039); rows created before that carry no countdown and keep the
+    // generic wording.
+    template: (input) =>
+      buildRenewalReminderText(input.leagueName, readDaysLeft(input.metadata)),
   },
   "league.membership.requested": {
     categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],

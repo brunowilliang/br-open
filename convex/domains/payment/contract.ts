@@ -26,6 +26,17 @@ export type PaymentChargeStatus = (typeof PAYMENT_CHARGE_STATUSES)[number];
 export const paymentChargeStatusSchema = z.enum([...PAYMENT_CHARGE_STATUSES]);
 
 // ---------------------------------------------------------------------------
+// Payable source types (the polymorphic sourceType + sourceId pair)
+// ---------------------------------------------------------------------------
+//
+// `sourceType` discriminates what a charge paid for; the webhook/handlers
+// dispatch on it. Kept here (not in the function file) so domain modules can
+// interpret a source without importing a Convex function file.
+
+export const SOURCE_TYPE_LEAGUE_MEMBERSHIP = "league_membership";
+export const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
+
+// ---------------------------------------------------------------------------
 // Payment account statuses (organization onboarding)
 // ---------------------------------------------------------------------------
 //
@@ -165,11 +176,44 @@ export type CreateChargeOutput = z.infer<typeof createChargeOutputSchema>;
 // Checkout context (returned by getCheckoutContext for /checkout/[chargeId])
 // ---------------------------------------------------------------------------
 
-export const checkoutContextSchema = z.object({
+/**
+ * Charge projection carried by a checkout payload: everything the screen needs
+ * to render a PIX (copy-and-paste code, QR image, countdown, amount) plus the
+ * charge id and its status at read time.
+ *
+ * The checkout context returns it FLAT for the charge the link points at and
+ * nested under `pendingCharge` for the live obligation of the source
+ * (BUG-0025). The screen swaps the whole projection, never fields from both.
+ */
+export const checkoutChargeSchema = z.object({
   amountCents: z.number().int().nonnegative(),
   brCode: z.string(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
+  qrCodeUrl: z.string(),
+  status: paymentChargeStatusSchema,
+});
+
+export type CheckoutCharge = z.infer<typeof checkoutChargeSchema>;
+
+export const checkoutContextSchema = z.object({
+  amountCents: z.number().int().nonnegative(),
+  brCode: z.string(),
+  // Current membership state of the source (IBX-0040), so the checkout can tell
+  // "renew now" from "already paid" instead of trusting the charge's historical
+  // status. Same signal the payments hub publishes as `canRegenerate`.
+  canRenew: z.boolean(),
+  chargeId: z.string(),
+  expiresAt: z.string().nullable(),
+  membershipDueAt: z.number().nullable(),
+  membershipStatus: z.string().nullable(),
+  // Live obligation of the source (BUG-0025): the caller's own PENDING charge
+  // for this source, if one still carries a usable PIX. A notification link can
+  // carry a terminal charge (EXPIRED/PAID) while a newer PIX is open for the
+  // same source, and the screen must render THAT one instead of the historical
+  // state. Null means there is nothing to show beyond the link's charge, and
+  // the screen keeps its previous behaviour. Reading it never creates a charge.
+  pendingCharge: checkoutChargeSchema.nullable(),
   qrCodeUrl: z.string(),
   sourceId: z.string(),
   sourceLabel: z.string().nullable(),

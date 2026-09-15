@@ -102,4 +102,62 @@ describe("notification content", () => {
       NOTIFICATION_PUSH_CATEGORY_IDS.leagueMembershipRequest
     );
   });
+
+  // -------------------------------------------------------------------------
+  // Renewal reminder countdown + deep link (IBX-0039)
+  // -------------------------------------------------------------------------
+
+  describe("league.membership.renewal_reminder", () => {
+    const build = (metadata: Record<string, unknown>) =>
+      buildNotificationContent({
+        eventType: "league.membership.renewal_reminder",
+        leagueId: "league-1",
+        leagueName: "Santa Elena",
+        metadata,
+        recipientRole: "player",
+      });
+
+    it("interpolates the real days left", () => {
+      const content = build({ cycleEndMs: 1_700_000_000_000, daysLeft: 3 });
+
+      expect(content.title).toBe("Renovação em 3 dias");
+      expect(content.body).toBe(
+        "Sua inscrição na liga Santa Elena vence em 3 dias. Renove para continuar participando."
+      );
+    });
+
+    it("says today while the due date is still today", () => {
+      const content = build({ daysLeft: 0 });
+
+      expect(content.title).toBe("Renovação hoje");
+      expect(content.body).toBe(
+        "Sua inscrição na liga Santa Elena vence hoje. Renove para continuar participando."
+      );
+    });
+
+    it("says tomorrow when only the next day is left", () => {
+      const content = build({ daysLeft: 1 });
+
+      expect(content.title).toBe("Renovação amanhã");
+      expect(content.body).toContain("vence amanhã.");
+    });
+
+    it("keeps the generic wording for rows without a countdown", () => {
+      const content = build({});
+
+      expect(content.title).toBe("Renovação próxima");
+      expect(content.body).toBe(
+        "Sua inscrição na liga Santa Elena vence em breve. Renove para continuar participando."
+      );
+    });
+
+    it("links to the checkout only for a PENDING charge", () => {
+      expect(build({ chargeId: "charge-1", daysLeft: 2 }).data.url).toBe(
+        "/checkout/charge-1"
+      );
+      // Without a PENDING charge the backend omits `chargeId`, so the tap lands
+      // on the league instead of a charge that no longer has a QR code.
+      expect(build({ daysLeft: 2 }).data.url).toBe("/leagues/league-1");
+    });
+  });
 });

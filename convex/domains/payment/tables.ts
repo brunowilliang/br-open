@@ -41,6 +41,13 @@ export const paymentCharge = convexTable(
       .notNull()
       .references(() => authTables.organization.id, { onDelete: "cascade" }),
     paidAt: timestamp(),
+    // End of the period this charge bought (IBX-0039). Snapshotted when the
+    // charge is applied so an early renewal stacks on top of the due date the
+    // member already paid for instead of restarting from `paidAt`. Null for
+    // charges that don't cover a recurring period (tournament entries) and for
+    // rows created before this column existed — those fall back to
+    // `paidAt + league billingInterval`.
+    periodEndAt: timestamp(),
     playerProfileId: id("playerProfile")
       .notNull()
       .references(() => playerTables.playerProfile.id, {

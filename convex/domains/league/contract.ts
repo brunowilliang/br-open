@@ -965,6 +965,10 @@ export const leagueScheduleItemSchema = z.object({
 export const leagueDiscoverySchema = leagueSchema.extend({
   activePlayerCount: z.number().int().min(0),
   isLeagueOrganizer: z.boolean(),
+  // End of the billing period the viewer already paid for (epoch ms), so the
+  // league screen can show the renewal date. Null while the viewer has no
+  // membership, never paid (checkout still open) or the league is one-time.
+  viewerMembershipDueAt: z.number().nullable(),
   viewerMembershipId: z.string().min(1).nullable().optional(),
   viewerMembershipStatus: z
     .enum(LeagueMembershipStatusOptions)

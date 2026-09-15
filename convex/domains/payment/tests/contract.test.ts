@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   PAYMENT_CHARGE_STATUSES,
   PAYMENT_ACCOUNT_STATUSES,
+  checkoutContextSchema,
   createChargeOutputSchema,
   paymentAccountSchema,
   paymentChargeStatusSchema,
@@ -185,6 +186,95 @@ describe("payment contract", () => {
           chargeId: "",
           expiresAt: null,
           status: "INVALID",
+        })
+      ).toThrow();
+    });
+  });
+
+  describe("checkoutContextSchema", () => {
+    const base = {
+      amountCents: 1000,
+      brCode: "pix-br-code",
+      chargeId: "charge-123",
+      expiresAt: "2026-07-01T12:00:00Z",
+      pendingCharge: null,
+      qrCodeUrl: "https://api.woovi.com/charge/image/abc.png",
+      sourceId: "membership-1",
+      sourceLabel: "Liga do Bruno",
+      sourceType: "league_membership",
+      status: "PAID" as const,
+    };
+
+    it("carries the live membership state of the source", () => {
+      const parsed = checkoutContextSchema.parse({
+        ...base,
+        canRenew: true,
+        membershipDueAt: 1_700_000_000_000,
+        membershipStatus: "payment_due",
+      });
+
+      expect(parsed.canRenew).toBe(true);
+      expect(parsed.membershipDueAt).toBe(1_700_000_000_000);
+      expect(parsed.membershipStatus).toBe("payment_due");
+      // The charge's own status is still reported as stored.
+      expect(parsed.status).toBe("PAID");
+      // Nothing pending for the source: the screen keeps its previous behaviour.
+      expect(parsed.pendingCharge).toBeNull();
+    });
+
+    it("accepts a source without a membership (nulls)", () => {
+      const parsed = checkoutContextSchema.parse({
+        ...base,
+        canRenew: false,
+        membershipDueAt: null,
+        membershipStatus: null,
+        sourceType: "tournament_entry",
+      });
+
+      expect(parsed.membershipStatus).toBeNull();
+      expect(parsed.canRenew).toBe(false);
+    });
+
+    it("reports a live pending charge next to a terminal link charge (BUG-0025)", () => {
+      const parsed = checkoutContextSchema.parse({
+        ...base,
+        canRenew: true,
+        membershipDueAt: 1_700_000_000_000,
+        membershipStatus: "payment_due",
+        pendingCharge: {
+          amountCents: 2500,
+          brCode: "pix-br-code-new",
+          chargeId: "charge-456",
+          expiresAt: "2026-09-15T11:57:04Z",
+          qrCodeUrl: "https://api.woovi.com/charge/image/def.png",
+          status: "PENDING",
+        },
+        status: "EXPIRED" as const,
+      });
+
+      // The link's charge stays historical (the screen's header decides on the
+      // membership); the pending charge is the PIX actually being shown.
+      expect(parsed.status).toBe("EXPIRED");
+      expect(parsed.pendingCharge?.chargeId).toBe("charge-456");
+      expect(parsed.pendingCharge?.status).toBe("PENDING");
+      expect(parsed.pendingCharge?.expiresAt).toBe("2026-09-15T11:57:04Z");
+    });
+
+    it("rejects a pending charge with an unknown status", () => {
+      expect(() =>
+        checkoutContextSchema.parse({
+          ...base,
+          canRenew: false,
+          membershipDueAt: null,
+          membershipStatus: null,
+          pendingCharge: {
+            amountCents: 1000,
+            brCode: "pix-br-code",
+            chargeId: "charge-456",
+            expiresAt: null,
+            qrCodeUrl: "https://api.woovi.com/charge/image/def.png",
+            status: "ACTIVE",
+          },
         })
       ).toThrow();
     });

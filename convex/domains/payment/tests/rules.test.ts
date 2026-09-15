@@ -11,11 +11,18 @@ import {
   canChargeBeRefunded,
   canMembershipBeCharged,
   computeSplit,
+  computeStackedPeriodEndMs,
   computeWooviFeeCents,
+  hasUsablePix,
+  isWithinRenewalWindow,
   normalizeProviderStatus,
+  ownsPayableSource,
+  renewalDaysLeft,
+  resolveBillingIntervalMs,
   shouldMarkPaymentDue,
   shouldSendRenewalReminder,
   shouldSuspend,
+  wouldExceedLeagueCapacity,
 } from "../rules";
 
 describe("payment rules", () => {
@@ -76,6 +83,71 @@ describe("payment rules", () => {
 
     it("rejects refunding a still-PENDING charge (nothing to refund)", () => {
       expect(canChargeBeRefunded({ status: "PENDING" })).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // hasUsablePix — the reuse rule of createCharge and the pendingCharge of the
+  // checkout (BUG-0025): the screen may only show a PIX this returns true for.
+  // -------------------------------------------------------------------------
+
+  describe("hasUsablePix", () => {
+    const nowMs = 1_700_000_000_000;
+    const future = new Date(nowMs + 60_000);
+    const past = new Date(nowMs - 60_000);
+
+    it("accepts a PENDING charge inside its expiration", () => {
+      expect(
+        hasUsablePix({
+          charge: { expiresAt: future, status: CHARGE_STATUS_PENDING },
+          nowMs,
+        })
+      ).toBe(true);
+    });
+
+    it("rejects a PENDING charge whose expiration has passed", () => {
+      expect(
+        hasUsablePix({
+          charge: { expiresAt: past, status: CHARGE_STATUS_PENDING },
+          nowMs,
+        })
+      ).toBe(false);
+    });
+
+    it("rejects a PENDING charge exactly at the expiration instant", () => {
+      expect(
+        hasUsablePix({
+          charge: { expiresAt: new Date(nowMs), status: CHARGE_STATUS_PENDING },
+          nowMs,
+        })
+      ).toBe(false);
+    });
+
+    it("rejects a charge without an expiration (provider never set one)", () => {
+      expect(
+        hasUsablePix({
+          charge: { expiresAt: null, status: CHARGE_STATUS_PENDING },
+          nowMs,
+        })
+      ).toBe(false);
+    });
+
+    it("rejects every terminal status, even with a future expiration", () => {
+      for (const status of [
+        CHARGE_STATUS_PAID,
+        CHARGE_STATUS_EXPIRED,
+        "FAILED",
+        "REFUNDED",
+      ]) {
+        expect(
+          hasUsablePix({ charge: { expiresAt: future, status }, nowMs })
+        ).toBe(false);
+      }
+    });
+
+    it("rejects a missing charge", () => {
+      expect(hasUsablePix({ charge: null, nowMs })).toBe(false);
+      expect(hasUsablePix({ charge: undefined, nowMs })).toBe(false);
     });
   });
 
@@ -495,6 +567,327 @@ describe("payment rules", () => {
           nowMs: now,
         })
       ).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Early renewal window + period stacking (IBX-0039)
+  // -------------------------------------------------------------------------
+
+  describe("resolveBillingIntervalMs", () => {
+    it("defaults to a 30-day month", () => {
+      expect(resolveBillingIntervalMs()).toBe(30 * DAY);
+      expect(resolveBillingIntervalMs(null)).toBe(30 * DAY);
+      expect(resolveBillingIntervalMs("month")).toBe(30 * DAY);
+    });
+
+    it("maps the other league intervals", () => {
+      expect(resolveBillingIntervalMs("week")).toBe(7 * DAY);
+      expect(resolveBillingIntervalMs("quarter")).toBe(90 * DAY);
+      expect(resolveBillingIntervalMs("year")).toBe(365 * DAY);
+    });
+
+    it("returns Infinity for a one-time charge so callers skip cycle math", () => {
+      expect(resolveBillingIntervalMs("once")).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it("falls back to a month for an unknown interval", () => {
+      expect(resolveBillingIntervalMs("fortnight")).toBe(30 * DAY);
+    });
+  });
+
+  describe("isWithinRenewalWindow", () => {
+    it("is open inside the reminder window", () => {
+      const now = Date.now();
+      expect(
+        isWithinRenewalWindow({
+          nextDueMs: now + 2 * DAY,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(true);
+    });
+
+    it("is open exactly at the window boundary", () => {
+      const now = Date.now();
+      expect(
+        isWithinRenewalWindow({
+          nextDueMs: now + 3 * DAY,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(true);
+    });
+
+    it("is closed before the window opens", () => {
+      const now = Date.now();
+      expect(
+        isWithinRenewalWindow({
+          nextDueMs: now + 4 * DAY,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(false);
+    });
+
+    it("stays open past the due date until the cron flips the status", () => {
+      const now = Date.now();
+      expect(
+        isWithinRenewalWindow({
+          nextDueMs: now - DAY,
+          nowMs: now,
+          reminderDaysBefore: 3,
+        })
+      ).toBe(true);
+    });
+  });
+
+  describe("canMembershipBeCharged (early renewal)", () => {
+    const now = Date.now();
+    const insideWindow = {
+      nextDueMs: now + 2 * DAY,
+      nowMs: now,
+      reminderDaysBefore: 3,
+    };
+
+    it("accepts an active membership inside the renewal window", () => {
+      expect(canMembershipBeCharged({ status: "active" }, insideWindow)).toBe(
+        true
+      );
+    });
+
+    it("rejects an active membership before the window opens", () => {
+      expect(
+        canMembershipBeCharged(
+          { status: "active" },
+          { ...insideWindow, nextDueMs: now + 10 * DAY }
+        )
+      ).toBe(false);
+    });
+
+    it("rejects an active membership when the caller has no cycle to compare", () => {
+      expect(canMembershipBeCharged({ status: "active" })).toBe(false);
+      expect(canMembershipBeCharged({ status: "active" }, null)).toBe(false);
+    });
+
+    it("still accepts the states that were already chargeable", () => {
+      expect(canMembershipBeCharged({ status: "awaiting_payment" })).toBe(true);
+      expect(canMembershipBeCharged({ status: "payment_due" })).toBe(true);
+      expect(canMembershipBeCharged({ status: "suspended" })).toBe(true);
+    });
+  });
+
+  describe("computeStackedPeriodEndMs", () => {
+    const paidAt = Date.now();
+    const month = 30 * DAY;
+
+    it("starts the first period on the payment date", () => {
+      expect(
+        computeStackedPeriodEndMs({
+          currentDueMs: null,
+          intervalMs: month,
+          paidAtMs: paidAt,
+        })
+      ).toBe(paidAt + month);
+    });
+
+    it("stacks an early renewal on top of the due date already paid for", () => {
+      const currentDue = paidAt + 3 * DAY;
+
+      expect(
+        computeStackedPeriodEndMs({
+          currentDueMs: currentDue,
+          intervalMs: month,
+          paidAtMs: paidAt,
+        })
+      ).toBe(currentDue + month);
+    });
+
+    it("gives a full period to a late payment instead of landing overdue", () => {
+      const currentDue = paidAt - 5 * DAY;
+      const periodEnd = computeStackedPeriodEndMs({
+        currentDueMs: currentDue,
+        intervalMs: month,
+        paidAtMs: paidAt,
+      });
+
+      expect(periodEnd).toBe(paidAt + month);
+      expect(periodEnd).toBeGreaterThan(paidAt);
+    });
+
+    it("never returns a period end in the past for a stale due date", () => {
+      const periodEnd = computeStackedPeriodEndMs({
+        currentDueMs: paidAt - 400 * DAY,
+        intervalMs: month,
+        paidAtMs: paidAt,
+      });
+
+      expect(periodEnd).toBe(paidAt + month);
+    });
+  });
+
+  describe("renewalDaysLeft (Brazilian calendar)", () => {
+    it("counts whole days ahead on the Brazilian calendar", () => {
+      expect(
+        renewalDaysLeft({
+          // 18/09 09:00 BRT vs 15/09 09:30 BRT
+          nextDueMs: Date.UTC(2026, 8, 18, 12),
+          nowMs: Date.UTC(2026, 8, 15, 12, 30),
+        })
+      ).toBe(3);
+    });
+
+    it("is zero while the due date is still today", () => {
+      expect(
+        renewalDaysLeft({
+          // 15/09 19:00 BRT vs 15/09 05:00 BRT
+          nextDueMs: Date.UTC(2026, 8, 15, 22),
+          nowMs: Date.UTC(2026, 8, 15, 8),
+        })
+      ).toBe(0);
+    });
+
+    it("is one for a due date on the next Brazilian day", () => {
+      expect(
+        renewalDaysLeft({
+          // 16/09 09:00 BRT vs 15/09 20:30 BRT
+          nextDueMs: Date.UTC(2026, 8, 16, 12),
+          nowMs: Date.UTC(2026, 8, 15, 23, 30),
+        })
+      ).toBe(1);
+    });
+
+    it("counts a late-evening BRT due date as today, not tomorrow (review MEDIUM)", () => {
+      // Due 2026-09-17T01:00Z = 22:00 BRT on 16/09; now 2026-09-16T23:00Z =
+      // 20:00 BRT on 16/09: the same Brazilian day, so "vence hoje". A UTC day
+      // floor would answer 1 here, one day ahead of the app alert.
+      expect(
+        renewalDaysLeft({
+          nextDueMs: Date.UTC(2026, 8, 17, 1),
+          nowMs: Date.UTC(2026, 8, 16, 23),
+        })
+      ).toBe(0);
+    });
+
+    it("goes negative after the due day", () => {
+      expect(
+        renewalDaysLeft({
+          // 12/09 21:00 BRT vs 14/09 22:00 BRT
+          nextDueMs: Date.UTC(2026, 8, 13),
+          nowMs: Date.UTC(2026, 8, 15, 1),
+        })
+      ).toBe(-2);
+    });
+  });
+
+  describe("wouldExceedLeagueCapacity", () => {
+    it("does not refund a renewal of a member who already fills the league (BUG-0023)", () => {
+      // League cap 1, the renewing member is that one occupant: the count of
+      // OTHER active members is 0, and a renewal never adds an occupant.
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: true,
+          maxPlayers: 1,
+          otherActiveMembers: 0,
+        })
+      ).toBe(false);
+    });
+
+    it("does not refund a renewal even when the organizer shrank the cap below the roster", () => {
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: true,
+          maxPlayers: 1,
+          otherActiveMembers: 3,
+        })
+      ).toBe(false);
+    });
+
+    it("refunds a new member joining a full league", () => {
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: false,
+          maxPlayers: 2,
+          otherActiveMembers: 2,
+        })
+      ).toBe(true);
+    });
+
+    it("allows a new member while a slot is free", () => {
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: false,
+          maxPlayers: 2,
+          otherActiveMembers: 1,
+        })
+      ).toBe(false);
+    });
+
+    it("never blocks a league without a player cap", () => {
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: false,
+          maxPlayers: null,
+          otherActiveMembers: 99,
+        })
+      ).toBe(false);
+      expect(
+        wouldExceedLeagueCapacity({
+          isRenewal: false,
+          maxPlayers: undefined,
+          otherActiveMembers: 99,
+        })
+      ).toBe(false);
+    });
+  });
+
+  describe("ownsPayableSource", () => {
+    it("accepts the player who owns the source", () => {
+      expect(
+        ownsPayableSource({
+          callerProfileId: "profile-1",
+          ownerProfileId: "profile-1",
+        })
+      ).toBe(true);
+    });
+
+    it("rejects another player's source", () => {
+      expect(
+        ownsPayableSource({
+          callerProfileId: "profile-2",
+          ownerProfileId: "profile-1",
+        })
+      ).toBe(false);
+    });
+
+    it("rejects a caller without a player profile", () => {
+      expect(
+        ownsPayableSource({
+          callerProfileId: null,
+          ownerProfileId: "profile-1",
+        })
+      ).toBe(false);
+      expect(
+        ownsPayableSource({
+          callerProfileId: undefined,
+          ownerProfileId: "profile-1",
+        })
+      ).toBe(false);
+    });
+
+    it("rejects a source without an owner profile", () => {
+      expect(
+        ownsPayableSource({
+          callerProfileId: "profile-1",
+          ownerProfileId: null,
+        })
+      ).toBe(false);
+      expect(
+        ownsPayableSource({
+          callerProfileId: "profile-1",
+          ownerProfileId: undefined,
+        })
+      ).toBe(false);
     });
   });
 });

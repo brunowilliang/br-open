@@ -596,6 +596,7 @@ export const sendPending = privateAction
   });
 
 const retractNotificationsSchema = z.object({
+  eventTypes: z.array(z.string()).optional(),
   exceptEventTypes: z.array(z.string()).optional(),
   sourceEntityId: z.string().min(1),
   sourceEntityType: z.string().min(1),
@@ -603,8 +604,10 @@ const retractNotificationsSchema = z.object({
 
 /**
  * Retracts feed rows tied to a source entity (e.g. a challenge that was
- * cancelled/rescheduled). Sets their `status` to "retracted" and aborts any
- * pending deliveries by flipping them to "failed".
+ * cancelled/rescheduled, or a superseded renewal reminder). Sets their `status`
+ * to "retracted" and aborts any pending deliveries by flipping them to
+ * "failed". `eventTypes` limits the retraction to those event types;
+ * `exceptEventTypes` excludes them.
  *
  * Typical caller: `challenges.ts` cancel/counterPropose/admin branches,
  * invoked via `internal.notification.orchestrator.retractNotifications`
@@ -627,11 +630,16 @@ export const retractNotifications = privateMutation
       (row) => row.sourceEntityId === input.sourceEntityId
     );
 
+    // `eventTypes` narrows the retraction to a whitelist (e.g. only the renewal
+    // reminders of a membership), `exceptEventTypes` excludes a blacklist.
+    const selectedRows = input.eventTypes
+      ? feedRows.filter((row) => input.eventTypes?.includes(row.eventType))
+      : feedRows;
     const targetRows = input.exceptEventTypes
-      ? feedRows.filter(
+      ? selectedRows.filter(
           (row) => !input.exceptEventTypes?.includes(row.eventType)
         )
-      : feedRows;
+      : selectedRows;
 
     if (targetRows.length === 0) {
       return { retractedCount: 0 };

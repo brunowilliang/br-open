@@ -990,6 +990,7 @@ export type DataModel = {
       expiresAt?: null | number;
       organizationId: Id<"organization">;
       paidAt?: null | number;
+      periodEndAt?: null | number;
       playerProfileId: Id<"playerProfile">;
       providerChargeId?: null | string;
       providerTransactionId?: null | string;
@@ -1014,6 +1015,7 @@ export type DataModel = {
       | "expiresAt"
       | "organizationId"
       | "paidAt"
+      | "periodEndAt"
       | "playerProfileId"
       | "providerChargeId"
       | "providerTransactionId"

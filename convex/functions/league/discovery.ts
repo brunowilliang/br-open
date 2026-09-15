@@ -21,6 +21,7 @@ import {
 } from "../../domains/league/contract";
 import { getActiveMembershipLeagueIds } from "../../domains/league/discovery-list";
 import type { league, leagueMembership } from "../../domains/league/tables";
+import { resolveMembershipDueMs } from "../../domains/payment/membership-billing";
 import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
 import { getViewerContext } from "../viewer/context";
@@ -89,6 +90,7 @@ async function serializeLeagueDiscovery(
   record: LeagueRecord,
   options: {
     isLeagueOrganizer: boolean;
+    viewerMembershipDueAtMs?: number | null;
     viewerMembershipId?: LeagueMembershipRecord["id"] | null;
     viewerMembershipStatus?: LeagueMembershipRecord["status"] | null;
   }
@@ -100,6 +102,7 @@ async function serializeLeagueDiscovery(
       record.id as Id<"league">
     ),
     isLeagueOrganizer: options.isLeagueOrganizer,
+    viewerMembershipDueAt: options.viewerMembershipDueAtMs ?? null,
     viewerMembershipId: options.viewerMembershipId ?? null,
     viewerMembershipStatus: options.viewerMembershipStatus ?? null,
   });
@@ -146,8 +149,18 @@ export const getById = authQuery
           })
         : null;
 
+    // Due date of the cycle the viewer already paid for (IBX-0039) — the
+    // league screen shows it and uses it to open early renewal.
+    const viewerMembershipDueAtMs = currentMembership
+      ? await resolveMembershipDueMs(ctx, {
+          membershipId: currentMembership.id,
+          priceBillingInterval: currentLeague.priceBillingInterval,
+        })
+      : null;
+
     return serializeLeagueDiscovery(ctx, currentLeague, {
       isLeagueOrganizer,
+      viewerMembershipDueAtMs,
       viewerMembershipId: currentMembership?.id ?? null,
       viewerMembershipStatus: currentMembership?.status ?? null,
     });

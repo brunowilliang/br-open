@@ -2261,6 +2261,7 @@ export const api: {
           };
           state: string;
           updatedAt: number;
+          viewerMembershipDueAt: number | null;
           viewerMembershipId?: string | null;
           viewerMembershipStatus?:
             | "pending"
@@ -3491,8 +3492,19 @@ export const api: {
         {
           amountCents: number;
           brCode: string;
+          canRenew: boolean;
           chargeId: string;
           expiresAt: string | null;
+          membershipDueAt: number | null;
+          membershipStatus: string | null;
+          pendingCharge: {
+            amountCents: number;
+            brCode: string;
+            chargeId: string;
+            expiresAt: string | null;
+            qrCodeUrl: string;
+            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          } | null;
           qrCodeUrl: string;
           sourceId: string;
           sourceLabel: string | null;
@@ -5141,6 +5153,7 @@ export const internal: {
         "mutation",
         "internal",
         {
+          eventTypes?: Array<string>;
           exceptEventTypes?: Array<string>;
           sourceEntityId: string;
           sourceEntityType: string;
@@ -5174,7 +5187,7 @@ export const internal: {
       findPendingChargeForSource: FunctionReference<
         "mutation",
         "internal",
-        { sourceId: string; sourceType: string },
+        { sourceId: string; sourceType: string; userId: string },
         {
           brCode: string;
           chargeId: string;
