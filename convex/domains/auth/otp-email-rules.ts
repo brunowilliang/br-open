@@ -13,22 +13,22 @@ export function buildOtpEmail(type: string, otp: string): OtpEmail {
     case "change-email":
       return {
         html: `<p>Use o código <strong>${otp}</strong> para trocar seu e-mail no BR Open.</p>`,
-        subject: "Código para trocar seu e-mail — BR Open",
+        subject: "Código BR Open para trocar seu e-mail",
       };
     case "email-verification":
       return {
         html: `<p>Use o código <strong>${otp}</strong> para verificar seu e-mail no BR Open.</p>`,
-        subject: "Seu código — BR Open",
+        subject: "Código BR Open para verificar seu e-mail",
       };
     case "forget-password":
       return {
         html: `<p>Use o código <strong>${otp}</strong> para redefinir sua senha no BR Open.</p>`,
-        subject: "Código para redefinir sua senha — BR Open",
+        subject: "Código BR Open para redefinir sua senha",
       };
     default:
       return {
         html: `<p>Seu código: <strong>${otp}</strong></p>`,
-        subject: "Seu código — BR Open",
+        subject: "Código BR Open",
       };
   }
 }
