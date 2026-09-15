@@ -46,6 +46,10 @@
         "noNonNullAssertion": "off"
       },
       "suspicious": {
+        // "noDeprecatedImports": {
+        //   "level": "error",
+        //   "options": {}
+        // },
         "noEmptyBlockStatements": "off",
         "noArrayIndexKey": "off",
         "noShadow": "off",
@@ -96,7 +100,8 @@
         "actions": {
           "source": {
             "useSortedKeys": {
-              "level": "off"
+              "level": "off",
+              "options": {}
             }
           }
         }
