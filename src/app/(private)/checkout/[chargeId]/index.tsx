@@ -2,7 +2,7 @@ import { Cancel01Icon, CopyIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
@@ -13,9 +13,21 @@ import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatMsAsMMSS } from "@/lib/format/time";
 import { formatLeaguePriceParts } from "@/lib/leagues/presentation";
+import {
+  type CheckoutChargeView,
+  resolveCheckoutDisplay,
+  resolveCountdownRevalidation,
+} from "@/lib/payments/checkout-view";
 import { Button, Card, Label, Skeleton, useToast } from "heroui-native";
 
 const DANGER_THRESHOLD_MS = 300_000;
+
+/** Fundo do cartão de estado, no padrão dos cartões que já existiam aqui. */
+const CARD_BACKGROUND: Record<CheckoutChargeView["severity"], string> = {
+  danger: "bg-danger-soft",
+  success: "bg-success-soft",
+  warning: "bg-warning-soft",
+};
 
 function useCountdown(expiresAt: string | null) {
   const [remainingMs, setRemainingMs] = useState(() => {
@@ -53,15 +65,48 @@ export default function CheckoutScreen() {
   const checkoutQuery = useQuery(
     crpc.payment.charge.getCheckoutContext.queryOptions({ chargeId })
   );
+  // `canRegenerate` de "meus pagamentos" é o sinal de cobrabilidade da
+  // membership (`canMembershipBeCharged` no servidor) — é o mesmo sinal que o
+  // menu "Gerar novo Pix" de settings/player/payments.tsx usa.
+  const paymentsQuery = useQuery(crpc.payment.charge.listMine.queryOptions());
 
-  async function invalidateCheckout() {
+  const invalidateCheckout = useCallback(async () => {
     await queryClient.invalidateQueries(
       crpc.payment.charge.getCheckoutContext.queryFilter({ chargeId })
     );
     await queryClient.invalidateQueries(
       crpc.payment.charge.listMine.queryFilter()
     );
-  }
+  }, [chargeId, crpc, queryClient]);
+
+  const createCharge = useMutation(
+    crpc.payment.charge.createCharge.mutationOptions({
+      onError: (error) => {
+        toast.show({
+          description: getToastErrorMessage(
+            error,
+            "Não foi possível gerar um novo código PIX. Tente novamente."
+          ),
+          id: "generate-new-charge-error",
+          label: "Falha ao gerar PIX",
+          variant: "danger",
+        });
+      },
+      onSuccess: async (result) => {
+        await invalidateCheckout();
+
+        // Sem cobrança pendente reaproveitável o servidor cria outra, e a tela
+        // segue para ela; quando ele devolve a mesma charge, o invalidate
+        // acima já atualiza o contexto em tela.
+        if (result.chargeId !== chargeId) {
+          router.replace({
+            params: { chargeId: result.chargeId },
+            pathname: "/checkout/[chargeId]",
+          });
+        }
+      },
+    })
+  );
 
   const simulatePayment = useMutation(
     crpc.payment.charge.simulatePayment.mutationOptions({
@@ -83,24 +128,67 @@ export default function CheckoutScreen() {
   );
 
   const checkout = checkoutQuery.data ?? null;
-  const remainingMs = useCountdown(checkout?.expiresAt ?? null);
   const isLoading = checkoutQuery.isLoading && !checkout;
-  const isExpired =
-    Boolean(checkout) && checkout?.status !== "PAID" && remainingMs <= 0;
 
-  const priceParts = useMemo(() => {
-    const cents = checkout?.amountCents ?? 0;
-    return formatLeaguePriceParts({
-      amountCents: cents,
-      billingInterval: "month",
+  // O item de "meus pagamentos" da charge do link dá o `paidAt` do cartão e
+  // cobre o fallback quando a resposta em cache ainda não traz `canRenew`.
+  const chargeItem = paymentsQuery.data?.items.find(
+    (item) => item.chargeId === chargeId
+  );
+
+  // A cobrança VIGENTE manda na tela: a notificação antiga carrega o chargeId
+  // de uma charge já terminal, e o PIX que o jogador gerou depois vive em
+  // outra charge PENDING do mesmo source (BUG-0025). Sem pendente, a charge do
+  // link decide como antes. Nada aqui cria ou reaproveita cobrança.
+  const display = checkout
+    ? resolveCheckoutDisplay({
+        context: checkout,
+        now: Date.now(),
+        paymentItem: chargeItem,
+      })
+    : null;
+
+  const remainingMs = useCountdown(display?.charge.expiresAt ?? null);
+  const card = display?.card ?? null;
+  const charge = display?.charge ?? null;
+  const amountCents = display?.charge.amountCents ?? 0;
+
+  // Countdown zerado com o PIX na tela: o aparelho pode estar adiantado e ter
+  // zerado um PIX que o servidor considera VIVO, então quem decide o próximo
+  // estado é o servidor. UMA leitura por charge exibida (guard por id), sem
+  // loop: se o servidor devolver a mesma pendente, a tela segue com ela.
+  const revalidatedChargeIdRef = useRef<null | string>(null);
+
+  useEffect(() => {
+    const revalidation = resolveCountdownRevalidation({
+      displayedChargeId: card ? null : (charge?.chargeId ?? null),
+      remainingMs,
+      revalidatedChargeId: revalidatedChargeIdRef.current,
     });
-  }, [checkout]);
 
-  async function copyBrCode() {
-    if (!checkout?.brCode) {
+    if (!revalidation.shouldRefetch) {
       return;
     }
-    await Clipboard.setStringAsync(checkout.brCode);
+
+    revalidatedChargeIdRef.current = revalidation.chargeId;
+    invalidateCheckout();
+  }, [card, charge?.chargeId, invalidateCheckout, remainingMs]);
+
+  const priceParts = useMemo(
+    () =>
+      formatLeaguePriceParts({
+        amountCents,
+        billingInterval: "month",
+      }),
+    [amountCents]
+  );
+
+  async function copyBrCode() {
+    const brCode = display?.charge.brCode;
+    if (!brCode) {
+      return;
+    }
+    await Clipboard.setStringAsync(brCode);
     toast.show({
       description: "Cole no app do seu banco para concluir o pagamento.",
       id: "copy-brcode",
@@ -109,11 +197,16 @@ export default function CheckoutScreen() {
     });
   }
 
-  // Resolve the current view state. While loading we still render the pending
-  // layout with skeletons wrapping each element (Skeleton isLoading), so the
-  // transition into the loaded state preserves shape/position.
-  const isPaid = checkout?.status === "PAID";
-  const isPendingExpired = isExpired || checkout?.status === "EXPIRED";
+  function handleGenerateNewCharge() {
+    if (!checkout) {
+      return;
+    }
+
+    createCharge.mutate({
+      sourceId: checkout.sourceId,
+      sourceType: checkout.sourceType,
+    });
+  }
 
   return (
     <Page>
@@ -140,50 +233,47 @@ export default function CheckoutScreen() {
       </Page.Header>
 
       <Page.View className="flex-1 gap-6 px-4">
-        {/* Paid state */}
-        {isPaid ? (
+        {/* Estado terminal da charge, dirigido pelo estado ATUAL da membership:
+            com cobrança possível (atraso, suspensão ou janela de renovação) a
+            tela pede o PIX novo em vez de afirmar um pagamento (BUG-0024). */}
+        {card ? (
           <View className="flex-1 items-center justify-center gap-3">
-            <View className="w-full gap-3 rounded-2xl bg-success-soft p-8">
+            <View
+              className={`w-full gap-3 rounded-2xl p-8 ${
+                CARD_BACKGROUND[card.severity]
+              }`}
+            >
               <Text
                 className="text-center"
-                color="success"
+                color={card.severity}
                 size="lg"
                 weight="semibold"
               >
-                Pagamento confirmado!
+                {card.title}
               </Text>
               <Text className="text-center" color="muted">
-                Confirmamos o seu pagamento. Você já pode acessar a liga e
-                começar a jogar!
+                {card.description}
               </Text>
             </View>
-          </View>
-        ) : null}
-
-        {/* Expired state */}
-        {isPendingExpired ? (
-          <View className="flex-1 items-center justify-center gap-4">
-            <View className="w-full gap-3 rounded-2xl bg-warning-soft p-8">
-              <Text
-                className="text-center"
-                color="warning"
-                size="lg"
-                weight="semibold"
+            {card.actionLabel ? (
+              <Button
+                isDisabled={createCharge.isPending}
+                onPress={handleGenerateNewCharge}
               >
-                PIX expirado
-              </Text>
-              <Text className="text-center" color="muted">
-                O tempo para pagamento esgotou. Gere um novo PIX para continuar.
-              </Text>
-            </View>
+                <Button.Label>{card.actionLabel}</Button.Label>
+              </Button>
+            ) : null}
           </View>
         ) : null}
 
-        {/* Pending / loading layout.
+        {/* Layout de PIX da cobrança VIGENTE (e durante o loading): a charge
+            PENDING do source quando ela existe, senão a charge do link.
+            Estados terminais caem no cartão acima, então aqui nunca aparece
+            QR/"Expira em 00:00" de cobrança que não vale mais.
             While loading, the same structure is rendered with skeletons
             wrapping each element, so there is no layout jump when data
             arrives. */}
-        {isPaid || isPendingExpired ? null : (
+        {card ? null : (
           <>
             {/* Price summary */}
             {priceParts.amount === "Grátis" ? null : (
@@ -232,12 +322,12 @@ export default function CheckoutScreen() {
               isLoading={isLoading}
             >
               <View className="size-64 items-center justify-center self-center rounded-3xl">
-                {checkout?.qrCodeUrl ? (
+                {charge?.qrCodeUrl ? (
                   <Image
                     className="size-64 rounded-3xl"
                     fallback="none"
                     source={{
-                      uri: checkout.qrCodeUrl,
+                      uri: charge.qrCodeUrl,
                     }}
                   />
                 ) : null}
@@ -253,7 +343,7 @@ export default function CheckoutScreen() {
               >
                 <Card>
                   <Text numberOfLines={2} size="sm">
-                    {checkout?.brCode ?? ""}
+                    {charge?.brCode ?? ""}
                   </Text>
                 </Card>
               </Skeleton>
@@ -277,7 +367,11 @@ export default function CheckoutScreen() {
                     <Button
                       className="flex-1"
                       isDisabled={simulatePayment.isPending}
-                      onPress={() => simulatePayment.mutate({ chargeId })}
+                      onPress={() =>
+                        simulatePayment.mutate({
+                          chargeId: charge?.chargeId ?? chargeId,
+                        })
+                      }
                       variant="secondary"
                     >
                       <Button.Label>
