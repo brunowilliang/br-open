@@ -1,5 +1,12 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -10,18 +17,19 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useCSSVariable } from "uniwind";
 
 import {
   bracketEdgeParts,
   type BracketEdgePart,
 } from "@/lib/tournaments/bracket-edges";
+import { logBracketViewport } from "@/lib/tournaments/bracket-diagnostics";
 import {
   bracketFitZoom,
   clampPanToViewport,
   pinchFollowTransform,
   type BracketTreeLayout,
 } from "@/lib/tournaments/bracket-tree";
+import { useThemeColor } from "heroui-native";
 
 /** Distance a finger travels before the pan takes over (taps reach cards). */
 const PAN_ACTIVATION_DISTANCE = 12;
@@ -122,8 +130,7 @@ const BracketEdges = memo(function BracketEdges({
 export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
   const [viewport, setViewport] = useState({ height: 0, width: 0 });
 
-  const tintToken = useCSSVariable("--color-muted-foreground");
-  const tint = typeof tintToken === "string" ? tintToken : "#878787";
+  const tint = useThemeColor("muted");
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -154,6 +161,23 @@ export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
       }),
     [layout.height, layout.width, viewport.height, viewport.width]
   );
+
+  // Sonda temporária (BUG-0033): fit + espessura do traço em pt de grafo, pt
+  // de tela e pixel de device — decide se a linha do fit da chave grande cai
+  // abaixo de 1 pixel físico (traço sub-pixel).
+  useEffect(() => {
+    if (fitZoom === null) {
+      return;
+    }
+    logBracketViewport({
+      fitZoom,
+      graphHeight: layout.height,
+      graphWidth: layout.width,
+      strokeGraph: EDGE_STROKE_GRAPH,
+      viewportHeight: viewport.height,
+      viewportWidth: viewport.width,
+    });
+  }, [fitZoom, layout.height, layout.width, viewport.height, viewport.width]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;

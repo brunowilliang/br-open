@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { TournamentMatchWithSides } from "./bracket-view";
 import {
+  BRACKET_CARD_ESTIMATED_HEIGHT,
+  commitCardHeight,
   bracketFitZoom,
   buildBracketCategoryTrees,
   clampPanToViewport,
@@ -383,5 +385,62 @@ describe("pinchFollowTransform (zoom-around-point invariant)", () => {
         viewport.width - PAN_VISIBILITY_BAND
       );
     }
+  });
+});
+
+describe("commitCardHeight (altura medida do card)", () => {
+  test("medida igual à altura EFETIVA não commita (chave de 64 monta sem cascata)", () => {
+    const heights = {};
+    expect(
+      commitCardHeight({
+        heights,
+        matchId: "m1",
+        measured: BRACKET_CARD_ESTIMATED_HEIGHT,
+      })
+    ).toBe(heights);
+
+    const measured = { m1: 154 };
+    expect(
+      commitCardHeight({
+        heights: measured,
+        matchId: "m1",
+        measured: 154,
+      })
+    ).toBe(measured);
+  });
+
+  test("medida 136 commita quando a altura efetiva era outra (o guard do IBX-0022 dropava)", () => {
+    const next = commitCardHeight({
+      heights: { m1: 154 },
+      matchId: "m1",
+      measured: BRACKET_CARD_ESTIMATED_HEIGHT,
+    });
+
+    expect(next.m1).toBe(BRACKET_CARD_ESTIMATED_HEIGHT);
+  });
+
+  test("a última medida vence nas duas direções", () => {
+    const shrunk = commitCardHeight({
+      heights: { m1: 154 },
+      matchId: "m1",
+      measured: 120,
+    });
+    expect(shrunk.m1).toBe(120);
+
+    const grown = commitCardHeight({
+      heights: shrunk,
+      matchId: "m1",
+      measured: 154,
+    });
+    expect(grown.m1).toBe(154);
+    expect(grown).not.toBe(shrunk);
+  });
+
+  test("commita só o card medido, preservando a identidade dos outros", () => {
+    const heights = { other: 120 };
+    const next = commitCardHeight({ heights, matchId: "m1", measured: 150 });
+
+    expect(next).toEqual({ m1: 150, other: 120 });
+    expect(next).not.toBe(heights);
   });
 });

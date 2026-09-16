@@ -10,19 +10,17 @@ import { Pressable, View } from "react-native";
 import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { buildBracketScoreTokens } from "@/lib/tournaments/bracket-score-display";
+import { BRACKET_BYE_CARD_HEIGHT } from "@/lib/tournaments/bracket-tree";
 import {
-  canSwapMatch,
+  isByeMatch,
+  type BracketSwapTarget,
   type TournamentMatchWithSides,
 } from "@/lib/tournaments/bracket-view";
 import {
   formatEntrySideLabel,
   getMatchStatusChip,
 } from "@/lib/tournaments/tournament-details-derived";
-
-export type BracketSwapTarget = {
-  match: TournamentMatchWithSides;
-  side: "a" | "b";
-};
 
 type BracketSideRowProps = {
   isSelected: boolean;
@@ -41,6 +39,9 @@ function BracketSideRow({
 }: BracketSideRowProps) {
   const sideEntry = side === "a" ? match.entryA : match.entryB;
   const isWinner = sideEntry !== null && match.winnerEntryId === sideEntry.id;
+  const scoreTokens = match.score
+    ? buildBracketScoreTokens(match.score.sets, side)
+    : [];
 
   return (
     <Pressable
@@ -57,7 +58,8 @@ function BracketSideRow({
         <View className="flex-row">
           <Image
             className="size-6 rounded-full"
-            fallback="green"
+            // lado "A definir" (sem inscrição): fallback PRETO; com entrada, azul
+            fallback={sideEntry ? "blue" : "black"}
             source={sideEntry?.playerA?.avatarUrl ?? undefined}
           />
           {sideEntry?.playerB ? (
@@ -70,21 +72,38 @@ function BracketSideRow({
         </View>
         <Text
           className={`min-w-0 flex-1 ${isWinner ? "font-semibold text-accent" : ""}`}
+          // lado "A definir": rótulo muted (com entrada segue o default)
+          color={sideEntry ? undefined : "muted"}
           numberOfLines={1}
           size="sm"
         >
           {formatEntrySideLabel(sideEntry)}
         </Text>
         {match.score ? (
-          <Text className="text-muted" size="sm">
-            {match.score.sets
-              .map((set) =>
-                side === "a"
-                  ? `${set.aGames}-${set.bGames}`
-                  : `${set.bGames}-${set.aGames}`
-              )
-              .join(" ")}
-          </Text>
+          <View className="flex-row items-center gap-3.5">
+            {scoreTokens.map((token, index) => (
+              <View className="flex-row" key={index}>
+                <Text
+                  // estilo do número do set
+                  color={token.isSetWinner ? "accent" : "muted"}
+                  size="base"
+                  weight={token.isSetWinner ? "bold" : "normal"}
+                >
+                  {token.games}
+                </Text>
+                {token.tieBreakPoints === null ? null : (
+                  <Text
+                    // estilo do tie-break sobrescrito
+                    className="absolute -top-1.5 -right-1.5 text-[11px]"
+                    color={token.isSetWinner ? "accent" : "muted"}
+                    weight={token.isSetWinner ? "bold" : "normal"}
+                  >
+                    {token.tieBreakPoints}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
         ) : null}
         {isSwapEnabled ? (
           <HugeIcons
@@ -110,6 +129,8 @@ type BracketMatchCardProps = {
   scheduleSummary: null | string;
   selectedSide: "a" | "b" | null;
   swapDisabled: boolean;
+  /** Por LADO: aceita a seleção corrente como origem (preenchido) ou destino. */
+  swapPickEnabled: { a: boolean; b: boolean };
 };
 
 export function BracketMatchCard({
@@ -125,9 +146,35 @@ export function BracketMatchCard({
   scheduleSummary,
   selectedSide,
   swapDisabled,
+  swapPickEnabled,
 }: BracketMatchCardProps) {
+  // Vaga DERIVADA do sorteio (bye): o card existe VAZIO — nenhum filho, sem
+  // fase, sem chip (o "W.O." leria como W.O. jogado e o "A definir" como
+  // adversário que não existe), sem lado fantasma, sem seta e sem identidade.
+  // O W.O. JOGADO de verdade é `finished` com `walkover: true` e cai no card
+  // normal (isByeMatch). O container do card e a altura FIXA na constante do
+  // layout ficam: o retângulo do grafo casa com o render por construção e a
+  // âncora do conector não se move (a rota sai cedo no onHeightChange do bye).
+  if (isByeMatch(match)) {
+    return (
+      <View
+        onLayout={(event) => {
+          onHeightChange(event.nativeEvent.layout.height);
+        }}
+      >
+        <Card
+          className="w-full justify-center rounded-2xl p-2"
+          style={{ height: BRACKET_BYE_CARD_HEIGHT }}
+        />
+      </View>
+    );
+  }
+
   const statusChip = getMatchStatusChip(match.status);
-  const canSwap = isOrganizer && canSwapMatch(match) && !swapDisabled;
+  // A regra de quem pode ser origem ou destino mora na tela (bracket.tsx,
+  // via o modelo puro de bracket-view): aqui só a apresentação do que ela
+  // decidiu, LADO a LADO. Lado bloqueado não mostra a seta de troca.
+  const swapEnabled = isOrganizer && !swapDisabled;
   const canAct =
     isOrganizer && match.entryAId !== null && match.entryBId !== null;
 
@@ -226,14 +273,14 @@ export function BracketMatchCard({
 
         <BracketSideRow
           isSelected={selectedSide === "a"}
-          isSwapEnabled={canSwap}
+          isSwapEnabled={swapEnabled && swapPickEnabled.a}
           match={match}
           onSidePress={onSidePress}
           side="a"
         />
         <BracketSideRow
           isSelected={selectedSide === "b"}
-          isSwapEnabled={canSwap}
+          isSwapEnabled={swapEnabled && swapPickEnabled.b}
           match={match}
           onSidePress={onSidePress}
           side="b"

@@ -131,6 +131,42 @@ export function pinchFollowTransform(input: {
 /** Fallback before onLayout reports the real card height. */
 export const BRACKET_CARD_ESTIMATED_HEIGHT = 136;
 
+/**
+ * Altura do card de BYE (vaga derivada do sorteio): o card existe VAZIO (sem
+ * fase, sem chip, sem lado fantasma e sem identidade) e a altura é FIXADA
+ * pelo próprio componente neste MESMO número, então o retângulo do layout
+ * casa com o render por construção e a medida nunca precisa commitar (o
+ * `onHeightChange` da rota sai cedo para o bye). O valor é o slot do card
+ * vazio: mexer nele remexe a geometria e a âncora dos conectores. Um bye
+ * medido fora daqui reintroduz o desalinhamento de âncora do BUG-0033.
+ */
+export const BRACKET_BYE_CARD_HEIGHT = 52;
+
+/** Altura medida por match; ausente = ainda não medida (vale a estimativa). */
+export type BracketCardHeights = Record<string, number>;
+
+/**
+ * Commits one card height measured by `onLayout`. O valor EFETIVO de um card
+ * sem medida é `BRACKET_CARD_ESTIMATED_HEIGHT`, então uma medida igual à
+ * altura efetiva não mexe no layout e não deve entrar no state (a montagem
+ * de uma chave de 64 commita ZERO vezes — lição IBX-0022). A comparação é
+ * com a altura EFETIVA, nunca com a constante: um card commitado em 154 que
+ * volta a medir 136 (a linha de agendamento sai do card) PRECISA commitar,
+ * senão o retângulo fica 9pt acima do centro do card para sempre e o
+ * conector nasce fora do eixo (BUG-0033).
+ */
+export function commitCardHeight(input: {
+  heights: BracketCardHeights;
+  matchId: string;
+  measured: number;
+}): BracketCardHeights {
+  const current = input.heights[input.matchId] ?? BRACKET_CARD_ESTIMATED_HEIGHT;
+
+  return current === input.measured
+    ? input.heights
+    : { ...input.heights, [input.matchId]: input.measured };
+}
+
 type BracketTreeSizing = {
   cardHeightOf: (match: TournamentMatchWithSides) => number;
   cardWidth: number;
