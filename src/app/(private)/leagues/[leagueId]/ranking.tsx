@@ -213,7 +213,9 @@ export default function LeagueRankingRoute() {
   const courts = league?.courts ?? [];
   const defaultDurationMinutes =
     league?.ruleConfig.matchConfig.defaultDurationMinutes ?? 0;
-  const occupiedSlots = occupiedSlotsQuery.data ?? [];
+  const occupiedSlots = (occupiedSlotsQuery.data ?? []).map(
+    ({ challengeId, ...slot }) => ({ ...slot, slotId: challengeId })
+  );
 
   function closeDetailsDialog() {
     if (isRemovePending) {

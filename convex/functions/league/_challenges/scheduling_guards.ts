@@ -8,10 +8,12 @@ import {
 import {
   getDayKeyFromMatchDate,
   rangesOverlap,
+  resolveMatchOccupiedEndMinute,
 } from "../../../domains/league/challenge-scheduling-rules";
 import {
   resolveRuleValue,
   type League,
+  type LeagueMatchConfig,
 } from "../../../domains/league/contract";
 import type { LeagueMembershipRecord, OrmCtx } from "./types";
 
@@ -108,11 +110,19 @@ export async function assertCourtSlotAvailable(input: {
       continue;
     }
 
+    // Occupancy is derived from the challenge's frozen match config, never
+    // from the stored proposal endMinute, which a client can understate to
+    // squeeze past an existing booking (BUG-0027).
+    const occupiedEndMinute = resolveMatchOccupiedEndMinute({
+      matchConfig: parentChallenge.matchConfigSnapshot as LeagueMatchConfig,
+      startMinute: proposal.startMinute,
+    });
+
     if (
       rangesOverlap({
         leftEndMinute: input.endMinute,
         leftStartMinute: input.startMinute,
-        rightEndMinute: proposal.endMinute,
+        rightEndMinute: occupiedEndMinute,
         rightStartMinute: proposal.startMinute,
       })
     ) {

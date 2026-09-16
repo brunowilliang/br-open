@@ -1,4 +1,9 @@
-import { LeagueCourtDayKeys, type LeagueCourtDay } from "./contract";
+import {
+  DEFAULT_LEAGUE_MATCH_CONFIG,
+  LeagueCourtDayKeys,
+  type LeagueCourtDay,
+  type LeagueMatchConfig,
+} from "./contract";
 
 /**
  * Day-of-week key (mon-sun) for a YYYY-MM-DD matchDate, derived in UTC so it
@@ -48,4 +53,26 @@ export function rangesOverlap(input: {
     input.leftStartMinute < input.rightEndMinute &&
     input.rightStartMinute < input.leftEndMinute
   );
+}
+
+/**
+ * Effective end of a match's occupied court window, derived from the rules'
+ * default duration (defaultDurationMinutes). Occupancy is always derived from
+ * the rule instead of trusting a client-sent endMinute, so a booking can
+ * never shrink itself out of a conflict (BUG-0027).
+ */
+export function resolveMatchOccupiedEndMinute(input: {
+  matchConfig: LeagueMatchConfig;
+  startMinute: number;
+}) {
+  // BUG-0030: old configs may lack defaultDurationMinutes (and stored keys
+  // can be absent/invalid) — fall back to the shipped default instead of
+  // deriving a NaN occupied window.
+  const duration = input.matchConfig.defaultDurationMinutes;
+  const effectiveDuration =
+    typeof duration === "number" && Number.isFinite(duration) && duration > 0
+      ? duration
+      : DEFAULT_LEAGUE_MATCH_CONFIG.defaultDurationMinutes;
+
+  return input.startMinute + effectiveDuration;
 }

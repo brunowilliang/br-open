@@ -4,7 +4,9 @@ import {
   buildScheduledDate,
   getDayKeyFromMatchDate,
   rangesOverlap,
+  resolveMatchOccupiedEndMinute,
 } from "../challenge-scheduling-rules";
+import type { LeagueMatchConfig } from "../contract";
 
 describe("league challenge scheduling rules", () => {
   describe("getDayKeyFromMatchDate", () => {
@@ -93,6 +95,51 @@ describe("league challenge scheduling rules", () => {
           rightStartMinute: 0,
         })
       ).toBe(true);
+    });
+  });
+
+  describe("resolveMatchOccupiedEndMinute", () => {
+    const matchConfig = { defaultDurationMinutes: 90 } as LeagueMatchConfig;
+
+    it("derives the occupied window end from the rules' default duration", () => {
+      expect(
+        resolveMatchOccupiedEndMinute({ matchConfig, startMinute: 540 })
+      ).toBe(630);
+    });
+
+    it("falls back to the default duration on old/incomplete configs (BUG-0030)", () => {
+      const absentKey = {
+        defaultDurationMinutes: undefined,
+      } as unknown as LeagueMatchConfig;
+
+      expect(
+        resolveMatchOccupiedEndMinute({
+          matchConfig: {} as LeagueMatchConfig,
+          startMinute: 540,
+        })
+      ).toBe(630);
+      expect(
+        resolveMatchOccupiedEndMinute({
+          matchConfig: absentKey,
+          startMinute: 540,
+        })
+      ).toBe(630);
+      expect(
+        resolveMatchOccupiedEndMinute({
+          matchConfig: {
+            defaultDurationMinutes: Number.NaN,
+          } as unknown as LeagueMatchConfig,
+          startMinute: 540,
+        })
+      ).toBe(630);
+      expect(
+        resolveMatchOccupiedEndMinute({
+          matchConfig: {
+            defaultDurationMinutes: 0,
+          } as unknown as LeagueMatchConfig,
+          startMinute: 540,
+        })
+      ).toBe(630);
     });
   });
 });

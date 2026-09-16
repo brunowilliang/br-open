@@ -106,7 +106,9 @@ export default function LeagueChallengesRoute() {
     league?.ruleConfig.matchConfig.defaultDurationMinutes ?? 0;
   const error = challengesError;
   const isLoading = challengesQuery.isPending || occupiedSlotsQuery.isPending;
-  const occupiedSlots = occupiedSlotsQuery.data ?? [];
+  const occupiedSlots = (occupiedSlotsQuery.data ?? []).map(
+    ({ challengeId, ...slot }) => ({ ...slot, slotId: challengeId })
+  );
 
   const onAccept = (challengeId: string) => {
     acceptChallengeProposal.mutate({ challengeId });
@@ -502,7 +504,6 @@ export default function LeagueChallengesRoute() {
             {counterProposalTarget ? (
               <ChallengeProposalDialog
                 actionLabel="Reenviar proposta"
-                challengeIdToIgnore={counterProposalTarget.id}
                 courts={courts}
                 defaultDurationMinutes={
                   counterProposalTarget.matchConfigSnapshot
@@ -537,6 +538,7 @@ export default function LeagueChallengesRoute() {
                     : counterProposalTarget.challenger
                   ).player.fullName
                 }
+                slotIdToIgnore={counterProposalTarget.id}
                 title="Contraproposta"
               />
             ) : null}

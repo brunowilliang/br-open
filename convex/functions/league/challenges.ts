@@ -29,6 +29,7 @@ import {
   ReviewLeagueChallengeSchema,
   SubmitLeagueChallengeResultSchema,
   type LeagueChallengeScore,
+  type LeagueMatchConfig,
   type LeagueWalkoverBehavior,
   type ResolvedLeagueChallengeScore,
 } from "../../domains/league/contract";
@@ -40,7 +41,10 @@ import {
   CLOSED_CHALLENGE_STATUSES,
   VIEWER_PROPOSAL_RESPONSE_CHALLENGE_STATUSES,
 } from "../../domains/league/challenge-status";
-import { buildScheduledDate } from "../../domains/league/challenge-scheduling-rules";
+import {
+  buildScheduledDate,
+  resolveMatchOccupiedEndMinute,
+} from "../../domains/league/challenge-scheduling-rules";
 import {
   leagueChallenge,
   leagueChallengeProposal,
@@ -346,17 +350,23 @@ export const create = authMutation
       ctx,
       league: currentLeague,
     });
+    // Occupancy comes from the rules' default duration, not the client-sent
+    // endMinute (BUG-0027: N desafios empilhados na mesma quadra/horário).
+    const occupiedEndMinute = resolveMatchOccupiedEndMinute({
+      matchConfig: currentLeague.ruleConfig.matchConfig,
+      startMinute: input.startMinute,
+    });
     assertCourtAvailability({
       courtId: input.courtId,
       currentLeague,
-      endMinute: input.endMinute,
+      endMinute: occupiedEndMinute,
       matchDate: input.matchDate,
       startMinute: input.startMinute,
     });
     await assertCourtSlotAvailable({
       courtId: input.courtId,
       ctx,
-      endMinute: input.endMinute,
+      endMinute: occupiedEndMinute,
       matchDate: input.matchDate,
       startMinute: input.startMinute,
     });
@@ -385,7 +395,7 @@ export const create = authMutation
         challengeId: createdChallenge.id as Id<"leagueChallenge">,
         courtId: input.courtId,
         createdAt: now,
-        endMinute: input.endMinute,
+        endMinute: occupiedEndMinute,
         matchDate: input.matchDate,
         proposedByMembershipId:
           challengerMembership.id as Id<"leagueMembership">,
@@ -650,10 +660,14 @@ export const counterPropose = authMutation
       });
     }
 
+    const occupiedEndMinute = resolveMatchOccupiedEndMinute({
+      matchConfig: syncedChallenge.matchConfigSnapshot as LeagueMatchConfig,
+      startMinute: input.startMinute,
+    });
     assertCourtAvailability({
       courtId: input.courtId,
       currentLeague,
-      endMinute: input.endMinute,
+      endMinute: occupiedEndMinute,
       matchDate: input.matchDate,
       startMinute: input.startMinute,
     });
@@ -661,7 +675,7 @@ export const counterPropose = authMutation
       challengeIdToIgnore: syncedChallenge.id as Id<"leagueChallenge">,
       courtId: input.courtId,
       ctx,
-      endMinute: input.endMinute,
+      endMinute: occupiedEndMinute,
       matchDate: input.matchDate,
       startMinute: input.startMinute,
     });
@@ -677,7 +691,7 @@ export const counterPropose = authMutation
         challengeId: syncedChallenge.id as Id<"leagueChallenge">,
         courtId: input.courtId,
         createdAt: now,
-        endMinute: input.endMinute,
+        endMinute: occupiedEndMinute,
         matchDate: input.matchDate,
         proposedByMembershipId: viewerMembership.id as Id<"leagueMembership">,
         responseDeadlineAt: resolveResponseDeadline({

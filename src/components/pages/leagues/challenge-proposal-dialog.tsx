@@ -19,7 +19,6 @@ import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
 import { buildChallengeTimeOptions } from "@/lib/leagues/challenge-schedule";
-import type { ApiOutputs } from "@convex/shared/api";
 import type { LeagueCourt } from "@convex/domains/league/contract";
 import type { CalendarDate } from "@internationalized/date";
 import { getLocalTimeZone, today } from "@internationalized/date";
@@ -36,12 +35,21 @@ type DatePickerOption = {
   value: string;
 };
 
-type OccupiedChallengeSlot =
-  ApiOutputs["league"]["challenges"]["listOccupiedSlots"][number];
+/**
+ * Slot ocupado NEUTRO (liga manda challengeId, torneio matchId — o adapter
+ * de cada domínio renomeia para slotId na fronteira, RUL-0005).
+ */
+type OccupiedSlot = {
+  courtId: string;
+  endMinute: number;
+  matchDate: string;
+  slotId: string;
+  startMinute: number;
+};
 
 type ChallengeProposalDialogProps = {
   actionLabel: string;
-  challengeIdToIgnore?: string;
+  slotIdToIgnore?: string;
   courts: LeagueCourt[];
   defaultDurationMinutes: number;
   /** Sobrescreve a descrição league-phrased (adaptação por domínio — RUL-0005). */
@@ -50,7 +58,7 @@ type ChallengeProposalDialogProps = {
   isOpen: boolean;
   isPending?: boolean;
   onOpenChange: (nextOpen: boolean) => void;
-  occupiedSlots: OccupiedChallengeSlot[];
+  occupiedSlots: OccupiedSlot[];
   onSubmit: (value: ChallengeProposalDialogValue) => Promise<void> | void;
   opponentName?: string;
   title: string;
@@ -125,7 +133,7 @@ export const ChallengeProposalDialog = (
 ) => {
   const {
     actionLabel,
-    challengeIdToIgnore,
+    slotIdToIgnore,
     courts,
     defaultDurationMinutes,
     description,
@@ -187,15 +195,15 @@ export const ChallengeProposalDialog = (
     }
 
     return buildChallengeTimeOptions({
-      challengeIdToIgnore,
       courtId: selectedCourt.id,
       durationMinutes: defaultDurationMinutes,
       matchDate: matchDate.value,
       occupiedSlots,
       ranges: selectedCourt.availability[selectedDayKey],
+      slotIdToIgnore,
     });
   }, [
-    challengeIdToIgnore,
+    slotIdToIgnore,
     defaultDurationMinutes,
     matchDate?.value,
     occupiedSlots,
