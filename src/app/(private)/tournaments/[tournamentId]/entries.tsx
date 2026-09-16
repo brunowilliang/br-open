@@ -2,7 +2,7 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
-import { Button, Card, Chip, Menu, Tabs, useToast } from "heroui-native";
+import { Button, Card, Chip, Tabs, useToast } from "heroui-native";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 
@@ -16,8 +16,6 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
-  buildEntryRoundOptions,
-  formatEntryRoundLabel,
   formatEntrySideLabel,
   getEntryStatusChip,
 } from "@/lib/tournaments/tournament-details-derived";
@@ -98,44 +96,6 @@ export default function TournamentEntriesRoute() {
     })
   );
 
-  const setSeed = useMutation(
-    crpc.tournament.entries.setSeed.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível marcar o seed. Tente novamente."
-          ),
-          id: "set-seed-error",
-          label: "Falha ao marcar seed",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-      },
-    })
-  );
-
-  const setEntryRound = useMutation(
-    crpc.tournament.entries.setEntryRound.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar a fase de entrada. Tente novamente."
-          ),
-          id: "set-entry-round-error",
-          label: "Falha ao salvar fase",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-      },
-    })
-  );
-
   const respondPartnerInvite = useMutation(
     crpc.tournament.entries.respondPartnerInvite.mutationOptions({
       onError: (error) => {
@@ -163,20 +123,6 @@ export default function TournamentEntriesRoute() {
     })
   );
 
-  function toggleSeed(entryId: string) {
-    const entry = entries.find((item) => item.id === entryId);
-
-    if (!entry) {
-      return;
-    }
-
-    const nextRank = entry.seedRank
-      ? null
-      : entries.filter((item) => item.seedRank !== null).length + 1;
-
-    setSeed.mutate({ entryId, seedRank: nextRank });
-  }
-
   const isOrganizer = access?.canManage ?? false;
 
   const pendingEntries = useMemo(
@@ -193,33 +139,8 @@ export default function TournamentEntriesRoute() {
     () => entries.filter((entry) => entry.status === "active"),
     [entries]
   );
-  // A chave de cada categoria é sorteada com as inscrições ATIVAS dela: o
-  // picker de fase de entrada e o rótulo da fase já escolhida derivam do
-  // mesmo tamanho de chave que o sorteio vai montar (IBX-0035).
-  const entryRoundOptionsByCategory = useMemo(() => {
-    const activeCountByCategory: Record<string, number> = {};
-    for (const entry of entries) {
-      if (entry.status === "active") {
-        activeCountByCategory[entry.categoryId] =
-          (activeCountByCategory[entry.categoryId] ?? 0) + 1;
-      }
-    }
-
-    const optionsByCategory: Record<
-      string,
-      Array<{ label: string; round: number }>
-    > = {};
-    for (const [categoryId, activeCount] of Object.entries(
-      activeCountByCategory
-    )) {
-      optionsByCategory[categoryId] = buildEntryRoundOptions(activeCount);
-    }
-
-    return optionsByCategory;
-  }, [entries]);
-
   const [activeTab, setActiveTab] = useState<"confirmed" | "pending">(
-    initialTab === "confirmed" ? "confirmed" : "pending"
+    initialTab === "pending" ? "pending" : "confirmed"
   );
   const visibleEntries =
     activeTab === "pending" ? pendingEntries : confirmedEntries;
@@ -233,8 +154,6 @@ export default function TournamentEntriesRoute() {
 
     const chip = getEntryStatusChip(entry.status);
     const category = categoriesById[entry.categoryId];
-    const entryRoundOptions =
-      entryRoundOptionsByCategory[entry.categoryId] ?? [];
     const isInviteForViewer =
       !isOrganizer &&
       entry.status === "pending_partner" &&
@@ -246,14 +165,6 @@ export default function TournamentEntriesRoute() {
       viewerProfileId !== null &&
       entry.playerAId === viewerProfileId;
     const canApprove = isOrganizer && entry.status === "pending_approval";
-    const canToggleSeed =
-      isOrganizer &&
-      entry.status === "active" &&
-      (tournament?.status === "published" || tournament?.status === "draft");
-    const canSetEntryRound =
-      isOrganizer &&
-      entry.status === "active" &&
-      (tournament?.status === "published" || tournament?.status === "drawn");
     const isActionPending =
       approveEntry.isPending ||
       rejectEntry.isPending ||
@@ -364,63 +275,6 @@ export default function TournamentEntriesRoute() {
                 />
               </Button>
             </View>
-          ) : canToggleSeed ? (
-            <View className="flex-row gap-1">
-              <Button
-                onPress={() => {
-                  toggleSeed(entry.id);
-                }}
-                size="sm"
-                variant={entry.seedRank ? "secondary" : "ghost"}
-              >
-                <Button.Label>
-                  {entry.seedRank ? `Seed #${entry.seedRank}` : "Marcar seed"}
-                </Button.Label>
-              </Button>
-              {canSetEntryRound ? (
-                <Menu>
-                  <Menu.Trigger asChild>
-                    <Button
-                      size="sm"
-                      variant={
-                        entry.entryRound && entry.entryRound >= 2
-                          ? "secondary"
-                          : "ghost"
-                      }
-                    >
-                      <Button.Label>
-                        {formatEntryRoundLabel(
-                          entry.entryRound,
-                          entryRoundOptions.length
-                        )}
-                      </Button.Label>
-                    </Button>
-                  </Menu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Overlay className="bg-backdrop" />
-                    <Menu.Content presentation="popover" width={240}>
-                      {tournament?.status === "drawn" ? (
-                        <Menu.Label>Vale no próximo sorteio</Menu.Label>
-                      ) : null}
-                      {entryRoundOptions.map((option) => (
-                        <Menu.Item
-                          key={option.round}
-                          onPress={() => {
-                            setEntryRound.mutate({
-                              entryId: entry.id,
-                              entryRound:
-                                option.round === 1 ? null : option.round,
-                            });
-                          }}
-                        >
-                          <Menu.ItemTitle>{option.label}</Menu.ItemTitle>
-                        </Menu.Item>
-                      ))}
-                    </Menu.Content>
-                  </Menu.Portal>
-                </Menu>
-              ) : null}
-            </View>
           ) : (
             <Chip color={chip.color} size="sm" variant="soft">
               {chip.label}
@@ -451,11 +305,11 @@ export default function TournamentEntriesRoute() {
             <Tabs.List>
               <Tabs.ScrollView>
                 <Tabs.Indicator />
-                <Tabs.Trigger value="pending">
-                  <Tabs.Label>Pendências</Tabs.Label>
-                </Tabs.Trigger>
                 <Tabs.Trigger value="confirmed">
                   <Tabs.Label>Confirmados</Tabs.Label>
+                </Tabs.Trigger>
+                <Tabs.Trigger value="pending">
+                  <Tabs.Label>Pendências</Tabs.Label>
                 </Tabs.Trigger>
               </Tabs.ScrollView>
             </Tabs.List>

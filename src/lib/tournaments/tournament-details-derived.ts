@@ -1,4 +1,3 @@
-import { nextBracketSize } from "@convex/domains/tournament/bracket-rules";
 import type {
   TournamentEntryWithPlayers,
   TournamentGender,
@@ -197,38 +196,6 @@ export function formatMatchScheduleSummary(input: {
   return `${formatMatchMonthDay(input.matchDate)} · ${formatMinuteToHHMM(
     input.startMinute
   )} · ${input.courtName}`;
-}
-
-/**
- * Fases de entrada oferecidas ao organizador (IBX-0035): uma por rodada da
- * chave ATUAL, rotulada pela MESMA regra do card do chaveamento
- * (`formatBracketStage`). O número de rodadas é o que o sorteio montaria
- * hoje para a categoria — mesma conta do backend (`nextBracketSize` sobre
- * as inscrições ativas, bracket-rules.ts): chave de 16 tem oitavas na
- * rodada 1, de 64 na rodada 3, de 128 na rodada 4. `round` 1 é o
- * comportamento padrão (null no backend); 2+ são entradas diretas de
- * cabeça de chave. A validação de que a fase existe na chave (e a
- * completabilidade dos byes) roda no sorteio, no backend. O comprimento da
- * lista É o total de rodadas (entrada de `formatEntryRoundLabel`).
- */
-export function buildEntryRoundOptions(
-  activeEntryCount: number
-): Array<{ label: string; round: number }> {
-  const totalRounds = Math.log2(nextBracketSize(activeEntryCount));
-
-  return Array.from({ length: totalRounds }, (_, index) => {
-    const round = index + 1;
-
-    return { label: formatBracketStage(round, totalRounds), round };
-  });
-}
-
-/** Fase da inscrição na chave atual (`entryRound` nulo = 1ª rodada). */
-export function formatEntryRoundLabel(
-  entryRound: null | number,
-  totalRounds: number
-): string {
-  return formatBracketStage(entryRound ?? 1, totalRounds);
 }
 
 /** Nome de exibição de um lado da partida (dupla junta os dois nomes curtos). */
