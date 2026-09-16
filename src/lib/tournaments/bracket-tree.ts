@@ -100,6 +100,27 @@ export function clampPanToViewport(input: {
 }
 
 /**
+ * O transform do enquadramento centrado — o estado INICIAL do canvas e o valor
+ * re-aplicado a cada re-enquadramento. Ser uma função só (inicial == aplicado)
+ * é o que garante que o PRIMEIRO frame nativo do conteúdo já nasça no fit: sem
+ * isso o conteúdo pinta em identidade (1x) por um frame e salta (a piscada da
+ * 1ª abertura do chaveamento, BUG-0033).
+ */
+export function bracketFitTransform(input: {
+  fitZoom: number;
+  graphHeight: number;
+  graphWidth: number;
+  viewportHeight: number;
+  viewportWidth: number;
+}): { x: number; y: number; zoom: number } {
+  return {
+    x: (input.viewportWidth - input.graphWidth * input.fitZoom) / 2,
+    y: (input.viewportHeight - input.graphHeight * input.fitZoom) / 2,
+    zoom: input.fitZoom,
+  };
+}
+
+/**
  * The translate that keeps the graph point under the fingers at gesture
  * start pinned under the fingers now, while the zoom moves from `fromScale`
  * to `toScale` (the zoom-toolkit focal-follow core, in this canvas's
@@ -128,8 +149,16 @@ export function pinchFollowTransform(input: {
   };
 }
 
-/** Fallback before onLayout reports the real card height. */
-export const BRACKET_CARD_ESTIMATED_HEIGHT = 136;
+/**
+ * Fallback antes do `onLayout` reportar a altura real do card. O valor é a
+ * altura MEDIDA do card compacto no device (112-120; 120 é a do card da 1ª
+ * rodada, a que define a altura do grafo): com 120 a PRIMEIRA passada do
+ * layout já fecha a malha da chave com byes (5x52 + 3x120 + 7x12 = 704, o H
+ * medido) — sem reflow e sem re-fit visível na entrada. O valor antigo (136)
+ * era suposição: fazia o grafo inteiro pular ~8pt ao assentar, que é a
+ * piscada da primeira abertura (BUG-0033).
+ */
+export const BRACKET_CARD_ESTIMATED_HEIGHT = 120;
 
 /**
  * Altura do card de BYE (vaga derivada do sorteio): o card existe VAZIO (sem

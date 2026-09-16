@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -22,8 +15,8 @@ import {
   bracketEdgeParts,
   type BracketEdgePart,
 } from "@/lib/tournaments/bracket-edges";
-import { logBracketViewport } from "@/lib/tournaments/bracket-diagnostics";
 import {
+  bracketFitTransform,
   bracketFitZoom,
   clampPanToViewport,
   pinchFollowTransform,
@@ -46,13 +39,28 @@ const ZOOM_TIMING = {
 type BracketCanvasCard = BracketTreeLayout["cards"][number];
 
 type BracketCanvasProps = {
+  /**
+   * Versão monotônica do foco da aba: mudar (re-entrada na tela) re-enquadra a
+   * chave no fit, SEM remontar o canvas. O remount antigo (key por foco)
+   * reconstruía cards/alturas/fit e piscava a tela a cada entrada.
+   */
+  focusSeed: number;
   layout: BracketTreeLayout;
   renderCard: (card: BracketCanvasCard) => ReactNode;
 };
 
+type FramedBracketContentProps = BracketCanvasProps & {
+  /** Já não-nulo: o filho só monta depois do viewport medido. */
+  fitZoom: number;
+  viewport: { height: number; width: number };
+};
+
 function EdgePartView({ part, tint }: { part: BracketEdgePart; tint: string }) {
   return (
+    // As barras são filhas DIRETAS do container dos cards (sem camada 0x0 no
+    // caminho — BUG-0033), então cada uma carrega o próprio pointerEvents none.
     <View
+      pointerEvents="none"
       style={{
         backgroundColor: tint,
         height: part.height,
@@ -66,11 +74,11 @@ function EdgePartView({ part, tint }: { part: BracketEdgePart; tint: string }) {
 }
 
 /**
- * The connectors, one absolute View tree inside the transformed layer.
- * Static in graph coordinates with a constant graph-space stroke: the parent
- * transform carries them and the stroke scales with the content, exactly
- * like the cards (stage C verdict — end-of-gesture stroke compensation
- * snapped and was removed).
+ * The connectors as ABSOLUTE Views in graph coordinates, filhos DIRETOS do
+ * mesmo container que hospeda os cards (o Animated.View do canvas): sem view
+ * intermediária (nenhuma superfície 0x0 no caminho — BUG-0033). A stroke é
+ * constante em pt de grafo: o transform do pai carrega as barras e a espessura
+ * escala com o conteúdo, exatamente como os cards (stage C verdict).
  */
 const BracketEdges = memo(function BracketEdges({
   cards,
@@ -106,11 +114,15 @@ const BracketEdges = memo(function BracketEdges({
   }, [cards, links, thickness]);
 
   return (
-    <View pointerEvents="none" style={{ height: 0, width: 0 }}>
+    // SEM view intermediária (BUG-0033): as barras são filhas DIRETAS do
+    // container dos cards (mesma natureza estrutural dos cards, que sempre
+    // pintaram certo), cada uma com pointerEvents none e a ordem conectores ->
+    // cards preservada no canvas.
+    <>
       {parts.map(({ key, part }) => (
         <EdgePartView key={key} part={part} tint={tint} />
       ))}
-    </View>
+    </>
   );
 });
 
@@ -127,14 +139,36 @@ const BracketEdges = memo(function BracketEdges({
  * zoom clamps to [fitZoom, 1] — the whole bracket visible at rest, never an
  * upscale).
  */
-export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
-  const [viewport, setViewport] = useState({ height: 0, width: 0 });
-
+/**
+ * O CONTEÚDO enquadrado do chaveamento: dono do transform (gestos, pan, zoom) e
+ * dos cards/conectores. Por que existe este filho (BUG-0033): `useSharedValue`
+ * só aceita valor inicial na PRIMEIRA renderização, e o pai (o medidor) só
+ * conhece o fit DEPOIS de medir o viewport — um seed condicional lá nasceria em
+ * identidade (1x) e o PRIMEIRO frame nativo do conteúdo pintaria o grafo
+ * gigante antes de saltar para o fit (a piscada da 1ª abertura). Montado só
+ * com o fit pronto, este componente NASCE enquadrado: o estado inicial e o
+ * re-enquadramento saem do mesmo `bracketFitTransform`.
+ */
+function FramedBracketContent({
+  fitZoom,
+  focusSeed,
+  layout,
+  renderCard,
+  viewport,
+}: FramedBracketContentProps) {
   const tint = useThemeColor("muted");
 
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const zoom = useSharedValue(1);
+  const initialTransform = bracketFitTransform({
+    fitZoom,
+    graphHeight: layout.height,
+    graphWidth: layout.width,
+    viewportHeight: viewport.height,
+    viewportWidth: viewport.width,
+  });
+
+  const translateX = useSharedValue(initialTransform.x);
+  const translateY = useSharedValue(initialTransform.y);
+  const zoom = useSharedValue(initialTransform.zoom);
   const panStart = useSharedValue({ x: 0, y: 0 });
   const pinchStart = useSharedValue({
     fx: 0,
@@ -151,55 +185,28 @@ export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
    * the worklet can read, and it needs no tuning constant. */
   const multiTouchedSinceTap = useSharedValue(false);
 
-  const fitZoom = useMemo(
-    () =>
-      bracketFitZoom({
-        graphHeight: layout.height,
-        graphWidth: layout.width,
-        viewportHeight: viewport.height,
-        viewportWidth: viewport.width,
-      }),
-    [layout.height, layout.width, viewport.height, viewport.width]
-  );
-
-  // Sonda temporária (BUG-0033): fit + espessura do traço em pt de grafo, pt
-  // de tela e pixel de device — decide se a linha do fit da chave grande cai
-  // abaixo de 1 pixel físico (traço sub-pixel).
-  useEffect(() => {
-    if (fitZoom === null) {
-      return;
-    }
-    logBracketViewport({
+  // The bracket starts framed and stays framed through every resize of the
+  // graph itself (card heights settling, category tabs remount the canvas):
+  // snap the transform to the centered fit before paint (QA R18). O `focusSeed`
+  // entra nas deps para a RE-ENTRADA na tela re-enquadrar a chave sem remontar
+  // o canvas (o remount por foco piscava a tela; a instância segue viva). Mesma
+  // função do estado inicial: inicial == aplicado, por construção.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: focusSeed é o gatilho INTENCIONAL do re-enquadramento na re-entrada da aba (não é lido no corpo; o remount por foco piscava a tela)
+  useLayoutEffect(() => {
+    const next = bracketFitTransform({
       fitZoom,
       graphHeight: layout.height,
       graphWidth: layout.width,
-      strokeGraph: EDGE_STROKE_GRAPH,
       viewportHeight: viewport.height,
       viewportWidth: viewport.width,
     });
-  }, [fitZoom, layout.height, layout.width, viewport.height, viewport.width]);
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const { height, width } = event.nativeEvent.layout;
-    setViewport((current) =>
-      current.height === height && current.width === width
-        ? current
-        : { height, width }
-    );
-  }, []);
-
-  // The bracket starts framed and stays framed through every resize of the
-  // graph itself (card heights settling, category tabs remount the canvas):
-  // snap the transform to the centered fit before paint (QA R18).
-  useLayoutEffect(() => {
-    if (fitZoom === null) {
-      return;
-    }
-    zoom.value = fitZoom;
-    translateX.value = (viewport.width - layout.width * fitZoom) / 2;
-    translateY.value = (viewport.height - layout.height * fitZoom) / 2;
+    zoom.value = next.zoom;
+    translateX.value = next.x;
+    translateY.value = next.y;
   }, [
     fitZoom,
+    focusSeed,
     layout.height,
     layout.width,
     translateX,
@@ -222,9 +229,6 @@ export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
   );
 
   const gesture = useMemo(() => {
-    if (fitZoom === null) {
-      return null;
-    }
     const { height: vh, width: vw } = viewport;
     const gh = layout.height;
     const gw = layout.width;
@@ -499,41 +503,83 @@ export function BracketCanvas({ layout, renderCard }: BracketCanvasProps) {
     [layout.cards, renderCard]
   );
 
-  const measured = fitZoom !== null && gesture;
+  return (
+    <GestureDetector gesture={gesture}>
+      <View collapsable={false} style={{ flex: 1, overflow: "hidden" }}>
+        {/* The single transform owner (screen = translate + zoom * graph,
+                origin at the graph's top-left). Cards render after the
+                connectors so terminal bars land under the card borders. */}
+        <Animated.View
+          collapsable={false}
+          style={[
+            {
+              height: layout.height,
+              left: 0,
+              position: "absolute",
+              top: 0,
+              transformOrigin: [0, 0, 0],
+              width: layout.width,
+            },
+            contentStyle,
+          ]}
+        >
+          <BracketEdges
+            cards={layout.cards}
+            links={layout.links}
+            thickness={EDGE_STROKE_GRAPH}
+            tint={tint}
+          />
+          {cardsContent}
+        </Animated.View>
+      </View>
+    </GestureDetector>
+  );
+}
+
+/**
+ * Mede o viewport e monta o conteúdo JÁ ENQUADRADO. O pai não renderiza nada
+ * antes do fit existir (o filho só monta com `fitZoom` não-nulo) — e é
+ * justamente aí que o primeiro frame nativo nasce no fit, sem passar por
+ * identidade (BUG-0033).
+ */
+export function BracketCanvas({
+  focusSeed,
+  layout,
+  renderCard,
+}: BracketCanvasProps) {
+  const [viewport, setViewport] = useState({ height: 0, width: 0 });
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { height, width } = event.nativeEvent.layout;
+    setViewport((current) =>
+      current.height === height && current.width === width
+        ? current
+        : { height, width }
+    );
+  }, []);
+
+  const fitZoom = useMemo(
+    () =>
+      bracketFitZoom({
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        viewportHeight: viewport.height,
+        viewportWidth: viewport.width,
+      }),
+    [layout.height, layout.width, viewport.height, viewport.width]
+  );
 
   return (
     <View collapsable={false} onLayout={handleLayout} style={{ flex: 1 }}>
-      {measured ? (
-        <GestureDetector gesture={gesture}>
-          <View collapsable={false} style={{ flex: 1, overflow: "hidden" }}>
-            {/* The single transform owner (screen = translate + zoom * graph,
-                origin at the graph's top-left). Cards render after the
-                connectors so terminal bars land under the card borders. */}
-            <Animated.View
-              collapsable={false}
-              style={[
-                {
-                  height: layout.height,
-                  left: 0,
-                  position: "absolute",
-                  top: 0,
-                  transformOrigin: [0, 0, 0],
-                  width: layout.width,
-                },
-                contentStyle,
-              ]}
-            >
-              <BracketEdges
-                cards={layout.cards}
-                links={layout.links}
-                thickness={EDGE_STROKE_GRAPH}
-                tint={tint}
-              />
-              {cardsContent}
-            </Animated.View>
-          </View>
-        </GestureDetector>
-      ) : null}
+      {fitZoom === null ? null : (
+        <FramedBracketContent
+          fitZoom={fitZoom}
+          focusSeed={focusSeed}
+          layout={layout}
+          renderCard={renderCard}
+          viewport={viewport}
+        />
+      )}
     </View>
   );
 }

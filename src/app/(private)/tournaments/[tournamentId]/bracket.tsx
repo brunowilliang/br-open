@@ -30,11 +30,6 @@ import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
-  logBracketHeightMismatch,
-  logBracketLayout,
-  logBracketRects,
-} from "@/lib/tournaments/bracket-diagnostics";
-import {
   BRACKET_BYE_CARD_HEIGHT,
   BRACKET_CARD_ESTIMATED_HEIGHT,
   buildBracketCategoryTrees,
@@ -103,17 +98,19 @@ export default function TournamentBracketRoute() {
   // (detachInactiveScreens={false}) and is reused across tournament
   // revisits, so this screen and its canvas survive with the gesture
   // transform the previous visit left behind. Re-entering the tab must
-  // start framed again (QA R18): remount the canvas on every focus after
-  // the first (the first mount is already fresh).
+  // start framed again (QA R18) — e pela MESMA instância: o seed vai como
+  // prop e o canvas re-enquadra no fit (useLayoutEffect). O remount por foco
+  // (key com o seed) reconstruía cards/alturas/fit e PISCAVA a tela a cada
+  // entrada/troca de aba.
   const hasFocusedBracket = useRef(false);
   const [bracketFocusSeed, setBracketFocusSeed] = useState(0);
   useFocusEffect(
     useCallback(() => {
       if (hasFocusedBracket.current) {
         setBracketFocusSeed((seed) => seed + 1);
-        return;
+      } else {
+        hasFocusedBracket.current = true;
       }
-      hasFocusedBracket.current = true;
     }, [])
   );
   const isOrganizer = access?.canManage ?? false;
@@ -377,44 +374,6 @@ export default function TournamentBracketRoute() {
     return bySlot;
   }, [activeTreeLayout]);
 
-  // Sonda temporária (BUG-0033): resumo do layout + retângulo/âncora por
-  // card com a origem da altura, uma vez por estado de layout.
-  useEffect(() => {
-    if (!activeTreeLayout) {
-      return;
-    }
-
-    const { layout: activeLayout, tree } = activeTreeLayout;
-    const measured = activeLayout.cards.filter(
-      (card) => cardHeights[card.match.id] !== undefined
-    ).length;
-
-    logBracketLayout({
-      estimated: activeLayout.cards.length - measured,
-      focusSeed: bracketFocusSeed,
-      graphHeight: activeLayout.height,
-      graphWidth: activeLayout.width,
-      links: activeLayout.links.length,
-      measured,
-      tournamentId: String(tournamentId),
-      treeId: tree.id,
-    });
-    logBracketRects({
-      cards: activeLayout.cards.map((card) => ({
-        anchorY: card.layout.y + card.layout.height / 2,
-        height: card.layout.height,
-        id: card.match.id,
-        round: card.match.round,
-        source:
-          cardHeights[card.match.id] === undefined ? "estimate" : "measured",
-        x: card.layout.x,
-        y: card.layout.y,
-      })),
-      focusSeed: bracketFocusSeed,
-      treeId: tree.id,
-    });
-  }, [activeTreeLayout, bracketFocusSeed, cardHeights, tournamentId]);
-
   const handleHeightChange = useCallback((matchId: string, height: number) => {
     // A altura EFETIVA de um card sem medida é a estimativa (o fallback do
     // layout), então medir a estimativa não mexe em nada e não entra no
@@ -497,22 +456,6 @@ export default function TournamentBracketRoute() {
           if (isByeMatch(match)) {
             return;
           }
-          // Sonda temporária (BUG-0033): o card mediu uma altura diferente da
-          // que o layout está usando. Com o guard antigo (comparação com a
-          // constante) a medida que caía exatamente na estimativa era
-          // descartada — oldGuardWouldDrop marca exatamente esse caso.
-          const layoutHeight =
-            cardHeights[match.id] ?? BRACKET_CARD_ESTIMATED_HEIGHT;
-          if (height !== layoutHeight) {
-            logBracketHeightMismatch({
-              layoutHeight,
-              matchId: match.id,
-              measured: height,
-              oldGuardWouldDrop: height === BRACKET_CARD_ESTIMATED_HEIGHT,
-              round: match.round,
-              treeId: activeTreeLayout?.tree.id ?? "?",
-            });
-          }
           handleHeightChange(match.id, height);
         }}
         onResultPress={(target) => {
@@ -550,7 +493,6 @@ export default function TournamentBracketRoute() {
     ),
     [
       activeTreeLayout,
-      cardHeights,
       feedBySlot,
       handleHeightChange,
       handleSidePress,
@@ -678,10 +620,12 @@ export default function TournamentBracketRoute() {
           />
         </Page.ScrollView>
       ) : hasBracket && layout ? (
-        // Remount per category and per tab focus: each entry starts framed
-        // at its own fit (QA R18) with fresh gesture state.
+        // Remount per CATEGORY only (each tree starts framed at its own fit);
+        // a re-entrada na aba NÃO remonta: o focusSeed re-enquadra a mesma
+        // instância (sem piscar).
         <BracketCanvas
-          key={`${activeTreeLayout.tree.id}:${bracketFocusSeed}`}
+          focusSeed={bracketFocusSeed}
+          key={activeTreeLayout.tree.id}
           layout={layout}
           renderCard={renderCard}
         />

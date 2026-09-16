@@ -436,9 +436,15 @@
   dos cards preservados: o tap falha no movimento do pan e o pan precisa de
   12pt — exclusão por limiar, sem veto de composição.
   Alturas variáveis medidas por `onLayout` do card (fallback
-  `BRACKET_CARD_ESTIMATED_HEIGHT` = 136, o card compacto — a chave de 64 dá
-  exatamente o grafo documentado 1696x4724 = 32x(136+12), prova de que a
-  estimativa é a altura REAL do card comum); o commit da medida é
+  `BRACKET_CARD_ESTIMATED_HEIGHT` = **120, a altura MEDIDA do card compacto no
+  device**: os cards medem 112 (rodadas fundas) e 120 (1ª rodada), e 120 é a
+  que define a altura do grafo — com ela a PRIMEIRA passada do layout já fecha
+  a malha da chave com byes (5x52 + 3x120 + 7x12 = 704, o H medido), sem
+  reflow nem re-fit na entrada. O 136 anterior era suposição (nunca medida) e
+  fazia o grafo inteiro pular ~8pt ao assentar — era a "piscada" da 1ª
+  abertura; o teste de estabilidade do primeiro layout em `bracket-tree.test.ts`
+  fixa a malha estimada == a assentada e traz a contraprova com o 136 antigo);
+  o commit da medida é
   `commitCardHeight` (bracket-tree.ts), puro/testado: uma medida igual à
   altura EFETIVA não entra no state (a montagem da 64-key commita ZERO
   vezes, lição IBX-0022), mas a comparação é com a altura efetiva e NUNCA
@@ -454,10 +460,51 @@
   si é exato (âncora == centro do retângulo, delta 0,00): o erro só existe
   quando o retângulo do layout ≠ altura renderizada do card. Traço: 1.5pt de
   GRAFO constante (estágio C) → no fit da 64 = 0,323pt = 0,97 pixel físico
-  @3x (sub-pixel; o da chave 8 = 1,97px). Sondas temporárias dev do render
-  (`lib/tournaments/bracket-diagnostics.ts` + route/canvas) imprimem layout,
-  retângulo+âncora+origem por card, HEIGHT-MISMATCH (com
-  `oldGuardWouldDrop`) e fit/traço — remover quando o BUG-0033 fechar.
+  @3x (sub-pixel; o da chave 8 = 1,97px).
+
+  **BUG-0033 — CAUSA PROVADA E CURA (16/09)**: a chave pintava os conectores
+  fora do eixo em qualquer montagem DEPOIS da primeira. Evidência medida (2
+  prints do repro, mesma tela e mesma chave): os 15 retângulos de card
+  idênticos ao pixel (8+4+2+1), o mesmo fit (z=0,35) e a camada de conectores
+  inteira TRANSLADADA (+195,8pt, +173,7pt) de tela = (+559,5, +496,2) pt de
+  grafo, com o mesmo pitch, os mesmos 42 parts (14 links) e sem 2ª instância.
+  Com instrumentação de PINTURA (marcador por instância e `measureInWindow` do
+  container e da primeira barra) ficou provado o divórcio MEDIÇÃO x PIXEL: a
+  medição sempre deu o lugar certo (barra = `graph*0,35 + fit`), a superfície
+  pintada é que não correspondia — a camada dos conectores era a ÚNICA coisa
+  desenhada dentro de uma view 0x0 (layer degenerado), enquanto os cards (que
+  sempre pintaram certo) são filhos DIRETOS do container transformado.
+  **Cura estrutural**: os conectores passaram a ser filhas DIRETAS do
+  `Animated.View` (mesma natureza dos cards), cada barra com
+  `pointerEvents="none"`, ordem de pintura preservada (conectores antes dos
+  cards: pontas sob a borda do card). Geometria, fit, gestos e UX intactos.
+  Reportado pelo usuário como resolvido na build da remoção (2ª, 3ª e 4ª
+  entradas corretas) e revalidado na árvore seguinte.
+  **Os dois flashes da entrada (16/09, depois da cura)**: (a) a TROCA DE ABA e
+  a re-entrada piscavam porque a rota REMONTAVA o canvas por foco
+  (`key tree.id:bracketFocusSeed`): a key passou a ser só a CATEGORIA e o seed
+  vai como prop `focusSeed`; o `useLayoutEffect` do re-enquadramento o tem nas
+  deps e a re-entrada re-enquadra a MESMA instância (sem re-medir, sem
+  reconstruir); troca de categoria continua remontando de propósito (fit por
+  árvore). (b) a PRIMEIRA abertura (entrar no torneio e abrir o Chaveamento)
+  tinha dois saltos: o conteúdo era pintado no primeiro frame NATIVO ainda em
+  identidade (translate 0, zoom 1) até o transform do fit chegar à UI thread.
+  Fix ESTRUTURAL: o conteúdo vive num componente FILHO (`FramedBracketContent`)
+  montado só quando o fit existe — `useSharedValue` só aceita valor inicial na
+  PRIMEIRA renderização, e o pai (o medidor) ainda não conhece o fit nesse
+  momento, então um seed condicional lá nascia em identidade (foi tentado e era
+  ineficaz por construção); o filho nasce com o fit e o primeiro frame nativo
+  já sai enquadrado. O estado inicial e o re-enquadramento (no foco) saem da
+  MESMA `bracketFitTransform` (bracket-tree.ts, testada). O segundo salto: a
+  malha provisória era montada com a estimativa 136 (nunca medida) e
+  assentava em 112/120, re-layoutando o grafo inteiro (H 752 -> 704): a
+  estimativa passou a ser 120, a altura MEDIDA do card da 1ª rodada, e a malha
+  estimada já fecha a mesma caixa da assentada (704x1120 nas duas; resíduo
+  máximo de 4pt por card nas rodadas fundas, 112 vs 120, imperceptível). O
+  teste de estabilidade do primeiro layout em `bracket-tree.test.ts` fixa isso,
+  com a contraprova do 136 antigo. A instrumentação de diagnóstico do canvas e
+  da rota (sondas de log, marcadores de instância) foi REMOVIDA com o card.
+
   Geometria em `src/lib/tournaments/bracket-tree.ts`:
   `buildBracketCategoryTrees` (agrupa por categoria — conectores NÃO cruzam
   categorias, :53-90) + `layoutBracketCategoryTree` (posições absolutas, pai
@@ -581,7 +628,7 @@
   casa com o render por construção e a medida nunca commita (a rota sai cedo
   no `onHeightChange` do bye), sem o churn de re-layout que o BUG-0033
   fechou; o `cardHeightOf` da rota escolhe a constante do bye em vez da
-  estimativa de 136.
+  estimativa (120).
 - **`entries.tsx`** (Inscrições) — tabs segmentadas Confirmados|Pendências
   (Confirmados é a PRIMEIRA aba e a de entrada: sem `initialTab` a tela abre
   nela), no molde challenges.tsx (QA round 7; pendências = `pending_approval` /

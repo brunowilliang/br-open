@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import type { TournamentMatchWithSides } from "./bracket-view";
+import { isByeMatch, type TournamentMatchWithSides } from "./bracket-view";
 import {
+  BRACKET_BYE_CARD_HEIGHT,
   BRACKET_CARD_ESTIMATED_HEIGHT,
   commitCardHeight,
+  bracketFitTransform,
   bracketFitZoom,
   buildBracketCategoryTrees,
   clampPanToViewport,
@@ -409,7 +411,7 @@ describe("commitCardHeight (altura medida do card)", () => {
     ).toBe(measured);
   });
 
-  test("medida 136 commita quando a altura efetiva era outra (o guard do IBX-0022 dropava)", () => {
+  test("medida igual à estimativa commita quando a altura efetiva era outra (o guard do IBX-0022 dropava)", () => {
     const next = commitCardHeight({
       heights: { m1: 154 },
       matchId: "m1",
@@ -442,5 +444,156 @@ describe("commitCardHeight (altura medida do card)", () => {
 
     expect(next).toEqual({ m1: 150, other: 120 });
     expect(next).not.toBe(heights);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Estabilidade do PRIMEIRO layout (a "piscada" da entrada — BUG-0033): a malha
+// montada com a ESTIMATIVA precisa fechar o MESMO grafo que a malha assentada
+// (alturas medidas); se a estimativa estiver longe, o grafo inteiro re-layouta
+// e re-enquadra no primeiro frame depois de medir => salto visível.
+// Forma real do repro: 16 slots, 11 inscritos, 5 byes (slots 0, 2, 3, 4 e 6).
+// ---------------------------------------------------------------------------
+describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () => {
+  const BYE_SLOTS = [0, 2, 3, 4, 6];
+  /** Altura medida no device: cards da 1ª rodada 120, rodadas fundas 112. */
+  const FIRST_ROUND_MEASURED = 120;
+  const DEEP_ROUND_MEASURED = 112;
+  /** Estimativa antiga (suposição), para a contraprova. */
+  const OLD_ESTIMATE = 136;
+
+  function buildShape() {
+    const sizes = [8, 4, 2, 1];
+
+    return sizes.map(
+      (count, index) =>
+        Array.from({ length: count }, (_, slot) => ({
+          categoryId: "c1",
+          entryA: null,
+          entryAId: null,
+          entryB: null,
+          entryBId: null,
+          id: `r${index + 1}-${slot}`,
+          round: index + 1,
+          score: null,
+          slotInRound: slot,
+          status:
+            index === 0 && BYE_SLOTS.includes(slot) ? "walkover" : "scheduled",
+          winnerEntryId: null,
+        })) as TournamentMatchWithSides[]
+    );
+  }
+
+  const SHAPE = buildShape();
+
+  function buildWith(
+    cardHeightOf: (match: TournamentMatchWithSides) => number
+  ) {
+    return layoutBracketCategoryTree(SHAPE, {
+      cardHeightOf,
+      cardWidth: 256,
+      connectorWidth: 32,
+      gapY: 12,
+    });
+  }
+
+  const estimated = buildWith((match) =>
+    isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : BRACKET_CARD_ESTIMATED_HEIGHT
+  );
+  const settled = buildWith((match) =>
+    isByeMatch(match)
+      ? BRACKET_BYE_CARD_HEIGHT
+      : match.round === 1
+        ? FIRST_ROUND_MEASURED
+        : DEEP_ROUND_MEASURED
+  );
+
+  test("a malha estimada já fecha o grafo assentado (sem reflow na entrada)", () => {
+    expect(estimated.height).toBe(settled.height);
+    expect(estimated.width).toBe(settled.width);
+  });
+
+  test("o deslocamento por card ao assentar é mínimo (sem re-layout visível)", () => {
+    const settledById = new Map(
+      settled.cards.map((card) => [card.match.id, card.layout])
+    );
+    let maxDrop = 0;
+
+    for (const card of estimated.cards) {
+      const target = settledById.get(card.match.id);
+
+      if (!target) {
+        throw new Error(`card ${card.match.id} missing in the settled layout`);
+      }
+
+      maxDrop = Math.max(maxDrop, Math.abs(card.layout.y - target.y));
+    }
+
+    expect(maxDrop).toBeLessThanOrEqual(8);
+  });
+
+  test("contraprova: com a estimativa antiga (136) a malha não fechava", () => {
+    const withOldEstimate = buildWith((match) =>
+      isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : OLD_ESTIMATE
+    );
+
+    expect(withOldEstimate.height).not.toBe(settled.height);
+    expect(withOldEstimate.height - settled.height).toBeGreaterThan(24);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// bracketFitTransform: o estado INICIAL do transform do canvas e o valor
+// re-aplicado a cada re-enquadramento saem da MESMA função — é o que garante
+// que o primeiro frame nativo do conteúdo já nasça no fit (BUG-0033: o
+// conteúdo pintava em identidade/1x por um frame e saltava).
+// ---------------------------------------------------------------------------
+describe("bracketFitTransform", () => {
+  const VIEWPORT = { viewportHeight: 956, viewportWidth: 440 };
+  const GRAPH = { graphHeight: 704, graphWidth: 1120 };
+
+  test("centraliza o grafo escalado no viewport (margens iguais)", () => {
+    const fitZoom = bracketFitZoom({ ...GRAPH, ...VIEWPORT });
+    const transform = bracketFitTransform({
+      fitZoom: fitZoom ?? 1,
+      ...GRAPH,
+      ...VIEWPORT,
+    });
+
+    expect(transform.zoom).toBe(fitZoom ?? 1);
+    expect(transform.x).toBeCloseTo(
+      (VIEWPORT.viewportWidth - GRAPH.graphWidth * transform.zoom) / 2,
+      6
+    );
+    expect(transform.y).toBeCloseTo(
+      (VIEWPORT.viewportHeight - GRAPH.graphHeight * transform.zoom) / 2,
+      6
+    );
+  });
+
+  test("não upscala (zoom do fit clamped em 1 pelo fitZoom) e mantém o grafo dentro do viewport", () => {
+    const fitZoom = bracketFitZoom({ ...GRAPH, ...VIEWPORT }) ?? 1;
+    const transform = bracketFitTransform({ fitZoom, ...GRAPH, ...VIEWPORT });
+
+    const right = transform.x + GRAPH.graphWidth * transform.zoom;
+    const bottom = transform.y + GRAPH.graphHeight * transform.zoom;
+
+    expect(transform.x).toBeGreaterThanOrEqual(0);
+    expect(transform.y).toBeGreaterThanOrEqual(0);
+    expect(right).toBeLessThanOrEqual(VIEWPORT.viewportWidth + 0.001);
+    expect(bottom).toBeLessThanOrEqual(VIEWPORT.viewportHeight + 0.001);
+  });
+
+  test("grafo maior que o viewport centra com margem negativa simétrica (pan inicial)", () => {
+    const cramped = { viewportHeight: 400, viewportWidth: 300 };
+    const transform = bracketFitTransform({
+      fitZoom: 1,
+      graphHeight: GRAPH.graphHeight,
+      graphWidth: GRAPH.graphWidth,
+      ...cramped,
+    });
+
+    expect(transform.x).toBeCloseTo((300 - 1120) / 2, 6);
+    expect(transform.y).toBeCloseTo((400 - 704) / 2, 6);
   });
 });

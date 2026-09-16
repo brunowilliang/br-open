@@ -4,9 +4,17 @@ import {
   bracketEdgeParts,
   bracketEdgeRoute,
   decomposeEdgeRoute,
+  type BracketEdgePart,
   type BracketPoint,
   type BracketRect,
 } from "./bracket-edges";
+import {
+  BRACKET_BYE_CARD_HEIGHT,
+  BRACKET_CARD_ESTIMATED_HEIGHT,
+  layoutBracketCategoryTree,
+  type BracketTreeLayout,
+} from "./bracket-tree";
+import { isByeMatch, type TournamentMatchWithSides } from "./bracket-view";
 
 const CHILD: BracketRect = { height: 136, width: 256, x: 0, y: 0 };
 const PARENT_BELOW: BracketRect = { height: 136, width: 256, x: 288, y: 300 };
@@ -133,5 +141,206 @@ describe("decomposeEdgeRoute", () => {
       expect(part.y).toBeGreaterThanOrEqual(68 - THICKNESS);
       expect(part.y + part.height).toBeLessThanOrEqual(368 + THICKNESS);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ancoragem na forma REAL da chave: os prints do repro do BUG-0033 (Copa
+// Dracena 8 Dev: 16 slots, 11 inscritos, 5 byes) fixam o contrato observável
+// do desenho — todo conector encosta nas faces dos DOIS cards que liga e a
+// geometria não sai do retângulo dos cards. Cobertura da lib pura: o
+// deslocamento visto na tela NÃO é reproduzível aqui (ele não é produzido por
+// estas funções — o gatilho segue em aberto, ver a spec).
+// ---------------------------------------------------------------------------
+
+/** Mesmas constantes do canvas (bracket.tsx). */
+const CANVAS_CARD_WIDTH = 256;
+const CANVAS_CONNECTOR_WIDTH = 32;
+const CANVAS_GAP_Y = 12;
+/** EDGE_STROKE_GRAPH do canvas. */
+const CANVAS_STROKE = 1.5;
+/** Altura medida do card comum na chave assentada (o print: 120,4). */
+const MEASURED_CARD_HEIGHT = 120.4;
+/** Byes do sorteio na 1ª rodada da chave do repro. */
+const BYE_SLOTS = [0, 2, 3, 4, 6];
+
+function buildScheduledMatch(
+  id: string,
+  round: number,
+  slotInRound: number,
+  status = "scheduled"
+): TournamentMatchWithSides {
+  return {
+    categoryId: "c1",
+    entryA: null,
+    entryAId: null,
+    entryB: null,
+    entryBId: null,
+    id,
+    round,
+    score: null,
+    slotInRound,
+    status,
+    winnerEntryId: null,
+  } as TournamentMatchWithSides;
+}
+
+function buildDracenaTree() {
+  const roundOne = Array.from({ length: 8 }, (_, slot) =>
+    buildScheduledMatch(
+      `r1-${slot}`,
+      1,
+      slot,
+      BYE_SLOTS.includes(slot) ? "walkover" : "scheduled"
+    )
+  );
+  const roundTwo = Array.from({ length: 4 }, (_, slot) =>
+    buildScheduledMatch(`r2-${slot}`, 2, slot)
+  );
+  const roundThree = Array.from({ length: 2 }, (_, slot) =>
+    buildScheduledMatch(`r3-${slot}`, 3, slot)
+  );
+
+  return [roundOne, roundTwo, roundThree, [buildScheduledMatch("r4-0", 4, 0)]];
+}
+
+/** O layout como a rota o monta: altura medida quando existe, senão a estimativa. */
+function buildDracenaLayout(measuredCardIds: string[] = []): BracketTreeLayout {
+  const measured = new Set(measuredCardIds);
+
+  return layoutBracketCategoryTree(buildDracenaTree(), {
+    cardHeightOf: (match) => {
+      if (isByeMatch(match)) {
+        return BRACKET_BYE_CARD_HEIGHT;
+      }
+
+      return measured.has(match.id)
+        ? MEASURED_CARD_HEIGHT
+        : BRACKET_CARD_ESTIMATED_HEIGHT;
+    },
+    cardWidth: CANVAS_CARD_WIDTH,
+    connectorWidth: CANVAS_CONNECTOR_WIDTH,
+    gapY: CANVAS_GAP_Y,
+  });
+}
+
+/** A mesma varredura do canvas: um grupo de parts por link, e os descartes. */
+function emitDracenaParts(layout: BracketTreeLayout) {
+  const cardsById = new Map(layout.cards.map((card) => [card.match.id, card]));
+  const perLink: Array<{
+    from: BracketTreeLayout["cards"][number];
+    parts: BracketEdgePart[];
+    to: BracketTreeLayout["cards"][number];
+  }> = [];
+  let dropped = 0;
+
+  for (const link of layout.links) {
+    const from = cardsById.get(link.from);
+    const to = cardsById.get(link.to);
+
+    if (!(from && to)) {
+      dropped += 1;
+      continue;
+    }
+
+    perLink.push({
+      from,
+      parts: bracketEdgeParts({
+        from: from.layout,
+        thickness: CANVAS_STROKE,
+        to: to.layout,
+      }),
+      to,
+    });
+  }
+
+  return { dropped, perLink };
+}
+
+function boxOfRects(rects: BracketRect[]) {
+  return {
+    maxX: Math.max(...rects.map((rect) => rect.x + rect.width)),
+    maxY: Math.max(...rects.map((rect) => rect.y + rect.height)),
+    minX: Math.min(...rects.map((rect) => rect.x)),
+    minY: Math.min(...rects.map((rect) => rect.y)),
+  };
+}
+
+/** O ponto da face está sobre o part (folga de um traço em cada eixo). */
+function partCoversAnchor(input: {
+  anchorX: number;
+  anchorY: number;
+  part: BracketEdgePart;
+}) {
+  const { part } = input;
+
+  return (
+    input.anchorX >= part.x - CANVAS_STROKE &&
+    input.anchorX <= part.x + part.width + CANVAS_STROKE &&
+    input.anchorY >= part.y - CANVAS_STROKE &&
+    input.anchorY <= part.y + part.height + CANVAS_STROKE
+  );
+}
+
+const DRACENA_MEASURED_IDS = buildDracenaLayout()
+  .cards.filter((card) => !isByeMatch(card.match))
+  .map((card) => card.match.id);
+const SETTLED_DRACENA = buildDracenaLayout(DRACENA_MEASURED_IDS);
+
+describe("bracket edges: attachment on the real bracket shape (BUG-0033)", () => {
+  test("no link is dropped on the 16-slot bracket (15 matches, 5 byes)", () => {
+    const { dropped, perLink } = emitDracenaParts(SETTLED_DRACENA);
+
+    expect(dropped).toBe(0);
+    expect(perLink).toHaveLength(SETTLED_DRACENA.links.length);
+    expect(SETTLED_DRACENA.links.length).toBe(SETTLED_DRACENA.cards.length - 1);
+  });
+
+  test("every connector lands on both faces of the cards it links", () => {
+    const { perLink } = emitDracenaParts(SETTLED_DRACENA);
+
+    for (const link of perLink) {
+      const departsRightFace = link.parts.some((part) =>
+        partCoversAnchor({
+          anchorX: link.from.layout.x + link.from.layout.width,
+          anchorY: link.from.layout.y + link.from.layout.height / 2,
+          part,
+        })
+      );
+      const arrivesLeftFace = link.parts.some((part) =>
+        partCoversAnchor({
+          anchorX: link.to.layout.x,
+          anchorY: link.to.layout.y + link.to.layout.height / 2,
+          part,
+        })
+      );
+
+      expect(departsRightFace).toBe(true);
+      expect(arrivesLeftFace).toBe(true);
+    }
+  });
+
+  test("parts stay inside the cards' box", () => {
+    const { perLink } = emitDracenaParts(SETTLED_DRACENA);
+    const parts = perLink.flatMap((link) => link.parts);
+    const partsBox = boxOfRects(
+      parts.map((part) => ({
+        height: part.height,
+        width: part.width,
+        x: part.x,
+        y: part.y,
+      }))
+    );
+    const cardsBox = boxOfRects(
+      SETTLED_DRACENA.cards.map((card) => card.layout)
+    );
+
+    // O traço invade meia espessura dentro do card e vive no corredor: a
+    // geometria nunca passa do retângulo dos cards. Guarda de FORMA da lib
+    // pura — não é o deslocamento do BUG-0033 (esse não sai destas funções).
+    expect(partsBox.minX).toBeGreaterThanOrEqual(cardsBox.minX);
+    expect(partsBox.minY).toBeGreaterThanOrEqual(cardsBox.minY);
+    expect(partsBox.maxX).toBeLessThanOrEqual(cardsBox.maxX);
+    expect(partsBox.maxY).toBeLessThanOrEqual(cardsBox.maxY);
   });
 });
