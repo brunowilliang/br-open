@@ -436,34 +436,56 @@
   dos cards preservados: o tap falha no movimento do pan e o pan precisa de
   12pt — exclusão por limiar, sem veto de composição.
   Alturas variáveis medidas por `onLayout` do card (fallback
-  `BRACKET_CARD_ESTIMATED_HEIGHT` = **120, a altura MEDIDA do card compacto no
-  device**: os cards medem 112 (rodadas fundas) e 120 (1ª rodada), e 120 é a
-  que define a altura do grafo — com ela a PRIMEIRA passada do layout já fecha
-  a malha da chave com byes (5x52 + 3x120 + 7x12 = 704, o H medido), sem
-  reflow nem re-fit na entrada. O 136 anterior era suposição (nunca medida) e
-  fazia o grafo inteiro pular ~8pt ao assentar — era a "piscada" da 1ª
+  `BRACKET_CARD_ESTIMATED_HEIGHT` = **120**). Três grandezas distintas, para não
+  misturar origem: (a) **medição de device** (`onLayout`, é o que o CÓDIGO usa):
+  120 na 1ª rodada e 112 nas rodadas fundas — o 112 é medição de device, não
+  leitura de print: as sondas dev do run do usuário (HEIGHT-MISMATCH,
+  dev/Metro) registraram `measured` = 112, 112,00000762939453 e 120, todos
+  valores de `onLayout`; (b) **leitura da imagem do print**:
+  ~120,4 (estimativa de pixel, não medição); (c) a **estimativa** do layout =
+  120 (o valor de device da 1ª rodada, a que define a altura do grafo). Com 120 a
+  malha estimada fecha a assentada (5x52 + 3x120 + 7x12 = 704, o H medido) e o
+  reflow residual é <= 4pt por card nas rodadas fundas; com 120,4 a caixa NÃO
+  fecha (1120 x 705,2) e o resíduo vai a 4,9pt. **O fit não muda de qualquer
+  forma, porque é limitado pela LARGURA** (largura 365/1696 = 0,215212; altura
+  1016/4212 = 0,241216). Resumo exato:
+  **sem re-fit (fit limitado pela largura) e com reflow residual <= 4pt nas
+  rodadas fundas**. O 136 anterior era suposição (nunca medida) e fazia o grafo
+  inteiro pular ~8pt ao assentar — era a "piscada" da 1ª
   abertura; o teste de estabilidade do primeiro layout em `bracket-tree.test.ts`
-  fixa a malha estimada == a assentada e traz a contraprova com o 136 antigo);
+  fixa a malha estimada == a assentada e traz a contraprova com o 136 antigo.
   o commit da medida é
   `commitCardHeight` (bracket-tree.ts), puro/testado: uma medida igual à
   altura EFETIVA não entra no state (a montagem da 64-key commita ZERO
   vezes, lição IBX-0022), mas a comparação é com a altura efetiva e NUNCA
-  com a constante. **BUG-0033 (conectores fora do eixo / linha some em
-  chave grande): causa raiz era o guard do IBX-0022 comparando com a
-  constante** — um card commitado em 154 (linha de agendamento no card) que
-  volta a medir 136 tinha a medida DESCARTADA: o retângulo do layout ficava
+  com a constante. **BUG-0033, defeito (i) — ÂNCORA DO CARD (chave grande):
+  causa raiz era o guard do IBX-0022 comparando com a constante** — um card
+  commitado em 154 (linha de agendamento no card) que volta a medir 136 tinha a
+  medida DESCARTADA: o retângulo do layout ficava
   congelado 9pt acima do centro do card (âncora do conector = y + h/2) e
   nunca re-alinhava. Medição no harness puro do pipeline (chave de 64,
   viewport 413x1064 → fit 0.2151, o mesmo fit documentado): 1 card a cada 4
   congelado já dá âncora 9pt fora (média 2,25pt), vãos da coluna variando
   12→30pt (design 12) e a coluna 1 driftando até 144pt no fim. O pipeline em
   si é exato (âncora == centro do retângulo, delta 0,00): o erro só existe
-  quando o retângulo do layout ≠ altura renderizada do card. Traço: 1.5pt de
+  quando o retângulo do layout ≠ altura renderizada do card. O QUE ESTE FIX
+  RESOLVE: o retângulo do layout voltar a acompanhar a altura medida (o conector
+  volta ao eixo quando o card muda de altura). **Isto é o defeito (i) do
+  BUG-0033 — dois defeitos diferentes viveram sob o mesmo ID: o (ii), a camada
+  de conectores TRANSLADADA em toda montagem depois da 1ª (a view 0x0 pintando
+  antes do transform), está no bloco do defeito (ii) logo abaixo ("CAMADA DE
+  CONECTORES TRANSLADADA"); a geometria/medição do pipeline sempre estiveram
+  certas nos dois.**
+  Traço: 1.5pt de
   GRAFO constante (estágio C) → no fit da 64 = 0,323pt = 0,97 pixel físico
   @3x (sub-pixel; o da chave 8 = 1,97px).
 
-  **BUG-0033 — CAUSA PROVADA E CURA (16/09)**: a chave pintava os conectores
-  fora do eixo em qualquer montagem DEPOIS da primeira. Evidência medida (2
+  **BUG-0033, defeito (ii) — CAMADA DE CONECTORES TRANSLADADA (16/09, CAUSA
+  PROVADA E CURA)**: é o segundo defeito sob o mesmo ID (o (i), a âncora do card
+  por altura de layout, está no bloco "Alturas variáveis medidas por `onLayout`"
+  acima e o fix de lá resolve o retângulo/âncora; este resolve o PIXEL da
+  camada). A chave pintava os conectores fora do eixo em qualquer montagem
+  DEPOIS da primeira. Evidência medida (2
   prints do repro, mesma tela e mesma chave): os 15 retângulos de card
   idênticos ao pixel (8+4+2+1), o mesmo fit (z=0,35) e a camada de conectores
   inteira TRANSLADADA (+195,8pt, +173,7pt) de tela = (+559,5, +496,2) pt de
@@ -498,9 +520,9 @@
   MESMA `bracketFitTransform` (bracket-tree.ts, testada). O segundo salto: a
   malha provisória era montada com a estimativa 136 (nunca medida) e
   assentava em 112/120, re-layoutando o grafo inteiro (H 752 -> 704): a
-  estimativa passou a ser 120, a altura MEDIDA do card da 1ª rodada, e a malha
-  estimada já fecha a mesma caixa da assentada (704x1120 nas duas; resíduo
-  máximo de 4pt por card nas rodadas fundas, 112 vs 120, imperceptível). O
+  estimativa passou a ser 120 (medição de device do card da 1ª rodada): sem
+  re-fit (o fit é limitado pela largura) e com reflow residual <= 4pt por card
+  nas rodadas fundas (112 vs 120, imperceptível). O
   teste de estabilidade do primeiro layout em `bracket-tree.test.ts` fixa isso,
   com a contraprova do 136 antigo. A instrumentação de diagnóstico do canvas e
   da rota (sondas de log, marcadores de instância) foi REMOVIDA com o card.

@@ -456,7 +456,11 @@ describe("commitCardHeight (altura medida do card)", () => {
 // ---------------------------------------------------------------------------
 describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () => {
   const BYE_SLOTS = [0, 2, 3, 4, 6];
-  /** Altura medida no device: cards da 1ª rodada 120, rodadas fundas 112. */
+  /**
+   * Altura MEDIDA no device (onLayout): 1ª rodada 120, rodadas fundas 112 — e
+   * 120 é o valor que o layout usa (a leitura do print, ~120,4, é estimativa
+   * de pixel). Ver spec, BUG-0033/M1.
+   */
   const FIRST_ROUND_MEASURED = 120;
   const DEEP_ROUND_MEASURED = 112;
   /** Estimativa antiga (suposição), para a contraprova. */
@@ -508,7 +512,7 @@ describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () =>
         : DEEP_ROUND_MEASURED
   );
 
-  test("a malha estimada já fecha o grafo assentado (sem reflow na entrada)", () => {
+  test("a malha estimada já fecha o grafo assentado (sem re-fit na entrada)", () => {
     expect(estimated.height).toBe(settled.height);
     expect(estimated.width).toBe(settled.width);
   });

@@ -159,8 +159,13 @@ const CANVAS_CONNECTOR_WIDTH = 32;
 const CANVAS_GAP_Y = 12;
 /** EDGE_STROKE_GRAPH do canvas. */
 const CANVAS_STROKE = 1.5;
-/** Altura medida do card comum na chave assentada (o print: 120,4). */
-const MEASURED_CARD_HEIGHT = 120.4;
+/**
+ * Altura do card comum na chave assentada — MEDIÇÃO DE DEVICE (onLayout): 120
+ * na 1ª rodada e 112 nas rodadas fundas; é o valor que o layout usa. A leitura
+ * da imagem do print (~120,4) é estimativa de pixel, não medição (ver spec,
+ * BUG-0033/M1).
+ */
+const MEASURED_CARD_HEIGHT = 120;
 /** Byes do sorteio na 1ª rodada da chave do repro. */
 const BYE_SLOTS = [0, 2, 3, 4, 6];
 
