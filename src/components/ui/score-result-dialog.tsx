@@ -22,6 +22,7 @@ import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import {
   buildEmptyDraftSet,
   buildScoreboard,
+  canAttachTieBreak,
   getLineLabel,
   trimTrailingBlankSets,
   type ScoreDraftSet,
@@ -156,8 +157,10 @@ type ScoreLineRowProps = {
 
 /**
  * Uma linha da lista livre: placar (par de steppers) ou tie-break avulso.
- * "Tie-break" dentro da linha anexa/remove o mini-placar daquela linha —
- * disponível sempre, sem nenhum gate de regra.
+ * "Tie-break" dentro da linha anexa o mini-placar daquela linha com o gate
+ * contextual do placar (canAttachTieBreak, DEC-0005); linha de tie-break
+ * nunca oferece o botão (sem aninhamento). O menu de adicionar linhas segue
+ * livre em qualquer estado (RUL-0019).
  */
 function ScoreLineRow(props: ScoreLineRowProps) {
   const tieBreak = props.line.tieBreak;
@@ -203,18 +206,24 @@ function ScoreLineRow(props: ScoreLineRowProps) {
           sideBLabel={props.sideBName}
         />
 
-        {tieBreak ? null : (
-          <Button
+        {!tieBreak && canAttachTieBreak(props.line) ? (
+          <Animated.View
             className="mt-3 self-center"
-            isDisabled={props.isDisabled}
-            onPress={props.onAddTieBreak}
-            size="sm"
-            variant="secondary"
+            entering={LINE_ENTERING}
+            exiting={LINE_EXITING}
+            layout={AccordionLayoutTransition}
           >
-            <HugeIcons className="size-4 text-accent" icon={Add01Icon} />
-            <Button.Label className="text-accent">Tie-break</Button.Label>
-          </Button>
-        )}
+            <Button
+              isDisabled={props.isDisabled}
+              onPress={props.onAddTieBreak}
+              size="sm"
+              variant="secondary"
+            >
+              <HugeIcons className="size-4 text-accent" icon={Add01Icon} />
+              <Button.Label className="text-accent">Tie-break</Button.Label>
+            </Button>
+          </Animated.View>
+        ) : null}
 
         {tieBreak ? (
           <Animated.View
@@ -277,8 +286,9 @@ function ScoreLineRow(props: ScoreLineRowProps) {
  * O dialog abre vazio com o botão "Adicionar" FIXO no topo (ao lado do X de
  * fechar, sempre visível, desabilitado durante o submit) que abre o menu:
  * "Adicionar set" (par de steppers 0-99), "Adicionar tie-break" (linha
- * avulsa, com 1+ set na lista) e "Registrar W.O.". Dentro de cada
- * linha, o botão "Tie-break" (centralizado sob os steppers) anexa o
+ * avulsa, com 1+ set na lista) e "Registrar W.O.". Dentro da linha de
+ * placar, o botão "Tie-break" (centralizado sob os steppers) só aparece
+ * com o placar daquela linha empatado e além do 0x0 (DEC-0005) e anexa o
  * mini-placar — um por linha, remoção pelo X da sub-linha. O vencedor sai
  * da contagem crua de linhas vencidas (empate em games é decidido pelo TB
  * anexo); se as linhas empatam, "Quem venceu?" só aparece na hora de

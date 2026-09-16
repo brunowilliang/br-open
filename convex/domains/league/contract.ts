@@ -93,12 +93,6 @@ export function resolveRuleValue<T>(rule: ToggleableRule<T>, fallback: T): T {
 
 export const NO_RESPONSE_DEADLINE_HORIZON_YEARS = 100;
 
-export const LeagueFinalSetModeOptions = [
-  "same_as_previous",
-  "custom_set",
-  "super_tiebreak",
-] as const;
-
 export const LeagueMembershipStatusOptions = [
   "pending",
   "awaiting_payment",
@@ -236,15 +230,6 @@ const MINUTES_PER_DAY = 24 * 60;
 export const DEFAULT_LEAGUE_MATCH_CONFIG = {
   bestOfSets: 3,
   defaultDurationMinutes: 90,
-  finalSetGamesPerSet: 6,
-  finalSetHasTieBreak: true,
-  finalSetMode: "same_as_previous",
-  finalSetMustWinByTwoGames: true,
-  finalSetScoringMode: "advantage",
-  finalSetSuperTieBreakMustWinByTwo: true,
-  finalSetSuperTieBreakPoints: 10,
-  finalSetTieBreakMustWinByTwo: true,
-  finalSetTieBreakPoints: 7,
   gamesPerSet: 6,
   hasTieBreak: true,
   scoringMode: "advantage",
@@ -441,24 +426,6 @@ export const LeagueMatchConfigSchema = z
       "Informe a duracao padrao da partida.",
       "Informe uma duracao valida."
     ).min(1, "Informe uma duracao valida."),
-    finalSetGamesPerSet: requiredNumber(
-      "Informe quantos games o ultimo set deve ter.",
-      "Informe uma quantidade de games valida para o ultimo set."
-    ).min(1, "Informe uma quantidade de games valida para o ultimo set."),
-    finalSetHasTieBreak: z.boolean(),
-    finalSetMode: z.enum(LeagueFinalSetModeOptions),
-    finalSetMustWinByTwoGames: z.boolean(),
-    finalSetScoringMode: z.enum(LeagueScoringModeOptions),
-    finalSetSuperTieBreakMustWinByTwo: z.boolean(),
-    finalSetSuperTieBreakPoints: requiredNumber(
-      "Informe quantos pontos o super tie-break deve ter.",
-      "Informe uma pontuacao valida para o super tie-break."
-    ).min(1, "Informe uma pontuacao valida para o super tie-break."),
-    finalSetTieBreakMustWinByTwo: z.boolean(),
-    finalSetTieBreakPoints: requiredNumber(
-      "Informe quantos pontos o tie-break do ultimo set deve ter.",
-      "Informe uma pontuacao de tie-break valida para o ultimo set."
-    ).min(1, "Informe uma pontuacao de tie-break valida para o ultimo set."),
     gamesPerSet: requiredNumber(
       "Informe quantos games cada set deve ter.",
       "Informe uma quantidade de games valida."
@@ -492,30 +459,6 @@ export const LeagueMatchConfigSchema = z
         code: z.ZodIssueCode.custom,
         message: tieBreakPointsError,
         path: ["tieBreakPoints"],
-      });
-    }
-
-    const finalSetTieBreakPointsError = getTieBreakPointsValidationError(
-      value.finalSetTieBreakPoints
-    );
-
-    if (finalSetTieBreakPointsError) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: finalSetTieBreakPointsError,
-        path: ["finalSetTieBreakPoints"],
-      });
-    }
-
-    const finalSetSuperTieBreakPointsError = getTieBreakPointsValidationError(
-      value.finalSetSuperTieBreakPoints
-    );
-
-    if (finalSetSuperTieBreakPointsError) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: finalSetSuperTieBreakPointsError,
-        path: ["finalSetSuperTieBreakPoints"],
       });
     }
   });

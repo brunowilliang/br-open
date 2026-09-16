@@ -32,11 +32,6 @@ const MATCH_RULE_INFO = {
       "Tempo sugerido automaticamente quando uma partida é marcada na agenda. Serve apenas como referência inicial e pode ser ajustado caso a caso.",
     title: "Duração padrão da partida",
   },
-  finalSetMode: {
-    description:
-      "Define como o último set é disputado. Pode seguir as mesmas regras dos demais, ter regras próprias, ou ser decidido por um super tie-break.",
-    title: "Formato do último set",
-  },
   gamesPerSet: {
     description:
       "Quantidade de games necessários para vencer cada set. O padrão do tênis é 6, com diferença mínima de 2.",

@@ -76,7 +76,6 @@ export default function TournamentRulesRoute() {
                   <RulesItemCard label="Pontuação" value={rulesView.scoring} />
                   <RulesItemCard label="Duração" value={rulesView.duration} />
                   <RulesItemCard label="Tie-break" value={rulesView.tieBreak} />
-                  <RulesItemCard label="Decisão" value={rulesView.finalSet} />
                 </RulesGrid>
               </Card.Body>
             </Card>

@@ -25,15 +25,6 @@ const validRuleConfig = {
   matchConfig: {
     bestOfSets: 3,
     defaultDurationMinutes: 90,
-    finalSetGamesPerSet: 6,
-    finalSetHasTieBreak: true,
-    finalSetMode: "same_as_previous",
-    finalSetMustWinByTwoGames: true,
-    finalSetScoringMode: "advantage",
-    finalSetSuperTieBreakMustWinByTwo: true,
-    finalSetSuperTieBreakPoints: 10,
-    finalSetTieBreakMustWinByTwo: true,
-    finalSetTieBreakPoints: 7,
     gamesPerSet: 6,
     hasTieBreak: true,
     scoringMode: "advantage",
@@ -150,12 +141,10 @@ describe("LeagueMatchConfigSchema", () => {
 });
 
 describe("LeagueMatchConfigSchema tie-break points", () => {
-  it("aceita 7 e 10 pontos no tie-break (set, último set e super TB)", () => {
+  it("aceita 7 e 10 pontos no tie-break", () => {
     for (const points of [7, 10]) {
       const result = LeagueMatchConfigSchema.safeParse({
         ...validRuleConfig.matchConfig,
-        finalSetSuperTieBreakPoints: points,
-        finalSetTieBreakPoints: points,
         tieBreakPoints: points,
       });
 
@@ -174,38 +163,6 @@ describe("LeagueMatchConfigSchema tie-break points", () => {
       if (!result.success) {
         const issue = result.error.issues.find(
           (item) => item.path[0] === "tieBreakPoints"
-        );
-        expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
-      }
-    }
-  });
-
-  it("rejeita finalSetTieBreakPoints fora de {7, 10}", () => {
-    const result = LeagueMatchConfigSchema.safeParse({
-      ...validRuleConfig.matchConfig,
-      finalSetTieBreakPoints: 5,
-    });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const issue = result.error.issues.find(
-        (item) => item.path[0] === "finalSetTieBreakPoints"
-      );
-      expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
-    }
-  });
-
-  it("rejeita finalSetSuperTieBreakPoints fora de {7, 10}", () => {
-    for (const points of [2, 5]) {
-      const result = LeagueMatchConfigSchema.safeParse({
-        ...validRuleConfig.matchConfig,
-        finalSetSuperTieBreakPoints: points,
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const issue = result.error.issues.find(
-          (item) => item.path[0] === "finalSetSuperTieBreakPoints"
         );
         expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
       }
@@ -241,6 +198,41 @@ describe("LeagueMatchConfigSchema legado (R11)", () => {
     if (result.success) {
       expect(result.data.matchConfig.bestOfSets).toBe(3);
       expect(result.data.matchConfig).not.toHaveProperty("tieBreakAtGamesAll");
+    }
+  });
+});
+
+describe("LeagueMatchConfigSchema legado (DEC-0004)", () => {
+  it("stripa as chaves finalSet* de configs antigos sem erro", () => {
+    const result = LeagueMatchConfigSchema.safeParse({
+      ...validRuleConfig.matchConfig,
+      finalSetGamesPerSet: 4,
+      finalSetHasTieBreak: false,
+      finalSetMode: "super_tiebreak",
+      finalSetSuperTieBreakPoints: 10,
+      finalSetTieBreakPoints: 7,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("finalSetMode");
+      expect(result.data).not.toHaveProperty("finalSetTieBreakPoints");
+    }
+  });
+
+  it("ChallengeRuleConfigSchema nao dispara o .catch com matchConfig legado finalSet*", () => {
+    const result = ChallengeRuleConfigSchema.safeParse({
+      ...validRuleConfig,
+      matchConfig: {
+        ...validRuleConfig.matchConfig,
+        finalSetMode: "super_tiebreak",
+        finalSetTieBreakPoints: 7,
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.matchConfig).not.toHaveProperty("finalSetMode");
     }
   });
 });

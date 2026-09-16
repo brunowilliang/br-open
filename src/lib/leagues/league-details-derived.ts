@@ -6,7 +6,6 @@ import { clampToNonNegativeInt } from "@/lib/numbers";
 import { getMembershipActionLabel } from "@/lib/leagues/presentation";
 import { formatBrazilDueDayLabel } from "@/lib/payments/membership-due";
 import {
-  formatFinalSet,
   formatInactivity,
   formatLossBehavior,
   formatNewPlayerPlacement,
@@ -64,7 +63,6 @@ export type LeagueDetailsRulesView = {
   };
   match: {
     duration: string;
-    finalSet: string;
     format: string;
     scoring: string;
     setFormat: string;
@@ -391,7 +389,6 @@ export function buildLeagueRulesView(
     inactivity: formatInactivity(ruleConfig),
     match: {
       duration: `${ruleConfig.matchConfig.defaultDurationMinutes} min`,
-      finalSet: formatFinalSet(ruleConfig.matchConfig),
       format: `Melhor de ${ruleConfig.matchConfig.bestOfSets} sets`,
       scoring: formatScoringMode(ruleConfig.matchConfig.scoringMode),
       setFormat: `${ruleConfig.matchConfig.gamesPerSet} games`,

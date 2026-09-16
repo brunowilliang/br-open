@@ -229,17 +229,8 @@ function buildSeedScore(input: {
       : input.challengedMembershipId;
 
   return {
-    sets: Array.from({ length: requiredSetWins }, (_, setIndex) => {
-      const isDecidingSet = setIndex === maxSets - 1;
-      const isSuperTieBreak =
-        isDecidingSet && input.matchConfig.finalSetMode === "super_tiebreak";
-      const gamesPerSet =
-        isDecidingSet && input.matchConfig.finalSetMode === "custom_set"
-          ? input.matchConfig.finalSetGamesPerSet
-          : input.matchConfig.gamesPerSet;
-      const winnerScore = isSuperTieBreak
-        ? input.matchConfig.finalSetSuperTieBreakPoints
-        : gamesPerSet;
+    sets: Array.from({ length: requiredSetWins }, () => {
+      const winnerScore = input.matchConfig.gamesPerSet;
       const loserScore = Math.max(0, winnerScore - 2);
 
       return {
@@ -247,7 +238,7 @@ function buildSeedScore(input: {
           input.winnerSide === "challenged" ? winnerScore : loserScore,
         challengerGames:
           input.winnerSide === "challenger" ? winnerScore : loserScore,
-        kind: isSuperTieBreak ? "super_tiebreak" : "set",
+        kind: "set" as const,
       };
     }),
     winnerMembershipId,

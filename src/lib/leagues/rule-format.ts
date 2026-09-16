@@ -107,17 +107,6 @@ export function formatTieBreak(matchConfig: LeagueMatchConfig): string {
   return `Tie-break em ${matchConfig.gamesPerSet}x${matchConfig.gamesPerSet}, ${matchConfig.tieBreakPoints} pontos, ${differenceRule}`;
 }
 
-export function formatFinalSet(matchConfig: LeagueMatchConfig): string {
-  switch (matchConfig.finalSetMode) {
-    case "custom_set":
-      return `Último set com ${matchConfig.finalSetGamesPerSet} games`;
-    case "super_tiebreak":
-      return `Último set em super tie-break de ${matchConfig.finalSetSuperTieBreakPoints} pontos`;
-    default:
-      return "Último set igual aos anteriores";
-  }
-}
-
 export function formatInactivity(ruleConfig: RuleConfig): string {
   if (!ruleConfig.hasInactivityPenalty) {
     return "A liga não aplica queda automática por inatividade.";

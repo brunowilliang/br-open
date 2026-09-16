@@ -172,10 +172,6 @@ export default function LeagueRulesRoute() {
                     label="Tie-break"
                     value={rulesView.match.tieBreak}
                   />
-                  <RulesItemCard
-                    label="Decisão"
-                    value={rulesView.match.finalSet}
-                  />
                 </RulesGrid>
               </Card.Body>
             </Card>

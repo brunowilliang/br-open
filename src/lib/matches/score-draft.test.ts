@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   buildEmptyDraftSet,
   buildScoreboard,
+  canAttachTieBreak,
   getLineLabel,
   isDraftSetBlank,
   toLeagueScoreSets,
@@ -35,6 +36,67 @@ describe("score-draft", () => {
       expect(isDraftSetBlank({ aGames: 1, bGames: 0, kind: "set" })).toBe(
         false
       );
+    });
+  });
+
+  describe("canAttachTieBreak", () => {
+    it("offers the tie-break button on a tied set", () => {
+      expect(canAttachTieBreak({ aGames: 1, bGames: 1, kind: "set" })).toBe(
+        true
+      );
+      expect(canAttachTieBreak({ aGames: 2, bGames: 2, kind: "set" })).toBe(
+        true
+      );
+      expect(canAttachTieBreak({ aGames: 3, bGames: 3, kind: "set" })).toBe(
+        true
+      );
+    });
+
+    it("hides the button on a blank set", () => {
+      expect(canAttachTieBreak({ aGames: 0, bGames: 0, kind: "set" })).toBe(
+        false
+      );
+    });
+
+    it("hides the button once the set is decided", () => {
+      expect(canAttachTieBreak({ aGames: 6, bGames: 3, kind: "set" })).toBe(
+        false
+      );
+      expect(canAttachTieBreak({ aGames: 3, bGames: 6, kind: "set" })).toBe(
+        false
+      );
+    });
+
+    it("keeps the button hidden while a tie-break is attached", () => {
+      expect(
+        canAttachTieBreak({
+          aGames: 1,
+          bGames: 1,
+          kind: "set",
+          tieBreak: { aPoints: 7, bPoints: 3 },
+        })
+      ).toBe(false);
+    });
+
+    it("applies the same tied rule to super tie-break lines", () => {
+      expect(
+        canAttachTieBreak({ aGames: 0, bGames: 0, kind: "super_tiebreak" })
+      ).toBe(false);
+      expect(
+        canAttachTieBreak({ aGames: 9, bGames: 9, kind: "super_tiebreak" })
+      ).toBe(true);
+    });
+
+    it("never offers the tie-break button on a tie-break line (no nesting)", () => {
+      expect(
+        canAttachTieBreak({ aGames: 0, bGames: 0, kind: "tiebreak" })
+      ).toBe(false);
+      expect(
+        canAttachTieBreak({ aGames: 7, bGames: 3, kind: "tiebreak" })
+      ).toBe(false);
+      expect(
+        canAttachTieBreak({ aGames: 7, bGames: 7, kind: "tiebreak" })
+      ).toBe(false);
     });
   });
 

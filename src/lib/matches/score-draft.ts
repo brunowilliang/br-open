@@ -9,7 +9,7 @@ export type ScoreDraftTieBreak = { aPoints: number; bPoints: number };
  * Linha do resultado — lista livre, na ordem em que o jogo aconteceu. Uma
  * linha de placar ({aGames, bGames} com kind "set"/"super_tiebreak") ou uma
  * linha avulsa de tie-break (kind "tiebreak"), com o mini-placar anexo
- * opcional em qualquer linha. Mesmo shape do contrato do torneio; a liga
+ * opcional nas linhas de placar. Mesmo shape do contrato do torneio; a liga
  * fala challenger/challenged e a conversão mora aqui.
  */
 export type ScoreDraftSet = {
@@ -70,6 +70,22 @@ export function toScoreDraftSets(sets: LeagueScoreSet[]): ScoreDraftSet[] {
 
 export function isDraftSetBlank(set: ScoreDraftSet) {
   return set.aGames === 0 && set.bGames === 0;
+}
+
+/**
+ * Se a linha oferece o botão "Tie-break" (DEC-0005, opção A): só linha de
+ * placar (set ou super tie-break) com os games EMPATADOS e além do 0x0;
+ * com o mini-placar já anexado o botão não volta (remoção é pelo X da
+ * sub-linha). Linha de tie-break (avulsa) NUNCA oferece o botão — tie-break
+ * não aninha tie-break. O menu de linhas segue livre em qualquer estado
+ * (RUL-0019).
+ */
+export function canAttachTieBreak(set: ScoreDraftSet) {
+  if (set.tieBreak || set.kind === "tiebreak") {
+    return false;
+  }
+
+  return set.aGames > 0 && set.aGames === set.bGames;
 }
 
 export function trimTrailingBlankSets(sets: ScoreDraftSet[]) {
