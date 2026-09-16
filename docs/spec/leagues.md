@@ -26,7 +26,7 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Status:** implementado
 - **Data:** 17/06/2026
 - **Referências:** `src/app/(private)/settings/leagues/[mode]/courts.tsx` (editor com Accordion por quadra, tabs por dia, selects de horário de 30 em 30 min, add/remove/rename), `convex/domains/league/contract.ts` (`LeagueCourtSchema`, `LeagueCourtAvailabilitySchema`, `LeagueCourtsSchema`, `EMPTY_LEAGUE_COURT_AVAILABILITY`), `convex/domains/league/tables.ts` (`league.courts` JSON), `convex/domains/league/challenge-scheduling-rules.ts` (day-key UTC a partir da data, `rangesOverlap` half-open).
-- **Decisões:** quadra tem `id/name/availability` por dia (`mon..sun`) com `startMinute/endMinute` múltiplos de 30, sem overlap (toque permitido), nomes únicos case-insensitive (normalização `normalizeCourtName` no front; `LeagueCourtsSchema.superRefine` no contrato) e ordenação por startMinute. A aba `Quadras` é compartilhada entre create e edit. Validação também existe no contrato (múltiplos de 30, `start < end`, 0–1440, overlap). Não há geração de slots nem exceções por data (fora de escopo, segue fora).
+- **Decisões:** quadra tem `id/name/availability` por dia (`mon..sun`) com `startMinute/endMinute` múltiplos de 30, sem overlap (toque permitido), nomes únicos case-insensitive (normalização `normalizeCourtName` no front; `LeagueCourtsSchema.superRefine` no contrato) e ordenação por startMinute. A aba `Quadras` é compartilhada entre create e edit. Validação também existe no contrato (múltiplos de 30, `start < end`, 0–1440, overlap). Não há geração de slots nem exceções por data (fora de escopo, segue fora). O dialog `Adicionar Horário` do `CourtEditor` aceita MÚLTIPLOS dias na mesma ação (chips de dia avulsos + chip `Todos` na MESMA fileira, que seleciona/desmarca todos os dias; presets compostos `Seg+Qua+Sex`/`Ter+Qui` extintos 16/09; IBX-0047): o range é criado em todos os dias selecionados de uma vez, com validação de overlap por dia listando os dias em conflito; a edição de um range existente SUBSTITUI em place (mesmo dia). A mutação/validação é pura e compartilhada em `src/lib/courts/court-availability.ts` (`applyCourtRange`, testado; BUG-0032/IBX-0050): overlap validado em TODOS os caminhos (add, edit, multi-dia) contra o MESMO estado que é gravado; horários são minutos 24h exatos, sem bloquear digitação (espírito RUL-0019).
 - **Como funciona:** o editor emite valores normalizados para o campo `courts` do form (RHF context); no submit, `courts` viaja junto com o payload (`CreateLeagueInput`/`UpdateLeagueInput`); serialização cobre legados (`courts: record.courts ?? []` em `serializeLeague`).
 
 ### Regras toggleáveis
@@ -40,14 +40,12 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Data:** 22/08/2026
 - **Referências:** `convex/domains/league/contract.ts` —
   `LeagueMatchConfigSchema.superRefine` exige `bestOfSets` ∈ {1, 3, 5}
-  (`SUPPORTED_BEST_OF_SET_COUNTS`, R10) e `tieBreakPoints`/
-  `finalSetTieBreakPoints`/`finalSetSuperTieBreakPoints` ∈ {7, 10}
+  (`SUPPORTED_BEST_OF_SET_COUNTS`, R10) e `tieBreakPoints` ∈ {7, 10}
   (`SUPPORTED_TIE_BREAK_POINTS`, R11; presets oficiais do tênis — set TB a
   7, super TB a 10). **R11:
   `tieBreakAtGamesAll`/`finalSetTieBreakAtGamesAll` REMOVIDOS** do schema —
-  o gatilho do TB é derivado na validação: TB em X-X onde X = `gamesPerSet`
-  do set (`challenge-rules.ts:getSetValidationError`; último set custom usa
-  `finalSetGamesPerSet`). No input da liga o
+  o gatilho do TB acompanha os games do set (derivação na leitura do
+  placar; ver REWORK-2 abaixo). No input da liga o
   `.default(DEFAULT).catch(DEFAULT)` do `ruleConfig.matchConfig` segue como
   healing de docs legados; Zod stripa a chave extra de docs antigos sem
   disparar o catch (testado em `league/tests/contract.test.ts` — "legado
@@ -66,18 +64,34 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
   migration, sem mudança de config (o config do TB continua no
   wizard/regras, mas não valida mais resultado manual).
 - **UI do form (R11, entregue):** campo "em qual placar entra o tie-break"
-  REMOVIDO do set normal e do último set (o gatilho acompanha os games);
-  "pontos no tie-break" e "pontos no super tie-break" viraram SEGMENTO
-  7|10 ("7 pontos"/"10 pontos", molde do bestOf —
-  `match-rules/match-basics-section.tsx:73-81`; set em
-  `tie-break-section.tsx:58-80`, último set + super TB em
-  `final-set-section.tsx:305-314,376-384`); toggle Tie-break preservado;
+  REMOVIDO do set normal (o gatilho acompanha os games);
+  "pontos no tie-break" virou SEGMENTO 7|10 ("7 pontos"/"10 pontos", molde
+  do bestOf — `match-rules/match-basics-section.tsx:73-81`; set em
+  `tie-break-section.tsx:58-80`; a seção própria do último set,
+  `final-set-section.tsx`, foi EXTINTA no DEC-0004); toggle Tie-break
+  preservado;
   espelho gamesPerSet→tieBreakAtGamesAll EXTINTO; `MATCH_CONFIG_FIELDS`
   sem as 2 chaves (`use-match-config-form.ts:3`); `/rules` read-only DERIVA
   o empate de gamesPerSet (`formatTieBreak` — "Tie-break em 6x6" para set
   de 6, `rule-format.ts:98-107`); `MATCH_RULE_INFO.tieBreak` reescrito
   ("O tie-break entra quando o set chega em games-a-games.",
   `match-rules/shared.ts:55-58`).
+- **DEC-0004 (15-09, opção A): o grupo do ÚLTIMO SET foi REMOVIDO do
+  formato** — vale LIGA E TORNEIO (schema compartilhado). Último set =
+  formato dos demais sets; super tie-break segue coberto por
+  `tieBreakPoints` 7|10 e pelo placar LIVRE do resultado (RUL-0019).
+  Campos removidos do `LeagueMatchConfigSchema`/
+  `DEFAULT_LEAGUE_MATCH_CONFIG`: `finalSetMode`/`finalSetGamesPerSet`/
+  `finalSetHasTieBreak`/`finalSetMustWinByTwoGames`/`finalSetScoringMode`/
+  `finalSetTieBreakMustWinByTwo`/`finalSetTieBreakPoints`/
+  `finalSetSuperTieBreakMustWinByTwo`/`finalSetSuperTieBreakPoints` (e
+  `LeagueFinalSetModeOptions` extinto). Configs salvos com as chaves ficam
+  inertes: a coluna `json` mantém o blob e o zod STRIPA na leitura sem
+  erro (mesmo padrão do R11; testado em "legado (DEC-0004)" no
+  `league/tests/contract.test.ts`). Sem migration (coluna
+  `json<Record<string, unknown>>` — nada destrutivo). Seed
+  (`functions/seed.ts:buildSeedScore`) passou a gerar o set decisivo com o
+  mesmo `gamesPerSet` dos demais.
 - **Decisões:** uma regra a menos para o organizador configurar (o gatilho
   acompanha os games por set) e placares sempre coerentes com os presets
   oficiais; mesmo schema compartilhado com torneio (detalhes do lado do
@@ -91,7 +105,8 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Data:** 22/08/2026 (IBX-0010 R10 — regra de partida no torneio)
 - **Referências:** `src/components/match-rules/` (NOVO módulo global) —
   `match-rules-section.tsx` compõe `match-basics-section.tsx` +
-  `tie-break-section.tsx` + `final-set-section.tsx`, todos parametrizados
+  `tie-break-section.tsx` (a terceira seção, `final-set-section.tsx`, foi
+  EXTINTA no DEC-0004), todos parametrizados
   por `RuleSectionProps.prefix` (`shared.ts:7-11` — `"ruleConfig.matchConfig"`
   na liga, `"matchConfig"` no torneio); `use-match-config-form.ts` resolve
   os paths RHF (`buildMatchConfigPaths(prefix)`) e erros aninhados
@@ -114,6 +129,17 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Referências:** `convex/functions/league/challenges.ts` (18 procedures), `convex/domains/league/challenge-rules.ts`, `challenge-status.ts`, `challenge-form.ts`, `tables.ts` (`leagueChallenge`, `leagueChallengeProposal`, `leagueChallengeResultSubmission`, `leagueChallengeOrganizerAction`), `src/app/(private)/leagues/[leagueId]/challenges.tsx`, `src/components/pages/leagues/challenge-proposal-dialog.tsx`, `src/components/ui/score-result-dialog.tsx` (GLOBAL, IBX-0024), `src/lib/matches/score-draft.ts`, `challenge-card.tsx`, `challenge-organizer-action-dialog.tsx`, `src/lib/leagues/use-challenge-mutations.ts`, `challenge-route-view.ts`, `challenge-menu-actions.ts`, `challenge-tab-counts.ts`, `challenge-feedback.ts`, `challenge-formatters.ts`.
 - **Decisões:** modelo de negociação com proposta ativa única, contrapropostas com histórico (`revisionNumber`, status `active|accepted|replaced|declined|cancelled`), reset do deadline (`buildResponseDeadline`), lock após aceite (`resolveAcceptedChallengeStatus`), bloqueio de slot nos estados ativos (`ACTIVE_CHALLENGE_BLOCKING_STATUSES`). Nomenclatura "admin" → "organizer" (`pending_organizer_challenge_validation`, `pending_organizer_result_validation`, `pending_organizer_decision`). Lifecycle com 14 estados, incluindo `pending_cancellation_acceptance`: o cancelamento é por solicitação aceita pelo outro lado (`requestCancellation` + `respondCancellationRequest` com `cancellationRequestedAt/By`), além do `cancel` direto. Score com schema próprio (`leagueChallengeScoreSchema`: sets com `kind: set|super_tiebreak`, winner por membership) e validação dirigida pelo `matchConfigSnapshot` (`validateChallengeScore`, `buildChallengeScoreProgress`, `getSetValidationError`). Tabela `leagueChallengeOrganizerAction` com trilha de auditoria das ações do organizador. Resultado com validação manual: `reviewResult` (approve/request_correction/invalidate) e `organizerSubmitResult` (organizador preenche placar quando o jogador não confirma). Regras de criação (`resolveChallengeCreationRuleError`): não se desafiar, posição acima, distância máxima, limites ativos/mensais. `challengeValidationMode`/`resultValidationMode` (automatic/manual) com defaults `automatic`.
 - **Como funciona:** jogador cria desafio com proposta completa (data, hora, quadra) contra um membro ativo; o outro aceita/recusa/contrapropõe; aceite trava a proposta e confirma (ou vai para validação manual do organizador); após a partida, um jogador submete placar, o outro confirma; o organizador valida quando o modo é manual, pode pedir correção, invalidar, cancelar/invalidar/reabrir (`organizerManage` com ações `cancel|invalidate|reopen_challenge|reopen_result`) e lembrar resultado (`organizerRequestResultReminder`). Abas unificadas para jogador/organizador: `active|attention|ongoing|history` (`buildChallengeRouteVisibleChallenges`), com contadores de badge (`buildChallengeTabCounts`) e menus derivados de `challenge-status.ts` (paridade backend/frontend garantida por `challenge-status-parity.test.ts`).
+
+### Ocupação de quadra no agendamento derivada no servidor (BUG-0027/IBX-0043)
+- **Status:** implementado
+- **Data:** 15/09
+- **Referências:** `convex/domains/league/challenge-scheduling-rules.ts` (`resolveMatchOccupiedEndMinute`), `convex/functions/league/_challenges/scheduling_guards.ts` (`assertCourtSlotAvailable`), `convex/functions/league/challenges.ts` (`create`, `counterPropose`), `challenge-scheduling-rules.test.ts`.
+- **Regra:** a janela ocupada de uma partida é `[startMinute, startMinute + defaultDurationMinutes)` derivada no SERVIDOR a partir das regras (`matchConfig` vigente no `create`; `matchConfigSnapshot` do desafio na contraproposta e no guard), nunca do `endMinute` enviado pelo cliente: uma janela menor mentida pelo cliente não escapa mais do conflito. `create` e `counterPropose` continuam recusando sobreposição na mesma quadra+data contra qualquer desafio em status ativo (`ACTIVE_CHALLENGE_BLOCKING_STATUSES`; janela half-open, encostar não conflita) e passam a gravar na proposta o `endMinute` derivado da regra. Contrato pro cliente: `league.challenges.listOccupiedSlots` devolve os slots ocupados (quadra/data/janela) e o dialog desabilita horários em conflito.
+- **Nota (review):** `listOccupiedSlots` devolve o endMinute ARMAZENADO na
+  proposta: propostas criadas antes do deploy (endMinute subnotificado)
+  sub-desabilitam horários na UI até a proposta ser renovada
+  (contraproposta). Auto-resolve: o SERVIDOR deriva a janela do snapshot de
+  regras e é a rede de proteção.
 
 ### Dialog de placar do desafio (GLOBAL — IBX-0024 + IBX-0034, RUL-0005/RUL-0019)
 - **Status:** implementado
@@ -155,6 +181,17 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
   Hydrate preserva `initialSets` (trim de linhas zeradas à direita). As
   animações são da família rule-card
   (FadeIn 180ms / FadeOut 120ms + AccordionLayoutTransition).
+- **BUG-0026 (15-09, DEC-0005 opção A) — botão "Tie-break" CONTEXTUAL:**
+  o botão dentro da linha de placar (set e super tie-break) só aparece com
+  o placar DAQUELA linha empatado e além do 0x0 (`canAttachTieBreak`,
+  `src/lib/matches/score-draft.ts`, +6 testes); desempatou, esconde; com o
+  mini-placar anexado não volta (remoção pelo X da sub-linha). O menu
+  ("Adicionar set/tie-break/W.O.") e a linha avulsa continuam LIVRES em
+  qualquer estado — zero validação nova, RUL-0019 intacta. Entrada/saída do
+  botão ganharam wrapper animado no molde rule-card (FadeIn 180ms /
+  FadeOut 120ms + AccordionLayoutTransition, mesmo idioma do card do set):
+  a troca botão↔bloco de TB cruza em fade e a altura do card cresce suave
+  (antes o bloco "entrava do nada", item 2 do BUG-0026).
 - **Corpo scrollável + gesto (10-09, rodada 8):** o corpo (lista + empty
   state + "Quem venceu?") vive num `ScrollShadow color="surface"` com
   `maxHeight = min(450, metade da janela)` + `ScrollView` (molde do repo:
@@ -202,7 +239,7 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Data:** 15/06/2026
 - **Referências:** `src/app/(private)/leagues/[leagueId]/_layout.tsx` (layout com `Tabs` + `FloatingTabBar` e bootstrap/hydration do store), `index.tsx` (overview com banner, menu com Regras/Editar), `ranking.tsx`, `challenges.tsx`, `requests.tsx` (owner-only, redireciona quem não pode), `rules.tsx` (regras read-only em grid 2xN — desde o R10 com `RulesGrid`/`RulesItemCard` GLOBALIZADOS em `src/components/ui/rules-grid.tsx`, cutover da liga com a tela de torneio reutilizando; helpers locais removidos), `schedule.tsx` (agenda — rota nova, além do refactor), `src/lib/leagues/league-details-store.ts` (store singleton com buckets por `leagueId`), `league-details-derived.ts`, `league-navigation-tabs.ts`, `challenge-route-view.ts`, `challenge-tab-counts.ts`, `schedule-view.ts`, `src/components/pages/leagues/{guest-overview,player-overview,organizer-overview,league-join-footer}.tsx` (o `schedule-card.tsx` virou o global `src/components/ui/schedule-card.tsx`; a lista espelha o diretório real).
 - **Decisões:** o modelo de 3 papéis é `guest|player|organizer` (`LeagueDetailsRole` em `league-details-derived.ts`; `buildLeagueDetailsRole` resolve organizer > membro ativo > guest) e o access inclui `canOpenSchedule` (regido por `scheduleVisibility: public|members_only`). O store é `observable` do Legend-State v3 (`@legendapp/state@~3.0.0-beta.48`) com buckets por `leagueId` (`getLeagueDetailsBucket$`) e deriveds (access, counts, rankingItems, requestItems, rulesView, viewerPosition); React Query é dono do servidor (queries em `_layout.tsx`, invalidação em `use-challenge-mutations.ts`). `requests.tsx` falha fechado para não-organizador. Navegação por `FloatingTabBar` + rotas (sem tab-query-param).
-- **Como funciona:** `_layout.tsx` hidrata `discovery.getById` + `viewer.context.get`, deriva papel/access no bucket, hidrata membros (`membership.getOverview`, só se `canOpenRanking||canOpenRequests`), desafios (`challenges.listForLeague`, só se `canOpenChallenges`) e slots ocupados; cada rota consome os deriveds do bucket e executa mutações com invalidação via React Query.
+- **Como funciona:** `_layout.tsx` lê `leagueId` de `useLocalSearchParams` (params da PRÓPRIA rota; nunca `useGlobalSearchParams` aqui, que segue a rota FOCADA e fazia uma liga empilhada em cima de outra ler o `leagueId` de cima — reset/hidratação no bucket errado e bucket de baixo vazio; mesmo fix do torneio, BUG-0033). `_layout.tsx` hidrata `discovery.getById` + `viewer.context.get`, deriva papel/access no bucket, hidrata membros (`membership.getOverview`, só se `canOpenRanking||canOpenRequests`), desafios (`challenges.listForLeague`, só se `canOpenChallenges`) e slots ocupados; cada rota consome os deriveds do bucket e executa mutações com invalidação via React Query.
 
 ### Aviso de pagamento na liga + renovação pelo checkout (IBX-0039)
 - **Status:** implementado
@@ -274,7 +311,7 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 
 - **Ownership por organização:** liga pertence a `organization` (`league.organizationId`, cascade delete) e o acesso do organizador passa por `requireActiveManager(ctx)` — evoluiu do `managerUserId`.
 - **Modelo de roles do detalhe:** `guest | player | organizer`, com `canOpenSchedule` condicionado a `scheduleVisibility`.
-- **Store único Legend-State v3 com buckets por `leagueId`:** React Query é fonte da verdade do servidor; deriveds puros em `src/lib/leagues/*-derived.ts` (testados).
+- **Store único Legend-State v3 com buckets por `leagueId`:** React Query é fonte da verdade do servidor; deriveds puros em `src/lib/leagues/*-derived.ts` (testados). `reset()` zera o bucket e **INCREMENTA** `identity.resetVersion` (versão monotônica, nunca um binário 0/1 que volta ao mesmo valor): é a mudança que os efeitos de hidratação do layout observam para re-hidratar.
 - **Regras editáveis após criação:** o travamento de regras na edição foi abandonado; `update` aceita `ruleConfig` completo.
 - **Roteamento do editor por `[mode]`:** create/edit compartilham o cluster `/settings/leagues/[mode]` com 6 tabs.
 - **Cancelamento de desafio negociado:** pedido com aceite do outro lado (`pending_cancellation_acceptance`) substituiu o cancelamento unilateral.

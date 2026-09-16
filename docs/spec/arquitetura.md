@@ -48,6 +48,14 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
 
 - **Rota é dona do fluxo de dados:** queries/mutations/toasts/invalidate vivem
   nas telas (ex.: `src/app/(private)/leagues/[leagueId]/challenges.tsx`).
+- **Erro de procedure vira toast pela mensagem DO SERVIDOR:** todo `onError`
+  passa por `getToastErrorMessage(error, fallback)`
+  (`src/lib/errors/toast-message.ts`). O helper lê a mensagem do `CRPCError`
+  onde ela realmente viaja — no payload do `ConvexError` (`error.data =
+  { code, message }`), porque o `message` do erro do cliente é só o wrapper do
+  Convex ("[CONVEX M(...)] [Request ID: ...] Server Error") — e mantém o
+  genérico apenas como último recurso (erro de transporte,
+  `ArgumentValidationError`, payload sem mensagem própria).
 - **`src/components/pages/`** guarda views complexas (overviews por papel,
   dialogs); lógica derivada em `src/lib/leagues/*-derived.ts`.
 - **HeroUI Native + Uniwind** para componentes e estilos; `onPress`, não onClick.
@@ -78,8 +86,10 @@ Resultado da padronização executada em 22-07-2026, confirmado no código:
 | Rota dona do fluxo de dados | Estado perto do uso; pages/ só para views complexas |
 | kitcn/CRPC em vez de SDK gerado | Camada tipada sobre Convex; builders por nível de auth |
 | HeroUI Native + Uniwind | UI nativa sem WebView, tema via Tailwind v4 |
+| Fundo de navegação segue o tema na raiz | `contentStyle`/`sceneStyle` com `useThemeColor` em todos os navigators + root view nativa sincronizada via `expo-system-ui` (`src/app/_layout.tsx`); fade entre rotas compõe cenas semi-transparentes sobre a root view, branca por padrão (IBX-0045) |
 | docs/spec/ versionado (este diretório) | Troca de CLI/agente sem perda de contexto; histórico no git |
 | docs/agents/ local | Regras de papéis do workspace Maestri, não versionadas por design |
+| OTA iOS pelo canal `production` com o env `development` | DEC-0006: device, simulador e agentes rodam no Convex de dev `kindred-yak-142`. A flag `--environment` do eas-cli **vence** o `.env.local`: com ela o export roda com `EXPO_NO_DOTENV=1` e o env do EAS sobreposto ao do shell, então o environment errado embute a URL do Convex errada. Script de hoje: `update:ios:prod-dev-env`; `update:ios:prod` (env `production`, `amiable-albatross-845`) volta a ser o certo quando o device voltar pro PROD |
 
 ## Próximos passos conhecidos
 

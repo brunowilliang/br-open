@@ -18,8 +18,15 @@
   submit + cropper + toasts); `league-form-controller.tsx` é wrapper que
   injeta LeagueSchema/validação-de-tab/uploadUrl da liga.
 - **`src/components/ui/court-editor.tsx`** — editor de quadras globalizado
-  (accordion por quadra, tabs de dia, ranges de 30min com validação de
-  overlap/nome duplicado); as rotas `settings/leagues/[mode]/courts.tsx` e
+  (accordion por quadra, tabs de dia, ranges de 30min; dialog `Adicionar
+  Horário` cria o range em MÚLTIPLOS dias de uma vez via chips de dia
+  avulsos + chip `Todos` na MESMA fileira, que seleciona/desmarca todos os
+  dias; presets compostos `Seg+Qua+Sex`/`Ter+Qui` extintos 16/09,
+  IBX-0047; edição
+  substitui em place e overlap é validado em todos os caminhos via lib pura
+  compartilhada `src/lib/courts/court-availability.ts` (`applyCourtRange`),
+  BUG-0032/IBX-0050); as rotas
+  `settings/leagues/[mode]/courts.tsx` e
   `settings/tournaments/[mode]/courts.tsx` são wrappers que só montam header
   + menu Salvar.
 
@@ -102,14 +109,21 @@
   `formatRoundLabel` (Final/Semifinal/Quartas/Rodada N), taxa formatada.
 - **`tournament-details-store.ts`** — bucket por `tournamentId`
   (discovery+entries+matches, deriveds access/entriesById/categoriesById/
-  shouldFetchMatches/tabItems).
+  shouldFetchMatches/tabItems). `reset()` zera o bucket e **INCREMENTA**
+  `identity.resetVersion` (versão monotônica, nunca um binário 0/1 que volta
+  ao mesmo valor): é essa mudança que o efeito de hidratação do layout
+  observa para re-hidratar (BUG-0033 — um reset invisível deixava o bucket
+  vazio ao voltar para um torneio já visitado).
 - **Tipagem das entries** — direto pelo `TournamentEntryWithPlayers` do
   contrato (`tournamentEntryWithPlayersSchema`, com
   `playerA/playerB: TournamentPlayerCard` de 5 campos — alinhado ao
   `serializePlayerCard` em 22-08).
-- **`_layout.tsx`** — bootstrap (discovery sempre; matches gated por
-  `shouldFetchMatches`; entries sempre), Tabs+FloatingTabBar com ícones e
-  `resolveValueFromRouteName` (index→overview; QA round 6).
+- **`_layout.tsx`** — `tournamentId` vem de `useLocalSearchParams` (params
+  da PRÓPRIA rota; nunca `useGlobalSearchParams` aqui, que segue a rota
+  focada e fazia um detalhe empilhado trocar de bucket no meio da pilha);
+  hidratação destravada pelo `reset()` do bucket (discovery sempre; matches
+  gated por `shouldFetchMatches`; entries sempre), Tabs+FloatingTabBar com
+  ícones e `resolveValueFromRouteName` (index→overview; QA round 6).
 - **Overview do organizador** (QA round 9) — `OrganizerOverview`
   (`components/pages/tournaments/`) no molde da liga: `WidgetAlert` accent
   (N aguardando aprovação) + `WidgetAlert` warning (N aguardando pagamento)
@@ -152,14 +166,19 @@
   (`Page.Header.Right`, IBX-0037; molde do kebab do card — `Menu.Trigger
   asChild` > `Button` icon-only terciário + `Menu.Portal` > overlay
   `bg-backdrop` + `Menu.Content popover width={240}`, precedente IBX-0020 do
-  overlay fora do transform): **Cabeças de chave** (CrownIcon, IBX-0035 —
-  `published`/`drawn`, → `/entries?initialTab=confirmed`), Sortear chave
-  (`published`), **Re-sortear** (`drawn`, IBX-0037/re-draw do backend; com
+  overlay fora do transform): **Sortear chave** (`published`), **Re-sortear**
+  (`drawn`, IBX-0037/re-draw do backend; com
   confronto agendado abre **diálogo de confirmação** de destruição, molde do
   cancelamento do torneio — apaga data, horário e quadra) e
-  Iniciar torneio (`drawn`), mutações `bracket.draw`/`bracket.start` com
+  **Iniciar torneio** (`drawn`, com **diálogo de confirmação** — título
+  "Iniciar torneio?", corpo avisando que a chave será publicada e o torneio
+  começa, botões Cancelar/Iniciar torneio no molde dos dialogs de
+  confirmação do repo), mutações `bracket.draw`/`bracket.start` com
   toasts e `invalidateTournamentContext`; menu some quando não há ação
-  aplicável; organizador-only (guest não vê nada disso).
+  aplicável; organizador-only (guest não vê nada disso). **O item
+  "Confirmados" (ex-"Cabeças de chave") SAIU em 16-09**: sem os controles de
+  seed/fase a lista de inscrições deixou de ser caminho de posicionamento — o
+  organizador ajusta no próprio canvas e re-sorteia.
   **tabs de CATEGORIA no
   header** (`Tabs` heroui-native no molde entries.tsx) APENAS com 2+
   categorias COM chave (o draw pula
@@ -417,9 +436,28 @@
   dos cards preservados: o tap falha no movimento do pan e o pan precisa de
   12pt — exclusão por limiar, sem veto de composição.
   Alturas variáveis medidas por `onLayout` do card (fallback
-  `BRACKET_CARD_ESTIMATED_HEIGHT`, recalibrada p/ 136 com o card compacto);
-  altura medida IGUAL à estimativa não commita state (montagem da 64-key
-  sem cascatas de setState, lição IBX-0022).
+  `BRACKET_CARD_ESTIMATED_HEIGHT` = 136, o card compacto — a chave de 64 dá
+  exatamente o grafo documentado 1696x4724 = 32x(136+12), prova de que a
+  estimativa é a altura REAL do card comum); o commit da medida é
+  `commitCardHeight` (bracket-tree.ts), puro/testado: uma medida igual à
+  altura EFETIVA não entra no state (a montagem da 64-key commita ZERO
+  vezes, lição IBX-0022), mas a comparação é com a altura efetiva e NUNCA
+  com a constante. **BUG-0033 (conectores fora do eixo / linha some em
+  chave grande): causa raiz era o guard do IBX-0022 comparando com a
+  constante** — um card commitado em 154 (linha de agendamento no card) que
+  volta a medir 136 tinha a medida DESCARTADA: o retângulo do layout ficava
+  congelado 9pt acima do centro do card (âncora do conector = y + h/2) e
+  nunca re-alinhava. Medição no harness puro do pipeline (chave de 64,
+  viewport 413x1064 → fit 0.2151, o mesmo fit documentado): 1 card a cada 4
+  congelado já dá âncora 9pt fora (média 2,25pt), vãos da coluna variando
+  12→30pt (design 12) e a coluna 1 driftando até 144pt no fim. O pipeline em
+  si é exato (âncora == centro do retângulo, delta 0,00): o erro só existe
+  quando o retângulo do layout ≠ altura renderizada do card. Traço: 1.5pt de
+  GRAFO constante (estágio C) → no fit da 64 = 0,323pt = 0,97 pixel físico
+  @3x (sub-pixel; o da chave 8 = 1,97px). Sondas temporárias dev do render
+  (`lib/tournaments/bracket-diagnostics.ts` + route/canvas) imprimem layout,
+  retângulo+âncora+origem por card, HEIGHT-MISMATCH (com
+  `oldGuardWouldDrop`) e fit/traço — remover quando o BUG-0033 fechar.
   Geometria em `src/lib/tournaments/bracket-tree.ts`:
   `buildBracketCategoryTrees` (agrupa por categoria — conectores NÃO cruzam
   categorias, :53-90) + `layoutBracketCategoryTree` (posições absolutas, pai
@@ -437,7 +475,10 @@
   (`formatBracketStage(round, totalRounds)` por draw size: Final, Semifinal,
   Quartas de final, Oitavas de final, fallback "Rodada N" — derivada testada
   em tournament-details-derived.test.ts), chip de status, avatares (dupla
-  empilha 2), placar por set, campeão na final; **linha de agendamento
+  empilha 2; **lado vazio "A definir": avatar de fallback PRETO
+  (`fallback black`, `src/components/core/image.tsx`) e rótulo muted** — o
+  lado com inscrição segue o fallback azul e o rótulo default, vencedor em
+  accent/semibold), placar por set, campeão na final; **linha de agendamento
   (IBX-0033 A)**: quando `matchDate`+`startMinute`+`courtId` existem, linha
   xs muted `data · HH:MM · quadra` (ex. "12 de set. · 14:00 · Quadra 2") sob
   o header do card, via `formatMatchScheduleSummary`
@@ -451,20 +492,99 @@
   por `match.matchDate`, Calendar03Icon) e Resultado (Edit02Icon), nos
   confrontos definidos e não encerrados (gating `canAct && status !==
   "finished"`); e swap de POSIÇÃO (toque no jogador de um confronto →
-  toque no jogador a trocar → `swapSlots(round/sideA/sideB)` — troca
-  EXATAMENTE as duas inscrições clicadas, jogador por jogador, sem mover
+  toque no jogador a trocar → `swapSlots` — troca EXATAMENTE as duas
+  inscrições clicadas, jogador por jogador, sem mover
   os confrontos) enquanto sem placar — **generalizado pra MESMA rodada em
   qualquer rodada (IBX-0035: entradas diretas ocupam lados na rodada 2+
-  já no sorteio; o guard de seleção reinicia em pick cross-categoria OU
-  cross-rodada; `canSwapMatch` = sem placar, não-finalizada e
-  não-vacant)**; **linhas VACANT (IBX-0035)**: subárvores podadas de
+  já no sorteio)**; **modelo PURO da seleção em `lib/tournaments/
+  bracket-view.ts` (IBX-0053, movido pra tela: o card só apresenta o que a
+  tela decidiu, `swapPickEnabled`)** — `canSwapMatch` = LINHA que pode
+  participar de um ajuste (sem placar, não-finalizada, não-vacant; o
+  `winnerEntryId` da LINHA não trava nada: o vencedor de um bye é decisão do
+  draw, não resultado), `swapSideIsLocked` = vaga TRAVADA por LADO (o lado é
+  a vitória PROPAGADA da partida filha e essa decisão é resultado publicado;
+  `status === "finished"` é o marcador que o wire carrega, `publishedAt` fica
+  no backend), `canReceiveSwapSide` = card que pode RECEBER o lado selecionado
+  (sem resultado publicado), `canPickSwapSecond` = janela da segunda
+  coordenada (cross-categoria nunca; MESMA rodada em `drawn|ongoing`;
+  OUTRA rodada SÓ em `drawn`) e `resolveSwapSelection` = desfecho do toque
+  (`arm` | `clear` na mesma coordenada | `restart` no alvo fora da janela
+  | `swap` com as duas coordenadas). O destino é uma COORDENADA (rodada,
+  slot, lado) e não um card: lado "A definir" de partida viva e linha
+  vacant são destinos legítimos (decisão do Maestro 16/09; o backend tem a
+  palavra final e o erro dele chega no toast). **Move cross-rodada
+  (IBX-0053) — BACKEND E FLIP DO CANVAS ENTREGUES 16-09 (schema + codegen
+  + call site)**: o contrato em vigor é
+  `swapBracketSlots { categoryId, tournamentId, roundA, slotA, sideA, roundB,
+  slotB, sideB }` (mesma key `tournament.bracket.swapSlots`, mesma-rodada =
+  `roundA === roundB` no MESMO call site: `handleSidePress` resolve pelo
+  modelo e manda uma coordenada por lado). O `round` único morreu: o schema
+  antigo descartava `roundA/roundB` e caía no default 1 — um payload do
+  shape novo trocaria slots da RODADA 1 em silêncio, motivo pelo qual o
+  schema novo saiu ANTES do flip. Com uma coordenada armada o card vira
+  DESTINO (`canReceiveSwapSide` + `canPickSwapSecond`); o card armado segue
+  tocável para o toque na MESMA coordenada limpar a seleção. Destino vazio
+  esvazia a origem, destino ocupado transpõe — semântica do servidor.
+  **Recusas do servidor que o canvas já NÃO oferece** (alinhadas 16-09 no
+  gating por lado/feed): lado vazio como origem e destino vazio com FEED VIVO
+  (só rodada 1 ou filha PODADA aceitam
+  uma inscrição — `canReceiveSwapSide` recebe `feed: BracketFeed | null` por
+  lado: null na 1ª rodada, `{ status, winnerEntryId }` da partida filha nas
+  demais). **BUG-0034 (16-09): vaga
+  derivada do BYE deixou de ser recusa no servidor em `drawn`** (o move
+  desce até a posição e re-deriva o bye/avanço) e o canvas foi ALINHADO ao
+  domínio: `swapSideIsLocked` trava só a vaga cuja vitória propagada vem de
+  RESULTADO PUBLICADO, e a linha de bye (`walkover`, sem resultado) volta a
+  ser origem e destino — o usuário viu a seta num lado que o servidor
+  recusava porque o gating antigo olhava o `winnerEntryId` da LINHA, não a
+  procedência do LADO. O texto da recusa deixou de morrer no genérico: o
+  toast lê a mensagem do `CRPCError` que viaja no payload do `ConvexError`
+  (`lib/errors/toast-message.ts`). Residuais que dependem da
+  cadeia de propagação (o canvas não modela) e ficam por conta do servidor,
+  com o toast explicando: "Esse ajuste moveria um vencedor para uma vaga já
+  ocupada" — caso concreto (Forja 16-09): COMPLETAR os DOIS lados de uma
+  linha podada cujo vencedor cairia numa vaga já ocupada pela entrada direta
+  é recusado; preencher UM lado só segue válido (a linha fica "A definir") —
+  e "A rodada seguinte já tem resultado publicado: o vencedor não pode
+  mudar".
+  **Gating POR LADO (`resolveSwapPickSides`, IBX-0053)**: sem coordenada
+  armada os lados são ORIGEM e só o lado PREENCHIDO arma (`entryAId/
+  entryBId !== null` — lado vazio é recusado pelo servidor: "Escolha uma
+  posição preenchida para trocar"), então um card com um lado "A definir"
+  mostra a seta apenas no lado que existe; com uma coordenada armada os
+  lados são DESTINO (lado vazio só com feed morto) e o card da própria
+  origem continua tocável para o toque na mesma coordenada limpar a
+  seleção.
+  **linhas VACANT (IBX-0035)**:
+  subárvores podadas de
   cabeças de chave chegam com `status "vacant"` — card mantém a fase e os
   lados "A definir", SEM chip de status, SEM kebab (`canAct` exige dois
-  lados) e SEM troca; não entram em agenda (nunca têm `matchDate`) nem em
-  placar. Jogador em `published/drawn` vê
+  lados); não entram em agenda (nunca têm `matchDate`) nem em
+  placar (mas ACEITAM ser destino do move cross-rodada). Jogador em
+  `published/drawn` vê
   placeholder "Chave disponível a partir de {data}".
-- **`entries.tsx`** (Inscrições) — tabs segmentadas Pendências|Confirmados
-  no molde challenges.tsx (QA round 7; pendências = `pending_approval` /
+  **card de BYE — vaga derivada do sorteio (16-09, decisão do usuário)**:
+  a linha que nasce com um lado só e o vencedor já resolvido (o bye da 1ª
+  rodada) desenha um card COMPLETAMENTE VAZIO. Predicado puro
+  `isByeMatch(match) = status === "walkover"`
+  (`lib/tournaments/bracket-view`): o discriminador é o STATUS —
+  `walkover: true` sozinho não serve, porque o W.O. JOGADO de verdade
+  (organizador declara vencedor sem placar) é gravado como `finished` com
+  `walkover: true` (`publishResult`) e mantém o card normal (fase + chip +
+  lados). O card de bye continua NA GEOMETRIA (âncora, links e
+  `feedStatusBySlot` intactos — nada muda em bracket-tree/bracket-edges/swap),
+  mas o ramo cedo do `BracketMatchCard` devolve o container do card SEM
+  FILHOS: nenhuma fase, nenhum chip (nem "W.O.", nem "A definir"), nenhum
+  lado fantasma, nenhuma seta e nenhuma identidade (o nome/avatar do lado que
+  avançou não aparece no card). Altura FIXA `BRACKET_BYE_CARD_HEIGHT`
+  (bracket-tree.ts), aplicada pelo próprio card no root: o retângulo do grafo
+  casa com o render por construção e a medida nunca commita (a rota sai cedo
+  no `onHeightChange` do bye), sem o churn de re-layout que o BUG-0033
+  fechou; o `cardHeightOf` da rota escolhe a constante do bye em vez da
+  estimativa de 136.
+- **`entries.tsx`** (Inscrições) — tabs segmentadas Confirmados|Pendências
+  (Confirmados é a PRIMEIRA aba e a de entrada: sem `initialTab` a tela abre
+  nela), no molde challenges.tsx (QA round 7; pendências = `pending_approval` /
   `pending_partner` / `awaiting_payment`, confirmados = `active`; empty
   state por tab por papel no tom da liga; dica de seeds no fim da lista
   EXTINTA — IBX-0036);
@@ -474,23 +594,21 @@
   (`formatEntrySideLabel`) + sub (categoria; nota de convite quando
   `pending_partner`) + trailing por estado — aprovação do organizador e
   convite do parceiro = par icon-only `outline Cancel01Icon` / `default
-  Tick02Icon` idêntico ao da liga; seed = botão "Seed #N"/"Marcar seed"
-  (aba Confirmados) **+ PICKER DE FASE DE ENTRADA (IBX-0035, mesmo
-  trailing)**: Menu no molde do seletor de janela da agenda
-  (schedule.tsx) com **`buildEntryRoundOptions`** — UMA opção por rodada
-  da chave ATUAL, na mesma conta do sorteio (`nextBracketSize` das
-  inscrições ativas da categoria), rotulada por `formatBracketStage`:
-  "Oitavas de final" cai na rodada certa em qualquer tamanho de chave
-  (16 inscritos → rodada 1; 32 → rodada 2; 64 → rodada 3; 128 → rodada 4
-  — a lista fixa anterior só valia para chave de 32), `null` = 1ª rodada
-  — via `setEntryRound`, com o rótulo da fase escolhida pela mesma
-  derivação (`formatEntryRoundLabel`), habilitado em
-  `published` E `drawn` (em drawn, `Menu.Label` "Vale no próximo
-  sorteio"; mudança inerte até re-sortear); erros do backend (fase sem
-  seed, fase inexistente, mesma vaga, completabilidade) chegam prontos no
-  toast do sorteio/re-sorteio; demais = chip de status. A rota aceita
-  `?initialTab=confirmed` (atalho "Cabeças de chave" do menu do
-  chaveamento). Lista `Page.ScrollView` +
+  Tick02Icon` idêntico ao da liga; **CONTROLES DE SEED E DE FASE REMOVIDOS
+  (cutover IBX-0053, 16-09, decisão do usuário)**: a aba Confirmados não tem
+  mais o botão "Marcar seed"/"Seed #N" nem o picker de fase de entrada
+  (`setSeed`/`setEntryRound` saíram da tela, junto com as derivadas
+  `buildEntryRoundOptions`/`formatEntryRoundLabel`/`isEntryRoundSelectable`)
+  — com o MOVE nativo do chaveamento o organizador re-sorteia e arruma a
+  posição no próprio canvas, então editar seed/fase por aqui era redundante e
+  era a origem do dado que TRAVAVA o re-sorteio (uma linha em rodada ≥ 2 sem
+  seed deixa a chave da categoria sem sorteio: "Avanço de fase é exclusivo de
+  cabeças de chave."). O contrato e as procedures (`seedRank`,
+  `entryRound`, `setSeed`, `setEntryRound`, `validateEntryRounds`) SEGUEM no
+  domínio; sem UI, o único consumidor das linhas `vacant`/bye re-deriváveis
+  passa a ser o sorteio/move. Trailing por estado: chip de status. A rota abre
+  em Confirmados (o param `?initialTab=pending` abre a outra aba).
+  Lista `Page.ScrollView` +
   map + `Footer pb-floating-tab-bar-4` (molde requests.tsx:160-237).
 - **`schedule.tsx`** (Agenda — **TAB da FloatingTabBar desde IBX-0033 B**,
   sem BackButton) — ESTRUTURA DA AGENDA DA LIGA (QA round 7,
@@ -505,8 +623,9 @@
 - **`rules.tsx`** (Regras — R10) — tela READ-ONLY no molde `/rules` da liga:
   card **"Partidas"** ("O formato que vale para todos os confrontos do
   torneio.") com `RulesGrid`/`RulesItemCard` GLOBALIZADOS em
-  `src/components/ui/rules-grid.tsx` (6 itens: Formato, Set, Pontuação,
-  Duração, Tie-break, Decisão — `rules.tsx:73-80`); view derivada por
+  `src/components/ui/rules-grid.tsx` (5 itens: Formato, Set, Pontuação,
+  Duração, Tie-break — `rules.tsx:73-78`; o item "Decisão" saiu no
+  DEC-0004); view derivada por
   `buildTournamentRulesView` em
   `src/lib/tournaments/tournament-rules-derived.ts` (formatters reutilizados
   de `lib/leagues/rule-format.ts`). Espelho da decisão R10: regra ÚNICA por
@@ -545,15 +664,62 @@
   brigaria com o scroll; fixos: título, Adicionar + X, rodapé com Salvar);
   o antigo `tournament-result-dialog.tsx` foi EXTINTO
   (grep 0). Detalhes do fluxo na spec da liga (mesmo componente global).
+- **BUG-0026 (15-09, DEC-0005 opção A) — botão "Tie-break" CONTEXTUAL:** no
+  dialog global de resultado, o botão dentro da linha de placar só aparece
+  com o placar daquela linha empatado e além do 0x0 (`canAttachTieBreak`
+  em `src/lib/matches/score-draft.ts`); entrada/saída do botão com wrapper
+  animado no molde rule-card (FadeIn/FadeOut + AccordionLayoutTransition).
+  Menu e linha avulsa seguem livres em qualquer estado (RUL-0019 intacta).
+  Detalhes na spec da liga (mesmo componente global).
 - **Agendar/Reagendar confronto (IBX-0030, RUL-0005)** — o torneio REUSA
   o dialog global da liga `ChallengeProposalDialog`
   (`components/pages/leagues/challenge-proposal-dialog.tsx`) com
-  description adaptada ("A contra B."), `occupiedSlots={[]}` e payload
+  description adaptada ("A contra B."), `occupiedSlots` reais do torneio
+  (BUG-0027/IBX-0043, bullet abaixo) e payload
   `{matchId, courtId, endMinute, matchDate, startMinute}` — o paralelo
   `tournament-schedule-dialog.tsx` foi EXTINTO (o modelo do torneio não
   tem duração visível; endMinute segue exigido pelo contrato
   `ScheduleTournamentMatchSchema` e é computado do
   `defaultDurationMinutes`).
+- **Conflito de quadra no agendamento derivado no servidor (BUG-0027/IBX-0043)** —
+  `tournament.matches.scheduleMatch` recusa agendamento/reagendamento com
+  sobreposição na MESMA quadra+data (`BAD_REQUEST` "Esse horário já está
+  reservado para outro confronto."), com a janela ocupada
+  `[start, start + defaultDurationMinutes)` derivada das regras do torneio
+  (`tournament.matchConfig`) dos DOIS lados (`findCourtSlotConflict` em
+  `convex/domains/tournament/scheduling-rules.ts`; janela half-open, encostar
+  não conflita; walkover ocupa a quadra; o confronto reagendado ignora a si
+  mesmo). O `endMinute` gravado passa a ser o derivado da regra, não o do
+  cliente. Contrato para a UI: `tournament.matches.listOccupiedSlots({
+  tournamentId })` devolve `{matchId, courtId, matchDate, startMinute,
+  endMinute}` de todo confronto agendado, com o MESMO gate do
+  `listForTournament` (chave privada até começar). UI ENTREGUE (Frontend):
+  o `bracket.tsx` busca `listOccupiedSlots` (query `enabled` só pro
+  organizador, mesma audiência do dialog), renomeia `matchId` para o
+  `slotId` NEUTRO e passa ao `ChallengeProposalDialog` com
+  `slotIdToIgnore={scheduleTarget.id}` (o confronto em edição não bloqueia
+  o próprio horário); o sucesso do agendamento invalida a query em
+  `invalidateTournamentContext` e o erro do servidor segue virando toast
+  com a mensagem do backend (`getToastErrorMessage`). O slot virou
+  contrato neutro no par `src/lib/leagues/challenge-schedule.ts` + dialog
+  (RUL-0005: cada domínio adapta na fronteira, liga renomeia
+  `challengeId`, torneio `matchId`; +1 teste do vocabulário do torneio).
+  Modelo DAY-SCOPED consciente (decisão registrada no review): a janela
+  ocupa só o dia D (23:30 + 90min NÃO conflita com 00:15 do D+1), sem
+  conflito na virada do dia. O torneio também NÃO valida a janela de
+  disponibilidade da quadra no servidor (comportamento pré-existente;
+  candidato a follow-up).
+- **Swap zera a agenda do par antigo (BUG-0028/IBX-0046)** — trocar jogador
+  de slot (`swapSlots`) mata o agendamento dos DOIS slots afetados: o
+  persist (`convex/functions/tournament/bracket.ts`) grava `courtId`,
+  `matchDate`, `startMinute` e `endMinute` como `null` junto com as
+  entradas, e `deriveSwapMatchStatus`
+  (`convex/domains/tournament/bracket-rules.ts`) NÃO deriva mais `scheduled`
+  de `hasMatchDate` (mesmo princípio do re-sorteio: a agenda morre com a
+  dupla) — o status volta a `pending`, preservando apenas resultado
+  publicado, `vacant` e bye (`walkover`). Testes atualizados em
+  `bracket-rules.test.ts` (`deriveSwapMatchStatus`,
+  `buildSwapPersistPlan`).
 - **`tournament-join-footer.tsx`** — select de categoria (taxa no label),
   duplas: input de username com debounce 500ms + `players.searchByUsername`
   ao vivo — precheck é HINT de UX, nunca gate do submit (erro de rede fica
@@ -715,14 +881,13 @@
   `convex/domains/tournament/tests/contract.test.ts` +
   `league/tests/contract.test.ts`. Deployado dev+prod em 22-08.
   **R11 (22-08): `tieBreakAtGamesAll`/`finalSetTieBreakAtGamesAll`
-  REMOVIDOS do schema compartilhado** — o gatilho do tie-break é DERIVADO:
-  TB em X-X onde X = `gamesPerSet` do set (no último set custom, X =
-  `finalSetGamesPerSet`); derivação em
-  `challenge-rules.ts:getSetValidationError`. E
-  `tieBreakPoints`/`finalSetTieBreakPoints`/`finalSetSuperTieBreakPoints`
-  agora exigem ∈ {7, 10} (`SUPPORTED_TIE_BREAK_POINTS` +
-  `getTieBreakPointsValidationError` no mesmo superRefine do bestOf,
-  paths próprios; mensagem "Escolha 7 ou 10 pontos no tie-break.").
+  REMOVIDOS do schema compartilhado** — o gatilho do tie-break acompanha os
+  games do set. E os pontos de TB (`tieBreakPoints` e, então, também os
+  campos do último set) passaram a exigir ∈ {7, 10}
+  (`SUPPORTED_TIE_BREAK_POINTS` + `getTieBreakPointsValidationError` no
+  mesmo superRefine do bestOf; mensagem "Escolha 7 ou 10 pontos no
+  tie-break.") — os campos do último set saíram no DEC-0004, restando só
+  `tieBreakPoints`.
   Racional: padrões oficiais do tênis — set TB a 7, super TB a 10, win-by-2
   sempre; nada de mínimo livre. Auditoria dev+prod antes de cada tighten:
   TODOS os docs (1 liga dev/prod, 31 snapshots, 1 torneio) já 6/7/10 —
@@ -731,6 +896,15 @@
   dispara. Sem migration. Deployado dev+prod em 22-08. UI do form ENTREGUE
   no mesmo round (campo de placar do TB removido, segmentos 7|10 — ver
   leagues.md, "Match config compartilhado").
+- **DEC-0004 (15-09, opção A): grupo do último set REMOVIDO do
+  `LeagueMatchConfigSchema`** — vale liga e torneio (fonte única na liga);
+  último set = formato dos demais sets; super TB segue coberto por
+  `tieBreakPoints` 7|10 e pelo placar LIVRE do resultado (RUL-0019; `kind`
+  `super_tiebreak` permanece no schema de set). Zod stripa as chaves
+  `finalSet*` de configs salvos na leitura (coluna `json` mantém o blob —
+  sem migration; testes "legado (DEC-0004)" em
+  `league/tests/contract.test.ts` e no create do torneio). UI: seção
+  `final-set-section.tsx` extinta e item "Decisão" fora da tela /rules.
 - **tables.ts** — `tournament` (organizationId cascade, courts JSON, matchConfig
   JSON, registrationDeadlineAt/startDate, status, platformFeePercent),
   `tournamentCategory` (modality×gender com **uniqueIndex**
@@ -747,8 +921,28 @@
   só na final), `validateSeedRanks` (1..s sem buracos), `buildBracket`
   (seeds nos slots padrão, **byes priorizados aos top seeds**, não-seeds na ordem
   embaralhada pelo caller, byes resolvidos como walkover com avanço imediato),
-  `validateSlotSwap`/`applySlotSwap` (swap 1ª rodada; placar publicado trava;
-  byes re-deriváveis), `nextMatchCoordinates`.
+  `validateSlotSwap`/`applySlotSwap` (**IBX-0053: leem o BOARD da categoria
+  inteira — todas as rodadas — em DUAS coordenadas `(round, slotInRound,
+  side)`**; placar publicado trava as duas partidas afetadas; lado vazio não é
+  origem; **vaga derivada** (lado ocupado por vitória propagada de confronto
+  já decidido) é resolvida até a POSIÇÃO que segura a inscrição
+  (`resolveMoveCoordinate`, **BUG-0034**): vinda de um bye do sorteio ela é
+  re-derivável e o move passa — o bye e o avanço são re-derivados; vinda de
+  resultado PUBLICADO (partida jogada) a vaga segue recusada como origem e
+  como destino; destino vazio esvazia a
+  origem e só é aceito com feed morto (rodada 1 ou linha podada; o lado que
+  espera um vencedor vivo é recusado); destino ocupado transpõe as duas
+  entradas — nada sai da chave; `deriveSwapMatchStatus` só re-deriva walkover
+  na linha que JÁ era bye do sorteio (qualquer outro lado sozinho é `pending`
+  "A definir" — o move não dá W.O. a ninguém); `writeSwapFeed` empurra para a
+  rodada seguinte o vencedor de um bye re-derivado e RETIRA o propagado quando
+  a vaga decidida esvazia, recusando escrever sobre posição alheia, sobre
+  rodada com `publishedAt` ou tornar jogável (2 lados) uma linha podada cujo
+  vencedor cairia numa vaga ocupada), `validateSwapWindow` (cross-round só em `drawn`),
+  `buildSwapPersistPlan` (linhas reescritas + entradas afetadas para a
+  notificação; o move descendido persiste a POSIÇÃO permutada e a linha
+  clicada entra como alimentada, com bump de `rowVersion`), `validateBracketStartable`
+  (gate do `start`, vaga de rodada 1 incluída) e `nextMatchCoordinates`.
 - **entry-rules.ts** (puro, testado) — `buildCategoryDisplayName` (as 5 categorias),
   `validateEntryGenders` (mixed = 1 "Masculino"+1 "Feminino", ambos definidos),
   `resolveEntryStatusAfterPartnerAccepted`, `isEntryDrawable`.
@@ -785,9 +979,17 @@
   `approve`/`reject` (organizador), `cancel` (jogador antes do sorteio ou organizador),
   `setSeed`, `listForTournament`.
 - **bracket.ts** — `draw` (shuffle Fisher-Yates + `buildBracket` por categoria;
-  status→drawn), `swapSlots` (valida + aplica + **re-propaga vencedores** em
-  partidas sem placar; notifica os novos lados), `start` (drawn→ongoing;
-  `tournament.bracket.published` a todos), `listBracket` (organizador).
+  status→drawn), `swapSlots` (**IBX-0053: move cross-round** — o input são
+  duas coordenadas; valida janela/lado vazio e resolve a vaga derivada até a
+  posição (BUG-0034: bye re-derivável passa, resultado publicado recusa),
+  aplica o plano de
+  persistência (permutação + status re-derivado + vaga alimentada/retirada),
+  zera a agenda de TODA partida reescrita (BUG-0028) e notifica
+  `tournament.match.reassigned` aos dois lados clicados e a quem perdeu a vaga
+  retirada), `start` (drawn→ongoing; **gate novo: recusa iniciar com vaga "A
+  definir" sem alimentação** — fecha o buraco que o move abre ao preencher uma
+  linha podada; `tournament.bracket.published` a todos), `listBracket`
+  (organizador).
 - **matches.ts** — `publishResult` (valida resultado via score-rules ou walkover;
   trava com `publishedAt`; **avança vencedor** na rodada seguinte; notifica os
   lados; `maybeFinishTournament` → finished automático quando todas as finais
@@ -876,9 +1078,10 @@ a regra rejeita os dois casos de sobreposição (mesma vaga e bloco contido).
 - **Fase é número de RODADA, não nome fixo**: o tamanho da chave sai de
   `nextBracketSize(inscritos ativos da categoria)`, então o nome da fase de uma
   rodada muda com a chave (chave de 16 → oitavas na rodada 1; de 32 → rodada 2;
-  de 64 → rodada 3; de 128 → rodada 4). A UI deriva os rótulos desse tamanho
-  (`buildEntryRoundOptions`/`formatEntryRoundLabel`, mesma conta do sorteio) —
-  nunca de uma lista fixa.
+  de 64 → rodada 3; de 128 → rodada 4). O rótulo do CARD da chave sai de
+  `formatBracketStage(round, totalRounds)`; o picker de fase que oferecia essas
+  rodadas na tela de Inscrições foi REMOVIDO no cutover do IBX-0053 (16/09)
+  (com ele saíram `buildEntryRoundOptions`/`formatEntryRoundLabel`).
 - **`buildBracket` (passo a passo)**: (1) entradas diretas reivindicam o
 side-slot padrão do seu seed NA rodada de entrada (`slotOfSeed` projetado na
 árvore); dois cabeças no mesmo side-slot = eles se enfrentariam antes dessa
@@ -901,14 +1104,51 @@ carregados da chave; sem agendamento, dispara direto). `ongoing` NUNCA
 re-sortea (chave com placar é intocável). Organizador preso pós-sorteio
 com seeds/fases erradas agora re-sortea na janela drawn→iniciar.
 - **Contrato**: `SetEntryRoundSchema { entryId, entryRound: int ≥ 1 | null }`;
-`tournamentEntrySchema.entryRound`; `SwapBracketSlotsSchema.round`
-(default 1); `tournamentMatchSchema.status` ganha **`vacant`**.
-- **Swap generalizado para MESMA rodada** (`swapSlots` aceita `round`,
-default 1 — retrocompatível): lados de rodada ≥ 2 podem estar ocupados no
-sorteio pelas entradas diretas; a re-derivação de bye continua exclusiva da
-1ª rodada (`applySlotSwap` round-aware) e a re-propagação de vencedores segue
-bloqueada por `publishedAt`. Troca ENTRE rodadas diferentes = fora do
-contrato (mudança de fase é pré-sorteio). **Posse da categoria (review C1,
+`tournamentEntrySchema.entryRound`;
+**`SwapBracketSlotsSchema { categoryId, tournamentId, roundA, slotA, sideA,
+roundB, slotB, sideB }` — IBX-0053, duas coordenadas explícitas, `round` único
+EXTINTO (cutover limpo: o caller é só o canvas)**; `tournamentMatchSchema.status`
+ganha **`vacant`**. Key do client MANTÉM `tournament.bracket.swapSlots` (muda só
+o input); mesma-rodada = `roundA === roundB` no MESMO call site; retorno segue
+`{ success: true }`.
+- **Move de posição cross-round (IBX-0053, 16-09)** — `swapSlots` aceita duas
+coordenadas de rodadas diferentes: `move(from → to)` PERMUTA os valores dos dois
+lados. Destino vazio ⇒ a origem esvazia; destino ocupado ⇒ transposição entre
+rodadas (a entrada deslocada vai para a vaga da origem — nunca descartada).
+Lado vazio não é origem. **Vaga derivada (BUG-0034, 16-09)**: lado cujo ocupante
+é vitória propagada do confronto de baixo — o card das QUARTAS de quem recebeu
+bye, por exemplo — é resolvido até a POSIÇÃO que segura a inscrição
+(`resolveMoveCoordinate` desce a corrente de alimentação) e o move permuta as
+duas INSCRIÇÕES, persistindo o bye e o avanço RE-DERIVADOS. Em `drawn` (nada
+publicado, nada jogado) os byes do sorteio são re-deriváveis, então mover o lado
+das quartas vindo de bye PASSA; a recusa
+(`Essa vaga vem de um confronto já decidido e não pode ser ajustada.`) fica SÓ
+para a vaga cujo vencedor veio de resultado PUBLICADO — partida jogada
+(`hasPublishedResult` no confronto de baixo), que não é re-derivável; o texto e
+o `BAD_REQUEST` seguem iguais. **Janela: cross-round SÓ em `drawn`**
+(mesma-rodada segue `drawn|ongoing`); a
+agenda das partidas reescritas é zerada (BUG-0028); o vencedor propagado é
+retirado da rodada seguinte quando ela não tem `publishedAt`; o move NUNCA
+inventa bye nem entrega W.O. de graça (**correção da auditoria de 16-09**) —
+só uma linha que JÁ era o bye do sorteio segue walkover com o sobrevivente
+(o cabeça que sai dela leva o bye junto, e é re-derivável); qualquer outra
+linha com um lado sozinho vira `pending` "A definir", o adversário NÃO avança
+e o avanço automático anterior é retirado. **Destino vazio** só é aceito quando
+nada pode aterrissar ali primeiro: rodada 1 (sem feed) ou lado alimentado por
+uma linha PODADA (`vacant`) — o lado de uma partida viva que ainda espera o
+vencedor de baixo é recusado (ao publicar, a propagação escreveria por cima e a
+inscrição sumiria da chave). **Completar uma linha podada** (dar o SEGUNDO lado
+a um confronto que a subárvore podada deixou morto) também é recusado quando o
+vencedor dele cairia numa vaga já OCUPADA (a entrada direta que causou a poda):
+preencher UM lado segue permitido e a linha fica "A definir", mas torná-la
+jogável perderia a inscrição de cima na publicação — mesma raiz do caso
+anterior, porta diferente. Erros `BAD_REQUEST` com mensagem específica.
+**Gate do `start`** (mesma entrega): iniciar com vaga "A definir" que nenhuma
+partida pode alimentar é recusado (`A chave tem uma vaga em aberto (rodada N)…`)
+— vale para a vaga de rodada 2+ com subárvore podada E para a linha de RODADA 1
+esvaziada pelo move (rodada 1 não tem feed: um lado sozinho ali nunca mais é
+preenchido), porque `publishResult` exige dois lados.
+**Posse da categoria (review C1,
 10-09)**: `getManagedTournamentOrThrow` só prova a posse do `tournamentId`
 recebido — a procedure carrega a categoria (`getCategoryRecordOrThrow`) e
 exige `category.tournamentId === record.id` (regra pura
@@ -931,6 +1171,14 @@ listForTournament).
 - **Vacant fora de agenda e placar**: `publishResult` e `scheduleMatch`
 rejeitam partidas `vacant` (BAD_REQUEST); listagens seguem devolvendo as
 linhas (a chave precisa da grade) — o filtro visual é do frontend (Radar).
+- **Delta de contrato proposto (IBX-0044, NÃO implementado)**: o
+`setEntryRound` posiciona a entrada direta no side-slot PADRÃO do seed na
+rodada (`slotOfSeed` projetado na árvore); a escolha do slot ESPECÍFICO (semi
+A vs B) só existe pós-sorteio, via `swapSlots` de mesma rodada. Proposta: o
+schema ganhar slot/side explícito (ex. `slotInRound` + `side`) para o
+`buildBracket` posicionar a entrada no side-slot exato já no (re-)sorteio —
+exige `validateEntryRounds` estendido (disjuntividade avaliada por slot
+exato). Decisão e implementação são do Backend.
 - **Placar de tie-break (IBX-0034, parte backend)**: `tournamentMatchScoreSetSchema`
 ganha `tieBreak: { aPoints, bPoints } | null | undefined` (nullish — drafts do
 cliente carregam null); resultados antigos sem tieBreak seguem válidos; W.O.
@@ -991,8 +1239,9 @@ Vocabulário de produto: **torneio** (nunca "evento").
   (formato de partida da liga reutilizado — `LeagueMatchConfigSchema`, que
   desde 22-08/R10 exige `bestOfSets` ∈ {1, 3, 5} no próprio schema, agora
   também no backend e não só no form da liga; default do
-  `DEFAULT_LEAGUE_MATCH_CONFIG`: melhor de 3 sets, 6 games, tie-break a 6-6
-  e último set `same_as_previous` — SEM super tie-break).
+  `DEFAULT_LEAGUE_MATCH_CONFIG`: melhor de 3 sets, 6 games, tie-break a
+  6-6 — sem grupo de último set desde o DEC-0004: último set = formato dos
+  demais sets).
 - **`tournamentCategory`** — `tournamentId`, `modality: singles|doubles`,
   `gender: male|female|mixed` (validação: `singles` não aceita `mixed`),
   nome gerado a partir do par (ex.: "Duplas Mistas"), `entryFeeCents`
@@ -1032,25 +1281,32 @@ draft ──publicar──► published ──fechar inscrições + sortear─�
 - Sorteio (por categoria): chave do tamanho da próxima potência de 2;
   **byes priorizados para os cabeças de chave**; seeds espalhados nas
   extremidades da chave (padrão de torneio), demais posições aleatórias.
-  Sorteio é aleatório por padrão — o organizador apenas marca/desmarca seeds
-  nas inscrições antes de sortear.
+  Sorteio é aleatório por padrão. Desde o cutover do IBX-0053 (16/09) a UI
+  não edita seed nem fase de entrada (`seedRank`/`entryRound` seguem no
+  contrato e valem no sorteio, sem tela — ver Inscrições).
 - `drawn` (preparação): chave sorteada, inscritos fechados. A chave é
   PRIVADA do organizador — ele ajusta (troca de slots, ver abaixo) **ou
-  re-sortea** (`draw` aceita `drawn` desde o IBX-0037, após mudar
-  seeds/fases de entrada) na
+  re-sortea** (`draw` aceita `drawn` desde o IBX-0037, após ajustar as
+  posições no canvas) na
   janela entre o sorteio e o início (ex.: inscrições até 22, torneio
   dia 25 — ajustes de 22 a 25). Jogadores veem placeholder
   "chave disponível a partir de {startDate}". Sem cron: o organizador
-  toca **iniciar** (dia 25) e a chave vira pública.
-- **Ajuste manual da chave (pós-sorteio)**: o organizador troca as DUAS
-  inscrições clicadas (o jogador escolhido em cada confronto — lado A ou B)
-  entre DOIS confronteiros da 1ª rodada da categoria (incluindo slots de
-  bye) enquanto as partidas afetadas ainda não têm placar publicado —
-  partida com placar/avanço trava. Rodadas seguintes derivam dos
-  vencedores, então o ajuste na 1ª rodada é o único necessário. UI:
-  toque no jogador → toque no jogador a trocar → troca exata (BUG-0010;
-  antes o backend trocava sempre o lado A — por isso "trocava o outro").
-  Sem drag na v1.
+  toca **iniciar** (dia 25, com diálogo de confirmação na tela do
+  chaveamento) e a chave vira pública.
+- **Ajuste manual da chave (pós-sorteio)**: o organizador move a POSIÇÃO de
+  uma inscrição tocando o lado de origem e depois o lado de destino (a
+  coordenada é rodada + slot + lado). **Estado real (IBX-0053, 16-09)**: o
+  move é CROSS-ROUND em `drawn` (a MESMA rodada segue valendo também em
+  `ongoing`); o destino vazio esvazia a origem e o destino ocupado transpõe as
+  duas inscrições. A vaga cuja vitória foi PROPAGADA do confronto de baixo —
+  o card das quartas de quem recebeu bye, por exemplo — é MOVÍVEL: o move
+  desce a corrente de alimentação até a posição que segura a inscrição,
+  permuta as duas inscrições e persiste o bye e o avanço RE-DERIVADOS. A
+  recusa fica só para a vaga decidida por RESULTADO PUBLICADO (partida jogada
+  não é re-derivável) e para confronto com placar publicado; lado vazio só
+  recebe inscrição com feed morto. UI: toque no jogador → toque no jogador a
+  trocar → move exato (BUG-0010; antes o backend trocava sempre o lado A —
+  por isso "trocava o outro"). Sem drag na v1.
 - `ongoing` (a partir de "iniciar"): chave pública; organizador lança
   placares e a chave avança na hora; ajuste de slots segue permitido em
   partidas ainda sem resultado.
@@ -1144,7 +1400,7 @@ avanço é revelado no `bracket.published`.
   tem taxa; join footer no molde da liga.
 - **Painel do organizador**: alertas de inscrições pendentes
   (`WidgetAlert`), inscrições com aceitar/recusar (molde `requests.tsx`),
-  marcar seeds, fechar inscrições + sortear, lançar placares.
+  fechar inscrições + sortear, lançar placares.
 
 ## Decisões tomadas
 
@@ -1169,16 +1425,20 @@ avanço é revelado no `bracket.published`.
   final (22-08, usuário).
 - **Organizador lança o placar** — mesa é a autoridade, sem confirmação do
   adversário (22-08, usuário).
-- **Sorteio aleatório com seeds opcionais** — organizador marca cabeças de
-  chave nas inscrições; byes priorizados para seeds (22-08, usuário).
+- **Sorteio aleatório com seeds opcionais** — byes priorizados para os
+  cabeças de chave (22-08, usuário). A marcação de seed pela UI saiu no
+  cutover do IBX-0053 (16/09): `seedRank` continua no contrato e vale no
+  sorteio, sem tela.
 - **Parceiro por username** — exige habilitar username no app antes do
   convite de dupla (22-08, usuário).
 - **Misto exige gênero definido** nos dois perfis (consequência do modelo).
 - **Ajuste manual da chave pós-sorteio** — organizador troca exatamente as
-  DUAS inscrições clicadas entre dois confrontos da 1ª rodada (incluindo
-  byes) enquanto as partidas afetadas não têm resultado (22-08, usuário;
+  DUAS inscrições clicadas entre dois confrontos (incluindo byes) enquanto as
+  partidas afetadas não têm resultado publicado (22-08, usuário;
   BUG-0010: lados clicados vão ao `swapSlots` — antes trocava sempre o
-  lado A).
+  lado A). **Superado pelo IBX-0053 (16-09): o move é cross-round em `drawn`
+  e a vaga com vitória propagada de bye também é movível** (ver "Ajuste
+  manual da chave (pós-sorteio)" no Lifecycle).
 - **Estorno automático no cancelamento** — fluxo de reembolso (Woovi)
   nasce no torneio e depois se aplica às ligas (BAC-0002) (22-08, usuário).
 - **Mapa de notificações** — 12 eventos `tournament.*` com destinatário por
@@ -1190,10 +1450,13 @@ avanço é revelado no `bracket.published`.
   override opcional por categoria** — `tournamentCategory.matchConfig`
   nullable, resolução `resolveMatchConfig = category.matchConfig ??
   tournament.matchConfig` consumida por placar/agenda/diálogos, toggle
-  "formato próprio desta categoria" na UI. Não há `bestOf=2` literal: "2
-  sets + super tie-break" segue alcançável manualmente — melhor de 3 +
-  final set em super tie-break (`bestOfSets: 3` + `finalSetMode:
-  "super_tiebreak"`).
+  "formato próprio desta categoria" na UI. **DEC-0004 (15-09, opção A): o
+  grupo do último set saiu do formato (liga e torneio)** —
+  `finalSetMode`/`finalSet*` extintos, último set = formato dos demais
+  sets; com isso "2 sets + super tie-break" NÃO é mais expressível via
+  config: o super TB continua possível no PLACAR (resultado livre,
+  RUL-0019) e `tieBreakPoints` 7|10 cobre a pontuação. Não há `bestOf=2`
+  literal.
 - **Sem presets de formato no wizard (R12)** — o organizador personaliza as
   regras de partida campo a campo na aba Regras; o seletor "Formato do
   torneio" e `match-config-presets` foram extintos (22-08, usuário).
@@ -1213,13 +1476,16 @@ avanço é revelado no `bracket.published`.
   cada rodada pulada consome um bye forçado; subárvore abaixo da entrada
   direta vira linhas `vacant` (grade preservada); swap generalizado pra
   mesma rodada (10-09, usuário; mecânica da seção "Avanço direto de fase").
+  **UI REMOVIDA no cutover do IBX-0053 (16/09)**: `entryRound`,
+  `setEntryRound`, `validateEntryRounds` e as linhas `vacant` seguem
+  vigentes no domínio, sem tela nas Inscrições.
 - **Mini-placar de tie-break persistido (IBX-0034)** — cada set do placar
   pode carregar `tieBreak {a/b points}` opcional; validado contra o padrão
   do TB (fecha `(X+1)xX`, direção do vencedor, alvo + win-by-2 + teto de
   sanidade); resultados antigos seguem válidos; super tie-break sem
   mini-placar (10-09, usuário).
 - **Re-sorteio na janela drawn (IBX-0037)** — `draw` aceita `drawn`
-  (regra `canDrawTournament`): organizador muda seeds/fases de entrada e
+  (regra `canDrawTournament`): organizador ajusta as posições no canvas e
   re-sortea a chave inteira (delete + rebuild); `ongoing` nunca re-sortea
   (10-09, usuário via pedido "ressortear").
 
