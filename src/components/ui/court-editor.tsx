@@ -2,9 +2,16 @@ import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
+import {
+  applyCourtRange,
+  buildCourtTimeOptions,
+  COURT_DAYS,
+  type CourtTimeRange,
+} from "@/lib/courts/court-availability";
 import { formatMinuteToHHMM } from "@/lib/format/time";
 import type {
   LeagueCourt,
@@ -19,6 +26,7 @@ import {
   Accordion,
   AccordionLayoutTransition,
   Button,
+  Chip,
   Description,
   Dialog,
   FieldError,
@@ -32,32 +40,25 @@ import {
 } from "heroui-native";
 import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
-import { KeyboardAvoidingView, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, View } from "react-native";
 import Animated from "react-native-reanimated";
 
-const DAY_OPTIONS: Array<{
-  key: LeagueCourtDay;
-  label: string;
-}> = [
-  { key: "mon", label: "Seg" },
-  { key: "tue", label: "Ter" },
-  { key: "wed", label: "Qua" },
-  { key: "thu", label: "Qui" },
-  { key: "fri", label: "Sex" },
-  { key: "sat", label: "Sab" },
-  { key: "sun", label: "Dom" },
-];
+const DAY_LABELS: Record<LeagueCourtDay, string> = {
+  fri: "Sex",
+  mon: "Seg",
+  sat: "Sab",
+  sun: "Dom",
+  thu: "Qui",
+  tue: "Ter",
+  wed: "Qua",
+};
 
-const TIME_OPTIONS = Array.from({ length: 49 }, (_, index) => {
-  const totalMinutes = index * 30;
-  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-  const minutes = String(totalMinutes % 60).padStart(2, "0");
+const DAY_OPTIONS = COURT_DAYS.map((day) => ({
+  key: day,
+  label: DAY_LABELS[day],
+}));
 
-  return {
-    label: `${hours}:${minutes}`,
-    value: String(totalMinutes),
-  };
-});
+const TIME_OPTIONS = buildCourtTimeOptions();
 
 function normalizeCourtName(value: string) {
   return value.trim().toLocaleLowerCase("pt-BR");
@@ -89,25 +90,6 @@ function buildCourtId(): string {
 
 function getDayLabel(day: LeagueCourtDay) {
   return DAY_OPTIONS.find((option) => option.key === day)?.label ?? "";
-}
-
-function hasRangeOverlap(
-  ranges: Array<{ endMinute: number; startMinute: number }>
-) {
-  const sortedRanges = [...ranges].sort(
-    (left, right) => left.startMinute - right.startMinute
-  );
-
-  for (let index = 1; index < sortedRanges.length; index += 1) {
-    const previousRange = sortedRanges[index - 1];
-    const currentRange = sortedRanges[index];
-
-    if (currentRange.startMinute < previousRange.endMinute) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 function getCourtAvailabilityDescription(court: LeagueCourt) {
@@ -162,6 +144,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [rangeCourtId, setRangeCourtId] = useState<string | null>(null);
   const [rangeDay, setRangeDay] = useState<LeagueCourtDay | null>(null);
+  const [rangeDays, setRangeDays] = useState<LeagueCourtDay[]>([]);
   const [rangeEndMinute, setRangeEndMinute] = useState<string | undefined>();
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [editingRange, setEditingRange] = useState<{
@@ -183,6 +166,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       ? null
       : (value.find((court) => court.id === rangeCourtId) ?? null);
   const isEditingRange = editingRange !== null;
+  const allDaysSelected = rangeDays.length === DAY_OPTIONS.length;
   const rangeActionLabel = isEditingRange ? "Editar" : "Adicionar";
   const endTimeOptions = rangeStartMinute
     ? TIME_OPTIONS.filter(
@@ -190,9 +174,9 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       )
     : TIME_OPTIONS;
   const rangeDialogTitle =
-    rangeDay === null
-      ? `${rangeActionLabel} Horário`
-      : `${rangeActionLabel} Horário · ${getDayLabel(rangeDay)}`;
+    isEditingRange && rangeDay !== null
+      ? `${rangeActionLabel} Horário · ${getDayLabel(rangeDay)}`
+      : `${rangeActionLabel} Horário`;
 
   function onChange(nextValue: LeagueCourt[]) {
     setValue("courts", nextValue, {
@@ -286,6 +270,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
   function resetRangeDialogState() {
     setRangeCourtId(null);
     setRangeDay(null);
+    setRangeDays([]);
     setRangeStartMinute(undefined);
     setRangeEndMinute(undefined);
     setRangeError(null);
@@ -307,11 +292,34 @@ export function CourtEditor(props: { isDisabled: boolean }) {
   ) {
     setRangeCourtId(courtId);
     setRangeDay(day);
+    setRangeDays([day]);
     setRangeStartMinute(range ? String(range.startMinute) : undefined);
     setRangeEndMinute(range ? String(range.endMinute) : undefined);
     setRangeError(null);
     setEditingRange(range ?? null);
     setIsRangeDialogOpen(true);
+  }
+
+  function applyDayPreset(days: readonly LeagueCourtDay[]) {
+    setRangeError(null);
+    setRangeDays(
+      DAY_OPTIONS.map((option) => option.key).filter((day) =>
+        days.includes(day)
+      )
+    );
+  }
+
+  function toggleRangeDay(day: LeagueCourtDay) {
+    setRangeError(null);
+    setRangeDays((currentDays) => {
+      const nextDays = currentDays.includes(day)
+        ? currentDays.filter((currentDay) => currentDay !== day)
+        : [...currentDays, day];
+
+      return DAY_OPTIONS.map((option) => option.key).filter((orderedDay) =>
+        nextDays.includes(orderedDay)
+      );
+    });
   }
 
   function handleAddRange() {
@@ -321,6 +329,11 @@ export function CourtEditor(props: { isDisabled: boolean }) {
 
     if (!(rangeStartMinute && rangeEndMinute)) {
       setRangeError("Selecione o horário inicial e final.");
+      return;
+    }
+
+    if (rangeDays.length === 0) {
+      setRangeError("Selecione pelo menos um dia.");
       return;
     }
 
@@ -337,40 +350,31 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       return;
     }
 
-    const baseRanges = editingRange
-      ? rangeDialogCourt.availability[rangeDay].filter(
-          (range) =>
-            !(
-              range.startMinute === editingRange.startMinute &&
-              range.endMinute === editingRange.endMinute
-            )
-        )
-      : rangeDialogCourt.availability[rangeDay];
+    const result = applyCourtRange({
+      court: rangeDialogCourt,
+      days: rangeDays,
+      endMinute,
+      replacing: editingRange
+        ? {
+            day: rangeDay,
+            range: editingRange satisfies CourtTimeRange,
+          }
+        : undefined,
+      startMinute,
+    });
 
-    const nextRanges = [
-      ...baseRanges,
-      {
-        endMinute,
-        startMinute,
-      },
-    ].sort((left, right) => left.startMinute - right.startMinute);
-
-    if (hasRangeOverlap(nextRanges)) {
-      setRangeError("Os horários não podem se sobrepor no mesmo dia.");
+    if (result.status === "conflict") {
+      setRangeError(
+        `Esse horário conflita com horários já cadastrados em: ${result.conflictDays
+          .map(getDayLabel)
+          .join(", ")}.`
+      );
       return;
     }
 
     onChange(
       value.map((court) =>
-        court.id === rangeDialogCourt.id
-          ? {
-              ...court,
-              availability: {
-                ...court.availability,
-                [rangeDay]: nextRanges,
-              },
-            }
-          : court
+        court.id === rangeDialogCourt.id ? result.court : court
       )
     );
     closeRangeDialog();
@@ -522,7 +526,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                                             {formatMinuteToHHMM(
                                               range.startMinute
                                             )}{" "}
-                                            -{" "}
+                                            ·{" "}
                                             {formatMinuteToHHMM(
                                               range.endMinute
                                             )}
@@ -705,6 +709,49 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                   ? `Adicione um horário disponível para ${rangeDialogCourt.name}.`
                   : "Selecione o horário disponível."}
               </Description>
+              {isEditingRange ? null : (
+                <View className="gap-2">
+                  <Label>Dias</Label>
+                  <ScrollShadow color="surface">
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                    >
+                      <View className="flex-row gap-1">
+                        <Chip
+                          color={allDaysSelected ? "accent" : "default"}
+                          disabled={isDisabled}
+                          onPress={() => {
+                            applyDayPreset(allDaysSelected ? [] : COURT_DAYS);
+                          }}
+                          size="md"
+                          variant="soft"
+                        >
+                          <Chip.Label>Todos</Chip.Label>
+                        </Chip>
+                        {DAY_OPTIONS.map((option) => {
+                          const isDaySelected = rangeDays.includes(option.key);
+
+                          return (
+                            <Chip
+                              color={isDaySelected ? "accent" : "default"}
+                              disabled={isDisabled}
+                              key={option.key}
+                              onPress={() => {
+                                toggleRangeDay(option.key);
+                              }}
+                              size="md"
+                              variant="soft"
+                            >
+                              <Chip.Label>{option.label}</Chip.Label>
+                            </Chip>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                  </ScrollShadow>
+                </View>
+              )}
 
               <View className="flex-row gap-3">
                 <TextField className="flex-1" isRequired>
