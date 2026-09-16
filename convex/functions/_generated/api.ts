@@ -103,15 +103,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -233,15 +224,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -363,15 +345,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -499,15 +472,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -636,15 +600,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -766,15 +721,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -896,15 +842,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1026,15 +963,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1185,15 +1113,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1315,15 +1234,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1460,15 +1370,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1590,15 +1491,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1720,15 +1612,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1850,15 +1733,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -1984,15 +1858,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -2129,15 +1994,6 @@ export const api: {
           matchConfigSnapshot: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -2229,16 +2085,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2322,16 +2168,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2403,16 +2239,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2479,16 +2305,6 @@ export const api: {
             matchConfig?: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2554,16 +2370,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2636,16 +2442,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2717,16 +2513,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2798,16 +2584,6 @@ export const api: {
             matchConfig?: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -2873,16 +2649,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -3714,7 +3480,8 @@ export const api: {
         "public",
         {
           categoryId: string;
-          round?: number;
+          roundA: number;
+          roundB: number;
           sideA: "a" | "b";
           sideB: "a" | "b";
           slotA: number;
@@ -3767,15 +3534,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -3830,15 +3588,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -3892,15 +3641,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4173,15 +3913,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4222,15 +3953,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4295,16 +4017,6 @@ export const api: {
             matchConfig: {
               bestOfSets: number;
               defaultDurationMinutes: number;
-              finalSetGamesPerSet: number;
-              finalSetHasTieBreak: boolean;
-              finalSetMode:
-                "same_as_previous" | "custom_set" | "super_tiebreak";
-              finalSetMustWinByTwoGames: boolean;
-              finalSetScoringMode: "advantage" | "no_advantage";
-              finalSetSuperTieBreakMustWinByTwo: boolean;
-              finalSetSuperTieBreakPoints: number;
-              finalSetTieBreakMustWinByTwo: boolean;
-              finalSetTieBreakPoints: number;
               gamesPerSet: number;
               hasTieBreak: boolean;
               scoringMode: "advantage" | "no_advantage";
@@ -4359,15 +4071,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4421,15 +4124,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4490,15 +4184,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4540,15 +4225,6 @@ export const api: {
           matchConfig: {
             bestOfSets: number;
             defaultDurationMinutes: number;
-            finalSetGamesPerSet: number;
-            finalSetHasTieBreak: boolean;
-            finalSetMode: "same_as_previous" | "custom_set" | "super_tiebreak";
-            finalSetMustWinByTwoGames: boolean;
-            finalSetScoringMode: "advantage" | "no_advantage";
-            finalSetSuperTieBreakMustWinByTwo: boolean;
-            finalSetSuperTieBreakPoints: number;
-            finalSetTieBreakMustWinByTwo: boolean;
-            finalSetTieBreakPoints: number;
             gamesPerSet: number;
             hasTieBreak: boolean;
             scoringMode: "advantage" | "no_advantage";
@@ -4649,6 +4325,18 @@ export const api: {
           updatedAt: number;
           walkover: boolean;
           winnerEntryId: string | null;
+        }>
+      >;
+      listOccupiedSlots: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          courtId: string;
+          endMinute: number;
+          matchDate: string;
+          matchId: string;
+          startMinute: number;
         }>
       >;
       publishResult: FunctionReference<
