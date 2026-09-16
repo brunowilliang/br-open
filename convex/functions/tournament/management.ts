@@ -8,9 +8,15 @@ import {
 } from "../../shared/media-rules";
 import { buildCategoryDisplayName } from "../../domains/tournament/entry-rules";
 import {
+  findRemovedScheduledCourt,
+  validateTournamentEditStatus,
+} from "../../domains/tournament/management-rules";
+import type { TournamentScheduledMatch } from "../../domains/tournament/scheduling-rules";
+import {
   CreateTournamentSchema,
   DeleteTournamentSchema,
   TournamentByIdSchema,
+  type TournamentStatus,
   UpdateTournamentSchema,
   tournamentCategorySchema,
   tournamentSchema,
@@ -215,11 +221,55 @@ export const update = authMutation
       ctx,
       input.tournamentId as Id<"tournament">
     );
-    if (current.status !== "draft" && current.status !== "published") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Torneios sorteados ou em andamento não podem ser editados.",
+    // Drawn and ONGOING are both adjustment phases (user decision after the
+    // drawn-only lockdown proved too narrow); only finished stays frozen.
+    const statusError = validateTournamentEditStatus(
+      current.status as TournamentStatus
+    );
+    if (statusError) {
+      throw new CRPCError({ code: "BAD_REQUEST", message: statusError });
+    }
+
+    // A court that LEFT the list may not break an existing booking
+    // (mirrors the entry-safe category sync below).
+    const nextCourtIds = new Set(
+      input.courts.map((court: { id: string }) => court.id)
+    );
+    const removedCourtIds = new Set(
+      ((current.courts ?? []) as Array<{ id: string }>)
+        .map((court) => court.id)
+        .filter((courtId) => !nextCourtIds.has(courtId))
+    );
+    if (removedCourtIds.size > 0) {
+      const scheduledMatches: TournamentScheduledMatch[] = [];
+      const tournamentCategories =
+        await ctx.orm.query.tournamentCategory.findMany({
+          limit: 10,
+          where: { tournamentId: current.id as Id<"tournament"> },
+        });
+      for (const category of tournamentCategories) {
+        const rows = await ctx.orm.query.tournamentMatch.findMany({
+          limit: 300,
+          where: { categoryId: category.id as Id<"tournamentCategory"> },
+        });
+        scheduledMatches.push(...rows);
+      }
+      const removedCourtId = findRemovedScheduledCourt({
+        removedCourtIds,
+        scheduledMatches,
       });
+      if (removedCourtId) {
+        const removedCourt = (
+          (current.courts ?? []) as Array<{
+            id: string;
+            name: string;
+          }>
+        ).find((court) => court.id === removedCourtId);
+        throw new CRPCError({
+          code: "CONFLICT",
+          message: `A quadra "${removedCourt?.name ?? removedCourtId}" tem partida agendada e não pode ser removida.`,
+        });
+      }
     }
 
     const replacedStorageIds = collectReplacedStorageIds("avatarStorageId", {

@@ -9,6 +9,7 @@ import {
   PublishMatchResultSchema,
   ScheduleTournamentMatchSchema,
   TournamentByIdSchema,
+  tournamentMatchOccupiedSlotSchema,
   tournamentMatchSchema,
 } from "../../domains/tournament/contract";
 import {
@@ -16,6 +17,11 @@ import {
   validateTournamentMatchScore,
   validateWalkoverWinner,
 } from "../../domains/tournament/score-rules";
+import { resolveMatchOccupiedEndMinute } from "../../domains/league/challenge-scheduling-rules";
+import {
+  findCourtSlotConflict,
+  isScheduledTournamentMatch,
+} from "../../domains/tournament/scheduling-rules";
 import {
   tournament,
   tournamentMatch,
@@ -105,6 +111,26 @@ async function entryRecipientUserIds(
     }
   }
   return [...recipients];
+}
+
+/** All matches of a tournament across its categories (bounded, per category). */
+async function listTournamentMatchRecords(
+  ctx: OrmCtx,
+  tournamentId: Id<"tournament">
+): Promise<MatchRecord[]> {
+  const categories = await ctx.orm.query.tournamentCategory.findMany({
+    limit: 10,
+    where: { tournamentId },
+  });
+  const matches: MatchRecord[] = [];
+  for (const category of categories) {
+    const rows = await ctx.orm.query.tournamentMatch.findMany({
+      limit: 300,
+      where: { categoryId: category.id as Id<"tournamentCategory"> },
+    });
+    matches.push(...rows);
+  }
+  return matches;
 }
 
 /** Every category final has a winner → tournament finished. */
@@ -512,13 +538,38 @@ export const scheduleMatch = authMutation
       throw new CRPCError({ code: "BAD_REQUEST", message: "Quadra inválida." });
     }
 
+    // BUG-0027: one match per court at a time. Occupancy is derived from the
+    // rules' default duration instead of the client-sent endMinute.
+    const matchConfig = tournamentRecord.matchConfig as LeagueMatchConfig;
+    const occupiedEndMinute = resolveMatchOccupiedEndMinute({
+      matchConfig,
+      startMinute: input.startMinute,
+    });
+    const conflict = findCourtSlotConflict({
+      courtId: input.courtId,
+      endMinute: occupiedEndMinute,
+      ignoredMatchId: match.id,
+      matchConfig,
+      matchDate: input.matchDate,
+      scheduledMatches: await listTournamentMatchRecords(
+        ctx,
+        tournamentRecord.id as Id<"tournament">
+      ),
+      startMinute: input.startMinute,
+    });
+    if (conflict) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Esse horário já está reservado para outro confronto.",
+      });
+    }
     const wasScheduled = match.matchDate !== null;
     const now = new Date();
     const [updated] = await ctx.orm
       .update(tournamentMatch)
       .set({
         courtId: input.courtId,
-        endMinute: input.endMinute,
+        endMinute: occupiedEndMinute,
         matchDate: input.matchDate,
         rowVersion: match.rowVersion + 1,
         scheduledById: ctx.userId as Id<"user">,
@@ -576,17 +627,73 @@ export const listForTournament = authQuery
         message: "A chave ainda não está disponível.",
       });
     }
-    const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
-      where: { tournamentId: record.id as Id<"tournament"> },
-    });
-    const matches: MatchRecord[] = [];
-    for (const category of categories) {
-      const rows = await ctx.orm.query.tournamentMatch.findMany({
-        limit: 300,
-        where: { categoryId: category.id as Id<"tournamentCategory"> },
-      });
-      matches.push(...rows);
-    }
+    const matches = await listTournamentMatchRecords(
+      ctx,
+      record.id as Id<"tournament">
+    );
     return matches.map(serializeMatch);
+  });
+
+/**
+ * Occupied court slots for the schedule dialog: every scheduled match's
+ * [start, start + defaultDurationMinutes) window, so the client can offer
+ * only free times per court/day (BUG-0027; the tournament dialog reused the
+ * league dialog with occupiedSlots=[] until now). Same gate as
+ * listForTournament: the drawn bracket is private until the tournament
+ * starts.
+ */
+export const listOccupiedSlots = authQuery
+  .input(TournamentByIdSchema)
+  .output(z.array(tournamentMatchOccupiedSlotSchema))
+  .query(async ({ ctx, input }) => {
+    const record = await getTournamentRecordOrThrow(
+      ctx,
+      input.tournamentId as Id<"tournament">
+    );
+    const viewerContext = await getViewerContext(ctx, ctx.userId);
+    const isOrganizer =
+      viewerContext.activeActor.kind === "organization" &&
+      viewerContext.activeActor.id === record.organizationId;
+    if (
+      !isOrganizer &&
+      record.status !== "ongoing" &&
+      record.status !== "finished"
+    ) {
+      throw new CRPCError({
+        code: "FORBIDDEN",
+        message: "A chave ainda não está disponível.",
+      });
+    }
+
+    const matchConfig = record.matchConfig as LeagueMatchConfig;
+    const matches = await listTournamentMatchRecords(
+      ctx,
+      record.id as Id<"tournament">
+    );
+    // BUG-0030: the runtime check must tolerate ABSENT keys (Convex omits
+    // unset keys) — the old `!== null` filter passed them through and the
+    // mapping emitted undefined/NaN into the output payload.
+    const scheduled = matches.filter(
+      (
+        row
+      ): row is MatchRecord & {
+        courtId: string;
+        endMinute: number | null;
+        matchDate: string;
+        startMinute: number;
+      } => isScheduledTournamentMatch(row)
+    );
+
+    return scheduled.map((row) => ({
+      courtId: row.courtId,
+      endMinute:
+        row.endMinute ??
+        resolveMatchOccupiedEndMinute({
+          matchConfig,
+          startMinute: row.startMinute,
+        }),
+      matchDate: row.matchDate,
+      matchId: row.id,
+      startMinute: row.startMinute,
+    }));
   });
