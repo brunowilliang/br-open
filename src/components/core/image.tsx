@@ -9,6 +9,8 @@ import { withUniwind } from "uniwind";
 
 const blueFallback = require("../../../assets/images/fallbacks/blue.jpg");
 const greenFallback = require("../../../assets/images/fallbacks/green.jpg");
+const whiteFallback = require("../../../assets/images/fallbacks/white.jpg");
+const blackFallback = require("../../../assets/images/fallbacks/black.jpg");
 export const LogoImage = require("../../../assets/images/android-icon-foreground.png");
 
 export const ImageStyled = styled(withUniwind(ExpoImage), {
@@ -21,6 +23,9 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
   },
   variants: {
     fallback: {
+      black: {
+        placeholder: blackFallback,
+      },
       blue: {
         placeholder: blueFallback,
       },
@@ -29,6 +34,9 @@ export const ImageStyled = styled(withUniwind(ExpoImage), {
       },
       none: {
         placeholder: undefined,
+      },
+      white: {
+        placeholder: whiteFallback,
       },
     },
   },
@@ -44,11 +52,17 @@ export const ImageBackgroundStyled = styled(withUniwind(ExpoImageBackground), {
   },
   variants: {
     fallback: {
+      black: {
+        placeholder: blackFallback,
+      },
       blue: {
         placeholder: blueFallback,
       },
       green: {
         placeholder: greenFallback,
+      },
+      white: {
+        placeholder: whiteFallback,
       },
     },
   },
