@@ -9,13 +9,13 @@ import {
   tournamentMatchSchema,
 } from "../../domains/tournament/contract";
 import {
-  applySlotSwap,
   buildBracket,
   buildSwapPersistPlan,
   canDrawTournament,
+  validateBracketStartable,
   validateSlotSwap,
   validateSwapCategoryOwnership,
-  type SwapCheckMatch,
+  type SwapBoardMatch,
   type SwapMatchStatus,
 } from "../../domains/tournament/bracket-rules";
 import { tournament, tournamentMatch } from "../../domains/tournament/tables";
@@ -68,6 +68,26 @@ function getMatches(ctx: OrmCtx, categoryId: Id<"tournamentCategory">) {
     limit: 300,
     where: { categoryId },
   });
+}
+
+/**
+ * IBX-0053: the move rules read the category's WHOLE board — how a side's
+ * occupant arrived (a placement vs a win propagated from the match below) is
+ * what decides whether it may move.
+ */
+function toSwapBoard(matches: MatchRecord[]): SwapBoardMatch[] {
+  return matches.map((match) => ({
+    entryAId: match.entryAId ?? null,
+    entryBId: match.entryBId ?? null,
+    hasPublishedResult:
+      match.publishedAt !== null && match.publishedAt !== undefined,
+    id: match.id as string,
+    round: match.round,
+    slotInRound: match.slotInRound,
+    status: match.status as SwapMatchStatus,
+    walkover: match.walkover,
+    winnerEntryId: match.winnerEntryId ?? null,
+  }));
 }
 
 /** Fisher-Yates on a copy — the only randomness in the draw path. */
@@ -196,121 +216,67 @@ export const swapSlots = authMutation
       throw new CRPCError({ code: "NOT_FOUND", message: ownershipError });
     }
 
-    const round = input.round ?? 1;
+    // IBX-0053: the board is the category's WHOLE bracket — a cross-round
+    // move needs the feeding match of each side to tell a placement (movable)
+    // from a win propagated from the match below (locked).
     const matches = await getMatches(
       ctx,
       input.categoryId as Id<"tournamentCategory">
     );
-    const roundMatches = matches
-      .filter((match) => match.round === round)
-      .sort((a, b) => a.slotInRound - b.slotInRound);
+    const board = toSwapBoard(matches);
+    const move = {
+      board,
+      from: {
+        round: input.roundA,
+        side: input.sideA,
+        slotInRound: input.slotA,
+      },
+      to: { round: input.roundB, side: input.sideB, slotInRound: input.slotB },
+    };
 
-    const roundChecks: SwapCheckMatch[] = roundMatches.map((match) => ({
-      entryAId: match.entryAId ?? null,
-      entryBId: match.entryBId ?? null,
-      hasPublishedResult:
-        match.publishedAt !== null && match.publishedAt !== undefined,
-      matchDate: match.matchDate,
-      round: match.round,
-      slotInRound: match.slotInRound,
-      status: match.status as SwapMatchStatus,
-      winnerEntryId: match.winnerEntryId ?? null,
-    }));
-
-    const swapError = validateSlotSwap(
-      roundChecks,
-      input.slotA,
-      input.sideA,
-      input.slotB,
-      input.sideB
-    );
+    const swapError = validateSlotSwap({
+      board,
+      from: move.from,
+      status: record.status,
+      to: move.to,
+    });
     if (swapError) {
       throw new CRPCError({ code: "BAD_REQUEST", message: swapError });
     }
 
-    const patched = applySlotSwap(
-      roundMatches.map((match) => ({
-        entryAId: match.entryAId ?? null,
-        entryBId: match.entryBId ?? null,
-        isBye: match.walkover,
-        isVacant: match.status === "vacant",
-        round: match.round,
-        slotInRound: match.slotInRound,
-        winnerEntryId: match.winnerEntryId ?? null,
-      })),
-      input.slotA,
-      input.sideA,
-      input.slotB,
-      input.sideB
-    );
-
     const now = new Date();
-    const affectedEntryIds = new Set<string>([
-      ...(patched[input.slotA].entryAId
-        ? [patched[input.slotA].entryAId as string]
-        : []),
-      ...(patched[input.slotA].entryBId
-        ? [patched[input.slotA].entryBId as string]
-        : []),
-      ...(patched[input.slotB].entryAId
-        ? [patched[input.slotB].entryAId as string]
-        : []),
-      ...(patched[input.slotB].entryBId
-        ? [patched[input.slotB].entryBId as string]
-        : []),
-    ]);
+    const { affectedEntryIds, updates } = buildSwapPersistPlan(move);
 
-    const persistPlan = buildSwapPersistPlan({
-      isByeA: patched[input.slotA].isBye,
-      isByeB: patched[input.slotB].isBye,
-      roundMatches: roundChecks,
-      slotA: input.slotA,
-      slotB: input.slotB,
-    });
-
-    for (const { index, status, walkover } of persistPlan) {
-      const match = patched[index];
-      const original = roundMatches[index];
+    for (const update of updates) {
+      const current = matches.find(
+        (match) => (match.id as string) === update.id
+      ) as MatchRecord;
       await ctx.orm
         .update(tournamentMatch)
         .set({
-          entryAId: match.entryAId as Id<"tournamentEntry"> | null,
-          entryBId: match.entryBId as Id<"tournamentEntry"> | null,
-          status,
+          // BUG-0028: the schedule dies with the pair. Every row the move
+          // rewrote loses its booking (the two clicked matches and the feed
+          // rows whose win changed), so no card stays "Agendado" with the old
+          // pair's court/date/time; untouched matches keep theirs.
+          courtId: null,
+          endMinute: null,
+          entryAId: update.entryAId as Id<"tournamentEntry"> | null,
+          entryBId: update.entryBId as Id<"tournamentEntry"> | null,
+          matchDate: null,
+          rowVersion: update.bumpRowVersion
+            ? current.rowVersion + 1
+            : current.rowVersion,
+          scheduledById: null,
+          startMinute: null,
+          status: update.status,
           updatedAt: now,
-          walkover,
-          winnerEntryId: match.winnerEntryId as Id<"tournamentEntry"> | null,
+          walkover: update.walkover,
+          winnerEntryId: update.winnerEntryId as Id<"tournamentEntry"> | null,
         })
-        .where(eq(tournamentMatch.id, original.id as never));
+        .where(eq(tournamentMatch.id, update.id as never));
     }
 
-    // Propagate this round's winners (incl. re-derived byes) into the next
-    // round, only into matches without a published result (spec: result
-    // locks the slot).
-    for (const match of patched) {
-      if (!match.winnerEntryId) {
-        continue;
-      }
-      const next = matches.find(
-        (candidate) =>
-          candidate.round === match.round + 1 &&
-          candidate.slotInRound === Math.floor(match.slotInRound / 2)
-      );
-      if (!next || next.publishedAt) {
-        continue;
-      }
-      const side = match.slotInRound % 2 === 0 ? "entryAId" : "entryBId";
-      await ctx.orm
-        .update(tournamentMatch)
-        .set({
-          [side]: match.winnerEntryId,
-          rowVersion: next.rowVersion + 1,
-          updatedAt: now,
-        })
-        .where(eq(tournamentMatch.id, next.id as never));
-    }
-
-    if (affectedEntryIds.size > 0) {
+    if (affectedEntryIds.length > 0) {
       // L1: notify BOTH users of every affected entry (creator + partner),
       // same pattern as the other match notifications.
       const recipients = new Set<Id<"user">>();
@@ -355,6 +321,23 @@ export const start = authMutation
       });
     }
 
+    const categories = await getCategories(ctx, record.id as Id<"tournament">);
+
+    // IBX-0053: an "A definir" hole (an empty side whose feed can never fill
+    // it) would go public as an unplayable match — publishResult needs two
+    // sides. The move opens this state; starting with it is refused until the
+    // organizer fixes the bracket.
+    for (const category of categories) {
+      const startError = validateBracketStartable(
+        toSwapBoard(
+          await getMatches(ctx, category.id as Id<"tournamentCategory">)
+        )
+      );
+      if (startError) {
+        throw new CRPCError({ code: "BAD_REQUEST", message: startError });
+      }
+    }
+
     const now = new Date();
     await ctx.orm
       .update(tournament)
@@ -362,7 +345,6 @@ export const start = authMutation
       .where(eq(tournament.id, record.id as never));
 
     // Notify every active entrant across all categories.
-    const categories = await getCategories(ctx, record.id as Id<"tournament">);
     const recipients = new Set<Id<"user">>();
     for (const category of categories) {
       const entries = await getActiveEntries(

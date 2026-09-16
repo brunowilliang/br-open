@@ -11,13 +11,17 @@ import {
   nextMatchCoordinates,
   seedOrder,
   slotOfSeed,
+  validateBracketStartable,
   validateEntryRounds,
   validateSeedRanks,
   validateSlotSwap,
   validateSwapCategoryOwnership,
+  validateSwapWindow,
+  type BracketMatchSide,
   type BracketSeedEntry,
+  type BracketSwapCoordinate,
   type BuiltBracketMatch,
-  type SwapCheckMatch,
+  type SwapBoardMatch,
 } from "../bracket-rules";
 
 const entry = (
@@ -29,6 +33,65 @@ const entry = (
   entryRound,
   seedRank,
 });
+
+const boardMatch = (input: {
+  entryAId?: string | null;
+  entryBId?: string | null;
+  hasPublishedResult?: boolean;
+  id?: string;
+  round: number;
+  slotInRound: number;
+  status?: SwapBoardMatch["status"];
+  walkover?: boolean;
+  winnerEntryId?: string | null;
+}): SwapBoardMatch => ({
+  entryAId: input.entryAId ?? null,
+  entryBId: input.entryBId ?? null,
+  hasPublishedResult: input.hasPublishedResult ?? false,
+  id: input.id ?? `m${input.round}-${input.slotInRound}`,
+  round: input.round,
+  slotInRound: input.slotInRound,
+  status: input.status ?? "pending",
+  walkover: input.walkover ?? false,
+  winnerEntryId: input.winnerEntryId ?? null,
+});
+
+const coordinate = (
+  round: number,
+  slotInRound: number,
+  side: BracketMatchSide
+): BracketSwapCoordinate => ({ round, side, slotInRound });
+
+/** Chave montada pelo sorteio → board das regras de move. */
+const toBoardRow = (match: BuiltBracketMatch): SwapBoardMatch =>
+  boardMatch({
+    entryAId: match.entryAId,
+    entryBId: match.entryBId,
+    round: match.round,
+    slotInRound: match.slotInRound,
+    status: match.isVacant ? "vacant" : match.isBye ? "walkover" : "pending",
+    walkover: match.isBye,
+    winnerEntryId: match.winnerEntryId,
+  });
+
+/**
+ * BUG-0034: chave sorteada com a 2ª rodada exibindo um lado DERIVADO do bye
+ * da 1ª rodada (w venceu o bye do slot 0 e foi propagado para o lado A da
+ * semi) ao lado de um confronto real (x vs y). É o card das quartas que o
+ * organizador tenta mover.
+ */
+const byeDerivedBoard = (): SwapBoardMatch[] => [
+  boardMatch({
+    entryAId: "w",
+    round: 1,
+    slotInRound: 0,
+    status: "walkover",
+    walkover: true,
+    winnerEntryId: "w",
+  }),
+  boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 1 }),
+  boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+];
 
 describe("nextBracketSize", () => {
   it("retorna no mínimo 2", () => {
@@ -194,240 +257,721 @@ describe("buildBracket", () => {
 });
 
 describe("validateSlotSwap", () => {
-  const matches = (withResult: number[] = []): SwapCheckMatch[] =>
-    [0, 1].map((slot) => ({
-      entryAId: `a${slot}`,
-      entryBId: `b${slot}`,
-      hasPublishedResult: withResult.includes(slot),
-      matchDate: null,
-      round: 1,
-      slotInRound: slot,
-      status: "pending",
-      winnerEntryId: null,
-    }));
-
-  it("rejeita slots iguais", () => {
-    expect(validateSlotSwap(matches(), 0, "a", 0, "a")).toContain("diferentes");
-  });
-
-  it("rejeita slot fora da rodada 1", () => {
-    expect(validateSlotSwap(matches(), 0, "a", 5, "a")).toContain("inválida");
-    expect(validateSlotSwap(matches(), -1, "a", 0, "a")).toContain("inválida");
-  });
-
-  it("bloqueia swap quando há placar publicado", () => {
-    expect(validateSlotSwap(matches([0]), 0, "a", 1, "a")).toContain(
-      "resultado publicado"
+  const board = (withResult: number[] = []): SwapBoardMatch[] =>
+    [0, 1].map((slot) =>
+      boardMatch({
+        entryAId: `a${slot}`,
+        entryBId: `b${slot}`,
+        hasPublishedResult: withResult.includes(slot),
+        round: 1,
+        slotInRound: slot,
+      })
     );
-    expect(validateSlotSwap(matches([1]), 0, "a", 1, "a")).toContain(
-      "resultado publicado"
-    );
+
+  it("rejeita coordenadas iguais", () => {
+    expect(
+      validateSlotSwap({
+        board: board(),
+        from: coordinate(1, 0, "a"),
+        status: "drawn",
+        to: coordinate(1, 0, "a"),
+      })
+    ).toContain("diferentes");
   });
 
-  it("aceita swap sem placar (bye re-derivável não bloqueia)", () => {
-    expect(validateSlotSwap(matches(), 0, "a", 1, "a")).toBeNull();
+  it("rejeita coordenada fora da chave", () => {
+    expect(
+      validateSlotSwap({
+        board: board(),
+        from: coordinate(1, 0, "a"),
+        status: "drawn",
+        to: coordinate(1, 5, "a"),
+      })
+    ).toContain("inválida");
+    expect(
+      validateSlotSwap({
+        board: board(),
+        from: coordinate(1, -1, "a"),
+        status: "drawn",
+        to: coordinate(1, 0, "a"),
+      })
+    ).toContain("inválida");
   });
 
-  it("rejeita lado vazio — o swap move exatamente o jogador clicado", () => {
-    const withEmptySide: SwapCheckMatch[] = [
-      {
-        entryAId: "a0",
-        entryBId: null,
-        hasPublishedResult: false,
-        matchDate: null,
+  it("bloqueia o move quando há placar publicado", () => {
+    expect(
+      validateSlotSwap({
+        board: board([0]),
+        from: coordinate(1, 0, "a"),
+        status: "ongoing",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("resultado publicado");
+    expect(
+      validateSlotSwap({
+        board: board([1]),
+        from: coordinate(1, 0, "a"),
+        status: "ongoing",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("resultado publicado");
+  });
+
+  it("aceita move sem placar (bye re-derivável não bloqueia)", () => {
+    expect(
+      validateSlotSwap({
+        board: board(),
+        from: coordinate(1, 0, "a"),
+        status: "ongoing",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toBeNull();
+  });
+
+  it("rejeita lado vazio como origem — o move permuta exatamente o lado clicado", () => {
+    const withEmptySide = [
+      boardMatch({ entryAId: "a0", round: 1, slotInRound: 0 }),
+      boardMatch({ entryAId: "a1", entryBId: "b1", round: 1, slotInRound: 1 }),
+    ];
+    expect(
+      validateSlotSwap({
+        board: withEmptySide,
+        from: coordinate(1, 0, "b"),
+        status: "drawn",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("posição preenchida");
+  });
+
+  it("drawn: vaga derivada do bye é móvel como origem e como destino (BUG-0034)", () => {
+    for (const [from, to] of [
+      [coordinate(2, 0, "a"), coordinate(1, 1, "a")],
+      [coordinate(1, 1, "a"), coordinate(2, 0, "a")],
+    ] as const) {
+      expect(
+        validateSlotSwap({
+          board: byeDerivedBoard(),
+          from,
+          status: "drawn",
+          to,
+        })
+      ).toBeNull();
+    }
+  });
+
+  it("recusa vaga derivada de resultado PUBLICADO como origem e como destino", () => {
+    // Duas quartas cujos lados vieram de partidas JOGADAS (publicadas): o
+    // avanço não é re-derivável e o move segue recusado — a recusa de vaga
+    // derivada fica SÓ para resultado publicado (BUG-0034).
+    const played = [
+      boardMatch({
+        entryAId: "w",
+        entryBId: "z",
+        hasPublishedResult: true,
         round: 1,
         slotInRound: 0,
-        status: "pending",
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "a1",
-        entryBId: "b1",
-        hasPublishedResult: false,
-        matchDate: null,
+        status: "finished",
+        winnerEntryId: "w",
+      }),
+      boardMatch({
+        entryAId: "v",
+        entryBId: "u",
+        hasPublishedResult: true,
         round: 1,
-        slotInRound: 1,
-        status: "pending",
-        winnerEntryId: null,
-      },
+        slotInRound: 2,
+        status: "finished",
+        winnerEntryId: "v",
+      }),
+      boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+      boardMatch({ entryAId: "v", round: 2, slotInRound: 1 }),
     ];
-    expect(validateSlotSwap(withEmptySide, 0, "b", 1, "a")).toContain(
-      "posição preenchida"
-    );
+
+    for (const status of ["drawn", "ongoing"]) {
+      expect(
+        validateSlotSwap({
+          board: played,
+          from: coordinate(2, 0, "a"),
+          status,
+          to: coordinate(2, 1, "a"),
+        })
+      ).toContain("confronto já decidido");
+      expect(
+        validateSlotSwap({
+          board: played,
+          from: coordinate(2, 1, "a"),
+          status,
+          to: coordinate(2, 0, "a"),
+        })
+      ).toContain("confronto já decidido");
+    }
+
+    // O cruzado (rodada 2 → rodada 1) em ongoing continua barrado pela janela
+    // antes de qualquer coisa.
+    expect(
+      validateSlotSwap({
+        board: played,
+        from: coordinate(2, 0, "a"),
+        status: "ongoing",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("entre rodadas");
+  });
+});
+
+describe("validateSwapWindow (IBX-0053)", () => {
+  it("cross-round só com a chave sorteada e ainda não iniciada", () => {
+    expect(
+      validateSwapWindow({
+        from: coordinate(1, 0, "a"),
+        status: "drawn",
+        to: coordinate(2, 0, "a"),
+      })
+    ).toBeNull();
+    expect(
+      validateSwapWindow({
+        from: coordinate(1, 0, "a"),
+        status: "ongoing",
+        to: coordinate(2, 0, "a"),
+      })
+    ).toContain("entre rodadas");
+  });
+
+  it("mesma rodada segue liberada em drawn e ongoing", () => {
+    for (const status of ["drawn", "ongoing"]) {
+      expect(
+        validateSwapWindow({
+          from: coordinate(2, 0, "a"),
+          status,
+          to: coordinate(2, 1, "a"),
+        })
+      ).toBeNull();
+    }
   });
 });
 
 describe("applySlotSwap", () => {
-  it("troca as entradas dos dois slots e re-deriva byes", () => {
-    const firstRound = [
-      {
-        entryAId: "s1",
-        entryBId: null,
-        isBye: true,
-        isVacant: false,
+  it("permuta os dois lados e re-deriva o bye da 1ª rodada", () => {
+    // 1ª rodada: bye de w no slot 0 (par vazio); x vs y no slot 1.
+    const board = [
+      boardMatch({
+        entryAId: "w",
         round: 1,
         slotInRound: 0,
-        winnerEntryId: "s1",
-      },
-      {
-        entryAId: "a",
-        entryBId: "b",
-        isBye: false,
-        isVacant: false,
-        round: 1,
-        slotInRound: 1,
-        winnerEntryId: null,
-      },
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 1 }),
     ];
 
-    const patched = applySlotSwap(firstRound, 0, "a", 1, "a");
-    // s1 troca de lugar com a
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "a"),
+    });
+    // w troca de lugar com x e o bye é re-derivado com o sobrevivente.
     expect(patched[0]).toMatchObject({
-      entryAId: "a",
+      entryAId: "x",
       entryBId: null,
-      isBye: true,
-      winnerEntryId: "a",
+      status: "walkover",
+      walkover: true,
+      winnerEntryId: "x",
     });
     expect(patched[1]).toMatchObject({
-      entryAId: "s1",
-      entryBId: "b",
-      isBye: false,
+      entryAId: "w",
+      entryBId: "y",
+      status: "pending",
+      walkover: false,
       winnerEntryId: null,
     });
     // original intocado (pureza)
-    expect(firstRound[0].entryAId).toBe("s1");
+    expect(board[0].entryAId).toBe("w");
   });
 
-  it("swap entre dois confrontos cheios remove byes inexistentes", () => {
-    const firstRound = [
-      {
-        entryAId: "x",
-        entryBId: "y",
-        isBye: false,
-        isVacant: false,
-        round: 1,
-        slotInRound: 0,
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "w",
-        entryBId: "z",
-        isBye: false,
-        isVacant: false,
-        round: 1,
-        slotInRound: 1,
-        winnerEntryId: null,
-      },
-    ];
-    const patched = applySlotSwap(firstRound, 0, "a", 1, "a");
+  it("drawn: mover o lado das quartas vindo do bye desce até a posição e re-deriva (BUG-0034)", () => {
+    const patched = applySlotSwap({
+      board: byeDerivedBoard(),
+      from: coordinate(2, 0, "a"),
+      to: coordinate(1, 1, "a"),
+    });
+    // O bye muda de dono: x herda o avanço automático do slot 0.
     expect(patched[0]).toMatchObject({
+      entryAId: "x",
+      entryBId: null,
+      status: "walkover",
+      walkover: true,
+      winnerEntryId: "x",
+    });
+    // w cai no confronto real da 1ª rodada.
+    expect(patched[1]).toMatchObject({
       entryAId: "w",
       entryBId: "y",
-      isBye: false,
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    // O lado derivado da 2ª rodada acompanha o novo dono do bye — o avanço é
+    // re-derivado junto, nada fica apontando pro jogador que saiu.
+    expect(patched[2]).toMatchObject({
+      entryAId: "x",
+      entryBId: null,
+      status: "pending",
       winnerEntryId: null,
     });
   });
 
-  it("troca exatamente o jogador clicado no lado B (B<->B)", () => {
-    const firstRound = [
-      {
-        entryAId: "x",
-        entryBId: "y",
-        isBye: false,
-        isVacant: false,
+  it("drawn: troca dois lados de rodada 2 alimentados por byes diferentes (BUG-0034)", () => {
+    // Dois byes (w no par 0, v no par 2) alimentando dois lados de rodada 2.
+    const board = [
+      boardMatch({
+        entryAId: "w",
         round: 1,
         slotInRound: 0,
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "w",
-        entryBId: "z",
-        isBye: false,
-        isVacant: false,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({
+        entryAId: "v",
         round: 1,
-        slotInRound: 1,
-        winnerEntryId: null,
-      },
+        slotInRound: 2,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "v",
+      }),
+      boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+      boardMatch({ entryAId: "v", round: 2, slotInRound: 1 }),
     ];
-    const patched = applySlotSwap(firstRound, 0, "b", 1, "b");
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(2, 0, "a"),
+      to: coordinate(2, 1, "a"),
+    });
+    // Cada bye troca de dono e cada avanço segue o seu.
+    expect(patched[0]).toMatchObject({ entryAId: "v", winnerEntryId: "v" });
+    expect(patched[1]).toMatchObject({ entryAId: "w", winnerEntryId: "w" });
+    expect(patched[2]).toMatchObject({ entryAId: "v" });
+    expect(patched[3]).toMatchObject({ entryAId: "w" });
+    // As inscrições são as mesmas: só trocaram de vaga.
+    expect(
+      new Set(
+        patched
+          .flatMap((row) => [row.entryAId, row.entryBId])
+          .filter((entryId) => entryId !== null)
+      )
+    ).toEqual(new Set(["w", "v"]));
+  });
+
+  it("move entre dois confrontos cheios não cria bye", () => {
+    const board = [
+      boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 0 }),
+      boardMatch({ entryAId: "w", entryBId: "z", round: 1, slotInRound: 1 }),
+    ];
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "a"),
+    });
+    expect(patched[0]).toMatchObject({
+      entryAId: "w",
+      entryBId: "y",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+  });
+
+  it("troca exatamente o lado clicado (B<->B)", () => {
+    const board = [
+      boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 0 }),
+      boardMatch({ entryAId: "w", entryBId: "z", round: 1, slotInRound: 1 }),
+    ];
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "b"),
+      to: coordinate(1, 1, "b"),
+    });
     // Apenas o lado B troca — os lados A ficam nos seus confrontos.
     expect(patched[0]).toMatchObject({ entryAId: "x", entryBId: "z" });
     expect(patched[1]).toMatchObject({ entryAId: "w", entryBId: "y" });
   });
 
   it("troca lado A do primeiro com lado B do segundo (cruzado)", () => {
-    const firstRound = [
-      {
-        entryAId: "x",
-        entryBId: "y",
-        isBye: false,
-        isVacant: false,
-        round: 1,
-        slotInRound: 0,
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "w",
-        entryBId: "z",
-        isBye: false,
-        isVacant: false,
-        round: 1,
-        slotInRound: 1,
-        winnerEntryId: null,
-      },
+    const board = [
+      boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 0 }),
+      boardMatch({ entryAId: "w", entryBId: "z", round: 1, slotInRound: 1 }),
     ];
-    const patched = applySlotSwap(firstRound, 0, "a", 1, "b");
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "b"),
+    });
     // x (lado A do slot 0) troca com z (lado B do slot 1).
     expect(patched[0]).toMatchObject({ entryAId: "z", entryBId: "y" });
     expect(patched[1]).toMatchObject({ entryAId: "w", entryBId: "x" });
   });
+
+  it("cross-round com destino vazio: a origem esvazia e o propagado é retirado", () => {
+    // 1ª rodada: bye de w no slot 0 e subárvore PODADA no slot 1 (feed morto,
+    // único tipo de lado vazio que aceita uma inscrição fora da 1ª rodada).
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+    ];
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(2, 0, "b"),
+    });
+    // A origem fica sem lados → vacant; w deixa de ser o vencedor propagado e
+    // passa a ser uma POSIÇÃO do lado B da semi.
+    expect(patched[0]).toMatchObject({
+      entryAId: null,
+      entryBId: null,
+      status: "vacant",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    expect(patched[2]).toMatchObject({
+      entryAId: null,
+      entryBId: "w",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+  });
+
+  it("cross-round com destino ocupado: transposição (nada sai da chave)", () => {
+    // 1ª rodada: bye de w (alimenta o lado A da semi) e x vs z no slot 2; s1
+    // entrou direto na semi (lado B, subárvore do slot 1 podada).
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({
+        entryAId: "w",
+        entryBId: "s1",
+        round: 2,
+        slotInRound: 0,
+      }),
+      boardMatch({ entryAId: "x", entryBId: "z", round: 1, slotInRound: 2 }),
+      boardMatch({ round: 2, slotInRound: 1 }),
+      boardMatch({ round: 3, slotInRound: 0 }),
+    ];
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(2, 0, "b"),
+      to: coordinate(1, 2, "a"),
+    });
+    expect(patched[2]).toMatchObject({ entryAId: "w", entryBId: "x" });
+    expect(patched[3]).toMatchObject({ entryAId: "s1", entryBId: "z" });
+    // As duas entradas continuam na chave: só trocaram de vaga.
+    expect(
+      patched.flatMap((row) => [row.entryAId, row.entryBId]).filter(Boolean)
+        .length
+    ).toBe(
+      board.flatMap((row) => [row.entryAId, row.entryBId]).filter(Boolean)
+        .length
+    );
+  });
+
+  it("cross-round para vaga podada: a linha volta a pending, nunca a bye", () => {
+    // A semi (r2s0) é podada (subárvore morta) e vira destino legítimo; s1
+    // entra direto na outra semi e é a origem do move.
+    const board = [
+      boardMatch({ round: 1, slotInRound: 0, status: "vacant" }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ round: 2, slotInRound: 0, status: "vacant" }),
+      boardMatch({ entryAId: "s1", round: 2, slotInRound: 1 }),
+      boardMatch({ round: 3, slotInRound: 0 }),
+    ];
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(2, 1, "a"),
+      to: coordinate(3, 0, "a"),
+    });
+    // A vaga vazia de rodada 3 recebe a entrada e fica "A definir", não bye.
+    expect(patched[4]).toMatchObject({
+      entryAId: "s1",
+      entryBId: null,
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    expect(patched[3]).toMatchObject({
+      entryAId: null,
+      entryBId: null,
+      status: "vacant",
+    });
+  });
+
+  it("encher o lado vazio de um bye devolve a partida a pending e retira o propagado", () => {
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ entryAId: "x", entryBId: "y", round: 1, slotInRound: 1 }),
+      boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+    ];
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 1, "a"),
+      to: coordinate(1, 0, "b"),
+    });
+    // O bye passa a confronto definido: w perde o avanço automático.
+    expect(patched[0]).toMatchObject({
+      entryAId: "w",
+      entryBId: "x",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    // x deixou o par e y NÃO assume o bye: a linha fica "A definir" (o move
+    // nunca entrega W.O.) e w sai da 2ª rodada.
+    expect(patched[1]).toMatchObject({
+      entryAId: null,
+      entryBId: "y",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    expect(patched[2]).toMatchObject({
+      entryAId: null,
+      entryBId: null,
+      winnerEntryId: null,
+    });
+  });
+
+  it("tirar um jogador da 1ª rodada NÃO auto-avanca o adversário (IBX-0053)", () => {
+    // m1-0 com A vs B; m1-1 é o bye do sorteio (C sozinho), que alimenta o
+    // lado B da semi.
+    const board = [
+      boardMatch({ entryAId: "A", entryBId: "B", round: 1, slotInRound: 0 }),
+      boardMatch({
+        entryAId: "C",
+        round: 1,
+        slotInRound: 1,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "C",
+      }),
+      boardMatch({ entryBId: "C", round: 2, slotInRound: 0 }),
+    ];
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "b"),
+    });
+
+    // A origem fica "A definir": B NÃO ganha W.O. e não avança.
+    expect(patched[0]).toMatchObject({
+      entryAId: null,
+      entryBId: "B",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    // Encher o lado vazio do bye devolve a partida a pending e retira o
+    // avanço automático de C.
+    expect(patched[1]).toMatchObject({
+      entryAId: "C",
+      entryBId: "A",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    expect(patched[2]).toMatchObject({
+      entryAId: null,
+      entryBId: null,
+      winnerEntryId: null,
+    });
+  });
+
+  it("recusa destino vazio cujo confronto de baixo ainda vai decidir o vencedor", () => {
+    // O lado B da semi espera o vencedor de m1-1 (vivo, sem vencedor): a
+    // inscrição movida seria sobrescrita quando esse confronto publicasse.
+    const board = [
+      boardMatch({ entryAId: "p", entryBId: "q", round: 1, slotInRound: 1 }),
+      boardMatch({ entryAId: "s1", round: 2, slotInRound: 0 }),
+    ];
+    expect(
+      validateSlotSwap({
+        board,
+        from: coordinate(1, 1, "a"),
+        status: "drawn",
+        to: coordinate(2, 0, "b"),
+      })
+    ).toContain("vencedor do confronto de baixo");
+  });
+
+  it("recusa COMPLETAR uma linha podada quando o vencedor cairia na vaga da entrada direta", () => {
+    // Chave 8 com seed1 direto na FINAL: a semi r2s0 está podada e o lado A da
+    // final pertence a seed1. Preencher UM lado da linha podada é o contrato
+    // (fica "A definir"); torná-la um confronto JOGÁVEL colidiria com a vaga
+    // ocupada acima — publicar a semi sobrescreveria seed1 e ele sumiria.
+    const board = [
+      boardMatch({ round: 1, slotInRound: 0, status: "vacant" }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "p", entryBId: "p2", round: 1, slotInRound: 2 }),
+      boardMatch({ entryAId: "q", entryBId: "q2", round: 1, slotInRound: 3 }),
+      boardMatch({ round: 2, slotInRound: 0, status: "vacant" }),
+      boardMatch({ entryAId: "seed1", round: 3, slotInRound: 0 }),
+    ];
+
+    const filled = applySlotSwap({
+      board,
+      from: coordinate(1, 2, "a"),
+      to: coordinate(2, 0, "a"),
+    });
+    expect(filled[4]).toMatchObject({
+      entryAId: "p",
+      entryBId: null,
+      status: "pending",
+    });
+
+    expect(
+      validateSlotSwap({
+        board: filled,
+        from: coordinate(1, 3, "a"),
+        status: "drawn",
+        to: coordinate(2, 0, "b"),
+      })
+    ).toContain("vaga já ocupada");
+  });
+
+  it("recusa o move quando a rodada seguinte já tem resultado publicado", () => {
+    // Sem L2: o bye de C ainda está propagado para o lado A da semi, que já
+    // foi jogada — retirar o avanço reescreveria uma partida publicada.
+    const board = [
+      boardMatch({
+        entryAId: "C",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "C",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({
+        entryAId: "C",
+        entryBId: "D",
+        hasPublishedResult: true,
+        round: 2,
+        slotInRound: 0,
+      }),
+    ];
+
+    expect(
+      validateSlotSwap({
+        board,
+        from: coordinate(1, 0, "a"),
+        status: "drawn",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("resultado publicado");
+  });
 });
 
 describe("deriveSwapMatchStatus", () => {
-  it("preserva estado explícito de partida com resultado publicado", () => {
+  it("preserva o estado de partida com resultado publicado", () => {
     expect(
       deriveSwapMatchStatus({
-        hasMatchDate: false,
+        entryAId: "a",
+        entryBId: "b",
         hasPublishedResult: true,
-        isBye: false,
         originalStatus: "finished",
       })
     ).toBe("finished");
     expect(
       deriveSwapMatchStatus({
-        hasMatchDate: false,
+        entryAId: "a",
+        entryBId: null,
         hasPublishedResult: true,
-        isBye: false,
         originalStatus: "walkover",
       })
     ).toBe("walkover");
   });
 
-  it("nunca deriva pending sobre partida agendada", () => {
+  it("agenda morre com a dupla: partida agendada volta a pending", () => {
     expect(
       deriveSwapMatchStatus({
-        hasMatchDate: true,
+        entryAId: "a",
+        entryBId: "b",
         hasPublishedResult: false,
-        isBye: false,
-        originalStatus: "pending",
+        originalStatus: "scheduled",
       })
-    ).toBe("scheduled");
+    ).toBe("pending");
   });
 
-  it("deriva bye como walkover e o restante pending", () => {
+  it("1ª rodada: o bye do sorteio segue bye, a linha esvaziada pelo move não", () => {
     expect(
       deriveSwapMatchStatus({
-        hasMatchDate: false,
+        entryAId: "a",
+        entryBId: null,
         hasPublishedResult: false,
-        isBye: true,
-        originalStatus: "pending",
+        originalStatus: "walkover",
       })
     ).toBe("walkover");
+    // Dois lados no bye = confronto definido (o avanço automático morre).
     expect(
       deriveSwapMatchStatus({
-        hasMatchDate: false,
+        entryAId: "a",
+        entryBId: "b",
         hasPublishedResult: false,
-        isBye: false,
+        originalStatus: "walkover",
+      })
+    ).toBe("pending");
+    // Linha que NÃO era bye e perdeu um lado: "A definir", sem W.O. para o
+    // adversário.
+    expect(
+      deriveSwapMatchStatus({
+        entryAId: "a",
+        entryBId: null,
+        hasPublishedResult: false,
+        originalStatus: "pending",
+      })
+    ).toBe("pending");
+    expect(
+      deriveSwapMatchStatus({
+        entryAId: null,
+        entryBId: null,
+        hasPublishedResult: false,
+        originalStatus: "pending",
+      })
+    ).toBe("vacant");
+  });
+
+  it("rodada 2+ com um lado fica 'A definir' — nunca vira bye", () => {
+    expect(
+      deriveSwapMatchStatus({
+        entryAId: "a",
+        entryBId: null,
+        hasPublishedResult: false,
         originalStatus: "pending",
       })
     ).toBe("pending");
@@ -435,54 +979,251 @@ describe("deriveSwapMatchStatus", () => {
 });
 
 describe("buildSwapPersistPlan", () => {
-  const threeMatches: SwapCheckMatch[] = [
-    {
-      entryAId: "a0",
-      entryBId: null,
-      hasPublishedResult: false,
-      matchDate: null,
+  // 1ª rodada: bye de w (m1-0) e x vs y (m1-1); a 2ª rodada recebe o bye.
+  // m1-2 está agendada e o move não a toca.
+  const board = [
+    boardMatch({
+      entryAId: "w",
       round: 1,
       slotInRound: 0,
-      status: "pending",
-      winnerEntryId: null,
-    },
-    {
-      entryAId: "a1",
-      entryBId: "b1",
-      hasPublishedResult: false,
-      matchDate: "2026-09-01",
+      status: "walkover",
+      walkover: true,
+      winnerEntryId: "w",
+    }),
+    boardMatch({
+      entryAId: "x",
+      entryBId: "y",
       round: 1,
       slotInRound: 1,
       status: "scheduled",
-      winnerEntryId: null,
-    },
-    {
-      entryAId: "a2",
-      entryBId: "b2",
-      hasPublishedResult: true,
-      matchDate: null,
+    }),
+    boardMatch({
+      entryAId: "p",
+      entryBId: "q",
       round: 1,
       slotInRound: 2,
-      status: "finished",
-      winnerEntryId: "a2",
-    },
+      status: "scheduled",
+    }),
+    boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
   ];
 
-  it("escreve apenas os dois slots afetados, com status derivado", () => {
+  it("escreve as duas partidas reescritas e a vaga que recebe o vencedor", () => {
     const plan = buildSwapPersistPlan({
-      isByeA: true,
-      isByeB: false,
-      roundMatches: threeMatches,
-      slotA: 0,
-      slotB: 1,
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "a"),
     });
 
-    // Só os afetados entram no plano; o match publicado fica intocado.
-    expect(plan.map(({ index }) => index)).toEqual([0, 1]);
-    expect(plan).toEqual([
-      { index: 0, status: "walkover", walkover: true },
-      { index: 1, status: "scheduled", walkover: false },
+    // A partida intocada (m1-2, agendada) fica FORA do plano: a agenda só
+    // morre com os pares que o move reescreveu (BUG-0028).
+    expect(plan.updates.map((update) => update.id).sort()).toEqual([
+      "m1-0",
+      "m1-1",
+      "m2-0",
     ]);
+    expect(plan.updates.find((update) => update.id === "m1-1")).toMatchObject({
+      bumpRowVersion: false,
+      entryAId: "w",
+      entryBId: "y",
+      status: "pending",
+      walkover: false,
+      winnerEntryId: null,
+    });
+    expect(plan.updates.find((update) => update.id === "m2-0")).toMatchObject({
+      bumpRowVersion: true,
+      entryAId: "x",
+    });
+  });
+
+  it("notifica os dois lados clicados", () => {
+    const plan = buildSwapPersistPlan({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(1, 1, "a"),
+    });
+    expect(plan.affectedEntryIds.sort()).toEqual(["w", "x", "y"]);
+  });
+
+  it("cross-round: vacância da origem e vaga decidida entram no plano", () => {
+    // O destino (lado B da semi) só aceita a inscrição porque a subárvore que
+    // o alimenta é podada (feed morto).
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "w", round: 2, slotInRound: 0 }),
+    ];
+    const plan = buildSwapPersistPlan({
+      board,
+      from: coordinate(1, 0, "a"),
+      to: coordinate(2, 0, "b"),
+    });
+
+    expect(plan.updates.map((update) => update.id).sort()).toEqual([
+      "m1-0",
+      "m2-0",
+    ]);
+    expect(plan.updates.find((update) => update.id === "m1-0")).toMatchObject({
+      entryAId: null,
+      status: "vacant",
+    });
+    expect(plan.updates.find((update) => update.id === "m2-0")).toMatchObject({
+      bumpRowVersion: false,
+      entryAId: null,
+      entryBId: "w",
+      status: "pending",
+    });
+    // w trocou de vaga: os jogadores dele precisam saber.
+    expect(plan.affectedEntryIds).toEqual(["w"]);
+  });
+
+  it("BUG-0034: move de vaga derivada persiste o bye e o avanço re-derivados", () => {
+    const plan = buildSwapPersistPlan({
+      board: byeDerivedBoard(),
+      from: coordinate(2, 0, "a"),
+      to: coordinate(1, 1, "a"),
+    });
+
+    // As três linhas que o move reescreveu: o bye (novo dono), o confronto
+    // real e o lado da 2ª rodada que recebe o avanço re-derivado.
+    expect(plan.updates.map((update) => update.id).sort()).toEqual([
+      "m1-0",
+      "m1-1",
+      "m2-0",
+    ]);
+    expect(plan.updates.find((update) => update.id === "m1-0")).toMatchObject({
+      bumpRowVersion: false,
+      entryAId: "x",
+      status: "walkover",
+      winnerEntryId: "x",
+    });
+    expect(plan.updates.find((update) => update.id === "m2-0")).toMatchObject({
+      bumpRowVersion: true,
+      entryAId: "x",
+    });
+    // w e x trocaram de vaga; y segue no confronto real que agora tem w.
+    expect(plan.affectedEntryIds.sort()).toEqual(["w", "x", "y"]);
+  });
+});
+
+describe("validateBracketStartable (gate do IBX-0053)", () => {
+  it("chave recém-sorteada pode iniciar: bye, linha podada e lado esperando o vencedor", () => {
+    const plain = buildBracket([
+      entry("a"),
+      entry("b"),
+      entry("c"),
+      entry("d"),
+      entry("e"),
+    ]);
+    expect(
+      validateBracketStartable(plain.bracket!.matches.map(toBoardRow))
+    ).toBeNull();
+
+    // Entrada direta na 2ª rodada: a semi tem um cabeça assentado e o lado
+    // que espera o vencedor de baixo — estado normal, não vaga em aberto.
+    const direct = buildBracket([
+      entry("s1", 1, 2),
+      entry("a"),
+      entry("b"),
+      entry("c"),
+      entry("d"),
+      entry("e"),
+    ]);
+    expect(
+      validateBracketStartable(direct.bracket!.matches.map(toBoardRow))
+    ).toBeNull();
+  });
+
+  it("recusa vaga 'A definir' na 1ª rodada (linha esvaziada pelo move)", () => {
+    // Único defeito da chave: B sozinho na 1ª rodada — a partida nunca mais
+    // terá dois lados, então o publishResult nunca aceitaria a rodada dela.
+    const board = [
+      boardMatch({ entryBId: "B", round: 1, slotInRound: 0 }),
+      boardMatch({ entryAId: "C", entryBId: "D", round: 1, slotInRound: 1 }),
+      boardMatch({ round: 2, slotInRound: 0 }),
+    ];
+    expect(validateBracketStartable(board)).toContain("vaga em aberto");
+  });
+
+  it("recusa vaga 'A definir' que nenhuma partida pode alimentar", () => {
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
+        slotInRound: 0,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "w", entryBId: "s1", round: 2, slotInRound: 0 }),
+      boardMatch({ round: 2, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "s2", round: 3, slotInRound: 0 }),
+    ];
+    expect(validateBracketStartable(board)).toContain("vaga em aberto");
+  });
+});
+
+describe("invariantes do move (IBX-0053)", () => {
+  it("nenhum move descarta nem duplica inscrição (varredura das coordenadas)", () => {
+    // Chave real: 6 inscrições com o cabeça 1 entrando direto na 2ª rodada
+    // (linhas podadas + bye) — o cenário mais torto que o sorteio produz.
+    const { bracket, error } = buildBracket([
+      entry("s1", 1, 2),
+      entry("a"),
+      entry("b"),
+      entry("c"),
+      entry("d"),
+      entry("e"),
+    ]);
+    expect(error).toBeNull();
+    const board = bracket!.matches.map(toBoardRow);
+    const boardEntryIds = new Set(
+      board
+        .flatMap((row) => [row.entryAId, row.entryBId])
+        .filter((entryId) => entryId !== null)
+    );
+    const coordinates = board.flatMap((row) =>
+      (["a", "b"] as const).map((side) =>
+        coordinate(row.round, row.slotInRound, side)
+      )
+    );
+    let applied = 0;
+
+    for (const from of coordinates) {
+      for (const to of coordinates) {
+        if (validateSlotSwap({ board, from, status: "drawn", to })) {
+          continue;
+        }
+        applied += 1;
+        const patched = applySlotSwap({ board, from, to });
+        // As inscrições são as MESMAS: o move troca de vaga, nunca descarta
+        // nem duplica (regra do contrato).
+        expect(
+          new Set(
+            patched
+              .flatMap((row) => [row.entryAId, row.entryBId])
+              .filter((entryId) => entryId !== null)
+          )
+        ).toEqual(boardEntryIds);
+        for (const row of patched) {
+          if (row.walkover) {
+            expect(row.round).toBe(1);
+            expect([row.entryAId, row.entryBId].filter(Boolean)).toHaveLength(
+              1
+            );
+          }
+        }
+      }
+    }
+
+    expect(applied).toBeGreaterThan(0);
   });
 });
 
@@ -856,79 +1597,57 @@ describe("buildBracket IBX-0035 — entrada direta de fase", () => {
 
 describe("applySlotSwap IBX-0035 — mesma rodada", () => {
   it("troca entradas diretas na rodada 2 sem derivar bye", () => {
-    const roundTwo = [
-      {
-        entryAId: "s1",
-        entryBId: null,
-        isBye: false,
-        isVacant: false,
-        round: 2,
+    // s1/s2 entraram direto na 2ª rodada (a subárvore abaixo é podada): são
+    // POSIÇÕES do sorteio, não vitórias propagadas — podem trocar de lado.
+    const board = [
+      boardMatch({
+        entryAId: "w",
+        round: 1,
         slotInRound: 0,
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "s2",
-        entryBId: null,
-        isBye: false,
-        isVacant: false,
-        round: 2,
-        slotInRound: 1,
-        winnerEntryId: null,
-      },
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "w",
+      }),
+      boardMatch({ round: 1, slotInRound: 1, status: "vacant" }),
+      boardMatch({ entryAId: "s1", round: 2, slotInRound: 0 }),
+      boardMatch({ entryAId: "s2", round: 2, slotInRound: 1 }),
     ];
-    const patched = applySlotSwap(roundTwo, 0, "a", 1, "a");
+
+    const patched = applySlotSwap({
+      board,
+      from: coordinate(2, 0, "a"),
+      to: coordinate(2, 1, "a"),
+    });
     // lado preenchido + lado esperando adversário NÃO é bye na rodada 2+
-    expect(patched[0]).toMatchObject({
+    expect(patched[2]).toMatchObject({
       entryAId: "s2",
       entryBId: null,
-      isBye: false,
+      status: "pending",
+      walkover: false,
       winnerEntryId: null,
     });
-    expect(patched[1]).toMatchObject({
+    expect(patched[3]).toMatchObject({
       entryAId: "s1",
       entryBId: null,
-      isBye: false,
+      status: "pending",
+      walkover: false,
       winnerEntryId: null,
     });
   });
 
   it("vaga vazia nunca é selecionável (lado vazio é recusado)", () => {
-    const roundOne: SwapCheckMatch[] = [
-      {
-        entryAId: null,
-        entryBId: null,
-        hasPublishedResult: false,
-        matchDate: null,
-        round: 1,
-        slotInRound: 0,
-        status: "vacant",
-        winnerEntryId: null,
-      },
-      {
-        entryAId: "a",
-        entryBId: "b",
-        hasPublishedResult: false,
-        matchDate: null,
-        round: 1,
-        slotInRound: 1,
-        status: "pending",
-        winnerEntryId: null,
-      },
+    const board = [
+      boardMatch({ round: 1, slotInRound: 0, status: "vacant" }),
+      boardMatch({ entryAId: "a", entryBId: "b", round: 1, slotInRound: 1 }),
     ];
-    expect(validateSlotSwap(roundOne, 0, "a", 1, "a")).toContain(
-      "posição preenchida"
-    );
-  });
-
-  it("status vacant é preservado na derivação (defensivo)", () => {
     expect(
-      deriveSwapMatchStatus({
-        hasMatchDate: false,
-        hasPublishedResult: false,
-        isBye: false,
-        originalStatus: "vacant",
+      validateSlotSwap({
+        board,
+        from: coordinate(1, 0, "a"),
+        status: "drawn",
+        to: coordinate(1, 1, "a"),
       })
-    ).toBe("vacant");
+    ).toContain("posição preenchida");
   });
 });
 

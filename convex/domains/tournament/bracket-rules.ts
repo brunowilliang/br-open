@@ -386,8 +386,13 @@ export function isBracketFinished(bracket: BuiltBracket) {
 }
 
 // ---------------------------------------------------------------------------
-// Slot swap (same-round slots, spec-approved; IBX-0035 generalizes beyond
-// round 1 — direct entries occupy round >= 2 sides at draw time)
+// Slot move (IBX-0035 generalized the same-round swap to any round; IBX-0053
+// opens the CROSS-ROUND move of seeds/heads). The rules read the WHOLE
+// category board — not one round — because whether a side may move depends on
+// how its occupant arrived: a placement moves, a propagated win does not.
+// The move PERMUTES the values of the two clicked sides: an empty destination
+// leaves the origin empty, an occupied one transposes the two entries (never
+// discard the displaced entry — the count entrants x slots is an invariant).
 // ---------------------------------------------------------------------------
 
 export type BracketMatchSide = "a" | "b";
@@ -399,18 +404,48 @@ export type SwapMatchStatus =
   | "walkover"
   | "finished";
 
-export type SwapCheckMatch = {
+/** Coordinate of one bracket side: the round, the match in it, the side. */
+export type BracketSwapCoordinate = {
+  round: number;
+  side: BracketMatchSide;
+  slotInRound: number;
+};
+
+/**
+ * Board row the move rules read. `walkover` is the draw-time bye (a lone side
+ * that advanced without playing); `winnerEntryId` is the decided win that
+ * feeds the parent match.
+ */
+export type SwapBoardMatch = {
   entryAId: string | null;
   entryBId: string | null;
+  /** Published (organizer-entered) result — locks the row. */
+  hasPublishedResult: boolean;
+  id: string;
   round: number;
   slotInRound: number;
-  /** Published (organizer-entered) result — blocks the swap. */
-  hasPublishedResult: boolean;
-  winnerEntryId: string | null;
-  /** Scheduling date (league pattern); keeps the match scheduled on swap. */
-  matchDate: string | null;
-  /** Original status — preserved verbatim when a result was published. */
   status: SwapMatchStatus;
+  walkover: boolean;
+  winnerEntryId: string | null;
+};
+
+/** A move: permute the two clicked sides (same round or cross-round). */
+export type BracketSwapMove = {
+  board: SwapBoardMatch[];
+  from: BracketSwapCoordinate;
+  to: BracketSwapCoordinate;
+};
+
+/** Row the procedure rewrites after a move (the agenda dies on all of them). */
+export type SwapPersistUpdate = {
+  /** Feed rows (pushed/retired win) bump the row version; swapped ones don't. */
+  bumpRowVersion: boolean;
+  entryAId: string | null;
+  entryBId: string | null;
+  id: string;
+  status: SwapMatchStatus;
+  walkover: boolean;
+  winnerEntryId: string | null;
 };
 
 function entryOfSide(
@@ -420,69 +455,442 @@ function entryOfSide(
   return side === "a" ? match.entryAId : match.entryBId;
 }
 
+function setEntryOfSide(
+  match: SwapBoardMatch,
+  side: BracketMatchSide,
+  entryId: string | null
+) {
+  if (side === "a") {
+    match.entryAId = entryId;
+    return;
+  }
+  match.entryBId = entryId;
+}
+
+function findBoardMatch(
+  board: SwapBoardMatch[],
+  round: number,
+  slotInRound: number
+) {
+  return board.find(
+    (match) => match.round === round && match.slotInRound === slotInRound
+  );
+}
+
 /**
- * Status a swapped match ends up with. Published results are explicit state
- * and are preserved verbatim (a swap is blocked when one exists, but the
- * rule must never derive over one — re-sorting after a race would corrupt
- * the bracket otherwise). Vacant rows are never swappable (no filled
- * sides) and stay vacant defensively; byes stay walkover; a scheduled date
- * keeps the match scheduled; everything else goes back to pending.
+ * Status a rewritten match ends up with. Published results are explicit state
+ * and are preserved verbatim (a move is blocked when one exists, but the rule
+ * must never derive over one). A row with no sides left is vacant. Only a row
+ * that ALREADY was a bye keeps advancing by walkover (the draw's bye is
+ * re-derived with its survivor: moving a bye's head keeps the bye shape at
+ * round 1). Any other lone side is "A definir" — pending, no auto-win: the
+ * move NEVER hands a walkover to the opponent of the moved entry, and from
+ * round 2 on a lone side is a match waiting for the feed, not a bye
+ * (`buildBracket` only ever makes round-1 byes). BUG-0028: the schedule dies
+ * with the pair, so `scheduled` never survives a move (the caller clears the
+ * booking).
  */
 export function deriveSwapMatchStatus(input: {
-  hasMatchDate: boolean;
+  entryAId: string | null;
+  entryBId: string | null;
   hasPublishedResult: boolean;
-  isBye: boolean;
   originalStatus: SwapMatchStatus;
 }): SwapMatchStatus {
-  if (input.hasPublishedResult || input.originalStatus === "vacant") {
+  if (input.hasPublishedResult) {
     return input.originalStatus;
   }
-  if (input.isBye) {
+  const filled =
+    (input.entryAId === null ? 0 : 1) + (input.entryBId === null ? 0 : 1);
+  if (filled === 0) {
+    return "vacant";
+  }
+  if (input.originalStatus === "walkover" && filled === 1) {
     return "walkover";
   }
-  return input.hasMatchDate ? "scheduled" : "pending";
+  return "pending";
 }
 
 /**
- * Persist plan for a swap: ONLY the two slots being swapped are rewritten,
- * each with the status derived above. Any other match of the round keeps
- * its rows untouched.
+ * Derives a rewritten row's status, bye flag and decided winner in place. The
+ * row's own status is the marker of the draw's bye: deriving twice is
+ * idempotent (a "walkover" stays "walkover" while it keeps one side).
  */
-export function buildSwapPersistPlan(input: {
-  roundMatches: SwapCheckMatch[];
-  slotA: number;
-  slotB: number;
-  isByeA: boolean;
-  isByeB: boolean;
-}): Array<{
-  index: number;
-  status: SwapMatchStatus;
-  walkover: boolean;
-}> {
-  return [
-    { index: input.slotA, isBye: input.isByeA },
-    { index: input.slotB, isBye: input.isByeB },
-  ].map(({ index, isBye }) => {
-    const original = input.roundMatches[index];
-    return {
-      index,
-      status: deriveSwapMatchStatus({
-        hasMatchDate: original.matchDate !== null,
-        hasPublishedResult: original.hasPublishedResult,
-        isBye,
-        originalStatus: original.status,
-      }),
-      walkover: isBye,
-    };
+function deriveRewrittenMatch(match: SwapBoardMatch) {
+  if (match.hasPublishedResult) {
+    return;
+  }
+  const status = deriveSwapMatchStatus({
+    entryAId: match.entryAId,
+    entryBId: match.entryBId,
+    hasPublishedResult: match.hasPublishedResult,
+    originalStatus: match.status,
   });
+  match.status = status;
+  match.walkover = status === "walkover";
+  match.winnerEntryId =
+    status === "walkover" ? (match.entryAId ?? match.entryBId) : null;
 }
 
 /**
- * IBX-0038 (review C1): swap authorization. `getManagedTournamentOrThrow`
- * only proves ownership of the tournamentId it receives — the swapped
- * category must be proven to belong to that same tournament, otherwise an
- * organizer of tournament A could shuffle tournament B's bracket through a
- * forged categoryId.
+ * IBX-0053/BUG-0034: a side is DERIVED when its occupant is not a placement
+ * but the WIN of the match that feeds it — the child already resolved a winner
+ * (draw-time bye or published result) and it was propagated up. A derived side
+ * has no placement of its own, so `resolveMoveCoordinate` descends to the side
+ * that really holds the entry before the move permutes anything. What locks a
+ * derived side for good is the ORIGIN of the win: a win that came from a
+ * published (played) result is not re-derivable and the move is refused; the
+ * draw's bye is re-derived with its new survivor (spec: "byes re-deriváveis",
+ * BUG-0034). Placements stay movable — a draw entry, a direct phase entry, an
+ * entry the organizer moved there. The round-1 bye's own side is a placement
+ * of the draw, not a derivation.
+ */
+export function swapSideIsDerived(
+  board: SwapBoardMatch[],
+  coordinate: BracketSwapCoordinate
+) {
+  const match = findBoardMatch(board, coordinate.round, coordinate.slotInRound);
+  const entryId = match ? entryOfSide(match, coordinate.side) : null;
+  if (!match || entryId === null || match.round <= 1) {
+    return false;
+  }
+  const child = findBoardMatch(
+    board,
+    match.round - 1,
+    coordinate.slotInRound * 2 + (coordinate.side === "a" ? 0 : 1)
+  );
+  return child?.winnerEntryId === entryId;
+}
+
+/** The side's win came from a PLAYED match — nothing to re-derive. */
+const DERIVED_SIDE_LOCKED =
+  "Essa vaga vem de um confronto já decidido e não pode ser ajustada.";
+
+/**
+ * BUG-0034: the PLACEMENT the clicked side really moves. Descends the feed
+ * chain while the side is derived (its occupant is the child's win) until it
+ * reaches the side that holds the entry, so a move clicked on a bye's
+ * propagated side — the quarterfinal card that shows a player who received a
+ * bye at the draw — permutes the two ENTRIES and lets the caller persist the
+ * re-derived bye and advance. A link decided by a PUBLISHED result is not
+ * re-derivable: the played match is untouchable and the error comes back
+ * (same message as before, still BAD_REQUEST at the procedure).
+ */
+export function resolveMoveCoordinate(
+  board: SwapBoardMatch[],
+  coordinate: BracketSwapCoordinate
+): { coordinate: BracketSwapCoordinate; error: string | null } {
+  let current = coordinate;
+
+  for (;;) {
+    if (!swapSideIsDerived(board, current)) {
+      return { coordinate: current, error: null };
+    }
+    const match = findBoardMatch(
+      board,
+      current.round,
+      current.slotInRound
+    ) as SwapBoardMatch;
+    const entryId = entryOfSide(match, current.side);
+    const child = findBoardMatch(
+      board,
+      current.round - 1,
+      current.slotInRound * 2 + (current.side === "a" ? 0 : 1)
+    ) as SwapBoardMatch;
+    if (child.hasPublishedResult) {
+      return { coordinate: current, error: DERIVED_SIDE_LOCKED };
+    }
+    if (child.entryAId !== entryId && child.entryBId !== entryId) {
+      return { coordinate: current, error: DERIVED_SIDE_LOCKED };
+    }
+    current = {
+      round: child.round,
+      side: child.entryAId === entryId ? "a" : "b",
+      slotInRound: child.slotInRound,
+    };
+  }
+}
+
+/**
+ * IBX-0053 window: a cross-round move needs the private bracket — `drawn`
+ * only (nothing published, the bracket still belongs to the organizer). Once
+ * the tournament is `ongoing` the bracket advances by result and a lower
+ * round is untouchable. The same-round move keeps its historical
+ * `drawn | ongoing` window (the procedure gates the status before calling).
+ */
+export function validateSwapWindow(input: {
+  from: BracketSwapCoordinate;
+  status: string;
+  to: BracketSwapCoordinate;
+}) {
+  if (input.from.round === input.to.round || input.status === "drawn") {
+    return null;
+  }
+  return "Trocar entre rodadas exige a chave sorteada e ainda não iniciada.";
+}
+
+/**
+ * Feed writes the move implies. A rewritten match that ends as a resolved bye
+ * pushes its winner into the parent's feeding side; one that lost its bye
+ * pulls the old win back out (moving a decided side away retires the
+ * propagated winner). A write is only legal over the win of THIS match —
+ * anything else is a placement the move must not overwrite — and the parent
+ * must not carry a published result.
+ */
+function writeSwapFeed(input: {
+  board: SwapBoardMatch[];
+  patched: SwapBoardMatch[];
+  rewritten: SwapBoardMatch[];
+}): { error: string | null; rewritten: SwapBoardMatch[] } {
+  const rewritten = new Map(input.rewritten.map((match) => [match.id, match]));
+
+  for (const match of input.rewritten) {
+    const before = findBoardMatch(
+      input.board,
+      match.round,
+      match.slotInRound
+    ) as SwapBoardMatch;
+    if (match.winnerEntryId === before.winnerEntryId) {
+      continue;
+    }
+    const parentCoordinates = nextMatchCoordinates(
+      match.round,
+      match.slotInRound
+    );
+    const parent = findBoardMatch(
+      input.patched,
+      parentCoordinates.round,
+      parentCoordinates.slotInRound
+    );
+    if (!parent) {
+      continue;
+    }
+    // A child at an even slot feeds side A of its parent, an odd slot side B
+    // (the draw's propagation convention).
+    const side: BracketMatchSide = match.slotInRound % 2 === 0 ? "a" : "b";
+    const placed = entryOfSide(parent, side);
+    if (placed === match.winnerEntryId) {
+      continue;
+    }
+    if (placed !== null && placed !== before.winnerEntryId) {
+      return {
+        error: "Esse ajuste moveria um vencedor para uma vaga já ocupada.",
+        rewritten: [],
+      };
+    }
+    if (parent.hasPublishedResult) {
+      return {
+        error:
+          "A rodada seguinte já tem resultado publicado: o vencedor não pode mudar.",
+        rewritten: [],
+      };
+    }
+    setEntryOfSide(parent, side, match.winnerEntryId);
+    deriveRewrittenMatch(parent);
+    rewritten.set(parent.id, parent);
+  }
+
+  // Second pass, over the board the writes above produced: a rewritten row
+  // that ends with TWO sides becomes playable, and its winner will be written
+  // over whatever occupies the parent's feeding side when the result is
+  // published (matches.ts propagates the side without checking occupancy).
+  // The draw only ever leaves that side free for a playable row — a direct
+  // entry PRUNES the whole subtree below it — so COMPLETING a pruned row
+  // through moves (filling its second side) would drop the entry held above,
+  // e.g. the direct entry itself.
+  for (const match of input.rewritten) {
+    const playsBoth =
+      entryOfSide(match, "a") !== null && entryOfSide(match, "b") !== null;
+    if (!playsBoth) {
+      continue;
+    }
+    const parentCoordinates = nextMatchCoordinates(
+      match.round,
+      match.slotInRound
+    );
+    const parent = findBoardMatch(
+      input.patched,
+      parentCoordinates.round,
+      parentCoordinates.slotInRound
+    );
+    // A child at an even slot feeds side A of its parent, an odd slot side B.
+    const side: BracketMatchSide = match.slotInRound % 2 === 0 ? "a" : "b";
+    if (parent && entryOfSide(parent, side) !== null) {
+      return {
+        error: "Esse ajuste moveria um vencedor para uma vaga já ocupada.",
+        rewritten: [],
+      };
+    }
+  }
+
+  return { error: null, rewritten: [...rewritten.values()] };
+}
+
+/**
+ * Single source of the move: static checks, the descent from a derived side to
+ * the placement it moves (BUG-0034), the permutation, the re-derived status of
+ * both rewritten rows and the feed writes. `resolved` carries the coordinates
+ * actually permuted (the clicked ones when nothing was derived), so the
+ * persist plan can tell the rewritten rows from the fed ones. On error the
+ * board comes back UNTOUCHED — no caller may persist a half-applied move.
+ */
+function planSwap(move: BracketSwapMove): {
+  error: string | null;
+  patched: SwapBoardMatch[];
+  resolved: { from: BracketSwapCoordinate; to: BracketSwapCoordinate };
+} {
+  const { board, from, to } = move;
+  const untouched = () => board.map((match) => ({ ...match }));
+  const rejected = (error: string) => ({
+    error,
+    patched: untouched(),
+    resolved: { from, to },
+  });
+  const matchFrom = findBoardMatch(board, from.round, from.slotInRound);
+  const matchTo = findBoardMatch(board, to.round, to.slotInRound);
+
+  if (
+    from.round === to.round &&
+    from.slotInRound === to.slotInRound &&
+    from.side === to.side
+  ) {
+    return rejected("Escolha duas posições diferentes.");
+  }
+  if (!(matchFrom && matchTo)) {
+    return rejected("Posição inválida na chave.");
+  }
+
+  for (const match of [matchFrom, matchTo]) {
+    if (match.hasPublishedResult) {
+      return rejected(
+        "Esse confronto já tem resultado publicado e não pode ser ajustado."
+      );
+    }
+  }
+
+  // The move permutes exactly the entry the organizer clicked: a free side
+  // has nothing to move.
+  if (entryOfSide(matchFrom, from.side) === null) {
+    return rejected("Escolha uma posição preenchida para trocar.");
+  }
+
+  // An empty side only accepts an entry when nothing can land there first:
+  // round 1 (no feed) or a side fed by a pruned (vacant) row. A side waiting
+  // for a LIVE feed would be overwritten when that match publishes its winner
+  // (matches.ts writes the side without checking occupancy) and the moved
+  // entry would vanish from the bracket.
+  const destinationFeedIsDead =
+    to.round <= 1 ||
+    findBoardMatch(
+      board,
+      to.round - 1,
+      to.slotInRound * 2 + (to.side === "a" ? 0 : 1)
+    )?.status === "vacant";
+  if (entryOfSide(matchTo, to.side) === null && !destinationFeedIsDead) {
+    return rejected(
+      "Essa vaga ainda vai receber o vencedor do confronto de baixo — só uma linha podada aceita uma inscrição."
+    );
+  }
+
+  // A side whose occupant came from the child's win has no placement of its
+  // own: the move descends to the side that holds the entry, and the bye /
+  // advance is re-derived from there.
+  const resolvedFrom = resolveMoveCoordinate(board, from);
+  if (resolvedFrom.error) {
+    return rejected(resolvedFrom.error);
+  }
+  const resolvedTo = resolveMoveCoordinate(board, to);
+  if (resolvedTo.error) {
+    return rejected(resolvedTo.error);
+  }
+  const placementFrom = resolvedFrom.coordinate;
+  const placementTo = resolvedTo.coordinate;
+
+  if (
+    placementFrom.round === placementTo.round &&
+    placementFrom.slotInRound === placementTo.slotInRound &&
+    placementFrom.side === placementTo.side
+  ) {
+    return rejected("Escolha duas posições diferentes.");
+  }
+
+  const matchPlacementFrom = findBoardMatch(
+    board,
+    placementFrom.round,
+    placementFrom.slotInRound
+  ) as SwapBoardMatch;
+  const matchPlacementTo = findBoardMatch(
+    board,
+    placementTo.round,
+    placementTo.slotInRound
+  ) as SwapBoardMatch;
+  for (const match of [matchPlacementFrom, matchPlacementTo]) {
+    if (match.hasPublishedResult) {
+      return rejected(
+        "Esse confronto já tem resultado publicado e não pode ser ajustado."
+      );
+    }
+  }
+
+  const patched = untouched();
+  const patchedFrom = findBoardMatch(
+    patched,
+    placementFrom.round,
+    placementFrom.slotInRound
+  ) as SwapBoardMatch;
+  const patchedTo = findBoardMatch(
+    patched,
+    placementTo.round,
+    placementTo.slotInRound
+  ) as SwapBoardMatch;
+  const fromEntry = entryOfSide(matchPlacementFrom, placementFrom.side);
+  setEntryOfSide(
+    patchedFrom,
+    placementFrom.side,
+    entryOfSide(matchPlacementTo, placementTo.side)
+  );
+  setEntryOfSide(patchedTo, placementTo.side, fromEntry);
+  deriveRewrittenMatch(patchedFrom);
+  deriveRewrittenMatch(patchedTo);
+
+  const feed = writeSwapFeed({
+    board,
+    patched,
+    rewritten:
+      patchedFrom === patchedTo ? [patchedFrom] : [patchedFrom, patchedTo],
+  });
+  if (feed.error) {
+    return rejected(feed.error);
+  }
+  return {
+    error: null,
+    patched,
+    resolved: { from: placementFrom, to: placementTo },
+  };
+}
+
+/**
+ * Move validation. `status` is the tournament status and only matters for the
+ * window (cross-round is `drawn`-only); the procedure gates `drawn|ongoing`
+ * before calling. Errors are BAD_REQUEST material with specific messages.
+ */
+export function validateSlotSwap(input: {
+  board: SwapBoardMatch[];
+  from: BracketSwapCoordinate;
+  status: string;
+  to: BracketSwapCoordinate;
+}) {
+  return (
+    validateSwapWindow(input) ??
+    planSwap({ board: input.board, from: input.from, to: input.to }).error
+  );
+}
+
+/**
+ * IBX-0038 (review C1): move authorization. `getManagedTournamentOrThrow` only
+ * proves ownership of the tournamentId it receives — the moved category must
+ * be proven to belong to that same tournament, otherwise an organizer of
+ * tournament A could shuffle tournament B's bracket through a forged
+ * categoryId.
  */
 export function validateSwapCategoryOwnership(input: {
   categoryTournamentId: string;
@@ -494,90 +902,119 @@ export function validateSwapCategoryOwnership(input: {
 }
 
 /**
- * Swap validation: same-round slots only (the procedure feeds one round's
- * matches); both affected matches must have no published result. Bye
- * resolutions (auto walkovers from the draw) are NOT published results —
- * they are re-derivable, so swapping with a bye slot is allowed (spec:
- * "incluindo slots de bye"). Vacant sides have nothing to move and are
- * refused by the filled-side check below.
+ * Pure move over the board: byes are re-derived at round 1, the fed win is
+ * pushed or retired at any round (IBX-0053). The caller validates the move
+ * first; an invalid one comes back UNCHANGED.
  */
-export function validateSlotSwap(
-  roundMatches: SwapCheckMatch[],
-  slotA: number,
-  sideA: BracketMatchSide,
-  slotB: number,
-  sideB: BracketMatchSide
-) {
-  const matchCount = roundMatches.length;
-  if (slotA === slotB) {
-    return "Escolha duas posições diferentes.";
-  }
-  if (slotA < 0 || slotB < 0 || slotA >= matchCount || slotB >= matchCount) {
-    return "Posição inválida na chave.";
-  }
+export function applySlotSwap(move: BracketSwapMove) {
+  return planSwap(move).patched;
+}
 
-  for (const slot of [slotA, slotB]) {
-    if (roundMatches[slot].hasPublishedResult) {
-      return "Esse confronto já tem resultado publicado e não pode ser ajustado.";
+/**
+ * Rows the procedure must persist after a validated move: the two rewritten
+ * matches (already with their derived status/bye/winner) plus every feed row
+ * whose win changed. Untouched matches — scheduled ones included — stay out,
+ * so the agenda only dies with the pairs the move actually rewrote
+ * (BUG-0028). `affectedEntryIds` carries the players to notify: both clicked
+ * sides and whoever lost the position a feed write emptied.
+ */
+export function buildSwapPersistPlan(move: BracketSwapMove) {
+  const plan = planSwap(move);
+  const patched = plan.patched;
+  // BUG-0034: the rows the organizer's click permuted are the PLACEMENTS the
+  // move descended to — a side derived from a bye moves the entry at the child
+  // that holds it, so the clicked row is a fed one here (bumps its version).
+  const swappedIds = new Set(
+    [plan.resolved.from, plan.resolved.to]
+      .map(
+        (coordinate) =>
+          findBoardMatch(move.board, coordinate.round, coordinate.slotInRound)
+            ?.id
+      )
+      .filter((id): id is string => id !== undefined)
+  );
+  const updates: SwapPersistUpdate[] = [];
+  const affectedEntryIds = new Set<string>();
+
+  for (const row of patched) {
+    const before = findBoardMatch(move.board, row.round, row.slotInRound);
+    if (!before) {
+      continue;
     }
+    // Both clicked players are notified; a feed row notifies whoever lost the
+    // side the move emptied (the retired winner).
+    const swapped = swappedIds.has(row.id);
+    for (const entryId of [before.entryAId, before.entryBId]) {
+      if (entryId === null) {
+        continue;
+      }
+      if (swapped || (entryId !== row.entryAId && entryId !== row.entryBId)) {
+        affectedEntryIds.add(entryId);
+      }
+    }
+    const unchanged =
+      before.entryAId === row.entryAId &&
+      before.entryBId === row.entryBId &&
+      before.status === row.status &&
+      before.walkover === row.walkover &&
+      before.winnerEntryId === row.winnerEntryId;
+    if (unchanged) {
+      continue;
+    }
+    updates.push({
+      bumpRowVersion: !swapped,
+      entryAId: row.entryAId,
+      entryBId: row.entryBId,
+      id: row.id,
+      status: row.status,
+      walkover: row.walkover,
+      winnerEntryId: row.winnerEntryId,
+    });
   }
 
-  // The swap moves exactly the entry the organizer clicked. A free side
-  // (bye) has nothing to move — refuse rather than silently moving its pair.
-  for (const [slot, side] of [
-    [slotA, sideA],
-    [slotB, sideB],
-  ] as const) {
-    if (entryOfSide(roundMatches[slot], side) === null) {
-      return "Escolha uma posição preenchida para trocar.";
+  return { affectedEntryIds: [...affectedEntryIds], updates };
+}
+
+/**
+ * IBX-0053 gate: a drawn bracket with an "A definir" hole cannot go public —
+ * `publishResult` needs two sides, so the hole would be an unplayable match in
+ * an ongoing tournament. A hole is an empty side whose feed can never fill it
+ * (the child row is a pruned `vacant` subtree). A side merely waiting for the
+ * match below is NOT a hole (the normal drawn shape, direct phase entries
+ * included), and pruned rows (vacant) and resolved byes expect nothing.
+ */
+export function validateBracketStartable(board: SwapBoardMatch[]) {
+  for (const match of board) {
+    if (match.status === "vacant" || match.walkover) {
+      continue;
+    }
+    for (const side of ["a", "b"] as const) {
+      if (entryOfSide(match, side) !== null) {
+        continue;
+      }
+      // Round 1 has no feed: a row that is neither a bye nor vacant and still
+      // has an empty side was emptied by a move and can never be completed.
+      // From round 2 on the hole is an empty side fed by a pruned (vacant)
+      // row; a side waiting for a LIVE feed below is the normal drawn shape.
+      const child =
+        match.round > 1
+          ? findBoardMatch(
+              board,
+              match.round - 1,
+              match.slotInRound * 2 + (side === "a" ? 0 : 1)
+            )
+          : undefined;
+      if (match.round <= 1 || child?.status === "vacant") {
+        return `A chave tem uma vaga em aberto (rodada ${match.round}). Complete a chave antes de iniciar.`;
+      }
     }
   }
   return null;
 }
 
 /**
- * Pure swap of the entries occupying two same-round slots, returning the
- * patched round matches with byes re-resolved. The caller persists these
- * and re-propagates winners into the next round (blocked by
- * `hasPublishedResult` there). Bye re-derivation is round-1 only: a
- * round >= 2 match with one filled side is WAITING for a winner, not a
- * bye (direct entries make that shape possible at draw time).
- */
-export function applySlotSwap(
-  roundMatches: BuiltBracketMatch[],
-  slotA: number,
-  sideA: BracketMatchSide,
-  slotB: number,
-  sideB: BracketMatchSide
-): BuiltBracketMatch[] {
-  const patched = roundMatches.map((match) => ({ ...match }));
-  const matchA = patched[slotA];
-  const matchB = patched[slotB];
-
-  const sideKey = (side: BracketMatchSide) =>
-    side === "a" ? "entryAId" : "entryBId";
-  const entry = entryOfSide(matchA, sideA);
-  matchA[sideKey(sideA)] = entryOfSide(matchB, sideB);
-  matchB[sideKey(sideB)] = entry;
-
-  for (const match of [matchA, matchB]) {
-    const hasOneSide = match.entryAId === null || match.entryBId === null;
-    match.isBye =
-      match.round === 1 &&
-      hasOneSide &&
-      (match.entryAId !== null || match.entryBId !== null);
-    match.winnerEntryId = match.isBye
-      ? (match.entryAId ?? match.entryBId)
-      : null;
-  }
-
-  return patched;
-}
-
-/**
- * Rounds > 1 derive winners from earlier rounds. After a swap the caller
- * re-feeds winners into later matches; this helper picks the next match
- * coordinates for a finished match.
+ * Rounds > 1 derive winners from earlier rounds: the parent's feeding side
+ * takes the win of the child at these coordinates.
  */
 export function nextMatchCoordinates(round: number, slotInRound: number) {
   return { round: round + 1, slotInRound: Math.floor(slotInRound / 2) };

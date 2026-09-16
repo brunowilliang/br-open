@@ -92,24 +92,20 @@ describe("CreateTournamentSchema tie-break points (R11)", () => {
     }
   });
 
-  it("rejeita finalSetSuperTieBreakPoints fora de {7, 10}", () => {
+  it("stripa chaves finalSet* legadas sem erro (DEC-0004)", () => {
     const result = CreateTournamentSchema.safeParse({
       ...buildTournamentInput(3),
       matchConfig: {
         ...DEFAULT_LEAGUE_MATCH_CONFIG,
         bestOfSets: 3,
         finalSetMode: "super_tiebreak",
-        finalSetSuperTieBreakPoints: 2,
+        finalSetSuperTieBreakPoints: 10,
       },
     });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const issue = result.error.issues.find(
-        (item) =>
-          item.path.join(".") === "matchConfig.finalSetSuperTieBreakPoints"
-      );
-      expect(issue?.message).toBe("Escolha 7 ou 10 pontos no tie-break.");
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.matchConfig).not.toHaveProperty("finalSetMode");
     }
   });
 });

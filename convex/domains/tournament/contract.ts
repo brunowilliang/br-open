@@ -318,6 +318,15 @@ export const ScheduleTournamentMatchSchema = z.object({
   startMinute: z.number().int().min(0).max(1440),
 });
 
+/** Occupied court slot for the schedule dialog (BUG-0027 contract). */
+export const tournamentMatchOccupiedSlotSchema = z.object({
+  courtId: z.string().min(1, "Quadra inválida."),
+  endMinute: z.number().int(),
+  matchDate: z.string().min(1, "Data inválida."),
+  matchId: z.string().min(1, "Confronto inválido."),
+  startMinute: z.number().int().min(0).max(1440),
+});
+
 export type TournamentPlayerCard = z.infer<typeof tournamentPlayerCardSchema>;
 export type TournamentEntryWithPlayers = z.infer<
   typeof tournamentEntryWithPlayersSchema
@@ -325,10 +334,12 @@ export type TournamentEntryWithPlayers = z.infer<
 
 export const SwapBracketSlotsSchema = z.object({
   categoryId: z.string().min(1, "Categoria inválida."),
-  // IBX-0035: swap generalizes to same-round slots (round >= 2 sides can
-  // be occupied at draw time by direct entries). Defaults to round 1 —
-  // pre-existing callers stay unchanged.
-  round: z.number().int().min(1).default(1),
+  // IBX-0053: the move addresses TWO coordinates (round, slot in the round,
+  // side). Same-round = roundA === roundB at the same call site; a cross-round
+  // move (roundA !== roundB) is drawn-only. Direct phase entries make round
+  // >= 2 sides occupiable at draw time (IBX-0035).
+  roundA: z.number().int().min(1),
+  roundB: z.number().int().min(1),
   sideA: z.enum(["a", "b"]),
   sideB: z.enum(["a", "b"]),
   slotA: z.number().int().min(0),
