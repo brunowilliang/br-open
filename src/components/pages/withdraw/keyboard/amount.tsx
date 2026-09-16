@@ -59,19 +59,6 @@ export function Amount({
   // (foreground) — é onde o próximo dígito entra (centavos acumulado).
   // R$, integer, vírgula e os demais centavos ficam muted via COR (não
   // opacity — opacity conflitaria com a animação `entering`).
-  const symbolClass = cn(
-    "mr-2 font-semibold text-3xl",
-    error ? "text-danger" : isEmpty ? "text-muted" : "text-foreground"
-  );
-  const activeDigit = cn(
-    "font-semibold text-5xl",
-    error ? "text-danger" : "text-foreground"
-  );
-  const mutedDigit = cn(
-    "font-semibold text-5xl",
-    error ? "text-danger" : "text-muted"
-  );
-  const restClass = isEmpty ? mutedDigit : activeDigit;
 
   return (
     <View className="items-center gap-1">
@@ -81,13 +68,22 @@ export function Amount({
         desliza de verdade quando os reais crescem, e nada é cortado.
       */}
       <Animated.View className="flex-row items-baseline" layout={motion}>
-        <Text className={symbolClass} key="symbol">
+        <Text
+          className={cn(
+            "mr-2 font-semibold text-3xl",
+            error ? "text-danger" : isEmpty ? "text-muted" : "text-foreground"
+          )}
+          key="symbol"
+        >
           {"R$"}
         </Text>
 
         {integer.map((digit) => (
           <Animated.Text
-            className={restClass}
+            className={cn(
+              "font-semibold text-5xl",
+              error ? "text-danger" : isEmpty ? "text-muted" : "text-foreground"
+            )}
             entering={DigitEnter}
             exiting={DigitExit}
             key={`${digit.id}-${digit.value}`}
@@ -98,7 +94,14 @@ export function Amount({
         ))}
 
         {/* Vírgula decimal: identidade fixa → desliza ao reposicionar */}
-        <Animated.Text className={restClass} key="comma" layout={motion}>
+        <Animated.Text
+          className={cn(
+            "font-semibold text-5xl",
+            error ? "text-danger" : isEmpty ? "text-muted" : "text-foreground"
+          )}
+          key="comma"
+          layout={motion}
+        >
           {","}
         </Animated.Text>
 
@@ -106,7 +109,14 @@ export function Amount({
           const isLast = index === decimal.length - 1;
           return (
             <Animated.Text
-              className={isEmpty && !isLast ? mutedDigit : activeDigit}
+              className={cn(
+                "font-semibold text-5xl",
+                error
+                  ? "text-danger"
+                  : isEmpty && !isLast
+                    ? "text-muted"
+                    : "text-foreground"
+              )}
               entering={FadeIn}
               exiting={FadeOut}
               key={`${digit.id}-${digit.value}`}
