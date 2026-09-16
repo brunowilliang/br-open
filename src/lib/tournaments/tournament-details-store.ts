@@ -30,9 +30,6 @@ const tournamentDetailsBuckets = new Map<string, TournamentDetailsBucket>();
 function createTournamentDetailsBucket(tournamentId: string) {
   const bucket$ = observable({
     actions: {
-      bootstrap: () => {
-        bucket$.identity.resetVersion.set(1);
-      },
       hydrateDiscovery: (discovery: TournamentDiscovery) => {
         bucket$.data.tournament.set(discovery);
       },
@@ -45,13 +42,23 @@ function createTournamentDetailsBucket(tournamentId: string) {
       hydrateViewer: (playerProfileId: null | string) => {
         bucket$.viewer.playerProfileId.set(playerProfileId);
       },
+      /**
+       * Zera o bucket e INCREMENTA identity.resetVersion. O incremento e o
+       * contrato que os consumidores observam: o layout hidrata por um
+       * efeito dependente dessa versao, entao um reset que devolvesse
+       * sempre o mesmo valor (0 ou 1) nao disparava a re-hidratacao e o
+       * bucket ficava vazio (BUG-0033). Mesmo padrao do
+       * league-details-store.
+       */
       reset: () => {
         bucket$.data.tournament.set(null);
         bucket$.data.entries.set([]);
         bucket$.data.matches.set([]);
         bucket$.viewer.playerProfileId.set(null);
         bucket$.identity.bootstrapStatus.set("loading");
-        bucket$.identity.resetVersion.set(0);
+        bucket$.identity.resetVersion.set(
+          bucket$.identity.resetVersion.get() + 1
+        );
         bucket$.identity.activeRoute.set("index");
       },
       setActiveRoute: (route: TournamentDetailsRoute) => {

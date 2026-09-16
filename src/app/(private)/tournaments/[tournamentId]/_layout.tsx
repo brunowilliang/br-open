@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
-import { Tabs, useGlobalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "heroui-native";
 import { useEffect } from "react";
 
@@ -40,7 +40,13 @@ const TOURNAMENT_DETAIL_SCREEN_NAMES = [
 ] as const;
 
 export default function TournamentDetailsLayout() {
-  const { tournamentId: rawTournamentId } = useGlobalSearchParams<{
+  // Parametro LOCAL da rota (nunca useGlobalSearchParams aqui): o global
+  // segue a rota FOCADA, entao um detalhe empilhado embaixo de outro
+  // passaria a ler o tournamentId de cima e trocaria de bucket no meio da
+  // pilha (reset/hidratacao no bucket errado, e na volta o bucket do de
+  // baixo ficava vazio). O local vem do proprio Route node, um por
+  // instancia (expo-router build/Route.js:34).
+  const { tournamentId: rawTournamentId } = useLocalSearchParams<{
     tournamentId?: string | string[];
   }>();
   const tournamentId = Array.isArray(rawTournamentId)
@@ -74,8 +80,12 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
   );
 
   useEffect(() => {
+    // O reset e quem destrava a hidratacao: ele INCREMENTA
+    // identity.resetVersion, e os efeitos abaixo dependem dela (o gate
+    // `resetVersion === 0` protege o bucket recem-criado). Um bootstrap
+    // que so devolvia a versao para 1 dentro do mesmo efeito nao mudava
+    // dependencia nenhuma e deixava o bucket vazio (BUG-0033).
     bucket$.actions.reset();
-    bucket$.actions.bootstrap();
   }, [bucket$]);
 
   useEffect(() => {

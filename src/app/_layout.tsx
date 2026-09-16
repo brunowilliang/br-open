@@ -10,6 +10,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useAuth } from "kitcn/react";
 import { useEffect, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
@@ -66,6 +67,12 @@ function Root() {
     }
   }, [isAppReady]);
 
+  useEffect(() => {
+    // Route transitions fade semi-transparent scenes over the native root
+    // view. It defaults to white, so it must track the themed background.
+    SystemUI.setBackgroundColorAsync(backgroundColor).catch(() => undefined);
+  }, [backgroundColor]);
+
   if (!isAppReady) {
     return null;
   }
@@ -80,10 +87,16 @@ function Root() {
         }}
       >
         <Stack.Protected guard={effectiveIsAuthenticated}>
-          <Stack.Screen name="(private)" options={{ animation: "fade" }} />
+          <Stack.Screen
+            name="(private)"
+            options={{ animation: "fade", contentStyle: { backgroundColor } }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={!effectiveIsAuthenticated}>
-          <Stack.Screen name="(public)" options={{ animation: "fade" }} />
+          <Stack.Screen
+            name="(public)"
+            options={{ animation: "fade", contentStyle: { backgroundColor } }}
+          />
         </Stack.Protected>
       </Stack>
       <NotificationBootstrap isEnabled={effectiveIsAuthenticated} />

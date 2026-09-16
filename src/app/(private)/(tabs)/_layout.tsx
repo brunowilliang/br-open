@@ -1,13 +1,13 @@
+import type { FloatingTabBarItem } from "@/components/navigation/floating-tab-bar";
+import { FloatingTabBar } from "@/components/navigation/floating-tab-bar";
+import { useCRPC } from "@/lib/convex/crpc";
 import {
   ChampionIcon,
   Home01Icon,
   Search01Icon,
 } from "@hugeicons/core-free-icons";
-import { FloatingTabBar } from "@/components/navigation/floating-tab-bar";
-import type { FloatingTabBarItem } from "@/components/navigation/floating-tab-bar";
-import { useCRPC } from "@/lib/convex/crpc";
-import { Tabs } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import { Tabs } from "expo-router";
 import { useThemeColor } from "heroui-native";
 
 const PLAYER_TAB_ITEMS = [

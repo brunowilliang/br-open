@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
-import { Tabs, useGlobalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "heroui-native";
 import { useEffect } from "react";
 
@@ -46,7 +46,13 @@ const LEAGUE_DETAIL_SCREEN_NAMES = [
 ] as const;
 
 export default function LeagueDetailsLayout() {
-  const { leagueId: rawLeagueId } = useGlobalSearchParams<{
+  // Parametro LOCAL da rota (nunca useGlobalSearchParams aqui): o global
+  // segue a rota FOCADA, entao uma liga empilhada embaixo da outra passaria
+  // a ler o leagueId de cima e trocaria de bucket no meio da pilha
+  // (reset/hidratacao no bucket errado, e na volta o bucket do de baixo
+  // ficava vazio). O local vem do proprio Route node, um por instancia
+  // (expo-router build/Route.js:34). Mesmo fix do torneio (BUG-0033).
+  const { leagueId: rawLeagueId } = useLocalSearchParams<{
     leagueId?: string | string[];
   }>();
   const leagueId = Array.isArray(rawLeagueId) ? rawLeagueId[0] : rawLeagueId;
