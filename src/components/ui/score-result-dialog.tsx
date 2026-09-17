@@ -24,6 +24,7 @@ import {
   buildScoreboard,
   canAttachTieBreak,
   getLineLabel,
+  settleAttachedTieBreak,
   trimTrailingBlankSets,
   type ScoreDraftSet,
   type ScoreDraftSide,
@@ -361,8 +362,12 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
     scoreboard.winnerSide === null;
 
   function updateLine(lineIndex: number, nextLine: ScoreDraftSet) {
+    // BUG-0035: placar desempatou (ou voltou pro 0x0) com TB anexado, o
+    // anexo sai sozinho; edição só dos pontos do TB preserva o placar.
     setLines(
-      lines.map((line, index) => (index === lineIndex ? nextLine : line))
+      lines.map((line, index) =>
+        index === lineIndex ? settleAttachedTieBreak(line, nextLine) : line
+      )
     );
   }
 

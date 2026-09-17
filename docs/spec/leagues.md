@@ -192,6 +192,19 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
   FadeOut 120ms + AccordionLayoutTransition, mesmo idioma do card do set):
   a troca botão↔bloco de TB cruza em fade e a altura do card cresce suave
   (antes o bloco "entrava do nada", item 2 do BUG-0026).
+- **BUG-0035/IBX-0055 (16-09) — tie-break anexado DISSOLVE quando o set
+  desempata:** o update da linha no dialog (`updateLine`) passa pelo
+  `settleAttachedTieBreak` (`src/lib/matches/score-draft.ts`): se o placar
+  de games mudou e o placar novo deixou de ser elegível (desempatado ou
+  0x0), o `tieBreak` anexo sai sozinho (`null`); mudou e segue empatado
+  (4x4 → 5x5), mantém; placar intacto (edição só dos pontos do próprio
+  TB), NUNCA mexe — o mini-placar edita pela mesma via de `onUpdate`. A
+  elegibilidade é a mesma semântica do gate do botão (DEC-0005), extraída
+  em `hasTieBreakEligibleScore` sem a cláusula de "já tem tie-break".
+  Menu livre (RUL-0019), linha avulsa de tie-break e gate de exibição do
+  botão intocados; vale liga E torneio (dialog global, RUL-0005/IBX-0024),
+  inclusive editando resultado já publicado. +6 testes em
+  `score-draft.test.ts`.
 - **Corpo scrollável + gesto (10-09, rodada 8):** o corpo (lista + empty
   state + "Quem venceu?") vive num `ScrollShadow color="surface"` com
   `maxHeight = min(450, metade da janela)` + `ScrollView` (molde do repo:

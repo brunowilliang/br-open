@@ -6,6 +6,7 @@ import {
   canAttachTieBreak,
   getLineLabel,
   isDraftSetBlank,
+  settleAttachedTieBreak,
   toLeagueScoreSets,
   toScoreDraftSets,
   trimTrailingBlankSets,
@@ -97,6 +98,132 @@ describe("score-draft", () => {
       expect(
         canAttachTieBreak({ aGames: 7, bGames: 7, kind: "tiebreak" })
       ).toBe(false);
+    });
+  });
+
+  describe("settleAttachedTieBreak", () => {
+    it("keeps the attached tie-break when the set stays tied", () => {
+      const current = {
+        aGames: 4,
+        bGames: 4,
+        kind: "set",
+        tieBreak: { aPoints: 6, bPoints: 2 },
+      } satisfies ScoreDraftFixture;
+
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 5, bGames: 5 })
+      ).toEqual({
+        aGames: 5,
+        bGames: 5,
+        kind: "set",
+        tieBreak: { aPoints: 6, bPoints: 2 },
+      });
+    });
+
+    it("clears the attached tie-break once the set is decided", () => {
+      const current = {
+        aGames: 4,
+        bGames: 4,
+        kind: "set",
+        tieBreak: { aPoints: 6, bPoints: 2 },
+      } satisfies ScoreDraftFixture;
+
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 5, bGames: 4 })
+      ).toEqual({
+        aGames: 5,
+        bGames: 4,
+        kind: "set",
+        tieBreak: null,
+      });
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 4, bGames: 6 })
+      ).toEqual({
+        aGames: 4,
+        bGames: 6,
+        kind: "set",
+        tieBreak: null,
+      });
+    });
+
+    it("clears the attached tie-break when the score returns to blank", () => {
+      const current = {
+        aGames: 4,
+        bGames: 4,
+        kind: "set",
+        tieBreak: { aPoints: 6, bPoints: 2 },
+      } satisfies ScoreDraftFixture;
+
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 0, bGames: 0 })
+      ).toEqual({
+        aGames: 0,
+        bGames: 0,
+        kind: "set",
+        tieBreak: null,
+      });
+    });
+
+    it("never touches the tie-break when only its own points change", () => {
+      const current = {
+        aGames: 4,
+        bGames: 4,
+        kind: "set",
+        tieBreak: { aPoints: 0, bPoints: 0 },
+      } satisfies ScoreDraftFixture;
+
+      expect(
+        settleAttachedTieBreak(current, {
+          ...current,
+          tieBreak: { aPoints: 6, bPoints: 2 },
+        })
+      ).toEqual({
+        aGames: 4,
+        bGames: 4,
+        kind: "set",
+        tieBreak: { aPoints: 6, bPoints: 2 },
+      });
+    });
+
+    it("leaves a standalone tie-break line untouched", () => {
+      const current = {
+        aGames: 0,
+        bGames: 0,
+        kind: "tiebreak",
+      } satisfies ScoreDraftFixture;
+      const next = {
+        aGames: 7,
+        bGames: 3,
+        kind: "tiebreak",
+      } satisfies ScoreDraftFixture;
+
+      expect(settleAttachedTieBreak(current, next)).toEqual(next);
+    });
+
+    it("applies the same rule to super tie-break lines", () => {
+      const current = {
+        aGames: 9,
+        bGames: 9,
+        kind: "super_tiebreak",
+        tieBreak: { aPoints: 10, bPoints: 8 },
+      } satisfies ScoreDraftFixture;
+
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 10, bGames: 9 })
+      ).toEqual({
+        aGames: 10,
+        bGames: 9,
+        kind: "super_tiebreak",
+        tieBreak: null,
+      });
+      expect(
+        settleAttachedTieBreak(current, { ...current, aGames: 10, bGames: 10 })
+      ).toEqual({
+        aGames: 10,
+        bGames: 10,
+        kind: "super_tiebreak",
+        tieBreak: { aPoints: 10, bPoints: 8 },
+      });
     });
   });
 

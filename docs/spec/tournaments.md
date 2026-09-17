@@ -725,7 +725,7 @@
   `validateSets`/`winnerFromSets` desde o round 2); payload `{sets,
   walkover, explicitWinnerId}` com vencedor explícito CONDICIONAL; núcleo
   neutro em `src/components/ui/score-result-dialog.tsx` + puras em
-  `src/lib/matches/score-draft.ts` (17 testes). No torneio: payload
+  `src/lib/matches/score-draft.ts` (29 testes). No torneio: payload
   `{matchId, score, walkover}` com `winnerEntryId` nullish (explícito só
   quando as linhas empatam ou em W.O.; null quando o placar decide e o
   backend deriva); corpo scrollável com `ScrollShadow` + `maxHeight =
@@ -740,6 +740,14 @@
   animado no molde rule-card (FadeIn/FadeOut + AccordionLayoutTransition).
   Menu e linha avulsa seguem livres em qualquer estado (RUL-0019 intacta).
   Detalhes na spec da liga (mesmo componente global).
+- **BUG-0035/IBX-0055 (16-09) — tie-break anexado DISSOLVE quando o set
+  desempata:** no dialog global de resultado, o update da linha passa pelo
+  `settleAttachedTieBreak` (`src/lib/matches/score-draft.ts`) — o placar
+  de games mudou e ficou inelegível (desempatado ou 0x0), o mini-placar
+  anexo sai sozinho; mudou e segue empatado (4x4 → 5x5), mantém; edição
+  só dos pontos do próprio TB, mantém. Vale liga e torneio (mesmo
+  componente global, RUL-0005), inclusive editando resultado já
+  publicado. Detalhes na spec da liga.
 - **Agendar/Reagendar confronto (IBX-0030, RUL-0005)** — o torneio REUSA
   o dialog global da liga `ChallengeProposalDialog`
   (`components/pages/leagues/challenge-proposal-dialog.tsx`) com
