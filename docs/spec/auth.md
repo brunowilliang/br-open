@@ -1,6 +1,6 @@
 # Auth e Conta — Estado atual
 
-> Verificado em 22-08-2026 contra o código do repo (`convex/functions/auth.ts`, `convex/domains/auth/tables.ts`, `convex/domains/auth/otp-email-rules.ts`, `src/lib/convex/auth-client.ts`, `src/app/(private)/settings/player/profile.tsx`, `src/components/pages/player/`, `src/app/(public)/`) e o pacote instalado `better-auth@1.6.24` — estado pós IBX-0007 (QA round 4) + username (IBX-0010 slice 1).
+> Verificado em 17-09-2026 contra o código do repo (`convex/functions/auth.ts`, `convex/domains/auth/tables.ts`, `convex/domains/auth/otp-email-rules.ts`, `src/lib/convex/auth-client.ts`, `src/app/(private)/settings/player/profile.tsx`, `src/components/pages/player/`, `src/app/(public)/`) e os pacotes instalados `better-auth@1.7.5` + `@better-auth/expo@1.7.5` + `kitcn@0.33.5` (convex@1.44.0) — estado pós IBX-0007 (QA round 4) + username (IBX-0010 slice 1) + upgrade de dependências (IBX-0056).
 
 ## Visão geral
 
@@ -98,7 +98,7 @@ Toda a área de Segurança/Contas do perfil (`src/app/(private)/settings/player/
   - Listar: `authClient.listAccounts()` → `{providerId, accountId, ...}` sem segredos. E-mail+senha aparece como `providerId === "credential"` — linha INFORMATIVA no padrão das outras de status (QA round 8: "Conectado./Não conectado." no `ItemDescription`, SEM clique e SEM botão — "Alterar senha" já vive na Segurança; desvinculada mantém `opacity-50` + "Não conectado.").
   - Conectar Apple: no iOS, fluxo nativo (`expo-apple-authentication` — guard `isAvailableAsync`, `signInAsync` + `linkSocial({provider: "apple", idToken})` com o identityToken); fora do iOS cai no OAuth web (`linkSocial({provider: "apple", callbackURL})`), mesmo caminho do Google.
   - Conectar Google: `authClient.linkSocial({provider: "google", callbackURL})` — OAuth web via proxy do `expoClient` (`Browser.openAuthSessionAsync`).
-  - Desconectar: `authClient.unlinkAccount({providerId})` → invalidate da query de contas + toast.
+  - Desconectar: `authClient.unlinkAccount({accountId: <id LOCAL da row>})` (Better Auth 1.7: o seletor é o id da row em `account` devolvido por `listAccounts` — o seletor antigo `{providerId}` da 1.6 não existe mais) → invalidate da query de contas + toast.
 - **Proteções nativas (mantidas por decisão de segurança), mapeadas em `security-errors.ts`:**
   - `FAILED_TO_UNLINK_LAST_ACCOUNT` — nunca desconecta a última forma de login → "essa é sua última forma de login — conecte outra antes de remover".
   - `SESSION_NOT_FRESH` — unlink exige sessão criada há <24h; a UI trata com toast "por segurança, entre novamente para desconectar" + sign-out guiado (o layout raiz troca para o (public)/sign-in; freshAge global NÃO foi alterado).
@@ -115,6 +115,19 @@ Toda a área de Segurança/Contas do perfil (`src/app/(private)/settings/player/
 ### Rate limits do emailOTP (nativos, sem override)
 - **Data:** verificado 16-08-2026 no pacote instalado
 - Cada endpoint com bucket próprio: 3 req/60s (`send-verification-otp`, `check-verification-otp`, `verify-email`, `request-email-change`, `change-email`, `request-password-reset`, `reset-password`). OTP: 6 dígitos, expira em 300s, 3 tentativas por código. A UI trata o cooldown de reenvio (60s). Em dev o rate limit global fica desligado (default `enabled ?? isProduction`).
+
+### Upgrade kitcn 0.33.5 + Better Auth 1.7.5 (IBX-0056)
+- **Status:** implementado (código + deploy 1 no DEV; deploy 2 = mesma entrega da onda 5)
+- **Data:** 17-09-2026
+- **Referências:** `convex/domains/auth/tables.ts` (team/teamMember), `convex/functions/migrations/20260917_221648_backfill_team_member_count.ts`, `convex/functions/generated/*` (regenerados), `src/lib/account/linked-accounts.ts`, `src/components/pages/player/linked-accounts-section.tsx`
+- **O que mudou:**
+  - **Team counters (schema do org plugin na 1.7):** `team.memberCount` = obrigatório (integer notNull; o adapter 1.7 declara `required: true, defaultValue: 0` e escreve ele mesmo — `input: false`); `teamMember.membershipKey` = opcional + `uniqueIndex("membershipKey")` (escrito pelo adapter em novos teamMember; rows antigas FICAM SEM o campo e o Convex as exclui do índice unique — zero violação; o adapter faz fallback para o par `(teamId, userId)` existente).
+  - **`account.issuer` NÃO existe e NÃO é necessário:** o requisito de issuer durou só em better-auth 1.7.0–1.7.2 (removido no 1.7.3 — "the account schema is unchanged from 1.6"); o kitcn 0.33.5 não tem nenhuma lógica de issuer-account. Nenhuma migration de backfill de issuer.
+  - **Migration `20260917_221648_backfill_team_member_count`:** conta `teamMember` por `teamId` (índice existente) e preenche `memberCount` antes do campo virar obrigatório. Aplicada no DEV (migration completed 1/1; zero teams no DEV na data).
+  - **Runtime gerado (kitcn 0.33.5):** query interna `count` nova no runtime de auth (`convex/functions/generated/auth.ts` — requisito do kitcn 0.31.0: o Better Auth chama `count()` em toda leitura de total; deployment sem ela quebra essas requests) + arquivos gerados novos `generated/aggregate.ts`, `generated/aggregate.runtime.ts`, `generated/procedure-names.gen.ts`.
+  - **Cliente (BA 1.7):** `unlinkAccount` mudou de seletor — era `{providerId}`, agora é `{accountId: <id LOCAL da row de account>}` (ver Contas vinculadas). Único call site afetado no repo. O `getCookie()` do `@better-auth/expo` virou promise na 1.7, mas o app não usa storage custom — sem impacto.
+  - **Deploy em 2 etapas (padrão do kitcn 0.28.0, reduzido pela reversão do issuer):** onda 3 = schema opcional + backfill (DEV); onda 5 = bump + schema required. Sem janela de manutenção de auth (o único bloqueador era o issuer obrigatório da 1.7.0–1.7.2).
+- **Peers que travam versões:** kitcn 0.33.5 exige `better-auth >=1.7.0 <1.8.0` e `convex >=1.42 <1.45.0` (convex 1.45/1.46 ficam para quando o kitcn soltar peer novo); peer de `hono` é o literal `4.12.9` nos dois lados — repo mantém 4.12.31 (mesmo minor; bun tolera o warning).
 
 ## Decisões tomadas
 
