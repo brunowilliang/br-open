@@ -158,6 +158,7 @@ export const api = {
   },
   http: undefined as unknown as typeof httpRouter,
   _http: {
+    'payment.handleWooviWebhook': { path: "/api/webhooks/woovi", method: "POST" },
   },
 } as const;
 
