@@ -4,6 +4,8 @@
  */
 
 export type AuthAccount = {
+  /** Id LOCAL da row em `account` (seletor exigido pelo Better Auth 1.7). */
+  id?: string;
   accountId?: string;
   providerId: string;
 };

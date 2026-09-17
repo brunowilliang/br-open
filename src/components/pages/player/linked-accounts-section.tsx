@@ -174,8 +174,11 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
     setPendingProvider(provider);
 
     try {
+      // Better Auth 1.7: o seletor de unlinkAccount é o id LOCAL da row de
+      // account (listAccounts), nunca o accountId do provider.
+      const account = props.accounts.find((row) => row.providerId === provider);
       const { error } = await authClient.unlinkAccount({
-        providerId: provider,
+        accountId: account?.id ?? "",
       });
 
       if (error) {
