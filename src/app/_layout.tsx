@@ -7,6 +7,7 @@ import {
   Outfit_700Bold,
 } from "@expo-google-fonts/outfit";
 import { useFonts } from "expo-font";
+import { Observe, ObserveRoot, useObserve } from "expo-observe";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -25,13 +26,20 @@ SplashScreen.setOptions({
 });
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-export default function RootLayout() {
+// Module scope, before any screen mounts (toggling at runtime throws).
+Observe.configure({
+  integrations: { "expo-router": true },
+});
+
+function RootLayout() {
   return (
     <Providers>
       <Root />
     </Providers>
   );
 }
+
+export default ObserveRoot.wrap(RootLayout);
 
 function Root() {
   const colorScheme = useColorScheme();
@@ -49,6 +57,7 @@ function Root() {
     isLoading && hasResolvedAuth
       ? lastAuthenticatedRef.current
       : isAuthenticated;
+  const { markInteractive } = useObserve();
   const isAppReady =
     (hasResolvedAuth || !isLoading) && (fontsLoaded || fontsError);
 
@@ -64,8 +73,9 @@ function Root() {
   useEffect(() => {
     if (isAppReady) {
       SplashScreen.hideAsync().catch(() => undefined);
+      markInteractive();
     }
-  }, [isAppReady]);
+  }, [isAppReady, markInteractive]);
 
   useEffect(() => {
     // Route transitions fade semi-transparent scenes over the native root
