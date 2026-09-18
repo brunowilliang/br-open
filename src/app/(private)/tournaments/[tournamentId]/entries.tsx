@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   formatEntrySideLabel,
@@ -27,6 +27,7 @@ export default function TournamentEntriesRoute() {
     tournamentId: string;
   }>();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
@@ -46,82 +47,82 @@ export default function TournamentEntriesRoute() {
     );
   }
 
-  const approveEntry = useMutation(
-    crpc.tournament.entries.approve.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível aprovar a inscrição. Tente novamente."
-          ),
-          id: "approve-entry-error",
-          label: "Falha ao aprovar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: "Inscrição aprovada.",
-          id: "approve-entry-success",
-          label: "Inscrição aprovada",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const approveEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.approve.mutate,
+    mutationKey: crpc.tournament.entries.approve.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível aprovar a inscrição. Tente novamente."
+        ),
+        id: "approve-entry-error",
+        label: "Falha ao aprovar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "Inscrição aprovada.",
+        id: "approve-entry-success",
+        label: "Inscrição aprovada",
+        variant: "success",
+      });
+    },
+  });
 
-  const rejectEntry = useMutation(
-    crpc.tournament.entries.reject.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível recusar a inscrição. Tente novamente."
-          ),
-          id: "reject-entry-error",
-          label: "Falha ao recusar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: "Inscrição recusada.",
-          id: "reject-entry-success",
-          label: "Inscrição recusada",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const rejectEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.reject.mutate,
+    mutationKey: crpc.tournament.entries.reject.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível recusar a inscrição. Tente novamente."
+        ),
+        id: "reject-entry-error",
+        label: "Falha ao recusar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "Inscrição recusada.",
+        id: "reject-entry-success",
+        label: "Inscrição recusada",
+        variant: "success",
+      });
+    },
+  });
 
-  const respondPartnerInvite = useMutation(
-    crpc.tournament.entries.respondPartnerInvite.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível responder ao convite. Tente novamente."
-          ),
-          id: "respond-partner-error",
-          label: "Falha ao responder convite",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (_entry, variables) => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: variables.accept
-            ? "Convite aceito, a dupla está fechada."
-            : "Convite recusado.",
-          id: "respond-partner-success",
-          label: variables.accept ? "Convite aceito" : "Convite recusado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const respondPartnerInvite = useMutation({
+    mutationFn: crpcClient.tournament.entries.respondPartnerInvite.mutate,
+    mutationKey: crpc.tournament.entries.respondPartnerInvite.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível responder ao convite. Tente novamente."
+        ),
+        id: "respond-partner-error",
+        label: "Falha ao responder convite",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (_entry, variables) => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: variables.accept
+          ? "Convite aceito, a dupla está fechada."
+          : "Convite recusado.",
+        id: "respond-partner-success",
+        label: variables.accept ? "Convite aceito" : "Convite recusado",
+        variant: "success",
+      });
+    },
+  });
 
   const isOrganizer = access?.canManage ?? false;
 

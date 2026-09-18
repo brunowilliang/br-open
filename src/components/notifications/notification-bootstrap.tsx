@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import type { ApiOutputs } from "@convex/shared/api";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import {
   registerForPushNotificationsAsync,
   registerNotificationCategoriesAsync,
@@ -25,44 +25,49 @@ type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
 
 export function NotificationBootstrap(props: NotificationBootstrapProps) {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const handledResponseKey = useRef<string | null>(null);
   const lastSyncedToken = useRef<string | null>(null);
   const hasRequestedPushPermission = useRef(false);
   const statusQuery = useQuery({
-    ...crpc.notification.settings.status.queryOptions(),
+    ...crpc.notification.settings.status.staticQueryOptions(),
     enabled: props.isEnabled,
   });
-  const upsertDevice = useMutation(
-    crpc.notification.settings.upsertDevice.mutationOptions({
-      onSuccess: async () => {
-        await queryClient.invalidateQueries(
-          crpc.notification.settings.status.queryFilter()
-        );
-      },
-    })
-  );
-  const setPreference = useMutation(
-    crpc.notification.settings.setPreference.mutationOptions({
-      onSuccess: async () => {
-        await queryClient.invalidateQueries(
-          crpc.notification.settings.status.queryFilter()
-        );
-      },
-    })
-  );
-  const markRead = useMutation(
-    crpc.notification.feed.markRead.mutationOptions()
-  );
-  const setActiveActor = useMutation(
-    crpc.viewer.context.setActiveActor.mutationOptions()
-  );
-  const approveMembership = useMutation(
-    crpc.league.membership.approve.mutationOptions()
-  );
-  const rejectMembership = useMutation(
-    crpc.league.membership.reject.mutationOptions()
-  );
+  const upsertDevice = useMutation({
+    mutationFn: crpcClient.notification.settings.upsertDevice.mutate,
+    mutationKey: crpc.notification.settings.upsertDevice.mutationKey(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.notification.settings.status.queryFilter()
+      );
+    },
+  });
+  const setPreference = useMutation({
+    mutationFn: crpcClient.notification.settings.setPreference.mutate,
+    mutationKey: crpc.notification.settings.setPreference.mutationKey(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.notification.settings.status.queryFilter()
+      );
+    },
+  });
+  const markRead = useMutation({
+    mutationFn: crpcClient.notification.feed.markRead.mutate,
+    mutationKey: crpc.notification.feed.markRead.mutationKey(),
+  });
+  const setActiveActor = useMutation({
+    mutationFn: crpcClient.viewer.context.setActiveActor.mutate,
+    mutationKey: crpc.viewer.context.setActiveActor.mutationKey(),
+  });
+  const approveMembership = useMutation({
+    mutationFn: crpcClient.league.membership.approve.mutate,
+    mutationKey: crpc.league.membership.approve.mutationKey(),
+  });
+  const rejectMembership = useMutation({
+    mutationFn: crpcClient.league.membership.reject.mutate,
+    mutationKey: crpc.league.membership.reject.mutationKey(),
+  });
 
   const invalidateNotifications = useCallback(async () => {
     await Promise.all([

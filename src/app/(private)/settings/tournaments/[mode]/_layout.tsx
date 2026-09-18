@@ -25,7 +25,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/core/NewPage";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { normalizeRouteParam } from "@/lib/router/normalize-param";
 import {
@@ -279,6 +279,7 @@ function EditTournamentForm(props: {
 
 export default function TournamentFormLayout() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -293,102 +294,102 @@ export default function TournamentFormLayout() {
   });
 
   const viewerContext = useQuery({
-    ...crpc.viewer.context.get.queryOptions(),
+    ...crpc.viewer.context.get.staticQueryOptions(),
     enabled: target.mode === "create",
   });
   const tournamentQuery = useQuery({
-    ...crpc.tournament.management.getById.queryOptions({
+    ...crpc.tournament.management.getById.staticQueryOptions({
       tournamentId: target.mode === "edit" ? target.tournamentId : "",
     }),
     enabled: target.mode === "edit",
   });
-  const createTournament = useMutation(
-    crpc.tournament.management.create.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível criar o torneio. Tente novamente."
-          ),
-          id: "create-tournament-error",
-          label: "Falha ao criar torneio",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (created) => {
-        await queryClient.invalidateQueries(
+  const createTournament = useMutation({
+    mutationFn: crpcClient.tournament.management.create.mutate,
+    mutationKey: crpc.tournament.management.create.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível criar o torneio. Tente novamente."
+        ),
+        id: "create-tournament-error",
+        label: "Falha ao criar torneio",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries(
+        crpc.tournament.management.listMine.queryFilter()
+      );
+      toast.show({
+        description: "Rascunho criado. Publique quando estiver tudo pronto.",
+        id: "create-tournament-success",
+        label: "Torneio criado",
+        variant: "success",
+      });
+      router.replace(`/tournaments/${created.id}` as Href);
+    },
+  });
+  const updateTournament = useMutation({
+    mutationFn: crpcClient.tournament.management.update.mutate,
+    mutationKey: crpc.tournament.management.update.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível atualizar o torneio. Tente novamente."
+        ),
+        id: "update-tournament-error",
+        label: "Falha ao salvar alterações",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(
           crpc.tournament.management.listMine.queryFilter()
-        );
-        toast.show({
-          description: "Rascunho criado. Publique quando estiver tudo pronto.",
-          id: "create-tournament-success",
-          label: "Torneio criado",
-          variant: "success",
-        });
-        router.replace(`/tournaments/${created.id}` as Href);
-      },
-    })
-  );
-  const updateTournament = useMutation(
-    crpc.tournament.management.update.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível atualizar o torneio. Tente novamente."
-          ),
-          id: "update-tournament-error",
-          label: "Falha ao salvar alterações",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries(
-            crpc.tournament.management.listMine.queryFilter()
-          ),
-          queryClient.invalidateQueries(
-            crpc.tournament.management.getById.queryFilter({
-              tournamentId: target.mode === "edit" ? target.tournamentId : "",
-            })
-          ),
-        ]);
-        toast.show({
-          description: "As informações do torneio foram atualizadas.",
-          id: "update-tournament-success",
-          label: "Alterações salvas",
-          variant: "success",
-        });
-      },
-    })
-  );
-  const deleteTournament = useMutation(
-    crpc.tournament.management.remove.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível excluir o torneio. Tente novamente."
-          ),
-          id: "delete-tournament-error",
-          label: "Falha ao remover torneio",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await queryClient.invalidateQueries(
-          crpc.tournament.management.listMine.queryFilter()
-        );
-        toast.show({
-          description: "O torneio foi excluído permanentemente.",
-          id: "delete-tournament-success",
-          label: "Torneio removido",
-          variant: "success",
-        });
-        router.back();
-      },
-    })
-  );
+        ),
+        queryClient.invalidateQueries(
+          crpc.tournament.management.getById.queryFilter({
+            tournamentId: target.mode === "edit" ? target.tournamentId : "",
+          })
+        ),
+      ]);
+      toast.show({
+        description: "As informações do torneio foram atualizadas.",
+        id: "update-tournament-success",
+        label: "Alterações salvas",
+        variant: "success",
+      });
+    },
+  });
+  const deleteTournament = useMutation({
+    mutationFn: crpcClient.tournament.management.remove.mutate,
+    mutationKey: crpc.tournament.management.remove.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível excluir o torneio. Tente novamente."
+        ),
+        id: "delete-tournament-error",
+        label: "Falha ao remover torneio",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.tournament.management.listMine.queryFilter()
+      );
+      toast.show({
+        description: "O torneio foi excluído permanentemente.",
+        id: "delete-tournament-success",
+        label: "Torneio removido",
+        variant: "success",
+      });
+      router.back();
+    },
+  });
 
   async function handleCreate(input: TournamentScreenValues) {
     createTournament.reset();

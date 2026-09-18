@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   resolveLeagueDetailsRequestContentState,
@@ -29,13 +29,14 @@ export default function LeagueRequestsRoute() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const access = useValue(bucket$.derived.access);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
   const requestItems = useValue(bucket$.derived.requestItems);
 
   const membershipOverviewQuery = useQuery({
-    ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
+    ...crpc.league.membership.getOverview.staticQueryOptions({ leagueId }),
     enabled: access.canOpenRequests,
   });
 
@@ -50,55 +51,55 @@ export default function LeagueRequestsRoute() {
     ]);
   }
 
-  const approveMembership = useMutation(
-    crpc.league.membership.approve.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível aprovar a solicitação. Tente novamente."
-          ),
-          id: "approve-membership-error",
-          label: "Falha ao aprovar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateMembershipContext();
-        toast.show({
-          description: "O jogador já aparece no ranking da liga.",
-          id: "approve-membership-success",
-          label: "Participante aprovado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const approveMembership = useMutation({
+    mutationFn: crpcClient.league.membership.approve.mutate,
+    mutationKey: crpc.league.membership.approve.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível aprovar a solicitação. Tente novamente."
+        ),
+        id: "approve-membership-error",
+        label: "Falha ao aprovar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateMembershipContext();
+      toast.show({
+        description: "O jogador já aparece no ranking da liga.",
+        id: "approve-membership-success",
+        label: "Participante aprovado",
+        variant: "success",
+      });
+    },
+  });
 
-  const rejectMembership = useMutation(
-    crpc.league.membership.reject.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível recusar a solicitação. Tente novamente."
-          ),
-          id: "reject-membership-error",
-          label: "Falha ao recusar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateMembershipContext();
-        toast.show({
-          description: "A solicitação foi recusada.",
-          id: "reject-membership-success",
-          label: "Solicitação recusada",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const rejectMembership = useMutation({
+    mutationFn: crpcClient.league.membership.reject.mutate,
+    mutationKey: crpc.league.membership.reject.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível recusar a solicitação. Tente novamente."
+        ),
+        id: "reject-membership-error",
+        label: "Falha ao recusar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateMembershipContext();
+      toast.show({
+        description: "A solicitação foi recusada.",
+        id: "reject-membership-success",
+        label: "Solicitação recusada",
+        variant: "success",
+      });
+    },
+  });
 
   useEffect(() => {
     bucket$.actions.setActiveRoute("requests");

@@ -68,11 +68,13 @@ export default function LeagueChallengesRoute() {
   const viewerPlayerProfileId = useValue(bucket$.viewer.viewerPlayerProfileId);
 
   const challengesQuery = useQuery({
-    ...crpc.league.challenges.listForLeague.queryOptions({ leagueId }),
+    ...crpc.league.challenges.listForLeague.staticQueryOptions({ leagueId }),
     enabled: access.canOpenChallenges,
   });
   const occupiedSlotsQuery = useQuery({
-    ...crpc.league.challenges.listOccupiedSlots.queryOptions({ leagueId }),
+    ...crpc.league.challenges.listOccupiedSlots.staticQueryOptions({
+      leagueId,
+    }),
     enabled: access.canOpenChallenges,
   });
   const challengesError = resolveChallengesError({

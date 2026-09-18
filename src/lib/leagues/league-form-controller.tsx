@@ -9,7 +9,7 @@ import {
 } from "@/components/pages/leagues/form-schema";
 import { resolveLeagueFormInvalidSubmission } from "@/components/pages/leagues/form-validation";
 import { leagueMediaFormDomain } from "@/lib/leagues/league-form-store";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import {
   MediaFormHost,
   useMediaFormController,
@@ -37,10 +37,12 @@ export function useLeagueFormController(
 ): LeagueFormController {
   const { onValidationTabRequest, ...rest } = options;
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const { toast } = useToast();
-  const generateUploadUrl = useMutation(
-    crpc.league.management.generateUploadUrl.mutationOptions()
-  );
+  const generateUploadUrl = useMutation({
+    mutationFn: crpcClient.league.management.generateUploadUrl.mutate,
+    mutationKey: crpc.league.management.generateUploadUrl.mutationKey(),
+  });
 
   function handleInvalidSubmit(errors: FieldErrors<LeagueScreenValues>) {
     const invalidSubmission = resolveLeagueFormInvalidSubmission(errors);

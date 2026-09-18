@@ -33,7 +33,7 @@ export default function LeagueScheduleRoute() {
   const league = useValue(bucket$.data.league);
 
   const scheduleQuery = useQuery({
-    ...crpc.league.challenges.listScheduled.queryOptions({ leagueId }),
+    ...crpc.league.challenges.listScheduled.staticQueryOptions({ leagueId }),
   });
 
   const [windowDays, setWindowDays] = useState<ScheduleWindowDays>(7);

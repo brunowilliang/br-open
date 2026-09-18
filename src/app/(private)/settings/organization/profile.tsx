@@ -14,7 +14,7 @@ import {
   type OrganizationFormValues,
 } from "@/components/pages/organization/organization-form-fields";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   upsertOrganizationSchema,
@@ -56,9 +56,12 @@ const defaultValues: EditFormValues = {
 
 export default function OrganizationProfile() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const organization = useQuery(crpc.organization.profile.get.queryOptions());
+  const organization = useQuery(
+    crpc.organization.profile.get.staticQueryOptions()
+  );
 
   const form = useForm<EditFormValues>({
     defaultValues,
@@ -71,9 +74,10 @@ export default function OrganizationProfile() {
     form as unknown as ReturnType<typeof useForm<OrganizationFormValues>>
   );
 
-  const generateUploadUrl = useMutation(
-    crpc.organization.profile.generateUploadUrl.mutationOptions()
-  );
+  const generateUploadUrl = useMutation({
+    mutationFn: crpcClient.organization.profile.generateUploadUrl.mutate,
+    mutationKey: crpc.organization.profile.generateUploadUrl.mutationKey(),
+  });
 
   useEffect(() => {
     if (!organization.data) {
@@ -96,51 +100,51 @@ export default function OrganizationProfile() {
     form.trigger().catch(() => undefined);
   }, [form, organization.data]);
 
-  const updateProfile = useMutation(
-    crpc.organization.profile.upsert.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar as informações da organização. Tente novamente."
-          ),
-          id: "update-organization-profile-error",
-          label: "Falha ao salvar perfil",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (next) => {
-        await queryClient.invalidateQueries(
-          crpc.organization.profile.get.queryFilter()
-        );
-        await queryClient.invalidateQueries(
-          crpc.viewer.context.get.queryFilter()
-        );
-        form.reset({
-          ...next,
-          address: next.address ?? undefined,
-          contactEmail: next.contactEmail ?? "",
-          description: next.description ?? "",
-          logoDraftUri: undefined,
-          organizerType: next.organizerType ?? undefined,
-          organizerTypeLabel: next.organizerTypeLabel ?? "",
-          phone: next.phone ?? "",
-          sports: next.sports ?? [],
-          sportsLabel: next.sportsLabel ?? "",
-          website: next.website ?? "",
-        });
-        await form.trigger();
-        logo.setLogoPreviewUri(null);
-        logo.setPendingLogoFile(null);
-        toast.show({
-          description: "As informações da organização foram atualizadas.",
-          id: "update-organization-profile-success",
-          label: "Perfil salvo",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const updateProfile = useMutation({
+    mutationFn: crpcClient.organization.profile.upsert.mutate,
+    mutationKey: crpc.organization.profile.upsert.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível salvar as informações da organização. Tente novamente."
+        ),
+        id: "update-organization-profile-error",
+        label: "Falha ao salvar perfil",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (next) => {
+      await queryClient.invalidateQueries(
+        crpc.organization.profile.get.queryFilter()
+      );
+      await queryClient.invalidateQueries(
+        crpc.viewer.context.get.queryFilter()
+      );
+      form.reset({
+        ...next,
+        address: next.address ?? undefined,
+        contactEmail: next.contactEmail ?? "",
+        description: next.description ?? "",
+        logoDraftUri: undefined,
+        organizerType: next.organizerType ?? undefined,
+        organizerTypeLabel: next.organizerTypeLabel ?? "",
+        phone: next.phone ?? "",
+        sports: next.sports ?? [],
+        sportsLabel: next.sportsLabel ?? "",
+        website: next.website ?? "",
+      });
+      await form.trigger();
+      logo.setLogoPreviewUri(null);
+      logo.setPendingLogoFile(null);
+      toast.show({
+        description: "As informações da organização foram atualizadas.",
+        id: "update-organization-profile-success",
+        label: "Perfil salvo",
+        variant: "success",
+      });
+    },
+  });
 
   const logoSource =
     logo.logoPreviewUri ?? organization.data?.logoUrl ?? undefined;

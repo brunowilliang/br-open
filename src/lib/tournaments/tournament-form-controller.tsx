@@ -9,7 +9,7 @@ import {
 } from "@/components/pages/tournaments/form-schema";
 import { resolveTournamentFormInvalidSubmission } from "@/components/pages/tournaments/form-validation";
 import { tournamentMediaFormDomain } from "@/lib/tournaments/tournament-form-store";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import {
   MediaFormHost,
   useMediaFormController,
@@ -38,10 +38,12 @@ export function useTournamentFormController(
 ): TournamentFormController {
   const { onValidationTabRequest, ...rest } = options;
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const { toast } = useToast();
-  const generateUploadUrl = useMutation(
-    crpc.tournament.management.generateUploadUrl.mutationOptions()
-  );
+  const generateUploadUrl = useMutation({
+    mutationFn: crpcClient.tournament.management.generateUploadUrl.mutate,
+    mutationKey: crpc.tournament.management.generateUploadUrl.mutationKey(),
+  });
 
   function handleInvalidSubmit(errors: FieldErrors<TournamentScreenValues>) {
     const invalidSubmission = resolveTournamentFormInvalidSubmission(errors);

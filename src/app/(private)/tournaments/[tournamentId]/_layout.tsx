@@ -66,17 +66,21 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
   const resetVersion = useValue(bucket$.identity.resetVersion);
 
-  const viewerQuery = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerQuery = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const tournamentQuery = useQuery(
-    crpc.tournament.discovery.getById.queryOptions({ tournamentId })
+    crpc.tournament.discovery.getById.staticQueryOptions({ tournamentId })
   );
   const shouldFetchMatches = useValue(bucket$.derived.shouldFetchMatches);
   const matchesQuery = useQuery({
-    ...crpc.tournament.matches.listForTournament.queryOptions({ tournamentId }),
+    ...crpc.tournament.matches.listForTournament.staticQueryOptions({
+      tournamentId,
+    }),
     enabled: shouldFetchMatches,
   });
   const entriesQuery = useQuery(
-    crpc.tournament.entries.listForTournament.queryOptions({ tournamentId })
+    crpc.tournament.entries.listForTournament.staticQueryOptions({
+      tournamentId,
+    })
   );
 
   useEffect(() => {

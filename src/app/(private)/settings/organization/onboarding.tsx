@@ -25,7 +25,7 @@ import {
 } from "@/components/pages/organization/organization-form-fields";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { isValidPixKey, rawPixKey } from "@/lib/payments/pix-key";
 import {
@@ -152,6 +152,7 @@ const defaultValues: OnboardingFormValues = {
 
 export default function OrganizationOnboarding() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isTermsOpen, setIsTermsOpen] = useState(false);
@@ -167,73 +168,57 @@ export default function OrganizationOnboarding() {
     form as unknown as ReturnType<typeof useForm<OrganizationFormValues>>
   );
 
-  const generateUploadUrl = useMutation(
-    crpc.organization.profile.generateUploadUrl.mutationOptions()
-  );
+  const generateUploadUrl = useMutation({
+    mutationFn: crpcClient.organization.profile.generateUploadUrl.mutate,
+    mutationKey: crpc.organization.profile.generateUploadUrl.mutationKey(),
+  });
 
-  const startPixOnboarding = useMutation(
-    crpc.payment.onboarding.start.mutationOptions()
-  );
+  const startPixOnboarding = useMutation({
+    mutationFn: crpcClient.payment.onboarding.start.mutate,
+    mutationKey: crpc.payment.onboarding.start.mutationKey(),
+  });
 
-  const activateOrganization = useMutation(
-    crpc.viewer.context.activateOrganization.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível concluir o cadastro da organização. Tente novamente."
-          ),
-          id: "organization-onboarding-error",
-          label: "Falha ao criar organização",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (nextViewerContext) => {
-        applyViewerContextToClientState({
-          queryClient,
-          viewerContext: nextViewerContext,
-          viewerContextFilter: crpc.viewer.context.get.queryFilter(),
-        });
-        await queryClient.invalidateQueries(
-          crpc.viewer.context.get.queryFilter()
-        );
-        await queryClient.invalidateQueries(
-          crpc.organization.profile.get.queryFilter()
-        );
+  const activateOrganization = useMutation({
+    mutationFn: crpcClient.viewer.context.activateOrganization.mutate,
+    mutationKey: crpc.viewer.context.activateOrganization.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível concluir o cadastro da organização. Tente novamente."
+        ),
+        id: "organization-onboarding-error",
+        label: "Falha ao criar organização",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (nextViewerContext) => {
+      applyViewerContextToClientState({
+        queryClient,
+        viewerContext: nextViewerContext,
+        viewerContextFilter: crpc.viewer.context.get.queryFilter(),
+      });
+      await queryClient.invalidateQueries(
+        crpc.viewer.context.get.queryFilter()
+      );
+      await queryClient.invalidateQueries(
+        crpc.organization.profile.get.queryFilter()
+      );
 
-        // A org foi criada e o usuário agora é owner — provisiona a conta PIX
-        // informada no mesmo formulário. Se falhar, a org já existe, então
-        // redirecionamos para o perfil onde a chave pode ser concluída.
-        const pixKey = form.getValues("pixKey") ?? "";
-        const pixKeyType = form.getValues("pixKeyType") ?? "cpf";
-        if (pixKey) {
-          try {
-            await startPixOnboarding.mutateAsync({
-              accountName: form.getValues("accountName")?.trim() ?? "",
-              pixKey: rawPixKey(pixKey, pixKeyType),
-            });
-            await queryClient.invalidateQueries(
-              crpc.payment.onboarding.getStatus.queryFilter()
-            );
-            toast.show({
-              description:
-                "Você já pode criar e gerenciar ligas como organizador.",
-              id: "organization-onboarding-success",
-              label: "Organização criada",
-              variant: "success",
-            });
-          } catch (error) {
-            toast.show({
-              description: getToastErrorMessage(
-                error,
-                "A organização foi criada, mas não foi possível conectar a chave PIX. Conclua no perfil."
-              ),
-              id: "organization-onboarding-pix-error",
-              label: "Conta criada, PIX pendente",
-              variant: "warning",
-            });
-          }
-        } else {
+      // A org foi criada e o usuário agora é owner — provisiona a conta PIX
+      // informada no mesmo formulário. Se falhar, a org já existe, então
+      // redirecionamos para o perfil onde a chave pode ser concluída.
+      const pixKey = form.getValues("pixKey") ?? "";
+      const pixKeyType = form.getValues("pixKeyType") ?? "cpf";
+      if (pixKey) {
+        try {
+          await startPixOnboarding.mutateAsync({
+            accountName: form.getValues("accountName")?.trim() ?? "",
+            pixKey: rawPixKey(pixKey, pixKeyType),
+          });
+          await queryClient.invalidateQueries(
+            crpc.payment.onboarding.getStatus.queryFilter()
+          );
           toast.show({
             description:
               "Você já pode criar e gerenciar ligas como organizador.",
@@ -241,12 +226,29 @@ export default function OrganizationOnboarding() {
             label: "Organização criada",
             variant: "success",
           });
+        } catch (error) {
+          toast.show({
+            description: getToastErrorMessage(
+              error,
+              "A organização foi criada, mas não foi possível conectar a chave PIX. Conclua no perfil."
+            ),
+            id: "organization-onboarding-pix-error",
+            label: "Conta criada, PIX pendente",
+            variant: "warning",
+          });
         }
+      } else {
+        toast.show({
+          description: "Você já pode criar e gerenciar ligas como organizador.",
+          id: "organization-onboarding-success",
+          label: "Organização criada",
+          variant: "success",
+        });
+      }
 
-        router.replace("/settings/organization/profile");
-      },
-    })
-  );
+      router.replace("/settings/organization/profile");
+    },
+  });
 
   const isSubmitPending =
     activateOrganization.isPending ||

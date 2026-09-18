@@ -93,7 +93,7 @@ export default function LeagueSettingsRoute() {
   // players for a paid league. Fetched unconditionally (cheap authQuery) so the
   // guard works in both create and edit modes.
   const wooviStatusQuery = useQuery(
-    crpc.payment.onboarding.getStatus.queryOptions()
+    crpc.payment.onboarding.getStatus.staticQueryOptions()
   );
   const wooviStatus = wooviStatusQuery.data?.status ?? null;
 

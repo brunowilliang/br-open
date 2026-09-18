@@ -3,7 +3,7 @@ import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BellDotIcon,
@@ -44,11 +44,12 @@ type SettingsItem = {
 
 export default function Settings() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const notificationStatus = useQuery(
-    crpc.notification.settings.status.queryOptions()
+    crpc.notification.settings.status.staticQueryOptions()
   );
   const unreadCount = notificationStatus.data?.unreadCount ?? 0;
   const activeActor = viewerContext.data?.activeActor ?? null;
@@ -84,22 +85,22 @@ export default function Settings() {
     ]);
   }
 
-  const setActiveActor = useMutation(
-    crpc.viewer.context.setActiveActor.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível alternar entre os modos. Tente novamente."
-          ),
-          id: "settings-set-active-actor-error",
-          label: "Modo não alterado",
-          variant: "danger",
-        });
-      },
-      onSuccess: invalidateActorScopedQueries,
-    })
-  );
+  const setActiveActor = useMutation({
+    mutationFn: crpcClient.viewer.context.setActiveActor.mutate,
+    mutationKey: crpc.viewer.context.setActiveActor.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível alternar entre os modos. Tente novamente."
+        ),
+        id: "settings-set-active-actor-error",
+        label: "Modo não alterado",
+        variant: "danger",
+      });
+    },
+    onSuccess: invalidateActorScopedQueries,
+  });
 
   const handleSignOutPress = useMutation(
     useSignOutMutationOptions({

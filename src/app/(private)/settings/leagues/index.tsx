@@ -43,11 +43,11 @@ const MenuOptions = () => (
 
 export default function SettingsLeaguesIndex() {
   const crpc = useCRPC();
-  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const canManageLeagues =
     viewerContext.data?.capabilities?.canManageLeagues ?? false;
   const leagues = useQuery({
-    ...crpc.league.management.listMine.queryOptions(),
+    ...crpc.league.management.listMine.staticQueryOptions(),
     enabled: canManageLeagues,
   });
   const hasLeagues = Boolean(leagues.data?.length);

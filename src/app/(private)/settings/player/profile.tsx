@@ -27,7 +27,7 @@ import {
   type AuthAccount,
 } from "@/lib/account/linked-accounts";
 import { authClient } from "@/lib/convex/auth-client";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { getSecurityErrorMessage } from "@/lib/account/security-errors";
 import {
@@ -99,9 +99,10 @@ export default function PlayerProfile() {
   const params = useLocalSearchParams<{ firstRun?: string }>();
   const isFirstRun = params.firstRun === "true";
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const playerProfile = useQuery(crpc.player.profile.get.queryOptions());
+  const playerProfile = useQuery(crpc.player.profile.get.staticQueryOptions());
   const session = authClient.useSession();
   const currentUsername = session.data?.user?.username ?? "";
   const accounts = useQuery({
@@ -130,9 +131,10 @@ export default function PlayerProfile() {
     resolver: zodResolver(PlayerProfileFormSchema),
     reValidateMode: "onChange",
   });
-  const generateUploadUrl = useMutation(
-    crpc.player.profile.generateUploadUrl.mutationOptions()
-  );
+  const generateUploadUrl = useMutation({
+    mutationFn: crpcClient.player.profile.generateUploadUrl.mutate,
+    mutationKey: crpc.player.profile.generateUploadUrl.mutationKey(),
+  });
 
   useEffect(() => {
     if (!playerProfile.data) {
@@ -147,44 +149,44 @@ export default function PlayerProfile() {
     form.trigger().catch(() => undefined);
   }, [currentUsername, form, playerProfile.data]);
 
-  const updateProfile = useMutation(
-    crpc.player.profile.upsert.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar suas alterações. Tente novamente."
-          ),
-          id: "update-player-profile-error",
-          label: "Falha ao salvar perfil",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (nextProfile) => {
-        await queryClient.invalidateQueries(
-          crpc.player.profile.get.queryFilter()
-        );
-        form.reset({
-          ...nextProfile,
-          avatarDraftUri: undefined,
-        });
-        await form.trigger();
-        setAvatarPreviewUri(null);
-        setPendingAvatarFile(null);
-        toast.show({
-          description: isFirstRun
-            ? "Seu perfil foi criado. Bem-vindo ao BR Open!"
-            : "Suas alterações já estão visíveis para outros jogadores.",
-          id: "update-player-profile-success",
-          label: "Perfil salvo",
-          variant: "success",
-        });
-        if (isFirstRun) {
-          router.replace("/");
-        }
-      },
-    })
-  );
+  const updateProfile = useMutation({
+    mutationFn: crpcClient.player.profile.upsert.mutate,
+    mutationKey: crpc.player.profile.upsert.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível salvar suas alterações. Tente novamente."
+        ),
+        id: "update-player-profile-error",
+        label: "Falha ao salvar perfil",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (nextProfile) => {
+      await queryClient.invalidateQueries(
+        crpc.player.profile.get.queryFilter()
+      );
+      form.reset({
+        ...nextProfile,
+        avatarDraftUri: undefined,
+      });
+      await form.trigger();
+      setAvatarPreviewUri(null);
+      setPendingAvatarFile(null);
+      toast.show({
+        description: isFirstRun
+          ? "Seu perfil foi criado. Bem-vindo ao BR Open!"
+          : "Suas alterações já estão visíveis para outros jogadores.",
+        id: "update-player-profile-success",
+        label: "Perfil salvo",
+        variant: "success",
+      });
+      if (isFirstRun) {
+        router.replace("/");
+      }
+    },
+  });
 
   const isSubmitPending =
     updateProfile.isPending ||

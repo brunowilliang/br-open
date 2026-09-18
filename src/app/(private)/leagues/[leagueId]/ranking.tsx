@@ -24,7 +24,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { getCreateChallengeErrorToast } from "@/lib/leagues/challenge-feedback";
 import type { LeagueDetailsRankingItem } from "@/lib/leagues/league-details-derived";
@@ -45,6 +45,7 @@ export default function LeagueRankingRoute() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const access = useValue(bucket$.derived.access);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
@@ -60,11 +61,13 @@ export default function LeagueRankingRoute() {
   const [isRemovePending, setIsRemovePending] = useState(false);
 
   const membershipOverviewQuery = useQuery({
-    ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
+    ...crpc.league.membership.getOverview.staticQueryOptions({ leagueId }),
     enabled: access.canOpenRanking,
   });
   const occupiedSlotsQuery = useQuery({
-    ...crpc.league.challenges.listOccupiedSlots.queryOptions({ leagueId }),
+    ...crpc.league.challenges.listOccupiedSlots.staticQueryOptions({
+      leagueId,
+    }),
     enabled: access.canOpenChallenges,
   });
 
@@ -85,78 +88,78 @@ export default function LeagueRankingRoute() {
     ]);
   }
 
-  const createChallenge = useMutation(
-    crpc.league.challenges.create.mutationOptions({
-      onError: (error) => {
-        toast.show(
-          getCreateChallengeErrorToast(
-            getToastErrorMessage(error, "Não foi possível criar o desafio.")
-          )
-        );
-      },
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description:
-            "Seu adversário foi notificado e pode responder a qualquer momento.",
-          id: "create-challenge-success",
-          label: "Desafio enviado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const createChallenge = useMutation({
+    mutationFn: crpcClient.league.challenges.create.mutate,
+    mutationKey: crpc.league.challenges.create.mutationKey(),
+    onError: (error) => {
+      toast.show(
+        getCreateChallengeErrorToast(
+          getToastErrorMessage(error, "Não foi possível criar o desafio.")
+        )
+      );
+    },
+    onSuccess: async () => {
+      await invalidateLeagueContext();
+      toast.show({
+        description:
+          "Seu adversário foi notificado e pode responder a qualquer momento.",
+        id: "create-challenge-success",
+        label: "Desafio enviado",
+        variant: "success",
+      });
+    },
+  });
 
-  const removeMembership = useMutation(
-    crpc.league.membership.remove.mutationOptions({
-      onError: (error) => {
-        setPendingOrderIds(null);
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível remover o jogador. Tente novamente."
-          ),
-          id: "remove-membership-error",
-          label: "Falha ao remover jogador",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "O jogador foi retirado do ranking desta liga.",
-          id: "remove-membership-success",
-          label: "Jogador removido",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const removeMembership = useMutation({
+    mutationFn: crpcClient.league.membership.remove.mutate,
+    mutationKey: crpc.league.membership.remove.mutationKey(),
+    onError: (error) => {
+      setPendingOrderIds(null);
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível remover o jogador. Tente novamente."
+        ),
+        id: "remove-membership-error",
+        label: "Falha ao remover jogador",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateLeagueContext();
+      toast.show({
+        description: "O jogador foi retirado do ranking desta liga.",
+        id: "remove-membership-success",
+        label: "Jogador removido",
+        variant: "success",
+      });
+    },
+  });
 
-  const reorderRanking = useMutation(
-    crpc.league.membership.reorderRanking.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar a nova ordem. Tente novamente."
-          ),
-          id: "reorder-ranking-error",
-          label: "Falha ao atualizar ranking",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateLeagueContext();
-        toast.show({
-          description: "A nova ordem foi salva.",
-          id: "reorder-ranking-success",
-          label: "Ranking atualizado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const reorderRanking = useMutation({
+    mutationFn: crpcClient.league.membership.reorderRanking.mutate,
+    mutationKey: crpc.league.membership.reorderRanking.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível salvar a nova ordem. Tente novamente."
+        ),
+        id: "reorder-ranking-error",
+        label: "Falha ao atualizar ranking",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateLeagueContext();
+      toast.show({
+        description: "A nova ordem foi salva.",
+        id: "reorder-ranking-success",
+        label: "Ranking atualizado",
+        variant: "success",
+      });
+    },
+  });
 
   useEffect(() => {
     bucket$.actions.setActiveRoute("ranking");

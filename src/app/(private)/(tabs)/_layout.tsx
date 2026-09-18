@@ -39,7 +39,7 @@ const ORGANIZER_TAB_ITEMS = [
 export default function TabsLayout(): React.ReactElement {
   const backgroundColor = useThemeColor("background");
   const crpc = useCRPC();
-  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const isOrganizationActor =
     viewerContext.data?.activeActor?.kind === "organization";
 

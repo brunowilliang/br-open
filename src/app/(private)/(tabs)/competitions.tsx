@@ -100,24 +100,24 @@ function editTournament(tournamentId: string) {
 
 export default function CompetitionsTab() {
   const crpc = useCRPC();
-  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const canManageLeagues =
     viewerContext.data?.capabilities?.canManageLeagues ?? false;
 
   const myLeagues = useQuery({
-    ...crpc.league.management.listMine.queryOptions(),
+    ...crpc.league.management.listMine.staticQueryOptions(),
     enabled: canManageLeagues,
   });
   const myTournaments = useQuery({
-    ...crpc.tournament.management.listMine.queryOptions(),
+    ...crpc.tournament.management.listMine.staticQueryOptions(),
     enabled: canManageLeagues,
   });
   const participatingLeagues = useQuery({
-    ...crpc.league.discovery.listParticipating.queryOptions(),
+    ...crpc.league.discovery.listParticipating.staticQueryOptions(),
     enabled: !canManageLeagues,
   });
   const participatingTournaments = useQuery({
-    ...crpc.tournament.discovery.listParticipating.queryOptions(),
+    ...crpc.tournament.discovery.listParticipating.staticQueryOptions(),
     enabled: !canManageLeagues,
   });
 

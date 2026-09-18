@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { formatShortDate } from "@/lib/format/date";
@@ -115,37 +115,40 @@ function PaymentCard(props: {
 
 export default function PlayerPaymentsSettings() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const { toast } = useToast();
-  const paymentsQuery = useQuery(crpc.payment.charge.listMine.queryOptions());
+  const paymentsQuery = useQuery(
+    crpc.payment.charge.listMine.staticQueryOptions()
+  );
 
   const [generatingSourceId, setGeneratingSourceId] = useState<null | string>(
     null
   );
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        setGeneratingSourceId(null);
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar um novo código PIX. Tente novamente."
-          ),
-          id: "generate-new-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (data) => {
-        setGeneratingSourceId(null);
-        await paymentsQuery.refetch();
-        router.navigate({
-          params: { chargeId: data.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      },
-    })
-  );
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      setGeneratingSourceId(null);
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar um novo código PIX. Tente novamente."
+        ),
+        id: "generate-new-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (data) => {
+      setGeneratingSourceId(null);
+      await paymentsQuery.refetch();
+      router.navigate({
+        params: { chargeId: data.chargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+    },
+  });
 
   const items = paymentsQuery.data?.items ?? [];
   const pending = items.filter((item) => item.status === "PENDING");

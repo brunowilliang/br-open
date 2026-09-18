@@ -71,18 +71,18 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
   const access = useValue(bucket$.derived.access);
   const resetVersion = useValue(bucket$.identity.resetVersion);
 
-  const viewerQuery = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerQuery = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const leagueQuery = useQuery({
-    ...crpc.league.discovery.getById.queryOptions({
+    ...crpc.league.discovery.getById.staticQueryOptions({
       leagueId,
     }),
   });
   const membershipOverviewQuery = useQuery({
-    ...crpc.league.membership.getOverview.queryOptions({ leagueId }),
+    ...crpc.league.membership.getOverview.staticQueryOptions({ leagueId }),
     enabled: shouldFetchLeagueDetailsMembershipOverview(access),
   });
   const challengesQuery = useQuery({
-    ...crpc.league.challenges.listForLeague.queryOptions({ leagueId }),
+    ...crpc.league.challenges.listForLeague.staticQueryOptions({ leagueId }),
     enabled: access.canOpenChallenges,
   });
 

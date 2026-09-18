@@ -27,7 +27,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { ExpandableSection } from "@/components/ui/expandable-section";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { applyCepInputChange, formatCep } from "@/lib/format/cep";
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
@@ -907,46 +907,47 @@ function OnboardingPaymentSection(props: {
 
 function PaymentSection() {
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
 
   const statusQuery = useQuery(
-    crpc.payment.onboarding.getStatus.queryOptions()
+    crpc.payment.onboarding.getStatus.staticQueryOptions()
   );
 
-  const startOnboarding = useMutation(
-    crpc.payment.onboarding.start.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível vincular sua chave PIX. Tente novamente."
-          ),
-          id: "payment-onboarding-error",
-          label: "Falha ao conectar conta",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        toast.show({
-          description: isEditing
-            ? "A nova chave já está ativa para recebimentos."
-            : "Sua chave PIX foi vinculada e já pode receber pagamentos.",
-          id: "payment-onboarding-success",
-          label: isEditing ? "Chave PIX atualizada" : "Conta conectada",
-          variant: "success",
-        });
-        setIsEditing(false);
-        await queryClient.invalidateQueries(
-          crpc.payment.onboarding.getStatus.queryFilter()
-        );
-        await queryClient.invalidateQueries(
-          crpc.payment.dashboard.getOverview.queryFilter()
-        );
-      },
-    })
-  );
+  const startOnboarding = useMutation({
+    mutationFn: crpcClient.payment.onboarding.start.mutate,
+    mutationKey: crpc.payment.onboarding.start.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível vincular sua chave PIX. Tente novamente."
+        ),
+        id: "payment-onboarding-error",
+        label: "Falha ao conectar conta",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      toast.show({
+        description: isEditing
+          ? "A nova chave já está ativa para recebimentos."
+          : "Sua chave PIX foi vinculada e já pode receber pagamentos.",
+        id: "payment-onboarding-success",
+        label: isEditing ? "Chave PIX atualizada" : "Conta conectada",
+        variant: "success",
+      });
+      setIsEditing(false);
+      await queryClient.invalidateQueries(
+        crpc.payment.onboarding.getStatus.queryFilter()
+      );
+      await queryClient.invalidateQueries(
+        crpc.payment.dashboard.getOverview.queryFilter()
+      );
+    },
+  });
 
   const pixForm = useForm<PixKeyFormValues>({
     defaultValues: { accountName: "", pixKey: "", pixKeyType: "cpf" },

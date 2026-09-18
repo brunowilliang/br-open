@@ -41,7 +41,7 @@ import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatLeagueMeta } from "@/lib/leagues/presentation";
 import { formatEntryFeeLabel } from "@/lib/tournaments/tournament-details-derived";
@@ -53,6 +53,7 @@ export default function TournamentOverviewRoute() {
   const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
   const router = useRouter();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
@@ -67,108 +68,108 @@ export default function TournamentOverviewRoute() {
     );
   }
 
-  const respondPartnerInvite = useMutation(
-    crpc.tournament.entries.respondPartnerInvite.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível responder ao convite. Tente novamente."
-          ),
-          id: "respond-partner-error",
-          label: "Falha ao responder convite",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (_entry, variables) => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: variables.accept
-            ? "Convite aceito, a dupla está fechada."
-            : "Convite recusado.",
-          id: "respond-partner-success",
-          label: variables.accept ? "Convite aceito" : "Convite recusado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const respondPartnerInvite = useMutation({
+    mutationFn: crpcClient.tournament.entries.respondPartnerInvite.mutate,
+    mutationKey: crpc.tournament.entries.respondPartnerInvite.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível responder ao convite. Tente novamente."
+        ),
+        id: "respond-partner-error",
+        label: "Falha ao responder convite",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (_entry, variables) => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: variables.accept
+          ? "Convite aceito, a dupla está fechada."
+          : "Convite recusado.",
+        id: "respond-partner-success",
+        label: variables.accept ? "Convite aceito" : "Convite recusado",
+        variant: "success",
+      });
+    },
+  });
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar o PIX. Tente novamente."
-          ),
-          id: "tournament-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-      onSuccess: (result) => {
-        router.navigate({
-          params: { chargeId: result.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      },
-    })
-  );
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar o PIX. Tente novamente."
+        ),
+        id: "tournament-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: (result) => {
+      router.navigate({
+        params: { chargeId: result.chargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+    },
+  });
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
-  const publishTournament = useMutation(
-    crpc.tournament.management.publish.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível publicar o torneio. Tente novamente."
-          ),
-          id: "publish-tournament-error",
-          label: "Falha ao publicar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: "O torneio está aberto para inscrições.",
-          id: "publish-tournament-success",
-          label: "Torneio publicado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const publishTournament = useMutation({
+    mutationFn: crpcClient.tournament.management.publish.mutate,
+    mutationKey: crpc.tournament.management.publish.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível publicar o torneio. Tente novamente."
+        ),
+        id: "publish-tournament-error",
+        label: "Falha ao publicar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "O torneio está aberto para inscrições.",
+        id: "publish-tournament-success",
+        label: "Torneio publicado",
+        variant: "success",
+      });
+    },
+  });
 
-  const cancelTournament = useMutation(
-    crpc.tournament.lifecycle.cancel.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível cancelar o torneio. Tente novamente."
-          ),
-          id: "cancel-tournament-error",
-          label: "Falha ao cancelar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        setIsCancelDialogOpen(false);
-        toast.show({
-          description:
-            "Torneio cancelado. Inscrições pagas serão estornadas automaticamente.",
-          id: "cancel-tournament-success",
-          label: "Torneio cancelado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const cancelTournament = useMutation({
+    mutationFn: crpcClient.tournament.lifecycle.cancel.mutate,
+    mutationKey: crpc.tournament.lifecycle.cancel.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível cancelar o torneio. Tente novamente."
+        ),
+        id: "cancel-tournament-error",
+        label: "Falha ao cancelar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setIsCancelDialogOpen(false);
+      toast.show({
+        description:
+          "Torneio cancelado. Inscrições pagas serão estornadas automaticamente.",
+        id: "cancel-tournament-success",
+        label: "Torneio cancelado",
+        variant: "success",
+      });
+    },
+  });
 
   const isError = bootstrapStatus === "error";
   const isLoading = bootstrapStatus !== "ready" || !tournament;

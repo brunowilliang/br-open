@@ -27,7 +27,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BRACKET_BYE_CARD_HEIGHT,
@@ -73,6 +73,7 @@ type BracketTreeCardEntry = BracketTreeLayout["cards"][number];
 export default function TournamentBracketRoute() {
   const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
@@ -125,7 +126,7 @@ export default function TournamentBracketRoute() {
   // Slots ocupados pros horários do dialog de agendamento (padrão da liga,
   // ranking.tsx:66) — só o organizador agenda, mesma audiência do dialog.
   const occupiedSlotsQuery = useQuery({
-    ...crpc.tournament.matches.listOccupiedSlots.queryOptions({
+    ...crpc.tournament.matches.listOccupiedSlots.staticQueryOptions({
       tournamentId,
     }),
     enabled: isOrganizer,
@@ -153,161 +154,161 @@ export default function TournamentBracketRoute() {
     ]);
   }
 
-  const publishResult = useMutation(
-    crpc.tournament.matches.publishResult.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar o resultado. Tente novamente."
-          ),
-          id: "tournament-result-error",
-          label: "Falha ao salvar resultado",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        setResultTarget(null);
-        toast.show({
-          description: "O vencedor avançou na chave.",
-          id: "tournament-result-success",
-          label: "Resultado salvo",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const publishResult = useMutation({
+    mutationFn: crpcClient.tournament.matches.publishResult.mutate,
+    mutationKey: crpc.tournament.matches.publishResult.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível salvar o resultado. Tente novamente."
+        ),
+        id: "tournament-result-error",
+        label: "Falha ao salvar resultado",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setResultTarget(null);
+      toast.show({
+        description: "O vencedor avançou na chave.",
+        id: "tournament-result-success",
+        label: "Resultado salvo",
+        variant: "success",
+      });
+    },
+  });
   // IBX-0028: edição de resultado JÁ publicado. O CONFLICT do servidor
   // (partida seguinte já jogada) chega com a mensagem pronta — o toast
   // apenas a exibe. Sucesso refresha a chave via invalidateTournamentContext.
-  const editResult = useMutation(
-    crpc.tournament.matches.editResult.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível salvar o resultado. Tente novamente."
-          ),
-          id: "tournament-edit-result-error",
-          label: "Falha ao salvar resultado",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        setEditTarget(null);
-        toast.show({
-          description: "O resultado foi atualizado na chave.",
-          id: "tournament-edit-result-success",
-          label: "Resultado atualizado",
-          variant: "success",
-        });
-      },
-    })
-  );
-  const scheduleMatch = useMutation(
-    crpc.tournament.matches.scheduleMatch.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível agendar o confronto. Tente novamente."
-          ),
-          id: "tournament-schedule-error",
-          label: "Falha ao agendar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        setScheduleTarget(null);
-        toast.show({
-          description: "Os jogadores foram notificados do agendamento.",
-          id: "tournament-schedule-success",
-          label: "Confronto agendado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const editResult = useMutation({
+    mutationFn: crpcClient.tournament.matches.editResult.mutate,
+    mutationKey: crpc.tournament.matches.editResult.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível salvar o resultado. Tente novamente."
+        ),
+        id: "tournament-edit-result-error",
+        label: "Falha ao salvar resultado",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setEditTarget(null);
+      toast.show({
+        description: "O resultado foi atualizado na chave.",
+        id: "tournament-edit-result-success",
+        label: "Resultado atualizado",
+        variant: "success",
+      });
+    },
+  });
+  const scheduleMatch = useMutation({
+    mutationFn: crpcClient.tournament.matches.scheduleMatch.mutate,
+    mutationKey: crpc.tournament.matches.scheduleMatch.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível agendar o confronto. Tente novamente."
+        ),
+        id: "tournament-schedule-error",
+        label: "Falha ao agendar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setScheduleTarget(null);
+      toast.show({
+        description: "Os jogadores foram notificados do agendamento.",
+        id: "tournament-schedule-success",
+        label: "Confronto agendado",
+        variant: "success",
+      });
+    },
+  });
 
-  const { mutate: swapSlotsMutate, isPending: isSwapPending } = useMutation(
-    crpc.tournament.bracket.swapSlots.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível trocar as posições. Tente novamente."
-          ),
-          id: "tournament-swap-error",
-          label: "Falha ao trocar posições",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: "As posições foram trocadas.",
-          id: "tournament-swap-success",
-          label: "Posições trocadas",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const { mutate: swapSlotsMutate, isPending: isSwapPending } = useMutation({
+    mutationFn: crpcClient.tournament.bracket.swapSlots.mutate,
+    mutationKey: crpc.tournament.bracket.swapSlots.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível trocar as posições. Tente novamente."
+        ),
+        id: "tournament-swap-error",
+        label: "Falha ao trocar posições",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "As posições foram trocadas.",
+        id: "tournament-swap-success",
+        label: "Posições trocadas",
+        variant: "success",
+      });
+    },
+  });
 
-  const drawBracket = useMutation(
-    crpc.tournament.bracket.draw.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível sortear a chave. Tente novamente."
-          ),
-          id: "draw-tournament-error",
-          label: "Falha ao sortear",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        setIsRedrawDialogOpen(false);
-        toast.show({
-          description:
-            "Chave sorteada. Ajuste as posições se precisar antes de iniciar.",
-          id: "draw-tournament-success",
-          label: "Chave sorteada",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const drawBracket = useMutation({
+    mutationFn: crpcClient.tournament.bracket.draw.mutate,
+    mutationKey: crpc.tournament.bracket.draw.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível sortear a chave. Tente novamente."
+        ),
+        id: "draw-tournament-error",
+        label: "Falha ao sortear",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setIsRedrawDialogOpen(false);
+      toast.show({
+        description:
+          "Chave sorteada. Ajuste as posições se precisar antes de iniciar.",
+        id: "draw-tournament-success",
+        label: "Chave sorteada",
+        variant: "success",
+      });
+    },
+  });
 
-  const startTournament = useMutation(
-    crpc.tournament.bracket.start.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível iniciar o torneio. Tente novamente."
-          ),
-          id: "start-tournament-error",
-          label: "Falha ao iniciar",
-          variant: "danger",
-        });
-      },
-      onSuccess: async () => {
-        await invalidateTournamentContext();
-        toast.show({
-          description: "A chave está pública e o torneio em andamento.",
-          id: "start-tournament-success",
-          label: "Torneio iniciado",
-          variant: "success",
-        });
-      },
-    })
-  );
+  const startTournament = useMutation({
+    mutationFn: crpcClient.tournament.bracket.start.mutate,
+    mutationKey: crpc.tournament.bracket.start.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível iniciar o torneio. Tente novamente."
+        ),
+        id: "start-tournament-error",
+        label: "Falha ao iniciar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "A chave está pública e o torneio em andamento.",
+        id: "start-tournament-success",
+        label: "Torneio iniciado",
+        variant: "success",
+      });
+    },
+  });
 
   const matchesWithSides = useMemo(
     () => buildMatchSides({ entriesById, matches }),

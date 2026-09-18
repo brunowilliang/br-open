@@ -9,7 +9,7 @@ import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatMsAsMMSS } from "@/lib/format/time";
 import { formatLeaguePriceParts } from "@/lib/leagues/presentation";
@@ -57,18 +57,21 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { toast } = useToast();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { chargeId } = useLocalSearchParams<{
     chargeId: string;
   }>();
 
   const checkoutQuery = useQuery(
-    crpc.payment.charge.getCheckoutContext.queryOptions({ chargeId })
+    crpc.payment.charge.getCheckoutContext.staticQueryOptions({ chargeId })
   );
   // `canRegenerate` de "meus pagamentos" é o sinal de cobrabilidade da
   // membership (`canMembershipBeCharged` no servidor) — é o mesmo sinal que o
   // menu "Gerar novo Pix" de settings/player/payments.tsx usa.
-  const paymentsQuery = useQuery(crpc.payment.charge.listMine.queryOptions());
+  const paymentsQuery = useQuery(
+    crpc.payment.charge.listMine.staticQueryOptions()
+  );
 
   const invalidateCheckout = useCallback(async () => {
     await queryClient.invalidateQueries(
@@ -79,53 +82,53 @@ export default function CheckoutScreen() {
     );
   }, [chargeId, crpc, queryClient]);
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar um novo código PIX. Tente novamente."
-          ),
-          id: "generate-new-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (result) => {
-        await invalidateCheckout();
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar um novo código PIX. Tente novamente."
+        ),
+        id: "generate-new-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (result) => {
+      await invalidateCheckout();
 
-        // Sem cobrança pendente reaproveitável o servidor cria outra, e a tela
-        // segue para ela; quando ele devolve a mesma charge, o invalidate
-        // acima já atualiza o contexto em tela.
-        if (result.chargeId !== chargeId) {
-          router.replace({
-            params: { chargeId: result.chargeId },
-            pathname: "/checkout/[chargeId]",
-          });
-        }
-      },
-    })
-  );
-
-  const simulatePayment = useMutation(
-    crpc.payment.charge.simulatePayment.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível simular o pagamento. Tente novamente."
-          ),
-          id: "simulate-payment-error",
-          label: "Simulação falhou",
-          variant: "danger",
+      // Sem cobrança pendente reaproveitável o servidor cria outra, e a tela
+      // segue para ela; quando ele devolve a mesma charge, o invalidate
+      // acima já atualiza o contexto em tela.
+      if (result.chargeId !== chargeId) {
+        router.replace({
+          params: { chargeId: result.chargeId },
+          pathname: "/checkout/[chargeId]",
         });
-      },
-      onSuccess: async () => {
-        await invalidateCheckout();
-      },
-    })
-  );
+      }
+    },
+  });
+
+  const simulatePayment = useMutation({
+    mutationFn: crpcClient.payment.charge.simulatePayment.mutate,
+    mutationKey: crpc.payment.charge.simulatePayment.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível simular o pagamento. Tente novamente."
+        ),
+        id: "simulate-payment-error",
+        label: "Simulação falhou",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateCheckout();
+    },
+  });
 
   const checkout = checkoutQuery.data ?? null;
   const isLoading = checkoutQuery.isLoading && !checkout;

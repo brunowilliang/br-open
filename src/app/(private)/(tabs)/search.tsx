@@ -39,9 +39,11 @@ export default function Search() {
   const router = useRouter();
   const searchInputRef = useRef<TextInput>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const leagues = useQuery(crpc.league.discovery.listAvailable.queryOptions());
+  const leagues = useQuery(
+    crpc.league.discovery.listAvailable.staticQueryOptions()
+  );
   const tournaments = useQuery(
-    crpc.tournament.discovery.listAvailable.queryOptions()
+    crpc.tournament.discovery.listAvailable.staticQueryOptions()
   );
 
   useFocusEffect(

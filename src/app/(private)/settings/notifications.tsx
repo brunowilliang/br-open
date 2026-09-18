@@ -33,7 +33,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatDateTimeShort } from "@/lib/format/date";
 import {
@@ -197,14 +197,17 @@ export default function SettingsNotificationsRoute() {
   const [systemPermissionStatus, setSystemPermissionStatus] =
     useState<NotificationPermissionStatus | null>(null);
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const statusQuery = useQuery(
-    crpc.notification.settings.status.queryOptions()
+    crpc.notification.settings.status.staticQueryOptions()
   );
-  const viewerContextQuery = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContextQuery = useQuery(
+    crpc.viewer.context.get.staticQueryOptions()
+  );
   const notificationsQuery = useQuery(
-    crpc.notification.feed.list.queryOptions({ limit: 50 })
+    crpc.notification.feed.list.staticQueryOptions({ limit: 50 })
   );
 
   async function invalidateNotifications() {
@@ -218,73 +221,73 @@ export default function SettingsNotificationsRoute() {
     ]);
   }
 
-  const setPreference = useMutation(
-    crpc.notification.settings.setPreference.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível atualizar suas preferências de notificação. Tente novamente."
-          ),
-          id: "notification-preference-error",
-          label: "Preferência não salva",
-          variant: "danger",
-        });
-      },
-      onSuccess: invalidateNotifications,
-    })
-  );
-  const upsertDevice = useMutation(
-    crpc.notification.settings.upsertDevice.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível registrar este dispositivo para push. Tente novamente."
-          ),
-          id: "notification-device-error",
-          label: "Dispositivo não registrado",
-          variant: "danger",
-        });
-      },
-      onSuccess: invalidateNotifications,
-    })
-  );
-  const setActiveActor = useMutation(
-    crpc.viewer.context.setActiveActor.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não conseguimos abrir a notificação no modo correto. Tente novamente."
-          ),
-          id: "notification-set-active-actor-error",
-          label: "Não foi possível abrir",
-          variant: "danger",
-        });
-      },
-    })
-  );
-  const markRead = useMutation(
-    crpc.notification.feed.markRead.mutationOptions({
-      onSuccess: invalidateNotifications,
-    })
-  );
-  const markAllRead = useMutation(
-    crpc.notification.feed.markAllRead.mutationOptions({
-      onSuccess: invalidateNotifications,
-    })
-  );
-  const removeNotification = useMutation(
-    crpc.notification.feed.remove.mutationOptions({
-      onSuccess: invalidateNotifications,
-    })
-  );
-  const removeAllNotifications = useMutation(
-    crpc.notification.feed.removeAll.mutationOptions({
-      onSuccess: invalidateNotifications,
-    })
-  );
+  const setPreference = useMutation({
+    mutationFn: crpcClient.notification.settings.setPreference.mutate,
+    mutationKey: crpc.notification.settings.setPreference.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível atualizar suas preferências de notificação. Tente novamente."
+        ),
+        id: "notification-preference-error",
+        label: "Preferência não salva",
+        variant: "danger",
+      });
+    },
+    onSuccess: invalidateNotifications,
+  });
+  const upsertDevice = useMutation({
+    mutationFn: crpcClient.notification.settings.upsertDevice.mutate,
+    mutationKey: crpc.notification.settings.upsertDevice.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível registrar este dispositivo para push. Tente novamente."
+        ),
+        id: "notification-device-error",
+        label: "Dispositivo não registrado",
+        variant: "danger",
+      });
+    },
+    onSuccess: invalidateNotifications,
+  });
+  const setActiveActor = useMutation({
+    mutationFn: crpcClient.viewer.context.setActiveActor.mutate,
+    mutationKey: crpc.viewer.context.setActiveActor.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não conseguimos abrir a notificação no modo correto. Tente novamente."
+        ),
+        id: "notification-set-active-actor-error",
+        label: "Não foi possível abrir",
+        variant: "danger",
+      });
+    },
+  });
+  const markRead = useMutation({
+    mutationFn: crpcClient.notification.feed.markRead.mutate,
+    mutationKey: crpc.notification.feed.markRead.mutationKey(),
+    onSuccess: invalidateNotifications,
+  });
+  const markAllRead = useMutation({
+    mutationFn: crpcClient.notification.feed.markAllRead.mutate,
+    mutationKey: crpc.notification.feed.markAllRead.mutationKey(),
+    onSuccess: invalidateNotifications,
+  });
+  const removeNotification = useMutation({
+    mutationFn: crpcClient.notification.feed.remove.mutate,
+    mutationKey: crpc.notification.feed.remove.mutationKey(),
+    onSuccess: invalidateNotifications,
+  });
+  const removeAllNotifications = useMutation({
+    mutationFn: crpcClient.notification.feed.removeAll.mutate,
+    mutationKey: crpc.notification.feed.removeAll.mutationKey(),
+    onSuccess: invalidateNotifications,
+  });
 
   const isMutatingPush = setPreference.isPending || upsertDevice.isPending;
   const isClearPending = removeAllNotifications.isPending;

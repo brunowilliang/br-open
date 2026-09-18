@@ -16,7 +16,7 @@ import { View } from "react-native";
 import { Page } from "@/components/core/NewPage";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
@@ -42,6 +42,7 @@ type TournamentJoinFooterProps = {
 export function TournamentJoinFooter(props: TournamentJoinFooterProps) {
   const { categories } = props;
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const router = useRouter();
   const { toast } = useToast();
   const [categoryId, setCategoryId] = useState<null | string>(null);
@@ -70,7 +71,7 @@ export function TournamentJoinFooter(props: TournamentJoinFooterProps) {
   // server validates the invite (same decision as the username precheck of
   // slice 1). Network failure stays neutral.
   const partnerQuery = useQuery({
-    ...crpc.tournament.players.searchByUsername.queryOptions({
+    ...crpc.tournament.players.searchByUsername.staticQueryOptions({
       username: debouncedUsername,
     }),
     enabled: shouldCheckPartner && debouncedUsername.length > 0,
@@ -79,66 +80,66 @@ export function TournamentJoinFooter(props: TournamentJoinFooterProps) {
   const partnerNotFound =
     shouldCheckPartner && partnerQuery.isSuccess && partnerQuery.data === null;
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar o PIX. Tente novamente."
-          ),
-          id: "tournament-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-    })
-  );
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar o PIX. Tente novamente."
+        ),
+        id: "tournament-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+  });
 
-  const createEntry = useMutation(
-    crpc.tournament.entries.create.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível entrar no torneio. Tente novamente."
-          ),
-          id: "tournament-join-error",
-          label: "Falha na inscrição",
-          variant: "danger",
+  const createEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.create.mutate,
+    mutationKey: crpc.tournament.entries.create.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível entrar no torneio. Tente novamente."
+        ),
+        id: "tournament-join-error",
+        label: "Falha na inscrição",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (entry) => {
+      if (entry.status === "awaiting_payment") {
+        const charge = await createCharge.mutateAsync({
+          sourceId: entry.id,
+          sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
         });
-      },
-      onSuccess: async (entry) => {
-        if (entry.status === "awaiting_payment") {
-          const charge = await createCharge.mutateAsync({
-            sourceId: entry.id,
-            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-          });
 
-          router.navigate({
-            params: { chargeId: charge.chargeId },
-            pathname: "/checkout/[chargeId]",
-          });
-          return;
-        }
-
-        toast.show({
-          description:
-            entry.status === "pending_partner"
-              ? `Convite enviado para @${normalizedUsername}. Ele precisa aceitar para fechar a dupla.`
-              : entry.status === "pending_approval"
-                ? "Sua inscrição aguarda aprovação da organização."
-                : "Você está inscrito no torneio!",
-          id: "tournament-join-success",
-          label: "Inscrição enviada",
-          variant: "success",
+        router.navigate({
+          params: { chargeId: charge.chargeId },
+          pathname: "/checkout/[chargeId]",
         });
-        setPartnerUsername("");
-        setDebouncedUsername("");
-        setCategoryId(null);
-      },
-    })
-  );
+        return;
+      }
+
+      toast.show({
+        description:
+          entry.status === "pending_partner"
+            ? `Convite enviado para @${normalizedUsername}. Ele precisa aceitar para fechar a dupla.`
+            : entry.status === "pending_approval"
+              ? "Sua inscrição aguarda aprovação da organização."
+              : "Você está inscrito no torneio!",
+        id: "tournament-join-success",
+        label: "Inscrição enviada",
+        variant: "success",
+      });
+      setPartnerUsername("");
+      setDebouncedUsername("");
+      setCategoryId(null);
+    },
+  });
 
   function handleJoinPress() {
     if (!categoryId) {

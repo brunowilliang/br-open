@@ -12,7 +12,7 @@ import { router } from "expo-router";
 import { useToast } from "heroui-native";
 import { View } from "react-native";
 
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { buildLeaguePaymentAlert } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
@@ -34,6 +34,7 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
   const { league } = props;
   const bucket$ = getLeagueDetailsBucket$(league.id);
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const { toast } = useToast();
   const membershipId = useValue(bucket$.viewer.membershipId);
   const viewerMembershipId = useValue(bucket$.derived.viewerMembershipId);
@@ -79,27 +80,27 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
     viewerMembershipId,
   });
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar o código de pagamento. Tente novamente."
-          ),
-          id: "create-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-      onSuccess: (result) => {
-        router.navigate({
-          params: { chargeId: result.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      },
-    })
-  );
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar o código de pagamento. Tente novamente."
+        ),
+        id: "create-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: (result) => {
+      router.navigate({
+        params: { chargeId: result.chargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+    },
+  });
 
   return (
     <View className="gap-3">

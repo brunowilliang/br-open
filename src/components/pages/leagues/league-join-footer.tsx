@@ -18,7 +18,7 @@ import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
-import { useCRPC } from "@/lib/convex/crpc";
+import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
@@ -83,6 +83,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const crpc = useCRPC();
+  const crpcClient = useCRPCClient();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
   const canResumeCheckout = useValue(bucket$.derived.canResumeCheckout);
@@ -94,7 +95,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
   // all chargeable membership statuses (awaiting_payment, payment_due,
   // suspended) so renewal/late payment is just as fast.
   const pendingChargeQuery = useQuery({
-    ...crpc.payment.charge.getPendingCharge.queryOptions({
+    ...crpc.payment.charge.getPendingCharge.staticQueryOptions({
       sourceId: membershipId ?? "",
       sourceType: "league_membership",
     }),
@@ -131,27 +132,27 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     ]);
   }
 
-  const createCharge = useMutation(
-    crpc.payment.charge.createCharge.mutationOptions({
-      onError: (error) => {
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            "Não foi possível gerar o código de pagamento. Tente novamente."
-          ),
-          id: "create-charge-error",
-          label: "Falha ao gerar PIX",
-          variant: "danger",
-        });
-      },
-      onSuccess: (result) => {
-        router.navigate({
-          params: { chargeId: result.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      },
-    })
-  );
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar o código de pagamento. Tente novamente."
+        ),
+        id: "create-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: (result) => {
+      router.navigate({
+        params: { chargeId: result.chargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+    },
+  });
 
   function handlePayPress() {
     if (!membershipId) {
@@ -173,89 +174,87 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
     });
   }
 
-  const requestJoin = useMutation(
-    crpc.league.membership.requestJoin.mutationOptions({
-      onError: (error) => {
-        const intent = joinMutationIntentRef.current;
-        joinMutationIntentRef.current = "request";
-        const previousMembershipStatus = previousMembershipStatusRef.current;
-        previousMembershipStatusRef.current = null;
-        const isCancelAction = intent === "cancel";
+  const requestJoin = useMutation({
+    mutationFn: crpcClient.league.membership.requestJoin.mutate,
+    mutationKey: crpc.league.membership.requestJoin.mutationKey(),
+    onError: (error) => {
+      const intent = joinMutationIntentRef.current;
+      joinMutationIntentRef.current = "request";
+      const previousMembershipStatus = previousMembershipStatusRef.current;
+      previousMembershipStatusRef.current = null;
+      const isCancelAction = intent === "cancel";
 
-        if (previousMembershipStatus) {
-          bucket$.actions.setViewerMembership({
-            membershipId: previousMembershipStatus.membershipId,
-            status: previousMembershipStatus.status,
-          });
-        }
-
-        toast.show({
-          description: getToastErrorMessage(
-            error,
-            isCancelAction
-              ? "Não foi possível cancelar sua solicitação. Tente novamente."
-              : "Não foi possível enviar sua solicitação. Tente novamente."
-          ),
-          id: isCancelAction
-            ? "cancel-join-request-error"
-            : "request-join-error",
-          label: isCancelAction
-            ? "Falha ao cancelar"
-            : "Falha ao solicitar entrada",
-          variant: "danger",
-        });
-      },
-      onSuccess: async (membership) => {
-        const intent = joinMutationIntentRef.current;
-        joinMutationIntentRef.current = "request";
-        previousMembershipStatusRef.current = null;
-
-        if (intent === "cancel") {
-          bucket$.actions.setViewerMembership({
-            membershipId: membership.status === "left" ? null : membership.id,
-            status: membership.status,
-          });
-
-          setIsCancelRequestDialogOpen(false);
-
-          toast.show({
-            description: "Você pode solicitar entrada novamente quando quiser.",
-            id: "cancel-join-request-success",
-            label: "Solicitação cancelada",
-            variant: "success",
-          });
-
-          await invalidateLeagueContext();
-          return;
-        }
-
+      if (previousMembershipStatus) {
         bucket$.actions.setViewerMembership({
-          membershipId: membership.id,
+          membershipId: previousMembershipStatus.membershipId,
+          status: previousMembershipStatus.status,
+        });
+      }
+
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          isCancelAction
+            ? "Não foi possível cancelar sua solicitação. Tente novamente."
+            : "Não foi possível enviar sua solicitação. Tente novamente."
+        ),
+        id: isCancelAction ? "cancel-join-request-error" : "request-join-error",
+        label: isCancelAction
+          ? "Falha ao cancelar"
+          : "Falha ao solicitar entrada",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (membership) => {
+      const intent = joinMutationIntentRef.current;
+      joinMutationIntentRef.current = "request";
+      previousMembershipStatusRef.current = null;
+
+      if (intent === "cancel") {
+        bucket$.actions.setViewerMembership({
+          membershipId: membership.status === "left" ? null : membership.id,
           status: membership.status,
         });
 
-        const joinToast = getJoinSuccessToast(membership.status);
+        setIsCancelRequestDialogOpen(false);
+
         toast.show({
-          description: joinToast.description,
-          id: "request-join-success",
-          label: joinToast.label,
+          description: "Você pode solicitar entrada novamente quando quiser.",
+          id: "cancel-join-request-success",
+          label: "Solicitação cancelada",
           variant: "success",
         });
 
         await invalidateLeagueContext();
+        return;
+      }
 
-        // Paid leagues auto-route to checkout after requesting to join.
-        // createCharge has an early-return for existing PENDING charges, so
-        // this is only slow on the very first request.
-        if (membership.status === "awaiting_payment") {
-          createCharge.mutate({
-            sourceId: membership.id,
-            sourceType: "league_membership",
-          });
-        }
-      },
-    })
-  );
+      bucket$.actions.setViewerMembership({
+        membershipId: membership.id,
+        status: membership.status,
+      });
+
+      const joinToast = getJoinSuccessToast(membership.status);
+      toast.show({
+        description: joinToast.description,
+        id: "request-join-success",
+        label: joinToast.label,
+        variant: "success",
+      });
+
+      await invalidateLeagueContext();
+
+      // Paid leagues auto-route to checkout after requesting to join.
+      // createCharge has an early-return for existing PENDING charges, so
+      // this is only slow on the very first request.
+      if (membership.status === "awaiting_payment") {
+        createCharge.mutate({
+          sourceId: membership.id,
+          sourceType: "league_membership",
+        });
+      }
+    },
+  });
 
   if (!league) {
     return null;

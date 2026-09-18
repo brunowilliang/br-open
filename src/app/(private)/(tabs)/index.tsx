@@ -24,12 +24,12 @@ export default function Home() {
   const router = useRouter();
   const session = authClient.useSession();
 
-  const viewerContext = useQuery(crpc.viewer.context.get.queryOptions());
+  const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const activeActor = viewerContext.data?.activeActor ?? null;
   const isOrganizationActor = activeActor?.kind === "organization";
 
   const playerProfile = useQuery({
-    ...crpc.player.profile.get.queryOptions(),
+    ...crpc.player.profile.get.staticQueryOptions(),
     enabled: !isOrganizationActor,
   });
 
@@ -65,18 +65,18 @@ export default function Home() {
 
   // Player queries
   const participatingLeagues = useQuery({
-    ...crpc.league.discovery.listParticipating.queryOptions(),
+    ...crpc.league.discovery.listParticipating.staticQueryOptions(),
     enabled: !isOrganizationActor,
   });
 
   // Organizer queries
   const dashboardQuery = useQuery({
-    ...crpc.payment.dashboard.getOverview.queryOptions(),
+    ...crpc.payment.dashboard.getOverview.staticQueryOptions(),
     enabled: isOrganizationActor,
   });
 
   const notificationStatus = useQuery(
-    crpc.notification.settings.status.queryOptions()
+    crpc.notification.settings.status.staticQueryOptions()
   );
 
   const userName = isOrganizationActor
