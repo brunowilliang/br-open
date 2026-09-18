@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "build:android:dev": "eas build -p android --profile development --non-interactive",
     "build:android:prod": "eas build -p android --profile production --non-interactive",
-    "build:ios:dev": "eas build -p ios --profile development --auto-submit --non-interactive",
+    "build:ios:dev": "eas build -p ios --profile development --non-interactive",
     "build:ios:prod": "eas build -p ios --profile production --auto-submit --non-interactive",
     "check": "ultracite check && bun run typecheck",
     "codegen": "bunx kitcn codegen",
