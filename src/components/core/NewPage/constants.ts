@@ -13,6 +13,3 @@ export const DEFAULT_HEADER_BLUR_DISTANCE = 64;
 
 /** Pixels remaining to the scroll end before the footer blur reaches full opacity. */
 export const DEFAULT_FOOTER_BLUR_DISTANCE = 64;
-
-/** Duration (ms) of the blur fade when restoring after an app background/foreground transition. */
-export const BLUR_RESTORE_FADE_DURATION = 140;

@@ -70,7 +70,7 @@ export const PageFooter = (props: PageFooterProps) => {
           pointerEvents="none"
           style={[blurAnimatedStyle]}
         >
-          <PageBlurOverlay direction="blurredBottomClearTop" prefix="footer" />
+          <PageBlurOverlay direction="blurredBottomClearTop" />
         </Animated.View>
       ) : null}
 

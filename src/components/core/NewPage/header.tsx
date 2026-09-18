@@ -71,7 +71,7 @@ export const PageHeader = (props: PageHeaderProps) => {
         pointerEvents="none"
         style={[blurAnimatedStyle]}
       >
-        <PageBlurOverlay direction="blurredTopClearBottom" prefix="header" />
+        <PageBlurOverlay direction="blurredTopClearBottom" />
       </Animated.View>
 
       {headerProps.children}
