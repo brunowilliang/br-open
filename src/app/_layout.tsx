@@ -8,12 +8,11 @@ import {
 } from "@expo-google-fonts/outfit";
 import { useFonts } from "expo-font";
 import { Observe, ObserveRoot, useObserve } from "expo-observe";
-import { Stack } from "expo-router";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import * as SystemUI from "expo-system-ui";
 import { useAuth } from "kitcn/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
 
 import { NotificationBootstrap } from "@/components/notifications/notification-bootstrap";
@@ -77,18 +76,24 @@ function Root() {
     }
   }, [isAppReady, markInteractive]);
 
-  useEffect(() => {
-    // Route transitions fade semi-transparent scenes over the native root
-    // view. It defaults to white, so it must track the themed background.
-    SystemUI.setBackgroundColorAsync(backgroundColor).catch(() => undefined);
-  }, [backgroundColor]);
+  // expo-router paints the native container behind each stack with the
+  // react-navigation theme background, which defaults to light gray in both
+  // appearances and shows through the scenes during fade transitions.
+  // Feeding it the themed app background keeps route changes flash free.
+  const navigationTheme = useMemo(() => {
+    const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+    return {
+      ...baseTheme,
+      colors: { ...baseTheme.colors, background: backgroundColor },
+    };
+  }, [colorScheme, backgroundColor]);
 
   if (!isAppReady) {
     return null;
   }
 
   return (
-    <>
+    <ThemeProvider value={navigationTheme}>
       <Stack
         screenOptions={{
           animation: "fade",
@@ -111,6 +116,6 @@ function Root() {
       </Stack>
       <NotificationBootstrap isEnabled={effectiveIsAuthenticated} />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-    </>
+    </ThemeProvider>
   );
 }
