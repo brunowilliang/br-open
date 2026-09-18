@@ -19,7 +19,7 @@
       "environment": "production",
       "channel": "production"
     },
-    "production-dev-env": {
+    "preview": {
       "autoIncrement": true,
       "distribution": "store",
       "environment": "development",
@@ -37,7 +37,7 @@
         "ascAppId": "6780809367"
       }
     },
-    "production-dev-env": {
+    "preview": {
       "ios": {
         "ascAppId": "6780809367"
       }
