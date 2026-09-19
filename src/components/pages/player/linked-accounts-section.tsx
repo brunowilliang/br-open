@@ -42,7 +42,8 @@ type LinkedAccountsSectionProps = {
 };
 
 /**
- * Acordeão "Contas Vinculadas": e-mail+senha é linha INFORMATIVA (status
+ * ListGroup "Contas vinculadas" da página "Login e segurança"
+ * (/settings/security): e-mail+senha é linha INFORMATIVA (status
  * "Conectado./Não conectado.", sem ação — alterar senha vive na Segurança);
  * Apple e Google conectam (linkSocial — Apple nativa com idToken no iOS,
  * Google via OAuth web) e desconectam (unlinkAccount). Sessão não fresca no
@@ -112,7 +113,7 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
 
   async function linkAppleOAuth() {
     const { error } = await authClient.linkSocial({
-      callbackURL: "/settings/player/profile",
+      callbackURL: "/settings/security",
       provider: "apple",
     });
 
@@ -123,7 +124,7 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
 
   async function linkGoogle() {
     const { error } = await authClient.linkSocial({
-      callbackURL: "/settings/player/profile",
+      callbackURL: "/settings/security",
       provider: "google",
     });
 

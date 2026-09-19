@@ -10,18 +10,18 @@ import { useState } from "react";
 type ProfileSecuritySectionProps = {
   accounts: AuthAccount[];
   currentEmail?: string;
-  /** Abre o dialog de troca de senha (instância liftada para a rota — o
-   * mesmo dialog é compartilhado com a linha "E-mail e senha" das contas). */
+  /** Abre o dialog de troca de senha (instância liftada para a rota da
+   * página). */
   onOpenChangePassword: () => void;
 };
 
 /**
- * Conteúdo do acordeão "Segurança": cada ação é uma linha clicável no padrão
- * das linhas de settings/index.tsx (RUL-0006: ícone direto no ItemPrefix,
- * título + descrição, Highlight último filho) — alterar senha (contas com
- * e-mail+senha), alterar e-mail (código único no e-mail novo) e "esqueci
- * minha senha" (dialog de redefinição por OTP logado — sem sair da sessão).
- * A descrição da seção vive no card do acordeão.
+ * ListGroup "Segurança" da página "Login e segurança" (/settings/security):
+ * cada ação é uma linha clicável no padrão das linhas de settings/index.tsx
+ * (RUL-0006: ícone direto no ItemPrefix, título + descrição, Highlight
+ * último filho) — alterar senha (contas com e-mail+senha), alterar e-mail
+ * (código único no e-mail novo) e "esqueci minha senha" (dialog de
+ * redefinição por OTP logado — sem sair da sessão).
  */
 export function ProfileSecuritySection(props: ProfileSecuritySectionProps) {
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);

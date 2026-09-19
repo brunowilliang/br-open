@@ -8,9 +8,10 @@ import {
   Tabs as RouterTabs,
   useLocalSearchParams,
   useRouter,
+  useSegments,
 } from "expo-router";
 import { useThemeColor, useToast } from "heroui-native";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 
 import { Text } from "@/components/core/text";
 import { FloatingTabBar } from "@/components/navigation/floating-tab-bar";
@@ -18,8 +19,8 @@ import { buildCreateLeagueDefaultValues } from "@/components/pages/leagues/form-
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { FormFallback } from "@/components/ui/form-fallback";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/NewPage";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -160,26 +161,6 @@ function toUpdateLeagueInput(
   };
 }
 
-function LeagueFormFallback(props: { children: ReactNode; title?: string }) {
-  return (
-    <Page>
-      <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
-        <Page.Header.Center>
-          <Page.Header.Title>{props.title ?? "Liga"}</Page.Header.Title>
-        </Page.Header.Center>
-        <Page.Header.Right />
-      </Page.Header>
-
-      <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-        {props.children}
-      </Page.ScrollView>
-    </Page>
-  );
-}
-
 function LeagueFormMessage(props: { color: FallbackColor; message: string }) {
   return <Text color={props.color}>{props.message}</Text>;
 }
@@ -281,10 +262,14 @@ export default function LeagueFormLayout() {
     leagueId?: string | string[];
     mode?: string | string[];
   }>();
+  const segments = useSegments();
   const target = resolveLeagueFormTarget({
     leagueId: rawLeagueId,
     mode: rawMode,
   });
+  const activeTabLabel =
+    LEAGUE_FORM_TAB_ITEMS.find((item) => item.routeName === segments.at(-1))
+      ?.label ?? LEAGUE_FORM_TAB_ITEMS[0].label;
 
   const viewerContext = useQuery({
     ...crpc.viewer.context.get.staticQueryOptions(),
@@ -428,9 +413,9 @@ export default function LeagueFormLayout() {
 
   if (target.mode === "invalid") {
     return (
-      <LeagueFormFallback title={target.title}>
+      <FormFallback title={target.title}>
         <LeagueFormMessage color="danger" message={target.message} />
-      </LeagueFormFallback>
+      </FormFallback>
     );
   }
 
@@ -440,33 +425,33 @@ export default function LeagueFormLayout() {
 
     if (viewerContext.isPending) {
       return (
-        <LeagueFormFallback title="Criar Liga">
+        <FormFallback description="Criar Liga" title={activeTabLabel}>
           <LoadingState />
-        </LeagueFormFallback>
+        </FormFallback>
       );
     }
 
     if (viewerContext.isError) {
       return (
-        <LeagueFormFallback title="Criar Liga">
+        <FormFallback title="Criar Liga">
           <ErrorState
             error={viewerContext.error}
             message="Não foi possível carregar seu modo de acesso."
           />
-        </LeagueFormFallback>
+        </FormFallback>
       );
     }
 
     if (!canManageLeagues) {
       return (
-        <LeagueFormFallback title="Criar Liga">
+        <FormFallback title="Criar Liga">
           <EmptyState
             buttonLabel="Voltar"
             buttonOnPress={() => router.back()}
             description="Você está usando o app como jogador. Entre como organizador para criar ligas."
             title="Modo jogador"
           />
-        </LeagueFormFallback>
+        </FormFallback>
       );
     }
 
@@ -481,22 +466,22 @@ export default function LeagueFormLayout() {
 
   if (leagueQuery.isPending) {
     return (
-      <LeagueFormFallback title="Editar Liga">
+      <FormFallback description="Editar Liga" title={activeTabLabel}>
         <LoadingState />
-      </LeagueFormFallback>
+      </FormFallback>
     );
   }
 
   if (leagueQuery.isError || !leagueQuery.data) {
     return (
-      <LeagueFormFallback title="Editar Liga">
+      <FormFallback title="Editar Liga">
         <LeagueFormMessage
           color="danger"
           message={
             leagueQuery.error?.message || "Não foi possível carregar a liga."
           }
         />
-      </LeagueFormFallback>
+      </FormFallback>
     );
   }
 

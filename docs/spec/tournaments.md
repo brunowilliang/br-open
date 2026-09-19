@@ -64,6 +64,13 @@
 - **`[mode]/_layout.tsx`** — resolve create/edit (`?mode=new|edit`), viewer
   gate `canManageLeagues`, mutations create/update/remove com toasts e
   invalidação de `listMine`/`getById`; create → detalhe do rascunho.
+  **Header no loading (IBX-0060):** mesmo comportamento da liga — enquanto
+  `getById`/`viewer.context.get` carregam, o fallback global `FormFallback`
+  (`src/components/ui/form-fallback.tsx`) mantém back +
+  `Page.Header.SubTitle` ("Criar Torneio"/"Editar Torneio") +
+  `Page.Header.Title` da tab ativa (label de `useSegments` contra
+  `TOURNAMENT_FORM_TAB_ITEMS`, default "Detalhes") com o loading só na área
+  de conteúdo; erro/inválido/sem-permissão mantêm o header de título único.
 - **`[mode]/index.tsx`** (Detalhes) — capa/avatar (padrão de mídia), nome,
   descrição, DatePicker de início + prazo (mínimo hoje; prazo com
   `maxValue` = véspera do início — QA round 7: dia do início e posteriores

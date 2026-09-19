@@ -5,9 +5,6 @@ import { View } from "react-native";
 
 type ExpandableSectionProps = {
   children: ReactNode;
-  /** Classes extras pro Accordion.Content (ex.: "pb-0" quando o último filho
-   * já tem o próprio respiro — o padrão da lib adiciona padding-bottom). */
-  contentClassName?: string;
   description?: string;
   sectionKey: string;
   title: string;
@@ -33,11 +30,7 @@ export function ExpandableSection(props: ExpandableSectionProps) {
           </View>
           <Accordion.Indicator />
         </Accordion.Trigger>
-        <Accordion.Content
-          className={["gap-3", props.contentClassName]
-            .filter(Boolean)
-            .join(" ")}
-        >
+        <Accordion.Content className="gap-3">
           {props.children}
         </Accordion.Content>
       </Accordion.Item>

@@ -1,5 +1,6 @@
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
@@ -8,6 +9,7 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BellDotIcon,
   ChampionIcon,
+  LockKeyIcon,
   Logout03Icon,
   TennisRacketIcon,
   Wallet01Icon,
@@ -15,9 +17,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Href, router } from "expo-router";
 import {
+  Button,
   Card,
   Chip,
   Description,
+  Dialog,
   ListGroup,
   PressableFeedback,
   Separator,
@@ -25,7 +29,7 @@ import {
   useToast,
 } from "heroui-native";
 import type { ComponentProps } from "react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { View } from "react-native";
 
 type SettingsItem = {
@@ -47,6 +51,7 @@ export default function Settings() {
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
   const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const notificationStatus = useQuery(
     crpc.notification.settings.status.staticQueryOptions()
@@ -171,11 +176,18 @@ export default function Settings() {
       title: "Meus pagamentos",
     },
     {
+      description: "Senha, e-mail e contas vinculadas",
+      href: "/settings/security" as Href,
+      icon: LockKeyIcon,
+      id: "security",
+      title: "Login e segurança",
+    },
+    {
       description: "Encerrar sessão neste dispositivo",
       icon: Logout03Icon,
       id: "sign-out",
       isDisabled: handleSignOutPress.isPending,
-      onPress: () => handleSignOutPress.mutate(),
+      onPress: () => setIsSignOutDialogOpen(true),
       title: handleSignOutPress.isPending ? "Saindo..." : "Sair",
       variant: "danger",
     },
@@ -299,6 +311,41 @@ export default function Settings() {
               </Fragment>
             ))}
         </ListGroup>
+        <Dialog
+          isOpen={isSignOutDialogOpen}
+          onOpenChange={setIsSignOutDialogOpen}
+        >
+          <Dialog.Portal>
+            <Dialog.Overlay />
+            <Dialog.Content className="gap-4 p-5">
+              <DialogCloseButton className="absolute top-4 right-4 z-100" />
+              <Dialog.Title>Sair</Dialog.Title>
+              <Description>Tem certeza que deseja sair?</Description>
+
+              <View className="flex-row gap-2 self-end">
+                <Button
+                  onPress={() => {
+                    setIsSignOutDialogOpen(false);
+                  }}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <Button.Label>Cancelar</Button.Label>
+                </Button>
+                <Button
+                  isDisabled={handleSignOutPress.isPending}
+                  onPress={() => {
+                    handleSignOutPress.mutate();
+                  }}
+                  size="sm"
+                  variant="danger-soft"
+                >
+                  <Button.Label>Sair</Button.Label>
+                </Button>
+              </View>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog>
       </Page.ScrollView>
     </Page>
   );

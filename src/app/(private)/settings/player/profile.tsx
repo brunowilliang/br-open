@@ -14,18 +14,11 @@ import Animated from "react-native-reanimated";
 import { Page } from "@/components/core/NewPage";
 import { ErrorState } from "@/components/ui/error-state";
 import { ExpandableSection } from "@/components/ui/expandable-section";
-import { ChangePasswordDialog } from "@/components/pages/player/change-password-dialog";
-import { LinkedAccountsSection } from "@/components/pages/player/linked-accounts-section";
 import {
   ProfileDetailsSection,
   type ProfileDetailsFormValues,
 } from "@/components/pages/player/profile-details-section";
-import { ProfileSecuritySection } from "@/components/pages/player/profile-security-section";
 import { LoadingState } from "@/components/ui/loading-state";
-import {
-  authAccountsQueryKey,
-  type AuthAccount,
-} from "@/lib/account/linked-accounts";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -105,24 +98,11 @@ export default function PlayerProfile() {
   const playerProfile = useQuery(crpc.player.profile.get.staticQueryOptions());
   const session = authClient.useSession();
   const currentUsername = session.data?.user?.username ?? "";
-  const accounts = useQuery({
-    queryFn: async (): Promise<AuthAccount[]> => {
-      const { data, error } = await authClient.listAccounts();
-
-      if (error) {
-        throw error;
-      }
-
-      return data ?? [];
-    },
-    queryKey: authAccountsQueryKey,
-  });
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [cropAsset, setCropAsset] = useState<ImageCropAsset | null>(null);
   const [isAvatarProcessing, setIsAvatarProcessing] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] =
     useState<CroppedImage | null>(null);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isUsernameUpdatePending, setIsUsernameUpdatePending] = useState(false);
 
   const form = useForm<PlayerProfileFormValues, unknown, PlayerProfileValues>({
@@ -381,8 +361,6 @@ export default function PlayerProfile() {
   const isProfileError = playerProfile.isError;
   const isProfileLoading = playerProfile.isPending;
   const isProfileLoaded = !(isProfileLoading || isProfileError);
-  const currentEmail = session.data?.user?.email;
-  const accountRows = accounts.data ?? [];
   const usernameStatus = useUsernameAvailability({
     currentUsername,
     value: form.watch("username") ?? "",
@@ -452,50 +430,6 @@ export default function PlayerProfile() {
                       usernameStatus={usernameStatus}
                     />
                   </ExpandableSection>
-
-                  {/* ---- Segurança (senha, e-mail) ---- */}
-                  <ExpandableSection
-                    contentClassName="pb-0"
-                    description="Proteja o acesso à sua conta."
-                    sectionKey="seguranca"
-                    title="Segurança"
-                  >
-                    {accounts.isPending ? (
-                      <LoadingState />
-                    ) : accounts.isError ? (
-                      <ErrorState
-                        error={accounts.error}
-                        message="Não foi possível carregar suas contas."
-                      />
-                    ) : (
-                      <ProfileSecuritySection
-                        accounts={accountRows}
-                        currentEmail={currentEmail}
-                        onOpenChangePassword={() => {
-                          setIsPasswordDialogOpen(true);
-                        }}
-                      />
-                    )}
-                  </ExpandableSection>
-
-                  {/* ---- Contas Vinculadas ---- */}
-                  <ExpandableSection
-                    contentClassName="pb-0"
-                    description="Formas de entrar na sua conta."
-                    sectionKey="contas"
-                    title="Contas Vinculadas"
-                  >
-                    {accounts.isPending ? (
-                      <LoadingState />
-                    ) : accounts.isError ? (
-                      <ErrorState
-                        error={accounts.error}
-                        message="Não foi possível carregar suas contas."
-                      />
-                    ) : (
-                      <LinkedAccountsSection accounts={accountRows} />
-                    )}
-                  </ExpandableSection>
                 </Accordion>
               </Animated.View>
             </Page.ScrollView>
@@ -518,25 +452,19 @@ export default function PlayerProfile() {
         )}
       </Page>
       {isProfileLoaded ? (
-        <>
-          <ChangePasswordDialog
-            isOpen={isPasswordDialogOpen}
-            onOpenChange={setIsPasswordDialogOpen}
-          />
-          <ImageCropper
-            aspectRatio={1}
-            asset={cropAsset}
-            description="Arraste a foto e pince para dar zoom."
-            isProcessing={isAvatarProcessing}
-            onCancel={() => {
-              if (!isAvatarProcessing) {
-                setCropAsset(null);
-              }
-            }}
-            onConfirm={handleCropConfirm}
-            title="Ajustar avatar"
-          />
-        </>
+        <ImageCropper
+          aspectRatio={1}
+          asset={cropAsset}
+          description="Arraste a foto e pince para dar zoom."
+          isProcessing={isAvatarProcessing}
+          onCancel={() => {
+            if (!isAvatarProcessing) {
+              setCropAsset(null);
+            }
+          }}
+          onConfirm={handleCropConfirm}
+          title="Ajustar avatar"
+        />
       ) : null}
     </>
   );

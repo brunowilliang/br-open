@@ -8,10 +8,11 @@ import {
   Tabs as RouterTabs,
   useLocalSearchParams,
   useRouter,
+  useSegments,
   type Href,
 } from "expo-router";
 import { useThemeColor, useToast } from "heroui-native";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 
 import { Text } from "@/components/core/text";
 import { FloatingTabBar } from "@/components/navigation/floating-tab-bar";
@@ -23,8 +24,8 @@ import {
 } from "@/components/pages/tournaments/form-schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { FormFallback } from "@/components/ui/form-fallback";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/NewPage";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { normalizeRouteParam } from "@/lib/router/normalize-param";
@@ -158,29 +159,6 @@ function toUpdateTournamentInput(
   };
 }
 
-function TournamentFormFallback(props: {
-  children: ReactNode;
-  title?: string;
-}) {
-  return (
-    <Page>
-      <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
-        <Page.Header.Center>
-          <Page.Header.Title>{props.title ?? "Torneio"}</Page.Header.Title>
-        </Page.Header.Center>
-        <Page.Header.Right />
-      </Page.Header>
-
-      <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-        {props.children}
-      </Page.ScrollView>
-    </Page>
-  );
-}
-
 function TournamentFormMessage(props: {
   color: FallbackColor;
   message: string;
@@ -288,10 +266,14 @@ export default function TournamentFormLayout() {
       mode?: string | string[];
       tournamentId?: string | string[];
     }>();
+  const segments = useSegments();
   const target = resolveTournamentFormTarget({
     mode: rawMode,
     tournamentId: rawTournamentId,
   });
+  const activeTabLabel =
+    TOURNAMENT_FORM_TAB_ITEMS.find((item) => item.routeName === segments.at(-1))
+      ?.label ?? TOURNAMENT_FORM_TAB_ITEMS[0].label;
 
   const viewerContext = useQuery({
     ...crpc.viewer.context.get.staticQueryOptions(),
@@ -435,9 +417,9 @@ export default function TournamentFormLayout() {
 
   if (target.mode === "invalid") {
     return (
-      <TournamentFormFallback title={target.title}>
+      <FormFallback title={target.title}>
         <TournamentFormMessage color="danger" message={target.message} />
-      </TournamentFormFallback>
+      </FormFallback>
     );
   }
 
@@ -447,33 +429,33 @@ export default function TournamentFormLayout() {
 
     if (viewerContext.isPending) {
       return (
-        <TournamentFormFallback title="Criar Torneio">
+        <FormFallback description="Criar Torneio" title={activeTabLabel}>
           <LoadingState />
-        </TournamentFormFallback>
+        </FormFallback>
       );
     }
 
     if (viewerContext.isError) {
       return (
-        <TournamentFormFallback title="Criar Torneio">
+        <FormFallback title="Criar Torneio">
           <ErrorState
             error={viewerContext.error}
             message="Não foi possível carregar seu modo de acesso."
           />
-        </TournamentFormFallback>
+        </FormFallback>
       );
     }
 
     if (!canManageTournaments) {
       return (
-        <TournamentFormFallback title="Criar Torneio">
+        <FormFallback title="Criar Torneio">
           <EmptyState
             buttonLabel="Voltar"
             buttonOnPress={() => router.back()}
             description="Você está usando o app como jogador. Entre como organizador para criar torneios."
             title="Modo jogador"
           />
-        </TournamentFormFallback>
+        </FormFallback>
       );
     }
 
@@ -488,15 +470,15 @@ export default function TournamentFormLayout() {
 
   if (tournamentQuery.isPending) {
     return (
-      <TournamentFormFallback title="Editar Torneio">
+      <FormFallback description="Editar Torneio" title={activeTabLabel}>
         <LoadingState />
-      </TournamentFormFallback>
+      </FormFallback>
     );
   }
 
   if (tournamentQuery.isError || !tournamentQuery.data) {
     return (
-      <TournamentFormFallback title="Editar Torneio">
+      <FormFallback title="Editar Torneio">
         <TournamentFormMessage
           color="danger"
           message={
@@ -504,7 +486,7 @@ export default function TournamentFormLayout() {
             "Não foi possível carregar o torneio."
           }
         />
-      </TournamentFormFallback>
+      </FormFallback>
     );
   }
 
