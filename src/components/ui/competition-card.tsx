@@ -25,7 +25,7 @@ type CompetitionCardProps = {
  * célula com position absolute e não estica colunas como o FlatList. */
 export const CompetitionCard = (props: CompetitionCardProps) => (
   <PressableFeedback onPress={props.onPress}>
-    <Card className="flex-1 p-2" variant="tertiary">
+    <Card className="flex-1 p-2">
       <Image
         className="aspect-16/12 w-full rounded-2xl"
         contentFit="cover"
@@ -70,7 +70,7 @@ type CreateCompetitionCardProps = {
 
 export const CreateCompetitionCard = (props: CreateCompetitionCardProps) => (
   <PressableFeedback onPress={props.onPress}>
-    <Card className="flex-1 overflow-hidden p-2" variant="tertiary">
+    <Card className="flex-1 overflow-hidden p-2">
       <View className="aspect-16/12 w-full items-center justify-center rounded-2xl bg-surface-secondary">
         <View className="rounded-full bg-accent-soft p-2">
           <HugeIcons className="text-accent" icon={Add01Icon} />
