@@ -6,7 +6,7 @@ import { buildWithdrawBalanceCard } from "@/lib/withdraw/balance-card";
 import type { ApiOutputs } from "@convex/shared/api";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button, Card, Chip, Description } from "heroui-native";
+import { Button, Card, Chip, Description, Skeleton } from "heroui-native";
 import { useMemo } from "react";
 import { View } from "react-native";
 
@@ -72,9 +72,18 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
       <View className="centered py-4">
         <Text>Saldo disponível</Text>
         <View className="centered flex-row">
-          <Text size="3xl" weight="semibold">
-            {balanceCard.value ?? "0,00"}
-          </Text>
+          {/* Molde do Skeleton: checkout [chargeId]/index.tsx:287-301
+              (valor 3xl semibold com barra h-10 w-40 rounded-xl). */}
+          <Skeleton
+            className="h-10 w-40 rounded-xl"
+            isLoading={balanceQuery.isPending}
+          >
+            <View className="h-10 flex-row items-baseline">
+              <Text size="3xl" weight="semibold">
+                {balanceCard.value ?? "0,00"}
+              </Text>
+            </View>
+          </Skeleton>
           {/* <Button isIconOnly size="sm" variant="ghost">
             <HugeIcons
               className="size-5 text-muted"

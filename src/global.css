@@ -1,18 +1,59 @@
 @import "tailwindcss";
 @import "uniwind";
-
 @import "heroui-native/styles";
 @import "heroui-native-pro/styles";
 
-@source "../src/";
 @source "../node_modules/heroui-native/lib";
 @source "../node_modules/heroui-native-pro/lib";
 
+@source "../src/";
+
 @theme {
-  --font-normal: "Outfit_400Regular";
-  --font-medium: "Outfit_500Medium";
-  --font-semibold: "Outfit_600SemiBold";
+  --field-border-width: 0.35px;
   --font-bold: "Outfit_700Bold";
+  --font-semibold: "Outfit_600SemiBold";
+  --font-medium: "Outfit_500Medium";
+  --font-normal: "Outfit_400Regular";
+}
+
+@layer theme {
+  @variant light {
+    /* Theme Colors */
+    --accent: #0485f7ff;
+    --background: oklch(97.02% 0.006 253.83);
+    --muted: oklch(55.17% 0.012 253.83);
+    --surface-secondary: oklch(95.24% 0.009 253.83);
+    --surface-tertiary: oklch(93.73% 0.009 253.83);
+    --default: oklch(94.00% 0.006 253.83);
+    --success: oklch(73.29% 0.1958 150.81);
+    --warning: oklch(78.19% 0.1604 72.33);
+    --danger: oklch(65.32% 0.2356 25.74);
+    --border: oklch(90.00% 0.006 253.83);
+    --separator: oklch(92.00% 0.006 253.83);
+
+    /* Shadows */
+    --surface-shadow: none;
+    --field-shadow: 0 0 0 0 transparent;
+  }
+
+  @variant dark {
+    /* Theme Colors */
+    --accent: #0485f7ff;
+    --background: oklch(12.00% 0.006 253.83);
+    --muted: oklch(70.50% 0.012 253.83);
+    --surface: oklch(21.03% 0.012 253.83);
+    --surface-secondary: oklch(25.70% 0.009 253.83);
+    --surface-tertiary: oklch(27.21% 0.009 253.83);
+    --overlay: oklch(21.03% 0.012 253.83);
+    --default: oklch(27.40% 0.006 253.83);
+    --success: oklch(73.29% 0.1958 150.81);
+    --warning: oklch(82.03% 0.1405 76.34);
+    --danger: oklch(59.40% 0.1991 24.63);
+    --field-background: oklch(21.03% 0.012 253.83);
+    --segment: oklch(39.64% 0.006 253.83);
+    --border: oklch(28.00% 0.006 253.83);
+    --separator: oklch(25.00% 0.006 253.83);
+  }
 }
 
 @theme static {
@@ -49,15 +90,4 @@
     var(--spacing-floating-tab-bar) +
     --value([length], --spacing-*)
   );
-}
-
-@layer theme {
-  @variant light {
-    --surface-shadow: none;
-    --field-shadow: 0 0 0 0 transparent;
-  }
-  @variant dark {
-    --surface-shadow: none;
-    --field-shadow: 0 0 0 0 transparent;
-  }
 }
