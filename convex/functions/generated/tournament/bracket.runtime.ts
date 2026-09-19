@@ -14,8 +14,11 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "autoStartTournaments": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../tournament/bracket").autoStartTournaments>("tournament/bracket:autoStartTournaments"), () => (require("../../tournament/bracket") as Record<string, unknown>)["autoStartTournaments"])],
   "draw": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../tournament/bracket").draw>("tournament/bracket:draw"), () => (require("../../tournament/bracket") as Record<string, unknown>)["draw"])],
   "listBracket": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../tournament/bracket").listBracket>("tournament/bracket:listBracket"), () => (require("../../tournament/bracket") as Record<string, unknown>)["listBracket"])],
+  "performDraw": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../tournament/bracket").performDraw>("tournament/bracket:performDraw"), () => (require("../../tournament/bracket") as Record<string, unknown>)["performDraw"])],
+  "performStart": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../../tournament/bracket").performStart>("tournament/bracket:performStart"), () => (require("../../tournament/bracket") as Record<string, unknown>)["performStart"])],
   "start": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../tournament/bracket").start>("tournament/bracket:start"), () => (require("../../tournament/bracket") as Record<string, unknown>)["start"])],
   "swapSlots": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../tournament/bracket").swapSlots>("tournament/bracket:swapSlots"), () => (require("../../tournament/bracket") as Record<string, unknown>)["swapSlots"])],
 } as const;

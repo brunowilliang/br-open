@@ -5172,6 +5172,26 @@ export const internal: {
     >;
   };
   tournament: {
+    bracket: {
+      autoStartTournaments: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        { started: number }
+      >;
+      performDraw: FunctionReference<
+        "mutation",
+        "internal",
+        { expectedStatus?: "drawn" | "published"; tournamentId: string },
+        { ok: true } | { error: string; ok: false }
+      >;
+      performStart: FunctionReference<
+        "mutation",
+        "internal",
+        { tournamentId: string },
+        { ok: true } | { error: string; ok: false }
+      >;
+    };
     lifecycle: {
       applyRefundOutcome: FunctionReference<
         "mutation",

@@ -5,6 +5,7 @@ import type { LeagueMatchConfig } from "../../league/contract";
 import {
   findCourtSlotConflict,
   isScheduledTournamentMatch,
+  shouldAutoStartTournament,
   type TournamentScheduledMatch,
 } from "../scheduling-rules";
 
@@ -127,6 +128,80 @@ describe("tournament scheduling rules", () => {
       startMinute: 540,
     });
     expect(conflict).toBeNull();
+  });
+});
+
+describe("shouldAutoStartTournament (IBX-0069)", () => {
+  // 25/09/2026 00:00 BRT = 03:00 UTC (padrão do app para datas de início).
+  const startDayMs = Date.UTC(2026, 8, 25, 3, 0, 0);
+  const brt = (isoUtc: string) => Date.parse(isoUtc);
+
+  it("inicia no dia D (madrugada BRT) e continua iniciando durante o dia", () => {
+    // 00:05 BRT de D (03:05 UTC): a janela do cron de hora em hora pega aqui.
+    expect(
+      shouldAutoStartTournament({
+        nowMs: brt("2026-09-25T03:05:00Z"),
+        startDateMs: startDayMs,
+        status: "drawn",
+      })
+    ).toBeTrue();
+    // 23:00 BRT de D (02:00 UTC de D+1): o dia brasileiro ainda é D.
+    expect(
+      shouldAutoStartTournament({
+        nowMs: brt("2026-09-26T02:00:00Z"),
+        startDateMs: startDayMs,
+        status: "drawn",
+      })
+    ).toBeTrue();
+  });
+
+  it("não inicia antes do dia D — nem na noite de D-1 (21:00+ BRT)", () => {
+    expect(
+      shouldAutoStartTournament({
+        nowMs: brt("2026-09-25T02:59:00Z"),
+        startDateMs: startDayMs,
+        status: "drawn",
+      })
+    ).toBeFalse();
+    // 01:00 BRT de D-1 (04:00 UTC) — UTC chamaria "hoje", o Brasil não.
+    expect(
+      shouldAutoStartTournament({
+        nowMs: brt("2026-09-24T04:00:00Z"),
+        startDateMs: startDayMs,
+        status: "drawn",
+      })
+    ).toBeFalse();
+  });
+
+  it("drawn e published (round 2) auto-iniciam no dia; demais estados intocados", () => {
+    for (const status of ["drawn", "published"]) {
+      expect(
+        shouldAutoStartTournament({
+          nowMs: brt("2026-09-25T03:05:00Z"),
+          startDateMs: startDayMs,
+          status,
+        })
+      ).toBeTrue();
+    }
+    for (const status of ["ongoing", "finished", "cancelled"]) {
+      expect(
+        shouldAutoStartTournament({
+          nowMs: brt("2026-09-25T03:05:00Z"),
+          startDateMs: startDayMs,
+          status,
+        })
+      ).toBeFalse();
+    }
+  });
+
+  it("startDate nula não inicia (torneio legado sem data)", () => {
+    expect(
+      shouldAutoStartTournament({
+        nowMs: brt("2026-09-25T03:05:00Z"),
+        startDateMs: Number.NaN,
+        status: "drawn",
+      })
+    ).toBeFalse();
   });
 });
 

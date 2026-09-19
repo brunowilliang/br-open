@@ -19,10 +19,13 @@ import {
   type SwapMatchStatus,
 } from "../../domains/tournament/bracket-rules";
 import { tournament, tournamentMatch } from "../../domains/tournament/tables";
-import { authMutation, authQuery } from "../../lib/crpc";
+import { shouldAutoStartTournament } from "../../domains/tournament/scheduling-rules";
+import { authMutation, authQuery, privateMutation } from "../../lib/crpc";
+import { internal } from "../_generated/api";
 import {
   getCategoryRecordOrThrow,
   getManagedTournamentOrThrow,
+  getTournamentRecordOrThrow,
   scheduleTournamentNotification,
   type OrmCtx,
 } from "./_shared/guards";
@@ -100,29 +103,60 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-export const draw = authMutation
-  .input(TournamentByIdSchema)
-  .output(z.object({ success: z.literal(true) }))
+/**
+ * IBX-0069: the draw CORE, shared by the manual action and the auto-start
+ * cron (published with no draw on the start day draws itself — random is the
+ * rule). No ownership check here: the auth wrapper proves the organizer
+ * first; the cron is server-side trusted. Errors come back as data so the
+ * cron can SKIP (nothing drawable) without blocking the other tournaments.
+ */
+export const performDraw = privateMutation
+  .input(
+    z.object({
+      expectedStatus: z.enum(["drawn", "published"]).optional(),
+      tournamentId: z.string().min(1),
+    })
+  )
+  .output(
+    z.union([
+      z.object({ ok: z.literal(true) }),
+      z.object({ error: z.string(), ok: z.literal(false) }),
+    ])
+  )
   .mutation(async ({ ctx, input }) => {
-    const record = await getManagedTournamentOrThrow(
-      ctx,
+    // Private mutation: no auth identity — same bridge as performStart.
+    const ormCtx = ctx as unknown as OrmCtx;
+    const record = await getTournamentRecordOrThrow(
+      ormCtx,
       input.tournamentId as Id<"tournament">
     );
+    // L2 (IBX-0069 review): the cron pins `published` — if the organizer drew
+    // manually in the same window (status already `drawn`), the re-draw
+    // reception of `drawn` must NOT let the cron re-shuffle the fresh draw.
+    if (input.expectedStatus && record.status !== input.expectedStatus) {
+      return {
+        error: "O status do torneio mudou antes do sorteio automático.",
+        ok: false,
+      };
+    }
     if (!canDrawTournament(record.status)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message:
+      return {
+        error:
           "Sorteio só é possível em torneio publicado ou já sorteado (re-sorteio).",
-      });
+        ok: false,
+      };
     }
 
     const now = new Date();
-    const categories = await getCategories(ctx, record.id as Id<"tournament">);
+    const categories = await getCategories(
+      ormCtx,
+      record.id as Id<"tournament">
+    );
     const drawnCategories: { categoryId: Id<"tournamentCategory"> }[] = [];
 
     for (const category of categories) {
       const entries = await getActiveEntries(
-        ctx,
+        ormCtx,
         category.id as Id<"tournamentCategory">
       );
       if (entries.length < 2) {
@@ -138,10 +172,7 @@ export const draw = authMutation
         }))
       );
       if (error || !bracket) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: error ?? "Sorteio inválido.",
-        });
+        return { error: error ?? "Sorteio inválido.", ok: false };
       }
 
       await ctx.orm
@@ -173,10 +204,10 @@ export const draw = authMutation
     }
 
     if (drawnCategories.length === 0) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Nenhuma categoria tem inscrições suficientes para sortear.",
-      });
+      return {
+        error: "Nenhuma categoria tem inscrições suficientes para sortear.",
+        ok: false,
+      };
     }
 
     await ctx.orm
@@ -184,6 +215,24 @@ export const draw = authMutation
       .set({ status: "drawn", updatedAt: now })
       .where(eq(tournament.id, record.id as never));
 
+    return { ok: true };
+  });
+
+export const draw = authMutation
+  .input(TournamentByIdSchema)
+  .output(z.object({ success: z.literal(true) }))
+  .mutation(async ({ ctx, input }) => {
+    await getManagedTournamentOrThrow(
+      ctx,
+      input.tournamentId as Id<"tournament">
+    );
+    const result = await ctx.runMutation(
+      internal.tournament.bracket.performDraw,
+      { tournamentId: input.tournamentId }
+    );
+    if (!result.ok) {
+      throw new CRPCError({ code: "BAD_REQUEST", message: result.error });
+    }
     return { success: true };
   });
 
@@ -195,10 +244,22 @@ export const swapSlots = authMutation
       ctx,
       input.tournamentId as Id<"tournament">
     );
-    if (record.status !== "drawn" && record.status !== "ongoing") {
+    // IBX-0068: the bracket is an editable preview only while `drawn` — once
+    // the organizer starts the tournament it FREEZES (the same-round move in
+    // `ongoing`, IBX-0053 16/09, is extinct). Results and scheduling remain.
+    // LOW-2 (IBX-0068 review): in `draft`/`published` there is no bracket yet
+    // — the refusal is the pre-draw one, not the frozen one (draft never
+    // started, so "congelado" would lie).
+    if (record.status === "draft" || record.status === "published") {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message: "Ajuste de posição exige chave sorteada.",
+      });
+    }
+    if (record.status !== "drawn") {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "O chaveamento foi congelado no início do torneio.",
       });
     }
 
@@ -306,22 +367,41 @@ export const swapSlots = authMutation
     return { success: true };
   });
 
-export const start = authMutation
-  .input(TournamentByIdSchema)
-  .output(z.object({ success: z.literal(true) }))
+/**
+ * IBX-0069: the start CORE — the manual action and the auto-start cron share
+ * ONE path (status → ongoing, public bracket, `tournament.bracket.published`
+ * to every active entrant). No ownership check here: the auth wrapper proves
+ * the organizer first; the cron is server-side trusted. Errors come back as
+ * data so the cron can SKIP a tournament that is not startable (an "A
+ * definir" hole needs the organizer) without blocking the others.
+ */
+export const performStart = privateMutation
+  .input(z.object({ tournamentId: z.string().min(1) }))
+  .output(
+    z.union([
+      z.object({ ok: z.literal(true) }),
+      z.object({ error: z.string(), ok: z.literal(false) }),
+    ])
+  )
   .mutation(async ({ ctx, input }) => {
-    const record = await getManagedTournamentOrThrow(
-      ctx,
+    // Private mutation: no auth identity. The shared guards take the auth
+    // ORM shape — same bridge the other non-auth callers use (entries.ts).
+    const ormCtx = ctx as unknown as OrmCtx;
+    const record = await getTournamentRecordOrThrow(
+      ormCtx,
       input.tournamentId as Id<"tournament">
     );
     if (record.status !== "drawn") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "A chave precisa ser sorteada antes de iniciar.",
-      });
+      return {
+        error: "A chave precisa ser sorteada antes de iniciar.",
+        ok: false,
+      };
     }
 
-    const categories = await getCategories(ctx, record.id as Id<"tournament">);
+    const categories = await getCategories(
+      ormCtx,
+      record.id as Id<"tournament">
+    );
 
     // IBX-0053: an "A definir" hole (an empty side whose feed can never fill
     // it) would go public as an unplayable match — publishResult needs two
@@ -330,11 +410,11 @@ export const start = authMutation
     for (const category of categories) {
       const startError = validateBracketStartable(
         toSwapBoard(
-          await getMatches(ctx, category.id as Id<"tournamentCategory">)
+          await getMatches(ormCtx, category.id as Id<"tournamentCategory">)
         )
       );
       if (startError) {
-        throw new CRPCError({ code: "BAD_REQUEST", message: startError });
+        return { error: startError, ok: false };
       }
     }
 
@@ -348,7 +428,7 @@ export const start = authMutation
     const recipients = new Set<Id<"user">>();
     for (const category of categories) {
       const entries = await getActiveEntries(
-        ctx,
+        ormCtx,
         category.id as Id<"tournamentCategory">
       );
       for (const entry of entries) {
@@ -361,14 +441,86 @@ export const start = authMutation
       }
     }
     if (recipients.size > 0) {
-      await scheduleTournamentNotification(ctx, {
+      await scheduleTournamentNotification(ctx as never, {
         eventType: "tournament.bracket.published",
         recipientUserIds: [...recipients],
         tournamentId: record.id as Id<"tournament">,
       });
     }
 
+    return { ok: true };
+  });
+
+export const start = authMutation
+  .input(TournamentByIdSchema)
+  .output(z.object({ success: z.literal(true) }))
+  .mutation(async ({ ctx, input }) => {
+    await getManagedTournamentOrThrow(
+      ctx,
+      input.tournamentId as Id<"tournament">
+    );
+    const result = await ctx.runMutation(
+      internal.tournament.bracket.performStart,
+      { tournamentId: input.tournamentId }
+    );
+    if (!result.ok) {
+      throw new CRPCError({ code: "BAD_REQUEST", message: result.error });
+    }
     return { success: true };
+  });
+
+/**
+ * IBX-0069 cron body (hourly): every `published`/`drawn` tournament whose
+ * start date has arrived on the Brazilian calendar starts itself. `drawn`
+ * goes straight to the start core; `published` (round 2, user decision)
+ * DRAWS ITSELF first through the same core as the manual draw — random vale
+ * — and then starts. If NOTHING is drawable (no category with 2+ active
+ * entries), the tournament stays `published` for the organizer. Idempotent
+ * by status transition: the draw moves `published`→`drawn` and the start
+ * moves `drawn`→`ongoing`, so a repeat run (or a manual action in the same
+ * window) can never draw or start twice.
+ */
+export const autoStartTournaments = privateMutation
+  .input(z.object({}))
+  .output(z.object({ started: z.number() }))
+  .mutation(async ({ ctx }) => {
+    const eligible = await ctx.orm.query.tournament.findMany({
+      limit: 100,
+      where: { status: { in: ["published", "drawn"] } },
+    });
+
+    let started = 0;
+    for (const record of eligible) {
+      const shouldStart = shouldAutoStartTournament({
+        nowMs: Date.now(),
+        startDateMs: record.startDate.getTime(),
+        status: record.status,
+      });
+      if (!shouldStart) {
+        continue;
+      }
+      if (record.status === "published") {
+        const drawResult = await ctx.runMutation(
+          internal.tournament.bracket.performDraw,
+          {
+            expectedStatus: "published" as const,
+            tournamentId: record.id as string,
+          }
+        );
+        // Nothing drawable: stays `published`, organizer decides.
+        if (!drawResult.ok) {
+          continue;
+        }
+      }
+      const result = await ctx.runMutation(
+        internal.tournament.bracket.performStart,
+        { tournamentId: record.id as string }
+      );
+      if (result.ok) {
+        started += 1;
+      }
+    }
+    return { started };
   });
 
 export const listBracket = authQuery

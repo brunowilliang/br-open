@@ -153,8 +153,14 @@
   (gated `canOpenSchedule`, → `/schedule` pushed, QA round 9: mesma
   mecânica do menu da liga), **Regras** (R10 — item `Regras` com
   `ClipboardIcon`, `index.tsx:275-282`, → `/rules` pushed, mesma mecânica)
-  + ações de ciclo (Publicar/Cancelar com dialog de estorno; **Sortear e
-  Iniciar MIGRARAM pro menu ⋮ do header do chaveamento — IBX-0037**),
+  + ações de ciclo (Publicar/Cancelar com dialog de estorno; Cancelar
+  torneio em `variant="danger"` no menu, ícone `text-danger`, e botão de
+  confirmação `danger-soft` — padrão destrutivo do app, IBX-0068 r3;
+  **Iniciar
+  torneio** em `drawn` com diálogo de confirmação "Iniciar torneio?", corpo
+  "A chave será publicada e não poderá mais ser alterada. O torneio começa."
+  (`bracket.start`, toasts + invalidate) — ação de CICLO, voltou pra home
+  no IBX-0068; **Sortear segue no menu ⋮ do chaveamento — IBX-0037**),
   estados de loading/erro CENTRADOS (`cn grow + centered gap-4 px-4`),
   switch de papéis com componentes `OrganizerOverview`/`PlayerOverview`/
   `GuestOverview` em `components/pages/tournaments/` (molde das irmãs da
@@ -182,13 +188,14 @@
   overlay fora do transform): **Sortear chave** (`published`), **Re-sortear**
   (`drawn`, IBX-0037/re-draw do backend; com
   confronto agendado abre **diálogo de confirmação** de destruição, molde do
-  cancelamento do torneio — apaga data, horário e quadra) e
-  **Iniciar torneio** (`drawn`, com **diálogo de confirmação** — título
-  "Iniciar torneio?", corpo avisando que a chave será publicada e o torneio
-  começa, botões Cancelar/Iniciar torneio no molde dos dialogs de
-  confirmação do repo), mutações `bracket.draw`/`bracket.start` com
-  toasts e `invalidateTournamentContext`; menu some quando não há ação
-  aplicável; organizador-only (guest não vê nada disso). **O item
+  cancelamento do torneio — apaga data, horário e quadra); mutação
+  `bracket.draw` com toasts e `invalidateTournamentContext`; menu some
+  quando não há ação aplicável; organizador-only (guest não vê nada
+  disso). **"Iniciar torneio" SAIU do menu em 19/09 (IBX-0068)**: iniciar é
+  ação de CICLO do torneio e mora no menu ⋮ da HOME (organizador, `drawn`,
+  mesmo diálogo de confirmação e mesma `bracket.start`); o chaveamento
+  segue PRÉVIA EDITÁVEL até iniciar (Re-sortear + move/swap no canvas
+  intocados). **O item
   "Confirmados" (ex-"Cabeças de chave") SAIU em 16-09**: sem os controles de
   seed/fase a lista de inscrições deixou de ser caminho de posicionamento — o
   organizador ajusta no próprio canvas e re-sorteia.
@@ -576,7 +583,8 @@
   "finished"`); e swap de POSIÇÃO (toque no jogador de um confronto →
   toque no jogador a trocar → `swapSlots` — troca EXATAMENTE as duas
   inscrições clicadas, jogador por jogador, sem mover
-  os confrontos) enquanto sem placar — **generalizado pra MESMA rodada em
+  os confrontos) enquanto sem placar e com a chave em `drawn` (**IBX-0068**:
+  iniciar congela) — **generalizado pra MESMA rodada em
   qualquer rodada (IBX-0035: entradas diretas ocupam lados na rodada 2+
   já no sorteio)**; **modelo PURO da seleção em `lib/tournaments/
   bracket-view.ts` (IBX-0053, movido pra tela: o card só apresenta o que a
@@ -588,8 +596,9 @@
   `status === "finished"` é o marcador que o wire carrega, `publishedAt` fica
   no backend), `canReceiveSwapSide` = card que pode RECEBER o lado selecionado
   (sem resultado publicado), `canPickSwapSecond` = janela da segunda
-  coordenada (cross-categoria nunca; MESMA rodada em `drawn|ongoing`;
-  OUTRA rodada SÓ em `drawn`) e `resolveSwapSelection` = desfecho do toque
+  coordenada (cross-categoria nunca; **SÓ em `drawn`, mesma rodada ou outra
+  — o iniciar CONGELA a chave e em `ongoing` nenhuma coordenada é
+  alcançável, IBX-0068**) e `resolveSwapSelection` = desfecho do toque
   (`arm` | `clear` na mesma coordenada | `restart` no alvo fora da janela
   | `swap` com as duas coordenadas). O destino é uma COORDENADA (rodada,
   slot, lado) e não um card: lado "A definir" de partida viva e linha
@@ -1028,7 +1037,8 @@
   rodada seguinte o vencedor de um bye re-derivado e RETIRA o propagado quando
   a vaga decidida esvazia, recusando escrever sobre posição alheia, sobre
   rodada com `publishedAt` ou tornar jogável (2 lados) uma linha podada cujo
-  vencedor cairia numa vaga ocupada), `validateSwapWindow` (cross-round só em `drawn`),
+  vencedor cairia numa vaga ocupada), `validateSwapWindow` (**SÓ `drawn`,
+  mesma rodada ou cross-round — iniciar congela, IBX-0068**),
   `buildSwapPersistPlan` (linhas reescritas + entradas afetadas para a
   notificação; o move descendido persiste a POSIÇÃO permutada e a linha
   clicada entra como alimentada, com bump de `rowVersion`), `validateBracketStartable`
@@ -1069,7 +1079,8 @@
   `approve`/`reject` (organizador), `cancel` (jogador antes do sorteio ou organizador),
   `setSeed`, `listForTournament`.
 - **bracket.ts** — `draw` (shuffle Fisher-Yates + `buildBracket` por categoria;
-  status→drawn), `swapSlots` (**IBX-0053: move cross-round** — o input são
+  status→drawn), `swapSlots` (**IBX-0053: move cross-round; IBX-0068: só
+  `drawn`, iniciar congela** — o input são
   duas coordenadas; valida janela/lado vazio e resolve a vaga derivada até a
   posição (BUG-0034: bye re-derivável passa, resultado publicado recusa),
   aplica o plano de
@@ -1078,7 +1089,17 @@
   `tournament.match.reassigned` aos dois lados clicados e a quem perdeu a vaga
   retirada), `start` (drawn→ongoing; **gate novo: recusa iniciar com vaga "A
   definir" sem alimentação** — fecha o buraco que o move abre ao preencher uma
-  linha podada; `tournament.bracket.published` a todos), `listBracket`
+  linha podada; `tournament.bracket.published` a todos; **IBX-0069: o corpo
+  vive em `performStart` (internal) compartilhado pelo início automático**),
+  `autoStartTournaments` (IBX-0069, internal — corpo do cron horário
+  `auto-start-tournaments` em `functions/crons.ts`: todo `drawn`/`published`
+  com `startDate` chegada **inicia sozinho**; `drawn` vai direto ao MESMO
+  `performStart`, `published` **SORTEIA SOZINHO antes (round 2, 19-09) pelo
+  MESMO `performDraw` do draw manual** — nada sorteável fica `published`;
+  regra pura `shouldAutoStartTournament` em `scheduling-rules.ts` —
+  calendário do Brasil, `BRAZIL_UTC_OFFSET_MS` do payment; idempotente por
+  status), e `draw` com o corpo em **`performDraw` (internal, IBX-0069)
+  compartilhado pelo sorteio automático**; `listBracket`
   (organizador).
 - **matches.ts** — `publishResult` (valida resultado via score-rules ou walkover;
   trava com `publishedAt`; **avança vencedor** na rodada seguinte; notifica os
@@ -1380,15 +1401,25 @@ draft ──publicar──► published ──fechar inscrições + sortear─�
   posições no canvas) na
   janela entre o sorteio e o início (ex.: inscrições até 22, torneio
   dia 25 — ajustes de 22 a 25). Jogadores veem placeholder
-  "chave disponível a partir de {startDate}". Sem cron: o organizador
-  toca **iniciar** (dia 25, com diálogo de confirmação na tela do
-  chaveamento) e a chave vira pública.
+  "chave disponível a partir de {startDate}". **Início: manual OU
+  automático (IBX-0069, 19-09)** — o organizador toca **iniciar** (com
+  diálogo de confirmação no menu ⋮ da HOME do torneio, IBX-0068), ou o
+  torneio inicia SOZINHO quando `startDate` chega (cron horário
+  `auto-start-tournaments`; regra `shouldAutoStartTournament`:
+  `drawn`/`published` && dia de `startDate` <= hoje no calendário do
+  Brasil; MESMO caminho do start manual; idempotente por status).
+  **Round 2 (19-09, decisão do usuário): `published` SEM sorteio no dia
+  SORTEIA SOZINHO (aleatório vale, "azar do organizador", mesmo core do
+  `draw` manual: byes, categorias com menos de 2 ativas ficam de fora) e
+  depois inicia; se NADA for sorteável (nenhuma categoria com 2+ ativas),
+  fica `published` esperando o organizador.**
 - **Ajuste manual da chave (pós-sorteio)**: o organizador move a POSIÇÃO de
   uma inscrição tocando o lado de origem e depois o lado de destino (a
-  coordenada é rodada + slot + lado). **Estado real (IBX-0053, 16-09)**: o
-  move é CROSS-ROUND em `drawn` (a MESMA rodada segue valendo também em
-  `ongoing`); o destino vazio esvazia a origem e o destino ocupado transpõe as
-  duas inscrições. A vaga cuja vitória foi PROPAGADA do confronto de baixo —
+  coordenada é rodada + slot + lado). **Estado real (IBX-0053, 16-09;
+  congelamento IBX-0068, 19-09)**: o move é CROSS-ROUND e a MESMA rodada
+  vale do mesmo jeito, AMBOS SÓ em `drawn` — iniciar o torneio congela a
+  chave (`ongoing` recusa qualquer ajuste, UI e servidor); o destino vazio
+  esvazia a origem e o destino ocupado transpõe as duas inscrições. A vaga cuja vitória foi PROPAGADA do confronto de baixo —
   o card das quartas de quem recebeu bye, por exemplo — é MOVÍVEL: o move
   desce a corrente de alimentação até a posição que segura a inscrição,
   permuta as duas inscrições e persiste o bye e o avanço RE-DERIVADOS. A
@@ -1398,8 +1429,9 @@ draft ──publicar──► published ──fechar inscrições + sortear─�
   trocar → move exato (BUG-0010; antes o backend trocava sempre o lado A —
   por isso "trocava o outro"). Sem drag na v1.
 - `ongoing` (a partir de "iniciar"): chave pública; organizador lança
-  placares e a chave avança na hora; ajuste de slots segue permitido em
-  partidas ainda sem resultado.
+  placares e a chave avança na hora. **Ajuste de slots EXTINTO (IBX-0068)**:
+  iniciar congela a chave (o servidor recusa com "O chaveamento foi
+  congelado no início do torneio.").
 - `finished`: automático quando toda final de categoria tem vencedor.
 - `cancelled`: manual.
 
@@ -1447,7 +1479,7 @@ notificação é do JOGADOR; pendência do organizador vive no painel
 | `tournament.entry.created` | nova inscrição (approvalMode manual) | organizador |
 | `tournament.entry.confirmed` | inscrição ativa (grátis ou paga confirmada) | criador + parceiro |
 | `tournament.entry.rejected` | organizador recusa | criador |
-| `tournament.bracket.published` | organizador toca **iniciar** | todos os inscritos ativos |
+| `tournament.bracket.published` | organizador toca **iniciar** ou início automático no `startDate` (IBX-0069) | todos os inscritos ativos |
 | `tournament.match.reassigned` | ajuste de slot em partida sem placar | os 2 novos lados |
 | `tournament.match.scheduled` | data/hora/quadra definidas | os 2 lados |
 | `tournament.match.rescheduled` | reagendamento | os 2 lados |
@@ -1509,8 +1541,13 @@ avanço é revelado no `bracket.published`.
 - **Fase de preparação (`drawn`)** — inscrições até `registrationDeadlineAt`;
   o sorteio encerra inscrições; chave PRIVADA do organizador na janela
   entre sorteio e início (organizador ajusta; jogadores veem placeholder
-  com a data); "iniciar" é ação manual do organizador no dia — sem cron
-  (22-08, usuário).
+  com a data); "iniciar" nasce ação manual do organizador no dia, sem cron
+  (22-08, usuário) — **REVISADO em 19-09 (IBX-0069): se ninguém iniciar,
+  o torneio inicia SOZINHO quando `startDate` chega (cron horário,
+  calendário do Brasil; mesmo caminho do start manual). Round 2 (19-09,
+  decisão do usuário): `published` sem sorteio SORTEIA SOZINHO no dia
+  (aleatório vale) e inicia; nada sorteável = fica `published` esperando
+  o organizador.**
 - **Duração estendida flexível** — sem deadline por rodada/cron; termina na
   final (22-08, usuário).
 - **Organizador lança o placar** — mesa é a autoridade, sem confirmação do
@@ -1527,7 +1564,9 @@ avanço é revelado no `bracket.published`.
   partidas afetadas não têm resultado publicado (22-08, usuário;
   BUG-0010: lados clicados vão ao `swapSlots` — antes trocava sempre o
   lado A). **Superado pelo IBX-0053 (16-09): o move é cross-round em `drawn`
-  e a vaga com vitória propagada de bye também é movível** (ver "Ajuste
+  e a vaga com vitória propagada de bye também é movível; superado de novo
+  pelo IBX-0068 (19-09): o ajuste inteiro (mesma rodada ou cross-round) vale
+  SÓ em `drawn`, iniciar congela** (ver "Ajuste
   manual da chave (pós-sorteio)" no Lifecycle).
 - **Estorno automático no cancelamento** — fluxo de reembolso (Woovi)
   nasce no torneio e depois se aplica às ligas (BAC-0002) (22-08, usuário).

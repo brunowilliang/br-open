@@ -136,10 +136,13 @@ export const procedureNames = {
     { column: 3, line: 1416, name: "seed:preview" },
   ],
   "tournament/bracket.ts": [
-    { column: 3, line: 106, name: "tournament/bracket:draw" },
-    { column: 3, line: 377, name: "tournament/bracket:listBracket" },
-    { column: 3, line: 312, name: "tournament/bracket:start" },
-    { column: 3, line: 193, name: "tournament/bracket:swapSlots" },
+    { column: 3, line: 486, name: "tournament/bracket:autoStartTournaments" },
+    { column: 3, line: 224, name: "tournament/bracket:draw" },
+    { column: 3, line: 529, name: "tournament/bracket:listBracket" },
+    { column: 3, line: 126, name: "tournament/bracket:performDraw" },
+    { column: 3, line: 386, name: "tournament/bracket:performStart" },
+    { column: 3, line: 457, name: "tournament/bracket:start" },
+    { column: 3, line: 242, name: "tournament/bracket:swapSlots" },
   ],
   "tournament/discovery.ts": [
     { column: 3, line: 48, name: "tournament/discovery:getById" },

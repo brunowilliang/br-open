@@ -72,4 +72,15 @@ crons.interval(
   {}
 );
 
+// Auto-start tournaments whose startDate has arrived (IBX-0069): `drawn`
+// starts directly; `published` (round 2) DRAWS ITSELF first — random vale.
+// Hourly so it lands within the first hour of the start date (00:00 BRT by
+// construction). Same cores as the manual draw/start; idempotent by status.
+crons.interval(
+  "auto-start-tournaments",
+  { hours: 1 },
+  internal.tournament.bracket.autoStartTournaments,
+  {}
+);
+
 export default crons;
