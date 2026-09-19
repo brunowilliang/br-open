@@ -214,16 +214,7 @@ export default function CheckoutScreen() {
   return (
     <Page>
       <Page.Header>
-        <Page.Header.Left />
-        <Page.Header.Center>
-          <Skeleton className="h-6 w-35 rounded-xl" isLoading={isLoading}>
-            <Page.Header.Title>
-              {checkout?.sourceLabel ?? "Pagamento"}
-            </Page.Header.Title>
-          </Skeleton>
-          <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
-        </Page.Header.Center>
-        <Page.Header.Right>
+        <Page.Header.Left>
           <Button
             isIconOnly
             onPress={() => router.back()}
@@ -232,7 +223,16 @@ export default function CheckoutScreen() {
           >
             <Page.Header.Icon icon={Cancel01Icon} />
           </Button>
-        </Page.Header.Right>
+        </Page.Header.Left>
+        <Page.Header.Center>
+          <Skeleton className="h-6 w-35 rounded-xl" isLoading={isLoading}>
+            <Page.Header.Title>
+              {checkout?.sourceLabel ?? "Pagamento"}
+            </Page.Header.Title>
+          </Skeleton>
+          <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
+        </Page.Header.Center>
+        <Page.Header.Right />
       </Page.Header>
 
       <Page.View className="flex-1 gap-6 px-4">

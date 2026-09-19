@@ -344,6 +344,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
                   pendingChargeQuery.isLoading
                 }
                 onPress={handlePayPress}
+                size="sm"
               >
                 <Button.Label>{joinFooterActionLabel}</Button.Label>
               </Button>
@@ -355,6 +356,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
                 onPress={() => {
                   mutateJoinRequest("request");
                 }}
+                size="sm"
               >
                 <Button.Label>{joinFooterActionLabel}</Button.Label>
               </Button>
@@ -366,6 +368,7 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
                 onPress={() => {
                   setIsCancelRequestDialogOpen(true);
                 }}
+                size="sm"
                 variant="danger-soft"
               >
                 <HugeIcons className="text-danger" icon={Cancel01Icon} />
