@@ -6,7 +6,6 @@ import {
 } from "@internationalized/date";
 import {
   CheckmarkCircle02Icon,
-  ImageUploadIcon,
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import {
@@ -21,14 +20,14 @@ import {
   TextField,
 } from "heroui-native";
 import { Calendar, DatePicker } from "heroui-native-pro";
+import { useState } from "react";
 import { useController, useFormContext, useWatch } from "react-hook-form";
-import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
-import { Text } from "@/components/core/text";
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";
 
 const DATE_LOCALE = "pt-BR";
@@ -148,6 +147,9 @@ export default function TournamentDetailsRoute() {
   const isDisabled = isSubmitPending;
   const isMediaUploading = isMediaBusy;
   const subtitle = mode === "create" ? "Criar Torneio" : "Editar Torneio";
+  const [mediaTarget, setMediaTarget] = useState<null | "avatar" | "cover">(
+    null
+  );
 
   function handleSubmitPress() {
     if (isSubmitPending) {
@@ -208,8 +210,8 @@ export default function TournamentDetailsRoute() {
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
         <PressableFeedback
           className="aspect-video w-full overflow-hidden rounded-3xl"
-          isDisabled={isDisabled}
-          onPress={() => onMediaPress?.("cover")}
+          isDisabled={isDisabled || isMediaUploading}
+          onPress={() => setMediaTarget("cover")}
         >
           <Image
             className="size-full"
@@ -217,19 +219,13 @@ export default function TournamentDetailsRoute() {
             fallback="blue"
             source={coverUrl ?? undefined}
           />
-          <View className="centered absolute inset-0 bg-black/45">
-            <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-            <Text className="mb-7 text-white" variant="description">
-              {isMediaUploading ? "Salvando..." : "Alterar Banner"}
-            </Text>
-          </View>
           <PressableFeedback.Highlight />
         </PressableFeedback>
 
         <PressableFeedback
           className="-mt-20 self-center rounded-full"
-          isDisabled={isDisabled}
-          onPress={() => onMediaPress?.("avatar")}
+          isDisabled={isDisabled || isMediaUploading}
+          onPress={() => setMediaTarget("avatar")}
         >
           <Image
             alt="Perfil"
@@ -237,12 +233,6 @@ export default function TournamentDetailsRoute() {
             fallback="blue"
             source={avatarUrl ?? undefined}
           />
-          <View className="centered absolute inset-0 bg-black/45">
-            <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-            <Text className="text-white" variant="description">
-              {isMediaUploading ? "Salvando..." : "Alterar Avatar"}
-            </Text>
-          </View>
           <PressableFeedback.Highlight />
         </PressableFeedback>
 
@@ -286,6 +276,21 @@ export default function TournamentDetailsRoute() {
           maxValue={deadlineMaxValue}
           minValue={today(getLocalTimeZone())}
           name="registrationDeadlineAt"
+        />
+
+        <MediaConfirmDialog
+          isOpen={mediaTarget !== null}
+          onConfirm={() => {
+            if (mediaTarget) {
+              onMediaPress?.(mediaTarget);
+            }
+          }}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setMediaTarget(null);
+            }
+          }}
+          target={mediaTarget === "cover" ? "banner" : "avatar"}
         />
       </Page.ScrollView>
     </Page>

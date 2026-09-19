@@ -74,7 +74,13 @@
 - **`[mode]/index.tsx`** (Detalhes) — capa/avatar (padrão de mídia), nome,
   descrição, DatePicker de início + prazo (mínimo hoje; prazo com
   `maxValue` = véspera do início — QA round 7: dia do início e posteriores
-  barrados no calendário).
+  barrados no calendário). **Mídia sem overlay (IBX-0064):** banner e avatar
+  SEM overlay escuro com texto — o toque abre o dialog de confirmação
+  "Quer alterar o banner?"/"Quer alterar o avatar?" (`MediaConfirmDialog`
+  global em `src/components/ui/media-confirm-dialog.tsx`, molde dos dialogs
+  Sair/Deletar liga; 1 dialog por tela com alvo dinâmico) e o CONFIRMAR
+  chama o fluxo de troca de hoje (`onMediaPress` → picker/crop/upload);
+  `PressableFeedback` desabilitado durante o upload (`isMediaUploading`).
 - **`[mode]/categories.tsx`** — uma categoria por card das 5; card NO MOLDE
   `RuleCard`/`RuleExpandableContent` (`pages/leagues/rule-card`, QA R13:
   accordion igual às seções de Regras). **Gatilho do accordion: TOCAR NO

@@ -1,8 +1,7 @@
 import { Image } from "@/components/core/image";
-import { Text } from "@/components/core/text";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
-import { HugeIcons } from "@/components/ui/huge-icons";
+import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import {
   Description,
   FieldError,
@@ -12,9 +11,8 @@ import {
   Select,
   TextField,
 } from "heroui-native";
+import { useState } from "react";
 import { Controller, type UseFormReturn } from "react-hook-form";
-import { View } from "react-native";
-import { ImageUploadIcon } from "@hugeicons/core-free-icons";
 
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
@@ -49,8 +47,9 @@ type ProfileDetailsSectionProps = {
 };
 
 /**
- * Conteúdo do acordeão "Detalhes": avatar + campos do perfil do jogador.
- * A tela (rota) continua dona das mutations — aqui é só o form controlado.
+ * Campos do perfil do jogador: avatar (com dialog de confirmação antes da
+ * troca) + nome, apelido, username, gênero e telefone. A tela (rota) continua
+ * dona das mutations — aqui é só o form controlado.
  */
 export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
   const {
@@ -61,31 +60,23 @@ export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
     onPhoneSubmitEditing,
     usernameStatus,
   } = props;
-  const displayName =
-    (form.watch("fullName") as string | undefined) || "Seu perfil";
+  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
 
   return (
     <>
       <PressableFeedback
         className="self-center rounded-full"
         isDisabled={isSubmitPending}
-        onPress={onAvatarPress}
+        onPress={() => setIsAvatarDialogOpen(true)}
       >
         <Image
-          alt={displayName}
+          alt="Perfil"
           className="size-30 rounded-full"
           fallback="green"
           source={avatarSource}
         />
-        <View className="centered absolute inset-0 bg-black/45">
-          <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-          <Text className="text-white" variant="description">
-            {isSubmitPending ? "Salvando..." : "Alterar Avatar"}
-          </Text>
-        </View>
         <PressableFeedback.Highlight />
       </PressableFeedback>
-      <Text className="text-xl">{displayName}</Text>
 
       <Controller
         control={form.control}
@@ -261,6 +252,13 @@ export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
             <FieldError>{fieldState.error?.message ?? ""}</FieldError>
           </TextField>
         )}
+      />
+
+      <MediaConfirmDialog
+        isOpen={isAvatarDialogOpen}
+        onConfirm={onAvatarPress}
+        onOpenChange={setIsAvatarDialogOpen}
+        target="avatar"
       />
     </>
   );

@@ -23,7 +23,7 @@ import { z } from "zod";
 
 import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
-import { HugeIcons } from "@/components/ui/huge-icons";
+import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { ExpandableSection } from "@/components/ui/expandable-section";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
@@ -55,7 +55,6 @@ import {
   ORGANIZER_TYPES,
   SPORTS,
 } from "@convex/domains/organization/contract";
-import { ImageUploadIcon } from "@hugeicons/core-free-icons";
 
 // ---------------------------------------------------------------------------
 // Form values (shared shape for both onboarding and profile)
@@ -317,6 +316,8 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
   const displayName =
     watchedName ??
     (mode === "onboarding" ? "Nova organização" : "Perfil da organização");
+  const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
+  const hasLogo = Boolean(logoSource ?? logo.logoPreviewUri);
 
   return (
     <>
@@ -334,7 +335,7 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
           <PressableFeedback
             className="self-center rounded-full"
             isDisabled={isSubmitPending}
-            onPress={() => logo.handleLogoPress(isSubmitPending)}
+            onPress={() => setIsLogoDialogOpen(true)}
           >
             <Image
               alt={displayName}
@@ -342,12 +343,6 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
               fallback="green"
               source={logoSource ?? logo.logoPreviewUri ?? undefined}
             />
-            <View className="centered absolute inset-0 bg-black/45">
-              <HugeIcons className="size-6 text-white" icon={ImageUploadIcon} />
-              <Text className="text-white" variant="description">
-                {isSubmitPending ? "Salvando..." : "Adicionar logo"}
-              </Text>
-            </View>
             <PressableFeedback.Highlight />
           </PressableFeedback>
 
@@ -628,6 +623,18 @@ export function OrganizationFormFields(props: OrganizationFormFieldsProps) {
           <PaymentSection />
         )}
       </Accordion>
+
+      <MediaConfirmDialog
+        confirmLabel={hasLogo ? "Alterar" : "Adicionar"}
+        description={
+          hasLogo ? "Quer alterar o logo?" : "Quer adicionar um logo?"
+        }
+        isOpen={isLogoDialogOpen}
+        onConfirm={() => logo.handleLogoPress(isSubmitPending)}
+        onOpenChange={setIsLogoDialogOpen}
+        target="logo"
+        title={hasLogo ? "Alterar logo" : "Adicionar logo"}
+      />
 
       {/* ImageCropper rendered as sibling (outside the Accordion so it doesn't
           become an extra accordion child and trigger a trailing separator). */}

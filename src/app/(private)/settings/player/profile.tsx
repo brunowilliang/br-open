@@ -1,19 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Accordion,
-  AccordionLayoutTransition,
-  Button,
-  useToast,
-} from "heroui-native";
+import { Button, useToast } from "heroui-native";
 import { useEffect, useState } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
-import Animated from "react-native-reanimated";
+import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
 import { ErrorState } from "@/components/ui/error-state";
-import { ExpandableSection } from "@/components/ui/expandable-section";
 import {
   ProfileDetailsSection,
   type ProfileDetailsFormValues,
@@ -397,41 +391,25 @@ export default function PlayerProfile() {
         {isProfileLoaded && (
           <>
             <Page.ScrollView contentContainerClassName="px-4 pb-safe-offset-4">
-              <Animated.View
-                className="gap-3"
-                layout={AccordionLayoutTransition}
-              >
-                <Accordion
-                  defaultValue="detalhes"
-                  selectionMode="single"
-                  variant="surface"
-                >
-                  {/* ---- Detalhes (form atual completo) ---- */}
-                  <ExpandableSection
-                    description="Avatar, nome, apelido e contato."
-                    sectionKey="detalhes"
-                    title="Detalhes"
-                  >
-                    {/* Cast do form justificado: o form da rota é tipado
-                        pelo schema COMPLETO com `.pipe` (TInput ≠ TOutput —
-                        o zodResolver transforma os valores no submit),
-                        enquanto a seção espera o UseFormReturn simples do
-                        subset que ela renderiza; os campos compartilhados
-                        têm o mesmo shape de entrada e a seção só lê/escreve
-                        esses campos — cast seguro. */}
-                    <ProfileDetailsSection
-                      avatarSource={avatarSource}
-                      form={
-                        form as unknown as UseFormReturn<ProfileDetailsFormValues>
-                      }
-                      isSubmitPending={isSubmitPending}
-                      onAvatarPress={handleAvatarPress}
-                      onPhoneSubmitEditing={handleSubmitPress}
-                      usernameStatus={usernameStatus}
-                    />
-                  </ExpandableSection>
-                </Accordion>
-              </Animated.View>
+              <View className="gap-3">
+                {/* Cast do form justificado: o form da rota é tipado
+                    pelo schema COMPLETO com `.pipe` (TInput ≠ TOutput —
+                    o zodResolver transforma os valores no submit),
+                    enquanto a seção espera o UseFormReturn simples do
+                    subset que ela renderiza; os campos compartilhados
+                    têm o mesmo shape de entrada e a seção só lê/escreve
+                    esses campos — cast seguro. */}
+                <ProfileDetailsSection
+                  avatarSource={avatarSource}
+                  form={
+                    form as unknown as UseFormReturn<ProfileDetailsFormValues>
+                  }
+                  isSubmitPending={isSubmitPending}
+                  onAvatarPress={handleAvatarPress}
+                  onPhoneSubmitEditing={handleSubmitPress}
+                  usernameStatus={usernameStatus}
+                />
+              </View>
             </Page.ScrollView>
             <Page.Footer className="px-4 pt-4 pb-safe-offset-4">
               <Button
