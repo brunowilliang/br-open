@@ -611,21 +611,15 @@ export function resolveMoveCoordinate(
 }
 
 /**
- * IBX-0053 window: a cross-round move needs the private bracket — `drawn`
- * only (nothing published, the bracket still belongs to the organizer). Once
- * the tournament is `ongoing` the bracket advances by result and a lower
- * round is untouchable. The same-round move keeps its historical
- * `drawn | ongoing` window (the procedure gates the status before calling).
+ * IBX-0068: the bracket is an EDITABLE preview only while `drawn` — starting
+ * the tournament FREEZES it. The same-round move in `ongoing` (IBX-0053,
+ * 16/09) is EXTINCT: results and scheduling remain, positions no longer move.
  */
-export function validateSwapWindow(input: {
-  from: BracketSwapCoordinate;
-  status: string;
-  to: BracketSwapCoordinate;
-}) {
-  if (input.from.round === input.to.round || input.status === "drawn") {
+export function validateSwapWindow(input: { status: string }) {
+  if (input.status === "drawn") {
     return null;
   }
-  return "Trocar entre rodadas exige a chave sorteada e ainda não iniciada.";
+  return "O chaveamento foi congelado no início do torneio.";
 }
 
 /**
@@ -870,8 +864,9 @@ function planSwap(move: BracketSwapMove): {
 
 /**
  * Move validation. `status` is the tournament status and only matters for the
- * window (cross-round is `drawn`-only); the procedure gates `drawn|ongoing`
- * before calling. Errors are BAD_REQUEST material with specific messages.
+ * window (`drawn` only — IBX-0068: the bracket freezes on start); the
+ * procedure gates `drawn` before calling. Errors are BAD_REQUEST material
+ * with specific messages.
  */
 export function validateSlotSwap(input: {
   board: SwapBoardMatch[];
@@ -880,7 +875,7 @@ export function validateSlotSwap(input: {
   to: BracketSwapCoordinate;
 }) {
   return (
-    validateSwapWindow(input) ??
+    validateSwapWindow({ status: input.status }) ??
     planSwap({ board: input.board, from: input.from, to: input.to }).error
   );
 }

@@ -125,10 +125,9 @@ export function canReceiveSwapSide(input: {
 
 /**
  * A segunda coordenada pode ser escolhida a partir da seleção armada:
- * cross-categoria nunca; outra rodada SÓ com a chave sorteada e ainda não
- * iniciada (drawn) — em ongoing a rodada de baixo já tem resultado e o lado
- * de cima não migra (IBX-0053). A troca na MESMA rodada segue liberada em
- * drawn e ongoing, como sempre foi.
+ * cross-categoria nunca; o ajuste (mesma rodada ou outra) SÓ com a chave
+ * sorteada e ainda não iniciada (drawn) — iniciar CONGELA a chave
+ * (IBX-0068): em ongoing nenhuma coordenada é alcançável.
  */
 export function canPickSwapSecond(input: {
   current: { categoryId: string; round: number };
@@ -139,16 +138,14 @@ export function canPickSwapSecond(input: {
     return false;
   }
 
-  if (input.current.round === input.next.round) {
-    return true;
-  }
-
   return input.tournamentStatus === "drawn";
 }
 
 /**
  * Quais LADOS deste card aceitam a seleção corrente — o gating é por
- * coordenada (rodada, slot, LADO), não por card. Sem seleção armada os lados
+ * coordenada (rodada, slot, LADO), não por card. A janela INTEIRA é
+ * `drawn` (IBX-0068): fora dela nenhuma seta existe, nem origem nem
+ * destino. Dentro dela, sem seleção armada os lados
  * são ORIGEM: só lado PREENCHIDO pode ser movido (o servidor recusa lado
  * vazio: "Escolha uma posição preenchida para trocar") e vaga com vitória
  * propagada de resultado publicado não é oferecida (`swapSideIsLocked`), então
@@ -166,6 +163,10 @@ export function resolveSwapPickSides(input: {
   match: TournamentMatchWithSides;
   tournamentStatus: string;
 }): { a: boolean; b: boolean } {
+  if (input.tournamentStatus !== "drawn") {
+    return { a: false, b: false };
+  }
+
   const { current, match } = input;
 
   if (!current) {
@@ -223,10 +224,11 @@ export type BracketSwapSelectionOutcome =
   | { from: BracketSwapTarget; kind: "swap"; to: BracketSwapTarget };
 
 /**
- * Resolve o toque num lado: arma a origem, limpa ao tocar a MESMA
+ * Resolve o toque num lado: arma a origem (SÓ com a chave drawn, IBX-0068),
+ * limpa ao tocar a MESMA
  * coordenada, executa o ajuste quando a segunda coordenada é alcançável
- * (mesma rodada, ou outra rodada com a chave drawn) e reinicia a seleção no
- * alvo fora da janela.
+ * (somente com a chave drawn, IBX-0068) e reinicia a seleção no alvo fora
+ * da janela.
  */
 export function resolveSwapSelection(input: {
   current: BracketSwapTarget | null;
@@ -236,6 +238,10 @@ export function resolveSwapSelection(input: {
   const { current, next } = input;
 
   if (!current) {
+    if (input.tournamentStatus !== "drawn") {
+      return { kind: "clear" };
+    }
+
     return { kind: "arm", target: next };
   }
 

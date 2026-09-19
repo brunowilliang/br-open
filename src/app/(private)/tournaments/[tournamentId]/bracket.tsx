@@ -1,8 +1,4 @@
-import {
-  MoreVerticalIcon,
-  PlayIcon,
-  ShuffleIcon,
-} from "@hugeicons/core-free-icons";
+import { MoreVerticalIcon, ShuffleIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -94,7 +90,6 @@ export default function TournamentBracketRoute() {
   const [cardHeights, setCardHeights] = useState<BracketCardHeights>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isRedrawDialogOpen, setIsRedrawDialogOpen] = useState(false);
-  const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
   // The detail layout keeps inactive tab screens mounted
   // (detachInactiveScreens={false}) and is reused across tournament
   // revisits, so this screen and its canvas survive with the gesture
@@ -115,9 +110,9 @@ export default function TournamentBracketRoute() {
     }, [])
   );
   const isOrganizer = access?.canManage ?? false;
-  // Janela do ajuste de posição (IBX-0053): a mesma rodada vale em
-  // drawn|ongoing, o move para OUTRA rodada só com a chave sorteada — a
-  // regra vive no modelo puro de bracket-view.
+  // Janela do ajuste de posição (IBX-0068): o ajuste (mesma rodada ou entre
+  // rodadas) SÓ com a chave sorteada — iniciar congela a chave; a regra vive
+  // no modelo puro de bracket-view.
   const tournamentStatus = tournament?.status ?? "";
   useEffect(() => {
     bucket$.actions.setActiveRoute("bracket");
@@ -280,31 +275,6 @@ export default function TournamentBracketRoute() {
           "Chave sorteada. Ajuste as posições se precisar antes de iniciar.",
         id: "draw-tournament-success",
         label: "Chave sorteada",
-        variant: "success",
-      });
-    },
-  });
-
-  const startTournament = useMutation({
-    mutationFn: crpcClient.tournament.bracket.start.mutate,
-    mutationKey: crpc.tournament.bracket.start.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível iniciar o torneio. Tente novamente."
-        ),
-        id: "start-tournament-error",
-        label: "Falha ao iniciar",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      toast.show({
-        description: "A chave está pública e o torneio em andamento.",
-        id: "start-tournament-success",
-        label: "Torneio iniciado",
         variant: "success",
       });
     },
@@ -523,10 +493,8 @@ export default function TournamentBracketRoute() {
     trees.some((tree) => tree.id === category.id)
   );
   const hasMultipleCategories = categoryTabs.length > 1;
-  const canStartTournament = isOrganizer && tournament?.status === "drawn";
-  const canRedrawBracket = canStartTournament;
-  const hasBracketMenu =
-    canDrawBracket || canRedrawBracket || canStartTournament;
+  const canRedrawBracket = isOrganizer && tournament?.status === "drawn";
+  const hasBracketMenu = canDrawBracket || canRedrawBracket;
   return (
     <Page>
       <Page.Header>
@@ -565,16 +533,6 @@ export default function TournamentBracketRoute() {
                         >
                           <Menu.ItemTitle>Re-sortear</Menu.ItemTitle>
                           <HugeIcons icon={ShuffleIcon} />
-                        </Menu.Item>
-                      ) : null}
-                      {canStartTournament ? (
-                        <Menu.Item
-                          onPress={() => {
-                            setIsStartDialogOpen(true);
-                          }}
-                        >
-                          <Menu.ItemTitle>Iniciar torneio</Menu.ItemTitle>
-                          <HugeIcons icon={PlayIcon} />
                         </Menu.Item>
                       ) : null}
                     </Menu.Content>
@@ -743,39 +701,6 @@ export default function TournamentBracketRoute() {
           }
         />
       ) : null}
-
-      <Dialog isOpen={isStartDialogOpen} onOpenChange={setIsStartDialogOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <DialogCloseButton className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>Iniciar torneio?</Dialog.Title>
-            <Description>
-              A chave será publicada e o torneio começa.
-            </Description>
-            <View className="flex-row gap-2 self-end">
-              <Button
-                onPress={() => {
-                  setIsStartDialogOpen(false);
-                }}
-                size="sm"
-                variant="secondary"
-              >
-                <Button.Label>Cancelar</Button.Label>
-              </Button>
-              <Button
-                isDisabled={startTournament.isPending}
-                onPress={() => {
-                  startTournament.mutate({ tournamentId });
-                }}
-                size="sm"
-              >
-                <Button.Label>Iniciar torneio</Button.Label>
-              </Button>
-            </View>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
 
       <Dialog isOpen={isRedrawDialogOpen} onOpenChange={setIsRedrawDialogOpen}>
         <Dialog.Portal>

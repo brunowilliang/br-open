@@ -303,7 +303,7 @@ describe("validateSlotSwap", () => {
       validateSlotSwap({
         board: board([0]),
         from: coordinate(1, 0, "a"),
-        status: "ongoing",
+        status: "drawn",
         to: coordinate(1, 1, "a"),
       })
     ).toContain("resultado publicado");
@@ -311,7 +311,7 @@ describe("validateSlotSwap", () => {
       validateSlotSwap({
         board: board([1]),
         from: coordinate(1, 0, "a"),
-        status: "ongoing",
+        status: "drawn",
         to: coordinate(1, 1, "a"),
       })
     ).toContain("resultado publicado");
@@ -322,10 +322,21 @@ describe("validateSlotSwap", () => {
       validateSlotSwap({
         board: board(),
         from: coordinate(1, 0, "a"),
-        status: "ongoing",
+        status: "drawn",
         to: coordinate(1, 1, "a"),
       })
     ).toBeNull();
+  });
+
+  it("mesma rodada em ongoing é EXTINTA — a janela congela antes de tudo (IBX-0068)", () => {
+    expect(
+      validateSlotSwap({
+        board: board(),
+        from: coordinate(1, 0, "a"),
+        status: "ongoing",
+        to: coordinate(1, 1, "a"),
+      })
+    ).toContain("congelado");
   });
 
   it("rejeita lado vazio como origem — o move permuta exatamente o lado clicado", () => {
@@ -386,66 +397,44 @@ describe("validateSlotSwap", () => {
       boardMatch({ entryAId: "v", round: 2, slotInRound: 1 }),
     ];
 
-    for (const status of ["drawn", "ongoing"]) {
+    for (const [from, to] of [
+      [coordinate(2, 0, "a"), coordinate(2, 1, "a")],
+      [coordinate(2, 1, "a"), coordinate(2, 0, "a")],
+    ] as const) {
       expect(
         validateSlotSwap({
           board: played,
-          from: coordinate(2, 0, "a"),
-          status,
-          to: coordinate(2, 1, "a"),
-        })
-      ).toContain("confronto já decidido");
-      expect(
-        validateSlotSwap({
-          board: played,
-          from: coordinate(2, 1, "a"),
-          status,
-          to: coordinate(2, 0, "a"),
+          from,
+          status: "drawn",
+          to,
         })
       ).toContain("confronto já decidido");
     }
 
-    // O cruzado (rodada 2 → rodada 1) em ongoing continua barrado pela janela
-    // antes de qualquer coisa.
-    expect(
-      validateSlotSwap({
-        board: played,
-        from: coordinate(2, 0, "a"),
-        status: "ongoing",
-        to: coordinate(1, 1, "a"),
-      })
-    ).toContain("entre rodadas");
+    // IBX-0068: em ongoing a JANELA congela antes de qualquer coisa — o move
+    // (mesma rodada ou cruzado) recebe a recusa de chaveamento congelado.
+    for (const [from, to] of [
+      [coordinate(2, 0, "a"), coordinate(2, 1, "a")],
+      [coordinate(2, 0, "a"), coordinate(1, 1, "a")],
+    ] as const) {
+      expect(
+        validateSlotSwap({
+          board: played,
+          from,
+          status: "ongoing",
+          to,
+        })
+      ).toContain("congelado");
+    }
   });
 });
 
-describe("validateSwapWindow (IBX-0053)", () => {
-  it("cross-round só com a chave sorteada e ainda não iniciada", () => {
-    expect(
-      validateSwapWindow({
-        from: coordinate(1, 0, "a"),
-        status: "drawn",
-        to: coordinate(2, 0, "a"),
-      })
-    ).toBeNull();
-    expect(
-      validateSwapWindow({
-        from: coordinate(1, 0, "a"),
-        status: "ongoing",
-        to: coordinate(2, 0, "a"),
-      })
-    ).toContain("entre rodadas");
-  });
-
-  it("mesma rodada segue liberada em drawn e ongoing", () => {
-    for (const status of ["drawn", "ongoing"]) {
-      expect(
-        validateSwapWindow({
-          from: coordinate(2, 0, "a"),
-          status,
-          to: coordinate(2, 1, "a"),
-        })
-      ).toBeNull();
+describe("validateSwapWindow (IBX-0068: congelamento no início)", () => {
+  it("drawn aceita (mesma rodada e cruzado); qualquer outro status recusa", () => {
+    for (const status of ["published", "ongoing", "finished", "cancelled"]) {
+      expect(validateSwapWindow({ status })).toContain("congelado");
     }
+    expect(validateSwapWindow({ status: "drawn" })).toBeNull();
   });
 });
 

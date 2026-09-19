@@ -353,7 +353,7 @@ describe("canReceiveSwapSide (destino do ajuste)", () => {
 describe("canPickSwapSecond (janela da segunda coordenada)", () => {
   const first = { categoryId: "cat-1", round: 2 };
 
-  test("mesma rodada vale em drawn e em ongoing", () => {
+  test("mesma rodada só com a chave sorteada (drawn); ongoing recusa", () => {
     expect(
       canPickSwapSecond({
         current: first,
@@ -367,7 +367,7 @@ describe("canPickSwapSecond (janela da segunda coordenada)", () => {
         next: { categoryId: "cat-1", round: 2 },
         tournamentStatus: "ongoing",
       })
-    ).toBeTrue();
+    ).toBeFalse();
   });
 
   test("outra rodada só com a chave sorteada (drawn)", () => {
@@ -429,6 +429,16 @@ describe("resolveSwapSelection (toque a toque)", () => {
     ).toEqual({ kind: "arm", target: roundOne });
   });
 
+  test("sem seleção em ongoing: o toque não arma nada (IBX-0068)", () => {
+    expect(
+      resolveSwapSelection({
+        current: null,
+        next: roundOne,
+        tournamentStatus: "ongoing",
+      })
+    ).toEqual({ kind: "clear" });
+  });
+
   test("tocar a mesma coordenada limpa a seleção", () => {
     expect(
       resolveSwapSelection({
@@ -468,7 +478,7 @@ describe("resolveSwapSelection (toque a toque)", () => {
     ).toEqual({ kind: "restart", target: roundTwoOtherSlot });
   });
 
-  test("mesma rodada em andamento executa o ajuste", () => {
+  test("mesma rodada com o torneio em andamento reinicia (chave congelada)", () => {
     const otherSlot = buildSwapTarget(
       {
         entryAId: "e-3",
@@ -485,7 +495,7 @@ describe("resolveSwapSelection (toque a toque)", () => {
         next: otherSlot,
         tournamentStatus: "ongoing",
       })
-    ).toEqual({ from: roundOne, kind: "swap", to: otherSlot });
+    ).toEqual({ kind: "restart", target: otherSlot });
   });
 });
 
@@ -503,14 +513,14 @@ describe("resolveSwapPickSides (gating por lado)", () => {
     "a"
   ).match;
 
-  test("sem seleção, só lado PREENCHIDO arma a origem", () => {
+  test("sem seleção, só lado PREENCHIDO arma a origem (drawn)", () => {
     expect(
       resolveSwapPickSides({
         current: null,
         feedA: null,
         feedB: null,
         match: filledBoth,
-        tournamentStatus: "ongoing",
+        tournamentStatus: "drawn",
       })
     ).toEqual({ a: true, b: true });
     expect(
@@ -519,7 +529,7 @@ describe("resolveSwapPickSides (gating por lado)", () => {
         feedA: null,
         feedB: null,
         match: filledOne,
-        tournamentStatus: "ongoing",
+        tournamentStatus: "drawn",
       })
     ).toEqual({ a: true, b: false });
     expect(
@@ -528,6 +538,18 @@ describe("resolveSwapPickSides (gating por lado)", () => {
         feedA: null,
         feedB: null,
         match: emptyBoth,
+        tournamentStatus: "drawn",
+      })
+    ).toEqual({ a: false, b: false });
+  });
+
+  test("sem seleção em ongoing: nenhuma seta (chave congelada, IBX-0068)", () => {
+    expect(
+      resolveSwapPickSides({
+        current: null,
+        feedA: null,
+        feedB: null,
+        match: filledBoth,
         tournamentStatus: "ongoing",
       })
     ).toEqual({ a: false, b: false });
@@ -607,7 +629,7 @@ describe("resolveSwapPickSides (gating por lado)", () => {
     ).toEqual({ a: true, b: true });
   });
 
-  test("com seleção armada, o destino expõe os DOIS lados (inclusive vazio)", () => {
+  test("com seleção armada: ongoing congela os lados, drawn expõe os DOIS (inclusive vazio)", () => {
     const armed = buildSwapTarget(
       {
         entryAId: "e-1",
@@ -637,7 +659,7 @@ describe("resolveSwapPickSides (gating por lado)", () => {
         match: roundOneEmptySide,
         tournamentStatus: "ongoing",
       })
-    ).toEqual({ a: true, b: true });
+    ).toEqual({ a: false, b: false });
     expect(
       resolveSwapPickSides({
         current: armed,
@@ -751,7 +773,7 @@ describe("resolveSwapPickSides (gating por lado)", () => {
         feedA: null,
         feedB: null,
         match: armed.match,
-        tournamentStatus: "ongoing",
+        tournamentStatus: "drawn",
       })
     ).toEqual({ a: true, b: true });
   });

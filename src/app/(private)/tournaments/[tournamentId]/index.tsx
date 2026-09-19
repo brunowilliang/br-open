@@ -118,6 +118,7 @@ export default function TournamentOverviewRoute() {
   });
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
 
   const publishTournament = useMutation({
     mutationFn: crpcClient.tournament.management.publish.mutate,
@@ -166,6 +167,31 @@ export default function TournamentOverviewRoute() {
           "Torneio cancelado. Inscrições pagas serão estornadas automaticamente.",
         id: "cancel-tournament-success",
         label: "Torneio cancelado",
+        variant: "success",
+      });
+    },
+  });
+
+  const startTournament = useMutation({
+    mutationFn: crpcClient.tournament.bracket.start.mutate,
+    mutationKey: crpc.tournament.bracket.start.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível iniciar o torneio. Tente novamente."
+        ),
+        id: "start-tournament-error",
+        label: "Falha ao iniciar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "A chave está pública e o torneio em andamento.",
+        id: "start-tournament-success",
+        label: "Torneio iniciado",
         variant: "success",
       });
     },
@@ -240,6 +266,16 @@ export default function TournamentOverviewRoute() {
                       <HugeIcons icon={PlayIcon} />
                     </Menu.Item>
                   ) : null}
+                  {tournament.status === "drawn" ? (
+                    <Menu.Item
+                      onPress={() => {
+                        setIsStartDialogOpen(true);
+                      }}
+                    >
+                      <Menu.ItemTitle>Iniciar torneio</Menu.ItemTitle>
+                      <HugeIcons icon={PlayIcon} />
+                    </Menu.Item>
+                  ) : null}
                   {tournament.status !== "draft" &&
                   tournament.status !== "finished" &&
                   tournament.status !== "cancelled" ? (
@@ -247,9 +283,10 @@ export default function TournamentOverviewRoute() {
                       onPress={() => {
                         setIsCancelDialogOpen(true);
                       }}
+                      variant="danger"
                     >
                       <Menu.ItemTitle>Cancelar torneio</Menu.ItemTitle>
-                      <HugeIcons icon={Cancel01Icon} />
+                      <HugeIcons className="text-danger" icon={Cancel01Icon} />
                     </Menu.Item>
                   ) : null}
                 </Menu.Content>
@@ -355,9 +392,43 @@ export default function TournamentOverviewRoute() {
                   cancelTournament.mutate({ tournamentId });
                 }}
                 size="sm"
-                variant="danger"
+                variant="danger-soft"
               >
                 <Button.Label>Cancelar torneio</Button.Label>
+              </Button>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+
+      <Dialog isOpen={isStartDialogOpen} onOpenChange={setIsStartDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className="gap-4 p-5">
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
+            <Dialog.Title>Iniciar torneio?</Dialog.Title>
+            <Description>
+              A chave será publicada e não poderá mais ser alterada. O torneio
+              começa.
+            </Description>
+            <View className="flex-row gap-2 self-end">
+              <Button
+                onPress={() => {
+                  setIsStartDialogOpen(false);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                <Button.Label>Cancelar</Button.Label>
+              </Button>
+              <Button
+                isDisabled={startTournament.isPending}
+                onPress={() => {
+                  startTournament.mutate({ tournamentId });
+                }}
+                size="sm"
+              >
+                <Button.Label>Iniciar torneio</Button.Label>
               </Button>
             </View>
           </Dialog.Content>
