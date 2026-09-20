@@ -5,9 +5,9 @@ import { router } from "expo-router";
 import { useToast } from "heroui-native";
 import { View } from "react-native";
 
-import { Text } from "@/components/core/text";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { formatRateAsPercent } from "@/lib/format/percent";
 import { buildLeaguePaymentAlert } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
@@ -17,6 +17,7 @@ import {
   buildPlayerPositionCard,
   buildPlayerWinRate,
 } from "@/lib/leagues/player-overview-derived";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { WidgetAlert } from "@/components/ui/widget-alert";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
@@ -70,10 +71,11 @@ function summarizePendingActions(actions: { kind: string }[]): string {
 }
 
 /**
- * Casa da liga para o jogador em TEXTO SIMPLES (IBX-0071 plano de conteúdo):
- * os três WidgetAlerts ficam (pendências/ação); posição, partidas no mês e
- * desempenho viram linhas de rótulo + valor nas classes tipográficas já
- * usadas no app. RadialChart, BarChart, feed de última partida e CTAs saíram.
+ * Casa da liga para o jogador: os três WidgetAlerts de pendência/ação
+ * (IBX-0071) e os blocos de número no KpiCard da galeria (IBX-0075 r2) —
+ * "Posição", "Partidas no mês" e o desempenho em três ("Vitórias",
+ * "Derrotas" e "Aproveitamento", taxa do derived `PlayerWinRate`).
+ * RadialChart, BarChart, feed de última partida e CTAs saíram.
  */
 export function PlayerOverview(props: { league: LeagueOverview }) {
   const { league } = props;
@@ -193,27 +195,28 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
         />
       ) : null}
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Posição
-        </Text>
-        <Text weight="semibold">
-          {position ? `#${position.position} de ${position.totalPlayers}` : "0"}
-        </Text>
+      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
+          (ui/kpi-card), rótulo+valor do molde texto-simples, emparelhados 2
+          por linha na ordem ditada (Posição, Partidas no mês, Desempenho). */}
+      <View className="flex-row gap-3">
+        <KpiCard
+          label="Posição"
+          value={
+            position ? `#${position.position} de ${position.totalPlayers}` : "0"
+          }
+        />
+        <KpiCard label="Partidas no mês" value={String(matchesThisMonth)} />
       </View>
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Partidas no mês
-        </Text>
-        <Text weight="semibold">{String(matchesThisMonth)}</Text>
-      </View>
-
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Desempenho
-        </Text>
-        <Text weight="semibold">{`${winRate.wins}V · ${winRate.losses}D`}</Text>
+      {/* Desempenho = os três KPIs na MESMA linha (IBX-0075 r2), labels
+          literais do pedido; o "%" fica no VALOR, o mesmo caminho da home. */}
+      <View className="flex-row gap-3">
+        <KpiCard label="Vitórias" value={String(winRate.wins)} />
+        <KpiCard label="Derrotas" value={String(winRate.losses)} />
+        <KpiCard
+          label="Aproveitamento"
+          value={formatRateAsPercent(winRate.rate)}
+        />
       </View>
     </View>
   );

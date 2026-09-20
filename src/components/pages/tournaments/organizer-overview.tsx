@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 
-import { Text } from "@/components/core/text";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { WidgetAlert } from "@/components/ui/widget-alert";
 import { useCRPC } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
@@ -17,9 +17,10 @@ import {
 } from "@/lib/tournaments/organizer-overview-derived";
 
 /**
- * Casa do torneio para o organizador (plano de conteúdo IBX-0071): os
- * WidgetAlerts de pendência ficam; KPIs viram linhas de texto simples
- * (rótulo + valor) e os charts saíram. Receita soma `bySource` da série da
+ * Casa do torneio para o organizador: os WidgetAlerts de pendência das
+ * inscrições (IBX-0071) e os três blocos de número (Receita do torneio,
+ * Inscrições, Partidas) no KpiCard da galeria (IBX-0075 r2), com o
+ * rótulo+valor do molde texto-simples. A receita soma `bySource` da série da
  * organização (query existente) filtrada pelas inscrições DESTE torneio no
  * cliente — nenhuma query nova.
  */
@@ -91,29 +92,28 @@ export function OrganizerOverview(props: { tournamentId: string }) {
         />
       ) : null}
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Receita do torneio
-        </Text>
-        <Text weight="semibold">
-          {formatCurrencyCents(tournamentRevenueCents)}
-        </Text>
+      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
+          (ui/kpi-card), rótulo+valor idênticos ao texto-simples, emparelhados
+          2 por linha na ordem ditada (Receita, Inscrições, Partidas). Linha
+          `flex-row gap-3` = molde dos dashboards (KpiCard com flex-1). */}
+      <View className="flex-row gap-3">
+        <KpiCard
+          label="Receita do torneio"
+          value={formatCurrencyCents(tournamentRevenueCents)}
+        />
+        <KpiCard
+          label="Inscrições"
+          value={`${confirmed.confirmedCount} ativas`}
+        />
       </View>
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Inscrições
-        </Text>
-        <Text weight="semibold">{`${confirmed.confirmedCount} ativas`}</Text>
-      </View>
-
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Partidas
-        </Text>
-        <Text weight="semibold">
-          {matchesKpi ? `${matchesKpi.finishedCount}/${matchesKpi.total}` : "0"}
-        </Text>
+      <View className="flex-row gap-3">
+        <KpiCard
+          label="Partidas"
+          value={
+            matchesKpi ? `${matchesKpi.finishedCount}/${matchesKpi.total}` : "0"
+          }
+        />
       </View>
     </View>
   );

@@ -7,10 +7,9 @@ import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { ScheduleCard } from "@/components/ui/schedule-card";
 import { WidgetAlert } from "@/components/ui/widget-alert";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
-import { formatMatchMonthDay } from "@/lib/format/date";
-import { formatMinuteToHHMM } from "@/lib/format/time";
 import {
   canCancelTournamentEntry,
   formatEntrySideLabel,
@@ -28,10 +27,11 @@ type PlayerOverviewProps = {
 };
 
 /**
- * Casa do torneio para o jogador (plano de conteúdo IBX-0071): alertas de
- * pendência das PROPRIAS inscrições (pagamento, convite), o bloco "Suas
- * inscrições" com ações e o próximo jogo do viewer como linha de texto
- * simples. Derivado do que a página já carrega — nenhuma query nova.
+ * Casa do torneio para o jogador: alertas de pendência das PROPRIAS
+ * inscrições (pagamento, convite) e o bloco "Suas inscrições" com ações
+ * (IBX-0071); na composição do IBX-0075 o "Próximo jogo" do viewer vai no
+ * ScheduleCard, o mesmo card das agendas. Derivado do que a página já
+ * carrega — nenhuma query nova.
  */
 export function PlayerOverview(props: PlayerOverviewProps) {
   const { tournament } = props;
@@ -77,11 +77,27 @@ export function PlayerOverview(props: PlayerOverviewProps) {
         (a.matchDate ?? "").localeCompare(b.matchDate ?? "") ||
         (a.startMinute ?? 0) - (b.startMinute ?? 0)
     )[0];
-  const nextOpponent = nextMatch
-    ? nextMatch.entryAId !== null && viewerEntryIds.has(nextMatch.entryAId)
+  // Lados do próximo jogo no shape do card da agenda (ScheduleCard): o lado do
+  // viewer vai em "challenger" e o adversário em "challenged", mesmo molde de
+  // tournaments/[tournamentId]/schedule.tsx.
+  const viewerIsSideA =
+    nextMatch !== undefined &&
+    nextMatch.entryAId !== null &&
+    viewerEntryIds.has(nextMatch.entryAId);
+  const viewerSideEntry = nextMatch
+    ? viewerIsSideA
+      ? nextMatch.entryA
+      : nextMatch.entryB
+    : null;
+  const opponentSideEntry = nextMatch
+    ? viewerIsSideA
       ? nextMatch.entryB
       : nextMatch.entryA
     : null;
+  const nextMatchCourtName = nextMatch?.courtId
+    ? (tournament.courts.find((court) => court.id === nextMatch.courtId)
+        ?.name ?? "")
+    : "";
 
   if (myEntries.length === 0 && !nextMatch) {
     return null;
@@ -215,21 +231,22 @@ export function PlayerOverview(props: PlayerOverviewProps) {
       {nextMatch &&
       nextMatch.matchDate !== null &&
       nextMatch.startMinute !== null &&
-      nextOpponent ? (
+      viewerSideEntry &&
+      opponentSideEntry ? (
         <View className="gap-1">
           <Text color="muted" variant="description" weight="medium">
             Próximo jogo
           </Text>
-          <View className="flex-row items-center gap-3 bg-surface-secondary p-3">
-            <View className="min-w-0 flex-1">
-              <Text numberOfLines={1} weight="medium">
-                {`${formatMatchMonthDay(nextMatch.matchDate)} · ${formatMinuteToHHMM(nextMatch.startMinute)}`}
-              </Text>
-              <Text color="muted" numberOfLines={1} variant="description">
-                {`Contra ${formatEntrySideLabel(nextOpponent)}`}
-              </Text>
-            </View>
-          </View>
+          {/* Card reutilizado das agendas (ui/schedule-card.tsx), mesmo molde
+              de tournaments/[tournamentId]/schedule.tsx. */}
+          <ScheduleCard
+            challengedAvatarUrl={opponentSideEntry.playerA?.avatarUrl ?? null}
+            challengedFullName={formatEntrySideLabel(opponentSideEntry)}
+            challengerAvatarUrl={viewerSideEntry.playerA?.avatarUrl ?? null}
+            challengerFullName={formatEntrySideLabel(viewerSideEntry)}
+            courtName={nextMatchCourtName}
+            startMinute={nextMatch.startMinute}
+          />
         </View>
       ) : null}
     </View>

@@ -128,16 +128,48 @@ describe("buildPlayerWinRate", () => {
 
     expect(
       buildPlayerWinRate({ challenges, viewerMembershipId: "m-1" })
-    ).toEqual({ losses: 1, total: 3, wins: 2 });
+    ).toEqual({ losses: 1, rate: 2 / 3, total: 3, wins: 2 });
   });
 
   it("returns zeroed totals with no viewer or no matches", () => {
     expect(
       buildPlayerWinRate({ challenges: [], viewerMembershipId: null })
-    ).toEqual({ losses: 0, total: 0, wins: 0 });
+    ).toEqual({ losses: 0, rate: 0, total: 0, wins: 0 });
 
     expect(
       buildPlayerWinRate({ challenges: [], viewerMembershipId: "m-1" })
-    ).toEqual({ losses: 0, total: 0, wins: 0 });
+    ).toEqual({ losses: 0, rate: 0, total: 0, wins: 0 });
+  });
+
+  it("rates 1 with wins only", () => {
+    const challenges = [
+      makeFinishedChallenge({
+        finishedAt: new Date(2026, 8, 2).getTime(),
+        winnerMembershipId: "m-1",
+      }),
+      makeFinishedChallenge({
+        challengedMembershipId: "m-1",
+        challengerMembershipId: "m-3",
+        finishedAt: new Date(2026, 8, 9).getTime(),
+        winnerMembershipId: "m-1",
+      }),
+    ];
+
+    expect(
+      buildPlayerWinRate({ challenges, viewerMembershipId: "m-1" })
+    ).toEqual({ losses: 0, rate: 1, total: 2, wins: 2 });
+  });
+
+  it("rates 0 with losses only", () => {
+    const challenges = [
+      makeFinishedChallenge({
+        finishedAt: new Date(2026, 8, 2).getTime(),
+        winnerMembershipId: "m-2",
+      }),
+    ];
+
+    expect(
+      buildPlayerWinRate({ challenges, viewerMembershipId: "m-1" })
+    ).toEqual({ losses: 1, rate: 0, total: 1, wins: 0 });
   });
 });

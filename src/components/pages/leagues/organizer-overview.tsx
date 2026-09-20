@@ -3,18 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
 
-import { Text } from "@/components/core/text";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { useCRPC } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import { buildOrganizerMonthlyMatchesSeries } from "@/lib/leagues/organizer-overview-derived";
 
 /**
- * Casa da liga para o organizador em TEXTO SIMPLES (IBX-0071 plano de
- * conteúdo): receita da liga, inscritos e partidas no mês como linhas de
- * rótulo + valor. WidgetAlerts, TrendChip, KPI card e AreaChart saíram.
- * Receita soma `bySource` da série da organização (query existente)
- * filtrada pelos memberships DESTA liga no cliente — nenhuma query nova.
+ * Casa da liga para o organizador: receita da liga, inscritos e partidas no
+ * mês no KpiCard da galeria (IBX-0075 r2), com o rótulo+valor do molde
+ * texto-simples (WidgetAlerts, TrendChip e AreaChart seguem fora). Receita
+ * soma `bySource` da série da organização (query existente) filtrada pelos
+ * memberships DESTA liga no cliente — nenhuma query nova.
  */
 export function OrganizerOverview() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();
@@ -55,29 +55,26 @@ export function OrganizerOverview() {
 
   return (
     <View className="gap-3">
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Receita da liga
-        </Text>
-        <Text weight="semibold">{formatCurrencyCents(leagueRevenueCents)}</Text>
+      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
+          (ui/kpi-card), rótulo+valor idênticos ao texto-simples, emparelhados
+          2 por linha na ordem ditada (Receita, Inscritos, Partidas no mês). */}
+      <View className="flex-row gap-3">
+        <KpiCard
+          label="Receita da liga"
+          value={formatCurrencyCents(leagueRevenueCents)}
+        />
+        <KpiCard
+          label="Inscritos"
+          value={
+            maxPlayers === null
+              ? String(activeCount)
+              : `${activeCount}/${maxPlayers}`
+          }
+        />
       </View>
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Inscritos
-        </Text>
-        <Text weight="semibold">
-          {maxPlayers === null
-            ? String(activeCount)
-            : `${activeCount}/${maxPlayers}`}
-        </Text>
-      </View>
-
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Partidas no mês
-        </Text>
-        <Text weight="semibold">{String(matchesThisMonth)}</Text>
+      <View className="flex-row gap-3">
+        <KpiCard label="Partidas no mês" value={String(matchesThisMonth)} />
       </View>
     </View>
   );

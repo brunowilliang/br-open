@@ -45,6 +45,7 @@ export function KpiCard(props: KpiCardProps) {
           <Text
             className="flex-1"
             color={props.tint === "danger" ? "danger" : "muted"}
+            numberOfLines={1}
             variant="description"
             weight="medium"
           >

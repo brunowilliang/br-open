@@ -6,19 +6,23 @@ import { View } from "react-native";
 import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { MonthlyMatchesCard } from "@/components/ui/monthly-matches-card";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC } from "@/lib/convex/crpc";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
 import { formatMatchMonthDay } from "@/lib/format/date";
+import { formatRateAsPercent } from "@/lib/format/percent";
 import { formatMinuteToHHMM } from "@/lib/format/time";
 import { formatCount } from "@/lib/format/pluralize";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 /**
- * Home do jogador em TEXTO SIMPLES (IBX-0071 plano de conteúdo): os widgets
- * de KPI e os gráficos saíram; cada linha é rótulo + valor nas classes
- * tipográficas já usadas no app. Componente de KPI/gráfico só volta após
- * definição e aprovação um a um (processo na spec do domínio).
+ * Home do jogador (IBX-0075): "Partidas por mês" é o chart aprovado na
+ * galeria (`MonthlyMatchesCard`, série real de 6 meses do dash); o desempenho
+ * em três cards ("Vitórias", "Derrotas" e "Aproveitamento") e "Suas
+ * inscrições" seguem no KpiCard. "Próximos jogos" continua como está (lista
+ * com navegação pra competição) e as pendências/alertas seguem GAP de dado.
  */
 export function PlayerDashboard() {
   const crpc = useCRPC();
@@ -43,12 +47,13 @@ export function PlayerDashboard() {
   const overview = overviewQuery.data;
   const performance = overview.performance;
   const resultsByMonth = buildPlayerResultsChart(performance.byMonth);
-  const monthlyText =
-    resultsByMonth.length > 0
-      ? resultsByMonth
-          .map((month) => `${month.label} ${month.wins + month.losses}`)
-          .join(" · ")
-      : "0";
+  // Série do bloco "Partidas por mês" (IBX-0075 r4): os MESMOS números que o
+  // texto do KpiCard já mostrava (`wins + losses` por mês), agora no shape do
+  // chart aprovado na galeria.
+  const monthlyMatches = resultsByMonth.map((month) => ({
+    label: month.label,
+    matches: month.wins + month.losses,
+  }));
   const entriesTotal = overview.entryCategories.reduce(
     (total, category) => total + category.entryCount,
     0
@@ -56,27 +61,27 @@ export function PlayerDashboard() {
 
   return (
     <View className="gap-3">
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Partidas por mês
-        </Text>
-        <Text weight="semibold">{monthlyText}</Text>
+      {/* Bloco 2 (ordem do usuário): o chart aprovado na galeria, com a série
+          real de 6 meses do dash. O antigo KpiCard de texto saiu (IBX-0075 r4). */}
+      <MonthlyMatchesCard data={monthlyMatches} />
+
+      {/* Desempenho = três KPIs numa ÚNICA linha (IBX-0075 r2, ordem do
+          usuário), labels literais do pedido. O "%" fica no VALOR: o rótulo
+          é "Aproveitamento" (ordem literal do usuário). */}
+      <View className="flex-row gap-3">
+        <KpiCard label="Vitórias" value={String(performance.wins)} />
+        <KpiCard label="Derrotas" value={String(performance.losses)} />
+        <KpiCard
+          label="Aproveitamento"
+          value={formatRateAsPercent(performance.winRate)}
+        />
       </View>
 
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Desempenho
-        </Text>
-        <Text weight="semibold">{`${performance.wins}V · ${performance.losses}D`}</Text>
-      </View>
-
-      <View className="gap-1">
-        <Text color="muted" variant="description" weight="medium">
-          Suas inscrições
-        </Text>
-        <Text weight="semibold">
-          {formatCount(entriesTotal, "inscrição", "inscrições")}
-        </Text>
+      <View className="flex-row gap-3">
+        <KpiCard
+          label="Suas inscrições"
+          value={formatCount(entriesTotal, "inscrição", "inscrições")}
+        />
       </View>
 
       {overview.upcomingMatches.length > 0 ? (

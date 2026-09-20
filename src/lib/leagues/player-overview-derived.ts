@@ -295,19 +295,23 @@ export function buildPlayerMonthlyWinLoss(input: {
 
 export type PlayerWinRate = {
   losses: number;
+  /** Aproveitamento do viewer no recorte (0..1), MESMO shape do
+   * `player.dashboard.getOverview.performance.winRate`; sem partida decidida
+   * = 0. Alimenta o KPI "Aproveitamento" da casa da liga. */
+  rate: number;
   total: number;
   wins: number;
 };
 
 /** Win rate do viewer em TODOS os desafios finalizados com resultado da
- * liga (base do texto "Desempenho", `XV · YD`). Sem nenhuma partida:
- * total 0 (renderiza "0V · 0D"). */
+ * liga (base dos KPIs "Vitórias", "Derrotas" e "Aproveitamento" da casa da
+ * liga). Sem nenhuma partida: total 0 e rate 0. */
 export function buildPlayerWinRate(input: {
   challenges: ChallengeItem[];
   viewerMembershipId: null | string;
 }): PlayerWinRate {
   if (!input.viewerMembershipId) {
-    return { losses: 0, total: 0, wins: 0 };
+    return { losses: 0, rate: 0, total: 0, wins: 0 };
   }
 
   let losses = 0;
@@ -334,5 +338,9 @@ export function buildPlayerWinRate(input: {
     }
   }
 
-  return { losses, total: wins + losses, wins };
+  const total = wins + losses;
+
+  // Mesma matemática do backend (`player/dashboard.ts`: `wins / decided`),
+  // pra o KPI bater com o da home sem formatação nova no cliente.
+  return { losses, rate: total > 0 ? wins / total : 0, total, wins };
 }

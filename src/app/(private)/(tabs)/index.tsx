@@ -20,10 +20,11 @@ import { Badge } from "heroui-native-pro";
 import { useEffect } from "react";
 import { View } from "react-native";
 
-/** PLN-0007 (plano de conteúdo IBX-0071): a home do jogador é o dash em
- * TEXTO SIMPLES (partidas por mês, desempenho, inscrições, próximos jogos).
- * Widgets/gráficos e a trilha de competições saíram; componente de KPI/chart
- * só volta após aprovação item a item (spec dashboard.md). */
+/** PLN-0007 (plano de conteúdo IBX-0071, composição do IBX-0075): a home
+ * compõe os blocos de número com o `KpiCard` da galeria nos dois papéis
+ * (jogador e organização); o que segue fora é só o que a spec do domínio
+ * declara (gráficos, trilha de competições e as pendências/alertas, que
+ * dependem de contrato — `docs/spec/dashboard.md`). */
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
