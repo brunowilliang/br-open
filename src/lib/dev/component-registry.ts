@@ -33,6 +33,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "chart-crosshair",
     title: "Gráfico",
   },
+  {
+    description: "Alertas e pendências por caso de uso para aprovação",
+    id: "alerts",
+    title: "Alertas",
+  },
 ];
 
 export function findComponentGalleryEntry(
