@@ -421,7 +421,7 @@ export const editResult = authMutation
       throw new CRPCError({
         code: "BAD_REQUEST",
         message:
-          "Torneio encerrado — não é possível trocar quem avança nessa partida.",
+          "Torneio encerrado: não é possível trocar quem avança nessa partida.",
       });
     }
 

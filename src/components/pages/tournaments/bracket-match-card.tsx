@@ -186,7 +186,7 @@ export function BracketMatchCard({
     >
       <Card className="w-full gap-1.5 rounded-2xl p-2">
         <View className="flex-row items-center justify-between gap-1.5">
-          <Text className="text-muted" numberOfLines={1} size="xs">
+          <Text color="muted" numberOfLines={1} size="xs">
             {stageLabel}
           </Text>
           <View className="flex-row items-center gap-1">
@@ -266,7 +266,7 @@ export function BracketMatchCard({
         </View>
 
         {scheduleSummary ? (
-          <Text className="text-muted" numberOfLines={1} size="xs">
+          <Text color="muted" numberOfLines={1} size="xs">
             {scheduleSummary}
           </Text>
         ) : null}

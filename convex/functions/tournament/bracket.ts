@@ -1,7 +1,6 @@
 import { eq } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
-import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../_generated/dataModel";
 import {
   SwapBracketSlotsSchema,
@@ -15,8 +14,6 @@ import {
   validateBracketStartable,
   validateSlotSwap,
   validateSwapCategoryOwnership,
-  type SwapBoardMatch,
-  type SwapMatchStatus,
 } from "../../domains/tournament/bracket-rules";
 import { tournament, tournamentMatch } from "../../domains/tournament/tables";
 import { shouldAutoStartTournament } from "../../domains/tournament/scheduling-rules";
@@ -29,7 +26,12 @@ import {
   scheduleTournamentNotification,
   type OrmCtx,
 } from "./_shared/guards";
-type MatchRecord = InferSelectModel<typeof tournamentMatch>;
+import {
+  getCategoryMatches,
+  shuffle,
+  toSwapBoard,
+  type MatchRecord,
+} from "./_shared/board";
 
 function serializeMatch(record: MatchRecord) {
   return tournamentMatchSchema.parse({
@@ -64,43 +66,6 @@ function getActiveEntries(ctx: OrmCtx, categoryId: Id<"tournamentCategory">) {
     limit: 300,
     where: { categoryId, status: "active" },
   });
-}
-
-function getMatches(ctx: OrmCtx, categoryId: Id<"tournamentCategory">) {
-  return ctx.orm.query.tournamentMatch.findMany({
-    limit: 300,
-    where: { categoryId },
-  });
-}
-
-/**
- * IBX-0053: the move rules read the category's WHOLE board — how a side's
- * occupant arrived (a placement vs a win propagated from the match below) is
- * what decides whether it may move.
- */
-function toSwapBoard(matches: MatchRecord[]): SwapBoardMatch[] {
-  return matches.map((match) => ({
-    entryAId: match.entryAId ?? null,
-    entryBId: match.entryBId ?? null,
-    hasPublishedResult:
-      match.publishedAt !== null && match.publishedAt !== undefined,
-    id: match.id as string,
-    round: match.round,
-    slotInRound: match.slotInRound,
-    status: match.status as SwapMatchStatus,
-    walkover: match.walkover,
-    winnerEntryId: match.winnerEntryId ?? null,
-  }));
-}
-
-/** Fisher-Yates on a copy — the only randomness in the draw path. */
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
 
 /**
@@ -280,7 +245,7 @@ export const swapSlots = authMutation
     // IBX-0053: the board is the category's WHOLE bracket — a cross-round
     // move needs the feeding match of each side to tell a placement (movable)
     // from a win propagated from the match below (locked).
-    const matches = await getMatches(
+    const matches = await getCategoryMatches(
       ctx,
       input.categoryId as Id<"tournamentCategory">
     );
@@ -410,7 +375,10 @@ export const performStart = privateMutation
     for (const category of categories) {
       const startError = validateBracketStartable(
         toSwapBoard(
-          await getMatches(ormCtx, category.id as Id<"tournamentCategory">)
+          await getCategoryMatches(
+            ormCtx,
+            category.id as Id<"tournamentCategory">
+          )
         )
       );
       if (startError) {
@@ -446,6 +414,35 @@ export const performStart = privateMutation
         recipientUserIds: [...recipients],
         tournamentId: record.id as Id<"tournament">,
       });
+    }
+
+    // IBX-0067: unanswered partner invites never reach the bracket (only
+    // ACTIVE entries place; the entry itself stays behind untouched when
+    // the tournament starts). Each creator learns it NOW — both on the
+    // manual start and on the auto-start cron (they share this core).
+    // Birth-race note: two near-simultaneous activations on an empty board
+    // are serialized by Convex OCC — the loser re-runs and sees the fresh
+    // bracket, so no double draw happens.
+    for (const category of categories) {
+      const pending = await ormCtx.orm.query.tournamentEntry.findMany({
+        limit: 300,
+        where: {
+          categoryId: category.id as Id<"tournamentCategory">,
+          status: "pending_partner",
+        },
+      });
+      for (const entry of pending) {
+        if (!entry.createdByUserId) {
+          continue;
+        }
+        await scheduleTournamentNotification(ctx as never, {
+          eventType: "tournament.partner.awaiting_reply",
+          recipientUserIds: [entry.createdByUserId as Id<"user">],
+          sourceEntityId: entry.id as string,
+          sourceEntityType: "tournamentEntry",
+          tournamentId: record.id as Id<"tournament">,
+        });
+      }
     }
 
     return { ok: true };
@@ -534,7 +531,7 @@ export const listBracket = authQuery
     const categories = await getCategories(ctx, record.id as Id<"tournament">);
     const matches: MatchRecord[] = [];
     for (const category of categories) {
-      const rows = await getMatches(
+      const rows = await getCategoryMatches(
         ctx,
         category.id as Id<"tournamentCategory">
       );

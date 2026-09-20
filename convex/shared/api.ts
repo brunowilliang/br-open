@@ -84,6 +84,7 @@ export const api = {
     },
     dashboard: {
       getOverview: createApiLeaf<"query", typeof import("../functions/payment/dashboard").getOverview>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/dashboard").getOverview>("payment/dashboard:getOverview"), { auth: "required", type: "query" }),
+      getRevenueSeries: createApiLeaf<"query", typeof import("../functions/payment/dashboard").getRevenueSeries>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/dashboard").getRevenueSeries>("payment/dashboard:getRevenueSeries"), { auth: "required", type: "query" }),
     },
     onboarding: {
       getStatus: createApiLeaf<"query", typeof import("../functions/payment/onboarding").getStatus>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/payment/onboarding").getStatus>("payment/onboarding:getStatus"), { auth: "required", type: "query" }),
@@ -98,6 +99,9 @@ export const api = {
     },
   },
   player: {
+    dashboard: {
+      getOverview: createApiLeaf<"query", typeof import("../functions/player/dashboard").getOverview>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/dashboard").getOverview>("player/dashboard:getOverview"), { auth: "required", type: "query" }),
+    },
     profile: {
       generateUploadUrl: createApiLeaf<"mutation", typeof import("../functions/player/profile").generateUploadUrl>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/player/profile").generateUploadUrl>("player/profile:generateUploadUrl"), { auth: "required", type: "mutation" }),
       get: createApiLeaf<"query", typeof import("../functions/player/profile").get>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/profile").get>("player/profile:get"), { auth: "required", type: "query" }),

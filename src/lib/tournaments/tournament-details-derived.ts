@@ -3,7 +3,10 @@ import type {
   TournamentGender,
   TournamentModality,
 } from "@convex/domains/tournament/contract";
-import { buildCategoryDisplayName } from "@convex/domains/tournament/entry-rules";
+import {
+  buildCategoryDisplayName,
+  isRegistrationOpen,
+} from "@convex/domains/tournament/entry-rules";
 
 import { formatMatchMonthDay } from "@/lib/format/date";
 import { formatMinuteToHHMM } from "@/lib/format/time";
@@ -18,20 +21,7 @@ export type TournamentDetailsRole = "guest" | "organizer" | "player";
 export type TournamentDetailsAccess = {
   canManage: boolean;
   canOpenBracket: boolean;
-  canOpenEntries: boolean;
   canOpenSchedule: boolean;
-};
-
-export type TournamentNavigationTabValue =
-  | "bracket"
-  | "entries"
-  | "overview"
-  | "schedule";
-
-export type TournamentNavigationTabItem = {
-  badgeCount: number;
-  label: string;
-  value: TournamentNavigationTabValue;
 };
 
 /** Chave pública só a partir de `ongoing` (a fase `drawn` é do organizador). */
@@ -60,19 +50,29 @@ export function buildTournamentDetailsAccess(input: {
   return {
     canManage,
     canOpenBracket: canManage || bracketPublic,
-    canOpenEntries: true,
     canOpenSchedule: canManage || bracketPublic,
   };
 }
 
+export type TournamentNavigationTabValue =
+  | "bracket"
+  | "entries"
+  | "overview"
+  | "schedule";
+
+export type TournamentNavigationTabItem = {
+  badgeCount: number;
+  label: string;
+  value: TournamentNavigationTabValue;
+};
+
+/** Abas flutuantes da página do torneio, filtradas pelo acesso do papel
+ * (restauração da navegação do PLN-0007: as tabs voltam; o conteúdo da casa
+ * segue o plano de conteúdo em texto simples). */
 export function buildTournamentNavigationTabItems(
   access: TournamentDetailsAccess
 ): TournamentNavigationTabItem[] {
-  const allItems: Array<{
-    badgeCount: number;
-    label: string;
-    value: TournamentNavigationTabValue;
-  }> = [
+  const allItems: TournamentNavigationTabItem[] = [
     { badgeCount: 0, label: "Overview", value: "overview" },
     { badgeCount: 0, label: "Chave", value: "bracket" },
     { badgeCount: 0, label: "Agenda", value: "schedule" },
@@ -86,10 +86,6 @@ export function buildTournamentNavigationTabItems(
 
     if (item.value === "schedule") {
       return access.canOpenSchedule;
-    }
-
-    if (item.value === "entries") {
-      return access.canOpenEntries;
     }
 
     return true;
@@ -113,25 +109,6 @@ export function buildBracketPlaceholder(input: {
   }).format(new Date(input.startDateMs));
 
   return `Chave disponível a partir de ${formatted}, quando o torneio começar.`;
-}
-
-export function buildTournamentCategoryChips(
-  categories: Array<
-    CategoryKey & {
-      displayName: string;
-      entryFeeCents: number;
-      id: string;
-    }
-  >
-) {
-  return categories.map((category) => ({
-    displayName: category.displayName,
-    entryFeeLabel:
-      category.entryFeeCents > 0
-        ? formatEntryFeeLabel(category.entryFeeCents)
-        : "Grátis",
-    id: category.id,
-  }));
 }
 
 export function formatEntryFeeLabel(entryFeeCents: number) {
@@ -245,4 +222,231 @@ export function formatBracketStage(round: number, totalRounds: number): string {
 
 export function buildCategoryDisplayNameFromKey(key: CategoryKey) {
   return buildCategoryDisplayName(key.modality, key.gender);
+}
+
+// ---------------------------------------------------------------------------
+// Inscrição na visão geral (IBX-0067/PLN-0001, Etapa 2): estado da janela,
+// vagas por categoria e categorias que o viewer ainda pode escolher.
+// ---------------------------------------------------------------------------
+
+export type TournamentRegistrationWindowState = {
+  open: boolean;
+};
+
+/**
+ * Mesma regra do servidor (`isRegistrationOpen`, entry-rules): janela aberta
+ * em `published`/`drawn` com prazo futuro; fechada em qualquer outro estado
+ * ou com prazo vencido.
+ */
+export function buildRegistrationWindowState(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  status: string;
+}): TournamentRegistrationWindowState {
+  const open = isRegistrationOpen({
+    nowMs: input.nowMs,
+    registrationDeadlineMs: input.registrationDeadlineMs,
+    status: input.status,
+  });
+
+  return { open };
+}
+
+/**
+ * Vagas da categoria no seletor do rodapé, na MESMA semântica do servidor
+ * (`assertCategoryCapacity` conta só entries `active`): "{ativas}/{max}
+ * vagas"; categoria cheia sai como "Lotada". Sem limite, nada a mostrar.
+ */
+export function buildTournamentCategoryVacancy(input: {
+  activeEntriesCount: number;
+  maxEntries: null | number;
+}): { isFull: boolean; label: null | string } {
+  if (input.maxEntries === null) {
+    return { isFull: false, label: null };
+  }
+
+  if (input.activeEntriesCount >= input.maxEntries) {
+    return { isFull: true, label: "Lotada" };
+  }
+
+  return {
+    isFull: false,
+    label: `${input.activeEntriesCount}/${input.maxEntries} vagas`,
+  };
+}
+
+/**
+ * Contagem de entries CONFIRMADAS (`active`) por categoria — o insumo do
+ * seletor de vagas. Mesmo critério do `activeEntryCount` do discovery.
+ */
+export function buildTournamentActiveEntriesCountByCategory(
+  entries: ReadonlyArray<{ categoryId: string; status: string }>
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const entry of entries) {
+    if (entry.status !== "active") {
+      continue;
+    }
+
+    counts[entry.categoryId] = (counts[entry.categoryId] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
+export type TournamentJoinOptions = {
+  /** Categorias onde o viewer JÁ tem inscrição viva (saem do seletor). */
+  joinedCategoryIds: string[];
+  /** Categorias que o viewer ainda pode escolher (decisão 22/08). */
+  joinableCategoryIds: string[];
+};
+
+/**
+ * Multi-categoria do jogador: o rodapé aparece pra guest E para quem já
+ * está inscrito; a categoria já inscrita sai do seletor (o servidor recusa
+ * jogador repetido na categoria). `viewerEntryIds` já exclui cancelled —
+ * cancelou, a categoria volta a ser escolhível.
+ */
+export function buildTournamentJoinOptions(input: {
+  categoryIds: readonly string[];
+  entries: ReadonlyArray<{ categoryId: string; id: string }>;
+  viewerEntryIds: readonly string[];
+}): TournamentJoinOptions {
+  const viewerEntryIdSet = new Set(input.viewerEntryIds);
+  const joined = new Set(
+    input.entries
+      .filter((entry) => viewerEntryIdSet.has(entry.id))
+      .map((entry) => entry.categoryId)
+  );
+
+  return {
+    joinableCategoryIds: input.categoryIds.filter((id) => !joined.has(id)),
+    joinedCategoryIds: input.categoryIds.filter((id) => joined.has(id)),
+  };
+}
+
+/**
+ * Cancelar inscrição (IBX-0067, Etapa 2): entry viva em torneio pré-início
+ * (`published`/`drawn` — mesma guard do servidor, entries.cancel).
+ */
+export function canCancelTournamentEntry(input: {
+  entryStatus: string;
+  tournamentStatus: string;
+}): boolean {
+  if (input.entryStatus === "cancelled" || input.entryStatus === "rejected") {
+    return false;
+  }
+
+  return (
+    input.tournamentStatus === "published" || input.tournamentStatus === "drawn"
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Avisos do diálogo de Iniciar (IBX-0067, Etapa 3): o usuário vê os
+// problemas ANTES de tentar e tomar o erro do servidor.
+// ---------------------------------------------------------------------------
+
+type StartWarningMatch = {
+  categoryId: string;
+  entryAId: null | string;
+  entryBId: null | string;
+  round: number;
+  slotInRound: number;
+  status: string;
+  walkover: boolean;
+};
+
+/**
+ * Vagas em aberto ("A definir") que impedem o início — MESMO critério do
+ * `validateBracketStartable` (bracket-rules): lado vazio na rodada 1 ou
+ * alimentado por subtree podada (`vacant`); lado esperando feed vivo é o
+ * desenho normal. A busca do filho é POR CATEGORIA (round/slot colidem
+ * entre categorias da lista global de matches).
+ */
+function countBracketStartHoles(matches: readonly StartWarningMatch[]) {
+  const boardByCategory = new Map<string, Map<string, StartWarningMatch>>();
+
+  for (const match of matches) {
+    let board = boardByCategory.get(match.categoryId);
+
+    if (!board) {
+      board = new Map();
+      boardByCategory.set(match.categoryId, board);
+    }
+
+    board.set(`${match.round}:${match.slotInRound}`, match);
+  }
+
+  let holes = 0;
+
+  for (const board of boardByCategory.values()) {
+    for (const match of board.values()) {
+      if (match.status === "vacant" || match.walkover) {
+        continue;
+      }
+
+      for (const side of ["a", "b"] as const) {
+        const entryId = side === "a" ? match.entryAId : match.entryBId;
+
+        if (entryId !== null) {
+          continue;
+        }
+
+        const child =
+          match.round > 1
+            ? board.get(
+                `${match.round - 1}:${match.slotInRound * 2 + (side === "a" ? 0 : 1)}`
+              )
+            : undefined;
+
+        if (match.round <= 1 || child?.status === "vacant") {
+          holes += 1;
+        }
+      }
+    }
+  }
+
+  return holes;
+}
+
+/**
+ * Warnings prontos pro corpo do diálogo de Iniciar: convites de dupla sem
+ * resposta que ficam de fora e vagas em aberto que recusam o início.
+ * Vazio = começa sem aviso.
+ */
+export function buildStartWarnings(input: {
+  entries: ReadonlyArray<{ status: string }>;
+  matches: readonly StartWarningMatch[];
+}): string[] {
+  const warnings: string[] = [];
+
+  const pendingInvites = input.entries.filter(
+    (entry) => entry.status === "pending_partner"
+  ).length;
+
+  if (pendingInvites === 1) {
+    warnings.push(
+      "Há 1 convite de dupla sem resposta · essa inscrição ficará de fora da chave."
+    );
+  } else if (pendingInvites > 1) {
+    warnings.push(
+      `Há ${pendingInvites} convites de dupla sem resposta · essas inscrições ficarão de fora da chave.`
+    );
+  }
+
+  const holes = countBracketStartHoles(input.matches);
+
+  if (holes === 1) {
+    warnings.push(
+      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa."
+    );
+  } else if (holes > 1) {
+    warnings.push(
+      `A chave tem ${holes} vagas em aberto (A definir) · o início só é liberado com a chave completa.`
+    );
+  }
+
+  return warnings;
 }

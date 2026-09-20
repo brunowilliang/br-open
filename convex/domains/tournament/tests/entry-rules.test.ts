@@ -3,8 +3,11 @@ import { describe, expect, it } from "bun:test";
 import {
   buildCategoryDisplayName,
   isEntryDrawable,
+  isRegistrationOpen,
   normalizeUsernameLookup,
+  registrationClosedMessage,
   resolveEntryStatusAfterPartnerAccepted,
+  resolvePaidActivation,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
 } from "../entry-rules";
@@ -130,6 +133,71 @@ describe("resolveEntryStatusAfterPartnerAccepted", () => {
         entryFeeCents: 0,
       })
     ).toBe("pending_approval");
+  });
+});
+
+describe("resolvePaidActivation (IBX-0067 review HIGH-1)", () => {
+  it("capacidade 8 paga com 9 pagamentos: 8 ativam, o 9º estorna", () => {
+    // pagamentos 1..8 chegam com activeCount 0..7 → ativam
+    for (let activeCount = 0; activeCount < 8; activeCount += 1) {
+      expect(resolvePaidActivation({ activeCount, maxEntries: 8 })).toBe(
+        "activate"
+      );
+    }
+    // o 9º pagamento chega com as 8 vagas ocupadas → refund
+    expect(resolvePaidActivation({ activeCount: 8, maxEntries: 8 })).toBe(
+      "refund"
+    );
+  });
+
+  it("approve + pagamento overflow cai na mesma porta (conta só active)", () => {
+    // 8 ativos já confirmados (approve/pagamento); um awaiting_payment
+    // aprovado não ocupa vaga — o pagamento dele encontra a chave cheia
+    expect(resolvePaidActivation({ activeCount: 8, maxEntries: 8 })).toBe(
+      "refund"
+    );
+    // pendências não reservam vaga: 6 ativos + 3 aguardando → ativa
+    expect(resolvePaidActivation({ activeCount: 6, maxEntries: 8 })).toBe(
+      "activate"
+    );
+  });
+
+  it("categoria sem limite ativa sempre", () => {
+    expect(resolvePaidActivation({ activeCount: 500, maxEntries: null })).toBe(
+      "activate"
+    );
+  });
+});
+
+describe("registrationClosedMessage", () => {
+  const pastDeadline = { nowMs: 2000, registrationDeadlineMs: 1000 };
+
+  it("prazo vencido em published/drawn fala do prazo", () => {
+    expect(
+      registrationClosedMessage({ ...pastDeadline, status: "published" })
+    ).toBe("O prazo de inscrições já encerrou.");
+    expect(
+      registrationClosedMessage({ ...pastDeadline, status: "drawn" })
+    ).toBe("O prazo de inscrições já encerrou.");
+  });
+
+  it("estado que não aceita inscrição fala do fechamento", () => {
+    expect(
+      registrationClosedMessage({ ...pastDeadline, status: "ongoing" })
+    ).toBe("As inscrições deste torneio estão fechadas.");
+    expect(
+      registrationClosedMessage({ ...pastDeadline, status: "draft" })
+    ).toBe("As inscrições deste torneio estão fechadas.");
+  });
+
+  it("janela aberta é detectada pela fonte única", () => {
+    expect(
+      isRegistrationOpen({
+        nowMs: 500,
+        registrationDeadlineMs: 1000,
+        status: "drawn",
+      })
+    ).toBe(true);
   });
 });
 

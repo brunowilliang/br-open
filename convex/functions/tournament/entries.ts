@@ -2,6 +2,7 @@ import { eq } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import type { MutationCtx } from "../generated/server";
 import {
   CreateTournamentEntrySchema,
@@ -14,7 +15,9 @@ import {
   type TournamentPlayerCard,
 } from "../../domains/tournament/contract";
 import {
+  isRegistrationOpen,
   normalizeUsernameLookup,
+  registrationClosedMessage,
   resolveEntryStatusAfterPartnerAccepted,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
@@ -24,6 +27,7 @@ import {
   type tournamentCategory,
   tournamentEntry,
 } from "../../domains/tournament/tables";
+import { paymentCharge } from "../../domains/payment/tables";
 
 type EntryRecord = InferSelectModel<typeof tournamentEntry>;
 type CategoryRecord = InferSelectModel<typeof tournamentCategory>;
@@ -191,16 +195,17 @@ function assertRegistrationOpen(
   tournamentRecord: { registrationDeadlineAt: Date; status: string },
   now: Date
 ) {
-  if (tournamentRecord.status !== "published") {
+  // IBX-0067: `drawn` keeps entries open — the deadline is the only closer
+  // (the incremental placement puts the entry straight into the bracket).
+  const window = {
+    nowMs: now.getTime(),
+    registrationDeadlineMs: tournamentRecord.registrationDeadlineAt.getTime(),
+    status: tournamentRecord.status,
+  };
+  if (!isRegistrationOpen(window)) {
     throw new CRPCError({
       code: "BAD_REQUEST",
-      message: "As inscrições deste torneio estão fechadas.",
-    });
-  }
-  if (tournamentRecord.registrationDeadlineAt.getTime() <= now.getTime()) {
-    throw new CRPCError({
-      code: "BAD_REQUEST",
-      message: "O prazo de inscrições já encerrou.",
+      message: registrationClosedMessage(window),
     });
   }
 }
@@ -255,6 +260,79 @@ async function notifyEntryConfirmed(
     sourceEntityType: "tournamentEntry",
     tournamentId: input.tournamentId,
   });
+}
+
+/**
+ * IBX-0067 (PLN-0001): an entry that just became ACTIVE joins its category
+ * bracket at once (incremental placement — birth with the 2nd confirmed,
+ * random open slot after, bottom round when full). The placement core no-ops
+ * outside the pre-start window or below 2 active entries.
+ */
+async function placeEntryIntoBracket(
+  ctx: MutationCtx,
+  input: { entry: EntryRecord }
+) {
+  await ctx.runMutation(internal.tournament.placement.placeActiveEntry, {
+    categoryId: input.entry.categoryId as string,
+    entryId: input.entry.id as string,
+  });
+}
+
+/** Bracket mirrors the cancellation: the slot goes empty ("A definir"). */
+async function removeEntryFromBracket(
+  ctx: MutationCtx,
+  input: { entry: EntryRecord }
+) {
+  await ctx.runMutation(internal.tournament.placement.removeCancelledEntry, {
+    categoryId: input.entry.categoryId as string,
+    entryId: input.entry.id as string,
+  });
+}
+
+/**
+ * IBX-0067 (decisão 1): cancelling a PAID entry marks its charge(s)
+ * refund-pending and hands off to the proven refund pipeline (processRefunds
+ * + the 15min sweep). The creator — who paid — is told the refund started.
+ */
+async function scheduleEntryRefund(
+  ctx: MutationCtx,
+  input: { entry: EntryRecord; tournamentId: Id<"tournament"> }
+) {
+  const charges = await ctx.orm.query.paymentCharge.findMany({
+    limit: 10,
+    where: {
+      sourceId: input.entry.id as string,
+      sourceType: "tournament_entry",
+      status: "PAID",
+    },
+  });
+  const refundable = charges.filter(
+    (charge) => charge.refundStatus === null || charge.refundStatus === "failed"
+  );
+  if (refundable.length === 0) {
+    return;
+  }
+  const now = new Date();
+  for (const charge of refundable) {
+    await ctx.orm
+      .update(paymentCharge)
+      .set({ refundStatus: "pending", updatedAt: now })
+      .where(eq(paymentCharge.id, charge.id));
+  }
+  await ctx.scheduler.runAfter(
+    0,
+    internal.tournament.lifecycle.processRefunds,
+    { tournamentId: input.tournamentId as string }
+  );
+  if (input.entry.createdByUserId) {
+    await scheduleTournamentNotification(ctx, {
+      eventType: "tournament.entry.refund_requested",
+      recipientUserIds: [input.entry.createdByUserId as Id<"user">],
+      sourceEntityId: input.entry.id as string,
+      sourceEntityType: "tournamentEntry",
+      tournamentId: input.tournamentId,
+    });
+  }
 }
 
 export const create = authMutation
@@ -313,6 +391,9 @@ export const create = authMutation
           entry: created,
           tournament: tournamentRecord,
         });
+      }
+      if (status === "active") {
+        await placeEntryIntoBracket(ctx, { entry: created });
       }
       return serializeEntry(created);
     }
@@ -459,6 +540,7 @@ export const respondPartnerInvite = authMutation
         entry: updated,
         tournamentId: tournamentRecord.id as Id<"tournament">,
       });
+      await placeEntryIntoBracket(ctx, { entry: updated });
     }
     return serializeEntry(updated);
   });
@@ -490,6 +572,13 @@ export const approve = authMutation
     const now = new Date();
     const nextStatus =
       category.entryFeeCents > 0 ? "awaiting_payment" : "active";
+    // IBX-0067 (decisão 3): manual approval respects maxEntries — counting
+    // ACTIVE entries only (pending entries never reserve a slot). The other
+    // ACTIVE paths guard too: create/accept here, and the PAID activation
+    // at its last gate (charge.ts, overflow follows the refund pattern).
+    if (nextStatus === "active") {
+      await assertCategoryCapacity(ctx, category);
+    }
     const [updated] = await ctx.orm
       .update(tournamentEntry)
       .set({ status: nextStatus, updatedAt: now })
@@ -501,6 +590,7 @@ export const approve = authMutation
         entry: updated,
         tournamentId: tournamentRecord.id as Id<"tournament">,
       });
+      await placeEntryIntoBracket(ctx, { entry: updated });
     }
     return serializeEntry(updated);
   });
@@ -574,10 +664,14 @@ export const cancel = authMutation
         message: "Inscrição não encontrada.",
       });
     }
-    if (tournamentRecord.status !== "published") {
+    if (
+      tournamentRecord.status !== "published" &&
+      tournamentRecord.status !== "drawn"
+    ) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: "Inscrições só podem ser canceladas antes do sorteio.",
+        message:
+          "Inscrições só podem ser canceladas antes do início do torneio.",
       });
     }
     if (entry.status === "cancelled" || entry.status === "rejected") {
@@ -593,6 +687,16 @@ export const cancel = authMutation
       .set({ status: "cancelled", updatedAt: now })
       .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
       .returning();
+
+    // IBX-0067: the bracket is the live mirror of the entries — the
+    // cancelled slot stays EMPTY ("A definir", decisão 8; no automatic bye
+    // for the survivor). A paid entry also gets its refund started
+    // (decisão 1) with a notice to the creator who paid.
+    await removeEntryFromBracket(ctx, { entry: updated });
+    await scheduleEntryRefund(ctx, {
+      entry: updated,
+      tournamentId: tournamentRecord.id as Id<"tournament">,
+    });
     return serializeEntry(updated);
   });
 

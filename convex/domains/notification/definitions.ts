@@ -345,6 +345,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       title: "Nova solicitação de entrada",
     }),
   },
+  "tournament.bracket.placement_failed": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body: `A inscrição de ${getActorName(input.actorName)} em ${input.tournamentName} confirmou, mas a chave tem ajustes manuais que impedem o encaixe automático. Sorteie a chave novamente.`,
+      title: "Inscrição fora da chave",
+    }),
+  },
   "tournament.bracket.published": {
     getUrl: getTournamentUrl,
     template: (input) => ({
@@ -371,6 +378,16 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     template: (input) => ({
       body: `${getActorName(input.actorName)} se inscreveu em ${input.tournamentName}.`,
       title: "Nova inscrição",
+    }),
+  },
+  "tournament.entry.refund_requested": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body:
+        input.metadata?.reason === "category_full"
+          ? `A categoria da sua inscrição em ${input.tournamentName} lotou. O pagamento será estornado.`
+          : `A inscrição em ${input.tournamentName} foi cancelada e o estorno do pagamento foi iniciado.`,
+      title: "Estorno em andamento",
     }),
   },
   "tournament.entry.rejected": {
@@ -420,6 +437,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     template: (input) => ({
       body: `Seu confronto em ${input.tournamentName} foi agendado.`,
       title: "Confronto agendado",
+    }),
+  },
+  "tournament.partner.awaiting_reply": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body: `Sua dupla em ${input.tournamentName} segue sem resposta do convite e o torneio está começando.`,
+      title: "Convite sem resposta",
     }),
   },
   "tournament.partner.invited": {

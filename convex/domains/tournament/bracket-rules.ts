@@ -781,7 +781,7 @@ function planSwap(move: BracketSwapMove): {
     )?.status === "vacant";
   if (entryOfSide(matchTo, to.side) === null && !destinationFeedIsDead) {
     return rejected(
-      "Essa vaga ainda vai receber o vencedor do confronto de baixo — só uma linha podada aceita uma inscrição."
+      "Essa vaga ainda vai receber o vencedor do confronto de baixo, e só uma linha podada aceita uma inscrição."
     );
   }
 

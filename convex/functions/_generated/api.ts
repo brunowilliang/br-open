@@ -2890,10 +2890,13 @@ export const api: {
             | "league.challenge.organizer_rejected"
             | "tournament.partner.invited"
             | "tournament.partner.responded"
+            | "tournament.partner.awaiting_reply"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.refund_requested"
             | "tournament.bracket.published"
+            | "tournament.bracket.placement_failed"
             | "tournament.match.reassigned"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
@@ -2961,10 +2964,13 @@ export const api: {
             | "league.challenge.organizer_rejected"
             | "tournament.partner.invited"
             | "tournament.partner.responded"
+            | "tournament.partner.awaiting_reply"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.refund_requested"
             | "tournament.bracket.published"
+            | "tournament.bracket.placement_failed"
             | "tournament.match.reassigned"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
@@ -3340,6 +3346,21 @@ export const api: {
           }>;
         }
       >;
+      getRevenueSeries: FunctionReference<
+        "query",
+        "public",
+        { months?: number },
+        {
+          bySource: Array<{
+            sourceId: string;
+            sourceLabel: string | null;
+            sourceType: string;
+            totalCents: number;
+          }>;
+          series: Array<{ month: string; receivedCents: number }>;
+          totalCents: number;
+        }
+      >;
     };
     onboarding: {
       getStatus: FunctionReference<
@@ -3392,6 +3413,64 @@ export const api: {
     };
   };
   player: {
+    dashboard: {
+      getOverview: FunctionReference<
+        "query",
+        "public",
+        { months?: number },
+        {
+          entryCategories: Array<{
+            categoryId: string;
+            displayName: string;
+            entryCount: number;
+          }>;
+          frequentPartner: {
+            count: number;
+            player: {
+              avatarUrl: string | null;
+              fullName: string;
+              playerProfileId: string;
+            };
+          } | null;
+          leagues: Array<{
+            leagueId: string;
+            leagueName: string;
+            membershipId: string;
+            position: number | null;
+            rankingSize: number | null;
+            series: Array<{ at: number; position: number }>;
+          }>;
+          performance: {
+            byMonth: Array<{ losses: number; month: string; wins: number }>;
+            losses: number;
+            winRate: number;
+            wins: number;
+          };
+          upcomingMatches: Array<{
+            categoryDisplayName: string | null;
+            categoryId: string | null;
+            competitionId: string;
+            competitionName: string;
+            courtName: string | null;
+            endMinute: number | null;
+            id: string;
+            kind: "league_challenge" | "tournament_match";
+            matchDate: string;
+            opponents: Array<{
+              avatarUrl: string | null;
+              fullName: string;
+              playerProfileId: string;
+            }>;
+            partner: {
+              avatarUrl: string | null;
+              fullName: string;
+              playerProfileId: string;
+            } | null;
+            startMinute: number;
+          }>;
+        }
+      >;
+    };
     profile: {
       generateUploadUrl: FunctionReference<"mutation", "public", {}, string>;
       get: FunctionReference<
@@ -4820,10 +4899,13 @@ export const internal: {
             | "league.challenge.organizer_rejected"
             | "tournament.partner.invited"
             | "tournament.partner.responded"
+            | "tournament.partner.awaiting_reply"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.refund_requested"
             | "tournament.bracket.published"
+            | "tournament.bracket.placement_failed"
             | "tournament.match.reassigned"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
@@ -5212,6 +5294,20 @@ export const internal: {
         any
       >;
       sweepPendingRefunds: FunctionReference<"mutation", "internal", {}, any>;
+    };
+    placement: {
+      placeActiveEntry: FunctionReference<
+        "mutation",
+        "internal",
+        { categoryId: string; entryId: string },
+        { placed: boolean }
+      >;
+      removeCancelledEntry: FunctionReference<
+        "mutation",
+        "internal",
+        { categoryId: string; entryId: string },
+        { removed: boolean }
+      >;
     };
   };
 } = anyApi as any;

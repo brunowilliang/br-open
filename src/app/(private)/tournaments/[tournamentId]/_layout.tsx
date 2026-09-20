@@ -119,6 +119,14 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     }
   }, [bucket$, tournamentQuery.isError]);
 
+  // entriesQuery em erro não pode ficar silencioso (IBX-0067): sem entries
+  // o role caía pra guest com bucket vazio e a tela virava null sem estado.
+  useEffect(() => {
+    if (entriesQuery.isError) {
+      bucket$.actions.setBootstrapStatus("error");
+    }
+  }, [bucket$, entriesQuery.isError]);
+
   useEffect(() => {
     if (entriesQuery.data) {
       bucket$.actions.hydrateEntries(entriesQuery.data);

@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import {
   buildBracketPlaceholder,
+  buildRegistrationWindowState,
+  buildTournamentActiveEntriesCountByCategory,
+  buildTournamentCategoryVacancy,
   buildTournamentDetailsAccess,
-  buildTournamentDetailsRole,
   buildTournamentNavigationTabItems,
+  buildTournamentDetailsRole,
+  buildTournamentJoinOptions,
+  buildStartWarnings,
+  canCancelTournamentEntry,
   formatBracketStage,
   formatMatchScheduleSummary,
   isBracketPublic,
@@ -58,18 +64,16 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
       ).toEqual({
         canManage: true,
         canOpenBracket: true,
-        canOpenEntries: true,
         canOpenSchedule: true,
       });
     }
   });
 
-  test("non-organizer without public bracket: bracket/schedule closed, entries open", () => {
+  test("non-organizer without public bracket: bracket/schedule closed", () => {
     for (const status of ["draft", "published", "drawn"]) {
       expect(buildTournamentDetailsAccess({ role: "player", status })).toEqual({
         canManage: false,
         canOpenBracket: false,
-        canOpenEntries: true,
         canOpenSchedule: false,
       });
     }
@@ -80,45 +84,9 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
       expect(buildTournamentDetailsAccess({ role: "guest", status })).toEqual({
         canManage: false,
         canOpenBracket: true,
-        canOpenEntries: true,
         canOpenSchedule: true,
       });
     }
-  });
-});
-
-describe("buildTournamentNavigationTabItems", () => {
-  test("guest in published sees Overview and Entries (bracket/schedule hidden)", () => {
-    const access = buildTournamentDetailsAccess({
-      role: "guest",
-      status: "published",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "entries"]);
-  });
-
-  test("player in ongoing sees all tabs in league order (overview first)", () => {
-    const access = buildTournamentDetailsAccess({
-      role: "player",
-      status: "ongoing",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "bracket", "schedule", "entries"]);
-  });
-
-  test("organizer in draft sees all tabs", () => {
-    const access = buildTournamentDetailsAccess({
-      role: "organizer",
-      status: "draft",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "bracket", "schedule", "entries"]);
   });
 });
 
@@ -213,5 +181,357 @@ describe("formatBracketStage", () => {
     // 64-slot draw: first two rounds have no named stage.
     expect(formatBracketStage(1, 6)).toBe("Rodada 1");
     expect(formatBracketStage(2, 6)).toBe("Rodada 2");
+  });
+});
+
+describe("buildRegistrationWindowState", () => {
+  const deadlineMs = new Date(2026, 8, 19, 12).getTime();
+
+  test("open in published with future deadline", () => {
+    const state = buildRegistrationWindowState({
+      nowMs: new Date(2026, 8, 10).getTime(),
+      registrationDeadlineMs: deadlineMs,
+      status: "published",
+    });
+
+    expect(state.open).toBeTrue();
+  });
+
+  test("drawn keeps the window open (deadline is the only closer)", () => {
+    const state = buildRegistrationWindowState({
+      nowMs: new Date(2026, 8, 10).getTime(),
+      registrationDeadlineMs: deadlineMs,
+      status: "drawn",
+    });
+
+    expect(state.open).toBeTrue();
+  });
+
+  test("passed deadline closes even in published", () => {
+    const state = buildRegistrationWindowState({
+      nowMs: deadlineMs + 1,
+      registrationDeadlineMs: deadlineMs,
+      status: "published",
+    });
+
+    expect(state.open).toBeFalse();
+  });
+
+  test("ongoing/draft are closed regardless of deadline", () => {
+    for (const status of ["draft", "ongoing", "finished", "cancelled"]) {
+      const state = buildRegistrationWindowState({
+        nowMs: new Date(2026, 8, 10).getTime(),
+        registrationDeadlineMs: deadlineMs,
+        status,
+      });
+
+      expect(state.open).toBeFalse();
+    }
+  });
+});
+
+describe("buildTournamentNavigationTabItems", () => {
+  test("guest em published ve Overview e Entries (chave e agenda fechadas pre-ongoing)", () => {
+    const access = buildTournamentDetailsAccess({
+      role: "guest",
+      status: "published",
+    });
+
+    expect(
+      buildTournamentNavigationTabItems(access).map((item) => item.value)
+    ).toEqual(["overview", "entries"]);
+  });
+
+  test("player em ongoing ve todas as abas na ordem", () => {
+    const access = buildTournamentDetailsAccess({
+      role: "player",
+      status: "ongoing",
+    });
+
+    expect(
+      buildTournamentNavigationTabItems(access).map((item) => item.value)
+    ).toEqual(["overview", "bracket", "schedule", "entries"]);
+  });
+
+  test("organizer em draft ve todas as abas", () => {
+    const access = buildTournamentDetailsAccess({
+      role: "organizer",
+      status: "draft",
+    });
+
+    expect(
+      buildTournamentNavigationTabItems(access).map((item) => item.value)
+    ).toEqual(["overview", "bracket", "schedule", "entries"]);
+  });
+});
+
+describe("buildTournamentCategoryVacancy", () => {
+  test("no limit: nothing to render", () => {
+    expect(
+      buildTournamentCategoryVacancy({
+        activeEntriesCount: 7,
+        maxEntries: null,
+      })
+    ).toEqual({ isFull: false, label: null });
+  });
+
+  test("partial limit renders active/max", () => {
+    expect(
+      buildTournamentCategoryVacancy({
+        activeEntriesCount: 3,
+        maxEntries: 8,
+      })
+    ).toEqual({ isFull: false, label: "3/8 vagas" });
+  });
+
+  test("full category renders Lotada", () => {
+    expect(
+      buildTournamentCategoryVacancy({
+        activeEntriesCount: 8,
+        maxEntries: 8,
+      })
+    ).toEqual({ isFull: true, label: "Lotada" });
+    expect(
+      buildTournamentCategoryVacancy({
+        activeEntriesCount: 9,
+        maxEntries: 8,
+      }).isFull
+    ).toBeTrue();
+  });
+});
+
+describe("buildTournamentActiveEntriesCountByCategory", () => {
+  test("counts only active entries per category", () => {
+    const counts = buildTournamentActiveEntriesCountByCategory([
+      { categoryId: "cat-a", status: "active" },
+      { categoryId: "cat-a", status: "active" },
+      { categoryId: "cat-a", status: "pending_approval" },
+      { categoryId: "cat-a", status: "cancelled" },
+      { categoryId: "cat-b", status: "active" },
+    ]);
+
+    expect(counts).toEqual({ "cat-a": 2, "cat-b": 1 });
+  });
+});
+
+describe("buildTournamentJoinOptions", () => {
+  const categoryIds = ["cat-a", "cat-b", "cat-c"];
+
+  test("guest can pick every category", () => {
+    expect(
+      buildTournamentJoinOptions({
+        categoryIds,
+        entries: [
+          { categoryId: "cat-a", id: "e-other" },
+          { categoryId: "cat-b", id: "e-other-2" },
+        ],
+        viewerEntryIds: [],
+      })
+    ).toEqual({
+      joinableCategoryIds: categoryIds,
+      joinedCategoryIds: [],
+    });
+  });
+
+  test("joined categories leave the selector, others stay", () => {
+    expect(
+      buildTournamentJoinOptions({
+        categoryIds,
+        entries: [
+          { categoryId: "cat-a", id: "e-1" },
+          { categoryId: "cat-c", id: "e-2" },
+          { categoryId: "cat-b", id: "e-other" },
+        ],
+        viewerEntryIds: ["e-1", "e-2"],
+      })
+    ).toEqual({
+      joinableCategoryIds: ["cat-b"],
+      joinedCategoryIds: ["cat-a", "cat-c"],
+    });
+  });
+
+  test("cancelled entry frees the category again", () => {
+    expect(
+      buildTournamentJoinOptions({
+        categoryIds,
+        entries: [{ categoryId: "cat-a", id: "e-1" }],
+        viewerEntryIds: [],
+      })
+    ).toEqual({
+      joinableCategoryIds: categoryIds,
+      joinedCategoryIds: [],
+    });
+  });
+});
+
+describe("canCancelTournamentEntry", () => {
+  test("alive entry before the start is cancellable", () => {
+    for (const tournamentStatus of ["published", "drawn"]) {
+      for (const entryStatus of [
+        "pending_partner",
+        "awaiting_payment",
+        "pending_approval",
+        "active",
+      ]) {
+        expect(
+          canCancelTournamentEntry({ entryStatus, tournamentStatus })
+        ).toBeTrue();
+      }
+    }
+  });
+
+  test("terminal entries and post-start tournaments are not", () => {
+    for (const entryStatus of ["cancelled", "rejected"]) {
+      expect(
+        canCancelTournamentEntry({
+          entryStatus,
+          tournamentStatus: "published",
+        })
+      ).toBeFalse();
+    }
+
+    for (const tournamentStatus of ["draft", "ongoing", "finished"]) {
+      expect(
+        canCancelTournamentEntry({
+          entryStatus: "active",
+          tournamentStatus,
+        })
+      ).toBeFalse();
+    }
+  });
+});
+
+describe("buildStartWarnings", () => {
+  const baseMatch = {
+    categoryId: "cat-a",
+    entryAId: "e-1",
+    entryBId: "e-2",
+    round: 1,
+    slotInRound: 0,
+    status: "pending",
+    walkover: false,
+  };
+
+  test("no pending invites and no holes: empty warnings", () => {
+    expect(
+      buildStartWarnings({
+        entries: [{ status: "active" }, { status: "pending_approval" }],
+        matches: [baseMatch],
+      })
+    ).toEqual([]);
+  });
+
+  test("pending invite warns (singular and plural)", () => {
+    expect(
+      buildStartWarnings({
+        entries: [{ status: "pending_partner" }],
+        matches: [],
+      })
+    ).toEqual([
+      "Há 1 convite de dupla sem resposta · essa inscrição ficará de fora da chave.",
+    ]);
+
+    expect(
+      buildStartWarnings({
+        entries: [{ status: "pending_partner" }, { status: "pending_partner" }],
+        matches: [],
+      })
+    ).toEqual([
+      "Há 2 convites de dupla sem resposta · essas inscrições ficarão de fora da chave.",
+    ]);
+  });
+
+  test("round-1 empty side is a hole", () => {
+    const warnings = buildStartWarnings({
+      entries: [],
+      matches: [
+        { ...baseMatch, entryAId: null },
+        { ...baseMatch, slotInRound: 1 },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
+    ]);
+  });
+
+  test("empty side fed by a live match below is the normal shape, not a hole", () => {
+    expect(
+      buildStartWarnings({
+        entries: [],
+        matches: [
+          { ...baseMatch, entryAId: null, round: 2, slotInRound: 0 },
+          { ...baseMatch, slotInRound: 0 },
+          { ...baseMatch, slotInRound: 1 },
+        ],
+      })
+    ).toEqual([]);
+  });
+
+  test("empty side over a pruned (vacant) child is a hole", () => {
+    const warnings = buildStartWarnings({
+      entries: [],
+      matches: [
+        { ...baseMatch, entryAId: null, round: 2, slotInRound: 0 },
+        { ...baseMatch, slotInRound: 0, status: "vacant" },
+        { ...baseMatch, slotInRound: 1 },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
+    ]);
+  });
+
+  test("vacant and walkover rows never count as holes", () => {
+    expect(
+      buildStartWarnings({
+        entries: [],
+        matches: [
+          { ...baseMatch, entryAId: null, status: "vacant" },
+          { ...baseMatch, entryBId: null, slotInRound: 1, walkover: true },
+        ],
+      })
+    ).toEqual([]);
+  });
+
+  test("round/slot collide across categories — boards stay separate", () => {
+    const warnings = buildStartWarnings({
+      entries: [],
+      matches: [
+        // cat-a: side B of round 2 fed by a vacant child below (hole).
+        { ...baseMatch, entryBId: null, round: 2, slotInRound: 0 },
+        { ...baseMatch, slotInRound: 0 },
+        { ...baseMatch, slotInRound: 1, status: "vacant" },
+        // cat-b: same round/slot coordinates, but the feed is live (no hole).
+        {
+          ...baseMatch,
+          categoryId: "cat-b",
+          entryBId: null,
+          round: 2,
+          slotInRound: 0,
+        },
+        { ...baseMatch, categoryId: "cat-b", slotInRound: 0 },
+        { ...baseMatch, categoryId: "cat-b", slotInRound: 1 },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
+    ]);
+  });
+
+  test("plural holes", () => {
+    const warnings = buildStartWarnings({
+      entries: [],
+      matches: [
+        { ...baseMatch, entryAId: null, slotInRound: 0 },
+        { ...baseMatch, entryBId: null, slotInRound: 1 },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      "A chave tem 2 vagas em aberto (A definir) · o início só é liberado com a chave completa.",
+    ]);
   });
 });

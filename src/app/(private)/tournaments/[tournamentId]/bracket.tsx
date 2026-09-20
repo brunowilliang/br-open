@@ -2,18 +2,13 @@ import { MoreVerticalIcon, ShuffleIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import {
-  Button,
-  Description,
-  Dialog,
-  Menu,
-  Tabs,
-  useToast,
-} from "heroui-native";
+import { Button, Dialog, Menu, Tabs, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { BracketCanvas } from "@/components/pages/tournaments/bracket-canvas";
 import { BracketMatchCard } from "@/components/pages/tournaments/bracket-match-card";
@@ -486,15 +481,17 @@ export default function TournamentBracketRoute() {
       : null;
   const hasBracket = trees.length > 0 && activeTreeLayout !== null;
   const categories = tournament?.categories ?? [];
-  const canDrawBracket = isOrganizer && tournament?.status === "published";
+  // IBX-0067 (Etapa 3): o "Sortear chave" manual foi EXTINTO — o placement
+  // incremental nasce a chave sozinha com as duas primeiras inscrições
+  // confirmadas. `published` ficou sem ação no menu (o menu some); em
+  // `drawn` resta o Re-sortear (reset aleatório total).
+  const hasBracketMenu = isOrganizer && tournament?.status === "drawn";
   // The draw skips categories with fewer than 2 active entries, so a listed
   // category may have no bracket: only offer tabs that render a tree.
   const categoryTabs = categories.filter((category) =>
     trees.some((tree) => tree.id === category.id)
   );
   const hasMultipleCategories = categoryTabs.length > 1;
-  const canRedrawBracket = isOrganizer && tournament?.status === "drawn";
-  const hasBracketMenu = canDrawBracket || canRedrawBracket;
   return (
     <Page>
       <Page.Header>
@@ -515,26 +512,14 @@ export default function TournamentBracketRoute() {
                   <Menu.Portal>
                     <Menu.Overlay className="bg-backdrop" />
                     <Menu.Content presentation="popover" width={240}>
-                      {canDrawBracket ? (
-                        <Menu.Item
-                          onPress={() => {
-                            drawBracket.mutate({ tournamentId });
-                          }}
-                        >
-                          <Menu.ItemTitle>Sortear chave</Menu.ItemTitle>
-                          <HugeIcons icon={ShuffleIcon} />
-                        </Menu.Item>
-                      ) : null}
-                      {canRedrawBracket ? (
-                        <Menu.Item
-                          onPress={() => {
-                            handleRedrawPress();
-                          }}
-                        >
-                          <Menu.ItemTitle>Re-sortear</Menu.ItemTitle>
-                          <HugeIcons icon={ShuffleIcon} />
-                        </Menu.Item>
-                      ) : null}
+                      <Menu.Item
+                        onPress={() => {
+                          handleRedrawPress();
+                        }}
+                      >
+                        <Menu.ItemTitle>Re-sortear</Menu.ItemTitle>
+                        <HugeIcons icon={ShuffleIcon} />
+                      </Menu.Item>
                     </Menu.Content>
                   </Menu.Portal>
                 </Menu>
@@ -708,10 +693,10 @@ export default function TournamentBracketRoute() {
           <Dialog.Content className="gap-4 p-5">
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Re-sortear a chave</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               As posições serão sorteadas de novo. Os confrontos já agendados
               serão apagados, com data, horário e quadra.
-            </Description>
+            </Text>
             <View className="flex-row gap-2 self-end">
               <Button
                 onPress={() => {

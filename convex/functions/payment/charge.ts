@@ -5,6 +5,11 @@ import { z } from "zod";
 import { isLeaguePaid } from "../../domains/league/membership-rules";
 import type { MutationCtx, QueryCtx } from "../generated/server";
 import { tournamentEntry } from "../../domains/tournament/tables";
+import {
+  isRegistrationOpen,
+  registrationClosedMessage,
+  resolvePaidActivation,
+} from "../../domains/tournament/entry-rules";
 import { leagueMembership } from "../../domains/league/tables";
 import {
   SOURCE_TYPE_LEAGUE_MEMBERSHIP,
@@ -702,9 +707,11 @@ export const resolveSourceForCharge = privateMutation
   });
 
 /**
- * Tournament entry source resolution: entry must be awaiting payment and
- * belong to a published tournament with a priced category. The payer is the
- * entry creator (`playerAId`); the amount is the category's entry fee (one
+ * Tournament entry source resolution: entry must be awaiting payment,
+ * INSIDE the registration window (same single source as the entry
+ * mutations — IBX-0067 review MEDIUM-2: a closed tournament must not mint
+ * a PIX at all) and belong to a priced category. The payer is the entry
+ * creator (`playerAId`); the amount is the category's entry fee (one
  * charge per entry, not per player).
  *
  * Only the payer may be charged (BUG-0022): `callerProfileId` must be the
@@ -758,6 +765,18 @@ async function resolveTournamentEntrySource(
     throw new CRPCError({
       code: "NOT_FOUND",
       message: "Torneio não encontrado.",
+    });
+  }
+
+  const window = {
+    nowMs: Date.now(),
+    registrationDeadlineMs: tournamentRecord.registrationDeadlineAt.getTime(),
+    status: tournamentRecord.status,
+  };
+  if (!isRegistrationOpen(window)) {
+    throw new CRPCError({
+      code: "BAD_REQUEST",
+      message: registrationClosedMessage(window),
     });
   }
 
@@ -1183,11 +1202,18 @@ async function applyPaidTournamentEntryCharge(
     return { activated: false, membershipId: null };
   }
 
-  // M1: the charge only activates an entry while registrations are open.
-  // If the tournament moved past `published` between checkout and the
-  // webhook (race), the money must come back — mark refund-pending and
-  // hand off to the refund action; it never stays trapped in a dead entry.
-  if (tournamentRecord.status !== "published") {
+  // M1 (IBX-0067): the charge only activates an entry while REGISTRATIONS
+  // ARE OPEN — published or drawn, before the deadline. If the window
+  // closed between checkout and the webhook (race), the money must come
+  // back — mark refund-pending and hand off to the refund action; it never
+  // stays trapped in a dead entry.
+  if (
+    !isRegistrationOpen({
+      nowMs: Date.now(),
+      registrationDeadlineMs: tournamentRecord.registrationDeadlineAt.getTime(),
+      status: tournamentRecord.status,
+    })
+  ) {
     const refundAt = new Date();
     await ctx.orm
       .update(paymentCharge)
@@ -1202,10 +1228,65 @@ async function applyPaidTournamentEntryCharge(
   }
 
   const now = new Date();
+  // IBX-0067 review HIGH-1: the paid activation is the LAST capacity gate —
+  // counting ACTIVE entries only (awaiting_payment never reserves a slot).
+  // An overflowing payment follows the M1 pattern: entry cancelled, charge
+  // refund-pending, the proven refund pipeline, and a notice to the payer
+  // that the category filled up and the money is coming back.
+  const activeEntries = await ctx.orm.query.tournamentEntry.findMany({
+    limit: 300,
+    where: {
+      categoryId: entry.categoryId as Id<"tournamentCategory">,
+      status: "active",
+    },
+  });
+  if (
+    resolvePaidActivation({
+      activeCount: activeEntries.length,
+      maxEntries: category.maxEntries,
+    }) === "refund"
+  ) {
+    await ctx.orm
+      .update(tournamentEntry)
+      .set({ status: "cancelled", updatedAt: now })
+      .where(eq(tournamentEntry.id, entryId));
+    await ctx.orm
+      .update(paymentCharge)
+      .set({ refundStatus: "pending", updatedAt: now })
+      .where(eq(paymentCharge.id, charge.id as Id<"paymentCharge">));
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournament.lifecycle.processRefunds,
+      { tournamentId: tournamentRecord.id as string }
+    );
+    if (entry.createdByUserId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.notification.orchestrator.createForRecipients,
+        {
+          actorUserId: null,
+          eventType: "tournament.entry.refund_requested",
+          metadata: { reason: "category_full" },
+          recipientUserIds: [entry.createdByUserId as Id<"user">],
+          sourceEntityId: entryId,
+          sourceEntityType: "tournamentEntry",
+          tournamentId: tournamentRecord.id,
+        }
+      );
+    }
+    return { activated: false, membershipId: null };
+  }
   await ctx.orm
     .update(tournamentEntry)
     .set({ status: "active", updatedAt: now })
     .where(eq(tournamentEntry.id, entryId));
+
+  // IBX-0067: payment confirmation is one of the four ACTIVE transitions —
+  // the entry joins its category bracket at once (incremental placement).
+  await ctx.runMutation(internal.tournament.placement.placeActiveEntry, {
+    categoryId: entry.categoryId as string,
+    entryId: entryId as string,
+  });
 
   const recipients = [
     ...(entry.createdByUserId ? [entry.createdByUserId as Id<"user">] : []),

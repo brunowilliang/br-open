@@ -159,38 +159,67 @@
   **Iniciar
   torneio** em `drawn` com diálogo de confirmação "Iniciar torneio?", corpo
   "A chave será publicada e não poderá mais ser alterada. O torneio começa."
+  + **avisos quando existirem** (`buildStartWarnings`, Description
+  `text-warning`: "N convite(s) de dupla sem resposta · fica(rão) de fora
+  da chave" e "M vaga(s) em aberto (A definir) · o início só é liberado com
+  a chave completa", critério espelhado do `validateBracketStartable` com
+  board POR categoria) e **fecha sozinho no sucesso** (`setIsStartDialogOpen`
+  no onSuccess, padrão do Cancelar — IBX-0067 Etapa 3)
   (`bracket.start`, toasts + invalidate) — ação de CICLO, voltou pra home
-  no IBX-0068; **Sortear segue no menu ⋮ do chaveamento — IBX-0037**),
+  no IBX-0068),
   estados de loading/erro CENTRADOS (`cn grow + centered gap-4 px-4`),
   switch de papéis com componentes `OrganizerOverview`/`PlayerOverview`/
   `GuestOverview` em `components/pages/tournaments/` (molde das irmãs da
   liga; mutações ficam na tela, callbacks descem como props), chips de
   categoria com taxa + datas + contagem como bloco comum antes do switch;
-  `TournamentJoinFooter` para guest em `published`; "Suas inscrições" com
+  `TournamentJoinFooter` para **guest e player** em janela ABERTA
+  (`published`/`drawn` + prazo futuro, regra `isRegistrationOpen` espelhada
+  em `buildRegistrationWindowState`; IBX-0067/PLN-0001) — categorias em que
+  o viewer já tem inscrição viva saem do seletor
+  (`buildTournamentJoinOptions`, decisão 22/08 multi-categoria; cancelou,
+  volta) e cada opção mostra vagas `ativas/max` com cheia desabilitada como
+  "Lotada" (`buildTournamentCategoryVacancy`, semântica do servidor: conta
+  só `active`; molde da liga organizer-overview-derived); fora da janela o
+  rodapé SAI e a linha de datas vira ESTADO — "Inscrições abertas até
+  {dd/mm}" / "Inscrições encerradas · chave a partir de {dd/mm}" — para
+  todo papel, em todo status (a página nunca muda); "Suas inscrições" com
   chip via `getEntryStatusChip`, aceite/recusa de convite para o parceiro
-  (`respondPartnerInvite`) e botão "Pagar inscrição" para o criador em
+  (`respondPartnerInvite`), botão "Pagar inscrição" para o criador em
   `awaiting_payment` (`createCharge` → checkout — fecha o fluxo de duplas
-  pagas após o aceite).
-- **Tabs de navegação** (QA round 9; **Agenda virou TAB — IBX-0033 B**) —
-  `buildTournamentNavigationTabItems`: Overview (Home01Icon, rota `index`),
-  Chave (slot do Ranking), **Agenda (Calendar03Icon, rota `schedule`, gated
-  `canOpenSchedule`: organizador sempre; player/guest a partir de
-  `ongoing`)** e Inscrições (slot Desafios), gated por access; a entrada do
-  menu ⋮ da overview (organizador) CONTINUA e leva na mesma rota;
-  FloatingTabBar resolve index→overview e schedule→schedule; `schedule.tsx`
-  perdeu o BackButton (tela de tab, Left vazio como bracket/entries).
+  pagas após o aceite) e **"Cancelar inscrição"** (entry viva em
+  `published`/`drawn`, `canCancelTournamentEntry`; dialog de confirmação
+  molde do cancelar torneio avisando que em dupla a saída vale pros dois e
+  que entry paga recebe estorno integral; `entries.cancel` + invalidate);
+  copy do username do parceiro ("Seu parceiro precisa de conta no app com
+  username no perfil") nas linhas Description e FieldError, com o precheck
+  ao vivo mantido como dica (nunca gate); bugfix: erro do `entriesQuery`
+  no `_layout.tsx` agora marca `bootstrapStatus: "error"` (antes silenciava
+  e a tela ficava vazia sem estado).
+- **Tabs de navegação** (QA round 9; Agenda virou TAB — IBX-0033 B) —
+  **EXTINTA em 19/09 (IBX-0071/PLN-0007 FASE 2)**: a página do torneio virou
+  ÚNICA, sem Tabs/FloatingTabBar (`buildTournamentNavigationTabItems` e
+  `tabItems` apagados; ver seção FASE 2 no fim deste doc). As rotas
+  `bracket`/`entries`/`schedule`/`rules` continuam como telas empilhadas
+  (menu ⋮ e atalhos no corpo); `schedule.tsx` voltou a ter fluxo de stack.
 - **`bracket.tsx`** (Chaveamento — R10; canvas próprio `BracketCanvas`
   desde PLN-0002, antes componente **Flow**, IBX-0014) — título
   **Chaveamento**; **menu ⋮ de ações de chaveamento no header**
   (`Page.Header.Right`, IBX-0037; molde do kebab do card — `Menu.Trigger
   asChild` > `Button` icon-only terciário + `Menu.Portal` > overlay
   `bg-backdrop` + `Menu.Content popover width={240}`, precedente IBX-0020 do
-  overlay fora do transform): **Sortear chave** (`published`), **Re-sortear**
+  overlay fora do transform): **Sortear chave** (`published`) **EXTINTO em
+  19/09 (IBX-0067/PLN-0001)** — com o placement incremental a chave nasce
+  sozinha (2 confirmados por categoria crescem a árvore), não existe mais
+  sorteio manual em `published` e o menu INTEIRO some nesse status;
+  **Re-sortear**
   (`drawn`, IBX-0037/re-draw do backend; com
   confronto agendado abre **diálogo de confirmação** de destruição, molde do
-  cancelamento do torneio — apaga data, horário e quadra); mutação
-  `bracket.draw` com toasts e `invalidateTournamentContext`; menu some
-  quando não há ação aplicável; organizador-only (guest não vê nada
+  cancelamento do torneio — apaga data, horário e quadra; é o ÚNICO item do
+  menu agora, reset aleatório total); mutação
+  `bracket.draw` (reusada pelo re-sortear) com toasts e
+  `invalidateTournamentContext`; menu some
+  quando não há ação aplicável (hoje: fora de `drawn`); organizador-only
+  (guest não vê nada
   disso). **"Iniciar torneio" SAIU do menu em 19/09 (IBX-0068)**: iniciar é
   ação de CICLO do torneio e mora no menu ⋮ da HOME (organizador, `drawn`,
   mesmo diálogo de confirmação e mesma `bracket.start`); o chaveamento
@@ -1321,6 +1350,126 @@ Deploy DEV via codegen; **PROD pendente de autorização** (RUL-0011).
 Frontend (UI de seeds/fase + vacant + fluxo de resultado com TB) despachado
 ao Maestro para Tribuna/Radar.
 
+## Chaveamento incremental + ciclo de inscrições (IBX-0067 / PLN-0001 — 19-09, Etapa 1 do plano v3)
+
+O organizador NÃO precisa mais sortear para a chave existir: enquanto o
+torneio não começou (`published`/`drawn`), a chave é o ESPELHO VIVO das
+inscrições da categoria. "Sortear" manual extinto na UI (Etapa 3);
+**re-sortear** segue como reset aleatório total (`draw` aceita `drawn`).
+
+### Janela de inscrição
+
+- Regra pura única `isRegistrationOpen` (`convex/domains/tournament/entry-rules.ts`):
+  aberta = status `published` OU `drawn` + prazo futuro. O sorteio não fecha
+  mais; `ongoing`/anteriores recusam igual.
+- Consumidores: `assertRegistrationOpen` (`entries.ts`, usado no `create` e
+  no aceite do convite), o guard M1 do checkout
+  (`applyPaidTournamentEntryCharge`, `payment/charge.ts`) — pagamento que
+  confirma fora da janela (corrida com o início) estorna em vez de ativar —
+  e o PRÓPRIO CHECKOUT (review MEDIUM-2): `resolveTournamentEntrySource`
+  recusa com `BAD_REQUEST` (mesma fonte, mensagem única
+  `registrationClosedMessage`) — fora da janela não se gera PIX que só
+  voltaria pelo estorno.
+
+### Placement incremental (`convex/domains/tournament/placement-rules.ts` + `convex/functions/tournament/placement.ts`)
+
+Regra pura (molde bracket-rules, testes em `tests/placement-rules.test.ts`)
++ `placeActiveEntry`/`removeCancelledEntry` (privateMutation). TODA transição
+para `active` dispara o placement na mesma transação:
+
+1. `create` (categoria grátis + aprovação auto);
+2. `approve` (categoria grátis + aprovação manual);
+3. `respondPartnerInvite` (aceite do convite, grátis + auto);
+4. `applyPaidTournamentEntryCharge` (confirmação do pagamento).
+
+Regras do encaixe (na ordem):
+
+- **(a)** menos de 2 inscrições `active` na categoria: sem chave ainda;
+- **(b)** 2+ `active` e sem chave: a chave NASCE com o mesmo core do sorteio
+  (`buildBracket` sobre entries embaralhadas — byes pro cabeça de chave,
+  ímpar resolvido em walkover na hora);
+- **(c)** chave existente com vaga aberta: encaixe em vaga SORTEADA entre as
+  abertas (decisão 7) — o lado vazio de um bye vira confronto real na hora
+  (o win propagado do bye é retirado da rodada de cima) e uma entrada
+  sozinha num slot vazio nasce como bye resolvido (semântica do sorteio);
+  slot sob placement manual alheio é filtrado do sorteio;
+- **(d)** chave cheia: cresce UMA potência de 2 inserindo rodada nova POR
+  BAIXO — toda row sobe 1 rodada com o par intacto (confrontos e agendas
+  preservados) e cada entrante desce pra uma row nova da 1ª rodada como bye
+  resolvido (walkover), então a chave crescida continua iniciável;
+- **(e)** placement só antes de iniciar (`canPlaceEntries`: `published`/
+  `drawn`; `ongoing` recusa);
+- **(f)** idempotente: entry já na chave é no-op (e a mutation só roda na
+  transição para `active`).
+
+### Cancelamento pré-início
+
+- Guard do `cancel` (`entries.ts`) passa de `published`-only para
+  `published|drawn` ("antes do início do torneio"); `ongoing` recusa igual.
+- A entry cancelada SAI da chave: lados em confrontos reais viram
+  "A definir", byes/wins propagados do cancelado morrem e a vaga fica
+  VAZIA — **sem re-derivação de bye pro sobrevivente (decisão 8)**.
+  `validateBracketStartable` continua recusando iniciar com buraco ("A
+  chave tem uma vaga em aberto"): o organizador resolve movendo ou
+  re-sorteando; o diálogo de Iniciar avisa as vagas vazias (UI, Etapa 3).
+
+### Estorno individual (decisão 1)
+
+- Cancel de entry com charge `PAID` (sourceType `tournament_entry`) marca
+  `refundStatus: "pending"` e dispara `processRefunds`
+  (`tournament/lifecycle.ts`) — mesmo pipeline do cancel do TORNEIO, com o
+  cron `sweep-pending-tournament-refunds` (15 min) de retentativa.
+- Notificação nova ao criador (quem pagou): `tournament.entry.refund_requested`
+  ("A inscrição em {torneio} foi cancelada e o estorno do pagamento foi
+  iniciado."). Catálogo `protocol.ts` + template `definitions.ts`.
+
+### Vagas na aprovação (decisão 3)
+
+- `approve` (`entries.ts`) passa a respeitar `maxEntries` quando a aprovação
+  vira a entry `active` (categoria grátis): `CONFLICT "Essa categoria está
+  lotada."` contando só `active`. Pendências não reservam vaga.
+- **A porta FINAL é a ativação paga (review HIGH-1)**: `applyPaidTournamentEntryCharge`
+  conta as `active` da categoria antes de ativar (`resolvePaidActivation`,
+  regra pura). Transbordou (ex.: cap 8 paga, 9º PIX confirmado; ou
+  approve+pagamento estourando), segue o padrão M1: entry `cancelled`,
+  charge `refundStatus: "pending"`, `processRefunds` + sweep de 15 min, e
+  notificação ao pagador com o motivo "categoria lotou"
+  (`tournament.entry.refund_requested` + `metadata.reason: "category_full"`).
+  `create`/aceite de convite já guardavam na entrada.
+
+### Encaixe impedido por ajustes manuais (review MEDIUM-1)
+
+- Se a chave tem ajustes manuais que bloqueiam TODA vaga aberta, o encaixe
+  automático recusa e a entry `active` fica fora da chave — os
+  organizadores são avisados NA HORA (`tournament.bracket.placement_failed`
+  aos managers da organização, com o nome do jogador; copy orienta "Sorteie
+  a chave novamente"). O aviso dispara uma vez por transição para `active`.
+
+### Corrida de nascimento (nota transiente, review LOW-1)
+
+- A detecção de "chave nasce" é por leitura (board vazio + 2+ `active`).
+  Duas confirmações quase simultâneas são SERIALIZADAS pelo OCC do Convex:
+  a que perder a corrida re-roda e enxerga a chave recém-nascida (fit), não
+  havendo sorteio duplo.
+
+### Aviso de convite sem resposta
+
+- No `performStart` (core compartilhado do início MANUAL e do CRON do
+  auto-start, IBX-0069): toda entry `pending_partner` notifica o criador com
+  `tournament.partner.awaiting_reply` ("Sua dupla em {torneio} segue sem
+  resposta do convite e o torneio está começando.").
+
+### Comportamentos documentados (sem mudança)
+
+- Recusa de convite funciona fora da janela (entry morre no início de
+  qualquer forma); unicidade de inscrição é POR CATEGORIA (jogador pode ter
+  entry ativa em 2 categorias; 1 entry ativa por categoria por jogador).
+- Seeds/fase de entrada marcados no organizador valem no (re-)sorteio; o
+  encaixe incremental é aleatório e não consulta seed.
+
+**Pendente desta entrega:** Etapas 2 e 3 do plano (UI do jogador e do
+organizador) + review do Code Reviewer; PROD só após review e ok do usuário.
+
 ## Visão geral
 
 Torneios de tênis/beach tênis organizados pela organização (independente de
@@ -1382,20 +1531,23 @@ Vocabulário de produto: **torneio** (nunca "evento").
 ### Lifecycle
 
 ```
-draft ──publicar──► published ──fechar inscrições + sortear──► drawn ──iniciar──► ongoing ──finais com vencedor──► finished
+draft ──publicar──► published ──sortear──► drawn ──iniciar──► ongoing ──finais com vencedor──► finished
 ```
 
 - `published`: entra na descoberta (busca, padrão `listAvailable` da liga);
-  inscrições abertas até `registrationDeadlineAt` (ou fechamento antecipado
-  pelo organizador).
-  Sortear move o torneio para `drawn` e encerra as inscrições.
+  inscrições abertas até `registrationDeadlineAt`. **Desde o IBX-0067
+  (19-09) o SORTEIO NÃO fecha inscrições — o prazo é o único fechamento;
+  em `drawn` elas seguem abertas e cada confirmação entra na chave na hora
+  (ver Chaveamento incremental).**
 - Sorteio (por categoria): chave do tamanho da próxima potência de 2;
   **byes priorizados para os cabeças de chave**; seeds espalhados nas
   extremidades da chave (padrão de torneio), demais posições aleatórias.
   Sorteio é aleatório por padrão. Desde o cutover do IBX-0053 (16/09) a UI
   não edita seed nem fase de entrada (`seedRank`/`entryRound` seguem no
   contrato e valem no sorteio, sem tela — ver Inscrições).
-- `drawn` (preparação): chave sorteada, inscritos fechados. A chave é
+- `drawn` (preparação): chave viva — **inscrições seguem abertas até o
+  prazo (IBX-0067); confirmou, entrou** (placement incremental, abaixo).
+  A chave é
   PRIVADA do organizador — ele ajusta (troca de slots, ver abaixo) **ou
   re-sortea** (`draw` aceita `drawn` desde o IBX-0037, após ajustar as
   posições no canvas) na
@@ -1633,3 +1785,28 @@ segue por e-mail).
 2. ~~**Contrato backend**~~ — ✔ entregue 22-08 (ver "Backend implementado").
 3. ~~**Frontend**~~ — ✔ entregue 22-08 (ver "Frontend implementado").
 4. Code review → QA do usuário (RUL-0002) → specs consolidadas.
+
+## IBX-0071 / PLN-0007 · FASE 2 — página única + BottomSheet + charts (19/09, sem commit)
+
+A página do torneio deixa de ter tabs (decisão do usuário no PLN-0007): **página única** por papel, inscrição vira bloco no corpo com **BottomSheet** (decisão 6), pendências ficam só no organizador (decisão 1).
+
+- **Layout (`tournaments/[tournamentId]/_layout.tsx`):** `Tabs`+`FloatingTabBar` → `Stack` (bootstrap do bucket preservado; BUG-0033 intacto). `tabItems`/`buildTournamentNavigationTabItems`/`canOpenEntries` EXTINTOS (cutover); rotas `bracket`/`entries`/`schedule`/`rules` continuam existindo como telas empilhadas.
+- **Acesso novo:** organizador ganha menu ⋮ "Chave" (`canOpenBracket`) e ⋮ "Inscrições" (rota `entries`, `initialTab="pending"`); jogador/guest chegam à chave quando pública.
+- **Overview (`index.tsx`):** chips de categorias do topo e contagem global na meta line SAEM; meta line = `Início <data> · <estado da janela>` sempre com label (`buildRegistrationWindowState`); organizador ganha chip de ciclo (`getTournamentCycleChip`: draft/published/drawn/ongoing/finished/cancelled → cor semântica).
+- **Bloco de inscrição (`tournament-join-sheet.tsx`, substitui o extinto `tournament-join-footer.tsx`):** card terciário "a partir de R$X" + CTA no CORPO (some o overlay `Page.Footer` com form, defeitos 4.1/4.5); CTA abre **BottomSheet** heroui-native (`isOpen` controlado; linhas de categoria no molde `SelectOptionItem` com taxa+`vacancyLabel`+"Lotada" desabilitada; campo de parceiro com checagem ao vivo `searchByUsername` + `useBottomSheetAwareHandlers`/`keyboardBehavior="extend"`; confirmar = MESMAS mutations `entries.create` → `charge.createCharge` → checkout). Jogador já inscrito: CTA "Inscrever-se em outra categoria".
+- **Inscritos confirmados:** jogador vê TODOS os confirmados na página (decisão 1), linhas planas `bg-surface-secondary` (nomes via `formatEntrySideLabel` + categoria); pendências NUNCA pro jogador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`).
+- **Concorrência (decisão 7):** `TournamentEntriesByCategoryChart` (BarChart heroui-native-pro sobre `buildTournamentEntriesByCategorySeries`, entries `active` por categoria, vazias com zero) na página de jogador/guest E no painel do organizador.
+- **Organizador:** KPIs "Pendências" e "Categorias" saíram (duplicação; alertas já contam as pendências e ganharam ação "Ver" → `entries?initialTab=pending`); gráficos novos: bar por categoria + **AreaChart "Evolução das inscrições"** (`buildTournamentEntriesEvolutionSeries`, acumulado por dia de `entry.createdAt`, desde a primeira até hoje, Brasil); alerta de janela fechada mantido.
+- **Guest:** EmptyState aponta para o bloco de inscrição (não mais "no rodapé").
+
+## IBX-0071 / PLN-0007 · PLANO DE CONTEÚDO FECHADO — texto simples + tabs/rodapé de volta (19/09, sem commit)
+
+O usuário marcou a lista de dashboards item a item e fechou o conteúdo das telas: TODOS os componentes de dashboard (KPI, chart, TrendChip, card de stat) saem da casa do torneio e cada item vira LINHA DE TEXTO SIMPLES (rótulo + valor, classes tipográficas já usadas no app, valor sem dado = 0). SUPERSEDE os pontos da seção FASE 2 acima conflitantes (página única, chip de ciclo, meta line, charts). Nenhum componente ou estilo novo; nenhuma query nova.
+
+- **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
+- **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (molde `league-join-footer`: card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
+- **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
+- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações (mantido) e "Próximo jogo" (primeiro match `scheduled` com data/hora envolvendo entry do viewer; adversário via `formatEntrySideLabel`).
+- **Casa guest:** só a descrição.
+- **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
+- **Invariável:** pendências NUNCA pro jogador (aba Inscrições sem segmento Pendências para não-organizador — mantido); privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.

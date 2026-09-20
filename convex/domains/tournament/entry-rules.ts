@@ -102,6 +102,59 @@ export function normalizeUsernameLookup(value: string) {
   return value.trim().toLowerCase();
 }
 
+/**
+ * Registration window (IBX-0067 / PLN-0001): open while the tournament is
+ * `published` OR `drawn` — drawing no longer closes entries (the deadline
+ * is the only closer) — and the deadline has not passed. `ongoing` and the
+ * earlier/terminal states are closed. Single source shared by the entry
+ * mutations (entries.ts) and the paid-charge activator (charge.ts M1).
+ */
+export function isRegistrationOpen(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  status: string;
+}) {
+  if (input.status !== "published" && input.status !== "drawn") {
+    return false;
+  }
+  return input.registrationDeadlineMs > input.nowMs;
+}
+
+/**
+ * User-facing reason the window is closed: the deadline passed while the
+ * state would still allow entries (published/drawn), or the state itself
+ * forbids them. Single source shared by entries.ts and the checkout
+ * resolver (charge.ts).
+ */
+export function registrationClosedMessage(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  status: string;
+}) {
+  if (input.status === "published" || input.status === "drawn") {
+    return "O prazo de inscrições já encerrou.";
+  }
+  return "As inscrições deste torneio estão fechadas.";
+}
+
+/**
+ * The LAST gate for reaching ACTIVE (IBX-0067 review HIGH-1): every path
+ * that activates an entry counts ACTIVE entries only, and a PAID
+ * activation that would overflow maxEntries follows the refund pattern
+ * (entry cancelled, charge refund-pending) instead of squeezing in.
+ */
+export function resolvePaidActivation(input: {
+  activeCount: number;
+  maxEntries: number | null;
+}) {
+  if (input.maxEntries === null) {
+    return "activate" as const;
+  }
+  return input.activeCount < input.maxEntries
+    ? ("activate" as const)
+    : ("refund" as const);
+}
+
 /** Entries that take part in the draw (spec: draw uses active entries). */
 export function isEntryDrawable(status: string) {
   return status === "active";
