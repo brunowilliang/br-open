@@ -2,13 +2,15 @@ import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
 import { filterLeaguesBySearchQuery } from "@convex/domains/league/discovery-list";
 import { filterTournamentsBySearchQuery } from "@convex/domains/tournament/discovery-list";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import { Description, SearchField } from "heroui-native";
+import { SearchField } from "heroui-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { TextInput } from "react-native";
 
@@ -122,9 +124,9 @@ export default function Search() {
             />
             <SearchField.ClearButton />
           </SearchField.Group>
-          <Description>
+          <Text color="muted" variant="description">
             Encontre competições por nome, cidade, estado ou categoria.
-          </Description>
+          </Text>
         </SearchField>
       </Page.Header>
       <ScrollShadow color="background" size={200} visibility="bottom">

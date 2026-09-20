@@ -391,13 +391,15 @@ export default function LeagueSettingsRoute() {
               step={5}
               value={(monthlyPriceCents ?? 0) / 100}
             >
-              <Label>Valor</Label>
+              <Text weight="medium">Valor</Text>
               <NumberField.Group>
                 <NumberField.DecrementButton />
                 <NumberField.Input keyboardType="decimal-pad" />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <Description>Valor cobrado no período escolhido.</Description>
+              <Text color="muted" variant="description">
+                Valor cobrado no período escolhido.
+              </Text>
               <FieldError>{monthlyPriceCentsError ?? ""}</FieldError>
             </NumberField>
 
@@ -517,12 +519,12 @@ export default function LeagueSettingsRoute() {
             <RuleCard className="gap-3 border border-danger-soft bg-danger-soft">
               <View className="flex-row items-center gap-2">
                 <HugeIcons className="text-danger" icon={Alert02Icon} />
-                <Text className="text-danger">Deletar liga</Text>
+                <Text color="danger">Deletar liga</Text>
               </View>
-              <Description className="text-danger">
+              <Text color="danger" variant="description">
                 Remove permanentemente a liga e todas as configurações
                 vinculadas.
-              </Description>
+              </Text>
               <Button
                 className="self-start"
                 isDisabled={isDisabled || !onDelete}
@@ -553,9 +555,9 @@ export default function LeagueSettingsRoute() {
                 <DialogCloseButton className="absolute top-4 right-4 z-100" />
               )}
               <Dialog.Title>Deletar liga</Dialog.Title>
-              <Description>
+              <Text color="muted" variant="description">
                 Essa ação remove permanentemente a liga e não pode ser desfeita.
-              </Description>
+              </Text>
 
               <View className="flex-row gap-2 self-end">
                 <Button
@@ -599,10 +601,10 @@ export default function LeagueSettingsRoute() {
                 <DialogCloseButton className="absolute top-4 right-4 z-100" />
               )}
               <Dialog.Title>Configure sua conta de pagamento</Dialog.Title>
-              <Description>
+              <Text color="muted" variant="description">
                 Para ativar a cobrança na liga, conecte sua conta de pagamento
                 para receber os pagamentos via PIX.
-              </Description>
+              </Text>
 
               <View className="flex-row gap-2 self-end">
                 <Button

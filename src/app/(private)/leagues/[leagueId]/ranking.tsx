@@ -6,7 +6,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
   Card,
-  Description,
   Dialog,
   PressableFeedback,
   useToast,
@@ -540,7 +539,11 @@ export default function LeagueRankingRoute() {
                         source={selectedItem.avatarUrl ?? undefined}
                       />
                       <View className="centered absolute -top-1 -left-1 size-5.5 rounded-full border border-separator bg-surface-tertiary">
-                        <Text className="font-bold text-surface-tertiary-foreground text-xs">
+                        <Text
+                          className="text-surface-tertiary-foreground"
+                          size="xs"
+                          weight="bold"
+                        >
                           {selectedItem.position}
                         </Text>
                       </View>
@@ -596,13 +599,13 @@ export default function LeagueRankingRoute() {
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Remover jogador</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               Tem certeza que deseja remover{" "}
               <Text weight="semibold">
                 {selectedItem?.name ?? "este jogador"}
               </Text>{" "}
               da liga?
-            </Description>
+            </Text>
 
             <View className="flex-row gap-2 self-end">
               <Button

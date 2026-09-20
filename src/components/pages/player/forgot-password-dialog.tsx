@@ -17,7 +17,6 @@ import { formatSecondsAsMMSS } from "@/lib/format/time";
 import { useOtpCooldown } from "@/lib/hooks/use-otp-cooldown";
 import {
   Button,
-  Description,
   Dialog,
   FieldError,
   InputOTP,
@@ -299,10 +298,10 @@ export function ForgotPasswordDialog(props: ForgotPasswordDialogProps) {
               <Dialog.Title>Redefinir senha</Dialog.Title>
               {step === "code" ? (
                 <>
-                  <Description>
+                  <Text color="muted" variant="description">
                     Enviamos um código para {maskEmail(props.currentEmail)}.
                     Digite para confirmar que é você.
-                  </Description>
+                  </Text>
                   <InputOTP
                     className="self-center"
                     isDisabled={isPending}
@@ -332,7 +331,9 @@ export function ForgotPasswordDialog(props: ForgotPasswordDialogProps) {
                   </InputOTP>
 
                   <View className="flex-row flex-wrap items-center gap-1 self-center">
-                    <Description>Não recebeu o código?</Description>
+                    <Text color="muted" variant="description">
+                      Não recebeu o código?
+                    </Text>
                     <LinkButton
                       isDisabled={cooldown.cooldown > 0 || isPending}
                       onPress={() => {
@@ -353,7 +354,7 @@ export function ForgotPasswordDialog(props: ForgotPasswordDialogProps) {
                       Reenviar código
                     </LinkButton>
                     {cooldown.cooldown > 0 ? (
-                      <Text className="text-warning" variant="description">
+                      <Text color="warning" variant="description">
                         {formatSecondsAsMMSS(cooldown.cooldown)}
                       </Text>
                     ) : null}
@@ -375,10 +376,10 @@ export function ForgotPasswordDialog(props: ForgotPasswordDialogProps) {
 
               {step === "new-password" ? (
                 <>
-                  <Description>
+                  <Text color="muted" variant="description">
                     Escolha a nova senha da sua conta. Você continua logado
                     neste dispositivo; outros dispositivos serão desconectados.
-                  </Description>
+                  </Text>
                   <Controller
                     control={passwordForm.control}
                     name="newPassword"

@@ -221,7 +221,9 @@ export default function SignUp() {
 
         <View className="mx-10 flex-row items-center gap-3">
           <Separator className="flex-1" />
-          <Text className="text-muted text-sm">ou</Text>
+          <Text color="muted" size="sm">
+            ou
+          </Text>
           <Separator className="flex-1" />
         </View>
 

@@ -1,4 +1,6 @@
 import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+
 import { ChangePasswordDialog } from "@/components/pages/player/change-password-dialog";
 import { LinkedAccountsSection } from "@/components/pages/player/linked-accounts-section";
 import { ProfileSecuritySection } from "@/components/pages/player/profile-security-section";
@@ -10,7 +12,7 @@ import {
 } from "@/lib/account/linked-accounts";
 import { authClient } from "@/lib/convex/auth-client";
 import { useQuery } from "@tanstack/react-query";
-import { Description } from "heroui-native";
+
 import { useState } from "react";
 
 /**
@@ -62,7 +64,9 @@ export default function SettingsSecurityRoute() {
           </Page.ScrollView>
         ) : (
           <Page.ScrollView contentContainerClassName="gap-2 px-4 pb-safe-offset-4">
-            <Description>Segurança</Description>
+            <Text color="muted" variant="description">
+              Segurança
+            </Text>
             <ProfileSecuritySection
               accounts={accountRows}
               currentEmail={currentEmail}
@@ -70,7 +74,9 @@ export default function SettingsSecurityRoute() {
                 setIsPasswordDialogOpen(true);
               }}
             />
-            <Description>Contas vinculadas</Description>
+            <Text color="muted" variant="description">
+              Contas vinculadas
+            </Text>
             <LinkedAccountsSection accounts={accountRows} />
           </Page.ScrollView>
         )}

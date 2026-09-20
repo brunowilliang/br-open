@@ -1,7 +1,8 @@
-import { Button, Description, Dialog } from "heroui-native";
+import { Button, Dialog } from "heroui-native";
 import { View } from "react-native";
 
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+import { Text } from "@/components/core/text";
 
 type MediaConfirmDialogProps = {
   /** Ação principal; default "Alterar" (org passa "Adicionar" sem logo). */
@@ -53,7 +54,9 @@ export function MediaConfirmDialog(props: MediaConfirmDialogProps) {
         <Dialog.Content className="gap-4 p-5">
           <DialogCloseButton className="absolute top-4 right-4 z-100" />
           <Dialog.Title>{props.title ?? copy.title}</Dialog.Title>
-          <Description>{props.description ?? copy.description}</Description>
+          <Text color="muted" variant="description">
+            {props.description ?? copy.description}
+          </Text>
 
           <View className="flex-row gap-2 self-end">
             <Button

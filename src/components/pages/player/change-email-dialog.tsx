@@ -15,7 +15,6 @@ import { formatSecondsAsMMSS } from "@/lib/format/time";
 import { useOtpCooldown } from "@/lib/hooks/use-otp-cooldown";
 import {
   Button,
-  Description,
   Dialog,
   FieldError,
   Input,
@@ -231,10 +230,10 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
 
               {step === "new-email" ? (
                 <>
-                  <Description>
+                  <Text color="muted" variant="description">
                     Qual é o novo e-mail? Vamos enviar um código para ele antes
                     de concluir a troca.
-                  </Description>
+                  </Text>
                   <Controller
                     control={newEmailForm.control}
                     name="newEmail"
@@ -285,7 +284,8 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                   </Button>
                   {newEmailCooldown.cooldown > 0 ? (
                     <Text
-                      className="self-center text-warning"
+                      className="self-center"
+                      color="warning"
                       variant="description"
                     >
                       {formatSecondsAsMMSS(newEmailCooldown.cooldown)}
@@ -296,10 +296,10 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
 
               {step === "new-code" ? (
                 <>
-                  <Description>
+                  <Text color="muted" variant="description">
                     Digite o código que enviamos para {maskEmail(newEmail)} para
                     concluir a troca.
-                  </Description>
+                  </Text>
                   <InputOTP
                     className="self-center"
                     isDisabled={isPending}
@@ -329,7 +329,9 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                   </InputOTP>
 
                   <View className="flex-row flex-wrap items-center gap-1 self-center">
-                    <Description>Não recebeu o código?</Description>
+                    <Text color="muted" variant="description">
+                      Não recebeu o código?
+                    </Text>
                     <LinkButton
                       isDisabled={newEmailCooldown.cooldown > 0 || isPending}
                       onPress={() => {
@@ -355,7 +357,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                       Reenviar código
                     </LinkButton>
                     {newEmailCooldown.cooldown > 0 ? (
-                      <Text className="text-warning" variant="description">
+                      <Text color="warning" variant="description">
                         {formatSecondsAsMMSS(newEmailCooldown.cooldown)}
                       </Text>
                     ) : null}

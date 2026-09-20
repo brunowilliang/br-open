@@ -21,7 +21,7 @@ export function ExpandableSection(props: ExpandableSectionProps) {
       <Accordion.Item value={props.sectionKey}>
         <Accordion.Trigger>
           <View className="flex-1">
-            <Text className="font-medium text-base">{props.title}</Text>
+            <Text weight="medium">{props.title}</Text>
             {props.description ? (
               <Text color="muted" variant="description">
                 {props.description}

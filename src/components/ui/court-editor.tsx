@@ -42,6 +42,7 @@ import { useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { KeyboardAvoidingView, ScrollView, View } from "react-native";
 import Animated from "react-native-reanimated";
+import { Text } from "@/components/core/text";
 
 const DAY_LABELS: Record<LeagueCourtDay, string> = {
   fri: "Sex",
@@ -436,10 +437,12 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                 <Accordion.Trigger className="px-3 py-3">
                   <View className="flex-1 flex-row items-center gap-3">
                     <View className="flex-1">
-                      <Label pointerEvents="none">{court.name}</Label>
-                      <Description>
+                      <Text pointerEvents="none" weight="medium">
+                        {court.name}
+                      </Text>
+                      <Text color="muted" variant="description">
                         {getCourtAvailabilityDescription(court)}
-                      </Description>
+                      </Text>
                     </View>
                     <Button
                       isDisabled={isDisabled}
@@ -704,14 +707,14 @@ export function CourtEditor(props: { isDisabled: boolean }) {
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
               <Dialog.Title>{rangeDialogTitle}</Dialog.Title>
 
-              <Description>
+              <Text color="muted" variant="description">
                 {rangeDialogCourt
                   ? `Adicione um horário disponível para ${rangeDialogCourt.name}.`
                   : "Selecione o horário disponível."}
-              </Description>
+              </Text>
               {isEditingRange ? null : (
                 <View className="gap-2">
-                  <Label>Dias</Label>
+                  <Text weight="medium">Dias</Text>
                   <ScrollShadow color="surface">
                     <ScrollView
                       horizontal

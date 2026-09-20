@@ -15,10 +15,10 @@ import {
 export const Page1 = () => (
   <View className="centered size-full overflow-hidden rounded-[50px] bg-surface p-0">
     <View className="centered w-full flex-1 gap-2">
-      <Text className="px-4 text-center" color="accent" variant="heading">
+      <Text align="center" className="px-4" color="accent" variant="heading">
         Você joga pra ganhar.
       </Text>
-      <Text className="px-4 text-center text-muted/70">
+      <Text align="center" className="px-4 opacity-70" color="muted">
         O BR Open é pra quem leva o jogo a sério. Torneios, copas e ligas num só
         lugar.
       </Text>
@@ -29,10 +29,10 @@ export const Page1 = () => (
 export const Page2 = () => (
   <View className="centered size-full overflow-hidden rounded-[50px] bg-surface p-0">
     <View className="centered w-full flex-1 gap-2">
-      <Text className="px-4 text-center" color="accent" variant="heading">
+      <Text align="center" className="px-4" color="accent" variant="heading">
         Da inscrição ao pódio.
       </Text>
-      <Text className="px-4 text-center text-muted/70">
+      <Text align="center" className="px-4 opacity-70" color="muted">
         Achou o torneio, jogou, subiu no ranking. Chaves e horários sem rodeio.
       </Text>
     </View>
@@ -42,10 +42,10 @@ export const Page2 = () => (
 export const Page3 = () => (
   <View className="centered size-full gap-5 rounded-[50px] bg-surface px-4">
     <View className="gap-2">
-      <Text className="text-center" color="accent" variant="heading">
+      <Text align="center" color="accent" variant="heading">
         {"Sua próxima vitória\ncomeça aqui"}
       </Text>
-      <Text className="text-center text-muted/70">
+      <Text align="center" className="opacity-70" color="muted">
         {"Crie sua conta e entre na próxima\ncompetição da sua cidade."}
       </Text>
     </View>

@@ -1,9 +1,10 @@
 import { InformationCircleIcon } from "@hugeicons/core-free-icons";
-import { Description, Dialog, PressableFeedback } from "heroui-native";
+import { Dialog, PressableFeedback } from "heroui-native";
 import { View } from "react-native";
 
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { Text } from "@/components/core/text";
 
 /**
  * Conteúdo de um dialog de explicação (título + descrição). Usado pelos cards
@@ -61,7 +62,9 @@ export function InfoDialog(props: InfoDialogProps) {
           <Dialog.Content className="gap-4 p-5">
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>{props.content.title}</Dialog.Title>
-            <Description>{props.content.description}</Description>
+            <Text color="muted" variant="description">
+              {props.content.description}
+            </Text>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog>

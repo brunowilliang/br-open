@@ -796,11 +796,11 @@ function OnboardingPaymentSection(props: {
       sectionKey="pagamentos"
       title="Pagamentos"
     >
-      <Description>
+      <Text color="muted" variant="description">
         Quando um jogador paga por uma liga, o valor é dividido e você recebe
         sua parte automaticamente via PIX. Cadastre sua chave agora para
         concluir o cadastro.
-      </Description>
+      </Text>
 
       <Controller
         control={props.form.control}
@@ -1034,7 +1034,9 @@ function PaymentSection() {
       {statusQuery.isPending ? (
         <View className="flex-row items-center gap-2 py-2">
           <Spinner size="sm" />
-          <Description>Carregando dados da conta...</Description>
+          <Text color="muted" variant="description">
+            Carregando dados da conta...
+          </Text>
         </View>
       ) : isConnected && !isEditing ? (
         <>
@@ -1050,10 +1052,10 @@ function PaymentSection() {
               <Label>{account.pixKey}</Label>
             </TextField>
           ) : null}
-          <Description>
+          <Text color="muted" variant="description">
             Os pagamentos das suas ligas são recebidos automaticamente nesta
             conta via PIX.
-          </Description>
+          </Text>
           <Button onPress={handleEditPixKey} variant="secondary">
             <Button.Label>Editar chave PIX</Button.Label>
           </Button>
@@ -1076,9 +1078,9 @@ function PaymentSection() {
         </>
       ) : account?.status === "rejected" ? (
         <>
-          <Description className="text-danger">
+          <Text color="danger" variant="description">
             Conta rejeitada. Tente conectar novamente.
-          </Description>
+          </Text>
           <PixKeyFields
             form={pixForm}
             isPending={startOnboarding.isPending}
@@ -1088,10 +1090,10 @@ function PaymentSection() {
         </>
       ) : (
         <>
-          <Description>
+          <Text color="muted" variant="description">
             Quando um jogador paga por uma liga, o valor é dividido e você
             recebe sua parte automaticamente via PIX.
-          </Description>
+          </Text>
           <PixKeyFields
             form={pixForm}
             isPending={startOnboarding.isPending}

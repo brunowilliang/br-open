@@ -186,11 +186,7 @@ export default function LeagueRequestsRoute() {
                     }
                   />
                   <View className="min-w-0 flex-1 gap-0.5">
-                    <Text
-                      className="text-base"
-                      numberOfLines={1}
-                      weight="semibold"
-                    >
+                    <Text numberOfLines={1} weight="semibold">
                       {item.name}
                     </Text>
                     <Text color="muted" numberOfLines={1} variant="description">

@@ -19,6 +19,8 @@ import { View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+
 import {
   RuleCard,
   RuleExpandableContent,
@@ -163,10 +165,10 @@ export default function TournamentCategoriesRoute() {
       </Page.Header>
 
       <Page.ScrollView contentContainerClassName="gap-3 px-4 pb-floating-tab-bar-offset-4">
-        <Description>
+        <Text color="muted" variant="description">
           Cada categoria tem chave e inscrições próprias. A taxa e o limite de
           vagas são opcionais.
-        </Description>
+        </Text>
 
         {TOURNAMENT_CATEGORY_PRESETS.map((preset) => {
           const category = findCategory(categories, preset.value);
@@ -188,12 +190,12 @@ export default function TournamentCategoriesRoute() {
                 }}
               >
                 <View className="min-w-0 flex-1" pointerEvents="none">
-                  <Label>{preset.label}</Label>
-                  <Description>
+                  <Text weight="medium">{preset.label}</Text>
+                  <Text color="muted" variant="description">
                     {preset.modality === "doubles"
                       ? "Dupla fixa (convite por username)."
                       : "Jogador contra jogador."}
-                  </Description>
+                  </Text>
                 </View>
                 <Switch
                   isDisabled={isDisabled}
@@ -220,7 +222,7 @@ export default function TournamentCategoriesRoute() {
                     step={5}
                     value={category.entryFeeCents / 100}
                   >
-                    <Label>Taxa de inscrição</Label>
+                    <Text weight="medium">Taxa de inscrição</Text>
                     <NumberField.Group>
                       <NumberField.DecrementButton />
                       <NumberField.Input
@@ -229,19 +231,19 @@ export default function TournamentCategoriesRoute() {
                       />
                       <NumberField.IncrementButton />
                     </NumberField.Group>
-                    <Description>
+                    <Text color="muted" variant="description">
                       Deixe em R$ 0,00 para inscrição gratuita.
-                    </Description>
+                    </Text>
                   </NumberField>
 
                   <View className="flex-row items-center gap-3">
                     <View className="min-w-0 flex-1">
-                      <Label>Limitar vagas</Label>
-                      <Description>
+                      <Text weight="medium">Limitar vagas</Text>
+                      <Text color="muted" variant="description">
                         {category.maxEntries === null
                           ? "Inscrições sem limite de vagas."
                           : `Até ${category.maxEntries} inscrições nesta categoria.`}
-                      </Description>
+                      </Text>
                     </View>
                     <Switch
                       isDisabled={isDisabled}

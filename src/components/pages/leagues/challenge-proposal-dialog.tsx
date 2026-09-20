@@ -1,6 +1,5 @@
 import {
   Button,
-  Description,
   Dialog,
   FieldError,
   Label,
@@ -285,7 +284,7 @@ export const ChallengeProposalDialog = (
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
-          <Description>
+          <Text color="muted" variant="description">
             {description ?? (
               <>
                 Preencha{" "}
@@ -323,7 +322,7 @@ export const ChallengeProposalDialog = (
                 .
               </>
             )}
-          </Description>
+          </Text>
 
           <DatePicker
             formatDate={formatMatchDate}
@@ -342,7 +341,7 @@ export const ChallengeProposalDialog = (
             }}
             value={matchDate}
           >
-            <Label>Data</Label>
+            <Text weight="medium">Data</Text>
             <DatePicker.Select isDisabled={isPending} presentation="popover">
               <DatePicker.Trigger className="bg-surface-secondary">
                 <DatePicker.Value

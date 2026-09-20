@@ -34,7 +34,7 @@ function ScheduleCardImpl(props: ScheduleCardProps) {
           <Text className="max-w-[40%]" numberOfLines={1} variant="description">
             {props.challengerFullName}
           </Text>
-          <Text className="text-muted" variant="description">
+          <Text color="muted" variant="description">
             x
           </Text>
           <Text className="max-w-[40%]" numberOfLines={1} variant="description">

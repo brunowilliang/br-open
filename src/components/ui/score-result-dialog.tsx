@@ -3,13 +3,7 @@ import {
   Cancel01Icon,
   WalkingIcon,
 } from "@hugeicons/core-free-icons";
-import {
-  AccordionLayoutTransition,
-  Button,
-  Description,
-  Dialog,
-  Menu,
-} from "heroui-native";
+import { AccordionLayoutTransition, Button, Dialog, Menu } from "heroui-native";
 import { NumberStepper } from "heroui-native-pro";
 import { useEffect, useState } from "react";
 import { ScrollView, useWindowDimensions, View } from "react-native";
@@ -84,12 +78,7 @@ function SideStepperRow(props: SideStepperRowProps) {
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="flex-1 items-center gap-2">
-        <Text
-          className="text-center"
-          numberOfLines={1}
-          size="xs"
-          weight="semibold"
-        >
+        <Text align="center" numberOfLines={1} size="xs" weight="semibold">
           {props.sideALabel}
         </Text>
         <NumberStepper
@@ -110,17 +99,12 @@ function SideStepperRow(props: SideStepperRowProps) {
         </NumberStepper>
       </View>
 
-      <Text className="text-muted" weight="bold">
+      <Text color="muted" weight="bold">
         x
       </Text>
 
       <View className="flex-1 items-center gap-2">
-        <Text
-          className="text-center"
-          numberOfLines={1}
-          size="xs"
-          weight="semibold"
-        >
+        <Text align="center" numberOfLines={1} size="xs" weight="semibold">
           {props.sideBLabel}
         </Text>
         <NumberStepper
@@ -483,7 +467,9 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
 
           {isWalkoverMode ? (
             <View className="gap-3">
-              <Description>Escolha quem vence por W.O.</Description>
+              <Text color="muted" variant="description">
+                Escolha quem vence por W.O.
+              </Text>
               <View className="flex-row gap-2">
                 <Button
                   className="flex-1"
@@ -565,7 +551,7 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
 
                   {winnerPickVisible ? (
                     <View className="gap-2">
-                      <Text className="text-muted" variant="description">
+                      <Text color="muted" variant="description">
                         Quem venceu?
                       </Text>
                       <View className="flex-row gap-2">
@@ -606,7 +592,7 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
           )}
 
           {errorMessage ? (
-            <Text className="text-danger" size="xs">
+            <Text color="danger" size="xs">
               {errorMessage}
             </Text>
           ) : null}

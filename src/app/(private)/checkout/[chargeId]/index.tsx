@@ -18,7 +18,7 @@ import {
   resolveCheckoutDisplay,
   resolveCountdownRevalidation,
 } from "@/lib/payments/checkout-view";
-import { Button, Card, Label, Skeleton, useToast } from "heroui-native";
+import { Button, Card, Skeleton, useToast } from "heroui-native";
 
 const DANGER_THRESHOLD_MS = 300_000;
 
@@ -247,14 +247,14 @@ export default function CheckoutScreen() {
               }`}
             >
               <Text
-                className="text-center"
+                align="center"
                 color={card.severity}
                 size="lg"
                 weight="semibold"
               >
                 {card.title}
               </Text>
-              <Text className="text-center" color="muted">
+              <Text align="center" color="muted">
                 {card.description}
               </Text>
             </View>
@@ -339,7 +339,9 @@ export default function CheckoutScreen() {
 
             {/* Copia e cola */}
             <View className="w-full gap-3">
-              <Label className="-mb-2 pl-2">Copia e cola</Label>
+              <Text className="-mb-2 pl-2" weight="medium">
+                Copia e cola
+              </Text>
               <Skeleton
                 className="h-18 w-full rounded-3xl"
                 isLoading={isLoading}
@@ -390,7 +392,7 @@ export default function CheckoutScreen() {
 
             {/* Help text */}
             <Skeleton className="mx-6 h-10 rounded-md" isLoading={isLoading}>
-              <Text className="px-2 text-center" color="muted" size="sm">
+              <Text align="center" className="px-2" color="muted" size="sm">
                 Abra o app do seu banco e escaneie o QR code ou cole o código
                 acima para pagar.
               </Text>

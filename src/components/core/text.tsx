@@ -16,6 +16,11 @@ export const Text = styled(RNText, {
     variant: "body",
   },
   variants: {
+    align: {
+      center: { className: "text-center" },
+      left: { className: "text-left" },
+      right: { className: "text-right" },
+    },
     color: {
       accent: { className: "text-accent" },
       danger: { className: "text-danger" },

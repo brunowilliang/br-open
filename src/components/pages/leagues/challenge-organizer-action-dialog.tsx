@@ -1,7 +1,8 @@
-import { Button, Description, Dialog } from "heroui-native";
+import { Button, Dialog } from "heroui-native";
 import { View } from "react-native";
 
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+import { Text } from "@/components/core/text";
 
 type ChallengeOrganizerActionDialogProps = {
   description: string;
@@ -50,7 +51,9 @@ export const ChallengeOrganizerActionDialog = (
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
           )}
           <Dialog.Title>{title}</Dialog.Title>
-          <Description>{description}</Description>
+          <Text color="muted" variant="description">
+            {description}
+          </Text>
 
           <View className="flex-row justify-end gap-2">
             <Button

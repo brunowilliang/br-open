@@ -133,7 +133,7 @@ function ChallengeCardImpl(props: ChallengeCardProps) {
               >
                 {props.scoreSummary?.challengerScore ?? "-"}
               </Text>
-              <Text className="text-muted" variant="description">
+              <Text color="muted" variant="description">
                 x
               </Text>
               <Text
@@ -154,7 +154,7 @@ function ChallengeCardImpl(props: ChallengeCardProps) {
               </Text>
             </View>
             {props.scoreSummary?.setsSummary ? (
-              <Text className="text-muted" variant="description">
+              <Text color="muted" variant="description">
                 {props.scoreSummary.setsSummary}
               </Text>
             ) : null}

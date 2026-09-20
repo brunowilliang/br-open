@@ -1,7 +1,7 @@
 import { InformationCircleIcon, Key01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button, Description, Dialog, useToast } from "heroui-native";
+import { Button, Dialog, useToast } from "heroui-native";
 import { useState } from "react";
 import { View } from "react-native";
 
@@ -191,13 +191,17 @@ export default function WithdrawScreen() {
               {hasValue && balance !== undefined ? (
                 <View className="gap-0.5 pt-2">
                   <View className="flex-row items-center gap-2">
-                    <Description>Taxa de saque</Description>
+                    <Text color="muted" variant="description">
+                      Taxa de saque
+                    </Text>
                     <Text size="sm" weight="medium">
                       {isFree ? "Grátis" : formatCurrencyCents(feeCents)}
                     </Text>
                   </View>
                   <View className="flex-row items-center gap-2">
-                    <Description>Você recebe</Description>
+                    <Text color="muted" variant="description">
+                      Você recebe
+                    </Text>
                     <Text
                       color={liquidCents > 0 ? undefined : "danger"}
                       size="sm"
@@ -247,7 +251,9 @@ export default function WithdrawScreen() {
 
             {pixKey ? (
               <View className="gap-0.5">
-                <Description>Destino</Description>
+                <Text color="muted" variant="description">
+                  Destino
+                </Text>
                 <Text weight="semibold">{accountName ?? "Chave PIX"}</Text>
                 <Text color="muted" size="sm">
                   {pixKey}
@@ -256,7 +262,9 @@ export default function WithdrawScreen() {
             ) : (
               <View className="gap-1">
                 <Text weight="semibold">Nenhuma chave PIX cadastrada</Text>
-                <Description>Cadastre a chave PIX antes de sacar.</Description>
+                <Text color="muted" variant="description">
+                  Cadastre a chave PIX antes de sacar.
+                </Text>
                 <Button
                   onPress={() => {
                     setIsInfoOpen(false);
@@ -273,7 +281,9 @@ export default function WithdrawScreen() {
             {balance === undefined ? null : (
               <View className="gap-1">
                 <View className="flex-row items-center justify-between">
-                  <Description>Mínimo de saque</Description>
+                  <Text color="muted" variant="description">
+                    Mínimo de saque
+                  </Text>
                   <Text size="sm" weight="medium">
                     {formatCurrencyCents(balance.minWithdrawCents)}
                   </Text>
@@ -283,7 +293,9 @@ export default function WithdrawScreen() {
                     className="flex-row items-center justify-between"
                     key={line.label}
                   >
-                    <Description>{line.label}</Description>
+                    <Text color="muted" variant="description">
+                      {line.label}
+                    </Text>
                     <Text size="sm" weight="medium">
                       {line.value}
                     </Text>

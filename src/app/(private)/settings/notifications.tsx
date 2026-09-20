@@ -14,7 +14,6 @@ import {
   Button,
   Card,
   Chip,
-  Description,
   Dialog,
   ListGroup,
   Menu,
@@ -528,7 +527,9 @@ export default function SettingsNotificationsRoute() {
           {hasNotifications ? (
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
-                <Description>Central</Description>
+                <Text color="muted" variant="description">
+                  Central
+                </Text>
                 {statusQuery.data?.unreadCount ? (
                   <Chip color="accent" size="sm" variant="soft">
                     <Chip.Label>
@@ -654,10 +655,10 @@ export default function SettingsNotificationsRoute() {
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Apagar notificações</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               Essa ação remove todas as notificações da central e não pode ser
               desfeita.
-            </Description>
+            </Text>
 
             <View className="flex-row gap-2 self-end">
               <Button

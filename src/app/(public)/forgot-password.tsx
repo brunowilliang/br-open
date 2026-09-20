@@ -3,7 +3,6 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
   Button,
-  Description,
   FieldError,
   Input,
   InputOTP,
@@ -219,11 +218,11 @@ export default function ForgotPassword() {
         {step === "email" && (
           <View className="w-full gap-3">
             <View className="mb-3 px-1">
-              <Label>Esqueceu sua senha?</Label>
-              <Description>
+              <Text weight="medium">Esqueceu sua senha?</Text>
+              <Text color="muted" variant="description">
                 Digite o endereço de e-mail associado à sua conta e enviaremos
                 um código para você redefinir sua senha.
-              </Description>
+              </Text>
             </View>
 
             <Controller
@@ -274,8 +273,11 @@ export default function ForgotPassword() {
         {step === "code" && (
           <View>
             <View className="mb-3 px-1">
-              <Label>Verifique seu e-mail</Label>
-              <Description>{`Enviamos um código para ${maskEmail(emailValue)}`}</Description>
+              <Text weight="medium">Verifique seu e-mail</Text>
+              <Text
+                color="muted"
+                variant="description"
+              >{`Enviamos um código para ${maskEmail(emailValue)}`}</Text>
             </View>
             <InputOTP
               isDisabled={isPending}
@@ -298,7 +300,9 @@ export default function ForgotPassword() {
               </InputOTP.Group>
             </InputOTP>
             <View className="mt-2 flex-row flex-wrap items-center gap-1 px-1">
-              <Description>Não recebeu o código?</Description>
+              <Text color="muted" variant="description">
+                Não recebeu o código?
+              </Text>
               <LinkButton
                 isDisabled={cooldown > 0 || resendOtp.isPending}
                 onPress={() => resendOtp.mutate()}
@@ -307,7 +311,7 @@ export default function ForgotPassword() {
                 Reenviar código
               </LinkButton>
               {cooldown > 0 ? (
-                <Text className="ml-2 text-warning" variant="description">
+                <Text className="ml-2" color="warning" variant="description">
                   {formatSecondsAsMMSS(cooldown)}
                 </Text>
               ) : null}

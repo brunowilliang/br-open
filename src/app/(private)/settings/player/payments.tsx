@@ -1,4 +1,6 @@
 import { Page } from "@/components/core/NewPage";
+import { Text } from "@/components/core/text";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -18,8 +20,6 @@ import {
   Button,
   Card,
   Chip,
-  Description,
-  Label,
   Menu,
   PressableFeedback,
   useToast,
@@ -93,9 +93,11 @@ function PaymentCard(props: {
         ) : null}
         <View className="flex-row items-end justify-between gap-3">
           <View className="flex-1 gap-1.5">
-            <Label>{item.sourceLabel ?? "Pagamento"}</Label>
+            <Text weight="medium">{item.sourceLabel ?? "Pagamento"}</Text>
             <View className="flex-row items-center gap-1">
-              <Description>{formatCurrencyCents(item.amountCents)}</Description>
+              <Text color="muted" variant="description">
+                {formatCurrencyCents(item.amountCents)}
+              </Text>
               <Chip
                 color={getPaymentStatusColor(item.status)}
                 size="sm"
@@ -105,7 +107,11 @@ function PaymentCard(props: {
               </Chip>
             </View>
           </View>
-          {dateLabel ? <Description>{dateLabel}</Description> : null}
+          {dateLabel ? (
+            <Text color="muted" variant="description">
+              {dateLabel}
+            </Text>
+          ) : null}
         </View>
         {props.onPress ? <PressableFeedback.Highlight /> : null}
       </Card>
@@ -206,7 +212,9 @@ export default function PlayerPaymentsSettings() {
           {hasItems && pending.length > 0 ? (
             <View className="gap-2">
               <View className="flex-row items-center gap-2">
-                <Description>Pendentes</Description>
+                <Text color="muted" variant="description">
+                  Pendentes
+                </Text>
                 <Chip color="warning" size="sm" variant="soft">
                   <Chip.Label>{pending.length}</Chip.Label>
                 </Chip>
@@ -223,7 +231,9 @@ export default function PlayerPaymentsSettings() {
 
           {hasItems && history.length > 0 ? (
             <View className="gap-2">
-              <Description>Histórico</Description>
+              <Text color="muted" variant="description">
+                Histórico
+              </Text>
               {history.map((item) => (
                 <PaymentCard
                   isGenerating={

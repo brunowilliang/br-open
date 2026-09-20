@@ -221,12 +221,12 @@ export default function TournamentSettingsRoute() {
             <RuleCard className="gap-3 border border-danger-soft bg-danger-soft">
               <View className="flex-row items-center gap-2">
                 <HugeIcons className="text-danger" icon={Alert02Icon} />
-                <Text className="text-danger">Deletar torneio</Text>
+                <Text color="danger">Deletar torneio</Text>
               </View>
-              <Description className="text-danger">
+              <Text color="danger" variant="description">
                 Remove permanentemente o torneio e todas as configurações
                 vinculadas.
-              </Description>
+              </Text>
               <Button
                 className="self-start"
                 isDisabled={isDisabled || !onDelete}
@@ -258,10 +258,10 @@ export default function TournamentSettingsRoute() {
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Deletar torneio</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               Essa ação remove permanentemente o torneio e não pode ser
               desfeita. Só rascunhos sem inscrições podem ser deletados.
-            </Description>
+            </Text>
 
             <View className="flex-row gap-2 self-end">
               <Button

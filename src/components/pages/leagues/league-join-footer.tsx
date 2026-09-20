@@ -3,14 +3,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import {
-  Button,
-  Card,
-  Chip,
-  Description,
-  Dialog,
-  useToast,
-} from "heroui-native";
+import { Button, Card, Chip, Dialog, useToast } from "heroui-native";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -395,9 +388,9 @@ export function LeagueJoinFooter(props: { leagueId: string }) {
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
             )}
             <Dialog.Title>Cancelar solicitação</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               Você poderá solicitar entrada nessa liga novamente depois.
-            </Description>
+            </Text>
 
             <View className="flex-row gap-2 self-end">
               <Button

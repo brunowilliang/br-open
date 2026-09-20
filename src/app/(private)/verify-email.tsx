@@ -1,9 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  Description,
   InputOTP,
-  Label,
   LinkButton,
   REGEXP_ONLY_DIGITS,
   useToast,
@@ -104,10 +102,10 @@ export default function VerifyEmail() {
       <Page.ScrollView contentContainerClassName="centered">
         <View>
           <View className="mb-3 px-1">
-            <Label>Verifique sua conta</Label>
-            <Description>
+            <Text weight="medium">Verifique sua conta</Text>
+            <Text color="muted" variant="description">
               {`Enviamos um código para ${maskEmail(email ?? "")}`}
-            </Description>
+            </Text>
           </View>
           <InputOTP
             isDisabled={isPending}
@@ -130,7 +128,9 @@ export default function VerifyEmail() {
             </InputOTP.Group>
           </InputOTP>
           <View className="mt-2 flex-row flex-wrap items-center gap-1 px-1">
-            <Description>Não recebeu o código?</Description>
+            <Text color="muted" variant="description">
+              Não recebeu o código?
+            </Text>
             <LinkButton
               isDisabled={cooldown > 0 || sendOtp.isPending}
               onPress={() => sendOtp.mutate()}
@@ -139,7 +139,7 @@ export default function VerifyEmail() {
               Reenviar código
             </LinkButton>
             {cooldown > 0 ? (
-              <Text className="ml-2 text-warning" variant="description">
+              <Text className="ml-2" color="warning" variant="description">
                 {formatSecondsAsMMSS(cooldown)}
               </Text>
             ) : null}

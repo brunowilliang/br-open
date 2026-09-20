@@ -6,14 +6,13 @@ import {
 import {
   AccordionLayoutTransition,
   Checkbox,
-  Description,
-  Label,
   PressableFeedback,
   Surface,
 } from "heroui-native";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import { View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { Text } from "@/components/core/text";
 
 /**
  * Shared form update options used by every league form field. Keeping a single
@@ -172,8 +171,10 @@ export function RuleToggleRow(props: RuleToggleRowProps) {
         pointerEvents="none"
       />
       <View className="flex-1" pointerEvents="none">
-        <Label>{props.label}</Label>
-        <Description>{props.description}</Description>
+        <Text weight="medium">{props.label}</Text>
+        <Text color="muted" variant="description">
+          {props.description}
+        </Text>
       </View>
     </PressableFeedback>
   );

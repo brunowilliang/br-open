@@ -36,7 +36,7 @@ export const ErrorState = (props: ErrorStateProps) => {
           Encontramos um problema ao processar sua ação:
         </EmptyState.Description>
         <Surface className="bg-danger-soft px-4 py-2">
-          <Text className="text-danger" variant="description">
+          <Text color="danger" variant="description">
             {message || "Erro Desconhecido"}
           </Text>
         </Surface>
@@ -56,7 +56,7 @@ export const ErrorMessage = (props: ErrorMessageProps) => {
 
   return (
     <View className="centered">
-      <Text className="text-center" color="danger" variant="description">
+      <Text align="center" color="danger" variant="description">
         {fallbackMessage}
       </Text>
     </View>

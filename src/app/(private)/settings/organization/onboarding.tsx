@@ -351,7 +351,7 @@ export default function OrganizationOnboarding() {
                       <Checkbox className="mt-0.5" />
                     </ControlField.Indicator>
                     <View className="flex-1 flex-row flex-wrap">
-                      <Text className="text-muted text-sm">
+                      <Text color="muted" size="sm">
                         Li e aceito os{" "}
                       </Text>
                       <LinkButton
@@ -362,7 +362,9 @@ export default function OrganizationOnboarding() {
                           termos e condições
                         </LinkButton.Label>
                       </LinkButton>
-                      <Text className="text-muted text-sm">.</Text>
+                      <Text color="muted" size="sm">
+                        .
+                      </Text>
                     </View>
                   </ControlField>
                   {fieldState.error ? (

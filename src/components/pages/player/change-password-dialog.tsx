@@ -5,7 +5,6 @@ import { useChangePassword } from "@/lib/convex/auth-client";
 import { getSecurityErrorMessage } from "@/lib/account/security-errors";
 import {
   Button,
-  Description,
   Dialog,
   FieldError,
   Label,
@@ -17,6 +16,7 @@ import { Controller, useForm } from "react-hook-form";
 import { Keyboard, Pressable } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { z } from "zod";
+import { Text } from "@/components/core/text";
 
 const ChangePasswordSchema = z
   .object({
@@ -128,10 +128,10 @@ export function ChangePasswordDialog(props: ChangePasswordDialogProps) {
                 em inputs/botões filhos vencem o responder. */}
             <Pressable className="gap-4" onPress={Keyboard.dismiss}>
               <Dialog.Title>Alterar senha</Dialog.Title>
-              <Description>
+              <Text color="muted" variant="description">
                 Você continua logado neste dispositivo; outros dispositivos
                 serão desconectados.
-              </Description>
+              </Text>
 
               <Controller
                 control={form.control}

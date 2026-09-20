@@ -12,6 +12,7 @@ import {
   LockKeyIcon,
   Logout03Icon,
   TennisRacketIcon,
+  ViewIcon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +21,6 @@ import {
   Button,
   Card,
   Chip,
-  Description,
   Dialog,
   ListGroup,
   PressableFeedback,
@@ -35,6 +35,7 @@ import { View } from "react-native";
 type SettingsItem = {
   badge?: number;
   description: string;
+  devOnly?: boolean;
   href?: Href;
   icon: ComponentProps<typeof HugeIcons>["icon"];
   id: string;
@@ -183,6 +184,14 @@ export default function Settings() {
       title: "Login e segurança",
     },
     {
+      description: "Galeria dev para aprovação de componentes",
+      devOnly: true,
+      href: "/settings/components",
+      icon: ViewIcon,
+      id: "components",
+      title: "Componentes",
+    },
+    {
       description: "Encerrar sessão neste dispositivo",
       icon: Logout03Icon,
       id: "sign-out",
@@ -205,7 +214,9 @@ export default function Settings() {
         <Page.Header.Right />
       </Page.Header>
       <Page.ScrollView contentContainerClassName="gap-2 px-4 pb-safe-offset-4">
-        <Description>Modo de uso</Description>
+        <Text color="muted" variant="description">
+          Modo de uso
+        </Text>
         {organizationActor ? (
           <ListGroup>
             <PressableFeedback
@@ -255,14 +266,17 @@ export default function Settings() {
             </Card>
           </PressableFeedback>
         )}
-        <Description>Menus</Description>
+        <Text color="muted" variant="description">
+          Menus
+        </Text>
         <ListGroup>
           {menusItems
             .filter(
               (item) =>
                 !(
                   (item.requiresOrganizer && !canShowOrganizerResources) ||
-                  (item.playerOnly && isOrganizationActor)
+                  (item.playerOnly && isOrganizationActor) ||
+                  (item.devOnly && process.env.EXPO_PUBLIC_IS_DEV !== "true")
                 )
             )
             .map((item, index) => (
@@ -320,7 +334,9 @@ export default function Settings() {
             <Dialog.Content className="gap-4 p-5">
               <DialogCloseButton className="absolute top-4 right-4 z-100" />
               <Dialog.Title>Sair</Dialog.Title>
-              <Description>Tem certeza que deseja sair?</Description>
+              <Text color="muted" variant="description">
+                Tem certeza que deseja sair?
+              </Text>
 
               <View className="flex-row gap-2 self-end">
                 <Button
