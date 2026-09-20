@@ -14,7 +14,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";

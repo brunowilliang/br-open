@@ -24,7 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";

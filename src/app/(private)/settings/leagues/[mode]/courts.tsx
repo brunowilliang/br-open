@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { CourtEditor } from "@/components/ui/court-editor";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";

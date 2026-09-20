@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";

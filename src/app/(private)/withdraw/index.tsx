@@ -5,7 +5,7 @@ import { Button, Dialog, useToast } from "heroui-native";
 import { useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { Amount } from "@/components/pages/withdraw/keyboard/amount";
 import { Keyboard } from "@/components/pages/withdraw/keyboard/keyboard";

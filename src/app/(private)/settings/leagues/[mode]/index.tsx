@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useController, useFormContext } from "react-hook-form";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";

@@ -1,7 +1,7 @@
 import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import { ScrollShadow } from "@/components/ui/scroll-shadow";

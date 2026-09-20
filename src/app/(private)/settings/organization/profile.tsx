@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import Animated from "react-native-reanimated";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   OrganizationFormFields,

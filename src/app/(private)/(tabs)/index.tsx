@@ -1,5 +1,5 @@
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { OrganizerDashboard } from "@/components/pages/home/organizer-dashboard";
 import { PlayerDashboard } from "@/components/pages/home/player-dashboard";

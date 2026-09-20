@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import { ChangePasswordDialog } from "@/components/pages/player/change-password-dialog";

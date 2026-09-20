@@ -1,4 +1,4 @@
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import {
   CompetitionCard,
   CreateCompetitionCard,

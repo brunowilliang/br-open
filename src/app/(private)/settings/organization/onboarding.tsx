@@ -15,7 +15,7 @@ import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import {
   OrganizationFormFields,

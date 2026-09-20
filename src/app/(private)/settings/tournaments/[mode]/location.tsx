@@ -14,7 +14,7 @@ import {
 } from "heroui-native";
 import { useController, useFormContext } from "react-hook-form";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";

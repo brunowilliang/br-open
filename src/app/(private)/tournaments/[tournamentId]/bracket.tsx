@@ -6,7 +6,7 @@ import { Button, Dialog, Menu, Tabs, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";

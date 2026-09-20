@@ -19,7 +19,7 @@ import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { RuleCard } from "@/components/pages/leagues/rule-card";
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";

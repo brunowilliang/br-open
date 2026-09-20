@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { ListGroup, Separator } from "heroui-native";
 import { Fragment } from "react";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import { HugeIcons } from "@/components/ui/huge-icons";

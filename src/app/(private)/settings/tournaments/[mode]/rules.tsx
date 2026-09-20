@@ -4,7 +4,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button, Menu } from "heroui-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { MatchRulesSection } from "@/components/match-rules/match-rules-section";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";

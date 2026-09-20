@@ -6,7 +6,7 @@ import { Button, Menu, Tabs } from "heroui-native";
 import { useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useLeagueFormRoute } from "@/lib/leagues/league-form-store";
 

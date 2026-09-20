@@ -17,7 +17,7 @@ import { View } from "react-native";
 import { z } from "zod";
 
 import { Image, LogoImage } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { PasswordInput } from "@/components/ui/password-input";
 import {

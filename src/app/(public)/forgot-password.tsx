@@ -17,7 +17,7 @@ import { Controller, useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { PasswordInput } from "@/components/ui/password-input";
 import { authClient } from "@/lib/convex/auth-client";

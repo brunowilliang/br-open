@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   ProfileDetailsSection,

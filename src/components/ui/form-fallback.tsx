@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 
 type FormFallbackProps = {
   children: ReactNode;

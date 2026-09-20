@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { useOtpCooldown } from "@/lib/hooks/use-otp-cooldown";
 import { maskEmail } from "@/lib/format/email";

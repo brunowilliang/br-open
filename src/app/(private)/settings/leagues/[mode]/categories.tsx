@@ -1,4 +1,4 @@
-import { BackButton, Page } from "@/components/core/NewPage";
+import { BackButton, Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import type { LeagueScreenValues } from "@/components/pages/leagues/form-schema";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
