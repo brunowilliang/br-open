@@ -42,3 +42,4 @@ de CLI, de máquina e de agente.
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |
 | [payments.md](payments.md) | Payments: mensalidade de liga via PIX com split Woovi, checkout, webhook, renovação com carência, dashboard do organizador, hub do jogador, saque (withdraw) |
 | [dashboard.md](dashboard.md) | Dashboards por persona: dash pessoal do jogador (próximos jogos, V/D, posição por liga, categorias, parceiro) e séries de receita da organização — contratos de leitura do IBX-0071 |
+| [pendings.md](pendings.md) | Pendências/alertas centralizados (`pendings.list`): shape do item, kinds por escopo, ordem, caps e autorização por ator — contrato de leitura do IBX-0076 |

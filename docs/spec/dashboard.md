@@ -33,10 +33,10 @@ Os dashboards por persona consomem duas queries novas de LEITURA, sem tabela nov
 
 O usuário marcou a lista de dashboards item por item (RUL-0033) e fechou o conteúdo de 9 superfícies: TODOS os componentes de dashboard (KPI, chart, TrendChip, card de stat, feed de resumo) saem das telas e cada item vira LINHA DE TEXTO SIMPLES (rótulo + valor, classes tipográficas já usadas no app, valor sem dado = 0, separador "·"). WidgetAlert, listas de próximos jogos, floating tabs, rodapés fixos, blocos de AÇÃO ("Suas inscrições" com ações; Saldo + Realizar Saque) e o BottomSheet de categoria CONTINUAM. **Processo:** componente de KPI e de gráfico serão definidos e aprovados UM A UM com o usuário antes de qualquer re-introdução. **(SUPERSEDE 20-09, IBX-0075 r2: o usuário ditou a composição final das 9 telas/modos e depois CORRIGIU o escopo no app — TODO bloco de número da lista dele é o `KpiCard` da galeria (a marcação `(KPI)` era exemplo do tipo, não a lista dos que viram card); o que não é número segue no componente reutilizado (`WidgetAlert`, `ScheduleCard`, `JoinFooter`) ou em texto (descrições). A composição final por tela/modo, com file:line, está na seção IBX-0075 no fim desta spec.)**
 
-- **Home jogador:** "Partidas por mês" (série mensal), "Desempenho" (`XV · YD`) e "Suas inscrições" (contagem) em `KpiCard` (IBX-0075 r2); "Próximos jogos" (lista). Pendências/alertas NÃO renderizam (nota A: as queries da home não carregam agregado cross-competição; único candidato seria `overdueCount`, que é financeiro e específico da home org). REMOVIDOS: RadialChart, BarChart V/D, TrendChip, LineChart de posição, PieChart, parceiro de dupla, trilha "Suas competições", vitrine "Inscrições abertas" (+ queries `listParticipating`/`listAvailable` sem consumidor na home).
-- **Home organizador:** Saldo + "Realizar Saque" (ação no `KpiCard`), "Recebido este mês", "Previsto/mês" e "Em atraso" em `KpiCard` (IBX-0075 r2); "Receita por mês" em TEXTO (série mensal + "Total da janela"). Pendências/alertas não renderizam (mesma nota A). REMOVIDOS: TrendChip, "Atividade recente", "Minhas competições" (decisão anterior) e, no AJUSTE FINAL do usuário, o próprio chart de receita (widget extinto; app com ZERO charts até aprovação do componente de gráfico).
-- **Torneio (casa):** organizador = alertas (`WidgetAlert`) + **"Receita do torneio", "Inscrições" e "Partidas" em `KpiCard` (IBX-0075 r2)** (`bySource` × entryIds no cliente, janela 12 meses); jogador = alertas das próprias entries (`WidgetAlert`) + "Suas inscrições" + **"Próximo jogo" no `ScheduleCard` (IBX-0075)**; guest = descrição. Tabs flutuantes e rodapé fixo de inscrição (CTA → BottomSheet) restaurados. REMOVIDOS: charts de categoria/evolução, chip de ciclo, meta line, alerta de janela, bloco no corpo, EmptyState guest, "Inscritos confirmados" na casa.
-- **Liga (casa):** jogador = 3 alertas (`WidgetAlert`) + **"Posição", "Partidas no mês" e "Desempenho" em `KpiCard` (IBX-0075 r2)**; organizador = **"Receita da liga", "Inscritos" (`N/limite`) e "Partidas no mês" em `KpiCard` (IBX-0075 r2)** (`bySource` × membershipIds no cliente, janela 12 meses); guest = descrição (rodapé de entrada intacto). REMOVIDOS: RadialChart/BarChart/feed/CTAs do jogador; alertas, TrendChip, KPI Ocupação e AreaChart do organizador; features card e alerta de pagamento do guest.
+- **Home jogador:** "Partidas por mês" (série mensal), "Desempenho" (`XV · YD`) e "Suas inscrições" (contagem) em `KpiCard` (IBX-0075 r2); "Próximos jogos" (lista). **Pendências/Alertas = bloco do SERVIDOR** (Etapa 2 do PLN-0008 — `pendings.list` escopo player no 1º bloco; a "nota A" desta spec está RESOLVIDA, ver a seção da Etapa 2). REMOVIDOS: RadialChart, BarChart V/D, TrendChip, LineChart de posição, PieChart, parceiro de dupla, trilha "Suas competições", vitrine "Inscrições abertas" (+ queries `listParticipating`/`listAvailable` sem consumidor na home).
+- **Home organizador:** Saldo + "Realizar Saque" (ação no `KpiCard`), "Recebido este mês", "Previsto/mês" e "Em atraso" em `KpiCard` (IBX-0075 r2); "Receita por mês" em TEXTO (série mensal + "Total da janela"). **Pendências/Alertas = bloco do SERVIDOR** (Etapa 2 do PLN-0008 — `pendings.list` escopo organization no 1º bloco; mesma nota A resolvida). REMOVIDOS: TrendChip, "Atividade recente", "Minhas competições" (decisão anterior) e, no AJUSTE FINAL do usuário, o próprio chart de receita (widget extinto; app com ZERO charts até aprovação do componente de gráfico).
+- **Torneio (casa):** organizador = **pendências do SERVIDOR** (`PendingsAlerts`, kinds 11/12 recortados pelo `tournamentId`; Etapa 2 do PLN-0008) + **"Receita do torneio", "Inscrições" e "Partidas" em `KpiCard` (IBX-0075 r2)** (`bySource` × entryIds no cliente, janela 12 meses); jogador = **pendências do SERVIDOR** das próprias entries (kinds 4 a 7, os todos na casa: 5/6/7 pelo `params.tournamentId` e o 4 com UMA inscrição pelo `source` de torneio) + "Suas inscrições" + **"Próximo jogo" no `ScheduleCard` (IBX-0075)**; guest = descrição. Tabs flutuantes e rodapé fixo de inscrição (CTA → BottomSheet) restaurados. REMOVIDOS: charts de categoria/evolução, chip de ciclo, meta line, alerta de janela, bloco no corpo, EmptyState guest, "Inscritos confirmados" na casa.
+- **Liga (casa):** jogador = **pendências do SERVIDOR** (`PendingsAlerts`; Etapa 2 do PLN-0008) + **"Posição", "Partidas no mês" e "Desempenho" em `KpiCard` (IBX-0075 r2)**; organizador = **"Receita da liga", "Inscritos" (`N/limite`) e "Partidas no mês" em `KpiCard` (IBX-0075 r2)** (`bySource` × membershipIds no cliente, janela 12 meses); guest = descrição + alerta do membro suspenso (restaurado no BUG-0042, ver `docs/spec/leagues.md`; rodapé de entrada intacto). REMOVIDOS: RadialChart/BarChart/feed/CTAs do jogador; alertas, TrendChip, KPI Ocupação e AreaChart do organizador; features card do guest.
 - **Apontamentos de dado (nenhuma query nova neste corte):** pendências agregadas da home = DADO NOVO (continua; cada página tem a sua); receita por torneio/liga = resolvida no cliente via `bySource` (janela da query, 12 meses; charges de memberships cancelados ficam fora do total da liga).
 
 ## Galeria dev de componentes (IBX-0072 — 19-09-2026, sem commit)
@@ -95,13 +95,13 @@ O round 1 trocou só os 5 blocos que ele havia marcado com `(KPI)` literal e dei
 
 ### Estado final por tela/modo (ordem ditada: KpiCard x reutilizado x texto x GAP)
 
-- **Home jogador** — `(tabs)/index.tsx:233` + `pages/home/player-dashboard.tsx`: 1. Pendências/Alertas = **GAP (dado)**; 2. **`MonthlyMatchesCard`** (o chart aprovado na galeria, série real) :66 — SUPERSEDE r4 do `KpiCard` deste item; 3. desempenho em três na MESMA linha: `KpiCard` "Vitórias" :72 · "Derrotas" :73 · "Aproveitamento" :75 (o `%` fica no valor, via `formatRateAsPercent`); 4. `KpiCard` "Suas inscrições" :82; 5. "Próximos jogos" = **GAP (dado + componente)** (lista atual mantida :90, `upcomingMatches.map` :92).
-- **Home organizador** — `(tabs)/index.tsx:154` + `pages/home/organizer-dashboard.tsx`: 1. `KpiCard` "Saldo disponível" com o botão "Realizar Saque" no `action` (:39-55); 2. Pendências/Alertas = **GAP (dado)**; 3. `KpiCard` "Recebido este mês" :59 · 4. `KpiCard` "Previsto/mês" :63 · 5. `KpiCard` "Em atraso" :70. Fora da lista dele e MANTIDOS em texto: "Receita por mês" (`(tabs)/index.tsx:161`) + "Total da janela" :174.
+- **Home jogador** — `(tabs)/index.tsx:233` + `pages/home/player-dashboard.tsx`: 1. **Pendências/Alertas = `PendingsAlerts` do SERVIDOR** (`pendings.list` escopo player; `player-dashboard.tsx:52-60`); 2. **`MonthlyMatchesCard`** (o chart aprovado na galeria, série real) :66 — SUPERSEDE r4 do `KpiCard` deste item; 3. desempenho em três na MESMA linha: `KpiCard` "Vitórias" :72 · "Derrotas" :73 · "Aproveitamento" :75 (o `%` fica no valor, via `formatRateAsPercent`); 4. `KpiCard` "Suas inscrições" :82; 5. "Próximos jogos" = **GAP (dado + componente)** (lista atual mantida :90, `upcomingMatches.map` :92).
+- **Home organizador** — `(tabs)/index.tsx:154` + `pages/home/organizer-dashboard.tsx`: 1. **Pendências/Alertas = `PendingsAlerts` do SERVIDOR** (`pendings.list` escopo organization; `organizer-dashboard.tsx:39-47`); 2. `KpiCard` "Saldo disponível" com o botão "Realizar Saque" no `action` (:39-55); 3. `KpiCard` "Recebido este mês" :59 · 4. `KpiCard` "Previsto/mês" :63 · 5. `KpiCard` "Em atraso" :70. Fora da lista dele e MANTIDOS em texto: "Receita por mês" (`(tabs)/index.tsx:161`) + "Total da janela" :174.
 - **Torneio visitante** — `pages/tournaments/guest-overview.tsx:16`: descrição em texto.
-- **Torneio jogador** — `tournaments/[tournamentId]/index.tsx:569-585` + `pages/tournaments/player-overview.tsx`: 1. Pendências/Alertas = `WidgetAlert` x2 (:108 e :119); 2. Inscrição = bloco "Suas inscrições" :126 + rodapé `JoinFooter` da página (`tournaments/[tournamentId]/index.tsx:597-638`); 3. "Próximo jogo" = `ScheduleCard` (:231-251).
-- **Torneio organizador** — `pages/tournaments/organizer-overview.tsx`: 1. Pendências = `WidgetAlert` x2 (:65 e :80); 2. `KpiCard` "Receita do torneio" :101 · 3. `KpiCard` "Inscrições" :105 · 4. `KpiCard` "Partidas" :112.
-- **Liga visitante** — `pages/leagues/guest-overview.tsx:18`: descrição em texto + rodapé de entrada intacto.
-- **Liga jogador** — `pages/leagues/player-overview.tsx`: 1. Pendências/Alertas = `WidgetAlert` x3 (:148, :170 e :186); 2. `KpiCard` "Posição" :203 · 3. `KpiCard` "Partidas no mês" :208; 4. desempenho nos três na MESMA linha (:213-220): `KpiCard` "Vitórias" :214 · "Derrotas" :215 · "Aproveitamento" :217 (taxa do `PlayerWinRate.rate` via `formatRateAsPercent`).
+- **Torneio jogador** — `tournaments/[tournamentId]/index.tsx:572-589` + `pages/tournaments/player-overview.tsx`: 1. Pendências/Alertas = `PendingsAlerts` do SERVIDOR — os QUATRO kinds do jogador aparecem nesta casa (4, 5, 6 e 7): 5/6/7 são achados pelo `params.tournamentId` (o `route`/`params` do item voltaram a ser o CONTEXTO da entidade, `convex/domains/tournament/pendings-rules.ts:77-78`, `:123-124` e `:167-168`; a ação do 5 segue só em `action.params.entryId`) e o 4 com UMA inscrição pelo `source` de torneio (`:211-216`, fallback do recorte); 2. Inscrição = bloco "Suas inscrições" :126 + rodapé `JoinFooter` da página (`tournaments/[tournamentId]/index.tsx:597-638`); 3. "Próximo jogo" = `ScheduleCard` (:231-251).
+- **Liga visitante** — `pages/leagues/guest-overview.tsx`: 1. Pendências/Alertas = `PendingsAlerts` do SERVIDOR (o kind 3 do membro suspenso, recortado pela membership; em tela desde o BUG-0042, agora pelo servidor); 2. descrição em texto + rodapé de entrada intacto.
+- **Liga jogador** — `pages/leagues/player-overview.tsx`: 1. Pendências/Alertas = `PendingsAlerts` do SERVIDOR (kinds 1, 2, 3, 8 e 9 recortados pela liga/membership); 2. `KpiCard` "Posição" :203 · 3. `KpiCard` "Partidas no mês" :208; 4. desempenho nos três na MESMA linha (:213-220): `KpiCard` "Vitórias" :214 · "Derrotas" :215 · "Aproveitamento" :217 (taxa do `PlayerWinRate.rate` via `formatRateAsPercent`).
+- **Torneio organizador** — `pages/tournaments/organizer-overview.tsx`: 1. Pendências = `PendingsAlerts` do SERVIDOR (kinds 11 e 12); 2. `KpiCard` "Receita do torneio" · 3. `KpiCard` "Inscrições" · 4. `KpiCard` "Partidas".
 - **Liga organizador** — `pages/leagues/organizer-overview.tsx`: 1. `KpiCard` "Receita da liga" :63 · 2. `KpiCard` "Inscritos" :67 · 3. `KpiCard` "Partidas no mês" :77.
 
 ### Dados dos KPIs (builders já existentes, nenhum novo)
@@ -127,7 +127,7 @@ O round 1 trocou só os 5 blocos que ele havia marcado com `(KPI)` literal e dei
 
 ### GAPs (nada inventado)
 
-1. **HOME jogador e HOME organizador — "Pendências/Alertas".** O componente existe (`ui/widget-alert.tsx:16`); o DADO não. A home do jogador só carrega `player.dashboard.getOverview` (upcomingMatches/performance/leagues/entryCategories/frequentPartner) e a do organizador `payment.dashboard.getOverview` (metrics/recentCharges/account), nenhuma com agregado de pendências cross-competição (nota A desta spec). Na home do organizador o único dado com forma de pendência (`metrics.overdueCount`) já é o item "Em atraso" ditado. **Falta (Backend):** um agregado de pendências para a home (jogador: inscrições aguardando pagamento/convites de dupla pendentes; organizador: inscrições aguardando aprovação/pagamento nas competições dele), no mesmo espírito dos builders por página que já existem (`buildTournamentPendingApprovalAlert`, `buildPlayerPendingActionsAlert`). Sem contrato, o slot fica sem nada (nenhum placeholder entrou).
+1. **HOME jogador e HOME organizador — "Pendências/Alertas".** ~~O componente existe (`ui/widget-alert.tsx:16`); o DADO não.~~ **RESOLVIDO na Etapa 2 do PLN-0008 (20-09): as duas homes pedem `pendings.list` (escopo player / organization) e o 1º bloco é o renderer único `PendingsAlerts`** — ver a seção "Pendências em tela — Etapa 2". O texto abaixo fica como registro do buraco que existia: A home do jogador só carrega `player.dashboard.getOverview` (upcomingMatches/performance/leagues/entryCategories/frequentPartner) e a do organizador `payment.dashboard.getOverview` (metrics/recentCharges/account), nenhuma com agregado de pendências cross-competição (nota A desta spec). Na home do organizador o único dado com forma de pendência (`metrics.overdueCount`) já é o item "Em atraso" ditado. **Falta (Backend):** um agregado de pendências para a home (jogador: inscrições aguardando pagamento/convites de dupla pendentes; organizador: inscrições aguardando aprovação/pagamento nas competições dele), no mesmo espírito dos builders por página que já existem (`buildTournamentPendingApprovalAlert`, `buildPlayerPendingActionsAlert`). Sem contrato, o slot fica sem nada (nenhum placeholder entrou).
 2. **HOME jogador — "Próximos jogos" (componente reutilizado).** O componente reutilizado das outras telas é o `ScheduleCard`, mas ele NÃO comporta a lista da home sem perda: o contrato entrega `partner` + `opponents[]` (o lado do viewer não vem como card com nome/avatar — só o parceiro) e o card não tem slot de DATA nem de competição (a lista de hoje mostra `data · hora · competição` e navega pra competição). **Falta:** ou o contrato entrega os dois lados no shape do card (nome+avatar por lado, como `buildMatchSides` entrega no torneio) e o usuário aceita o card sem data/competição, ou o bloco mantém a lista atual. Lista atual MANTIDA (decisão é dele; nada foi removido).
 
 ### Apontamentos
@@ -244,8 +244,336 @@ O usuário aprovou o item da galeria ("certo!"): o bloco "Partidas por mês" da 
 
 - `pages/home/player-dashboard.tsx:66` — bloco 2 na ORDEM ditada: **`<MonthlyMatchesCard data={monthlyMatches} />`** ocupando a largura toda (o card aprovado), com a **série REAL** que a tela já carregava: `buildPlayerResultsChart(performance.byMonth)` (:49) `months: 6` do `player.dashboard.getOverview`; a série vira `{ label, matches }` com o MESMO `wins + losses` que o texto antigo já somava (`src/components/pages/home/player-dashboard.tsx:53-56`). **Zero contrato novo, zero query nova, zero cálculo novo.**
 - **O que saiu da home:** o `KpiCard label="Partidas por mês"` (com o valor em texto) e a const `monthlyText` do `join(" · ")` — ninguém mais consome (`KpiCard` segue usado nos outros quatro blocos). O **loading continua o mesmo**: `LoadingState` no `isPending` (`src/components/pages/home/player-dashboard.tsx:35`), sem skeleton nem prop de loading nova no card.
-- Ordem final da home (inalterada): 1 Pendências/Alertas (GAP) · 2 **MonthlyMatchesCard** · 3 Vitórias/Derrotas/Aproveitamento (linha de 3) · 4 Suas inscrições · 5 Próximos jogos (GAP).
+- Ordem final da home (inalterada na ordem, com o bloco 1 JÁ LIGADO): 1 Pendências/Alertas (**`PendingsAlerts` do servidor**, Etapa 2 do PLN-0008) · 2 **MonthlyMatchesCard** · 3 Vitórias/Derrotas/Aproveitamento (linha de 3) · 4 Suas inscrições · 5 Próximos jogos (GAP).
 
 ### Varredura
 
 - Nenhuma outra tela renderiza o bloco "Partidas por mês" (grep em `src/`: só o componente, a galeria e a home citam o nome). O **"Partidas no mês"** das duas telas da LIGA (jogador `pages/leagues/player-overview.tsx:208` e organizador `pages/leagues/organizer-overview.tsx:77`) é **outro dado** (contagem do mês corrente via `buildPlayerMonthlyWinLoss`/`buildOrganizerMonthlyMatchesSeries`) — não tocado, como o card pediu.
+
+## Galeria: item Alertas (IBX-0076 r1 — 20-09-2026, sem commit)
+
+Superfície de APROVAÇÃO VISUAL do sistema de pendências/alertas (PLN-0008, card IBX-0076). Nesta rodada entrou SÓ a galeria dev: nenhum contrato, nenhum backend, nenhum wiring em tela e nenhum builder tocado (o inventário do que existe hoje está em `/tmp/br-open-alertas-inventario.md`, com os 8 usos reais do `WidgetAlert`).
+
+- **Registro:** `src/lib/dev/component-registry.ts:36-40` ganhou a entrada `Alertas` (`id: "alerts"` em inglês como o RUL-0013 pede, título "Alertas" e descrição "Alertas e pendências por caso de uso para aprovação"). A listagem (`settings/components/index.tsx`) e a rota dinâmica leem do registro: nenhum arquivo novo.
+- **Tela:** `settings/components/[component].tsx` — `AlertsVariantsSection` (:370-596) e o ramo da rota `entry.id === "alerts"` (:639-641). A moldura `VariantSection` ganhou a prop OPCIONAL `note` (:40-58), a linha de procedência de cada cartão; os outros itens (KPI, Texto, Inscrição, Gráfico) não mudam.
+- **Base visual:** o `WidgetAlert` REAL (`ui/widget-alert.tsx:16-37`) com o vocabulário de severidade que ele já tem (accent/danger/default/success/warning) mais o `Button` no molde das telas. Nenhum componente paralelo de alerta, nenhuma severidade nova, nenhuma classe de tint nova. Os CTAs são no-op (a galeria aprova, não executa) e o feedback de toque é o do próprio `Button` (RUL-0035).
+- **Copy real do builder, não transcrita:** os três estados de pagamento da liga saem do BUILDER real `buildLeaguePaymentAlert` dentro do `GalleryPaymentAlert` (:319-333), com dado de exemplo declarado (`galleryNow` :340 e os três alerts :342-359); o CTA `Renovar inscrição` do estado suspenso vem de `getMembershipActionLabel` (`lib/leagues/presentation.ts:215-217`) — no alerta de TELA esse botão não existe: o ramo do suspenso sai do builder com `actionLabel: null` e a ação real vive no rodapé de entrada (`docs/spec/leagues.md`, BUG-0042). O resto da copy real é literal de tela (títulos com pluralização montados no JSX) e cada cartão cita o file:line. **(SUPERSEDE na Etapa 2 do PLN-0008, 20-09: o builder foi extinto e a galeria passou a carregar a copy do SERVIDOR em literal, citando `convex/domains/payment/pendings-rules.ts` — ver a seção "Pendências em tela — Etapa 2".)**
+
+### Cartões (contexto no título, um por caso)
+
+| Cartão | Marcador | Caso | Origem da copy |
+|---|---|---|---|
+| Alerta 1 | REAL | Home do jogador: mensalidade em atraso | builder `lib/leagues/league-details-derived.ts:130-137`, CTA real `Pagar agora` |
+| Alerta 2 | REAL, caso EXTRA apontado | Liga (jogador): mensalidade perto do vencimento | builder `:156-170`, CTA real `Renovar mensalidade` |
+| Alerta 3 | REAL, agora EM TELA (BUG-0042 corrigido: o `GuestOverview` renderiza) | Liga (jogador suspenso): mensalidade suspensa | builder `:140-148` (danger), sem CTA dentro do alerta — a ação real `Renovar inscrição` é a do rodapé de entrada e o builder devolve `actionLabel: null` para não duplicar o botão |
+| Alerta 4 | REAL + composição nova | Torneio (jogador): inscrição aguardando pagamento | título `pages/tournaments/player-overview.tsx:108-117`; CTA `Pagar` do card `:213-222` |
+| Alerta 5 | REAL + composição nova | Torneio (jogador): convite de dupla recebido | título e status accent `:119-124`; par de ícones do molde `:188-209` |
+| Alerta 6 | PROPOSTA | Torneio (jogador): convite de dupla enviado | nova; o real hoje é o chip `Aguardando parceiro` (`lib/tournaments/tournament-details-derived.ts:124`) |
+| Alerta 7 | PROPOSTA | Torneio (jogador): inscrição aguardando aprovação | nova; o real hoje é o chip `Aguardando aprovação` (`:123`) |
+| Alerta 8 | REAL + CTA composto | Liga (jogador): pendências de desafio | `pages/leagues/player-overview.tsx:187-196` com o resumo `:25-71`; `Ver` do rótulo do organizador |
+| Alerta 9 | REAL | Liga (jogador): risco de inatividade | view `:170-184` sobre `lib/leagues/player-overview-derived.ts:92-143` |
+| Alerta 10 | REAL + CTA composto | Configurações da liga: conta de pagamento não conectada | `settings/leagues/[mode]/settings.tsx:363-368`; `Conectar conta` de `organization-form-fields.tsx:1088` |
+| Alerta 11 | REAL | Torneio (organizador): inscrições aguardando aprovação | `pages/tournaments/organizer-overview.tsx:66-78` (accent) |
+| Alerta 12 | REAL | Torneio (organizador): inscrições aguardando pagamento | `:80-93` |
+| Alerta 13 | PROPOSTA | Liga (organizador): solicitações de entrada | nova; o real hoje são os cards `leagues/[leagueId]/requests.tsx:178-229` e o badge `lib/leagues/league-navigation-tabs.ts:38-50` |
+| Alerta 14 | PROPOSTA | Liga (organizador): desafio esperando validação | nova; o real hoje são os chips `lib/leagues/challenge-formatters.ts:36-41`, `:66-71` e `:78-83` |
+| Alerta 15 | PROPOSTA | Torneio (organizador): confronto sem agendamento | nova; aviso real mais próximo `lib/tournaments/tournament-details-derived.ts:435-441` |
+
+### Divergências e apontamentos (o que não coube no shape)
+
+- **Um CTA só:** o `WidgetAlert` aceita UMA ação (`ui/widget-alert.tsx:9-14` e `:27-35`). Onde o caso pede duas (convite de dupla), o par entrou composto abaixo do alerta com os ícones do molde real (`pages/tournaments/player-overview.tsx:188-209`, Alerta 5); as solicitações da liga ficaram com CTA único `Revisar` porque a tela real já tem o par aprovar/recusar (Alerta 13). Ação dentro do alerta é composição NOVA nos cartões 4, 5, 8 e 10: hoje esses alertas não têm CTA. **SUPERSEDE (r2):** o par de botões fora do alerta foi REPROVADO pelo usuário; as ações passaram para dentro da superfície (ver seção do r2).
+- **Status pedido diferente do status real:** convite de dupla recebido (accent real, o pedido dizia warning), organizador aguardando aprovação (accent real, pedido warning), conta de pagamento (warning real, pedido danger) e mensalidade em atraso (CTA real `Pagar agora`, pedido renovar). Em todos, o cartão mostra o REAL e a nota registra a diferença: a marcação do usuário decide.
+- **`info` não existe no componente:** o vocabulário é accent/danger/default/success/warning; o pedido dizia info e os cartões 6 e 7 usam accent, com a nota explicando.
+- **Casos que não existem como alerta hoje** (cartões 6, 7, 13, 14 e 15): nascem como PROPOSTA de copy e o equivalente real de cada um está na nota (chip de status, cards da aba, badge, aviso do diálogo Iniciar).
+- **`sem placar` não existe como estado** no torneio (a partida é A definir, Agendada, Encerrada ou W.O., `lib/tournaments/tournament-details-derived.ts:137-148`) e **qual confronto conta como pendência ainda não tem regra**: apontado no cartão 15, não inventado.
+
+### Três estilos divergentes (cartão "Estilos divergentes hoje", :546-593)
+
+Lado a lado, no mesmo item: (a) o `WidgetAlert`, o alerta do app; (b) o `Alert` cru do HeroUI como está hoje em Notificações (`settings/notifications.tsx:544-562`); (c) o `Surface bg-warning-soft` do diálogo Iniciar (`tournaments/[tournamentId]/index.tsx:730-736`), com o aviso real de convite sem resposta (`lib/tournaments/tournament-details-derived.ts:423`). O quarto molde, o `RNAlert.alert` nativo com o mesmo aviso de notificações (`settings/notifications.tsx:381-395`), está citado na nota e não dá para renderizar em tela. **Nenhum desses arquivos foi alterado** (o `Alert` e o `Surface` do cartão são cópias locais do item da galeria): a decisão de unificar é do usuário.
+
+### Fora de escopo (não tocado)
+
+Nenhum wiring em tela, nada em `convex/`, nenhum contrato, nenhum builder alterado, nenhuma tela de liga/torneio/home tocada; o gate dev-only (`EXPO_PUBLIC_IS_DEV`) da listagem e da rota segue intacto. Gates desta rodada: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. SEM COMMIT.
+**Citações de linha do r1:** superadas pela reescrita do r2 (a seção do r2 abaixo é a VIGENTE; os números do r1 valiam no arquivo de então).
+
+## Galeria: item Alertas — round 2 (IBX-0076 r2 — 20-09-2026, sem commit)
+
+O usuário reprovou o r1 e ditou 5 ajustes literais: CTA de UMA palavra, TODO alerta com título E descrição, revisar o botão dentro do alerta contra o padrão do HeroUI, refazer o convite de dupla (descrição com quem/para que/onde + ações DENTRO da superfície) e doc-first do Alert. Só a galeria dev mudou, mais o componente de alerta do app (abaixo): nada de tela, contrato ou builder.
+
+### Doc-first: o padrão do HeroUI Native para AÇÃO dentro do alerta
+
+Prova na doc BUNDLED da versão instalada (`heroui-native` 1.0.9) e no MCP de docs do HeroUI Native (conteúdo idêntico; o cabeçalho do MCP marca `Category: native` e a fonte é `native/components/(feedback)/alert.mdx`, ou seja **NÃO é web-only**):
+
+- **Anatomia SEM slot de ação** — `node_modules/heroui-native/lib/module/components/alert/alert.md:11-27`: `Alert > Alert.Indicator + Alert.Content(Alert.Title, Alert.Description)`. A ação é um `Button` IRMÃO do conteúdo: "Place additional elements like buttons alongside the content" (`:91-93`), com o exemplo canônico `<Button size="sm" variant="primary">Refresh</Button>` (`:104`).
+- **Variante da ação pelo status do alerta:** o exemplo oficial usa `variant="primary"` no alerta `accent` (`:160`) e **`variant="danger"` no alerta `danger`** (`:174`). Semântica no pacote: `primary` = `--color-accent` (`lib/module/styles/components/button.css:10-12`), `danger` = `--color-danger` (`:32`), `secondary` = `--color-default` (`:14`); "seven visual variants for different emphasis levels" (`lib/module/components/button/button.md:79-91`, tamanhos em `:69-77`).
+- **Tamanho:** `size="sm"` em todos os exemplos de alerta com ação (`alert.md:104`, `:160`, `:174`) — o app JÁ usava `sm`: sem mudança.
+- **Status de cor:** exatamente `default | accent | success | warning | danger` (`alert.md:50` e a API `:195-205`).
+- **Layout que sustenta o botão irmão:** raiz `flex-direction: row; gap: 12px` e conteúdo `flex: 1` (`lib/module/styles/components/alert.css:1-8` e `:21-23`), com o conteúdo sem gap interno (por isso a ação secundária dentro do conteúdo leva espaçamento próprio).
+
+O que a doc **cobre**: anatomia e partes, os 5 status, o lugar da ação (irmão do conteúdo), um exemplo de ação por status (`accent` + `primary`; `danger` + `danger`), o tamanho `sm`, o par título + descrição como uso básico e a opção "Title Only" (`:78-80`).
+O que a doc **NÃO cobre** (apontado, sem improviso): (1) não existe seção de do/dont; (2) **mais de uma ação** no alerta (sem slot e sem exemplo) — a composição do cartão 5 é decisão nossa; (3) variante de ação para o status `warning` (a doc só exemplifica accent e danger); (4) qualquer par de hierarquia entre ação principal e secundária (o Button só lista "emphasis levels"); (5) o nível `info` (não existe no vocabulário).
+
+### Mudanças no componente do app (`src/components/ui/widget-alert.tsx`)
+
+| Antes | Depois | Por quê |
+|---|---|---|
+| `Button size="sm" variant="primary"` fixo | `size="sm"` + `variant={props.status === "danger" ? "danger" : "primary"}` (:51) | padrão da doc: alerta danger usa ação danger (`alert.md:174`) |
+| sem ação secundária | prop OPCIONAL `secondaryAction` (:13), renderizada DENTRO do `Alert.Content` como `Button size="sm" variant="secondary" className="mt-1.5 self-start"` (:34-44) | ordem do usuário (ações dentro da superfície); o alerta não tem slot para duas ações |
+
+Impacto nos 8 usos existentes: **zero** — os status em uso são `warning` (×4), `accent` (×2) e o dinâmico do builder (o ramo `danger` do suspenso, que desde o BUG-0042 renderiza no `GuestOverview`, sem ação), e nenhum uso passa `secondaryAction`. `size="sm"` já era o padrão da doc.
+
+### Antes → depois por cartão (r1 → r2)
+
+| # | Título | Descrição | CTA |
+|---|---|---|---|
+| 1 | igual (real do builder) | igual (real do builder) | `Pagar agora` mantido como real + bloco `Pagar` (uma palavra) |
+| 2 | igual (real do builder) | igual (real do builder) | `Renovar mensalidade` mantido + bloco `Renovar` |
+| 3 | igual (real do builder) | igual (real do builder) | `Renovar inscrição` mantido + bloco `Renovar`; botão agora é `danger` (doc) |
+| 4 | igual (real) | nenhuma → **PROPOSTA** (a doc e o app permitiam só título) | nenhum → `Pagar` (rótulo real do card, já de uma palavra) |
+| 5 | igual (real) | vaga → **PROPOSTA** com QUEM convida, PARA QUE (categoria) e ONDE (competição), com nomes de exemplo | 2 ícones FORA do alerta → `Aceitar` no slot de ação + `Recusar` (variant secondary) DENTRO do conteúdo |
+| 6 | igual | ganhou quem foi convidado, categoria e competição | sem CTA |
+| 7 | igual | igual | sem CTA |
+| 8 | igual (real) | igual (real) | nenhum → `Ver` (rótulo real do organizador, uma palavra) |
+| 9 | igual (real) | igual (real) | sem CTA |
+| 10 | igual (real) | nenhuma → **PROPOSTA** | nenhum → `Conectar conta` real + bloco `Conectar` |
+| 11 | igual (real) | nenhuma → **PROPOSTA** | `Ver` igual |
+| 12 | igual (real) | nenhuma → **PROPOSTA** | `Ver` igual |
+| 13 | igual (PROPOSTA) | igual | `Revisar` igual |
+| 14 | igual (PROPOSTA) | igual | sem CTA (a decisão do organizador não tem destino único a partir daqui: apontado) |
+| 15 | igual (PROPOSTA) | igual | sem CTA |
+| Estilos | separado e rotulado, agora com blocos `a` a `d` | igual | `Abrir ajustes` real em `a`/`b` + bloco `d` com a proposta `Ajustes` |
+
+Na galeria TODOS os 15 cartões e os 4 blocos do cartão de estilos têm título E descrição; a única supressão do r1 é o par de ícones fora do alerta (cartão 5), que saiu — nenhum botão da galeria vive fora de uma superfície de alerta.
+
+### Apontamentos do r2
+
+- **Rótulos reais de DUAS palavras** (mantidos como reais, cada um com a proposta de uma palavra renderizada ao lado): `Pagar agora`, `Renovar mensalidade`, `Renovar inscrição`, `Conectar conta` e `Abrir ajustes` (cartão de estilos). `Ver` e `Pagar` já eram de uma palavra.
+- **`info` continua não existindo**: cartões 6 e 7 usam `accent` (não inventei severidade).
+- **Título + descrição obrigatórios na galeria, prop opcional no componente:** tornar `description` obrigatório mexeria nas 8 telas vivas (e a doc permite "Title Only", `alert.md:78-80`) — decisão do usuário.
+- **Doc não cobre duas ações nem hierarquia** (acima): a composição `Aceitar` no slot + `Recusar` no conteúdo é nossa, dentro da superfície do alerta.
+- **Sem verificação visual** (RUL-0025, sem device/simulador): o encaixe do botão secundário dentro do conteúdo (`mt-1.5 self-start`, `widget-alert.tsx:36`) é o ponto a conferir no dedo.
+
+### Fora de escopo (não tocado)
+
+Nenhum wiring em tela, nada em `convex/`, nenhum contrato, nenhum builder alterado, nenhuma tela de liga/torneio/home tocada, nenhum dos arquivos dos estilos divergentes alterado, WIP do usuário em `ui/kpi-card.tsx` intocado. Gates: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. Arquivos: `src/components/ui/widget-alert.tsx`, `src/app/(private)/settings/components/[component].tsx`, `src/lib/dev/component-registry.ts` (entrada do r1, sem mudança) e esta spec. SEM COMMIT.
+
+## Galeria: item Alertas — round 3 (IBX-0076 r3 — 20-09-2026, sem commit)
+
+Ajustes literais do usuário depois de ele aprovar a direção ("ta melhorando, bastante"): (1) as ações do convite de dupla no RODAPÉ do alerta, dentro da superfície e na mesma linha; (2) nomes/categoria/competição em NEGRITO dentro da descrição; (3) CTA de UMA palavra como a única ação renderizada. Só a galeria dev mudou, mais o componente `WidgetAlert`. Nada de tela, contrato ou builder.
+
+### Rodapé de ações (ordem COPIADA do molde, RUL-0007)
+
+- **Ordem provada no molde do app** — `pages/tournaments/player-overview.tsx:188-197` (recusar: `onRespondInvite(false, entryId)`, `variant="outline"`) e `:198-209` (aceitar: `onRespondInvite(true, entryId)`, `variant="primary"`): a secundária primeiro e a que CONFIRMA por último, exatamente a regra pedida. Copiada, não inventada.
+- **`src/components/ui/widget-alert.tsx`**: com `secondaryAction`, as DUAS ações vão para uma linha no rodapé do alerta, dentro do `Alert.Content` (`mt-1.5 flex-row items-center gap-2 self-end`, :62-75), na ordem secundária → principal. Sem `secondaryAction`, a ação principal segue no slot irmão do conteúdo (:77-79), o layout que as 8 telas vivas já usam. O botão foi extraído em `WidgetAlertButton` (:27-41) para o JSX não existir duas vezes.
+- Impacto nos 8 usos existentes: **zero** (nenhum passa `secondaryAction` — grep confirmado).
+- **Apontamento:** a doc do HeroUI coloca a ação como irmã do conteúdo (`alert.md:91-108`) e **não cobre duas ações**; o rodapé dentro do conteúdo é composição nossa, ainda dentro da superfície do alerta.
+
+### Trechos destacados (negrito) na descrição
+
+- **Mecanismo verificado no código, não suposto:** (a) o `better-styled` monta o className na ordem base → variantes (na ordem das chaves) → `className` do consumidor (`node_modules/better-styled/dist/index.js:1`, função interna `fH`: `p(base, variantClasses, compoundVariants, rest)`); (b) o `Text` do app declara as variantes na ordem `align, color, size, variant, weight` (`src/components/core/text.tsx:18-57`, com `weight` por último, :50); (c) o Uniwind resolve propriedade por propriedade e **o token POSTERIOR vence** quando a complexidade empata (`node_modules/uniwind/src/core/native/store.ts:158-182`: o guard de `complexity`/`important` em :162-174 e a escrita `resultGetters[property] = valueGetter` em :182). A doc do Uniwind avisa que não há dedupe de classes em conflito (`style-specificity#class-name-conflicts`), e é por isso que a parte destacada repete `color`/`variant` do texto em volta e só troca o peso.
+- **API:** `description?: ReactNode` (`widget-alert.tsx:14`) — string continua funcionando (os 8 usos vivos passam string; nada muda neles) e a galeria passa PARTES.
+- **Na galeria:** o type `AlertDescriptionPart = { isHighlighted?, text }` (:330) e o renderizador `HighlightedDescription` (:332-351) mostram o destaque como `Text color="muted" variant="description" weight="semibold"` — mesmo tamanho e cor da descrição do alerta, só o peso muda; as partes sem destaque ficam sem wrapper e herdam o estilo da `Alert.Description`.
+- **Apontamento:** um `Text` aninhado SEM `color`/`variant` explícitos repinta a parte com as classes base do componente (`text-foreground` + `text-base`), saindo maior e na cor padrão.
+- **Cartões com destaque:** 5 (Marina Costa, Duplas Mistas, Copa Dracena 8), 6 (Gustavo Lima, Duplas Mistas, Copa Dracena 8) e 9 (o prazo, 3 dias). O texto final é o mesmo dos rounds anteriores, só dividido em partes; a categoria usa o formato real do app (`convex/domains/tournament/entry-rules.ts:29-38`).
+- **Cartões 1 a 3 não têm destaque:** a descrição deles é a copy REAL do builder, que devolve string.
+
+### Contrato futuro (nota para o PLN-0008 / IBX-0076)
+
+O item de pendência **não pode** carregar `description: string`: precisa carregar **PARTES** (`{ text, isHighlighted? }[]`), porque o destaque é decisão de quem PRODUZ a pendência (o servidor), não da tela. O shape provado nesta rodada é o da galeria, e o renderizador pode ser o próprio `Text` do app (`src/components/core/text.tsx`). Requisito registrado para o contrato; nada implementado em `convex/` nesta rodada.
+
+### CTA de uma palavra (o que saiu de cena)
+
+- A galeria agora renderiza **só** o rótulo de uma palavra: `Pagar`, `Renovar` (×2), `Conectar`, `Ajustes`, `Ver` (×3), `Revisar`, `Aceitar`, `Recusar` — nenhum botão com duas palavras (checagem mecânica).
+- **Divergências APONTADAS** (cópias reais de duas palavras que o app usa hoje e que só voltam ao botão quando o contrato/servidor mandar o rótulo): `Pagar agora` (`lib/leagues/presentation.ts:211-213`), `Renovar mensalidade` (`lib/leagues/league-details-derived.ts:161`), `Renovar inscrição` (`lib/leagues/presentation.ts:215-217`), `Conectar conta` (`pages/organization/organization-form-fields.tsx:1088`) e `Abrir ajustes` (`settings/notifications.tsx:390`).
+- O cartão de estilos divergentes usa `Ajustes` nos blocos `a` e `b` (o rótulo real do molde de Notificações fica apontado na nota) e o bloco `d` (comparação de rótulo) saiu: com uma palavra em `a`, ele ficou redundante.
+
+### Antes → depois por cartão (r2 → r3)
+
+| # | O que mudou |
+|---|---|
+| 1 | dois blocos (real/proposta) → UM alerta com `Pagar`; `Pagar agora` sai do botão e fica apontado |
+| 2 | idem, com `Renovar`; `Renovar mensalidade` apontado |
+| 3 | idem, com `Renovar` (botão `danger` do r2 mantido); `Renovar inscrição` apontado |
+| 4 | igual (`Pagar`, já de uma palavra) |
+| 5 | `Aceitar` no slot + `Recusar` abaixo → as DUAS no rodapé do alerta, mesma linha, `Recusar` antes de `Aceitar`; descrição com trechos destacados |
+| 6 | descrição com trechos destacados (mesmo texto do r2) |
+| 7 e 8 | iguais |
+| 9 | descrição em partes, com o prazo destacado (mesmo texto do r2) |
+| 10 | dois blocos → UM alerta com `Conectar`; `Conectar conta` apontado |
+| 11 a 15 | iguais |
+| Estilos | `a` e `b` com `Ajustes`, bloco `d` removido, rótulo real `Abrir ajustes` apontado |
+
+### Fora de escopo (não tocado)
+
+Nenhum wiring em tela, nada em `convex/`, nenhum contrato, nenhum builder alterado, nenhuma tela de liga/torneio/home tocada, nenhum dos arquivos dos estilos divergentes alterado, WIP do usuário em `ui/kpi-card.tsx` intocado; o gate dev-only (`EXPO_PUBLIC_IS_DEV`) segue intacto. Checagem mecânica desta rodada: 15 cartões numerados 1 a 15, nenhum `WidgetAlert` sem descrição, nenhum rótulo com duas palavras, nenhuma das 5 cópias reais de duas palavras renderizada como botão, nenhum botão fora de superfície de alerta. Gates: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. SEM COMMIT.
+
+## Galeria: item Alertas — round 4 (IBX-0076 r4 — 20-09-2026, sem commit)
+
+Dois ajustes: (1) o WIP do usuário no destaque (semi-bold → **bold**) é verdade intocável; (2) alerta que AGREGA mais de um tipo de pendência passa a mostrar **uma LINHA por tipo**, nunca uma frase com separador no meio. Só a galeria dev e o `WidgetAlert`; nada de tela, contrato ou builder.
+
+### WIP do usuário preservado (negrito cheio)
+
+- **Snapshot antes de editar (RUL-0034):** `/tmp/IBX-0076-snap-r4-component.tsx` (galeria, md5 `bed651567dac527c9994858b8ef5bec8`) e `/tmp/IBX-0076-snap-r4-widget-alert.tsx` (md5 `273f22b59c7b74c9da21d59306cebecf`).
+- **A mudança dele:** `weight="semibold"` → `weight="bold"` no renderizador do destaque (linha 341 do snapshot da galeria). O diff mecânico contra a reconstrução do estado do r3 mostrou que essa foi a ÚNICA mudança de conteúdo dele (as outras duas diferenças eram só formatação do nosso próprio `ultracite fix`).
+- **Onde a verdade vive agora:** o renderizador das partes saiu da galeria e mora no `WidgetAlert` (`ui/widget-alert.tsx:91-98`), com o peso **`bold`** — não voltou para `semibold` em lugar nenhum (grep: o único `weight=` do componente é `bold`).
+
+### Agregado em LINHAS, por tipo
+
+- **Levantamento dos 16 cartões:** só DOIS agregavam mais de um tipo na mesma frase — o **8** (pendências de desafio, era `2 resultados para registrar · 1 resultado para confirmar`) e o **14** (desafio esperando validação, era `Resultados e propostas esperando a decisão do organizador.`). Os do organizador com contagem (**11** e **12**) são UM tipo cada (o app tem alertas separados por status, não uma frase agregada) e os demais são uma frase simples: ficaram como estavam. O único `·` que sobra na galeria é a copy REAL verbatim do diálogo Iniciar (bloco `c` do cartão de estilos), que não é descrição de alerta agregada (apontado).
+- **Origem real da agregação:** `summarizePendingActions` junta os tipos com `" · "` (`pages/leagues/player-overview.tsx:70`); o badge da aba conta por status em `lib/leagues/challenge-tab-counts.ts` (fonte apontada pelo inventário).
+- **Antes → depois:** cartão 8 = uma frase com `·` → **2 linhas** (`2 resultados para registrar` / `1 resultado para confirmar`), título `3 desafios precisando de atenção`; cartão 14 = uma frase com "e" → **2 linhas** (`2 resultados para validar` / `1 proposta para decidir`), título `3 desafios esperando sua validação`. O destaque de cada linha vai no NÚMERO (o dado que decide a contagem).
+
+### Estrutura das linhas
+
+- **No componente** (`ui/widget-alert.tsx`): `description?: WidgetAlertDescriptionLine[] | string` (:30) — string segue o caminho de sempre (`Alert.Description`, :82-84) e mantém os usos vivos idênticos; as linhas vão para um container `View className="gap-0.5"` (:86) dentro do `Alert.Content`, com **uma `Text` do app por linha** (:88) e as partes dentro dela (:89-101). O gap é o das linhas empilhadas do app (molde `leagues/[leagueId]/requests.tsx:188`), não margin chumbada.
+- **Tipos exportados pelo componente** (o contrato vai consumir daqui): `WidgetAlertDescriptionPart = { isHighlighted?, text }` (:13-16) e `WidgetAlertDescriptionLine = { parts }` (:23-26). A galeria importa esses tipos e só carrega os exemplos (:393-452).
+- **Destaque:** a parte destacada é o mesmo texto da linha com `weight="bold"` e repete `color="muted" variant="description"` porque o `Text` do app aplica as classes base (`text-foreground font-normal`) — o mecanismo está provado na seção do r3 (ordem base → variantes no `better-styled` + token posterior vencendo no Uniwind).
+- **Apontamento de a11y:** as linhas NÃO são `Alert.Description`, porque o primitivo do alerta renderiza a descrição como `Text` (impossível aninhar elemento de layout dentro) e aplica um `nativeID` ÚNICO e fixo `${nativeID}_desc` (`node_modules/heroui-native/lib/module/primitives/alert/alert.js:110`, com o root apontando `aria-describedby` em `:41`) — repetir a parte em N descrições duplicaria o id. As linhas usam o MESMO par visual da descrição do alerta (`core/text.tsx` `variant="description"` + `color="muted"` = `text-sm` + `--color-muted`, o que o `alert.css:55-60` define para a descrição). Quando o contrato chegar, a fiação de acessibilidade das linhas é decisão de UMA peça (o renderizador), não de cada tela.
+
+### Shape revisado do item (nota para o PLN-0008 / IBX-0076)
+
+O item do servidor **não pode** carregar `description: string` nem uma lista plana de partes: tem que carregar **LINHAS**, cada linha com as suas partes:
+
+```ts
+type AlertDescriptionPart = { isHighlighted?: boolean; text: string };
+type AlertDescriptionLine = { parts: AlertDescriptionPart[] };
+// description: string | AlertDescriptionLine[]
+```
+
+Motivo: o produtor da pendência (servidor) decide o destaque E a quebra por tipo; a tela só renderiza. O shape provado nesta rodada é exatamente o do `WidgetAlert` (tipos exportados), então o contrato pode reusá-lo sem adaptador.
+
+### Mantido do r2/r3
+
+Ações sempre dentro da superfície (duas ações no rodapé, na ordem secundária → principal do molde `pages/tournaments/player-overview.tsx:188-209`); CTA de uma palavra; todo alerta com título E descrição; 15 cartões numerados + o cartão de estilos divergentes, com marcação REAL x PROPOSTA e file:line; CTAs no-op; base = `WidgetAlert` real; nenhuma severidade nova.
+
+### Fora de escopo (não tocado)
+
+Nenhum wiring em tela, nada em `convex/`, nenhum contrato, nenhum builder alterado, nenhuma tela tocada, arquivos dos estilos divergentes intactos, WIP do usuário em `ui/kpi-card.tsx` intocado. Checagem mecânica: 16 cartões com descrição (3 deles via o builder no `GalleryPaymentAlert`), 2 cartões com 2 linhas cada e 1 destaque por linha, nenhum `·` em descrição de alerta, único `weight=` do componente é `bold`. Gates: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. SEM COMMIT.
+
+## Galeria: item Alertas — round 5 (IBX-0076 r5 — 20-09-2026, sem commit)
+
+Revisão geral das descrições e dos destaques, por ordem do usuário ("isso aí tá muito grande... verifica todas as descrições e quais palavras-chave devem estar highlight/bold... revisa todos"). Só a galeria dev; `WidgetAlert` e demais arquivos intactos.
+
+**SUPERSEDE (r6):** a regra 1 (descrição curta) foi REVERTIDA pelo usuário — ele havia pedido SÓ o destaque, não o encurtamento; o texto voltou ao do r4 (verbatim) e a única mudança passou a ser o negrito. Ver round 6.
+
+### As duas regras
+
+1. **Descrição curta** (REVOGADA no r6 — o texto do r4 volta): UMA frase curta por alerta (o quem/o que/onde + o prazo/valor quando for o dado que decide), **sem explicar consequência**; alvo de 1 linha (2 no máximo) no cartão. A mesma régua vale para o TÍTULO quando ele estiver comprido.
+2. **Destaque é a EXPRESSÃO da pendência, não o número solto**: número + objeto (`2 resultados`, `1 resultado`, `2 resultados para validar`), nome de pessoa, categoria, competição, prazo/valor quando for o que decide. Nunca número solto nem palavra genérica. **No máximo UM destaque por linha/descrição**; quando dois disputam, fica o que o usuário precisa reconhecer para agir (escolha apontada no cartão).
+
+### Antes → depois por cartão (16/16 conferidos)
+
+| # | Título | Descrição | Destaque | CTA |
+|---|---|---|---|---|
+| 1 | não mudou (real, curto) | 2 frases → **`Sua mensalidade venceu.`** (real `O pagamento da sua mensalidade venceu. Pague para não ser suspenso.`, `league-details-derived.ts:130-137`) | nenhum: o builder não manda data/valor nesse estado (apontado) | `Pagar` (não mudou) |
+| 2 | não mudou (real, já é o dado decisivo) | real **sem a oração de consequência** → `Renove até **23 de set. de 2026**.` (provado por sonda) | a DATA (única) | `Renovar` (não mudou) |
+| 3 | não mudou (real) | 2 frases → **`Falta o pagamento da inscrição.`** | nenhum (sem valor/data no builder: apontado) | `Renovar` (não mudou) |
+| 4 | não mudou (real com contagem) | consequência → **`Taxa de **R$ 40,00** por inscrição.`** | o VALOR (o dado que decide pagar) | `Pagar` (não mudou) |
+| 5 | não mudou (real; dentro do alvo) | 3 destaques → **`**Marina Costa** convidou você para Duplas Mistas.`** | QUEM convida (categoria sem destaque, competição fora por contexto: apontado) | `Recusar` → `Aceitar` (não mudou) |
+| 6 | não mudou | 3 destaques → **`Aguardando **Gustavo Lima** aceitar o convite.`** | QUEM falta responder | sem CTA (não mudou) |
+| 7 | não mudou | 2 frases com consequência → **`Categoria **Duplas Mistas**.`** | a CATEGORIA | sem CTA (não mudou) |
+| 8 | não mudou (contagem real) | destaque era número solto → **`**2 resultados** para registrar`** / **`**1 resultado** para confirmar`** | EXPRESSÃO por linha | `Ver` (não mudou) |
+| 9 | não mudou (real) | consequência cortada → **`Faltam **3 dias** de inatividade.`** | o PRAZO (única) | sem CTA (não mudou) |
+| 10 | **ENXUTO** (real `...: os jogadores não conseguirão pagar.`) → `Conta de pagamento não conectada` | instrução com consequência → **`A liga cobra **R$ 40,00** por mês.`** | o VALOR | `Conectar` (não mudou) |
+| 11 | contagem ajustada às 2 linhas (`2`) | instrução → **`**Marina Costa**`** / **`**Gustavo Lima**`** | o NOME por linha | `Ver` (não mudou) |
+| 12 | não mudou | consequência → **`**Camila Ferraz**`** / **`**Pedro Almeida**`** | o NOME por linha | `Ver` (não mudou) |
+| 13 | contagem ajustada (`2`) | frase solta → **`**Rafael Souza**`** / **`**Marina Costa**`** | o NOME por linha | `Revisar` (não mudou) |
+| 14 | não mudou (contagem) | destaque era número solto → **`**2 resultados** para validar`** / **`**1 proposta** para decidir`** | EXPRESSÃO por linha | sem CTA (não mudou) |
+| 15 | não mudou | regra/consequência → **`Falta agendar os confrontos em aberto.`** | nenhum (falta o dado decisivo: apontado) | sem CTA (não mudou) |
+| 16 (estilos) | não mudou | `a`/`b` já eram 1 frase curta e sem consequência (mesma copy real do aviso); `c` é a copy REAL verbatim do diálogo Iniciar (não é descrição de alerta) | nenhum | `Ajustes` (não mudou) |
+
+### Apontamentos
+
+- **Falta de dado (proposta minha, para o contrato)**: cartões 1 e 3 (o builder não manda valor nem data da pendência), 15 (qual rodada/quadra está em aberto), e os valores/nomes dos cartões 4, 10, 11, 12 e 13 são EXEMPLO da galeria — o contrato precisa mandar o valor real e a lista de quem/cada item.
+- **Competição e categoria fora de cena nos cartões 5 e 6**: a tela já é o torneio, então o destaque ficou com o NOME (o que o usuário precisa reconhecer para agir). Se quiser a categoria visível também, ela volta como linha (a régua de 1 destaque por linha continua).
+- **Título com contagem não aceita destaque**: o `Alert.Title` é string (o shape de partes é só da descrição). Onde a contagem precisa de destaque, ela desce para a descrição/linha (cartões 8 e 14); se o usuário quiser o número em `bold` no título, o título também precisa virar partes — nota de contrato.
+- **CTAs reais de duas palavras seguem apontados** (voltam ao botão quando o contrato/servidor mandar o rótulo): `Pagar agora` (`presentation.ts:211-213`), `Renovar mensalidade` (`league-details-derived.ts:161`), `Renovar inscrição` (`presentation.ts:215-217`), `Conectar conta` (`organization-form-fields.tsx:1088`) e `Abrir ajustes` (`notifications.tsx:390`).
+
+### Verificação desta rodada
+
+Sonda descartável (apagada) provou que a descrição enxuta do cartão 2 é o texto REAL do builder com a oração de consequência removida (`real.replace(" para continuar jogando sem interrupção", "")`), e conferiu verbatim nos arquivos citados as cópias reais dos cartões 1, 3, 9 e 10 e os cinco rótulos reais de duas palavras. Checagem mecânica: nenhum destaque com número solto, nenhuma descrição acima de 1 linha (12 a 46 caracteres), cada linha com no máximo um destaque, todos os CTAs com uma palavra, nenhum `·` em descrição de alerta. WIP do usuário preservado: `weight="bold"` segue em `ui/widget-alert.tsx:95` (o arquivo não foi tocado nesta rodada — byte a byte igual ao snapshot `/tmp/IBX-0076-snap-r5-widget-alert.tsx`). Gates: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. SEM COMMIT.
+
+## Galeria: item Alertas — round 6 (IBX-0076 r6 — 20-09-2026, sem commit)
+
+Desfaz o ENCURTAMENTO do r5. O usuário reprovou a regra de "descrição curta" ("tava legal antes, você removeu coisas que eu não pedi") — o pedido dele no r5 era SÓ achar as palavras-chave e pôr o destaque. O TEXTO volta ao do r4 (que ele aprovou) e a única mudança desta rodada é o **negrito**. Só a galeria dev; `WidgetAlert` intocado.
+
+### O que voltou e o que é novo
+
+- **Texto = r4, verbatim**, em todos os cartões que o r5 havia mexido (1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 15 e o cartão de estilos), copiado do snapshot do r4 (`/tmp/IBX-0076-snap-r5-component.tsx`, tirado antes do r5). Prova mecânica: nenhuma linha `description="..."` da galeria aparece no diff contra esse snapshot — só as consts de partes (destaque), o `description?` do `GalleryPaymentAlert` (usado só pelo cartão 2) e o `title` do cartão 10.
+- **Títulos voltam ao r4**, EXCETO o do cartão 10 (`Conta de pagamento não conectada`), que ele aprovou enxuto — o resto do título real (`: os jogadores não conseguirão pagar.`) fica na nota do cartão. As contagens dos cartões 11 (`3 inscrições aguardando aprovação`) e 13 (`4 solicitações de entrada`) voltaram ao r4.
+- **Cartões 11/12/13**: a lista de nomes do r5 saiu e voltou a frase única do r4 (eles NUNCA foram linhas no r4 — só os cartões 8 e 14 são agregados em linhas, e continuam assim).
+- **Destaque = única mudança**: no máximo 1 por linha, sempre a palavra-chave que identifica a pendência (nome de pessoa, categoria, competição, valor, prazo, expressão número + objeto). Contagem mecânica: 8 destaques em 8 linhas, 1 por linha (cartões 2, 5, 6, 8, 9 e 14). Peso é o `weight="bold"` do usuário (`ui/widget-alert.tsx:95`, intocado).
+- **Cartão 2** é o único cuja copy REAL carrega um dado destacável (a data), então a descrição vem do builder em PARTES — a junção é igual à string do builder, provado por sonda (`Renove até 23 de set. de 2026 para continuar jogando sem interrupção.`). Custo: um `description?` opcional no `GalleryPaymentAlert`; sem ele o componente renderiza `props.alert.description` como no r4.
+- **Cartões 5 e 6**: o r4 tinha 3 destaques na mesma linha (nome + categoria + competição); com a régua de 1 destaque por linha, o negrito fica no NOME (o dado que o usuário precisa reconhecer para agir) e categoria/competição seguem no texto sem negrito — apontado na nota do cartão.
+- **Cartões sem destaque (não forçados)**: 1, 3, 4, 7, 10, 11, 12, 13, 15 e o cartão de estilos — nenhuma dessas frases tem palavra-chave do vocabulário; o dado que falta em cada uma está apontado na nota e é o que o contrato vai ter de mandar (valores, prazos e as listas de quem espera).
+- **Comentário órfão do r4 não restaurado**: o bloco "Descrição do alerta em LINHAS (IBX-0076 r4)" era um doc comment sem declaração embaixo (o mecanismo mora em `ui/widget-alert.tsx`); ficaram o doc do `GalleryPaymentAlert` e o doc das partes.
+
+### Verificação
+
+Diff contra `/tmp/IBX-0076-snap-r5-component.tsx` (estado do r4) provando o texto verbatim, sonda descartável (apagada) provando que a junção das partes do cartão 2 é igual à descrição real de `buildLeaguePaymentAlert`, e conferência dos CTAs de uma palavra na seção de alertas. WIP do usuário: `weight="bold"` segue em `ui/widget-alert.tsx:95` e o arquivo está byte a byte igual a `/tmp/IBX-0076-snap-r6-widget-alert.tsx` (md5 `f45754f1df988ce5d8ecbbbd487d11ee`, o MESMO do snapshot do r5 — nenhuma rodada tocou nele). Snapshot pré-r6 da galeria: `/tmp/IBX-0076-snap-r6-component.tsx` (md5 `992cc1a4c0a11fbaee3696924689f661`). Gates: `bun run check` (430 arquivos, tsc app + convex) e `bun test src` (528/528) verdes, `git diff --check` limpo. SEM COMMIT.
+
+## Pendências em tela — Etapa 2 do PLN-0008 (IBX-0076 · 20-09-2026, sem commit)
+
+Ligou o contrato `pendings.list` (Etapa 1, Backend) nas telas e APAGOU o que o cliente derivava em paralelo. Nada de copy, severidade, ordem ou visibilidade re-derivada no cliente: a tela só recorta o item do escopo certo e o renderer único desenha.
+
+### O renderer único
+
+- **`src/components/ui/pending-alerts.tsx`** — `PendingAlerts({ className?, isError?, isLoading?, items, onActionPerformed? })`: mapeia o item do servidor para o `WidgetAlert` REAL (mesmo componente aprovado na galeria, nenhuma severidade/cor/tamanho novo). `description` passa direto (string ou LINHAS de partes com o destaque do servidor); `action`/`secondaryAction` saem no rodapé na ordem secundária → principal que o `WidgetAlert` já renderiza, e **cada botão resolve o SEU `action`** (o secundário pelo `item.secondaryAction`, com o próprio `isDisabled` na mutation em voo — botão sem ação resolvível não é desenhado); `key` = `item.id`. Estados: `isLoading` → `LoadingState` (não pisca área vazia), `isError` → `ErrorMessage` compacto, lista vazia → não desenha nada. **`onActionPerformed`** (opcional) é chamado depois de CADA ação concluída — **aguardado nos dois caminhos** (pagamento: invalidação antes de abrir o checkout; convite: invalidação antes do toast) —: o renderer invalida só a lista de pendências (que é dele) e a PÁGINA — que conhece a entidade — passa a invalidação do próprio contexto (a casa do torneio invalida `tournament.discovery.getById`, a casa da liga o `invalidateLeagueContext` dela; as homes não passam nada). Sem esse callback, responder ao convite de dentro do alerta deixava o card da inscrição e os KPIs velhos até o refetch (M1 do re-veredito).
+- **`src/lib/pendings/pendings-view.ts`** — o que a tela decide: `PENDING_ALERT_STATUS` (severidade → status; `info` → `accent`, como os cartões aprovados), **`resolvePendingAction`** (PONTO ÚNICO que traduz o `action` do contrato para a ação viva) e os recortes `resolvePendingsForLeague({ items, leagueId, membershipId })` / `resolvePendingsForTournament({ items, tournamentId })`. O recorte do torneio (`src/lib/pendings/pendings-view.ts:130-140`) casa pelos `params.tournamentId` — a chave dos kinds 5, 6 e 7 (contexto da entidade) e do 4 com 2+ inscrições — **e cai para o `source` quando não há params** (`source.type === "tournament"` → `source.id`): a pendência de inscrição aguardando pagamento com UMA inscrição não tem `params` nem `route` — o torneio vive só no `source` (`convex/domains/tournament/pendings-rules.ts:211-216`) — e sem esse fallback o item sumia da casa do torneio (H1 do re-veredito). Com as duas chaves, os QUATRO kinds do jogador (4, 5, 6 e 7) ficam alcançáveis nesta casa; conferido no disco com sonda: 4/4 achados e 0 para outro torneio. Testes co-localizados (`pendings-view.test.ts` + `pendings-action-parity.test.ts`).
+- **Ação por AÇÃO EXPLÍCITA, nunca por kind nem por rótulo** (`convex/domains/pendings/contract.ts:98-107`): `open_route` → navega no **destino do ITEM** (`route` + `params`; `action.params` é sempre nulo nesse tipo e entra só como override — os params vão como merge `item.params` + `action.params`, e sem ler o `item.params` os CTAs Ver/Revisar/Conectar abririam as rotas com placeholder sem o id da entidade); `pay_league_membership` → `payment.charge.createCharge({ sourceId: source.id, sourceType: "league_membership" })` → checkout; `pay_tournament_entry` → o MESMO `createCharge` com o `action.params.entryId` → checkout; `accept_partner_invite`/`decline_partner_invite` → `tournament.entries.respondPartnerInvite` (a MESMA mutation e os MESMOS toasts do wiring do convite na casa do torneio), com invalidate de `pendings.list` depois. `actionLabel` + `action` nulo (ou `open_route` sem `route`, ou mutação sem o `params` que ela exige) → **o botão é OMITIDO** (nunca botão morto, nunca `actionLabel` → `navigate(route)` cru).
+
+### O que foi ligado
+
+- **As duas homes (o GAP declarado):** `pendings.list` como PRIMEIRO bloco — `pages/home/player-dashboard.tsx:33-35` (escopo player) e `pages/home/organizer-dashboard.tsx:27-29` (escopo organization), renderizados por `PendingAlerts` (as queries moram na própria view, como as demais queries das homes).
+- **Casa da liga (cluster):** a query entrou no `_layout.tsx` (`scope: "player"`, sem gate de papel) e hidrata o bucket (`data.pendings` + `identity.pendingsStatus`, action `hydratePendings`), com o derived `pendings` recortando pela liga/membership. `player-overview.tsx` e `guest-overview.tsx` consomem `bucket$.derived.pendings` (kinds 1, 2, 3, 8 e 9).
+- **Casas de torneio:** os DOIS escopos são pedidos no `_layout.tsx` (o servidor responde `items: []` no escopo que não é do ator — nenhum gate de papel no cliente) e o derived `pendings` recorta pelo `tournamentId` — **kinds 4, 5, 6 e 7 no jogador** (5/6/7 pelo `params.tournamentId`, o 4 com uma inscrição pelo `source` de torneio) e 11 e 12 no organizador.
+
+### O que foi APAGADO (cutover, com prova de zero órfão)
+
+| Apagado | Onde vivia | Prova |
+|---|---|---|
+| `buildLeaguePaymentAlert`, `buildLeagueGuestOverviewAlert`, o tipo `LeaguePaymentAlert` e os imports que só eles usavam (`formatShortDate`, `DAY_MS`, `getMembershipActionLabel`, `formatBrazilDueDayLabel`) | `src/lib/leagues/league-details-derived.ts` | `grep -rn "buildLeaguePaymentAlert\|buildLeagueGuestOverviewAlert" src` → **zero USO** (as únicas ocorrências são comentários que registram a extinção); o `getMembershipActionLabel` segue vivo só no store da liga (rodapé) |
+| `buildPlayerPendingActionsAlert`, `buildPlayerInactiveAlertCard`, `PendingChallengeAction`, `PlayerPendingActionsAlert`, `PlayerInactiveAlertCard`, `resolvePendingAction`, `getViewerSide`, `getOpponentName`, `WARNING_WINDOW_DAYS` | `src/lib/leagues/player-overview-derived.ts` | `grep` dos nomes em `src` → **zero USO** (só comentários do cutover e, no caso de `buildPlayerInactiveAlertCard`, a nota do Alerta 9 da galeria, atualizada para o item do servidor) |
+| `buildTournamentPendingApprovalAlert`, `buildTournamentAwaitingPaymentAlert` (+ tipos) | `src/lib/tournaments/organizer-overview-derived.ts` | `grep` dos dois nomes em `src` → **zero USO** (só o comentário do cutover no docstring da view) |
+| os alertas derivados no cliente (`awaitingPaymentCount`, `pendingInvite`) e o `handleSeeEntriesPress` (o `Ver` agora é o `open_route` do item) | `pages/tournaments/player-overview.tsx`, `pages/tournaments/organizer-overview.tsx` | zero |
+| os testes dos builders extintos (blocos `buildLeaguePaymentAlert`, `buildLeagueGuestOverviewAlert`, `tournament organizer overview alerts`) | 3 arquivos `*.test.ts` | a suíte CAIU de 528 para os testes que restam + os novos: nenhum teste ficou apontando para símbolo morto |
+
+- **BUG-0043 (atenção de desafio duplicada):** a regra existia DUAS VEZES no cliente (`challenge-tab-counts.ts` e `challenge-route-view.ts`). Agora mora só em **`src/lib/leagues/challenge-attention.ts`** (`isChallengeAttention` / `isChallengeViewerParticipant`), consumida pelos dois — badge e lista saem da MESMA regra por construção, com paridade travada por teste novo (`challenge-attention.test.ts`) e os testes existentes INTOCADOS (o refactor não mudou comportamento; o diff das duas cópias não mostrou divergência de regra).
+
+### O que ficou FORA (apontado, não inventado)
+
+1. **Paridade do ITEM 8 com o badge da aba Atenção.** O alerta do jogador agora é o item `player_league_challenges_pending_actions` do servidor, cuja contagem cobre as pendências de RESULTADO (registrar/confirmar/corrigir) — era exatamente o conjunto do builder apagado (o "3" do BUG-0043). O badge da aba conta a regra de atenção completa (6 no exemplo do bug). São duas implementações (servidor e cliente) que precisam concordar: **a correção do resto do BUG-0043 é do servidor** (kind 8 passando a contar toda pendência que exige a ação do membro) ou o cliente adotando a contagem do item no badge — decisão do maestro.
+2. **`truncated` e `saturation` do resultado não são desenhados** (o cap de 20 itens e a leitura saturada ficam invisíveis na tela). Sem contrato visual aprovado, nada entrou.
+3. **Erro na leitura de pendências:** o bloco mostra o `ErrorMessage` compacto em vez do `ErrorState` de página (o `ErrorState` traz o botão "Voltar" e derrubaria a home) — decisão registrada.
+4. **Escopo da casa da liga é só o do JOGADOR:** a casa da liga do ORGANIZADOR não consome pendências nesta rodada (os kinds 13 e 14 aparecem na home da organização, e a aba Solicitações já tem o badge próprio).
+5. **A ordem de merge dos dois escopos no torneio** pressupõe que só um deles tenha item (o outro volta vazio) — verdade pela guarda de escopo do servidor, anotado no código.
+
+### Round 2 da galeria (2 cartões NOVOS, só na galeria — RUL-0033)
+
+`settings/components/[component].tsx` ganhou o **Alerta 16** e o **Alerta 17**, marcados PROPOSTA (nada entra em tela sem o usuário marcar):
+
+- **Alerta 16 · PROPOSTA · Organização: cobranças em atraso** (origem: memberships `payment_due`/`suspended` nas ligas PAGAS da organização — o MESMO dado do KPI "Em atraso", `convex/functions/payment/dashboard.ts:96-116`). Duas agregações, numeradas: **Opção 1 por liga** (title `Cobranças em atraso`; linha `**2 cobranças** vencidas na Liga do Parque.`; CTA `Ver`) e **Opção 2 pela organização** (mesmo title; linha `**3 cobranças** vencidas nas suas ligas.`; CTA `Ver`). Destaque na EXPRESSÃO número + objeto, warning, um destaque por linha. **O que o contrato precisa mandar:** kind novo (`organization_league_charges_overdue` na opção 1 — `source {type:"league", id}`, `params {leagueId}`, `count` e `moneyCents` da soma da liga; ou `organization_charges_overdue` na opção 2, sem params), `deadlineAt` do vencimento mais antigo e o destino do `Ver`. **Apontado: NÃO existe tela hoje** que liste cobranças/membros em atraso do organizador (as abas da liga são Overview/Ranking/Desafios/Solicitações e a aba Solicitações só lista pedidos de entrada) — sem destino, o item nasceria sem CTA (como o Alerta 14) ou precisaria de uma tela nova.
+- **Alerta 17 · PROPOSTA · Jogador: PIX pendente ou vencido** (origem: membership em `awaiting_payment` e `paymentCharge` PENDING × EXPIRED). Três blocos: **Pendente** (warning; `PIX aguardando pagamento`; `Pague até **12 de set. de 2026** para garantir sua vaga.`; `Pagar`), **Vencido** (warning; `PIX vencido`; `O PIX de **R$ 40,00** venceu sem pagamento.`; `Pagar`) e **Vencido com a vaga liberada** (danger; `O prazo terminou e sua vaga foi liberada.`; `Renovar`). **O que o contrato precisa mandar:** kind novo de escopo player (ex.: `player_payment_charge_open` / `player_payment_charge_expired`), `source {type:"payment_charge", id}` com `sourceId`/`sourceType` da cobrança e `action: open_route|pay_*` para o CTA, `deadlineAt` = expiração do PIX, `moneyCents` = valor da cobrança e a REGRA de severidade (warning pendente/vencido reservado; danger quando a vaga foi liberada). É o buraco declarado da v1: o estado `awaiting_payment` não gera item hoje.
+- Os cartões 1 a 3 da galeria perderam o builder extinto: a copy real agora é literal com o file:line do SERVIDOR (`convex/domains/payment/pendings-rules.ts:104`, `:121` e `:157-171`), mantida a ressalva de que no alerta de TELA o CTA do suspenso é o do rodapé de entrada.
+
+### Verificação desta etapa
+
+`bunx ultracite check src` limpo (271 arquivos), `bunx tsc --noEmit` sem erro em `src/` (os 3 erros restantes são testes de `convex/domains/**` do Backend, em voo), `bun test src` **537/537** verdes, `git diff --check` limpo. WIP do usuário (`ui/widget-alert.tsx`, `ui/kpi-card.tsx`) intocado — nenhum dos dois aparece no diff desta etapa, e o md5 do `widget-alert.tsx` (`f45754f1df988ce5d8ecbbbd487d11ee`) é o MESMO dos snapshots do r5/r6 da galeria. Snapshot da etapa: `/tmp/IBX-0076-etapa2-snap/` (estado PÓS-edição em `pos/` + a versão do HEAD em `head/`, que vale como "antes" dos arquivos que estavam limpos; o "antes" dos que já carregavam mudanças das rodadas anteriores — BUG-0042 e galeria — está nos snapshots dessas rodadas e no `git diff`; ver o README de lá). SEM COMMIT. Sem verificação visual em device/simulador (RUL-0025): o encaixe dos alertas nas 5 telas é o ponto a conferir no dedo.
+
+### Fechamento do re-veredito (20-09-2026, mesma etapa)
+
+- **H1 (HIGH, regressão de cobertura) — FECHADO.** Kind 4 com UMA inscrição aguardando pagamento não tem `params` nem `route` (o torneio vive só no `source`) e o recorte da casa do torneio devolvia 0 itens: a casa mostrava o alerta antes do cutover (HEAD: `pages/tournaments/player-overview.tsx:109`) e ficou muda depois. `resolvePendingsForTournament` (`src/lib/pendings/pendings-view.ts:134-139`) passou a casar pelos `params.tournamentId` **ou** pelo `source` (`source.type === "tournament"` → `source.id`), com comentário do invariante (o contrato garante que o único kind de escopo player com source de torneio é o 4). Prova: `bun test src/lib/pendings/pendings-action-parity.test.ts` — com o filtro antigo (params-only) o teste "finds the single-entry payment item in the tournament house" FALHA (`+ []` em vez de `["player_tournament_entries_awaiting_payment"]`); com o fix passa.
+- **L1 (LOW) — FECHADO com teste cruzado do servidor.** `src/lib/pendings/pendings-action-parity.test.ts` constrói UM item REAL de cada um dos 14 kinds pelos BUILDERES DO SERVIDOR (`buildPlayerEntryPendings`, `buildMembershipPaymentPending`, `buildPlayerChallengePendingItem`, `buildLeagueInactivityPending`, `buildLeaguePaymentAccountPending`, `buildLeagueJoinRequestsPending`, `buildOrganizerChallengePendingItem`, `buildOrganizerEntryPendings`) e afirma: (a) são os 14 kinds; (b) todo item COM `actionLabel` resolve ação pelo `resolvePendingAction` do renderer (o invariante "nenhum item cai na omissão do botão" deixa de depender da soma de duas suítes); (c) item com `action: null` nunca vem com `actionLabel`; (d) o caso do H1 (kind 4 com 1 inscrição) é achado pelo recorte da casa do torneio e resolve `pay_entry`.
+- **M1 (MEDIUM) — FECHADO pela prop de callback.** Responder ao convite pelo alerta invalidava só `pendings.list` (o wiring antigo invalidava `tournament.discovery.getById`: `tournaments/[tournamentId]/index.tsx:75` e `entries.tsx`): o card da inscrição e os KPIs ficavam velhos e um segundo toque tendia a bater em erro do servidor. Agora `PendingAlerts` aceita `onActionPerformed` (chamada no sucesso do `respondPartnerInvite` e do `createCharge`) e quem conhece a entidade passa a invalidação: a casa do torneio (`invalidateTournamentContext`) e a casa da liga (`invalidateLeagueContext`) via props `onPendingActionPerformed` nos quatro overviews; as duas homes não passam nada (não há contexto de entidade a invalidar) e o renderer NÃO invalida namespace global por padrão.
+
+### Fechamento do achado do Backend (open_route sem os params do item, 20-09-2026)
+
+- **Achado (mesma classe do H1 — navegação sem o parâmetro):** o ramo `open_route` do `resolvePendingAction` usava `params: action.params ?? {}`. Como no `open_route` o `action.params` é SEMPRE nulo (invariante do contrato: o destino é o par do ITEM), a navegação saía com `{}` e os CTAs de navegação dos kinds 8, 10, 11, 12 e 13 abriam as rotas com placeholder (`/leagues/[leagueId]/challenges`, `/tournaments/[tournamentId]/entries`, `/settings/leagues/[mode]/settings`, `/leagues/[leagueId]/requests`) **sem o id da entidade**.
+- **Fix (`src/lib/pendings/pendings-view.ts:61-78`):** o resolver passou a receber o **ITEM** e a montar os params como merge `item.params` + `action.params` (a ação vence quando tiver params). Continua genérico, por TIPO de ação, sem mapa kind → destino e sem hardcode por kind; o JSDoc passou a afirmar exatamente isso.
+- **Prova (`src/lib/pendings/pendings-action-parity.test.ts`):** (a) para TODO item de `open_route`, cada placeholder do `route` tem valor nos params da navegação; (b) tabela explícita dos 5 kinds de navegação — 8 → `{leagueId}`, 10 → `{leagueId, mode: "edit"}`, 11 e 12 → `{initialTab: "pending", tournamentId}`, 13 → `{leagueId}` — mais o kind 4 agregado (2+ inscrições) → `{tournamentId}`; (c) nenhuma ação de MUTAÇÃO vira navegação; (d) kind 4 com UMA inscrição segue `pay_entry`. Com o `params: action.params ?? {}` de volta, os três primeiros testes FALHAM (5 pass / 3 fail); com o fix, 18/18 verdes.
+
+### Fechamento do HIGH do `Recusar` (20-09-2026)
+
+- **Bug (verificação final):** o kind 5 tem DUAS ações (Aceitar primária, Recusar secundária) e o renderer resolvia só a PRIMÁRIA e passava o MESMO `onPress` para os dois botões — como o `accept` vinha do tipo da ação primária (`accept_partner_invite` → `true`), tocar em **Recusar ACEITAVA o convite** (dupla fechada, toast "Convite aceito"). A spec do contrato (`docs/spec/pendings.md`, ação executável) sempre declarou o certo: o `secondaryAction` é `decline_partner_invite` com `accept: false`.
+- **Fix (`src/components/ui/pending-alerts.tsx`):** cada CTA resolve a SUA ação — `primary = resolvePendingAction(item)` e `secondary = resolvePendingAction({ ...item, action: item.secondaryAction })` — e cada um ganhou o SEU `onPress` (um `runAction(resolution)` compartilhado, sem tratar `respond_invite` por rótulo nem mapa por kind) e o SEU `isDisabled` pela mutation em voo (`isInFlight(resolution)`). Botão cujo `action` não resolve não é desenhado (mesma regra defensiva do principal), e o `secondaryActionLabel` entrou na asserção de paridade.
+- **Prova (testes):** `src/components/ui/pending-alerts.test.tsx` (novo) monta o renderer com o framework stubado no boundary e aperta cada botão do item REAL do kind 5: **Aceitar manda `{accept: true, entryId}` e Recusar manda `{accept: false, entryId}`** (com a versão bugada o teste FALHA com `- "accept": false, + "accept": true`, provando que pega o bug); o CTA de navegação (kind 8) roteia com `{leagueId}` e não cria cobrança; os DOIS botões ficam `isDisabled` com a mutation do convite em voo e nenhum desabilita com a de cobrança em voo. No arquivo de paridade, além da asserção estendida ao secundário (com prova negativa), dois testes travam o padrão: o secundário do convite resolve `accept: false` e nenhum item resolve o secundário com a ação do primário.
