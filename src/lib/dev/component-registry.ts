@@ -25,7 +25,7 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
   },
   {
     description: "Rodapé flutuante de inscrição para aprovação",
-    id: "registration-footer",
+    id: "join-footer",
     title: "Inscrição",
   },
 ];

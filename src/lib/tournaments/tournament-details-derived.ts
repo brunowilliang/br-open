@@ -111,14 +111,6 @@ export function buildBracketPlaceholder(input: {
   return `Chave disponível a partir de ${formatted}, quando o torneio começar.`;
 }
 
-export function formatEntryFeeLabel(entryFeeCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    currency: "BRL",
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(entryFeeCents / 100);
-}
-
 export type TournamentEntryStatusChip = {
   color: "accent" | "danger" | "default" | "success" | "warning";
   label: string;

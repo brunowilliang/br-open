@@ -3,14 +3,15 @@ import { useLocalSearchParams } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
-  RegistrationFooter,
-  type RegistrationFooterCategory,
-} from "@/components/ui/registration-footer";
+  JoinFooter,
+  type JoinFooterCategory,
+  type JoinFooterPartnerOption,
+} from "@/components/ui/join-footer";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
 import { formatCurrencyCents } from "@/lib/format/currency";
 
@@ -153,7 +154,15 @@ function TextVariantsSection() {
  * rodapé é absoluto (Page.Footer): cada caixa h-28 ancora a instância no
  * próprio pai (RUL-0008). O CTA não tem ação aqui: o wiring é da página.
  */
-function RegistrationFooterVariantsSection() {
+const galleryPartnerOptions: JoinFooterPartnerOption[] = [
+  { fullName: "Gustavo Lima", username: "gustavo.lima" },
+  { fullName: "Marina Costa", username: "marina.costa" },
+  { fullName: "Pedro Almeida", username: "pedro.almeida" },
+  { fullName: "Rafael Souza", username: "rafa.souza" },
+  { fullName: "Camila Ferraz", username: "camila.ferraz" },
+];
+
+function JoinFooterVariantsSection() {
   const tournamentCategories = [
     {
       displayName: "Masculino",
@@ -176,17 +185,18 @@ function RegistrationFooterVariantsSection() {
       modality: "singles",
       priceLabel: formatCurrencyCents(4000),
     },
-  ] satisfies RegistrationFooterCategory[];
+  ] satisfies JoinFooterCategory[];
 
   return (
     <View className="flex-1 justify-end gap-6">
       <VariantSection title="Inscrição 1 · liga (clique direto)">
         <View className="h-28">
-          <RegistrationFooter
+          <JoinFooter
             actionLabel="Solicitar entrada"
             availabilityLabel="3 vagas disponíveis"
             price={{
               amount: formatCurrencyCents(4000),
+              prefix: "a partir de",
               suffix: "/mês",
             }}
             title="Preço"
@@ -196,11 +206,15 @@ function RegistrationFooterVariantsSection() {
 
       <VariantSection title="Inscrição 2 · torneio (abre o painel)">
         <View className="h-28">
-          <RegistrationFooter
+          <JoinFooter
             actionLabel="Pagar R$ 40,00"
             categories={tournamentCategories}
             description="Escolha a categoria e confirme sua inscrição."
-            price={{ amount: formatCurrencyCents(4000) }}
+            partnerOptions={galleryPartnerOptions}
+            price={{
+              amount: formatCurrencyCents(4000),
+              prefix: "a partir de",
+            }}
             title="Inscreva-se"
           />
         </View>
@@ -208,11 +222,12 @@ function RegistrationFooterVariantsSection() {
 
       <VariantSection title="Inscrição 3 · lotada (desabilitada)">
         <View className="h-28">
-          <RegistrationFooter
+          <JoinFooter
             actionLabel="Solicitar entrada"
             isActionDisabled
             price={{
               amount: formatCurrencyCents(4000),
+              prefix: "a partir de",
               suffix: "/mês",
             }}
             title="Preço"
@@ -260,8 +275,8 @@ export default function ComponentVariantsRoute() {
             <KpiVariantsSection />
           ) : entry.id === "text" ? (
             <TextVariantsSection />
-          ) : entry.id === "registration-footer" ? (
-            <RegistrationFooterVariantsSection />
+          ) : entry.id === "join-footer" ? (
+            <JoinFooterVariantsSection />
           ) : null
         ) : (
           <EmptyState

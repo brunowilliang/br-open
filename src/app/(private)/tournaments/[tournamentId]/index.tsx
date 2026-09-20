@@ -1,6 +1,5 @@
+import type { TournamentPlayerCard } from "@convex/domains/tournament/contract";
 import type { ApiOutputs } from "@convex/shared/api";
-import { useValue } from "@legendapp/state/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar03Icon,
   Cancel01Icon,
@@ -12,18 +11,12 @@ import {
   UserMultipleIcon,
   VolleyballIcon,
 } from "@hugeicons/core-free-icons";
+import { useValue } from "@legendapp/state/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Button,
-  Card,
-  Chip,
-  Dialog,
-  Menu,
-  Surface,
-  useToast,
-} from "heroui-native";
-import { useState } from "react";
+import { Button, Chip, Dialog, Menu, Surface, useToast } from "heroui-native";
+import { useEffect, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import Animated, {
   Extrapolation,
@@ -33,18 +26,23 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
-import { usePageContext } from "@/components/core/NewPage/context";
+import { Page } from "@/components/core/page";
+import { usePageContext } from "@/components/core/page/context";
 import { Text } from "@/components/core/text";
 import { GuestOverview } from "@/components/pages/tournaments/guest-overview";
 import { OrganizerOverview } from "@/components/pages/tournaments/organizer-overview";
 import { PlayerOverview } from "@/components/pages/tournaments/player-overview";
-import { TournamentJoinSheet } from "@/components/pages/tournaments/tournament-join-sheet";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import {
+  JoinFooter,
+  type JoinFooterCategory,
+  type JoinFooterPartnerOption,
+} from "@/components/ui/join-footer";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
+import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatLeagueMeta } from "@/lib/leagues/presentation";
 import {
@@ -53,7 +51,6 @@ import {
   buildTournamentActiveEntriesCountByCategory,
   buildTournamentCategoryVacancy,
   buildTournamentJoinOptions,
-  formatEntryFeeLabel,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
@@ -129,9 +126,72 @@ export default function TournamentOverviewRoute() {
     },
   });
 
+  // Inscrição pelo rodapé (JoinFooter): mesma sequência do extinto
+  // TournamentJoinSheet — create → (awaiting_payment) charge → checkout.
+  const createEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.create.mutate,
+    mutationKey: crpc.tournament.entries.create.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível entrar no torneio. Tente novamente."
+        ),
+        id: "tournament-join-error",
+        label: "Falha na inscrição",
+        variant: "danger",
+      });
+    },
+    onSuccess: async (entry, variables) => {
+      if (entry.status === "awaiting_payment") {
+        // A navegação pro checkout é o onSuccess do createCharge.
+        await createCharge.mutateAsync({
+          sourceId: entry.id,
+          sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+        });
+        return;
+      }
+
+      toast.show({
+        description:
+          entry.status === "pending_partner"
+            ? variables.partnerUsername
+              ? `Convite enviado para @${variables.partnerUsername}. Ele precisa aceitar para fechar a dupla.`
+              : "Convite enviado. Ele precisa aceitar para fechar a dupla."
+            : entry.status === "pending_approval"
+              ? "Sua inscrição aguarda aprovação da organização."
+              : "Você está inscrito no torneio!",
+        id: "tournament-join-success",
+        label: "Inscrição enviada",
+        variant: "success",
+      });
+    },
+  });
+
+  // Busca viva do parceiro de duplas: debounce 500ms +
+  // players.searchByUsername — contrato r18-A devolve LISTA alfabética
+  // (≤10, [] = ninguém) por prefixo; r25 resolve o gênero no servidor a
+  // partir da categoria (o cliente nunca manda gender); r26 alimenta a
+  // categoria com a seleção em tempo real do painel (onCategoryChange).
+  const [partnerSearch, setPartnerSearch] = useState("");
+  const [debouncedPartnerSearch, setDebouncedPartnerSearch] = useState("");
+  // Categoria escolhida no painel do JoinFooter, em tempo real (r26): alimenta
+  // a busca de parceiro. Estado da TELA; o painel continua dono da seleção.
+  const [selectedCategoryId, setSelectedCategoryId] = useState<null | string>(
+    null
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setDebouncedPartnerSearch(partnerSearch.trim().toLowerCase()),
+      500
+    );
+
+    return () => clearTimeout(timer);
+  }, [partnerSearch]);
+
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
-  const [isJoinSheetOpen, setIsJoinSheetOpen] = useState(false);
   const [cancelEntryTarget, setCancelEntryTarget] = useState<null | {
     categoryName: string;
     entryId: string;
@@ -271,7 +331,9 @@ export default function TournamentOverviewRoute() {
             displayName: category.displayName,
             entryFeeCents: category.entryFeeCents,
             id: category.id,
+            ineligibleReason: category.viewerIneligibleReason,
             isFull: vacancy.isFull,
+            isIneligible: category.viewerEligible === false,
             modality: category.modality,
             vacancyLabel: vacancy.label,
           };
@@ -292,6 +354,75 @@ export default function TournamentOverviewRoute() {
       : 0;
   const hasActiveEntry =
     role === "player" && (tournament?.viewerEntryIds.length ?? 0) > 0;
+
+  // r26: a busca de parceiro usa a CATEGORIA SELECIONADA no painel do
+  // JoinFooter (onCategoryChange); sem categoria — ou numa singles — a busca
+  // segue desabilitada. O servidor resolve o gênero pela categoria (contrato
+  // r25); o cliente nunca manda gender.
+  const selectedJoinCategory = joinableCategories.find(
+    (category) => category.id === selectedCategoryId
+  );
+
+  const partnerQuery = useQuery({
+    ...crpc.tournament.players.searchByUsername.staticQueryOptions({
+      categoryId: selectedCategoryId ?? "",
+      username: debouncedPartnerSearch,
+    }),
+    enabled:
+      selectedJoinCategory?.modality === "doubles" &&
+      debouncedPartnerSearch.length >= 3 &&
+      debouncedPartnerSearch.length <= 30,
+    staleTime: 15_000,
+  });
+
+  // r30: busca de parceiro EM ANDAMENTO — janela do debounce (o termo cru já
+  // mudou e o debounced ainda não acompanhou) OU fetch da query (`isFetching`
+  // cobre o primeiro disparo e o refetch). O rodapé troca o Empty pelo
+  // LoadingState com isso; "Nenhum jogador encontrado." fica pra resolvida.
+  const isPartnerSearchPending =
+    partnerQuery.isFetching ||
+    debouncedPartnerSearch !== partnerSearch.trim().toLowerCase();
+
+  const partnerCards = (
+    Array.isArray(partnerQuery.data) ? partnerQuery.data : []
+  ) as TournamentPlayerCard[];
+  const partnerOptions: JoinFooterPartnerOption[] = partnerCards.map(
+    (card) => ({
+      avatarUrl: card.avatarUrl,
+      fullName: card.fullName ?? card.nickname ?? `@${card.username ?? ""}`,
+      username: card.username ?? "",
+    })
+  );
+
+  // Rodapé de inscrição (JoinFooter): categorias com labels prontos e o
+  // CTA do painel no vocabulário do extinto sheet ("Inscrever e pagar" com
+  // taxa, "Confirmar inscrição" grátis; categoria mista = neutro).
+  // r27 (contrato de discovery): a elegibilidade do ator desce como veio —
+  // `viewerEligible === false` vira linha DESABILITADA com o motivo do
+  // servidor (`viewerIneligibleReason`); nenhuma regra de gênero é
+  // recalculada aqui e nenhuma categoria é escondida.
+  const joinFooterCategories: JoinFooterCategory[] = joinableCategories.map(
+    (category) => ({
+      displayName: category.displayName,
+      id: category.id,
+      ineligibleReason: category.ineligibleReason,
+      isFull: category.isFull,
+      isIneligible: category.isIneligible,
+      modality: category.modality,
+      priceLabel:
+        category.entryFeeCents > 0
+          ? formatCurrencyCents(category.entryFeeCents)
+          : "Grátis",
+      vacancyLabel: category.vacancyLabel,
+    })
+  );
+  const joinConfirmLabel = joinableCategories.every(
+    (category) => category.entryFeeCents === 0
+  )
+    ? "Confirmar inscrição"
+    : joinableCategories.every((category) => category.entryFeeCents > 0)
+      ? "Inscrever e pagar"
+      : "Inscrever-se";
   // Avisos do diálogo de Iniciar (só o organizador, em `drawn`): convites
   // sem resposta e vagas em aberto que recusam o início no servidor.
   const startWarnings =
@@ -458,49 +589,53 @@ export default function TournamentOverviewRoute() {
         )}
       </Page.ScrollView>
 
-      {/* Rodapé fixo de inscrição (molde league-join-footer): respeita prazo
-          e estados abertas/encerradas — só existe com a janela aberta e
-          categoria com vaga; a escolha acontece no BottomSheet existente. */}
+      {/* Rodapé fixo de inscrição = JoinFooter (molde unificado liga+torneio,
+          IBX-0074): respeita prazo e estados — só existe com a janela aberta
+          e categoria com vaga; o painel expande com seletor de categoria e
+          parceiro de duplas (busca viva); a confirmação é o wiring da página
+          (create → charge → checkout). */}
       {!showStatusState &&
       role !== "organizer" &&
       registrationState?.open &&
       joinableCategories.length > 0 ? (
-        <Page.Footer className="flex-col px-8 pb-safe-offset-3">
-          <Card
-            className="centered flex-1 flex-row justify-between"
-            variant="tertiary"
-          >
-            <View className="min-w-0 flex-1 pr-2">
-              <Text weight="medium">Inscreva-se</Text>
-              <View className="flex-row items-baseline gap-1">
-                <Text size="xl" weight="medium">
-                  {minFeeCents > 0
-                    ? `a partir de ${formatEntryFeeLabel(minFeeCents)}`
-                    : "Grátis"}
-                </Text>
-                {minFeeCents > 0 ? (
-                  <Text color="muted" size="sm" weight="medium">
-                    por jogador
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <Button onPress={() => setIsJoinSheetOpen(true)} size="sm">
-              <Button.Label>
-                {hasActiveEntry
-                  ? "Inscrever-se em outra categoria"
-                  : "Inscrever-se"}
-              </Button.Label>
-            </Button>
-          </Card>
-        </Page.Footer>
+        <JoinFooter
+          actionLabel={
+            hasActiveEntry ? "Inscrever em outra categoria" : "Inscrever-se"
+          }
+          categories={joinFooterCategories}
+          confirmLabel={
+            createEntry.isPending ? "Enviando..." : joinConfirmLabel
+          }
+          description="Selecione a sua categoria"
+          footerClassName="pb-floating-tab-bar-4"
+          isActionPending={createEntry.isPending}
+          isPartnerSearchPending={isPartnerSearchPending}
+          onAction={(selection) => {
+            if (!selection.categoryId) {
+              return;
+            }
+            createEntry.mutate({
+              categoryId: selection.categoryId,
+              ...(selection.partnerUsername
+                ? { partnerUsername: selection.partnerUsername }
+                : {}),
+            });
+          }}
+          onCategoryChange={setSelectedCategoryId}
+          onSearchPartner={setPartnerSearch}
+          partnerOptions={partnerOptions}
+          price={
+            minFeeCents > 0
+              ? {
+                  amount: formatCurrencyCents(minFeeCents),
+                  prefix: "a partir de",
+                  suffix: "/jogador",
+                }
+              : { amount: "Grátis" }
+          }
+          title="Inscreva-se"
+        />
       ) : null}
-      <TournamentJoinSheet
-        categories={joinableCategories}
-        isOpen={isJoinSheetOpen}
-        onOpenChange={setIsJoinSheetOpen}
-        tournamentId={tournamentId}
-      />
 
       <Dialog isOpen={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <Dialog.Portal>

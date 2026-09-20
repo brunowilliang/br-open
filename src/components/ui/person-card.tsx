@@ -7,6 +7,8 @@ import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
 
 type PersonCardProps = {
+  /** Avatar do jogador (URL); sem ela fica o placeholder do fallback. */
+  avatarUrl?: null | string;
   children?: ReactNode;
   /** Nome do jogador. Sem nome/username, o card entra no estado vazio. */
   fullName?: string;
@@ -16,7 +18,7 @@ type PersonCardProps = {
 
 /**
  * Cardzinho de pessoa (IBX-0074 round 11): foto + nome + @username,
- * extraído VERBATIM do registration-footer (trigger do autocomplete e
+ * extraído VERBATIM do join-footer (trigger do autocomplete e
  * rows do diálogo, rounds 6-10). Sem nome/username = estado vazio com
  * placeholders no lugar dos dados (desenho do usuário sobre a extração).
  */
@@ -25,7 +27,7 @@ export function PersonCard(props: PersonCardProps) {
     return (
       <Card
         className={cn(
-          "flex-row items-center gap-3",
+          "flex-row items-center gap-3 p-3",
           props.isSelected && "bg-accent-soft"
         )}
       >
@@ -46,11 +48,15 @@ export function PersonCard(props: PersonCardProps) {
   return (
     <Card
       className={cn(
-        "flex-row items-center gap-3",
+        "flex-row items-center gap-3 p-3",
         props.isSelected && "bg-accent-soft"
       )}
     >
-      <Image className="size-10 rounded-full" fallback="blue" />
+      <Image
+        className="size-10 rounded-full"
+        fallback="blue"
+        source={props.avatarUrl ? { uri: props.avatarUrl } : undefined}
+      />
       <View className="min-w-0 flex-1">
         <Text
           color={props.isSelected ? "accent" : "foreground"}
