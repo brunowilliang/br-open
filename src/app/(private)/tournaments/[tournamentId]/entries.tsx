@@ -140,11 +140,14 @@ export default function TournamentEntriesRoute() {
     () => entries.filter((entry) => entry.status === "active"),
     [entries]
   );
+  // PLN-0007 (decisão 1): pendências são superfície do ORGANIZADOR — o
+  // jogador nunca vê pendência (nem a própria: convite/pagamento ficam na
+  // overview, com ação, na página única).
   const [activeTab, setActiveTab] = useState<"confirmed" | "pending">(
-    initialTab === "pending" ? "pending" : "confirmed"
+    isOrganizer && initialTab === "pending" ? "pending" : "confirmed"
   );
   const visibleEntries =
-    activeTab === "pending" ? pendingEntries : confirmedEntries;
+    activeTab === "pending" && isOrganizer ? pendingEntries : confirmedEntries;
 
   function renderEntry(entryId: string) {
     const entry = entries.find((item) => item.id === entryId);
@@ -204,7 +207,7 @@ export default function TournamentEntriesRoute() {
             />
           )}
           <View className="min-w-0 flex-1 gap-0.5">
-            <Text className="text-base" numberOfLines={1} weight="semibold">
+            <Text numberOfLines={1} weight="semibold">
               {formatEntrySideLabel(entry)}
             </Text>
             <Text color="muted" numberOfLines={1} variant="description">
@@ -297,24 +300,26 @@ export default function TournamentEntriesRoute() {
             </Page.Header.Center>
             <Page.Header.Right />
           </View>
-          <Tabs
-            onValueChange={(value) => {
-              setActiveTab(value as typeof activeTab);
-            }}
-            value={activeTab}
-          >
-            <Tabs.List>
-              <Tabs.ScrollView>
-                <Tabs.Indicator />
-                <Tabs.Trigger value="confirmed">
-                  <Tabs.Label>Confirmados</Tabs.Label>
-                </Tabs.Trigger>
-                <Tabs.Trigger value="pending">
-                  <Tabs.Label>Pendências</Tabs.Label>
-                </Tabs.Trigger>
-              </Tabs.ScrollView>
-            </Tabs.List>
-          </Tabs>
+          {isOrganizer ? (
+            <Tabs
+              onValueChange={(value) => {
+                setActiveTab(value as typeof activeTab);
+              }}
+              value={activeTab}
+            >
+              <Tabs.List>
+                <Tabs.ScrollView>
+                  <Tabs.Indicator />
+                  <Tabs.Trigger value="confirmed">
+                    <Tabs.Label>Confirmados</Tabs.Label>
+                  </Tabs.Trigger>
+                  <Tabs.Trigger value="pending">
+                    <Tabs.Label>Pendências</Tabs.Label>
+                  </Tabs.Trigger>
+                </Tabs.ScrollView>
+              </Tabs.List>
+            </Tabs>
+          ) : null}
         </View>
       </Page.Header>
 

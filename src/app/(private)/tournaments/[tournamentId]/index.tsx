@@ -9,15 +9,18 @@ import {
   Location06Icon,
   MoreVerticalIcon,
   PlayIcon,
+  UserMultipleIcon,
+  VolleyballIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
+  Card,
   Chip,
-  Description,
   Dialog,
   Menu,
+  Surface,
   useToast,
 } from "heroui-native";
 import { useState } from "react";
@@ -36,7 +39,7 @@ import { Text } from "@/components/core/text";
 import { GuestOverview } from "@/components/pages/tournaments/guest-overview";
 import { OrganizerOverview } from "@/components/pages/tournaments/organizer-overview";
 import { PlayerOverview } from "@/components/pages/tournaments/player-overview";
-import { TournamentJoinFooter } from "@/components/pages/tournaments/tournament-join-footer";
+import { TournamentJoinSheet } from "@/components/pages/tournaments/tournament-join-sheet";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -44,7 +47,14 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatLeagueMeta } from "@/lib/leagues/presentation";
-import { formatEntryFeeLabel } from "@/lib/tournaments/tournament-details-derived";
+import {
+  buildRegistrationWindowState,
+  buildStartWarnings,
+  buildTournamentActiveEntriesCountByCategory,
+  buildTournamentCategoryVacancy,
+  buildTournamentJoinOptions,
+  formatEntryFeeLabel,
+} from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
@@ -61,6 +71,8 @@ export default function TournamentOverviewRoute() {
   const access = useValue(bucket$.derived.access);
   const role = useValue(bucket$.derived.role);
   const tournament = useValue(bucket$.data.tournament);
+  const entries = useValue(bucket$.data.entries);
+  const matches = useValue(bucket$.data.matches);
 
   async function invalidateTournamentContext() {
     await queryClient.invalidateQueries(
@@ -119,6 +131,11 @@ export default function TournamentOverviewRoute() {
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
+  const [isJoinSheetOpen, setIsJoinSheetOpen] = useState(false);
+  const [cancelEntryTarget, setCancelEntryTarget] = useState<null | {
+    categoryName: string;
+    entryId: string;
+  }>(null);
 
   const publishTournament = useMutation({
     mutationFn: crpcClient.tournament.management.publish.mutate,
@@ -172,6 +189,33 @@ export default function TournamentOverviewRoute() {
     },
   });
 
+  const cancelEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.cancel.mutate,
+    mutationKey: crpc.tournament.entries.cancel.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível cancelar a inscrição. Tente novamente."
+        ),
+        id: "cancel-entry-error",
+        label: "Falha ao cancelar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setCancelEntryTarget(null);
+      toast.show({
+        description:
+          "Inscrição cancelada. Se já estava paga, o estorno integral é automático.",
+        id: "cancel-entry-success",
+        label: "Inscrição cancelada",
+        variant: "success",
+      });
+    },
+  });
+
   const startTournament = useMutation({
     mutationFn: crpcClient.tournament.bracket.start.mutate,
     mutationKey: crpc.tournament.bracket.start.mutationKey(),
@@ -188,6 +232,7 @@ export default function TournamentOverviewRoute() {
     },
     onSuccess: async () => {
       await invalidateTournamentContext();
+      setIsStartDialogOpen(false);
       toast.show({
         description: "A chave está pública e o torneio em andamento.",
         id: "start-tournament-success",
@@ -202,6 +247,57 @@ export default function TournamentOverviewRoute() {
   const showStatusState = isError || isLoading;
   const isOrganizer = access?.canManage ?? false;
   const categories = tournament?.categories ?? [];
+  const joinOptions = buildTournamentJoinOptions({
+    categoryIds: categories.map((category) => category.id),
+    entries,
+    viewerEntryIds: tournament?.viewerEntryIds ?? [],
+  });
+  const activeEntriesCountByCategory =
+    buildTournamentActiveEntriesCountByCategory(entries);
+  // Categorias escolhíveis com vaga montada (molde do extinto rodapé-form):
+  // alimenta o bloco de inscrição e o sheet de categoria.
+  const joinableCategories = tournament
+    ? categories
+        .filter((category) =>
+          joinOptions.joinableCategoryIds.includes(category.id)
+        )
+        .map((category) => {
+          const vacancy = buildTournamentCategoryVacancy({
+            activeEntriesCount: activeEntriesCountByCategory[category.id] ?? 0,
+            maxEntries: category.maxEntries,
+          });
+
+          return {
+            displayName: category.displayName,
+            entryFeeCents: category.entryFeeCents,
+            id: category.id,
+            isFull: vacancy.isFull,
+            modality: category.modality,
+            vacancyLabel: vacancy.label,
+          };
+        })
+    : [];
+  const registrationState = tournament
+    ? buildRegistrationWindowState({
+        nowMs: Date.now(),
+        registrationDeadlineMs: tournament.registrationDeadlineAt,
+        status: tournament.status,
+      })
+    : null;
+  const minFeeCents =
+    joinableCategories.length > 0
+      ? Math.min(
+          ...joinableCategories.map((category) => category.entryFeeCents)
+        )
+      : 0;
+  const hasActiveEntry =
+    role === "player" && (tournament?.viewerEntryIds.length ?? 0) > 0;
+  // Avisos do diálogo de Iniciar (só o organizador, em `drawn`): convites
+  // sem resposta e vagas em aberto que recusam o início no servidor.
+  const startWarnings =
+    tournament && access?.canManage && tournament.status === "drawn"
+      ? buildStartWarnings({ entries, matches })
+      : [];
 
   return (
     <Page>
@@ -232,6 +328,19 @@ export default function TournamentOverviewRoute() {
                     <Menu.ItemTitle>Editar</Menu.ItemTitle>
                     <HugeIcons icon={Edit02Icon} />
                   </Menu.Item>
+                  {access?.canOpenBracket ? (
+                    <Menu.Item
+                      onPress={() => {
+                        router.navigate({
+                          params: { tournamentId },
+                          pathname: "/tournaments/[tournamentId]/bracket",
+                        });
+                      }}
+                    >
+                      <Menu.ItemTitle>Chave</Menu.ItemTitle>
+                      <HugeIcons icon={VolleyballIcon} />
+                    </Menu.Item>
+                  ) : null}
                   {access?.canOpenSchedule ? (
                     <Menu.Item
                       onPress={() => {
@@ -243,6 +352,19 @@ export default function TournamentOverviewRoute() {
                     >
                       <Menu.ItemTitle>Agenda</Menu.ItemTitle>
                       <HugeIcons icon={Calendar03Icon} />
+                    </Menu.Item>
+                  ) : null}
+                  {isOrganizer ? (
+                    <Menu.Item
+                      onPress={() => {
+                        router.navigate({
+                          params: { initialTab: "pending", tournamentId },
+                          pathname: "/tournaments/[tournamentId]/entries",
+                        });
+                      }}
+                    >
+                      <Menu.ItemTitle>Inscrições</Menu.ItemTitle>
+                      <HugeIcons icon={UserMultipleIcon} />
                     </Menu.Item>
                   ) : null}
                   <Menu.Item
@@ -310,28 +432,14 @@ export default function TournamentOverviewRoute() {
           <>
             <TournamentBanner tournament={tournament} />
             <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
-              <View className="gap-2">
-                <View className="flex-row flex-wrap gap-2">
-                  {categories.map((category) => (
-                    <Chip key={category.id} size="sm" variant="soft">
-                      {`${category.displayName} · ${
-                        category.entryFeeCents > 0
-                          ? formatEntryFeeLabel(category.entryFeeCents)
-                          : "Grátis"
-                      }`}
-                    </Chip>
-                  ))}
-                </View>
-                <Text className="text-muted" size="sm">
-                  {`Início ${formatDate(tournament.startDate)} · inscrições até ${formatDate(tournament.registrationDeadlineAt)} · ${formatCount(tournament.activeEntryCount)}`}
-                </Text>
-              </View>
-
               {role === "organizer" && (
                 <OrganizerOverview tournamentId={tournamentId} />
               )}
               {role === "player" && (
                 <PlayerOverview
+                  onCancelEntry={(categoryName, entryId) => {
+                    setCancelEntryTarget({ categoryName, entryId });
+                  }}
                   onPayEntry={(entryId) => {
                     createCharge.mutate({
                       sourceId: entryId,
@@ -350,21 +458,49 @@ export default function TournamentOverviewRoute() {
         )}
       </Page.ScrollView>
 
-      {role === "guest" &&
-      tournament &&
-      tournament.status === "published" &&
-      categories.length > 0 ? (
-        <TournamentJoinFooter
-          categories={categories.map((category) => ({
-            displayName: category.displayName,
-            entryFeeCents: category.entryFeeCents,
-            id: category.id,
-            maxEntries: category.maxEntries,
-            modality: category.modality,
-          }))}
-          tournamentId={tournamentId}
-        />
+      {/* Rodapé fixo de inscrição (molde league-join-footer): respeita prazo
+          e estados abertas/encerradas — só existe com a janela aberta e
+          categoria com vaga; a escolha acontece no BottomSheet existente. */}
+      {!showStatusState &&
+      role !== "organizer" &&
+      registrationState?.open &&
+      joinableCategories.length > 0 ? (
+        <Page.Footer className="flex-col px-8 pb-safe-offset-3">
+          <Card
+            className="centered flex-1 flex-row justify-between"
+            variant="tertiary"
+          >
+            <View className="min-w-0 flex-1 pr-2">
+              <Text weight="medium">Inscreva-se</Text>
+              <View className="flex-row items-baseline gap-1">
+                <Text size="xl" weight="medium">
+                  {minFeeCents > 0
+                    ? `a partir de ${formatEntryFeeLabel(minFeeCents)}`
+                    : "Grátis"}
+                </Text>
+                {minFeeCents > 0 ? (
+                  <Text color="muted" size="sm" weight="medium">
+                    por jogador
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            <Button onPress={() => setIsJoinSheetOpen(true)} size="sm">
+              <Button.Label>
+                {hasActiveEntry
+                  ? "Inscrever-se em outra categoria"
+                  : "Inscrever-se"}
+              </Button.Label>
+            </Button>
+          </Card>
+        </Page.Footer>
       ) : null}
+      <TournamentJoinSheet
+        categories={joinableCategories}
+        isOpen={isJoinSheetOpen}
+        onOpenChange={setIsJoinSheetOpen}
+        tournamentId={tournamentId}
+      />
 
       <Dialog isOpen={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <Dialog.Portal>
@@ -372,10 +508,10 @@ export default function TournamentOverviewRoute() {
           <Dialog.Content className="gap-4 p-5">
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Cancelar torneio</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               Todas as inscrições serão canceladas. Inscrições pagas serão
               estornadas automaticamente pelo valor integral.
-            </Description>
+            </Text>
             <View className="flex-row gap-2 self-end">
               <Button
                 onPress={() => {
@@ -401,16 +537,68 @@ export default function TournamentOverviewRoute() {
         </Dialog.Portal>
       </Dialog>
 
+      <Dialog
+        isOpen={cancelEntryTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelEntryTarget(null);
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className="gap-4 p-5">
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
+            <Dialog.Title>Cancelar inscrição</Dialog.Title>
+            <Text color="muted" variant="description">
+              {`Sua inscrição em ${cancelEntryTarget?.categoryName ?? ""} será cancelada. Em duplas, a saída vale para os dois jogadores. Inscrição paga recebe estorno integral.`}
+            </Text>
+            <View className="flex-row gap-2 self-end">
+              <Button
+                onPress={() => {
+                  setCancelEntryTarget(null);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                <Button.Label>Voltar</Button.Label>
+              </Button>
+              <Button
+                isDisabled={cancelEntry.isPending}
+                onPress={() => {
+                  if (cancelEntryTarget) {
+                    cancelEntry.mutate({
+                      entryId: cancelEntryTarget.entryId,
+                    });
+                  }
+                }}
+                size="sm"
+                variant="danger-soft"
+              >
+                <Button.Label>Cancelar inscrição</Button.Label>
+              </Button>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+
       <Dialog isOpen={isStartDialogOpen} onOpenChange={setIsStartDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay />
           <Dialog.Content className="gap-4 p-5">
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Iniciar torneio?</Dialog.Title>
-            <Description>
+            <Text color="muted" variant="description">
               A chave será publicada e não poderá mais ser alterada. O torneio
               começa.
-            </Description>
+            </Text>
+            {startWarnings.map((warning) => (
+              <Surface className="bg-warning-soft px-4 py-2" key={warning}>
+                <Text color="warning" variant="description">
+                  {warning}
+                </Text>
+              </Surface>
+            ))}
             <View className="flex-row gap-2 self-end">
               <Button
                 onPress={() => {
@@ -538,17 +726,4 @@ function TournamentBanner(props: {
       </View>
     </>
   );
-}
-
-function formatDate(ms: number) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(ms));
-}
-
-function formatCount(count: number) {
-  return count === 1
-    ? "1 inscrição confirmada"
-    : `${count} inscrições confirmadas`;
 }
