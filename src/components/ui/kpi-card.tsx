@@ -1,7 +1,6 @@
 import type { HugeiconsProps } from "@hugeicons/react-native";
 import { cn } from "better-styled";
-import { Description, Skeleton } from "heroui-native";
-import { Card } from "heroui-native";
+import { Card, Skeleton } from "heroui-native";
 import { useState } from "react";
 import { View } from "react-native";
 
@@ -23,17 +22,9 @@ type KpiCardProps = {
   /** Mostra skeleton no lugar do valor enquanto a query carrega. */
   isLoading?: boolean;
   label: string;
-  /** Tamanho do valor: `sm` = xl (padrão), `md` = 2xl, `lg` = 3xl. */
-  size?: "sm" | "md" | "lg";
   tint?: "danger" | "default" | "warning";
   value: string;
 };
-
-const VALUE_SIZE = {
-  lg: "3xl",
-  md: "2xl",
-  sm: "xl",
-} as const;
 
 export function KpiCard(props: KpiCardProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -51,9 +42,14 @@ export function KpiCard(props: KpiCardProps) {
               icon={props.icon}
             />
           ) : null}
-          <Description className="flex-1" numberOfLines={1}>
+          <Text
+            className="flex-1"
+            color={props.tint === "danger" ? "danger" : "muted"}
+            variant="description"
+            weight="medium"
+          >
             {props.label}
-          </Description>
+          </Text>
           {props.info ? (
             <InfoTrigger
               onPress={() => {
@@ -69,14 +65,20 @@ export function KpiCard(props: KpiCardProps) {
         ) : (
           <Text
             color={props.tint === "danger" ? "danger" : undefined}
-            size={VALUE_SIZE[props.size ?? "sm"]}
+            size="base"
             weight="semibold"
           >
             {props.value}
           </Text>
         )}
         {props.description ? (
-          <Description numberOfLines={2}>{props.description}</Description>
+          <Text
+            color={props.tint === "danger" ? "danger" : "muted"}
+            variant="description"
+            weight="normal"
+          >
+            {props.description}
+          </Text>
         ) : null}
       </Card>
 
