@@ -77,6 +77,14 @@ export const tournamentCategory = convexTable(
 export const tournamentEntry = convexTable(
   "tournamentEntry",
   {
+    // IBX-0074 r19: slot reservation mirrors — set while the entry is live
+    // (see ENTRY_LIVE_STATUSES), cleared with unsetToken when it goes
+    // terminal. The unique indexes below key on THESE columns so cancelled/
+    // rejected entries leave the index and re-registration works (a player
+    // id can never be removed from the index while sitting on playerAId —
+    // that column is NOT NULL on purpose, history keeps it).
+    activeAId: id("playerProfile"),
+    activeBId: id("playerProfile"),
     categoryId: id("tournamentCategory")
       .notNull()
       .references(() => tournamentCategory.id, { onDelete: "cascade" }),
@@ -112,16 +120,17 @@ export const tournamentEntry = convexTable(
       tournamentEntry.categoryId,
       tournamentEntry.status
     ),
-    // A player joins a category at most once — enforced by the database
-    // (league membership only guards this in code; here we do better).
-    // Null sides (singles' playerB) are not indexed, so they coexist fine.
-    uniqueIndex("categoryId_playerAId").on(
+    // A live entry reserves each player at most once per category — enforced
+    // by the database on the mirrored active columns (IBX-0074 r19: terminal
+    // entries are out of the index, so cancel frees the slot for
+    // re-registration). Missing sides (singles' playerB) are not indexed.
+    uniqueIndex("categoryId_activeAId").on(
       tournamentEntry.categoryId,
-      tournamentEntry.playerAId
+      tournamentEntry.activeAId
     ),
-    uniqueIndex("categoryId_playerBId").on(
+    uniqueIndex("categoryId_activeBId").on(
       tournamentEntry.categoryId,
-      tournamentEntry.playerBId
+      tournamentEntry.activeBId
     ),
     index("createdByUserId").on(tournamentEntry.createdByUserId),
   ]

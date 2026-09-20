@@ -1282,6 +1282,8 @@ export type DataModel = {
   };
   tournamentEntry: {
     document: {
+      activeAId?: null | Id<"playerProfile">;
+      activeBId?: null | Id<"playerProfile">;
       categoryId: Id<"tournamentCategory">;
       createdAt: number;
       createdByUserId?: null | Id<"user">;
@@ -1298,6 +1300,8 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "activeAId"
+      | "activeBId"
       | "categoryId"
       | "createdAt"
       | "createdByUserId"
@@ -1311,8 +1315,8 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
-      categoryId_playerAId: ["categoryId", "playerAId", "_creationTime"];
-      categoryId_playerBId: ["categoryId", "playerBId", "_creationTime"];
+      categoryId_activeAId: ["categoryId", "activeAId", "_creationTime"];
+      categoryId_activeBId: ["categoryId", "activeBId", "_creationTime"];
       categoryId_status: ["categoryId", "status", "_creationTime"];
       createdByUserId: ["createdByUserId", "_creationTime"];
     };

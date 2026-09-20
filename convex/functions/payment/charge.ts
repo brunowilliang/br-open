@@ -1,4 +1,4 @@
-import { eq } from "kitcn/orm";
+import { eq, unsetToken } from "kitcn/orm";
 import type { InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
@@ -1246,9 +1246,16 @@ async function applyPaidTournamentEntryCharge(
       maxEntries: category.maxEntries,
     }) === "refund"
   ) {
+    // Cancelled by the paid-activation overflow = terminal entry: free the
+    // category slots (IBX-0074 r19).
     await ctx.orm
       .update(tournamentEntry)
-      .set({ status: "cancelled", updatedAt: now })
+      .set({
+        activeAId: unsetToken,
+        activeBId: unsetToken,
+        status: "cancelled",
+        updatedAt: now,
+      })
       .where(eq(tournamentEntry.id, entryId));
     await ctx.orm
       .update(paymentCharge)

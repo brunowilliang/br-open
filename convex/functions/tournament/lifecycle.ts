@@ -1,4 +1,4 @@
-import { eq } from "kitcn/orm";
+import { eq, unsetToken } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { InferSelectModel } from "kitcn/orm";
@@ -97,9 +97,16 @@ export const cancel = authMutation
           }
         }
         if (entry.status !== "cancelled" && entry.status !== "rejected") {
+          // Tournament cancelled = every entry goes terminal: free the
+          // category slots (IBX-0074 r19).
           await ctx.orm
             .update(tournamentEntry)
-            .set({ status: "cancelled", updatedAt: now })
+            .set({
+              activeAId: unsetToken,
+              activeBId: unsetToken,
+              status: "cancelled",
+              updatedAt: now,
+            })
             .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">));
         }
       }
