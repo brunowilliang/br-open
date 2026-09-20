@@ -7,8 +7,8 @@ import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { ScheduleCard } from "@/components/ui/schedule-card";
-import { WidgetAlert } from "@/components/ui/widget-alert";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
 import {
   canCancelTournamentEntry,
@@ -22,6 +22,11 @@ type TournamentOverview = ApiOutputs["tournament"]["discovery"]["getById"];
 type PlayerOverviewProps = {
   onCancelEntry: (categoryName: string, entryId: string) => void;
   onPayEntry: (entryId: string) => void;
+  /**
+   * Invalidação do contexto do torneio (passada pela página, dona do wiring de
+   * dados): o alerta é genérico, quem conhece o torneio é a tela.
+   */
+  onPendingActionPerformed?: () => void;
   onRespondInvite: (accept: boolean, entryId: string) => void;
   tournament: TournamentOverview;
 };
@@ -40,22 +45,11 @@ export function PlayerOverview(props: PlayerOverviewProps) {
   const matches = useValue(bucket$.data.matches);
   const entriesById = useValue(bucket$.derived.entriesById);
   const viewerProfileId = useValue(bucket$.viewer.playerProfileId);
+  const pendings = useValue(bucket$.derived.pendings);
+  const pendingsStatus = useValue(bucket$.identity.pendingsStatus);
 
   const myEntries = entries.filter((entry) =>
     tournament.viewerEntryIds.includes(entry.id)
-  );
-
-  const awaitingPaymentCount = myEntries.filter(
-    (entry) =>
-      entry.status === "awaiting_payment" &&
-      viewerProfileId !== null &&
-      entry.playerAId === viewerProfileId
-  ).length;
-  const pendingInvite = myEntries.some(
-    (entry) =>
-      entry.status === "pending_partner" &&
-      viewerProfileId !== null &&
-      entry.playerBId === viewerProfileId
   );
 
   const matchesWithSides = useMemo(
@@ -99,29 +93,22 @@ export function PlayerOverview(props: PlayerOverviewProps) {
         ?.name ?? "")
     : "";
 
-  if (myEntries.length === 0 && !nextMatch) {
+  if (myEntries.length === 0 && !nextMatch && pendings.length === 0) {
     return null;
   }
 
   return (
     <View className="gap-2">
-      {awaitingPaymentCount > 0 ? (
-        <WidgetAlert
-          status="warning"
-          title={`${awaitingPaymentCount} ${
-            awaitingPaymentCount === 1
-              ? "inscrição aguardando pagamento"
-              : "inscrições aguardando pagamento"
-          }`}
-        />
-      ) : null}
-
-      {pendingInvite ? (
-        <WidgetAlert
-          status="accent"
-          title="Convite de dupla aguardando sua resposta"
-        />
-      ) : null}
+      {/* Pendências/alertas do SERVIDOR (IBX-0076 / PLN-0008): o recorte deste
+          torneio vem do bucket e a copy/ordem/rota são do item — os alertas
+          derivados no cliente (`awaitingPaymentCount`, `pendingInvite`) foram
+          extintos no cutover. */}
+      <PendingAlerts
+        isError={pendingsStatus === "error"}
+        isLoading={pendingsStatus === "loading"}
+        items={pendings}
+        onActionPerformed={props.onPendingActionPerformed}
+      />
 
       {myEntries.length > 0 ? (
         <>

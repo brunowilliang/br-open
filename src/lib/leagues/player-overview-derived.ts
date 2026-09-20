@@ -1,38 +1,12 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
-import { DAY_MS } from "@/lib/format/relative-time";
-
-type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
-
-type RuleConfig = LeagueOverview["ruleConfig"];
 
 export type PlayerPositionCard = {
   position: number;
   totalPlayers: number;
 };
-
-export type PlayerInactiveAlertCard = {
-  daysSinceLastMatch: number;
-  daysUntilPenalty: number;
-  /** "danger" quando já passou do prazo; "warning" quando próximo. */
-  severity: "danger" | "warning";
-};
-
-export type PendingChallengeAction = {
-  /** Quem precisa agir é o viewer. Determina a mensagem. */
-  kind: "confirm_result" | "register_result" | "request_correction";
-  opponentName: string;
-};
-
-export type PlayerPendingActionsAlert = {
-  actions: PendingChallengeAction[];
-  total: number;
-};
-
-/** Janela de alerta: quando faltam esse número de dias (ou menos) para a punição. */
-const WARNING_WINDOW_DAYS = 7;
 
 function isViewerChallenge(
   challenge: ChallengeItem,
@@ -51,29 +25,6 @@ function isFinished(challenge: ChallengeItem) {
 /**
  * Retorna o lado do viewer no desafio, ou null se não participa.
  */
-function getViewerSide(
-  challenge: ChallengeItem,
-  viewerMembershipId: string
-): "challenged" | "challenger" | null {
-  if (challenge.challenger.membershipId === viewerMembershipId) {
-    return "challenger";
-  }
-
-  if (challenge.challenged.membershipId === viewerMembershipId) {
-    return "challenged";
-  }
-
-  return null;
-}
-
-function getOpponentName(challenge: ChallengeItem, viewerMembershipId: string) {
-  const viewerIsChallenger =
-    challenge.challenger.membershipId === viewerMembershipId;
-  const opponent = viewerIsChallenger
-    ? challenge.challenged
-    : challenge.challenger;
-  return opponent.player.fullName;
-}
 
 export function buildPlayerPositionCard(input: {
   rankingItemsCount: number;
@@ -86,116 +37,6 @@ export function buildPlayerPositionCard(input: {
   return {
     position: input.viewerPosition,
     totalPlayers: input.rankingItemsCount,
-  };
-}
-
-export function buildPlayerInactiveAlertCard(input: {
-  challenges: ChallengeItem[];
-  now: number;
-  ruleConfig: RuleConfig;
-  viewerMembershipId: null | string;
-}): PlayerInactiveAlertCard | null {
-  // Regra de ouro: se a liga não aplica penalidade, não há alerta.
-  if (!input.ruleConfig.hasInactivityPenalty) {
-    return null;
-  }
-
-  if (!input.viewerMembershipId) {
-    return null;
-  }
-
-  const penaltyDays = input.ruleConfig.inactivityPenaltyDays ?? 0;
-
-  if (penaltyDays <= 0) {
-    return null;
-  }
-
-  const lastMatchTimestamp = input.challenges
-    .filter(
-      (challenge) =>
-        isFinished(challenge) &&
-        challenge.finishedAt &&
-        isViewerChallenge(challenge, input.viewerMembershipId as string)
-    )
-    .map((challenge) => challenge.finishedAt ?? 0)
-    .sort((a, b) => b - a)[0];
-
-  // Sem nenhuma partida: considera a partir de "agora" (0 dias desde).
-  const daysSinceLastMatch = lastMatchTimestamp
-    ? Math.floor((input.now - lastMatchTimestamp) / DAY_MS)
-    : 0;
-
-  const daysUntilPenalty = penaltyDays - daysSinceLastMatch;
-  const severity: PlayerInactiveAlertCard["severity"] =
-    daysUntilPenalty <= 0 ? "danger" : "warning";
-
-  // Quando ainda há folga suficiente (mais de WARNING_WINDOW_DAYS), não vale o
-  // alerta — só mostramos quando o risco é real.
-  if (daysUntilPenalty > WARNING_WINDOW_DAYS) {
-    return null;
-  }
-
-  return {
-    daysSinceLastMatch,
-    daysUntilPenalty,
-    severity,
-  };
-}
-
-function resolvePendingAction(
-  challenge: ChallengeItem,
-  viewerMembershipId: string
-): PendingChallengeAction | null {
-  const side = getViewerSide(challenge, viewerMembershipId);
-
-  if (!side) {
-    return null;
-  }
-
-  const opponentName = getOpponentName(challenge, viewerMembershipId);
-  const viewerSubmitted =
-    challenge.latestResultSubmission?.submittedByMembershipId ===
-    viewerMembershipId;
-
-  switch (challenge.status) {
-    // O jogo acabou e ninguém lançou placar ainda → qualquer lado age.
-    case "pending_result_submission":
-      return { kind: "register_result", opponentName };
-
-    // O adversário lançou o resultado → o viewer (que não lançou) confirma.
-    case "pending_result_confirmation":
-      return viewerSubmitted ? null : { kind: "confirm_result", opponentName };
-
-    // O adversário pediu correção do placar → o viewer revisa.
-    case "pending_result_correction":
-      return { kind: "request_correction", opponentName };
-
-    default:
-      return null;
-  }
-}
-
-export function buildPlayerPendingActionsAlert(input: {
-  challenges: ChallengeItem[];
-  viewerMembershipId: null | string;
-}): PlayerPendingActionsAlert | null {
-  if (!input.viewerMembershipId) {
-    return null;
-  }
-
-  const actions = input.challenges
-    .map((challenge) =>
-      resolvePendingAction(challenge, input.viewerMembershipId as string)
-    )
-    .filter((action): action is PendingChallengeAction => action !== null);
-
-  if (actions.length === 0) {
-    return null;
-  }
-
-  return {
-    actions,
-    total: actions.length,
   };
 }
 

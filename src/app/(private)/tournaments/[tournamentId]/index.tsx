@@ -564,7 +564,10 @@ export default function TournamentOverviewRoute() {
             <TournamentBanner tournament={tournament} />
             <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
               {role === "organizer" && (
-                <OrganizerOverview tournamentId={tournamentId} />
+                <OrganizerOverview
+                  onPendingActionPerformed={invalidateTournamentContext}
+                  tournamentId={tournamentId}
+                />
               )}
               {role === "player" && (
                 <PlayerOverview
@@ -577,6 +580,7 @@ export default function TournamentOverviewRoute() {
                       sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
                     });
                   }}
+                  onPendingActionPerformed={invalidateTournamentContext}
                   onRespondInvite={(accept, entryId) => {
                     respondPartnerInvite.mutate({ accept, entryId });
                   }}

@@ -9,6 +9,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { MonthlyMatchesCard } from "@/components/ui/monthly-matches-card";
 import { LoadingState } from "@/components/ui/loading-state";
+import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
 import { formatMatchMonthDay } from "@/lib/format/date";
@@ -29,6 +30,9 @@ export function PlayerDashboard() {
   const router = useRouter();
   const overviewQuery = useQuery(
     crpc.player.dashboard.getOverview.staticQueryOptions({ months: 6 })
+  );
+  const pendingsQuery = useQuery(
+    crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
   );
 
   if (overviewQuery.isPending) {
@@ -61,6 +65,15 @@ export function PlayerDashboard() {
 
   return (
     <View className="gap-3">
+      {/* Bloco 1 (IBX-0076 / PLN-0008): as pendências vêm do SERVIDOR
+          (`pendings.list` do escopo player, ordenado por severidade → prazo) e
+          o renderer único monta os alertas. Era o GAP declarado da home. */}
+      <PendingAlerts
+        isError={pendingsQuery.isError}
+        isLoading={pendingsQuery.isPending}
+        items={pendingsQuery.data?.items ?? []}
+      />
+
       {/* Bloco 2 (ordem do usuário): o chart aprovado na galeria, com a série
           real de 6 meses do dash. O antigo KpiCard de texto saiu (IBX-0075 r4). */}
       <MonthlyMatchesCard data={monthlyMatches} />

@@ -3,10 +3,8 @@ import { describe, expect, test } from "bun:test";
 import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
 
 import {
-  buildTournamentAwaitingPaymentAlert,
   buildTournamentEntriesKpi,
   buildTournamentMatchesKpi,
-  buildTournamentPendingApprovalAlert,
 } from "./organizer-overview-derived";
 import type { TournamentMatchWithSides } from "./bracket-view";
 
@@ -55,35 +53,6 @@ function buildMatch(status: string): TournamentMatchWithSides {
     winnerEntryId: null,
   };
 }
-
-describe("tournament organizer overview alerts", () => {
-  test("pending approval alert only when there are pending entries", () => {
-    expect(
-      buildTournamentPendingApprovalAlert({
-        entries: [
-          buildEntry("a", "pending_approval"),
-          buildEntry("b", "active"),
-        ],
-      })
-    ).toEqual({ total: 1 });
-
-    expect(
-      buildTournamentPendingApprovalAlert({
-        entries: [buildEntry("b", "active")],
-      })
-    ).toBeNull();
-  });
-
-  test("awaiting payment alert only when there are unpaid entries", () => {
-    expect(
-      buildTournamentAwaitingPaymentAlert({
-        entries: [buildEntry("a", "awaiting_payment")],
-      })
-    ).toEqual({ total: 1 });
-
-    expect(buildTournamentAwaitingPaymentAlert({ entries: [] })).toBeNull();
-  });
-});
 
 describe("tournament organizer overview KPIs", () => {
   const entries = [

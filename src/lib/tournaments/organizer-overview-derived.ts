@@ -2,32 +2,6 @@ import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/cont
 
 import type { TournamentMatchWithSides } from "./bracket-view";
 
-// ----- Alerts (molde organizer-overview-derived da liga) -----
-
-export type TournamentPendingApprovalAlert = { total: number };
-
-export type TournamentAwaitingPaymentAlert = { total: number };
-
-export function buildTournamentPendingApprovalAlert(input: {
-  entries: TournamentEntryWithPlayers[];
-}): TournamentPendingApprovalAlert | null {
-  const total = input.entries.filter(
-    (entry) => entry.status === "pending_approval"
-  ).length;
-
-  return total > 0 ? { total } : null;
-}
-
-export function buildTournamentAwaitingPaymentAlert(input: {
-  entries: TournamentEntryWithPlayers[];
-}): TournamentAwaitingPaymentAlert | null {
-  const total = input.entries.filter(
-    (entry) => entry.status === "awaiting_payment"
-  ).length;
-
-  return total > 0 ? { total } : null;
-}
-
 // ----- KPI cards -----
 
 export type TournamentEntriesKpi = { confirmedCount: number };

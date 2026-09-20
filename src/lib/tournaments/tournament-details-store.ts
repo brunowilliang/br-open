@@ -1,5 +1,8 @@
 import { observable } from "@legendapp/state";
 import type { ApiOutputs } from "@convex/shared/api";
+import type { PendingItem } from "@convex/domains/pendings/contract";
+
+import { resolvePendingsForTournament } from "@/lib/pendings/pendings-view";
 
 import {
   buildTournamentDetailsAccess,
@@ -23,6 +26,9 @@ export type TournamentDetailsRoute =
   | "rules"
   | "schedule";
 
+/** Estado da leitura de pendências do cluster (mesmo papel do status da liga). */
+export type TournamentPendingsStatus = "error" | "idle" | "loading" | "ready";
+
 type TournamentDetailsBucket = ReturnType<typeof createTournamentDetailsBucket>;
 
 const tournamentDetailsBuckets = new Map<string, TournamentDetailsBucket>();
@@ -39,6 +45,18 @@ function createTournamentDetailsBucket(tournamentId: string) {
       hydrateMatches: (matches: TournamentMatch[]) => {
         bucket$.data.matches.set(matches);
       },
+      /**
+       * Pendências do cluster (IBX-0076 / PLN-0008): o layout mescla os dois
+       * escopos (o servidor devolve `items: []` no escopo que não é do ator) e
+       * a tela recorta as do torneio. `status` mantém o bloco sem piscar vazio.
+       */
+      hydratePendings: (input: {
+        items: PendingItem[];
+        status: TournamentPendingsStatus;
+      }) => {
+        bucket$.data.pendings.set(input.items);
+        bucket$.identity.pendingsStatus.set(input.status);
+      },
       hydrateViewer: (playerProfileId: null | string) => {
         bucket$.viewer.playerProfileId.set(playerProfileId);
       },
@@ -54,8 +72,10 @@ function createTournamentDetailsBucket(tournamentId: string) {
         bucket$.data.tournament.set(null);
         bucket$.data.entries.set([]);
         bucket$.data.matches.set([]);
+        bucket$.data.pendings.set([]);
         bucket$.viewer.playerProfileId.set(null);
         bucket$.identity.bootstrapStatus.set("loading");
+        bucket$.identity.pendingsStatus.set("idle");
         bucket$.identity.resetVersion.set(
           bucket$.identity.resetVersion.get() + 1
         );
@@ -71,6 +91,8 @@ function createTournamentDetailsBucket(tournamentId: string) {
     data: {
       entries: [] as TournamentEntryWithPlayers[],
       matches: [] as TournamentMatch[],
+      /** Itens de `pendings.list` (escopos player + organization). */
+      pendings: [] as PendingItem[],
       tournament: null as TournamentDiscovery | null,
     },
     derived: {
@@ -112,6 +134,12 @@ function createTournamentDetailsBucket(tournamentId: string) {
         Object.fromEntries(
           bucket$.data.entries.get().map((entry) => [entry.id, entry])
         ) as Record<string, TournamentEntryWithPlayers>,
+      /** Pendências da casa do torneio (a ordem é a do servidor). */
+      pendings: () =>
+        resolvePendingsForTournament({
+          items: bucket$.data.pendings.get(),
+          tournamentId: bucket$.identity.tournamentId.get(),
+        }),
       role: () => {
         const access = bucket$.derived.access.get();
 
@@ -143,6 +171,7 @@ function createTournamentDetailsBucket(tournamentId: string) {
     identity: {
       activeRoute: "index" as TournamentDetailsRoute,
       bootstrapStatus: "loading" as "error" | "loading" | "ready",
+      pendingsStatus: "idle" as TournamentPendingsStatus,
       resetVersion: 0,
       tournamentId,
     },

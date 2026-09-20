@@ -1,10 +1,6 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
-import { formatShortDate } from "@/lib/format/date";
-import { DAY_MS } from "@/lib/format/relative-time";
 import { clampToNonNegativeInt } from "@/lib/numbers";
-import { getMembershipActionLabel } from "@/lib/leagues/presentation";
-import { formatBrazilDueDayLabel } from "@/lib/payments/membership-due";
 import {
   formatInactivity,
   formatLossBehavior,
@@ -100,74 +96,6 @@ export function buildLeagueDetailsRole(input: {
     input.viewerMembershipStatus === "payment_due"
     ? "player"
     : "guest";
-}
-
-export type LeaguePaymentAlert = {
-  /** Label do CTA dentro do alerta; null quando o CTA já vive na tela. */
-  actionLabel: null | string;
-  description: string;
-  severity: "danger" | "warning";
-  title: string;
-};
-
-/**
- * Aviso de pagamento da inscrição na liga (IBX-0039). Cobre o membro em
- * carência (`payment_due`), o suspenso (`suspended`, que segue como visitante
- * e cujo CTA vive no rodapé) e o membro `active` dentro da janela de lembrete
- * (`reminderDaysBefore` antes do vencimento).
- *
- * `dueAt` é o vencimento do ciclo atual (`viewerMembershipDueAt` no contrato —
- * C5). Enquanto a liga não entregar o campo, chame com `null`: sem data não há
- * como saber se o membro `active` está na janela, então o aviso de renovação
- * simplesmente não aparece e os casos por status seguem valendo.
- */
-export function buildLeaguePaymentAlert(input: {
-  dueAt?: null | number;
-  now: number;
-  reminderDaysBefore: number;
-  status: null | string | undefined;
-}): LeaguePaymentAlert | null {
-  if (input.status === "payment_due") {
-    return {
-      actionLabel: getMembershipActionLabel(input.status),
-      description:
-        "O pagamento da sua mensalidade venceu. Pague para não ser suspenso.",
-      severity: "warning",
-      title: "Pagamento atrasado",
-    };
-  }
-
-  if (input.status === "suspended") {
-    return {
-      actionLabel: null,
-      description:
-        "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar.",
-      severity: "danger",
-      title: "Inscrição suspensa",
-    };
-  }
-
-  if (input.status !== "active" || !input.dueAt) {
-    return null;
-  }
-
-  const msUntilDue = input.dueAt - input.now;
-
-  if (msUntilDue <= 0 || msUntilDue > input.reminderDaysBefore * DAY_MS) {
-    return null;
-  }
-
-  return {
-    actionLabel: "Renovar mensalidade",
-    description: `Renove até ${formatShortDate(
-      new Date(input.dueAt)
-    )} para continuar jogando sem interrupção.`,
-    severity: "warning",
-    title: `Mensalidade vence ${formatBrazilDueDayLabel(
-      input.dueAt,
-      input.now
-    )}`,
-  };
 }
 
 export function buildLeagueDetailsAccess(input: {

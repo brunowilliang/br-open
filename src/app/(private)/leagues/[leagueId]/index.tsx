@@ -523,8 +523,18 @@ export default function LeagueOverviewRoute() {
             <LeagueBanner league={league} />
             <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
               {role === "organizer" && <OrganizerOverview />}
-              {role === "player" && <PlayerOverview league={league} />}
-              {role === "guest" && <GuestOverview league={league} />}
+              {role === "player" && (
+                <PlayerOverview
+                  league={league}
+                  onPendingActionPerformed={invalidateLeagueContext}
+                />
+              )}
+              {role === "guest" && (
+                <GuestOverview
+                  league={league}
+                  onPendingActionPerformed={invalidateLeagueContext}
+                />
+              )}
             </View>
           </>
         )}

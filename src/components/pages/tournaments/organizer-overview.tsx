@@ -1,39 +1,41 @@
 import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { View } from "react-native";
 
 import { KpiCard } from "@/components/ui/kpi-card";
-import { WidgetAlert } from "@/components/ui/widget-alert";
+import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 import {
-  buildTournamentAwaitingPaymentAlert,
   buildTournamentEntriesKpi,
   buildTournamentMatchesKpi,
-  buildTournamentPendingApprovalAlert,
 } from "@/lib/tournaments/organizer-overview-derived";
 
 /**
- * Casa do torneio para o organizador: os WidgetAlerts de pendência das
- * inscrições (IBX-0071) e os três blocos de número (Receita do torneio,
- * Inscrições, Partidas) no KpiCard da galeria (IBX-0075 r2), com o
- * rótulo+valor do molde texto-simples. A receita soma `bySource` da série da
- * organização (query existente) filtrada pelas inscrições DESTE torneio no
+ * Casa do torneio para o organizador: as pendências/alertas das inscrições vêm
+ * do SERVIDOR (`pendings.list`, recortado para este torneio no bucket) e o
+ * renderer único as desenha — os builders do cliente
+ * (`buildTournamentPendingApprovalAlert`, `buildTournamentAwaitingPaymentAlert`)
+ * foram EXTINTOS no cutover do PLN-0008. Os três blocos de número (Receita do
+ * torneio, Inscrições, Partidas) seguem no KpiCard da galeria (IBX-0075 r2),
+ * com o rótulo+valor do molde texto-simples. A receita soma `bySource` da série
+ * da organização (query existente) filtrada pelas inscrições DESTE torneio no
  * cliente — nenhuma query nova.
  */
-export function OrganizerOverview(props: { tournamentId: string }) {
-  const router = useRouter();
+export function OrganizerOverview(props: {
+  onPendingActionPerformed?: () => void;
+  tournamentId: string;
+}) {
   const crpc = useCRPC();
   const bucket$ = getTournamentDetailsBucket$(props.tournamentId);
   const entries = useValue(bucket$.data.entries);
   const matches = useValue(bucket$.data.matches);
   const entriesById = useValue(bucket$.derived.entriesById);
+  const pendings = useValue(bucket$.derived.pendings);
+  const pendingsStatus = useValue(bucket$.identity.pendingsStatus);
 
-  const pendingApproval = buildTournamentPendingApprovalAlert({ entries });
-  const awaitingPayment = buildTournamentAwaitingPaymentAlert({ entries });
   const confirmed = buildTournamentEntriesKpi({ entries });
   const matchesWithSides = buildMatchSides({ entriesById, matches });
   const matchesKpi = buildTournamentMatchesKpi({ matches: matchesWithSides });
@@ -53,44 +55,17 @@ export function OrganizerOverview(props: { tournamentId: string }) {
       )
     : 0;
 
-  function handleSeeEntriesPress() {
-    router.navigate({
-      params: { initialTab: "pending", tournamentId: props.tournamentId },
-      pathname: "/tournaments/[tournamentId]/entries",
-    });
-  }
-
   return (
     <View className="gap-3">
-      {pendingApproval ? (
-        <WidgetAlert
-          action={{
-            label: "Ver",
-            onPress: handleSeeEntriesPress,
-          }}
-          status="accent"
-          title={`${pendingApproval.total} ${
-            pendingApproval.total === 1
-              ? "inscrição aguardando aprovação"
-              : "inscrições aguardando aprovação"
-          }`}
-        />
-      ) : null}
-
-      {awaitingPayment ? (
-        <WidgetAlert
-          action={{
-            label: "Ver",
-            onPress: handleSeeEntriesPress,
-          }}
-          status="warning"
-          title={`${awaitingPayment.total} ${
-            awaitingPayment.total === 1
-              ? "inscrição aguardando pagamento"
-              : "inscrições aguardando pagamento"
-          }`}
-        />
-      ) : null}
+      {/* Pendências/alertas do SERVIDOR (IBX-0076 / PLN-0008): o recorte deste
+          torneio vem do bucket; o `Ver` do item navega para a aba de
+          pendências das inscrições. */}
+      <PendingAlerts
+        isError={pendingsStatus === "error"}
+        isLoading={pendingsStatus === "loading"}
+        items={pendings}
+        onActionPerformed={props.onPendingActionPerformed}
+      />
 
       {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
           (ui/kpi-card), rótulo+valor idênticos ao texto-simples, emparelhados

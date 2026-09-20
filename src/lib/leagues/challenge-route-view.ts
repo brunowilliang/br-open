@@ -9,6 +9,11 @@ import {
   CLOSED_CHALLENGE_STATUSES,
 } from "@convex/domains/league/challenge-status";
 
+import {
+  isChallengeAttention,
+  isChallengeViewerParticipant,
+} from "./challenge-attention";
+
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
 
@@ -56,7 +61,8 @@ type ChallengeItem =
  * TABELA: STATUS → ABA (PARTICIPANTE)
  * ----------------------------------------------------------------------------
  * A lógica do jogador é por AÇÃO NECESSÁRIA do viewer, não só por status
- * (ver buildPlayerAttentionChallenges). Um mesmo status pode cair em
+ * (ver isChallengeAttention em challenge-attention.ts, a regra única
+ * compartilhada com as contagens de badge). Um mesmo status pode cair em
  * "Atenção" ou "Aguardando" dependendo do papel do viewer (ex.: em
  * pending_result_confirmation, quem NÃO publicou o placar precisa confirmar
  * → Atenção; quem publicou → Aguardando).
@@ -79,16 +85,6 @@ export type ChallengeOrganizerMenuActionId =
   | "request_result_correction"
   | "request_result_reminder"
   | "submit_result";
-
-function isViewerChallenge(
-  challenge: ChallengeItem,
-  viewerPlayerProfileId: null | string
-) {
-  return (
-    challenge.challenger.playerProfileId === viewerPlayerProfileId ||
-    challenge.challenged.playerProfileId === viewerPlayerProfileId
-  );
-}
 
 /**
  * Abas disponíveis. Unificadas entre organizer e jogador: ambos vêem
@@ -163,116 +159,33 @@ function buildPlayerVisibleChallenges(input: {
   switch (input.activeTab) {
     case "attention":
       return input.challenges.filter((challenge) =>
-        isParticipantAttentionChallenge(challenge, input.viewerPlayerProfileId)
+        isChallengeAttention(challenge, input.viewerPlayerProfileId)
       );
     case "ongoing":
       // Desafios do viewer que estão vivos mas NÃO precisam da ação dele:
       // ele está esperando (o outro responder, o admin validar, o dia chegar).
       return input.challenges.filter(
         (challenge) =>
-          isViewerChallenge(challenge, input.viewerPlayerProfileId) &&
-          !CLOSED_CHALLENGE_STATUSES.has(challenge.status) &&
-          !isParticipantAttentionChallenge(
+          isChallengeViewerParticipant(
             challenge,
             input.viewerPlayerProfileId
-          )
+          ) &&
+          !CLOSED_CHALLENGE_STATUSES.has(challenge.status) &&
+          !isChallengeAttention(challenge, input.viewerPlayerProfileId)
       );
     case "history":
       return input.challenges.filter(
         (challenge) =>
-          isViewerChallenge(challenge, input.viewerPlayerProfileId) &&
-          CLOSED_CHALLENGE_STATUSES.has(challenge.status)
+          isChallengeViewerParticipant(
+            challenge,
+            input.viewerPlayerProfileId
+          ) && CLOSED_CHALLENGE_STATUSES.has(challenge.status)
       );
     default:
       return input.challenges.filter((challenge) =>
-        isParticipantAttentionChallenge(challenge, input.viewerPlayerProfileId)
+        isChallengeAttention(challenge, input.viewerPlayerProfileId)
       );
   }
-}
-
-/**
- * Determina se um desafio requer a ATENÇÃO do jogador (viewer).
- *
- * A regra combina status + papel do viewer, pois o mesmo status pode exigir
- * ação de um lado e não do outro (ex.: pending_result_confirmation — quem
- * NÃO publicou o placar precisa confirmar; quem publicou fica em "Aguardando").
- *
- * Não é jogador? Nunca é atenção (nem aparece para o jogador).
- */
-function isParticipantAttentionChallenge(
-  challenge: ChallengeItem,
-  viewerPlayerProfileId: null | string
-) {
-  if (!isViewerChallenge(challenge, viewerPlayerProfileId)) {
-    return false;
-  }
-
-  switch (challenge.status) {
-    case "pending_opponent_response":
-      // O desafiado precisa responder à proposta.
-      return challenge.challenged.playerProfileId === viewerPlayerProfileId;
-    case "pending_creator_reapproval":
-      // O desafiante precisa reaprovar a contraproposta.
-      return challenge.challenger.playerProfileId === viewerPlayerProfileId;
-    case "pending_cancellation_acceptance":
-      // O lado que NÃO pediu o cancelamento precisa responder.
-      return isViewerCancellationResponderByChallenge(
-        challenge,
-        viewerPlayerProfileId
-      );
-    case "pending_result_submission":
-      // Jogo acabou, ninguém lançou — qualquer lado pode lançar.
-      return true;
-    case "pending_result_confirmation":
-      // Quem NÃO publicou o placar precisa confirmar o do adversário.
-      return isViewerResultConfirmer(challenge, viewerPlayerProfileId);
-    case "pending_result_correction":
-      // O admin pediu correção; o jogador que lançou precisa corrigir.
-      return true;
-    default:
-      // Status  de organizador (validação/decisão), confirmed, e fechados não
-      // requerem ação do jogador.
-      return false;
-  }
-}
-
-function isViewerCancellationResponderByChallenge(
-  challenge: ChallengeItem,
-  viewerPlayerProfileId: null | string
-) {
-  if (!challenge.cancellationRequestedByMembershipId) {
-    return false;
-  }
-
-  if (
-    challenge.cancellationRequestedByMembershipId ===
-    challenge.challenger.membershipId
-  ) {
-    return challenge.challenged.playerProfileId === viewerPlayerProfileId;
-  }
-
-  return challenge.challenger.playerProfileId === viewerPlayerProfileId;
-}
-
-function isViewerResultConfirmer(
-  challenge: ChallengeItem,
-  viewerPlayerProfileId: null | string
-) {
-  const submittedBy = challenge.latestResultSubmission?.submittedByMembershipId;
-
-  if (!submittedBy) {
-    return false;
-  }
-
-  let viewerMembershipId: string | null = null;
-
-  if (challenge.challenger.playerProfileId === viewerPlayerProfileId) {
-    viewerMembershipId = challenge.challenger.membershipId;
-  } else if (challenge.challenged.playerProfileId === viewerPlayerProfileId) {
-    viewerMembershipId = challenge.challenged.membershipId;
-  }
-
-  return Boolean(viewerMembershipId && viewerMembershipId !== submittedBy);
 }
 
 /**

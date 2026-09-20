@@ -85,6 +85,13 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
     ...crpc.league.challenges.listForLeague.staticQueryOptions({ leagueId }),
     enabled: access.canOpenChallenges,
   });
+  // Pendências do cluster (IBX-0076 / PLN-0008): o escopo é o do JOGADOR (a
+  // casa da liga mostra as pendências da própria membership, inclusive a do
+  // suspenso). Sem gate de papel aqui: o servidor devolve `items: []` quando o
+  // ator não tem pendência de jogador (conta de organização, por exemplo).
+  const pendingsQuery = useQuery(
+    crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
+  );
 
   useEffect(() => {
     bucket$.actions.reset();
@@ -125,6 +132,22 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
       bucket$.actions.hydrateChallenges(challengesQuery.data);
     }
   }, [bucket$, challengesQuery.data]);
+
+  useEffect(() => {
+    bucket$.actions.hydratePendings({
+      items: pendingsQuery.data?.items ?? [],
+      status: pendingsQuery.isPending
+        ? "loading"
+        : pendingsQuery.isError
+          ? "error"
+          : "ready",
+    });
+  }, [
+    bucket$,
+    pendingsQuery.data,
+    pendingsQuery.isError,
+    pendingsQuery.isPending,
+  ]);
 
   useEffect(() => {
     if (!(leagueQuery.isError || viewerQuery.isError)) {

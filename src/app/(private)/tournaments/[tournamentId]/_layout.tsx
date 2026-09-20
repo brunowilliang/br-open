@@ -82,6 +82,16 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
       tournamentId,
     })
   );
+  // Pendências do cluster (IBX-0076 / PLN-0008): os DOIS escopos são pedidos
+  // sem gate de papel — o servidor devolve `items: []` no escopo que não é do
+  // ator ativo, e assim a casa do torneio serve o jogador (4 a 7) e o
+  // organizador (11 e 12) sem o cliente decidir visibilidade.
+  const playerPendingsQuery = useQuery(
+    crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
+  );
+  const organizationPendingsQuery = useQuery(
+    crpc.pendings.list.list.staticQueryOptions({ scope: "organization" })
+  );
 
   useEffect(() => {
     // O reset e quem destrava a hidratacao: ele INCREMENTA
@@ -138,6 +148,31 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
       bucket$.actions.hydrateMatches(matchesQuery.data);
     }
   }, [bucket$, matchesQuery.data]);
+
+  useEffect(() => {
+    // Só um dos escopos tem item (o outro volta vazio), então a concatenação
+    // preserva a ordem que o servidor mandou.
+    bucket$.actions.hydratePendings({
+      items: [
+        ...(playerPendingsQuery.data?.items ?? []),
+        ...(organizationPendingsQuery.data?.items ?? []),
+      ],
+      status:
+        playerPendingsQuery.isPending || organizationPendingsQuery.isPending
+          ? "loading"
+          : playerPendingsQuery.isError || organizationPendingsQuery.isError
+            ? "error"
+            : "ready",
+    });
+  }, [
+    bucket$,
+    organizationPendingsQuery.data,
+    organizationPendingsQuery.isError,
+    organizationPendingsQuery.isPending,
+    playerPendingsQuery.data,
+    playerPendingsQuery.isError,
+    playerPendingsQuery.isPending,
+  ]);
 
   return <TournamentDetailsTabs tournamentId={tournamentId} />;
 }

@@ -1,6 +1,9 @@
 import { observable } from "@legendapp/state";
 import type { ApiOutputs } from "@convex/shared/api";
+import type { PendingItem } from "@convex/domains/pendings/contract";
 import { resolveRuleValue } from "@convex/domains/league/contract";
+
+import { resolvePendingsForLeague } from "@/lib/pendings/pendings-view";
 
 import { buildChallengeTabCounts } from "./challenge-tab-counts";
 import {
@@ -38,6 +41,12 @@ export type LeagueDetailsRoute =
   | "requests"
   | "rules"
   | "schedule";
+
+/**
+ * Estado da leitura de pendências do cluster (`pendings.list`, escopo player):
+ * a casa da liga não pisca área vazia enquanto o servidor responde.
+ */
+export type LeaguePendingsStatus = "error" | "idle" | "loading" | "ready";
 
 export type LeagueDetailsChallengeCreateTarget = {
   membershipId: string;
@@ -93,15 +102,24 @@ function createLeagueDetailsBucket(leagueId: string) {
         );
         bucket$.identity.bootstrapStatus.set("ready");
       },
+      hydratePendings: (input: {
+        items: PendingItem[];
+        status: LeaguePendingsStatus;
+      }) => {
+        bucket$.data.pendings.set(input.items);
+        bucket$.identity.pendingsStatus.set(input.status);
+      },
       reset: () => {
         bucket$.data.assign({
           challenges: [],
           league: null,
           membershipOverview: null,
           occupiedSlots: [],
+          pendings: [],
         });
         bucket$.identity.activeRoute.set("overview");
         bucket$.identity.bootstrapStatus.set("idle");
+        bucket$.identity.pendingsStatus.set("idle");
         bucket$.identity.resetVersion.set(
           bucket$.identity.resetVersion.get() + 1
         );
@@ -191,6 +209,8 @@ function createLeagueDetailsBucket(leagueId: string) {
       league: null as LeagueOverview | null,
       membershipOverview: null as MembershipOverview | null,
       occupiedSlots: [] as OccupiedChallengeSlot[],
+      /** Itens de `pendings.list` (escopo player) do cluster. */
+      pendings: [] as PendingItem[],
     },
     derived: {
       access: () => {
@@ -241,6 +261,16 @@ function createLeagueDetailsBucket(leagueId: string) {
             bucket$.data.membershipOverview.get()
           ).length,
         }),
+      /**
+       * Pendências da casa da liga: os itens do escopo player recortados para
+       * ESTA liga (a ordem é a do servidor).
+       */
+      pendings: () =>
+        resolvePendingsForLeague({
+          items: bucket$.data.pendings.get(),
+          leagueId: bucket$.identity.leagueId.get(),
+          membershipId: bucket$.viewer.membershipId.get(),
+        }),
       rankingItems: () => {
         const membershipOverview = bucket$.data.membershipOverview.get();
         const league = bucket$.data.league.get();
@@ -284,6 +314,7 @@ function createLeagueDetailsBucket(leagueId: string) {
       activeRoute: "overview" as LeagueDetailsRoute,
       bootstrapStatus: "idle" as "bootstrapping" | "error" | "idle" | "ready",
       leagueId,
+      pendingsStatus: "idle" as LeaguePendingsStatus,
       resetVersion: 0,
     },
     ui: {

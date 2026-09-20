@@ -9,6 +9,8 @@ import { Button } from "heroui-native";
 import { View } from "react-native";
 
 import { KpiCard } from "@/components/ui/kpi-card";
+import { PendingAlerts } from "@/components/ui/pending-alerts";
+import { useCRPC } from "@/lib/convex/crpc";
 
 type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
 
@@ -21,8 +23,12 @@ type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
  */
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
   const router = useRouter();
+  const crpc = useCRPC();
   const { metrics } = props.data;
   const { getBalanceQueryOptions } = useWithdrawApi();
+  const pendingsQuery = useQuery(
+    crpc.pendings.list.list.staticQueryOptions({ scope: "organization" })
+  );
   const balanceQuery = useQuery(getBalanceQueryOptions());
   const balanceCard = buildWithdrawBalanceCard({
     balance: balanceQuery.data,
@@ -32,6 +38,16 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
 
   return (
     <View className="gap-3">
+      {/* Bloco 1 (IBX-0076 / PLN-0008): as pendências vêm do SERVIDOR
+          (`pendings.list` do escopo organization, ordenado por severidade →
+          prazo) e o renderer único monta os alertas. Era o GAP declarado da
+          home da organização. */}
+      <PendingAlerts
+        isError={pendingsQuery.isError}
+        isLoading={pendingsQuery.isPending}
+        items={pendingsQuery.data?.items ?? []}
+      />
+
       {/* KPIs (IBX-0075 r2): todo bloco de número é o KpiCard da galeria
           (ui/kpi-card.tsx), rótulo+valor idênticos ao texto-simples, com o
           botão de saque no slot de ação do card. */}
