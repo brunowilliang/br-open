@@ -41,3 +41,4 @@ de CLI, de máquina e de agente.
 | [tournaments.md](tournaments.md) | Torneios (implementado — domínio, CRPC e telas): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, chave navegável, inscrições, agenda, checkout |
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |
 | [payments.md](payments.md) | Payments: mensalidade de liga via PIX com split Woovi, checkout, webhook, renovação com carência, dashboard do organizador, hub do jogador, saque (withdraw) |
+| [dashboard.md](dashboard.md) | Dashboards por persona: dash pessoal do jogador (próximos jogos, V/D, posição por liga, categorias, parceiro) e séries de receita da organização — contratos de leitura do IBX-0071 |
