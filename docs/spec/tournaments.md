@@ -259,7 +259,7 @@
   (`bracket.tsx:310` antigo, classe `pb-floating-tab-bar-4` herdada do
   canvas hand-rolled — rota fora do grupo `(tabs)`, não há tab bar);
   removido — o wrapper mede o viewport (`onLayout`) sem nenhum inset e o
-  `PageRoot` não injeta padding (`NewPage/context.tsx:165`). **minZoom
+  `PageRoot` não injeta padding (`page/context.tsx:30`). **minZoom
   DINÂMICO = zoom exato do fit (QA R18)**: `bracketFitZoom`
   (bracket-tree.ts) replica a fórmula do `fitView` do Flow — o Flow NÃO
   expõe o zoom que calculou — e a tela passa o resultado como `minZoom`,
@@ -1037,8 +1037,13 @@
   JSON, registrationDeadlineAt/startDate, status, platformFeePercent),
   `tournamentCategory` (modality×gender com **uniqueIndex**
   `tournamentId_modality_gender`), `tournamentEntry` (playerA/playerB,
-  createdByUserId, seedRank, **uniqueIndex por categoria** em playerA e playerB —
-  inscrição única garantida pelo banco, melhoria sobre a liga),
+  createdByUserId, seedRank, **uniqueIndex por categoria** em
+  `activeAId`/`activeBId` — espelhos de reserva preenchidos só em entry VIVA
+  (`ENTRY_LIVE_STATUSES`) e limpos com `unsetToken` nas transições terminais;
+  IBX-0074 r19: cancelar/rejeitar libera o slot e permite re-inscrição — o
+  índice antigo em playerAId segurava a vaga para sempre porque a coluna é
+  NOT NULL; inscrição única garantida pelo banco para entradas vivas,
+  melhoria sobre a liga),
   `tournamentMatch` (round/slotInRound com **uniqueIndex**
   `categoryId_round_slotInRound`, entryA/B nullable, winnerEntryId, score JSON,
   agendamento matchDate/startMinute/courtId, `publishedAt` trava swap,
@@ -1073,7 +1078,22 @@
   clicada entra como alimentada, com bump de `rowVersion`), `validateBracketStartable`
   (gate do `start`, vaga de rodada 1 incluída) e `nextMatchCoordinates`.
 - **entry-rules.ts** (puro, testado) — `buildCategoryDisplayName` (as 5 categorias),
-  `validateEntryGenders` (mixed = 1 "Masculino"+1 "Feminino", ambos definidos),
+  `resolveCallerEligibility` (**r27**: elegibilidade de QUEM SE INSCREVE por
+  categoria — fixa exige o gênero do perfil do caller, nulo/oposto recusados;
+  mista exige gênero DEFINIDO; simples misto não gateia; devolve
+  `{eligible, label, reason}` com os DOIS textos — `reason` é a frase pt-BR
+  completa (erro de recusa do create) e `label` é o rótulo de chip ≤2 palavras
+  (`Mulheres`/`Homens`, sempre o gênero da CATEGORIA vista pelo gênero oposto)
+  que a leitura do torneio publica; perfil SEM gênero (legado) recusa sem
+  rótulo (`label: null`) — e é a fonte única do gate do create, do campo novo
+  da leitura do torneio e da própria busca de parceiro),
+  `resolvePartnerSearchGender` (**r27 review MEDIUM**: gate da BUSCA — `null`
+  quando não há o que sugerir, seja porque a categoria recusa o caller, seja
+  porque mista sem gênero definido não tem oposto a convidar; senão o gênero
+  exigido do parceiro),
+  `validateEntryGenders` (compõe o gate do CALLER + o do PARCEIRO em duplas:
+  mixed = 1 "Masculino"+1 "Feminino", ambos definidos; r25: male/female exigem
+  parceiro do gênero da categoria),
   `resolveEntryStatusAfterPartnerAccepted`, `isEntryDrawable`.
 - **score-rules.ts** — `validateTournamentMatchScore` adapta para o
   `validateChallengeScore` da liga (reuso integral das regras de tênis:
@@ -1100,13 +1120,31 @@
 ### CRPC (`convex/functions/tournament/`)
 - **management.ts** — `create/update/remove/getById/listMine/generateUploadUrl/publish`
   (edit travado fora draft/published; remove só draft; categorias ressincronizadas).
-- **discovery.ts** — `getById` (público p/ status discoverable + organizador),
-  `listAvailable` (public/draft-invisível), `listParticipating`.
+- **discovery.ts** — `getById` (público p/ status discoverable + organizador;
+  **r27**: cada categoria vem com `viewerEligible`/`viewerIneligibleReason`
+  pelo `tournamentDiscoveryCategorySchema` — o cliente filtra ou rotula o
+  seletor de inscrição sem duplicar a regra; `null` = viewer sem ator jogador,
+  nada a gatear. `viewerIneligibleReason` é RÓTULO CURTO de chip (≤2 palavras:
+  `Mulheres` quando a categoria é feminina e o caller é masculino, `Homens` no
+  inverso) — a frase longa é do erro do `create`, nunca do badge; o caso
+  legado de perfil SEM gênero não tem chip (vem `null`), `listAvailable`
+  (public/draft-invisível),
+  `listParticipating`.
 - **entries.ts** — `create` (simples direto; duplas nascem `pending_partner` com
-  convite por **username** normalizado lowercase; valida gênero misto; capacidade),
+  convite por **username** normalizado lowercase; valida gênero — misto 1 homem
+  + 1 mulher; r25: male/female exigem o gênero do PARCEIRO igual à categoria;
+  **r27: o CALLER também é gateado** — `resolveCallerEligibility` roda depois de
+  `assertRegistrationOpen` e ANTES de capacidade/duplicata (gênero errado ganha
+  do "Essa categoria está lotada."), e vale pra simples também; capacidade;
+  duplicata de playerA/playerB em status VIVO → `CONFLICT` tratado em pt-BR
+  "Você já tem inscrição nessa categoria" — guard `assertPlayersNotInCategory`
+  sobre `ENTRY_LIVE_STATUSES` + rede try/catch que converte corrida rara de
+  índice único em CONFLICT, nunca 500 cru — IBX-0074 r19),
   `respondPartnerInvite` (aceitar/recusar → `awaiting_payment`/`pending_approval`/`active`),
   `approve`/`reject` (organizador), `cancel` (jogador antes do sorteio ou organizador),
-  `setSeed`, `listForTournament`.
+  `setSeed`, `listForTournament`. TODA transição terminal (cancel, reject,
+  recusa de convite, estouro de pagamento no `charge`, cancelamento do
+  torneio no `lifecycle`) libera os slots ativos (`unsetToken`) — IBX-0074 r19.
 - **bracket.ts** — `draw` (shuffle Fisher-Yates + `buildBracket` por categoria;
   status→drawn), `swapSlots` (**IBX-0053: move cross-round; IBX-0068: só
   `drawn`, iniciar congela** — o input são
@@ -1148,10 +1186,28 @@
   (action: chama provider por charge, idempotente), `listRefundableCharges`,
   `applyRefundOutcome` (`refunded|failed`), `sweepPendingRefunds` (cron 15min,
   padrão sweep dos withdraws).
-- **players.ts** (despacho do slice 3, 22-08) — `searchByUsername({username})`
-  (authQuery, **busca exata** pelo design do convite; normaliza com a regra
-  pura `normalizeUsernameLookup` — lowercase/trim, a mesma do convite;
-  retorna `TournamentPlayerCard | null`, só perfis com username definido).
+- **players.ts** (despacho do slice 3, 22-08; **r18-A 20-09: busca por PREFIXO**;
+  **r25 20-09: filtro de GÊNERO server-side**) — `searchByUsername({categoryId,
+  username})` (authQuery; input ganhou `categoryId` obrigatório; normaliza com a
+  regra pura `normalizeUsernameLookup` — lowercase/trim, a mesma do convite;
+  `startsWith` no índice único de `user.username` + seleção pura
+  `selectUsernameMatches`; retorna `TournamentPlayerCard[]` ALFABÉTICA, limite
+  10, `[]` = ninguém. O gênero exigido do parceiro é resolvido NO SERVIDOR
+  (`resolvePartnerGenderTarget`): categoria fixa (male/female) decide;
+  mista = OPOSTO de quem convida; quem busca SEM gênero no perfil em mista →
+  `[]`; candidatos sem perfil, o próprio caller, ou gênero diferente/ausente
+  nunca aparecem. **r27 review MEDIUM (fix):** a busca passou a consultar o
+  gate do CALLER pela fonte única `resolvePartnerSearchGender` (compõe
+  `resolveCallerEligibility` + `resolvePartnerGenderTarget`) — quem a
+  categoria recusa (gênero fixo divergente/sem gênero, mista sem gênero
+  definido) recebe `[]` em vez de sugestões que o `create` recusaria; busca
+  e gate ficaram simétricos na dimensão do caller. SUPERSEDE o contrato exato
+  do sheet extinto — card único —
+  que era o motivo do r18 "não retorna ninguém". **r27 fecha o LOW do r25:** o
+  loop de serialização PARA ao atingir o `SEARCH_LIMIT` (antes serializava até
+  25 cards com `resolveStorageUrl` cada e descartava o excedente no cap final —
+  até 15 lookups de avatar a menos por busca em prefixo popular, zero mudança
+  de comportamento).
 - **Leituras enriquecidas** (despacho do slice 3): `entries.listForTournament`
   devolve `tournamentEntryWithPlayersSchema` — cada entry embute
   `playerA`/`playerB` `TournamentPlayerCard {playerProfileId, fullName,
@@ -1515,7 +1571,11 @@ Vocabulário de produto: **torneio** (nunca "evento").
   (duplas nascem `pending_partner` até o convite ser aceito; depois seguem
   para `awaiting_payment` ou `pending_approval` conforme a categoria).
   Em `mixed`, valida 1 homem + 1 mulher pelo gênero do perfil dos dois
-  jogadores (exige gênero definido nos dois).
+  jogadores (exige gênero definido nos dois). **r27:** nas categorias de
+  gênero FIXO (Simples Masculino/Feminino, Duplas Masculinas/Femininas) quem
+  se inscreve também precisa casar com o gênero da categoria — o gate do
+  parceiro do r25 sozinho deixava um perfil masculino entrar em Duplas
+  Femininas convidando uma parceira.
 - **`tournamentMatch`** — `categoryId`, `round`, `slotInRound`,
   `entryAId`/`entryBId` (nullable = a definir/bye), `winnerEntryId`, placar
   com o schema de score da liga (sets + super tiebreak + mini-placar opcional
@@ -1810,3 +1870,25 @@ O usuário marcou a lista de dashboards item a item e fechou o conteúdo das tel
 - **Casa guest:** só a descrição.
 - **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
 - **Invariável:** pendências NUNCA pro jogador (aba Inscrições sem segmento Pendências para não-organizador — mantido); privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.
+
+## IBX-0074 · CUTOVER DO RODAPÉ NO TORNEIO — JoinFooter global (20-09, sem commit)
+
+Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spec em `dashboard.md`) foi renomeado `RegistrationFooter` → **`JoinFooter`** e implementado PRIMEIRO no torneio ("pra eu ver"). SUPERA o bullet "Rodapé fixo de inscrição" da seção PLANO DE CONTEÚDO FECHADO acima (o CTA não abre mais BottomSheet).
+
+- **Cutover (`tournaments/[tournamentId]/index.tsx`):** o rodapé moldado (Card tertiary + CTA abrindo sheet) e o **`TournamentJoinSheet` EXTINTO (arquivo removido — o fluxo inteiro vive no painel do rodapé; o "join-footer" torneio volta como componente global)**. No lugar, `JoinFooter`: pílula "Inscreva-se / a partir de R$X / por jogador" (grátis = "Grátis" sem prefixo); o CTA expande o painel com seletor de categoria (`priceLabel` + `vacancyLabel` + chip "Lotada" desabilitada) e o autocomplete de parceiro em duplas.
+- **Parceiro por busca viva:** debounce 500ms + `players.searchByUsername` (MESMA query exata do extinto sheet) alimenta `partnerOptions`; o autocomplete roda no modo assíncrono oficial da doc (`filter={() => true}` + `onInputChange`), com Empty "Nenhum jogador encontrado." cobrindo o não-achou; o servidor continua validando o convite no create. `PersonCard` renderiza o avatar real (`avatarUrl` do player card).
+- **Confirmação:** MESMA sequência do sheet — `entries.create` → (`awaiting_payment`) `charge.createCharge` → checkout; toasts idênticos por status (convite de parceiro / aprovação / inscrito); em voo `isActionPending` + "Enviando...". Diferença declarada: o painel fecha e reseta JÁ no confirmar (o sheet ficava aberto no erro; agora o toast explica e reabrir é um toque).
+- **CTA do painel (`joinConfirmLabel`):** "Inscrever e pagar" (todas as categorias com taxa) / "Confirmar inscrição" (todas grátis) / "Inscrever-se" (misto).
+- **Gate de montagem inalterado:** janela aberta (`registrationState.open`) + categoria com vaga; organizador sem rodapé; jogador com entrada ativa ganha "Inscrever em outra categoria".
+- **Liga intocada nesta leva:** `LeagueJoinFooter` segue de molde até o componente ser aprovado no torneio.
+- **r16 (20-09, QA ao vivo): JoinFooter acima da floating tab bar via prop.** O usuário viu a tab bar flutuante da tela do torneio cobrindo o rodapé. Decisão final DELE: o padding é da tela — `JoinFooter` ganhou `footerClassName?: string` (default `pb-safe-offset-3`, ex. galeria; o `cn` do app não resolve conflito de classes, default via ternário), e a página do torneio passa `footerClassName="pb-floating-tab-bar-4"` (`index.tsx:579`) para o rodapé sentar acima da barra (utility embute safe area + gap + altura via CSS var global). Liga tem o mesmo overlap (`LeagueJoinFooter` com `pb-safe-offset-3`) — quando o JoinFooter global for adotado lá, passa a prop equivalente; hoje apontado, não estendido sem pedido.
+- **r17 (20-09, QA ao vivo): preço com centavos.** O valor do rodapé renderizava "R$ 5" (0 casas) — o `formatEntryFeeLabel` em `tournament-details-derived.ts` era uma duplicata local de `Intl.NumberFormat` com `maximumFractionDigits: 0`. Extinto (cutover limpo): a pílula (`index.tsx:597`) e o `priceLabel` por categoria (`index.tsx:383`) usam o formatter canônico do app `formatCurrencyCents` (`src/lib/format/currency.ts`, pt-BR default 2 casas → "R$ 5,00"; zero segue "Grátis"). Liga e overview do organizador já usavam o canônico; nenhuma outra superfície de preço cru encontrada na varredura.
+- **r20 (20-09, pedido do usuário): chip de modalidade fora do seletor de categorias.** O `Chip` com `MODALITY_LABEL[category.modality]` no item de categoria era redundante — o `displayName` da categoria já traz a modalidade ("Simples Masculino", "Duplas"...). Chip e const `MODALITY_LABEL` extintos (único uso era o chip; o campo `modality` do tipo fica — alimenta o bloco de duplas via `selectedCategory?.modality`). Item da lista segue com displayName + vagas/Lotada + seleção, no desenho atual do usuário.
+- **r25 (20-09, pedido do usuário): filtro de gênero na busca e no convite de parceiro.** Regra: Duplas Masculinas → parceiro Masculino; Duplas Femininas → parceira Feminina; Mistas → OPOSTO de quem convida. SERVER-SIDE: `searchByUsername` ganhou `categoryId` obrigatório no input e resolve o alvo com `resolvePartnerGenderTarget` (auth user + categoria — o cliente não manda gender); create valida a MESMA regra pela extensão de `validateEntryGenders` (supersede do "v1 não valida não-mistas" — teste antigo removido, novo suite r25 cobre as 3 combinações + nulos + burla via create). Gênero NULL decidido: candidato não aparece na busca E o create recusa com mensagem pt-BR ("...gênero masculino definido no perfil"); caller sem gênero em mista → busca `[]` e create recusa ("mistas exigem o gênero definido nos dois"). Dados DEV: 83 perfis — 69 M, 1 F, 13 NULL. Wiring de transição na página (r25: busca habilitada quando todas as duplas inscríveis compartilham o mesmo gênero) SUPERSEDED pelo r26 — a busca usa a categoria selecionada no painel. APONTADO: regra é do PARCEIRO — caller com gênero divergente da categoria fixa passa no create (fora do pedido; decisão de produto se/quando o usuário quiser). Nota técnica: migrations devem ser SELF-CONTAINED (sem import de domínio) — o checksum cobre o bundle deployado e import de `entry-rules.ts` driftava a cada edição do domínio (corrigido na 20260920_091746: reescrita inline + re-apply; journal 16/16, drift []). FIX da review: pins do gate fixo viram `toBe` com a MENSAGEM EXATA pt-BR (masculina/feminina, parceiro nulo incluso) e a busca ganhou over-fetch — pré-filtro 25, cap 10 DEPOIS do filtro de gênero + exclusão do caller (prefixo popular não devolve `[]` com válido além do corte).
+- **r26 (20-09, continuação do r25): a busca de parceiro usa a CATEGORIA SELECIONADA no painel.** O wiring de transição do r25 na página ("habilita só quando TODAS as duplas inscríveis compartilham o mesmo gênero") saiu — cutover limpo. O `JoinFooter` ganhou `onCategoryChange?: (categoryId: null | string) => void`: dispara a cada mudança do painel (escolha de categoria e reset na confirmação; a seleção segue estado interno dele) e a página guarda `selectedCategoryId` pra alimentar `players.searchByUsername` (`categoryId` obrigatório do contrato r25; gênero continua 100% server-side, o cliente nunca manda). Gate da busca: categoria selecionada E `modality === "doubles"` + termo válido (3-30 chars) — duplas sem categoria escolhida = busca desabilitada. Liga e galeria intocadas (prop opcional; `join-footer.tsx`, `tournaments/[tournamentId]/index.tsx`).
+- **r22 (20-09, contrato r18-A): busca de parceiro em lista + diálogo neutro.** `players.searchByUsername` passou a devolver `TournamentPlayerCard[]` (array alfabético ≤10 por prefixo; `[]` = ninguém). O rodapé do torneio adaptou o consumo: a página (`index.tsx:197-206`) normaliza o `data` do interop e mapeia a lista em `partnerOptions` (types nomeados do contrato); o `Autocomplete` do painel já lista múltiplos itens. Estado inicial do diálogo (apontamento de QA): com campo vazio não grita mais "Nenhum jogador encontrado." — o `Empty` (`join-footer.tsx:420-424`) é neutro ("Busque pelo nome ou @username.") até existir termo válido buscado (mesmo corte de 3 chars do gate da página), e só então vira "Nenhum jogador encontrado.".
+- **r18-A (20-09, backend, decisão A do orquestrador): busca de parceiro vira PREFIXO.** Veredito do r18 (busca EXATA, dado saudável — 78 users com username no DEV) virou contrato novo: `players.searchByUsername` retorna LISTA (`TournamentPlayerCard[]`, ≤10, alfabética por username) via `startsWith` no índice único de `username` + seleção pura `selectUsernameMatches` (`entry-rules.ts`; testada: prefixo parcial, case-insensitive via normalização, limite, sem-username nunca aparece). MESMO nome e input `{username}` — output muda de `card | null` pra `array` (cutover limpo: único consumidor era o rodapé). O Frontend adapta o autocomplete ao array depois deste pouso.
+- **r19 (20-09, bug ao vivo): re-inscrição explodia com 500 cru de índice único.** Causa provada em sonda: entry TERMINAL (cancelled/rejected) segurava `(categoryId, playerAId)` no unique index PARA SEMPRE — `playerAId` é NOT NULL e `cancel`/`reject` só mudavam status; o guard H3 ignora terminais de propósito (re-inscrição após cancelar é fluxo legítimo), então o INSERT colidia no banco ("Unique index 'categoryId_playerAId' violation"). Fix: espelhos de reserva `activeAId`/`activeBId` (colunas opcionais novas; preenchidas nos inserts via `entrySlotFields`; limpas com `unsetToken` em TODA transição terminal — `cancel`, `reject`, recusa de convite, estouro de pagamento no `charge.ts`, cancelamento do torneio no `lifecycle.ts`), unique indexes trocados pra `categoryId_activeAId`/`categoryId_activeBId` (mesma proteção pra entradas vivas — awaiting_payment/active inclusive; playerB tem o próprio índice), terminais saem do índice e a re-inscrição volta a funcionar. Backfill das entries vivas pré-existentes: migration `20260920_091746_backfill_tournament_entry_slots` (roda no deploy autorizado; sem ela o guard continua protegendo, o índice é rede extra). Testes de slot por status + matches de busca em `domains/tournament/tests/entry-rules.test.ts`.
+- **r27 (20-09, regra de produto nova + ao vivo): gate do CALLER por gênero, contato do rodapé pro Frontend e perfis femininos no DEV.** (a) **Regra:** categoria de gênero FIXO (Simples Masculino/Feminino e Duplas Masculinas/Femininas) só aceita quem se inscreve com o gênero da categoria; **mista segue o r25** (caller qualquer gênero definido, parceiro o OPOSTO); perfil sem gênero é recusado igual ao r25. Isso fecha o furo que o r25 tinha APONTADO (só o parceiro era validado): um perfil masculino entrava em Duplas Femininas convidando uma parceira. Fonte única pura `resolveCallerEligibility(categoria, gênero do caller)` → `{eligible, label, reason}`; `validateEntryGenders` COMPÕE ela com o gate do parceiro; o `create` a roda antes de capacidade/duplicata (mensagem nova pt-BR, mesma família: "Você não pode se inscrever em Duplas Femininas. A categoria aceita apenas o gênero feminino."). (b) **Contrato pro Frontend (tela do torneio):** `tournamentDiscoverySchema.categories` passa a `tournamentDiscoveryCategorySchema` com `viewerEligible: boolean | null` + `viewerIneligibleReason: string | null` POR categoria — `null` = viewer sem ator jogador (organizador/guest, nada a gatear), `false` = categoria incompatível com o motivo pronto pra exibir; o client decide entre desabilitar ou esconder SEM duplicar a regra (e o valor de `viewerIneligibleReason` É O RÓTULO CURTO do chip, ver b3). `management.getById` (organizador) segue com o shape antigo. (b2) **MEDIUM da review (corrigido na sequência):** `players.searchByUsername` não consultava o gate do caller — Camila (F) em Duplas Masculinas recebia 5 homens sugeridos enquanto a leitura marcava `viewerEligible=false` e o create recusaria. Agora a busca chama a fonte única `resolvePartnerSearchGender` (caller + alvo) e devolve `[]` quando o caller é inelegível; pins novos em `entry-rules.test.ts` (camila x duplas masculinas, bruno x duplas femininas, sem gênero, mista sem gênero = `[]`; aceites legítimos inalterados) com prova de mutação (o mutant "caller não consultado" quebra 4 pins). (b3) **Micro-ajuste de copy (20-09, feedback do usuário ao vivo): o chip mostra RÓTULO CURTO, o erro mostra a FRASE.** O `viewerIneligibleReason` do discovery carregava a frase inteira da recusa e estourava o chip do rodapé; agora `resolveCallerEligibility` devolve `{eligible, label, reason}` — `label` (≤2 palavras) é o que a leitura publica e o chip pinta, `reason` (frase completa, INALTERADA byte-a-byte) é o que o `create` recusa. Strings FINAIS (escolha do usuário): gênero definido divergente = **`Mulheres`** na categoria feminina e **`Homens`** na masculina; gênero ausente (categoria fixa ou mista) = **sem chip** (`label: null`, o caso é legado porque a escrita do perfil exige gender — a frase longa continua no erro do create). Shape do contrato intocado (mesmos campos; só o valor do campo mudou, o Frontend exibe o que vier). Pins em `entry-rules.test.ts`: os dois textos convivem (erro exato + rótulo exato) e um pin novo garante ≤2 palavras e ausência de travessão; prova de mutação com o mutant "rótulo = frase longa" quebrando 4 pins. (c) **LOW do r25 fechado:** `players.searchByUsername` corta o loop ao atingir o `SEARCH_LIMIT` (antes serializava até 25 cards e descartava o resto no cap). (d) **DEV (kindred-yak-142, PROD intocado):** 8 contas/perfis FEMININOS com username via o MESMO caminho do seed `scripts/seed-tournament-dev.mjs` (sign-up HTTP + `player.profile.upsert`; usernames agrupados por prefixo ca/ma/pa de propósito); conta de teste **camila.rocha@bropen.local / Dracena2026**; read-back: 9 perfis Feminino (8 com username) contra 69 Masculino/13 nulos no DEV. Categorias pra teste já existiam na **Copa Vila Tênis Clube** (published, prazo 28/09): Duplas Femininas e Duplas Mistas VAZIAS (maxEntries null), Simples Feminino lotada (4/4). Provas ao vivo no DEV: campos novos no `getById`, recusa do caller em duplas E simples (gênero errado vence o "lotada"), gate do parceiro r25 de pé, busca "ca"/"ma" devolvendo as parceiras (self excluído) e "br" devolvendo 4 homens pra mista. Pins r27 com prova de mutação em `entry-rules.test.ts` (**72 testes no arquivo**, contados no estado final) + script de mutação fora da árvore.
+- **r29 (20-09, decisão do usuário): categoria incompatível entra DESABILITADA COM O MOTIVO (nunca escondida).** Decisão dele sobre o contrato r27: o seletor do rodapé exibe a categoria incompatível em vez de sumir com ela. **Vocabulário reusado (sem variante nova):** MESMA linha desabilitada do "Lotada" — `PressableFeedback isDisabled` + `opacity-disabled` no Card (`join-footer.tsx:301-321`); o chip muted (`bg-muted/20` + `text-foreground/80`) que hoje mostra "Lotada" passa a mostrar o MOTIVO quando a categoria é incompatível (`join-footer.tsx:337`), na FRENTE da cadeia (incompatível > lotada > vagas). **Origem do motivo:** `viewerIneligibleReason` do contrato de discovery (`tournamentDiscoverySchema.categories[].viewerEligible/viewerIneligibleReason`, r27) — o cliente NÃO escreve copy própria nem recalcula gênero: a página só repassa os campos (`index.tsx:334-336`, `:400-402`) e o `JoinFooterCategory` ganhou `isIneligible`/`ineligibleReason` (`join-footer.tsx:31-44`). `viewerEligible` null (organizador/guest) e true = comportamento anterior intacto; LOTADA segue no `isFull`/`vacancyLabel` de sempre. **CTA:** o botão de confirmação do painel soma `selectedCategory?.isIneligible` ao próprio `isDisabled` (`join-footer.tsx:530`) — gate DENTRO do CTA pela lição do H1 do r24 (o `isDisabled` da raiz do MorphButton trava só o press da raiz — `morph-button.js:146`), então o toque não chega ao `entries.create`. **Superfícies informativas de categoria APONTADAS (não mexidas nesta leva, não são escolha):** `components/pages/tournaments/player-overview.tsx:116-156` (suas inscrições), `tournaments/[tournamentId]/entries.tsx:160,214` (lista de inscritos), `tournaments/[tournamentId]/bracket.tsx:491-541` (tabs de categoria da chave) e a galeria `settings/components/[component].tsx:165-188`. **Path (r28):** o diretório do componente core mudou de nome — caminho novo `src/components/core/page` (`Page`, `BackButton` e `usePageContext` inalterados; os imports foram trocados em 44 arquivos) e este doc usa o caminho novo.
+- **r30 (20-09, bug ao vivo do usuário): a busca de parceiro mostra SPINNER, não "Nenhum jogador encontrado.", enquanto procura.** Ele digitou rápido ("caio") e o painel respondeu "Nenhum jogador encontrado." no meio da busca. **Causa confirmada no pacote** (`heroui-native-pro@1.0.0-beta.10`): `Autocomplete.Empty` monta sempre que `visibleItemCount === 0` (`autocomplete.js:567`), sem NENHUM conhecimento de fetch — e no modo assíncrono oficial o filtro é sempre-true (`filter={() => true}`), então "0 itens" cobre tanto a busca em voo quanto o vazio real; o texto era decidido pelo TERMO cru (`hasSearchedPartnerTerm`, `join-footer.tsx:175`), verdadeiro já a partir de 3 chars. A anatomy do Autocomplete NÃO tem slot de Loading (Trigger/Portal/Content/SearchField/List/Item/Empty — docs do MCP Pro), então o carregando entrou com o `LoadingState` DO APP (Spinner + `accessibilityRole="progressbar"`, `ui/loading-state.tsx`) NO LUGAR do Empty: sem variante visual nova e sem copy nova. **Contrato:** `JoinFooter.isPartnerSearchPending?: boolean` (prop opcional) = busca em andamento (janela do debounce OU fetch); a página liga com `partnerQuery.isFetching || debouncedPartnerSearch !== partnerSearch.trim().toLowerCase()` (`index.tsx:378-384`, passada em `:612`) e o painel só troca o Empty com termo VÁLIDO (`isPartnerSearching`, `join-footer.tsx:180-181`). **Estados:** termo <3 = neutro "Busque pelo nome ou @username." (inalterado); termo ≥3 EM VOO = LoadingState; termo ≥3 RESOLVIDO com 0 resultados = "Nenhum jogador encontrado." (só então). Liga e galeria seguem sem a prop (opcional = comportamento atual). **Chain do chip (steering do mesmo round, escolha do usuário):** o token de categoria incompatível mudou por decisão dele — incompatível COM motivo mostra o motivo (rótulo curto do servidor: femininas = "Mulheres", masculinas = "Homens"); incompatível SEM motivo (perfil SEM gênero/legado, `ineligibleReason` null) fica SEM chip DE PROPÓSITO e NÃO cai para lotada/vagas (senão a linha desabilitada mostraria "Lotada" ou as vagas sem explicar o bloqueio); depois vem "Lotada"; depois as vagas. Ordem codificada em `join-footer.tsx:341-369`; o TEXTO segue vindo do servidor — nenhuma copy nova no client.
