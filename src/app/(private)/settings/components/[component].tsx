@@ -6,14 +6,16 @@ import { View } from "react-native";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { EmptyState } from "@/components/ui/empty-state";
-import { KpiCard } from "@/components/ui/kpi-card";
 import {
   JoinFooter,
   type JoinFooterCategory,
   type JoinFooterPartnerOption,
 } from "@/components/ui/join-footer";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { MonthlyMatchesCard } from "@/components/ui/monthly-matches-card";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
 import { formatCurrencyCents } from "@/lib/format/currency";
+import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
 
 /**
  * Moldura de variante na galeria: título curto e estável (numeração pra
@@ -239,6 +241,46 @@ function JoinFooterVariantsSection() {
 }
 
 /**
+ * Série de EXEMPLO do item Gráfico (IBX-0075 r3): o MESMO shape que a home do
+ * jogador consome (`performance.byMonth` do `player.dashboard.getOverview`)
+ * passado pelo MESMO builder (`buildPlayerResultsChart`). A galeria é dev-only
+ * e não consulta o dashboard (o dado real depende do ator jogador), então o
+ * que aparece aqui é exemplo declarado — na home entra a série real de 6 meses.
+ */
+const galleryResultsByMonth = [
+  { losses: 1, month: "2026-04", wins: 2 },
+  { losses: 2, month: "2026-05", wins: 1 },
+  { losses: 0, month: "2026-06", wins: 3 },
+  { losses: 1, month: "2026-07", wins: 2 },
+  { losses: 2, month: "2026-08", wins: 3 },
+  { losses: 1, month: "2026-09", wins: 4 },
+];
+
+const galleryMatchesByMonth = buildPlayerResultsChart(
+  galleryResultsByMonth
+).map((month) => ({
+  label: month.label,
+  matches: month.wins + month.losses,
+}));
+
+/**
+ * Seção do item Gráfico (IBX-0075 r3b): UM chart só (o usuário reprovou as 3
+ * variantes numeradas) — o bloco "Partidas por mês" como ele vai entrar na
+ * home, com o dado de EXEMPLO declarado abaixo.
+ */
+function ChartCrosshairGallerySection() {
+  return (
+    <View className="gap-4">
+      <Text color="muted" variant="description">
+        Série de exemplo no mesmo shape da home do jogador (lá entra a série
+        real de 6 meses). Toque e arraste no gráfico para ver o crosshair.
+      </Text>
+      <MonthlyMatchesCard data={galleryMatchesByMonth} />
+    </View>
+  );
+}
+
+/**
  * Tela de variantes de um componente da galeria (rota dinâmica no padrão
  * settings/leagues/[mode]). DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da
  * entrada e do checkout — usuário final não chega aqui nem por deep link.
@@ -277,6 +319,8 @@ export default function ComponentVariantsRoute() {
             <TextVariantsSection />
           ) : entry.id === "join-footer" ? (
             <JoinFooterVariantsSection />
+          ) : entry.id === "chart-crosshair" ? (
+            <ChartCrosshairGallerySection />
           ) : null
         ) : (
           <EmptyState

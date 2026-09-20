@@ -28,6 +28,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "join-footer",
     title: "Inscrição",
   },
+  {
+    description: "Gráfico de partidas por mês com crosshair para aprovação",
+    id: "chart-crosshair",
+    title: "Gráfico",
+  },
 ];
 
 export function findComponentGalleryEntry(
