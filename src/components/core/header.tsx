@@ -42,6 +42,7 @@ const RightFrame = styled(View, {
 
 const HeaderTitle = styled(Text, {
   base: {
+    align: "center",
     variant: "body",
     weight: "semibold",
   },

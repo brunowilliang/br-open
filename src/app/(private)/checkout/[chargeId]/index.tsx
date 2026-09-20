@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
@@ -225,12 +225,12 @@ export default function CheckoutScreen() {
           </Button>
         </Page.Header.Left>
         <Page.Header.Center>
+          <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
           <Skeleton className="h-6 w-35 rounded-xl" isLoading={isLoading}>
             <Page.Header.Title>
               {checkout?.sourceLabel ?? "Pagamento"}
             </Page.Header.Title>
           </Skeleton>
-          <Page.Header.SubTitle>Confirme a sua inscrição</Page.Header.SubTitle>
         </Page.Header.Center>
         <Page.Header.Right />
       </Page.Header>

@@ -2,11 +2,9 @@ import {
   CheckmarkCircle02Icon,
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
-import { NumberField, NumberStepper } from "heroui-native-pro";
 import {
   AccordionLayoutTransition,
   Button,
-  Description,
   FieldError,
   Label,
   Menu,
@@ -14,11 +12,12 @@ import {
   Switch,
   TextField,
 } from "heroui-native";
+import { NumberField, NumberStepper } from "heroui-native-pro";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
-import { Page } from "@/components/core/NewPage";
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import {
@@ -240,9 +239,7 @@ export default function TournamentCategoriesRoute() {
                     <View className="min-w-0 flex-1">
                       <Text weight="medium">Limitar vagas</Text>
                       <Text color="muted" variant="description">
-                        {category.maxEntries === null
-                          ? "Inscrições sem limite de vagas."
-                          : `Até ${category.maxEntries} inscrições nesta categoria.`}
+                        Limite a quantidade de inscrições nessa categoria
                       </Text>
                     </View>
                     <Switch
@@ -276,10 +273,6 @@ export default function TournamentCategoriesRoute() {
                         <NumberStepper.Value />
                         <NumberStepper.IncrementButton />
                       </NumberStepper>
-                      <Description>
-                        Potências de 2 (4, 8, 16...) evitam byes extras na
-                        chave.
-                      </Description>
                       <FieldError>{""}</FieldError>
                     </TextField>
                   )}

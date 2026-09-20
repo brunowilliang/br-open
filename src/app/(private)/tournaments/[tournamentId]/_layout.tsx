@@ -1,8 +1,8 @@
 import {
   Calendar03Icon,
   Home01Icon,
+  HierarchySquare01Icon,
   UserMultipleIcon,
-  VolleyballIcon,
 } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +19,7 @@ import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-detail
 import type { TournamentNavigationTabValue } from "@/lib/tournaments/tournament-details-derived";
 
 const TOURNAMENT_TAB_ICONS = {
-  bracket: VolleyballIcon,
+  bracket: HierarchySquare01Icon,
   entries: UserMultipleIcon,
   overview: Home01Icon,
   schedule: Calendar03Icon,
