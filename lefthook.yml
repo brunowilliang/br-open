@@ -11,7 +11,7 @@ pre-commit:
         - "**/*.css"
       stage_fixed: true
     - run: bun run typecheck
-    - run: bun test
+    - run: bun run test
 
 pre-push:
   jobs:

@@ -11,11 +11,11 @@ v4 for RN) and HeroUI Native (OSS + Pro).
 - Typecheck: `bun run typecheck` (app **and** convex) — app only: `bun run typecheck` minus convex, i.e. `tsc --noEmit`
 - Lint/format: `bun run check` (runs `ultracite check` **then** `typecheck`) — this is the full gate
 - Auto-fix formatting: `bun run fix` (`ultracite fix`)
-- Tests: `bun test` (all) · `bun test src`
-  - Tests are co-located as `*.test.ts` next to the file under test.
+- Tests: `bun run test` (= `bun test --isolate`: fresh module registry per file, so module stubs can't leak) — subset: `bun run test src`
+  - Tests are co-located next to the file under test as `*.test.ts` (logic) or `*.test.tsx` (component).
 - Diff hygiene: `git diff --check`
 
-CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun test` on Bun 1.2.x.
+CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun run test` on Bun 1.2.x.
 
 ## Setup gotchas
 
@@ -52,7 +52,7 @@ the Backend agent rule. Do not duplicate it here; read the source of truth:
 
 - Formatting/linting is enforced by **Ultracite** (a Biome preset): `bun run fix`
   auto-fixes; `bun run check` verifies. Lefthook (`lefthook.yml`) auto-runs
-  `ultracite fix` (with `stage_fixed`) + `typecheck` + `bun test` on pre-commit.
+  `ultracite fix` (with `stage_fixed`) + `typecheck` + `bun run test` on pre-commit.
 - Repo-specific Biome overrides (`biome.jsonc`) that differ from defaults:
   - `useConsistentTypeDefinitions` = **`type`** (use `type` aliases, not `interface`).
   - `noNonNullAssertion` = **off**, `noArrayIndexKey` = **off**,
@@ -93,5 +93,5 @@ Run the checks appropriate to the touched scope (but do NOT commit):
 
 - minimum: `git diff --check`
 - usually: `bun run check` (lint + typecheck)
-- when logic/contracts changed: `bun test`
+- when logic/contracts changed: `bun run test`
 - when the change touches backend (schema/functions/contracts): follow `docs/agents/backend.md`

@@ -42,7 +42,7 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
   documentada em `onboarding.ts`).
 - **Módulos:** auth, league, notification, organization, payment, player, seed,
   viewer (contexto do ator ativo), withdraw.
-- **Gate backend:** `bun run codegen` → `typecheck:convex` → `bun test convex`.
+- **Gate backend:** `bun run codegen` → `typecheck:convex` → `bun run test convex`.
 
 ## Frontend (Expo Router)
 
@@ -59,7 +59,7 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
 - **`src/components/pages/`** guarda views complexas (overviews por papel,
   dialogs); lógica derivada em `src/lib/leagues/*-derived.ts`.
 - **HeroUI Native + Uniwind** para componentes e estilos; `onPress`, não onClick.
-- **Gate frontend:** `bun run check` (lint + typecheck) + `bun test src`.
+- **Gate frontend:** `bun run check` (lint + typecheck) + `bun run test src`.
 
 ## Vocabulário canônico (padronização executada)
 
