@@ -168,6 +168,26 @@ export const tournamentCategorySchema = z.object({
   tournamentId: z.string(),
 });
 
+/**
+ * Discovery category (IBX-0074 r27): the organizer read
+ * (`management.getById`) keeps the plain shape; the player-facing detail
+ * adds the CALLER gate per category, computed server-side by
+ * `resolveCallerEligibility` — the client filters/labels the selector from
+ * these flags instead of re-implementing the rule. `viewerEligible` is
+ * null when nobody is gated (organizer/guest viewer: no active player
+ * profile), false only with `viewerIneligibleReason` filled. That field is
+ * a SHORT badge label (≤2 palavras: "Mulheres" na categoria feminina vista
+ * por um homem, "Homens" no inverso), NOT the long refusal sentence — the
+ * sentence lives in the `create` error (micro-ajuste de copy 20-09: o chip
+ * não cabe uma frase). The legacy profile-without-gender refusal has NO
+ * badge: it arrives as null while `viewerEligible` is false.
+ */
+export const tournamentDiscoveryCategorySchema =
+  tournamentCategorySchema.extend({
+    viewerEligible: z.boolean().nullable(),
+    viewerIneligibleReason: z.string().nullable(),
+  });
+
 export const tournamentSchema = z.object({
   approvalMode: z.enum(TournamentApprovalModeOptions),
   avatarStorageId: z.string().nullable(),
@@ -194,7 +214,7 @@ export const tournamentDiscoverySchema = tournamentSchema.extend({
   activeEntryCount: z.number().int().nonnegative(),
   // Gap 2: public detail surface — the discovery page needs the category
   // chips (fee/vacancies) for guests/players, not just the organizer.
-  categories: z.array(tournamentCategorySchema),
+  categories: z.array(tournamentDiscoveryCategorySchema),
   isTournamentOrganizer: z.boolean(),
   viewerEntryIds: z.array(z.string()),
 });

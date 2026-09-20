@@ -1,4 +1,4 @@
-import { eq } from "kitcn/orm";
+import { eq, unsetToken } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
@@ -12,12 +12,16 @@ import {
   tournamentEntrySchema,
   tournamentEntryWithPlayersSchema,
   type TournamentGender,
+  type TournamentModality,
   type TournamentPlayerCard,
 } from "../../domains/tournament/contract";
 import {
+  ENTRY_LIVE_STATUSES,
+  entrySlotFields,
   isRegistrationOpen,
   normalizeUsernameLookup,
   registrationClosedMessage,
+  resolveCallerEligibility,
   resolveEntryStatusAfterPartnerAccepted,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
@@ -163,14 +167,7 @@ async function assertPlayersNotInCategory(
     limit: 300,
     where: {
       categoryId,
-      status: {
-        in: [
-          "pending_partner",
-          "pending_approval",
-          "awaiting_payment",
-          "active",
-        ],
-      },
+      status: { in: [...ENTRY_LIVE_STATUSES] },
     },
   });
   const idSet = new Set(playerProfileIds);
@@ -335,6 +332,21 @@ async function scheduleEntryRefund(
   }
 }
 
+/**
+ * Last-resort race net for entry inserts (IBX-0074 r19): the code guard
+ * (`assertPlayersNotInCategory`) plus the mirrored-slot unique indexes make
+ * a duplicate virtually impossible, but two concurrent creates for the same
+ * player/category can still interleave check and insert. When that happens
+ * the client must see a treated CONFLICT, never the raw unique-index 500.
+ */
+function isUniqueIndexViolation(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Unique index") &&
+    error.message.includes("violation")
+  );
+}
+
 export const create = authMutation
   .input(CreateTournamentEntrySchema)
   .output(tournamentEntrySchema)
@@ -348,6 +360,27 @@ export const create = authMutation
         input.categoryId as Id<"tournamentCategory">
       );
     assertRegistrationOpen(tournamentRecord, new Date());
+
+    // r27: the CALLER (who creates the entry) must match a FIXED-gender
+    // category — simples masculino/feminino and duplas masculinas/
+    // femininas. Same pure rule the tournament read exposes per category
+    // (`viewerEligible`), so the client never duplicates it. Checked BEFORE
+    // capacity/duplicate so the wrong-gender diagnosis wins.
+    const viewerProfile = await ctx.orm.query.playerProfile.findFirst({
+      where: { id: playerProfileId },
+    });
+    const callerEligibility = resolveCallerEligibility({
+      gender: category.gender as TournamentGender,
+      modality: category.modality as TournamentModality,
+      playerAGender: viewerProfile?.gender ?? null,
+    });
+    if (!callerEligibility.eligible) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: callerEligibility.reason,
+      });
+    }
+
     await assertCategoryCapacity(ctx, category);
     await assertPlayersNotInCategory(
       ctx,
@@ -355,9 +388,6 @@ export const create = authMutation
       [playerProfileId as string]
     );
 
-    const viewerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { id: playerProfileId },
-    });
     const now = new Date();
     const createdByUserId = ctx.userId as Id<"user">;
 
@@ -373,17 +403,32 @@ export const create = authMutation
         category.entryFeeCents,
         tournamentRecord.approvalMode ?? "auto"
       );
-      const [created] = await ctx.orm
-        .insert(tournamentEntry)
-        .values({
-          categoryId: category.id as Id<"tournamentCategory">,
-          createdAt: now,
-          createdByUserId,
-          playerAId: playerProfileId,
-          status,
-          updatedAt: now,
-        })
-        .returning();
+      let created: EntryRecord;
+      try {
+        [created] = await ctx.orm
+          .insert(tournamentEntry)
+          .values({
+            categoryId: category.id as Id<"tournamentCategory">,
+            createdAt: now,
+            createdByUserId,
+            playerAId: playerProfileId,
+            status,
+            updatedAt: now,
+            ...entrySlotFields({
+              playerAId: playerProfileId,
+              status,
+            }),
+          })
+          .returning();
+      } catch (error) {
+        if (isUniqueIndexViolation(error)) {
+          throw new CRPCError({
+            code: "CONFLICT",
+            message: "Você já tem inscrição nessa categoria.",
+          });
+        }
+        throw error;
+      }
 
       if (status === "pending_approval") {
         await notifyEntryCreatedForApproval(ctx, {
@@ -430,19 +475,35 @@ export const create = authMutation
       throw new CRPCError({ code: "BAD_REQUEST", message: genderError });
     }
 
-    const [created] = await ctx.orm
-      .insert(tournamentEntry)
-      .values({
-        categoryId: category.id as Id<"tournamentCategory">,
-        createdAt: now,
-        createdByUserId,
-        partnerUserId: partnerUser.id as Id<"user">,
-        playerAId: playerProfileId,
-        playerBId: partnerProfile.id as Id<"playerProfile">,
-        status: "pending_partner",
-        updatedAt: now,
-      })
-      .returning();
+    let created: EntryRecord;
+    try {
+      [created] = await ctx.orm
+        .insert(tournamentEntry)
+        .values({
+          categoryId: category.id as Id<"tournamentCategory">,
+          createdAt: now,
+          createdByUserId,
+          partnerUserId: partnerUser.id as Id<"user">,
+          playerAId: playerProfileId,
+          playerBId: partnerProfile.id as Id<"playerProfile">,
+          status: "pending_partner",
+          updatedAt: now,
+          ...entrySlotFields({
+            playerAId: playerProfileId,
+            playerBId: partnerProfile.id as Id<"playerProfile">,
+            status: "pending_partner",
+          }),
+        })
+        .returning();
+    } catch (error) {
+      if (isUniqueIndexViolation(error)) {
+        throw new CRPCError({
+          code: "CONFLICT",
+          message: "Um dos jogadores já tem inscrição nessa categoria.",
+        });
+      }
+      throw error;
+    }
 
     await scheduleTournamentNotification(ctx, {
       actorUserId: createdByUserId,
@@ -484,9 +545,16 @@ export const respondPartnerInvite = authMutation
     const now = new Date();
 
     if (!input.accept) {
+      // Declined invite = terminal entry: free the category slots so both
+      // players can enter again (IBX-0074 r19).
       const [updated] = await ctx.orm
         .update(tournamentEntry)
-        .set({ status: "cancelled", updatedAt: now })
+        .set({
+          activeAId: unsetToken,
+          activeBId: unsetToken,
+          status: "cancelled",
+          updatedAt: now,
+        })
         .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
         .returning();
       await scheduleTournamentNotification(ctx, {
@@ -619,9 +687,15 @@ export const reject = authMutation
     }
 
     const now = new Date();
+    // Rejected = terminal entry: free the category slots (IBX-0074 r19).
     const [updated] = await ctx.orm
       .update(tournamentEntry)
-      .set({ status: "rejected", updatedAt: now })
+      .set({
+        activeAId: unsetToken,
+        activeBId: unsetToken,
+        status: "rejected",
+        updatedAt: now,
+      })
       .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
       .returning();
 
@@ -682,9 +756,17 @@ export const cancel = authMutation
     }
 
     const now = new Date();
+    // Cancelled = terminal entry: free the category slots so the player can
+    // re-register (IBX-0074 r19 — the cancelled row used to hold the unique
+    // index forever and block re-entry).
     const [updated] = await ctx.orm
       .update(tournamentEntry)
-      .set({ status: "cancelled", updatedAt: now })
+      .set({
+        activeAId: unsetToken,
+        activeBId: unsetToken,
+        status: "cancelled",
+        updatedAt: now,
+      })
       .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
       .returning();
 

@@ -4,14 +4,21 @@
  * (1) "Copa Teste 64 Dev" started (drawn -> ongoing, 64-entry bracket);
  * (2) a small drawn tournament "Copa Dracena 8 Dev" (8 active entries);
  * (3) real login-able accounts (better-auth credential) for the QA.
+ * (4) IBX-0074 r27: FEMALE credential accounts with a defined username +
+ *     gender, so the partner search can be exercised in Duplas Femininas /
+ *     Mistas (the r25 gate only offers the gender the category demands, and
+ *     the DEV had a single female profile, with no username at all).
  *
  * Accounts go through the real HTTP signUp flow (hashes stay in better-auth's
  * hands); membership/preference follow the data-import pattern of
- * scripts/seed-league-bruno-prod.mjs. NEVER targets PROD: aborts unless
- * .env.local points to kindred-yak-142.
+ * scripts/seed-league-bruno-prod.mjs, and the female profiles are written
+ * through the app's own `player.profile.upsert`. NEVER touches PROD: aborts
+ * unless .env.local points to kindred-yak-142.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { ConvexHttpClient } from "convex/browser";
+import { anyApi } from "convex/server";
 
 // ---------------------------------------------------------------------------
 // Env guard: DEV only.
@@ -94,6 +101,61 @@ const PLAYERS = [
   },
 ];
 
+// Conta de teste FEMININA do r27 (report): primeira da lista. Usernames
+// agrupados por prefixo inicial (ca/ma/pa) de propósito — a busca por
+// prefixo devolve VÁRIAS jogadoras, como o seed masculino já faz.
+const FEMALE_TEST_ACCOUNT = "camila.rocha@bropen.local";
+const FEMALE_PLAYERS = [
+  {
+    email: FEMALE_TEST_ACCOUNT,
+    name: "Camila Rocha",
+    nickname: "Cami",
+    username: "camila.rocha",
+  },
+  {
+    email: "carolina.mendes@bropen.local",
+    name: "Carolina Mendes",
+    nickname: "Carol",
+    username: "carolina.mendes",
+  },
+  {
+    email: "carla.fontes@bropen.local",
+    name: "Carla Fontes",
+    nickname: "Carla",
+    username: "carla.fontes",
+  },
+  {
+    email: "mariana.alves@bropen.local",
+    name: "Mariana Alves",
+    nickname: "Mari",
+    username: "mariana.alves",
+  },
+  {
+    email: "marina.prado@bropen.local",
+    name: "Marina Prado",
+    nickname: "Marina",
+    username: "marina.prado",
+  },
+  {
+    email: "marcela.duarte@bropen.local",
+    name: "Marcela Duarte",
+    nickname: "Marcela",
+    username: "marcela.duarte",
+  },
+  {
+    email: "patricia.nunes@bropen.local",
+    name: "Patricia Nunes",
+    nickname: "Paty",
+    username: "patricia.nunes",
+  },
+  {
+    email: "paula.souza@bropen.local",
+    name: "Paula Souza",
+    nickname: "Paula",
+    username: "paula.souza",
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -130,6 +192,10 @@ function authFetch(path, { method = "POST", body, cookie } = {}) {
     body: body ? JSON.stringify(body) : undefined,
     headers: {
       "content-type": "application/json",
+      // `buildTrustedOrigins` (convex/lib/auth-trusted-origins.ts) exige uma
+      // origem confiável: sem header o better-auth devolve 403
+      // MISSING_OR_NULL_ORIGIN e o re-run do seed morria no sign-in.
+      origin: SITE_URL,
       ...(cookie ? { cookie } : {}),
     },
     method,
@@ -197,6 +263,61 @@ for (const account of [ORGANIZER, ...PLAYERS]) {
 }
 
 // ---------------------------------------------------------------------------
+// 1b) Contas + perfis FEMININOS (IBX-0074 r27)
+// ---------------------------------------------------------------------------
+// O gate de gênero só oferece parceiras do gênero que a categoria exige, e o
+// DEV tinha UM perfil feminino, sem username (invisível pra busca). Perfil
+// escrito pelo caminho do app (`player.profile.upsert`), nunca por escrita
+// direta na tabela; sign-up HTTP mantém o hash da senha no better-auth.
+console.log("== 1b) contas e perfis femininos ==");
+for (const account of FEMALE_PLAYERS) {
+  const { cookie, created } = await accountSession(account);
+  const client = new ConvexHttpClient(CONVEX_URL);
+  client.setAuth(await convexToken(cookie));
+  await client.mutation(anyApi.player.profile.upsert, {
+    avatarStorageId: null,
+    fullName: account.name,
+    gender: "Feminino",
+    nickname: account.nickname,
+    phone: null,
+  });
+  console.log(
+    `  ${account.username}: ${created ? "conta criada" : "conta ja existia"} + perfil Feminino`
+  );
+}
+
+const femaleReadBack = inlineQuery(
+  `const wanted = ${JSON.stringify(FEMALE_PLAYERS.map((a) => a.email))};
+   const out = [];
+   for await (const u of ctx.db.query("user")) {
+     if (!wanted.includes(u.email)) continue;
+     let profile = null;
+     for await (const p of ctx.db.query("playerProfile")) {
+       if (p.userId === u._id) profile = p;
+     }
+     out.push({ email: u.email, gender: profile?.gender ?? null, name: profile?.fullName ?? null, username: u.username ?? null });
+   }
+   return out.sort((a, b) => (a.username < b.username ? -1 : 1));`
+);
+console.log("  read-back:");
+for (const row of femaleReadBack) {
+  console.log(
+    `    ${row.username} | ${row.name} | ${row.gender} | ${row.email}`
+  );
+}
+if (femaleReadBack.length !== FEMALE_PLAYERS.length) {
+  throw new Error(
+    `read-back feminino incompleto: ${femaleReadBack.length}/${FEMALE_PLAYERS.length}`
+  );
+}
+const badFemale = femaleReadBack.filter(
+  (row) => row.gender !== "Feminino" || !row.username
+);
+if (badFemale.length > 0) {
+  throw new Error(`perfil feminino invalido: ${JSON.stringify(badFemale)}`);
+}
+
+// ---------------------------------------------------------------------------
 // 2) Organizer membership + active actor (data import, league-seed pattern)
 // ---------------------------------------------------------------------------
 console.log("== 2) membership + preferencia do organizador ==");
@@ -233,8 +354,6 @@ console.log("== 3) sessao do organizador e torneio grande ==");
 const { cookie } = await accountSession(ORGANIZER);
 const token = await convexToken(cookie);
 
-const { ConvexHttpClient } = await import("convex/browser");
-const { anyApi } = await import("convex/server");
 const client = new ConvexHttpClient(CONVEX_URL);
 client.setAuth(token);
 
@@ -397,4 +516,8 @@ console.log("\nCREDENCIAIS DE LOGIN (DEV kindred-yak-142):");
 console.log(`  organizador: ${ORGANIZER.email} / ${PASSWORD}`);
 for (const p of PLAYERS) {
   console.log(`  jogador: ${p.email} / ${PASSWORD}`);
+}
+console.log(`  JOGADORA (teste r27): ${FEMALE_TEST_ACCOUNT} / ${PASSWORD}`);
+for (const p of FEMALE_PLAYERS) {
+  console.log(`  jogadora: ${p.email} / ${PASSWORD}`);
 }

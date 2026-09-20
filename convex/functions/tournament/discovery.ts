@@ -7,9 +7,14 @@ import {
   TournamentByIdSchema,
   tournamentDiscoverySchema,
   tournamentSchema,
+  type TournamentGender,
+  type TournamentModality,
 } from "../../domains/tournament/contract";
 import type { tournament } from "../../domains/tournament/tables";
-import { selectViewerTournamentEntryIds } from "../../domains/tournament/entry-rules";
+import {
+  resolveCallerEligibility,
+  selectViewerTournamentEntryIds,
+} from "../../domains/tournament/entry-rules";
 import { authQuery } from "../../lib/crpc";
 import { getViewerContext } from "../viewer/context";
 import {
@@ -73,10 +78,12 @@ export const getById = authQuery
       where: { tournamentId: record.id as Id<"tournament"> },
     });
     const viewerEntryIds: string[] = [];
+    const isViewerPlayer = viewerContext.activeActor.kind === "player";
+    let viewerPlayerGender: null | string = null;
     if (viewerContext.activeActor.kind === "player") {
       const playerProfileId = viewerContext.activeActor
         .id as Id<"playerProfile">;
-      const [asA, asB] = await Promise.all([
+      const [asA, asB, viewerProfile] = await Promise.all([
         ctx.orm.query.tournamentEntry.findMany({
           limit: 100,
           where: { playerAId: playerProfileId },
@@ -85,7 +92,11 @@ export const getById = authQuery
           limit: 100,
           where: { playerBId: playerProfileId },
         }),
+        ctx.orm.query.playerProfile.findFirst({
+          where: { id: playerProfileId },
+        }),
       ]);
+      viewerPlayerGender = viewerProfile?.gender ?? null;
       viewerEntryIds.push(
         ...selectViewerTournamentEntryIds({
           categoryIds: categoryRecords.map((category) => category.id as string),
@@ -107,13 +118,34 @@ export const getById = authQuery
       });
     }
 
+    // r27: per-category CALLER gate (same pure rule as `entries.create`) so
+    // the join selector reads it from the server. null = no active player
+    // profile (organizer/guest), nothing to gate.
+    const categories = categoryRecords.map((category) => {
+      const eligibility = isViewerPlayer
+        ? resolveCallerEligibility({
+            gender: category.gender as TournamentGender,
+            modality: category.modality as TournamentModality,
+            playerAGender: viewerPlayerGender,
+          })
+        : null;
+
+      return {
+        ...serializeCategory(category),
+        viewerEligible: eligibility?.eligible ?? null,
+        // Badge sem espaço pra frase: o rótulo curto (≤2 palavras) vem do
+        // mesmo resultado da regra; a mensagem longa fica no erro do create.
+        viewerIneligibleReason: eligibility?.label ?? null,
+      };
+    });
+
     return tournamentDiscoverySchema.parse({
       ...(await serializeTournament(ctx, record)),
       activeEntryCount: await countActiveEntries(
         ctx,
         record.id as Id<"tournament">
       ),
-      categories: categoryRecords.map(serializeCategory),
+      categories,
       isTournamentOrganizer,
       viewerEntryIds,
     });

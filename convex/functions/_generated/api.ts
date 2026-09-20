@@ -3588,6 +3588,8 @@ export const api: {
             maxEntries: number | null;
             modality: "singles" | "doubles";
             tournamentId: string;
+            viewerEligible: boolean | null;
+            viewerIneligibleReason: string | null;
           }>;
           city: string;
           courts: Array<{
@@ -4507,14 +4509,14 @@ export const api: {
       searchByUsername: FunctionReference<
         "query",
         "public",
-        { username: string },
-        {
+        { categoryId: string; username: string },
+        Array<{
           avatarUrl: string | null;
           fullName: string | null;
           nickname: string | null;
           playerProfileId: string;
           username: string | null;
-        } | null
+        }>
       >;
     };
   };
