@@ -1,19 +1,24 @@
+import { z } from "zod";
 import {
   dashboardOverviewSchema,
+  dashboardRevenueSeriesSchema,
   paymentAccountSchema,
   type DashboardOverview,
   type DashboardRecentCharge,
+  type DashboardRevenueSeries,
 } from "../../domains/payment/contract";
+import {
+  buildRevenueSeries,
+  organizerCentsOf,
+  type RevenueCharge,
+} from "../../domains/payment/dashboard-rules";
 import { authQuery } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
 import type { Id } from "../_generated/dataModel";
 
-function organizerCentsOf(charge: {
-  amountCents: number;
-  splitConfig: { organizerCents?: number } | null;
-}): number {
-  return charge.splitConfig?.organizerCents ?? charge.amountCents ?? 0;
-}
+/** Read bound for the charge history behind the series (same order as getOverview). */
+const REVENUE_CHARGE_LIMIT = 1000;
+const DEFAULT_REVENUE_MONTHS = 6;
 
 export const getOverview = authQuery
   .output(dashboardOverviewSchema)
@@ -165,4 +170,55 @@ export const getOverview = authQuery
       },
       recentCharges,
     } satisfies DashboardOverview;
+  });
+
+/**
+ * Monthly revenue evolution for the org home (IBX-0071): PAID charges of the
+ * organization across ALL source types (league memberships AND tournament
+ * entries), bucketed by the Brazilian month of `paidAt` and valued at the
+ * organizer split cents — the same money `getOverview` reports. Every month
+ * of the window is present (empty = zero) and `bySource` breaks the same
+ * window down per competition. The account gate mirrors `getOverview`: an
+ * organization without an active Woovi account gets an empty series.
+ */
+export const getRevenueSeries = authQuery
+  .input(z.object({ months: z.number().int().min(1).max(24).optional() }))
+  .output(dashboardRevenueSeriesSchema)
+  .query(async ({ ctx, input }) => {
+    const organizationId = await requireActiveManager(ctx);
+
+    const org = await ctx.orm.query.organization.findFirst({
+      where: { id: organizationId },
+    });
+    const account = org?.paymentAccount
+      ? paymentAccountSchema.safeParse(org.paymentAccount).data
+      : null;
+    if (account?.status !== "active") {
+      return {
+        bySource: [],
+        series: [],
+        totalCents: 0,
+      } satisfies DashboardRevenueSeries;
+    }
+
+    const charges = await ctx.orm.query.paymentCharge.findMany({
+      limit: REVENUE_CHARGE_LIMIT,
+      orderBy: { createdAt: "desc" },
+      where: { organizationId },
+    });
+    const revenueCharges: RevenueCharge[] = charges.map((charge) => ({
+      amountCents: charge.amountCents,
+      paidAtMs: charge.paidAt?.getTime() ?? null,
+      sourceId: charge.sourceId,
+      sourceLabel: charge.sourceLabel ?? null,
+      sourceType: charge.sourceType,
+      splitConfig: charge.splitConfig ?? null,
+      status: charge.status,
+    }));
+
+    return buildRevenueSeries({
+      charges: revenueCharges,
+      months: input.months ?? DEFAULT_REVENUE_MONTHS,
+      nowMs: Date.now(),
+    });
   });

@@ -1,32 +1,28 @@
-import { formatCurrencyCents, formatTrendPercent } from "@/lib/format/currency";
-import { formatRelativeTime } from "@/lib/format/relative-time";
-import { PAYMENT_STATUS_META } from "@/lib/payments/status";
+import { formatCurrencyCents } from "@/lib/format/currency";
+import { formatCount } from "@/lib/format/pluralize";
 import { useWithdrawApi } from "@/lib/withdraw/api";
 import { buildWithdrawBalanceCard } from "@/lib/withdraw/balance-card";
 import type { ApiOutputs } from "@convex/shared/api";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button, Card, Chip, Description, Skeleton } from "heroui-native";
-import { useMemo } from "react";
+import { Button, Skeleton } from "heroui-native";
 import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
-import { HugeIcons } from "@/components/ui/huge-icons";
-import { KpiCard } from "@/components/ui/kpi-card";
-import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  CheckmarkCircle02Icon,
-  Clock02Icon,
-  Dollar01Icon,
-  Wallet01Icon,
-} from "@hugeicons/core-free-icons";
 
 type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
 
+/**
+ * Home da organização em TEXTO SIMPLES (IBX-0071 plano de conteúdo): saldo
+ * com ação de saque (bloco de ação existente) + recebido/previsto/atraso
+ * como linhas de rótulo + valor nas classes tipográficas já usadas no app.
+ * A série de receita por mês (`getRevenueSeries`) é renderizada em TEXTO na
+ * home (index.tsx). ZERO charts no app até o componente de gráfico ser
+ * aprovado; TrendChip, KPI cards e atividade recente saíram.
+ */
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
   const router = useRouter();
-  const { metrics, recentCharges } = props.data;
+  const { metrics } = props.data;
   const { getBalanceQueryOptions } = useWithdrawApi();
   const balanceQuery = useQuery(getBalanceQueryOptions());
   const balanceCard = buildWithdrawBalanceCard({
@@ -35,164 +31,62 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
     isPending: balanceQuery.isPending && balanceQuery.data === undefined,
   });
 
-  const trend = useMemo(
-    () =>
-      formatTrendPercent(
-        metrics.receivedThisMonthCents,
-        metrics.receivedLastMonthCents
-      ),
-    [metrics.receivedThisMonthCents, metrics.receivedLastMonthCents]
-  );
-
-  const trendIsPositive = useMemo(
-    () => metrics.receivedThisMonthCents >= metrics.receivedLastMonthCents,
-    [metrics.receivedThisMonthCents, metrics.receivedLastMonthCents]
-  );
-
   return (
     <View className="gap-3">
-      {/* Saldo + saque */}
-      {/* <KpiCard
-        action={
-          <Button
-            onPress={() => {
-              router.navigate("/withdraw");
-            }}
-            size="sm"
-          >
-            Sacar
-          </Button>
-        }
-        icon={Wallet01Icon}
-        label="Saldo disponível"
-        size="md"
-        {...balanceCard}
-      /> */}
-
-      <View className="centered py-4">
-        <Text>Saldo disponível</Text>
+      <View className="centered gap-1 py-5">
+        <Text color="muted" variant="description">
+          Saldo disponível
+        </Text>
         <View className="centered flex-row">
           {/* Molde do Skeleton: checkout [chargeId]/index.tsx:287-301
               (valor 3xl semibold com barra h-10 w-40 rounded-xl). */}
           <Skeleton
-            className="h-10 w-40 rounded-xl"
+            className="h-10 w-35 rounded-xl"
             isLoading={balanceQuery.isPending}
           >
-            <View className="h-10 flex-row items-baseline">
-              <Text size="3xl" weight="semibold">
-                {balanceCard.value ?? "0,00"}
-              </Text>
-            </View>
+            <Text size="3xl" weight="bold">
+              {balanceCard.value ?? "0,00"}
+            </Text>
           </Skeleton>
-          {/* <Button isIconOnly size="sm" variant="ghost">
-            <HugeIcons
-              className="size-5 text-muted"
-              icon={InformationCircleIcon}
-            />
-          </Button> */}
         </View>
-        <View className="flex-row gap-2 pt-3">
-          <Button
-            onPress={() => {
-              router.navigate("/withdraw");
-            }}
-            size="sm"
-            variant="secondary"
-          >
-            Realizar Saque
-          </Button>
-        </View>
+        <Button
+          className="mt-1"
+          onPress={() => {
+            router.navigate("/withdraw");
+          }}
+          size="sm"
+          variant="secondary"
+        >
+          Realizar Saque
+        </Button>
       </View>
 
-      {/* Hero KPI */}
-      <KpiCard
-        action={
-          trend ? (
-            <View className="flex-row items-center gap-1">
-              <HugeIcons
-                className={`size-3.5 ${trendIsPositive ? "text-success" : "text-danger"}`}
-                icon={trendIsPositive ? ArrowUp01Icon : ArrowDown01Icon}
-              />
-              <Text color={trendIsPositive ? "success" : "danger"} size="xs">
-                {trend}
-              </Text>
-            </View>
-          ) : undefined
-        }
-        description="Total líquido recebido no mês (após taxas)."
-        label="Recebido este mês"
-        size="lg"
-        value={formatCurrencyCents(metrics.receivedThisMonthCents)}
-      />
-
-      {/* KPI Grid 2×2 */}
-      <View className="flex-row gap-2">
-        <KpiCard
-          icon={CheckmarkCircle02Icon}
-          label="Assinaturas"
-          value={String(metrics.activeSubscribers)}
-        />
-        <KpiCard
-          icon={Dollar01Icon}
-          label="Previsto/mês"
-          value={formatCurrencyCents(metrics.projectedMonthlyCents)}
-        />
-      </View>
-      <View className="flex-row gap-2">
-        <KpiCard
-          icon={Wallet01Icon}
-          label="Pagtos/mês"
-          value={String(metrics.paymentsThisMonth)}
-        />
-        <KpiCard
-          icon={Clock02Icon}
-          label="Em atraso"
-          tint={metrics.overdueCount > 0 ? "danger" : "default"}
-          value={String(metrics.overdueCount)}
-        />
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Recebido este mês
+        </Text>
+        <Text weight="semibold">
+          {formatCurrencyCents(metrics.receivedThisMonthCents)}
+        </Text>
       </View>
 
-      {/* Recent Activity */}
-      {recentCharges.length > 0 ? (
-        <View className="mt-2 gap-2">
-          <Description className="px-2">Atividade recente</Description>
-          {recentCharges.map((charge) => {
-            const cfg =
-              PAYMENT_STATUS_META[charge.status] ??
-              PAYMENT_STATUS_META.PENDING!;
-            // const feeCents = charge.amountCents - charge.organizerCents;
-            return (
-              <Card
-                className="flex-row items-center justify-between gap-2"
-                key={charge.chargeId}
-              >
-                <View className="flex-1 gap-0.5">
-                  <Text numberOfLines={1} size="sm" weight="medium">
-                    {charge.playerName ?? "Não informado"}
-                  </Text>
-                  <Description numberOfLines={1}>
-                    {charge.sourceLabel ? `${charge.sourceLabel} · ` : ""}
-                    {formatRelativeTime(charge.createdAt)}
-                  </Description>
-                </View>
-                <View className="flex-col gap-0.5">
-                  <Chip
-                    className="self-end"
-                    color={cfg.color}
-                    size="sm"
-                    variant="soft"
-                  >
-                    {cfg.label}
-                  </Chip>
-                  <Text size="sm" weight="medium">
-                    {formatCurrencyCents(charge.amountCents)}
-                  </Text>
-                </View>
-              </Card>
-            );
-          })}
-        </View>
-      ) : null}
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Previsto/mês
+        </Text>
+        <Text weight="semibold">
+          {formatCurrencyCents(metrics.projectedMonthlyCents)}
+        </Text>
+      </View>
+
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Em atraso
+        </Text>
+        <Text weight="semibold">
+          {formatCount(metrics.overdueCount, "cobrança", "cobranças")}
+        </Text>
+      </View>
     </View>
   );
 }

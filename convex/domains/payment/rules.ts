@@ -391,6 +391,51 @@ export function renewalDaysLeft(args: {
 }
 
 /**
+ * Month key ("YYYY-MM") of an instant on the Brazilian calendar. The dash
+ * series (IBX-0071) bucket by month: a charge paid 23:59 BRT on the month's
+ * last day must land in that month, not the next (same reasoning as
+ * `renewalDaysLeft`, one bucket up).
+ */
+export function buildBrazilMonthKey(ms: number): string {
+  const shifted = new Date(ms + BRAZIL_UTC_OFFSET_MS);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * The last `months` month keys ("YYYY-MM", Brazilian calendar) ending at the
+ * month of `nowMs`, ascending. The x-axis of every dash series: fixed keys so
+ * empty months render as zero instead of disappearing.
+ */
+export function buildRecentMonthKeys(args: {
+  months: number;
+  nowMs: number;
+}): string[] {
+  const current = new Date(args.nowMs + BRAZIL_UTC_OFFSET_MS);
+  const keys: string[] = [];
+  let year = current.getUTCFullYear();
+  let month = current.getUTCMonth();
+  for (let index = 0; index < args.months; index += 1) {
+    keys.unshift(`${year}-${String(month + 1).padStart(2, "0")}`);
+    month -= 1;
+    if (month < 0) {
+      month = 11;
+      year -= 1;
+    }
+  }
+  return keys;
+}
+
+/**
+ * First instant of a month key on the Brazilian calendar: "2026-04" starts at
+ * 2026-04-01 00:00 BRT = 03:00 UTC. Inclusive window start for "results since
+ * month X".
+ */
+export function monthKeyWindowStartMs(monthKey: string): number {
+  const [year, month] = monthKey.split("-").map(Number);
+  return Date.UTC(year, month - 1, 1) - BRAZIL_UTC_OFFSET_MS;
+}
+
+/**
  * Whether applying a paid charge would push the league over its player cap —
  * i.e. whether the over-enrollment guard must refund instead of activating
  * (BUG-0023).

@@ -352,3 +352,23 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
   design em `docs/spec/tournaments.md`).
 - **Pasta vazia** `src/components/pages/leagues/form/rules 2/` (cruft de refactor — sem arquivos).
 - Divergência cosmética: label "Somente jogadores" vs "Somente membros" (código manda).
+
+## IBX-0071 / PLN-0007 · FASE 2 — overview charts-first (19/09, sem commit)
+
+Cortes e gráficos aprovados no doc v2, compostos sobre o bucket existente (zero backend):
+
+- **Jogador (`player-overview.tsx`):** KPIs "Partidas" e "Última partida como stat" SAÍRAM. Novo widget "Seu desempenho": **RadialChart** de win rate (`buildPlayerWinRate`, todos os desafios finalizados do viewer) + **BarChart** V/D por mês (`buildPlayerMonthlyWinLoss`, janela de 6 meses, vencedor do `latestResultSubmission.winnerMembershipId` já resolvido pelo servidor). A última partida vira **linha de feed** (`bg-surface-secondary`) e o pé ganha CTAs "Ver ranking" e "Desafiar".
+- **Organizador (`organizer-overview.tsx`):** KPIs "Partidas" e "Desafios em andamento" SAÍRAM (duplicação/estado). Entram **AreaChart "Partidas por mês"** (`buildOrganizerMonthlyMatchesSeries`, 6 meses, meses vazios com zero) e **TrendChip** na Atividade (`buildOrganizerActivityTrend`: % do mês vs mês anterior, mesma amostra do ranking). Alertas ganharam ação "Ver" → `requests`.
+- **Refactor:** `buildOrganizerActivityRateCard` e o novo `buildOrganizerActivityTrend` compartilham a MESMA fórmula (`computeActivityRate` por janela `[start, end)`): o KPI do mês usa janela aberta, o trend compara mês corrente vs anterior. O delta real do refactor em comportamento é o DENOMINADOR: antes contava `ranking.length` (membros duplicados na lista inflavam a base), agora conta `Set.size` dos ids do ranking (dedup) — os DOIS lados do desafio (challenger e challenged) sempre entraram no conjunto de quem jogou, desde a origem do helper; não houve correção de contagem de lados.
+- **Posição por tempo (LineChart):** `rankingSnapshotAfterResult` NÃO é exposto em `listForLeague` (output `leagueChallengeSchema` não tem o campo) — composição de posição histórica NA LIGA ficou **EXIGE LÓGICA** (exposição no output); o histórico de posição entregue ao jogador vem do agregado novo `player.dashboard.getOverview` (ver docs/spec/dashboard.md).
+- **Testes:** `organizer-overview-derived.test.ts` (série mensal tz-safe + trend up/down/neutral), `player-overview-derived.test.ts` novo (win/loss mensal + win rate).
+
+## IBX-0071 / PLN-0007 · PLANO DE CONTEÚDO FECHADO — texto simples (19/09, sem commit)
+
+O usuário fechou o conteúdo da casa da liga item a item: KPIs e charts viram LINHAS DE TEXTO SIMPLES (rótulo + valor, classes tipográficas já usadas no app, valor sem dado = 0). SUPERSEDE a seção FASE 2 acima (overview charts-first) nos pontos conflitantes. Nenhum componente ou estilo novo; nenhuma query nova; floating tabs e `LeagueJoinFooter` SEM mudança.
+
+- **Jogador (`player-overview.tsx`):** os 3 WidgetAlerts (mensalidade com ação Pagar, inatividade, pendências de desafio) FICAM. Textos: "Posição" (`#N de M`; "0" sem posição), "Partidas no mês" (última linha de `buildPlayerMonthlyWinLoss` = mês corrente, que entra com zero), "Desempenho" (`XV · YD` de `buildPlayerWinRate`, zero quando sem partida).
+- **REMOVIDOS do jogador:** widget "Seu desempenho" (RadialChart + BarChart), feed "Última partida", CTAs "Ver ranking"/"Desafiar", KPI "Desafios no mês" (não marcado no plano). Deriveds extintas com corte limpo: `buildPlayerLastMatchCard`, `buildPlayerMonthlyChallengesCard` (+ helpers só delas) e seus testes.
+- **Organizador (`organizer-overview.tsx`):** textos "Receita da liga" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` com `sourceType === "league_membership"` filtrado pelos membershipIds da liga — ranking + solicitações pendentes; janela 12 meses; charges de memberships cancelados ficam fora), "Inscritos" (ativos, `N/limite` quando há limite) e "Partidas no mês" (`buildOrganizerMonthlyMatchesSeries`, mês corrente).
+- **REMOVIDOS do organizador:** WidgetAlerts de aprovações/validações (com suas ações), TrendChip da Atividade, KPI "Ocupação", AreaChart "Partidas por mês". Deriveds extintas: `buildOrganizerJoinRequestsAlert`, `buildOrganizerValidationsAlert`, `summarizeOrganizerPendingActions`, `buildOrganizerOccupationCard`, `buildOrganizerActivityRateCard`, `buildOrganizerActivityTrend`, `computeActivityRate` (+ testes; a série mensal e seu teste ficam).
+- **Guest (`guest-overview.tsx`):** só a descrição da liga. REMOVIDOS: card de features (`lib/leagues/league-preview-features.ts` extinto) e WidgetAlert de pagamento dos sub-estados guest. O rodapé de entrada (chip de vagas + preço + CTA) permanece como estava.

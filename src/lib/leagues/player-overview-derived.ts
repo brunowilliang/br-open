@@ -1,7 +1,6 @@
 import type { ApiOutputs } from "@convex/shared/api";
 
-import { getMonthStartMs } from "@/lib/format/date";
-import { DAY_MS, formatRelativeDay } from "@/lib/format/relative-time";
+import { DAY_MS } from "@/lib/format/relative-time";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type ChallengeItem =
@@ -19,23 +18,6 @@ export type PlayerInactiveAlertCard = {
   daysUntilPenalty: number;
   /** "danger" quando já passou do prazo; "warning" quando próximo. */
   severity: "danger" | "warning";
-};
-
-export type PlayerMonthlyMatchesCard = {
-  finishedCount: number;
-};
-
-export type PlayerLastMatchCard = {
-  isWin: boolean;
-  opponentName: string;
-  scoreSummary: string;
-  whenLabel: string;
-};
-
-export type PlayerMonthlyChallengesCard = {
-  createdCount: number;
-  /** null quando a regra está desabilitada ("sem limite"). */
-  max: null | number;
 };
 
 export type PendingChallengeAction = {
@@ -93,15 +75,6 @@ function getOpponentName(challenge: ChallengeItem, viewerMembershipId: string) {
   return opponent.player.fullName;
 }
 
-type ChallengeResult = NonNullable<ChallengeItem["latestResultSubmission"]>;
-type ChallengeScore = ChallengeResult["score"];
-
-function formatScoreSets(sets: ChallengeScore["sets"]) {
-  return sets
-    .map((set) => `${set.challengerGames}-${set.challengedGames}`)
-    .join(", ");
-}
-
 export function buildPlayerPositionCard(input: {
   rankingItemsCount: number;
   viewerPosition: null | number;
@@ -113,73 +86,6 @@ export function buildPlayerPositionCard(input: {
   return {
     position: input.viewerPosition,
     totalPlayers: input.rankingItemsCount,
-  };
-}
-
-export function buildPlayerMonthlyMatchesCard(input: {
-  challenges: ChallengeItem[];
-  now: number;
-  viewerMembershipId: null | string;
-}): PlayerMonthlyMatchesCard | null {
-  if (!input.viewerMembershipId) {
-    return null;
-  }
-
-  const monthStartMs = getMonthStartMs(input.now);
-
-  const finishedCount = input.challenges.filter((challenge) => {
-    if (!(isFinished(challenge) && challenge.finishedAt)) {
-      return false;
-    }
-
-    return (
-      isViewerChallenge(challenge, input.viewerMembershipId as string) &&
-      challenge.finishedAt >= monthStartMs
-    );
-  }).length;
-
-  return { finishedCount };
-}
-
-export function buildPlayerLastMatchCard(input: {
-  challenges: ChallengeItem[];
-  now: number;
-  viewerMembershipId: null | string;
-}): PlayerLastMatchCard | null {
-  if (!input.viewerMembershipId) {
-    return null;
-  }
-
-  const viewerFinished = input.challenges
-    .filter(
-      (challenge) =>
-        isFinished(challenge) &&
-        challenge.finishedAt &&
-        challenge.latestResultSubmission &&
-        isViewerChallenge(challenge, input.viewerMembershipId as string)
-    )
-    .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0));
-
-  const last = viewerFinished[0];
-
-  if (!last?.latestResultSubmission) {
-    return null;
-  }
-
-  const viewerIsChallenger =
-    last.challenger.membershipId === input.viewerMembershipId;
-  const opponent = viewerIsChallenger ? last.challenged : last.challenger;
-  const result = last.latestResultSubmission;
-  const isWin = result.winnerMembershipId === input.viewerMembershipId;
-
-  return {
-    isWin,
-    opponentName: opponent.player.fullName,
-    scoreSummary: formatScoreSets(result.score.sets),
-    whenLabel: formatRelativeDay(
-      last.finishedAt ?? result.submittedAt,
-      input.now
-    ),
   };
 }
 
@@ -236,41 +142,6 @@ export function buildPlayerInactiveAlertCard(input: {
   };
 }
 
-export function buildPlayerMonthlyChallengesCard(input: {
-  challenges: ChallengeItem[];
-  now: number;
-  ruleConfig: RuleConfig;
-  viewerMembershipId: null | string;
-}): PlayerMonthlyChallengesCard | null {
-  if (!input.viewerMembershipId) {
-    return null;
-  }
-
-  const monthStartMs = getMonthStartMs(input.now);
-
-  // Conta desafios CRIADOS pelo viewer (ele é o challenger) neste mês,
-  // independente do status — a cota mensal consome ao criar.
-  const createdCount = input.challenges.filter((challenge) => {
-    if (challenge.challenger.membershipId !== input.viewerMembershipId) {
-      return false;
-    }
-
-    return challenge.createdAt >= monthStartMs;
-  }).length;
-
-  const { maxChallengesPerMonth } = input.ruleConfig;
-
-  return {
-    createdCount,
-    max: maxChallengesPerMonth.enabled ? maxChallengesPerMonth.value : null,
-  };
-}
-
-/**
- * Mapeia o status do desafio para a ação que o viewer precisa tomar, quando
- * ele é o responsável. Retorna null quando o status não exige ação do viewer
- * (ex.: esperando adversário ou admin).
- */
 function resolvePendingAction(
   challenge: ChallengeItem,
   viewerMembershipId: string
@@ -326,4 +197,142 @@ export function buildPlayerPendingActionsAlert(input: {
     actions,
     total: actions.length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Charts do jogador (PLN-0007 FASE 2): V/D por mês e win rate, derivados
+// dos desafios FINALIZADOS com resultado. Vencedor vem do submission
+// (`winnerMembershipId` persistido já resolvido pelo servidor, inclusive
+// para W.O. e placar que decide).
+// ---------------------------------------------------------------------------
+
+export type PlayerMonthlyWinLossPoint = {
+  losses: number;
+  month: string;
+  wins: number;
+};
+
+const WIN_LOSS_MONTHS = 6;
+
+/** Últimos 6 meses (mês corrente incluso, ordem cronológica) com V/D do
+ * viewer. Meses sem partida entram com zero — a série alimenta o texto de
+ * "Partidas no mês" (última linha = mês corrente). */
+export function buildPlayerMonthlyWinLoss(input: {
+  challenges: ChallengeItem[];
+  now: number;
+  viewerMembershipId: null | string;
+}): PlayerMonthlyWinLossPoint[] {
+  if (!input.viewerMembershipId) {
+    return [];
+  }
+
+  const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "short" });
+  const cursor = new Date(input.now);
+  cursor.setDate(1);
+  cursor.setHours(0, 0, 0, 0);
+
+  const windows: Array<{
+    label: string;
+    losses: number;
+    startMs: number;
+    wins: number;
+  }> = [];
+
+  for (let index = WIN_LOSS_MONTHS - 1; index >= 0; index -= 1) {
+    const windowStart = new Date(cursor);
+    windowStart.setMonth(cursor.getMonth() - index);
+
+    windows.push({
+      label: monthFormatter.format(windowStart),
+      losses: 0,
+      startMs: windowStart.getTime(),
+      wins: 0,
+    });
+  }
+
+  for (const challenge of input.challenges) {
+    if (
+      !isFinished(challenge) ||
+      challenge.finishedAt === null ||
+      challenge.finishedAt === undefined
+    ) {
+      continue;
+    }
+    if (
+      !(
+        isViewerChallenge(challenge, input.viewerMembershipId) &&
+        challenge.latestResultSubmission
+      )
+    ) {
+      continue;
+    }
+
+    const window = [...windows]
+      .reverse()
+      .find((candidate) => challenge.finishedAt! >= candidate.startMs);
+
+    if (!window) {
+      continue;
+    }
+
+    const isWin =
+      challenge.latestResultSubmission.winnerMembershipId ===
+      input.viewerMembershipId;
+
+    if (isWin) {
+      window.wins += 1;
+    } else {
+      window.losses += 1;
+    }
+  }
+
+  return windows.map(({ label, losses, wins }) => ({
+    losses,
+    month: label,
+    wins,
+  }));
+}
+
+export type PlayerWinRate = {
+  losses: number;
+  total: number;
+  wins: number;
+};
+
+/** Win rate do viewer em TODOS os desafios finalizados com resultado da
+ * liga (base do texto "Desempenho", `XV · YD`). Sem nenhuma partida:
+ * total 0 (renderiza "0V · 0D"). */
+export function buildPlayerWinRate(input: {
+  challenges: ChallengeItem[];
+  viewerMembershipId: null | string;
+}): PlayerWinRate {
+  if (!input.viewerMembershipId) {
+    return { losses: 0, total: 0, wins: 0 };
+  }
+
+  let losses = 0;
+  let wins = 0;
+
+  for (const challenge of input.challenges) {
+    if (
+      !(
+        isFinished(challenge) &&
+        isViewerChallenge(challenge, input.viewerMembershipId) &&
+        challenge.latestResultSubmission
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      challenge.latestResultSubmission.winnerMembershipId ===
+      input.viewerMembershipId
+    ) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+  }
+
+  return { losses, total: wins + losses, wins };
 }

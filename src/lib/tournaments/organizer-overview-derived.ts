@@ -32,10 +32,6 @@ export function buildTournamentAwaitingPaymentAlert(input: {
 
 export type TournamentEntriesKpi = { confirmedCount: number };
 
-export type TournamentPendingKpi = { pendingCount: number };
-
-export type TournamentCategoriesKpi = { activeCount: number };
-
 export type TournamentMatchesKpi = {
   finishedCount: number;
   total: number;
@@ -48,25 +44,6 @@ export function buildTournamentEntriesKpi(input: {
     confirmedCount: input.entries.filter((entry) => entry.status === "active")
       .length,
   };
-}
-
-export function buildTournamentPendingKpi(input: {
-  entries: TournamentEntryWithPlayers[];
-}): TournamentPendingKpi {
-  return {
-    pendingCount: input.entries.filter(
-      (entry) =>
-        entry.status === "pending_approval" ||
-        entry.status === "pending_partner" ||
-        entry.status === "awaiting_payment"
-    ).length,
-  };
-}
-
-export function buildTournamentCategoriesKpi(input: {
-  categories: Array<{ id: string }>;
-}): TournamentCategoriesKpi {
-  return { activeCount: input.categories.length };
 }
 
 /** KPI de partidas — `null` enquanto não há chave (antes do sorteio).

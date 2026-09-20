@@ -14,8 +14,7 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
-  "getOverview": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../payment/dashboard").getOverview>("payment/dashboard:getOverview"), () => (require("../../payment/dashboard") as Record<string, unknown>)["getOverview"])],
-  "getRevenueSeries": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../payment/dashboard").getRevenueSeries>("payment/dashboard:getRevenueSeries"), () => (require("../../payment/dashboard") as Record<string, unknown>)["getRevenueSeries"])],
+  "getOverview": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../player/dashboard").getOverview>("player/dashboard:getOverview"), () => (require("../../player/dashboard") as Record<string, unknown>)["getOverview"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;
@@ -58,7 +57,7 @@ type GeneratedProcedureHandler<
 >;
 
 
-export function createPaymentDashboardCaller<TCtx extends ProcedureCallerContext>(
+export function createPlayerDashboardCaller<TCtx extends ProcedureCallerContext>(
   ctx: TCtx
 ): GeneratedProcedureCaller<TCtx> {
   return generatedRuntime.getCallerFactory()(
@@ -66,7 +65,7 @@ export function createPaymentDashboardCaller<TCtx extends ProcedureCallerContext
   ) as GeneratedProcedureCaller<TCtx>;
 }
 
-export function createPaymentDashboardHandler<TCtx extends ProcedureHandlerContext>(
+export function createPlayerDashboardHandler<TCtx extends ProcedureHandlerContext>(
   ctx: TCtx
 ): GeneratedProcedureHandler<TCtx> {
   return generatedRuntime.getHandlerFactory()(ctx) as GeneratedProcedureHandler<TCtx>;

@@ -4,11 +4,9 @@ import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/cont
 
 import {
   buildTournamentAwaitingPaymentAlert,
-  buildTournamentCategoriesKpi,
   buildTournamentEntriesKpi,
   buildTournamentMatchesKpi,
   buildTournamentPendingApprovalAlert,
-  buildTournamentPendingKpi,
 } from "./organizer-overview-derived";
 import type { TournamentMatchWithSides } from "./bracket-view";
 
@@ -100,18 +98,6 @@ describe("tournament organizer overview KPIs", () => {
     expect(buildTournamentEntriesKpi({ entries })).toEqual({
       confirmedCount: 2,
     });
-  });
-
-  test("pending Kpi counts approval, partner and payment together", () => {
-    expect(buildTournamentPendingKpi({ entries })).toEqual({ pendingCount: 3 });
-  });
-
-  test("categories Kpi counts active categories", () => {
-    expect(
-      buildTournamentCategoriesKpi({
-        categories: [{ id: "1" }, { id: "2" }],
-      })
-    ).toEqual({ activeCount: 2 });
   });
 
   test("matches Kpi is null before the draw and counts finished after", () => {

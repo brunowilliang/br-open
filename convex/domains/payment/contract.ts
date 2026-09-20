@@ -282,3 +282,39 @@ export const dashboardOverviewSchema = z.object({
 });
 
 export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;
+
+// ---------------------------------------------------------------------------
+// Organizer dashboard revenue series (IBX-0071) —
+// `payment.dashboard.getRevenueSeries`
+// ---------------------------------------------------------------------------
+//
+// Monthly revenue evolution from the real charge history (getOverview only
+// carries two points). All months of the window are always present (empty =
+// zero) so charts don't drop gaps; `bySource` breaks the same window down by
+// the polymorphic competition the charge paid for.
+
+export const dashboardRevenuePointSchema = z.object({
+  month: z.string(),
+  receivedCents: z.number().int().nonnegative(),
+});
+
+export const dashboardRevenueSourceSchema = z.object({
+  sourceId: z.string(),
+  sourceLabel: z.string().nullable(),
+  sourceType: z.string(),
+  totalCents: z.number().int().nonnegative(),
+});
+
+export const dashboardRevenueSeriesSchema = z.object({
+  bySource: z.array(dashboardRevenueSourceSchema),
+  series: z.array(dashboardRevenuePointSchema),
+  totalCents: z.number().int().nonnegative(),
+});
+
+export type DashboardRevenuePoint = z.infer<typeof dashboardRevenuePointSchema>;
+export type DashboardRevenueSource = z.infer<
+  typeof dashboardRevenueSourceSchema
+>;
+export type DashboardRevenueSeries = z.infer<
+  typeof dashboardRevenueSeriesSchema
+>;

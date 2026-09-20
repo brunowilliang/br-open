@@ -1,35 +1,80 @@
 import type { ApiOutputs } from "@convex/shared/api";
-import {
-  Calendar03Icon,
-  Cancel01Icon,
-  CheckmarkCircle02Icon,
-  Medal01Icon,
-  Target02Icon,
-} from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useToast } from "heroui-native";
 import { View } from "react-native";
 
+import { Text } from "@/components/core/text";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { buildLeaguePaymentAlert } from "@/lib/leagues/league-details-derived";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import {
   buildPlayerInactiveAlertCard,
-  buildPlayerLastMatchCard,
-  buildPlayerMonthlyChallengesCard,
-  buildPlayerMonthlyMatchesCard,
+  buildPlayerMonthlyWinLoss,
   buildPlayerPendingActionsAlert,
   buildPlayerPositionCard,
+  buildPlayerWinRate,
 } from "@/lib/leagues/player-overview-derived";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { formatCount } from "@/lib/format/pluralize";
 import { WidgetAlert } from "@/components/ui/widget-alert";
 
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 
+function summarizePendingActions(actions: { kind: string }[]): string {
+  const counts = {
+    confirm_result: 0,
+    register_result: 0,
+    request_correction: 0,
+  };
+
+  for (const action of actions) {
+    if (action.kind in counts) {
+      counts[action.kind as keyof typeof counts] += 1;
+    }
+  }
+
+  const parts: string[] = [];
+
+  if (counts.register_result > 0) {
+    parts.push(
+      `${counts.register_result} ${
+        counts.register_result === 1
+          ? "resultado para registrar"
+          : "resultados para registrar"
+      }`
+    );
+  }
+
+  if (counts.confirm_result > 0) {
+    parts.push(
+      `${counts.confirm_result} ${
+        counts.confirm_result === 1
+          ? "resultado para confirmar"
+          : "resultados para confirmar"
+      }`
+    );
+  }
+
+  if (counts.request_correction > 0) {
+    parts.push(
+      `${counts.request_correction} ${
+        counts.request_correction === 1
+          ? "resultado para corrigir"
+          : "resultados para corrigir"
+      }`
+    );
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * Casa da liga para o jogador em TEXTO SIMPLES (IBX-0071 plano de conteúdo):
+ * os três WidgetAlerts ficam (pendências/ação); posição, partidas no mês e
+ * desempenho viram linhas de rótulo + valor nas classes tipográficas já
+ * usadas no app. RadialChart, BarChart, feed de última partida e CTAs saíram.
+ */
 export function PlayerOverview(props: { league: LeagueOverview }) {
   const { league } = props;
   const bucket$ = getLeagueDetailsBucket$(league.id);
@@ -63,22 +108,16 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
     rankingItemsCount: rankingItems.length,
     viewerPosition,
   });
-  const monthlyMatches = buildPlayerMonthlyMatchesCard({
+  const monthlyWinLoss = buildPlayerMonthlyWinLoss({
     challenges,
     now,
     viewerMembershipId,
   });
-  const lastMatch = buildPlayerLastMatchCard({
-    challenges,
-    now,
-    viewerMembershipId,
-  });
-  const monthlyChallenges = buildPlayerMonthlyChallengesCard({
-    challenges,
-    now,
-    ruleConfig: league.ruleConfig,
-    viewerMembershipId,
-  });
+  const currentMonth = monthlyWinLoss.at(-1);
+  const matchesThisMonth = currentMonth
+    ? currentMonth.wins + currentMonth.losses
+    : 0;
+  const winRate = buildPlayerWinRate({ challenges, viewerMembershipId });
 
   const createCharge = useMutation({
     mutationFn: crpcClient.payment.charge.createCharge.mutate,
@@ -154,94 +193,28 @@ export function PlayerOverview(props: { league: LeagueOverview }) {
         />
       ) : null}
 
-      <View className="flex-row gap-3">
-        {position ? (
-          <KpiCard
-            description={`de ${formatCount(position.totalPlayers, "jogador", "jogadores")}`}
-            icon={Medal01Icon}
-            label="Posição"
-            value={`#${position.position}º lugar`}
-          />
-        ) : null}
-        {monthlyMatches ? (
-          <KpiCard
-            description="disputadas este mês"
-            icon={Calendar03Icon}
-            label="Partidas"
-            value={`${monthlyMatches.finishedCount} partidas`}
-          />
-        ) : null}
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Posição
+        </Text>
+        <Text weight="semibold">
+          {position ? `#${position.position} de ${position.totalPlayers}` : "0"}
+        </Text>
       </View>
 
-      <View className="flex-row gap-3">
-        {lastMatch ? (
-          <KpiCard
-            description={`${lastMatch.scoreSummary} · ${lastMatch.whenLabel}`}
-            icon={lastMatch.isWin ? CheckmarkCircle02Icon : Cancel01Icon}
-            label="Última partida"
-            value={`${lastMatch.isWin ? "Vitória" : "Derrota"} · ${lastMatch.opponentName}`}
-          />
-        ) : null}
-        {monthlyChallenges ? (
-          <KpiCard
-            icon={Target02Icon}
-            label="Desafios no mês"
-            value={
-              monthlyChallenges.max === null
-                ? "Sem limite mensal"
-                : `${monthlyChallenges.createdCount}/${monthlyChallenges.max} criados`
-            }
-          />
-        ) : null}
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Partidas no mês
+        </Text>
+        <Text weight="semibold">{String(matchesThisMonth)}</Text>
+      </View>
+
+      <View className="gap-1">
+        <Text color="muted" variant="description" weight="medium">
+          Desempenho
+        </Text>
+        <Text weight="semibold">{`${winRate.wins}V · ${winRate.losses}D`}</Text>
       </View>
     </View>
   );
-}
-
-function summarizePendingActions(actions: { kind: string }[]): string {
-  const counts = {
-    confirm_result: 0,
-    register_result: 0,
-    request_correction: 0,
-  };
-
-  for (const action of actions) {
-    if (action.kind in counts) {
-      counts[action.kind as keyof typeof counts] += 1;
-    }
-  }
-
-  const parts: string[] = [];
-
-  if (counts.register_result > 0) {
-    parts.push(
-      `${counts.register_result} ${
-        counts.register_result === 1
-          ? "resultado para registrar"
-          : "resultados para registrar"
-      }`
-    );
-  }
-
-  if (counts.confirm_result > 0) {
-    parts.push(
-      `${counts.confirm_result} ${
-        counts.confirm_result === 1
-          ? "resultado para confirmar"
-          : "resultados para confirmar"
-      }`
-    );
-  }
-
-  if (counts.request_correction > 0) {
-    parts.push(
-      `${counts.request_correction} ${
-        counts.request_correction === 1
-          ? "resultado para corrigir"
-          : "resultados para corrigir"
-      }`
-    );
-  }
-
-  return parts.join(" · ");
 }

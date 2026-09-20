@@ -1,17 +1,18 @@
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/NewPage";
 import { Text } from "@/components/core/text";
-import { CompetitionCard } from "@/components/ui/competition-card";
 import { OrganizerDashboard } from "@/components/pages/home/organizer-dashboard";
-import { EmptyState } from "@/components/ui/empty-state";
+import { PlayerDashboard } from "@/components/pages/home/player-dashboard";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
+import { formatCurrencyCents } from "@/lib/format/currency";
 import { getGreetingLabel } from "@/lib/format/user";
-import { Search01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
+import { formatDashboardMonthLabel } from "@/lib/home/player-dashboard-view";
+import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Button, PressableFeedback } from "heroui-native";
@@ -19,6 +20,10 @@ import { Badge } from "heroui-native-pro";
 import { useEffect } from "react";
 import { View } from "react-native";
 
+/** PLN-0007 (plano de conteúdo IBX-0071): a home do jogador é o dash em
+ * TEXTO SIMPLES (partidas por mês, desempenho, inscrições, próximos jogos).
+ * Widgets/gráficos e a trilha de competições saíram; componente de KPI/chart
+ * só volta após aprovação item a item (spec dashboard.md). */
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
@@ -28,6 +33,7 @@ export default function Home() {
   const activeActor = viewerContext.data?.activeActor ?? null;
   const isOrganizationActor = activeActor?.kind === "organization";
 
+  // Player queries
   const playerProfile = useQuery({
     ...crpc.player.profile.get.staticQueryOptions(),
     enabled: !isOrganizationActor,
@@ -63,15 +69,15 @@ export default function Home() {
     router,
   ]);
 
-  // Player queries
-  const participatingLeagues = useQuery({
-    ...crpc.league.discovery.listParticipating.staticQueryOptions(),
-    enabled: !isOrganizationActor,
-  });
-
   // Organizer queries
   const dashboardQuery = useQuery({
     ...crpc.payment.dashboard.getOverview.staticQueryOptions(),
+    enabled: isOrganizationActor,
+  });
+  const revenueSeriesQuery = useQuery({
+    ...crpc.payment.dashboard.getRevenueSeries.staticQueryOptions({
+      months: 6,
+    }),
     enabled: isOrganizationActor,
   });
 
@@ -88,7 +94,7 @@ export default function Home() {
   const greeting = `${getGreetingLabel()},`;
   const unreadCount = notificationStatus.data?.unreadCount ?? 0;
 
-  // --- Organizer mode: dashboard only ---
+  // --- Organizer mode: dashboard financeiro + receita por mês ---
   if (isOrganizationActor) {
     const dashboardData = dashboardQuery.data;
     const isLoading = dashboardQuery.isPending && !dashboardData;
@@ -146,16 +152,39 @@ export default function Home() {
             ) : dashboardData ? (
               <OrganizerDashboard data={dashboardData} />
             ) : null}
+
+            {revenueSeriesQuery.data ? (
+              <View className="gap-3">
+                <View className="gap-1">
+                  <Text color="muted" variant="description" weight="medium">
+                    Receita por mês
+                  </Text>
+                  <Text weight="semibold">
+                    {revenueSeriesQuery.data.series
+                      .map(
+                        (point) =>
+                          `${formatDashboardMonthLabel(point.month)} ${formatCurrencyCents(point.receivedCents)}`
+                      )
+                      .join(" · ") || "0"}
+                  </Text>
+                </View>
+                <View className="gap-1">
+                  <Text color="muted" variant="description" weight="medium">
+                    Total da janela
+                  </Text>
+                  <Text weight="semibold">
+                    {formatCurrencyCents(revenueSeriesQuery.data.totalCents)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </Page.ScrollView>
         </ScrollShadow>
       </Page>
     );
   }
 
-  // --- Player mode: participating leagues grid ---
-  const leagues = participatingLeagues.data ?? [];
-  const isLoading = participatingLeagues.isPending;
-
+  // --- Player mode: dash pessoal em texto simples ---
   return (
     <Page>
       <Page.Header>
@@ -196,45 +225,12 @@ export default function Home() {
         </View>
       </Page.Header>
       <ScrollShadow className="flex-1" color="background" size={100}>
-        <Page.LegendList
-          columnWrapperStyle={{ gap: 8 }}
-          contentContainerClassName="grow px-4 pb-safe-offset-23"
-          data={leagues}
-          estimatedItemSize={220}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            isLoading ? (
-              <LoadingState />
-            ) : (
-              <EmptyState
-                buttonIcon={Search01Icon}
-                buttonLabel="Explorar competições"
-                buttonOnPress={() => {
-                  router.navigate("/search");
-                }}
-                description="As competições em que suas ligas ativas serão exibidas aqui."
-                title="Nenhuma liga ativa"
-              />
-            )
-          }
-          numColumns={2}
-          recycleItems
-          renderItem={({ item }) => (
-            <CompetitionCard
-              city={item.city}
-              coverUrl={item.coverUrl}
-              name={item.name}
-              onPress={() => {
-                router.navigate({
-                  params: { leagueId: item.id },
-                  pathname: "/leagues/[leagueId]",
-                });
-              }}
-              state={item.state}
-            />
-          )}
+        <Page.ScrollView
+          contentContainerClassName="grow gap-4 px-4 pb-safe-offset-23"
           showsVerticalScrollIndicator={false}
-        />
+        >
+          <PlayerDashboard />
+        </Page.ScrollView>
       </ScrollShadow>
     </Page>
   );
