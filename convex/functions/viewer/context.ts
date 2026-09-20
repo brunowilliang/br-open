@@ -42,20 +42,17 @@ function createOrganizationSlug(input: { name: string; userId: Id<"user"> }) {
   return `${baseSlug}-${String(input.userId).slice(-8)}-${Date.now()}`;
 }
 
-async function getPlayerActor(
+async function findPlayerActor(
   ctx: ViewerCtx,
   userId: Id<"user">
-): Promise<ViewerActor> {
+): Promise<ViewerActor | null> {
   const [user, currentPlayerProfile] = await Promise.all([
     ctx.orm.query.user.findFirst({ where: { id: userId } }),
     ctx.orm.query.playerProfile.findFirst({ where: { userId } }),
   ]);
 
   if (!(user && currentPlayerProfile)) {
-    throw new CRPCError({
-      code: "NOT_FOUND",
-      message: "Perfil de jogador nao encontrado.",
-    });
+    return null;
   }
 
   const displayName =
@@ -69,6 +66,22 @@ async function getPlayerActor(
     id: currentPlayerProfile.id,
     kind: "player",
   });
+}
+
+async function getPlayerActor(
+  ctx: ViewerCtx,
+  userId: Id<"user">
+): Promise<ViewerActor> {
+  const playerActor = await findPlayerActor(ctx, userId);
+
+  if (!playerActor) {
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Perfil de jogador nao encontrado.",
+    });
+  }
+
+  return playerActor;
 }
 
 async function getOrganizationActors(
@@ -177,25 +190,50 @@ async function assertOrganizationMember(input: {
   }
 }
 
+/**
+ * Ator ativo a partir do que ja foi carregado: a preferencia manda quando o
+ * ator pedido EXISTE (organizacao ativa valida), senao vale o jogador. Fonte
+ * unica da escolha — usada pela porta estrita (`getViewerContext`) e pela
+ * tolerante (`findViewerActiveActor`).
+ */
+function resolveActiveActor(input: {
+  organizationActors: ViewerActor[];
+  playerActor: ViewerActor | null;
+  preference: null | {
+    activeActorKind?: null | string;
+    activeOrganizationId?: null | string;
+  };
+}): ViewerActor | null {
+  const requestedActorKind = resolveActorKind(
+    input.preference?.activeActorKind
+  );
+  const activeOrganizationActor = getValidOrganizationActor({
+    activeOrganizationId: input.preference
+      ?.activeOrganizationId as Id<"organization"> | null,
+    organizationActors: input.organizationActors,
+  });
+
+  return requestedActorKind === "organization" && activeOrganizationActor
+    ? activeOrganizationActor
+    : input.playerActor;
+}
+
 export async function getViewerContext(
   ctx: ViewerCtx,
   userId: Id<"user">
 ): Promise<ViewerContext> {
   const [preference, playerActor, organizationActors] = await Promise.all([
     getViewerPreference(ctx, userId),
+    // Estrito de proposito: sem perfil de jogador o contexto da tela nao
+    // existe (NOT_FOUND), o mesmo contrato de sempre.
     getPlayerActor(ctx, userId),
     getOrganizationActors(ctx, userId),
   ]);
-  const requestedActorKind = resolveActorKind(preference?.activeActorKind);
-  const activeOrganizationActor = getValidOrganizationActor({
-    activeOrganizationId:
-      preference?.activeOrganizationId as Id<"organization"> | null,
-    organizationActors,
-  });
+  // `playerActor` nunca e nulo aqui (o estrito ja teria lancado): a escolha
+  // cai nele quando nao ha organizacao ativa valida.
   const activeActor =
-    requestedActorKind === "organization" && activeOrganizationActor
-      ? activeOrganizationActor
-      : playerActor;
+    resolveActiveActor({ organizationActors, playerActor, preference }) ??
+    playerActor;
 
   return viewerContextSchema.parse({
     activeActor,
@@ -204,6 +242,29 @@ export async function getViewerContext(
       actorKind: activeActor.kind,
       role: activeActor.role,
     }),
+  });
+}
+
+/**
+ * Ator ativo resolvido de forma TOLERANTE: `null` quando o usuario nao tem
+ * perfil de jogador nem organizacao ativa, em vez de erro. Leitura de escopo
+ * (pendencias) usa esta porta para responder vazio — e nunca erro — a quem nao
+ * tem direito ao escopo; as telas seguem em `getViewerContext`.
+ */
+export async function findViewerActiveActor(
+  ctx: ViewerCtx,
+  userId: Id<"user">
+): Promise<ViewerActor | null> {
+  const [preference, playerActor, organizationActors] = await Promise.all([
+    getViewerPreference(ctx, userId),
+    findPlayerActor(ctx, userId),
+    getOrganizationActors(ctx, userId),
+  ]);
+
+  return resolveActiveActor({
+    organizationActors,
+    playerActor,
+    preference,
   });
 }
 

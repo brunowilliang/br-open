@@ -3412,6 +3412,107 @@ export const api: {
       >;
     };
   };
+  pendings: {
+    list: {
+      list: FunctionReference<
+        "query",
+        "public",
+        { scope: "organization" | "player" },
+        {
+          counts: {
+            byDomain: {
+              league: number;
+              payment: number;
+              player: number;
+              tournament: number;
+            };
+            bySeverity: { danger: number; info: number; warning: number };
+            total: number;
+          };
+          items: Array<{
+            action: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite";
+            } | null;
+            actionLabel: string | null;
+            count: number | null;
+            deadlineAt: number | null;
+            description:
+              | string
+              | Array<{
+                  parts: Array<{ isHighlighted?: boolean; text: string }>;
+                }>;
+            domain: "league" | "payment" | "player" | "tournament";
+            id: string;
+            kind:
+              | "organization_league_challenges_awaiting_validation"
+              | "organization_league_join_requests"
+              | "organization_league_payment_account_missing"
+              | "organization_tournament_entries_awaiting_approval"
+              | "organization_tournament_entries_awaiting_payment"
+              | "player_league_challenges_pending_actions"
+              | "player_league_inactivity_risk"
+              | "player_league_membership_payment_due"
+              | "player_league_membership_payment_due_soon"
+              | "player_league_membership_suspended"
+              | "player_tournament_entries_awaiting_payment"
+              | "player_tournament_entry_awaiting_approval"
+              | "player_tournament_partner_invite_received"
+              | "player_tournament_partner_invite_sent";
+            moneyCents: number | null;
+            params: Record<string, string> | null;
+            route: string | null;
+            secondaryAction: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite";
+            } | null;
+            secondaryActionLabel: string | null;
+            severity: "danger" | "info" | "warning";
+            source: {
+              id: string;
+              type:
+                | "league"
+                | "league_membership"
+                | "organization"
+                | "tournament"
+                | "tournament_entry";
+            };
+            title: string;
+          }>;
+          saturation: Array<{
+            kind:
+              | "organization_league_challenges_awaiting_validation"
+              | "organization_league_join_requests"
+              | "organization_league_payment_account_missing"
+              | "organization_tournament_entries_awaiting_approval"
+              | "organization_tournament_entries_awaiting_payment"
+              | "player_league_challenges_pending_actions"
+              | "player_league_inactivity_risk"
+              | "player_league_membership_payment_due"
+              | "player_league_membership_payment_due_soon"
+              | "player_league_membership_suspended"
+              | "player_tournament_entries_awaiting_payment"
+              | "player_tournament_entry_awaiting_approval"
+              | "player_tournament_partner_invite_received"
+              | "player_tournament_partner_invite_sent";
+            limit: number;
+          }>;
+          scope: "organization" | "player";
+          truncated: boolean;
+        }
+      >;
+    };
+  };
   player: {
     dashboard: {
       getOverview: FunctionReference<

@@ -98,6 +98,11 @@ export const api = {
       requestWithdraw: createApiLeaf<"action", typeof import("../functions/payment/withdraw").requestWithdraw>(createGeneratedFunctionReference<"action", "public", typeof import("../functions/payment/withdraw").requestWithdraw>("payment/withdraw:requestWithdraw"), { auth: "required", type: "action" }),
     },
   },
+  pendings: {
+    list: {
+      list: createApiLeaf<"query", typeof import("../functions/pendings/list").list>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/pendings/list").list>("pendings/list:list"), { auth: "required", type: "query" }),
+    },
+  },
   player: {
     dashboard: {
       getOverview: createApiLeaf<"query", typeof import("../functions/player/dashboard").getOverview>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/player/dashboard").getOverview>("player/dashboard:getOverview"), { auth: "required", type: "query" }),

@@ -127,6 +127,9 @@ export const procedureNames = {
     { column: 54, line: 741, name: "payment/withdraw:sweepPendingWithdrawFees" },
     { column: 3, line: 493, name: "payment/withdraw:upsertBalanceCache" },
   ],
+  "pendings/list.ts": [
+    { column: 3, line: 33, name: "pendings/list:list" },
+  ],
   "player/dashboard.ts": [
     { column: 3, line: 128, name: "player/dashboard:getOverview" },
   ],
@@ -194,8 +197,8 @@ export const procedureNames = {
     { column: 3, line: 50, name: "tournament/players:searchByUsername" },
   ],
   "viewer/context.ts": [
-    { column: 3, line: 288, name: "viewer/context:activateOrganization" },
-    { column: 3, line: 259, name: "viewer/context:get" },
-    { column: 3, line: 264, name: "viewer/context:setActiveActor" },
+    { column: 3, line: 349, name: "viewer/context:activateOrganization" },
+    { column: 3, line: 320, name: "viewer/context:get" },
+    { column: 3, line: 325, name: "viewer/context:setActiveActor" },
   ],
 };
