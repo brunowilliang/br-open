@@ -11,6 +11,7 @@ import {
 } from "kitcn/orm";
 
 import * as authTables from "../auth/tables";
+import type { NotificationPresentation } from "./contract";
 import * as playerTables from "../player/tables";
 
 export const notificationPreference = convexTable(
@@ -57,6 +58,13 @@ export const notificationFeed = convexTable(
     eventType: text().notNull(),
     isRead: boolean().notNull(),
     occurredAt: timestamp().notNull(),
+    // Apresentacao acionavel do item (IBX-0077 / PLN-0009): acao, rotulos e os
+    // trechos do corpo que vao em negrito. Nasce no ponto unico de criacao
+    // (`functions/notification/orchestrator.ts`) pela funcao pura
+    // `buildNotificationPresentation`. Ausente = item INFORMATIVO, que e o caso
+    // de toda linha anterior a este campo: o app cai no cartao de hoje sem
+    // migration.
+    presentation: json<NotificationPresentation>(),
     readAt: timestamp(),
     recipientActorKind: text().notNull(),
     recipientOrganizationId: id("organization").references(

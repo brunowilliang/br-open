@@ -13,7 +13,9 @@ import { eq } from "kitcn/orm";
 import {
   buildNotificationContent,
   getNotificationPushCategoryId,
+  type NotificationContentInput,
 } from "../../domains/notification/definitions";
+import { buildNotificationPresentation } from "../../domains/notification/presentation";
 import {
   notificationDelivery,
   notificationFeed,
@@ -291,16 +293,22 @@ export const createForRecipients = privateMutation
         continue;
       }
 
-      const content = buildNotificationContent({
+      const contentInput = {
         actorName,
         eventType: input.eventType,
         metadata: input.metadata,
         recipientRole:
-          recipientActor.kind === "organization" ? "organizer" : "player",
+          recipientActor.kind === "organization"
+            ? ("organizer" as const)
+            : ("player" as const),
         ...(source.kind === "league"
           ? { leagueId: source.id, leagueName: source.name }
           : { tournamentId: source.id, tournamentName: source.name }),
-      });
+      } satisfies NotificationContentInput;
+      const content = buildNotificationContent(contentInput);
+      // A decisao do item (acao, rotulos e destaques) e tomada UMA vez, aqui,
+      // pela funcao pura do dominio — o app nunca infere acao por eventType.
+      const presentation = buildNotificationPresentation(contentInput);
 
       const feedId = await ctx.db.insert("notificationFeed", {
         actorUserId: actorUserId ?? undefined,
@@ -309,6 +317,7 @@ export const createForRecipients = privateMutation
         eventType: input.eventType,
         isRead: false,
         occurredAt: now,
+        presentation: presentation ?? undefined,
         recipientActorKind: recipientActor.kind,
         recipientOrganizationId: recipientActor.organizationId ?? undefined,
         recipientPlayerProfileId: recipientActor.playerProfileId ?? undefined,

@@ -65,6 +65,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { scheduleLeagueNotification } from "../notification/events";
 import { buildNotificationContent } from "../../domains/notification/definitions";
+import { buildNotificationPresentation } from "../../domains/notification/presentation";
 import { notificationFeed } from "../../domains/notification/tables";
 import { getViewerContext } from "../viewer/context";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
@@ -1599,13 +1600,18 @@ async function upsertRenewalReminder(
     membershipId: args.membershipId,
     ...(args.pendingChargeId ? { chargeId: args.pendingChargeId } : {}),
   };
-  const content = buildNotificationContent({
+  const contentInput = {
     eventType: RENEWAL_REMINDER_EVENT_TYPE,
     leagueId: args.leagueId,
     leagueName: args.leagueName,
     metadata,
-    recipientRole: "player",
-  });
+    recipientRole: "player" as const,
+  };
+  const content = buildNotificationContent(contentInput);
+  // A linha e REESCRITA no lugar a cada dia do ciclo (IBX-0039), entao a
+  // apresentacao e recalculada junto: o botao da renovacao nunca fica apontando
+  // para um estado que o corpo ja nao descreve.
+  const presentation = buildNotificationPresentation(contentInput);
 
   const cycleReminder = (
     await findLiveRenewalReminders(ctx, args.membershipId)
@@ -1618,6 +1624,7 @@ async function upsertRenewalReminder(
         body: content.body,
         data: content.data,
         occurredAt: new Date(),
+        presentation: presentation ?? undefined,
         title: content.title,
       })
       .where(eq(notificationFeed.id, cycleReminder.id));

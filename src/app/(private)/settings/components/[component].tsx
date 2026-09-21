@@ -6,6 +6,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import { NotificationCard } from "@/components/notifications/notification-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   JoinFooter,
@@ -20,8 +21,19 @@ import {
   type WidgetAlertDescriptionPart,
 } from "@/components/ui/widget-alert";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
+import {
+  buildGalleryNotificationItem,
+  buildGalleryNotificationNote,
+  NOTIFICATION_GALLERY_EVENT_TYPES,
+  NOTIFICATION_GALLERY_GROUPS,
+  RENEWAL_REMINDER_DAYS_LEFT_VARIANTS,
+} from "@/lib/dev/notification-gallery-fixtures";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
+import {
+  buildNotificationMenuItems,
+  type NotificationCardItem,
+} from "@/lib/notifications/notification-view";
 
 /**
  * Moldura de variante na galeria: título curto e estável (numeração pra
@@ -439,6 +451,56 @@ const galleryPaymentChargeExpiredParts: WidgetAlertDescriptionPart[] = [
 ];
 
 /**
+ * O aviso de push bloqueado nos TRÊS moldes que o app desenha hoje (o quarto
+ * molde, o `RNAlert.alert` nativo, não dá para mostrar aqui). Compartilhado
+ * pelos itens Alertas (IBX-0076) e Notificações (IBX-0077): é o MESMO aviso do
+ * app, então a comparação serve aos dois e vive num lugar só (RUL-0005).
+ */
+function NoticeMoldsVariants() {
+  return (
+    <VariantSection
+      note="Os três fazem o mesmo trabalho no app. Os blocos a e b mostram o aviso com o CTA de uma palavra (Ajustes): o rótulo real de hoje é Abrir ajustes, com duas palavras, e fica apontado como divergência. A descrição dos dois é a copy real do aviso, mantida como estava — sem destaque: a frase não tem palavra-chave (apontado). Existe ainda um quarto molde fora da tela, o RNAlert.alert nativo com o mesmo aviso (settings/notifications.tsx:381-395), que não dá para mostrar aqui. O `WidgetAlert` ganhou nesta rodada o `isIndicatorHidden` (o cartão de notificação usa), sem mudança de desenho para os chamadores que não passam a prop."
+      title="Estilos divergentes hoje: o mesmo aviso em três moldes"
+    >
+      <View className="gap-4">
+        <LabeledBlock label="a) WidgetAlert, o alerta do app (ui/widget-alert.tsx)">
+          <WidgetAlert
+            action={{ label: "Ajustes", onPress: noop }}
+            description="Habilite as notificações nos ajustes do app para receber push."
+            status="warning"
+            title="Notificações bloqueadas"
+          />
+        </LabeledBlock>
+
+        <LabeledBlock label="b) Alert cru do HeroUI, como está hoje em Notificações">
+          <Alert status="warning">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Title>Notificações bloqueadas</Alert.Title>
+              <Alert.Description>
+                Habilite as notificações nos ajustes do app para receber push.
+              </Alert.Description>
+            </Alert.Content>
+            <Button onPress={noop} size="sm" variant="primary">
+              <Button.Label>Ajustes</Button.Label>
+            </Button>
+          </Alert>
+        </LabeledBlock>
+
+        <LabeledBlock label="c) Surface bg-warning-soft, como está hoje no diálogo Iniciar">
+          <Surface className="bg-warning-soft px-4 py-2">
+            <Text color="warning" variant="description">
+              Há 1 convite de dupla sem resposta · essa inscrição ficará de fora
+              da chave.
+            </Text>
+          </Surface>
+        </LabeledBlock>
+      </View>
+    </VariantSection>
+  );
+}
+
+/**
  * Galeria de alertas e pendências (IBX-0076): UM CARTÃO POR CASO, numerado,
  * com o contexto no título e o marcador REAL (a copy existe no app hoje) ou
  * PROPOSTA (copy nova). Padrão do HeroUI Native provado na doc bundled
@@ -690,45 +752,181 @@ function AlertsVariantsSection() {
         </View>
       </VariantSection>
 
+      <NoticeMoldsVariants />
+    </View>
+  );
+}
+
+/**
+ * ANATOMIA do menu ⋮ em texto, para aprovação estática (rodada 3 do IBX-0077):
+ * os itens na ORDEM real e NA COR real, tirados do MESMO derivado que o cartão
+ * usa (`buildNotificationMenuItems`) — nenhum rótulo digitado aqui — com a
+ * resolução de cada item ao lado (prova de que cada um leva a ação certa).
+ *
+ * A cor aqui é a MESMA régua semântica do `tone` do item (o perigo é
+ * `text-danger` e todo o resto é o `foreground` do título do item do menu), então
+ * o que o usuário aprova no olho é o que sai no cartão. O verde do sucesso saiu
+ * na rodada 4 (ver `docs/spec/dashboard.md`).
+ *
+ * Só os cartões ACIONÁVEIS ganham o bloco: no informativo o menu tem um item só
+ * (o destrutivo), que é o mesmo em todos os cartões.
+ */
+function NotificationMenuAnatomy(props: {
+  notification: NotificationCardItem;
+}) {
+  const items = buildNotificationMenuItems(props.notification);
+
+  return (
+    <LabeledBlock label="menu ⋮ (itens reais, na ordem e nas cores em que saem no cartão)">
+      <View className="gap-1.5 rounded-2xl bg-surface-secondary px-3 py-2.5">
+        {items.map((item, index) => (
+          <View
+            className="flex-row items-center gap-2"
+            key={`${index}-${item.label}`}
+          >
+            <Text
+              color={item.tone === "danger" ? "danger" : "foreground"}
+              variant="body"
+              weight="medium"
+            >
+              {`${index + 1}. ${item.label}`}
+            </Text>
+            <Text color="muted" size="xs">
+              {item.kind === "action"
+                ? `tom ${item.tone} · ${item.resolution.kind}`
+                : `tom ${item.tone} · remove o item da central`}
+            </Text>
+          </View>
+        ))}
+        <Text color="muted" size="xs">
+          Mapa de cor: DANGER só no que é recusa ou destrutivo (Recusar, Remover
+          notificação); todo o resto é o neutro do componente (Aceitar, Aprovar,
+          Pagar, Renovar e a navegação). O Menu.Item só tem as variants default
+          e danger.
+        </Text>
+      </View>
+    </LabeledBlock>
+  );
+}
+
+/** Estado do item usado no cartão de estados (informativo, sem ação). */
+const galleryNotificationStateItem = buildGalleryNotificationItem(
+  "tournament.entry.confirmed"
+);
+
+/**
+ * Galeria do item da CENTRAL DE NOTIFICAÇÕES (IBX-0077 / PLN-0009): o cartão
+ * REAL do feed (`components/notifications/notification-card.tsx`), com a copy
+ * dos DOIS builders do servidor — `buildNotificationContent` (título/corpo) e
+ * `buildNotificationPresentation` (ação, rótulos e destaques) — um cartão por
+ * tipo do catálogo (44), nos 8 grupos aprovados, na ORDEM APROVADA deles (que
+ * não é a do catálogo: o grupo 1 abre em `league.membership.approved`).
+ *
+ * O corpo do cartão é só título + descrição; as ações do servidor saem no menu
+ * ⋮ (rodada 2, pedido do usuário) e o cartão acionável mostra ao lado o bloco
+ * com os itens REAIS do menu, na ordem real e nas cores reais (rodada 3). Os
+ * cartões da galeria entram SEM corte de texto (`isClamped={false}`): a copy do
+ * servidor aparece inteira para o usuário conferir — o corte de 1/2 linhas é do
+ * FEED e continua valendo lá. CTA nenhum executa: o `onAction` não é passado,
+ * como o `noop` do IBX-0076 — a galeria aprova, não age. O wiring real (runner
+ * compartilhado, `lib/pendings/use-pending-action-runner.ts`) está no feed.
+ */
+function NotificationVariantsSection() {
+  return (
+    <View className="gap-6">
+      {NOTIFICATION_GALLERY_GROUPS.map((group) => (
+        <View className="gap-6" key={group.title}>
+          <Text color="muted" variant="description" weight="medium">
+            {group.title}
+          </Text>
+          {group.eventTypes.map((eventType) => {
+            const item = buildGalleryNotificationItem(eventType);
+            const hasAction = buildNotificationMenuItems(item).some(
+              (menuItem) => menuItem.kind === "action"
+            );
+
+            return (
+              <VariantSection
+                key={eventType}
+                note={buildGalleryNotificationNote(eventType)}
+                title={`Notificação ${
+                  NOTIFICATION_GALLERY_EVENT_TYPES.indexOf(eventType) + 1
+                } · ${group.title}: ${eventType}`}
+              >
+                <NotificationCard
+                  isClamped={false}
+                  notification={item}
+                  onOpen={noop}
+                  onRemove={noop}
+                />
+                {hasAction ? (
+                  <View className="mt-3">
+                    <NotificationMenuAnatomy notification={item} />
+                  </View>
+                ) : null}
+                {eventType === "league.membership.renewal_reminder" ? (
+                  <View className="mt-3 gap-4">
+                    {RENEWAL_REMINDER_DAYS_LEFT_VARIANTS.map((variant) => (
+                      <LabeledBlock key={variant.label} label={variant.label}>
+                        <NotificationCard
+                          isClamped={false}
+                          notification={buildGalleryNotificationItem(
+                            eventType,
+                            {
+                              metadata: { daysLeft: variant.daysLeft },
+                            }
+                          )}
+                          onOpen={noop}
+                          onRemove={noop}
+                        />
+                      </LabeledBlock>
+                    ))}
+                  </View>
+                ) : null}
+              </VariantSection>
+            );
+          })}
+        </View>
+      ))}
+
       <VariantSection
-        note="Os três fazem o mesmo trabalho no app. Os blocos a e b mostram o aviso com o CTA de uma palavra (Ajustes): o rótulo real de hoje é Abrir ajustes, com duas palavras, e fica apontado como divergência. A descrição dos dois é a copy real do aviso, mantida como estava — sem destaque: a frase não tem palavra-chave (apontado). Existe ainda um quarto molde fora da tela, o RNAlert.alert nativo com o mesmo aviso (settings/notifications.tsx:381-395), que não dá para mostrar aqui. Nenhum desses arquivos foi alterado."
-        title="Estilos divergentes hoje: o mesmo aviso em três moldes"
+        note="Além do alerta, o item da central pode mostrar a HORA e a MARCA de não lida (o ponto, que hoje vem junto com o título em accent). O pedido literal do usuário é o bloco a; a marca de não lida importa porque o badge da home e de Configurações conta as não lidas (notification.settings.status). O desenho final é escolha dele: o feed entra hoje com os três blocos ligados (hora e ponto), sem tirar informação que a tela já mostrava. O CORTE de texto veio de antes e segue valendo NO FEED: lá o título sai em 1 linha e a descrição em 2 (era o `numberOfLines` do item antigo, mantido igual na extração). NESTA GALERIA os cartões entram SEM corte (prop `isClamped={false}`) para a copy do servidor aparecer INTEIRA na conferência: é por isso que o texto que ele lê aqui não 'muda' — é o mesmo texto, e no feed ele aparece com reticências. Se ele quiser o texto inteiro também no feed, é só riscar aqui. O item de ação não aparece no menu ⋮ deste cartão porque o evento é informativo: aqui o menu traz só o destrutivo (Remover notificação), como em qualquer cartão informativo."
+        title="Estados do item: o que vai além do alerta"
       >
         <View className="gap-4">
-          <LabeledBlock label="a) WidgetAlert, o alerta do app (ui/widget-alert.tsx)">
-            <WidgetAlert
-              action={{ label: "Ajustes", onPress: noop }}
-              description="Habilite as notificações nos ajustes do app para receber push."
-              status="warning"
-              title="Notificações bloqueadas"
+          <LabeledBlock label="a) só título e descrição (o pedido literal)">
+            <NotificationCard
+              isClamped={false}
+              notification={{ ...galleryNotificationStateItem, isRead: true }}
+              onOpen={noop}
+              onRemove={noop}
+              showTimestamp={false}
+              showUnreadMark={false}
             />
           </LabeledBlock>
 
-          <LabeledBlock label="b) Alert cru do HeroUI, como está hoje em Notificações">
-            <Alert status="warning">
-              <Alert.Indicator />
-              <Alert.Content>
-                <Alert.Title>Notificações bloqueadas</Alert.Title>
-                <Alert.Description>
-                  Habilite as notificações nos ajustes do app para receber push.
-                </Alert.Description>
-              </Alert.Content>
-              <Button onPress={noop} size="sm" variant="primary">
-                <Button.Label>Ajustes</Button.Label>
-              </Button>
-            </Alert>
+          <LabeledBlock label="b) com a hora">
+            <NotificationCard
+              isClamped={false}
+              notification={{ ...galleryNotificationStateItem, isRead: true }}
+              onOpen={noop}
+              onRemove={noop}
+              showUnreadMark={false}
+            />
           </LabeledBlock>
 
-          <LabeledBlock label="c) Surface bg-warning-soft, como está hoje no diálogo Iniciar">
-            <Surface className="bg-warning-soft px-4 py-2">
-              <Text color="warning" variant="description">
-                Há 1 convite de dupla sem resposta · essa inscrição ficará de
-                fora da chave.
-              </Text>
-            </Surface>
+          <LabeledBlock label="c) com a marca de não lida (ponto + título em accent)">
+            <NotificationCard
+              isClamped={false}
+              notification={galleryNotificationStateItem}
+              onOpen={noop}
+              onRemove={noop}
+            />
           </LabeledBlock>
         </View>
       </VariantSection>
+
+      <NoticeMoldsVariants />
     </View>
   );
 }
@@ -776,6 +974,8 @@ export default function ComponentVariantsRoute() {
             <ChartCrosshairGallerySection />
           ) : entry.id === "alerts" ? (
             <AlertsVariantsSection />
+          ) : entry.id === "notifications" ? (
+            <NotificationVariantsSection />
           ) : null
         ) : (
           <EmptyState

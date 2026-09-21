@@ -5,6 +5,7 @@ import {
   ListNotificationsSchema,
   MarkNotificationReadSchema,
   notificationFeedItemSchema,
+  type NotificationPresentation,
   RemoveNotificationSchema,
 } from "../../domains/notification/contract";
 import { isNotificationForActiveActor } from "../../domains/notification/feed-rules";
@@ -23,6 +24,7 @@ function serializeNotificationFeedItem(record: {
   eventType: string;
   isRead: boolean;
   occurredAt: number;
+  presentation?: NotificationPresentation | null;
   readAt?: number | null;
   recipientActorKind: string;
   recipientOrganizationId?: Id<"organization"> | null;
@@ -42,6 +44,9 @@ function serializeNotificationFeedItem(record: {
     id: record._id,
     isRead: record.isRead,
     occurredAt: record.occurredAt,
+    // Linha anterior a este campo (e todo evento informativo) chega `null`: o
+    // app desenha o cartao de hoje, sem botao.
+    presentation: record.presentation ?? null,
     readAt: record.readAt ?? null,
     recipientActorKind: record.recipientActorKind,
     recipientOrganizationId: record.recipientOrganizationId ?? null,

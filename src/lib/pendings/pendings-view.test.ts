@@ -144,6 +144,130 @@ describe("resolvePendingAction", () => {
       )
     ).toBeNull();
   });
+
+  it("charges the membership from the action params when the item has no source", () => {
+    // Caminho da NOTIFICAÇÃO (IBX-0077): o item do feed não tem `source` de
+    // membership, o id viaja em `action.params.membershipId`.
+    expect(
+      resolvePendingAction(
+        buildItem({
+          action: buildAction({
+            params: { membershipId: "membership-1" },
+            type: "pay_league_membership",
+          }),
+          source: { id: "league-1", type: "league" },
+        })
+      )
+    ).toEqual({ kind: "pay_membership", sourceId: "membership-1" });
+  });
+
+  it("approves and rejects a membership with the league the mutation needs", () => {
+    const item = buildItem({
+      action: buildAction({
+        params: { membershipId: "membership-1" },
+        type: "approve_league_membership",
+      }),
+      params: { leagueId: "league-1" },
+    });
+
+    expect(resolvePendingAction(item)).toEqual({
+      kind: "approve_membership",
+      leagueId: "league-1",
+      membershipId: "membership-1",
+    });
+    expect(
+      resolvePendingAction({
+        ...item,
+        action: buildAction({
+          params: { membershipId: "membership-1" },
+          type: "reject_league_membership",
+        }),
+      })
+    ).toEqual({
+      kind: "reject_membership",
+      leagueId: "league-1",
+      membershipId: "membership-1",
+    });
+  });
+
+  it("has no membership decision without the league the mutation requires", () => {
+    // `league.membership.approve|reject` exigem `{ leagueId, membershipId }`:
+    // sem a liga o botão não é desenhado, nunca uma mutation quebrada.
+    expect(
+      resolvePendingAction(
+        buildItem({
+          action: buildAction({
+            params: { membershipId: "membership-1" },
+            type: "approve_league_membership",
+          }),
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("approves and rejects a tournament entry by the entry id", () => {
+    const entryAction = (type: PendingAction["type"]) =>
+      buildItem({
+        action: buildAction({ params: { entryId: "entry-1" }, type }),
+      });
+
+    expect(
+      resolvePendingAction(entryAction("approve_tournament_entry"))
+    ).toEqual({ entryId: "entry-1", kind: "approve_entry" });
+    expect(
+      resolvePendingAction(entryAction("reject_tournament_entry"))
+    ).toEqual({ entryId: "entry-1", kind: "reject_entry" });
+    expect(
+      resolvePendingAction(
+        buildItem({
+          action: buildAction({
+            params: null,
+            type: "approve_tournament_entry",
+          }),
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("resolves each challenge decision by the challenge id", () => {
+    const resolve = (type: PendingAction["type"]) =>
+      resolvePendingAction(
+        buildItem({
+          action: buildAction({ params: { challengeId: "challenge-1" }, type }),
+        })
+      );
+
+    expect(resolve("accept_challenge_proposal")).toEqual({
+      challengeId: "challenge-1",
+      kind: "accept_challenge_proposal",
+    });
+    expect(resolve("decline_challenge_proposal")).toEqual({
+      challengeId: "challenge-1",
+      kind: "decline_challenge_proposal",
+    });
+    expect(resolve("accept_challenge_cancellation")).toEqual({
+      challengeId: "challenge-1",
+      kind: "accept_challenge_cancellation",
+    });
+    expect(resolve("decline_challenge_cancellation")).toEqual({
+      challengeId: "challenge-1",
+      kind: "decline_challenge_cancellation",
+    });
+    expect(resolve("confirm_challenge_result")).toEqual({
+      challengeId: "challenge-1",
+      kind: "confirm_challenge_result",
+    });
+    expect(
+      resolvePendingAction(
+        buildItem({
+          action: buildAction({
+            params: null,
+            type: "confirm_challenge_result",
+          }),
+        })
+      )
+    ).toBeNull();
+  });
 });
 
 describe("resolvePendingsForLeague", () => {

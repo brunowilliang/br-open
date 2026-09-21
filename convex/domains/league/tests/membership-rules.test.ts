@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
+import { LEAGUE_MEMBERSHIP_STATUSES } from "../contract";
 import {
   canLeagueAcceptMember,
   resolveApprovedMembershipRankingPosition,
+  resolveMembershipReviewError,
   resolveRankingReorderError,
 } from "../membership-rules";
 
@@ -54,5 +56,25 @@ describe("league membership rules", () => {
         ],
       })
     ).toBe("O ranking enviado não corresponde aos jogadores ativos.");
+  });
+
+  it("allows review only while the join request is pending", () => {
+    expect(
+      resolveMembershipReviewError(LEAGUE_MEMBERSHIP_STATUSES.PENDING)
+    ).toBeNull();
+  });
+
+  it("blocks review of a join request that is already resolved", () => {
+    const resolvedStatuses = Object.values(LEAGUE_MEMBERSHIP_STATUSES).filter(
+      (status) => status !== LEAGUE_MEMBERSHIP_STATUSES.PENDING
+    );
+
+    // BUG-0048: sem o gate, aprovar/recusar por um botao de notificacao velha
+    // mexia numa solicitacao ja resolvida (approve reativava qualquer status).
+    expect(resolvedStatuses.map(resolveMembershipReviewError)).toEqual(
+      resolvedStatuses.map(
+        () => "Essa solicitação de entrada já foi resolvida."
+      )
+    );
   });
 });

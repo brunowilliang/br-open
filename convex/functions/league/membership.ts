@@ -18,6 +18,7 @@ import {
   canLeagueAcceptMember,
   isLeaguePaid,
   resolveApprovedMembershipRankingPosition,
+  resolveMembershipReviewError,
   resolveRankingReorderError,
 } from "../../domains/league/membership-rules";
 import { leagueMembership } from "../../domains/league/tables";
@@ -524,15 +525,19 @@ export const approve = authMutation
       input.membershipId as Id<"leagueMembership">
     );
 
-    if (currentMembership.status !== "active") {
-      assertLeagueHasAvailableSpot({
-        activeMembershipCount: await countActiveLeagueMemberships(
-          ctx,
-          leagueId
-        ),
-        maxPlayers: currentLeague.maxPlayers ?? null,
-      });
+    // BUG-0048: review so de solicitacao ainda em `pending`. Sem este gate,
+    // aprovar por um botao de notificacao velha reativava uma solicitacao ja
+    // recusada ou removida (o update setava `active` para qualquer status).
+    const reviewError = resolveMembershipReviewError(currentMembership.status);
+
+    if (reviewError) {
+      throw new CRPCError({ code: "CONFLICT", message: reviewError });
     }
+
+    assertLeagueHasAvailableSpot({
+      activeMembershipCount: await countActiveLeagueMemberships(ctx, leagueId),
+      maxPlayers: currentLeague.maxPlayers ?? null,
+    });
 
     // In the manual flow, payment has already happened by the time the
     // manager approves (the webhook routed paid+manual to `pending`).
@@ -542,15 +547,12 @@ export const approve = authMutation
       highestRankingPosition: await getHighestRankingPosition(ctx, leagueId),
     });
 
-    const updatedMembership =
-      currentMembership.status === "active"
-        ? currentMembership
-        : await updateMembership(ctx, currentMembership, {
-            rankingPosition,
-            reviewedAt: now,
-            status: "active",
-            updatedAt: now,
-          });
+    const updatedMembership = await updateMembership(ctx, currentMembership, {
+      rankingPosition,
+      reviewedAt: now,
+      status: "active",
+      updatedAt: now,
+    });
 
     await scheduleLeagueNotification(ctx, {
       actorUserId: ctx.userId,
@@ -588,6 +590,14 @@ export const reject = authMutation
       leagueId,
       input.membershipId as Id<"leagueMembership">
     );
+
+    // BUG-0048: o mesmo gate do approve. Sem ele, recusar por um botao de
+    // notificacao velha derrubava uma membership ja `active`.
+    const reviewError = resolveMembershipReviewError(currentMembership.status);
+
+    if (reviewError) {
+      throw new CRPCError({ code: "CONFLICT", message: reviewError });
+    }
 
     const updatedMembership = await updateMembership(ctx, currentMembership, {
       rankingPosition: null,

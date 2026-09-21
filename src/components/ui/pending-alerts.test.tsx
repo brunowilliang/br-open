@@ -68,32 +68,74 @@ mock.module("@/components/ui/error-state", () => ({
 }));
 mock.module("@/lib/convex/crpc", () => ({
   useCRPC: () => ({
+    league: {
+      challenges: {
+        acceptProposal: { mutationKey: () => ["accept-proposal"] },
+        confirmResult: { mutationKey: () => ["confirm-result"] },
+        declineProposal: { mutationKey: () => ["decline-proposal"] },
+        respondCancellationRequest: {
+          mutationKey: () => ["respond-cancellation"],
+        },
+      },
+      membership: {
+        approve: { mutationKey: () => ["approve-membership"] },
+        reject: { mutationKey: () => ["reject-membership"] },
+      },
+    },
     payment: { charge: { createCharge: { mutationKey: () => ["charge"] } } },
     pendings: { list: { list: { queryFilter: () => ({ queryKey: [] }) } } },
     tournament: {
-      entries: { respondPartnerInvite: { mutationKey: () => ["invite"] } },
-    },
-  }),
-  useCRPCClient: () => ({
-    payment: {
-      charge: {
-        createCharge: {
-          mutate: (variables: unknown) => {
-            chargeCalls.push(variables);
-          },
-        },
-      },
-    },
-    tournament: {
       entries: {
-        respondPartnerInvite: {
-          mutate: (variables: unknown) => {
-            inviteCalls.push(variables);
-          },
-        },
+        approve: { mutationKey: () => ["approve-entry"] },
+        reject: { mutationKey: () => ["reject-entry"] },
+        respondPartnerInvite: { mutationKey: () => ["invite"] },
       },
     },
   }),
+  useCRPCClient: () => {
+    // O runner compartilhado (IBX-0077) monta TODAS as mutations do vocabulário
+    // de ação, mesmo as que os itens deste teste não usam: o mock precisa da
+    // superfície inteira, senão o `mutationFn` de um nome ausente estoura no
+    // mount. As que importam para as asserções seguem registrando chamada.
+    const notUsed = () => ({
+      mutate: () => undefined,
+    });
+
+    return {
+      league: {
+        challenges: {
+          acceptProposal: notUsed(),
+          confirmResult: notUsed(),
+          declineProposal: notUsed(),
+          respondCancellationRequest: notUsed(),
+        },
+        membership: {
+          approve: notUsed(),
+          reject: notUsed(),
+        },
+      },
+      payment: {
+        charge: {
+          createCharge: {
+            mutate: (variables: unknown) => {
+              chargeCalls.push(variables);
+            },
+          },
+        },
+      },
+      tournament: {
+        entries: {
+          approve: notUsed(),
+          reject: notUsed(),
+          respondPartnerInvite: {
+            mutate: (variables: unknown) => {
+              inviteCalls.push(variables);
+            },
+          },
+        },
+      },
+    };
+  },
 }));
 
 const { PendingAlerts } = await import("@/components/ui/pending-alerts");

@@ -1,3 +1,8 @@
+import {
+  LEAGUE_MEMBERSHIP_STATUSES,
+  type LeagueMembershipStatus,
+} from "./contract";
+
 type LeagueAvailabilityInput = {
   activeMembershipCount: number;
   maxPlayers?: null | number;
@@ -53,6 +58,34 @@ export function resolveRankingReorderError(input: RankingReorderInput) {
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Review de solicitacao de entrada (BUG-0048 / IBX-0077)
+// ---------------------------------------------------------------------------
+
+/**
+ * Status em que o manager pode APROVAR ou RECUSAR a solicitacao. Depois disso a
+ * solicitacao esta resolvida e nao volta atras por este caminho.
+ */
+export const REVIEWABLE_MEMBERSHIP_STATUS = LEAGUE_MEMBERSHIP_STATUSES.PENDING;
+
+/**
+ * Erro de review fora de `pending` (BUG-0048): sem este gate, `approve` setava
+ * `active` para QUALQUER status anterior (reativando uma solicitacao ja
+ * recusada ou removida) e `reject` derrubava uma membership ja `active`. Com
+ * botao na notificacao, uma linha velha agiria sobre coisa ja resolvida.
+ */
+export const MEMBERSHIP_REVIEW_CONFLICT_MESSAGE =
+  "Essa solicitação de entrada já foi resolvida.";
+
+/** Mensagem de conflito para status nao revisavel, ou `null` quando pode. */
+export function resolveMembershipReviewError(
+  status: LeagueMembershipStatus | string
+): string | null {
+  return status === REVIEWABLE_MEMBERSHIP_STATUS
+    ? null
+    : MEMBERSHIP_REVIEW_CONFLICT_MESSAGE;
 }
 
 // ---------------------------------------------------------------------------

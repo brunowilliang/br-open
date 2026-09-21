@@ -866,6 +866,7 @@ export type DataModel = {
       eventType: string;
       isRead: boolean;
       occurredAt: number;
+      presentation?: null | any;
       readAt?: null | number;
       recipientActorKind: string;
       recipientOrganizationId?: null | Id<"organization">;
@@ -888,6 +889,7 @@ export type DataModel = {
       | "eventType"
       | "isRead"
       | "occurredAt"
+      | "presentation"
       | "readAt"
       | "recipientActorKind"
       | "recipientOrganizationId"

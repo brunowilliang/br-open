@@ -86,11 +86,31 @@ export const PENDING_SOURCE_TYPE_OPTIONS = [
  * - `open_route`: navegacao pura — o destino e o `route` + `params` do item.
  * - `pay_league_membership`: cria a cobranca da MESMA membership do item
  *   (`source`, tipo `league_membership`) e abre o checkout. Label `Pagar`.
+ *   Na NOTIFICACAO (`notificationFeed.presentation`) o id viaja em
+ *   `action.params.membershipId`, porque o item do feed nao tem `source`.
  * - `pay_tournament_entry`: cria a cobranca da inscricao de
  *   `action.params.entryId` (a inscricao a pagar, que NAO e o `source` quando o
  *   item agrega o torneio) e abre o checkout. Label `Pagar`.
  * - `accept_partner_invite` / `decline_partner_invite`: respondem ao convite de
  *   `action.params.entryId`.
+ * - `approve_league_membership` / `reject_league_membership`: aprovam/recusam a
+ *   solicitacao de entrada de `action.params.membershipId` (manager da liga).
+ *   Labels `Aprovar` / `Recusar`.
+ * - `approve_tournament_entry` / `reject_tournament_entry`: aprovam/recusam a
+ *   inscricao de `action.params.entryId` (manager da organizacao). Labels
+ *   `Aprovar` / `Recusar`.
+ * - `accept_challenge_proposal` / `decline_challenge_proposal`: respondem a
+ *   proposta vigente do desafio de `action.params.challengeId`. Labels
+ *   `Aceitar` / `Recusar`.
+ * - `accept_challenge_cancellation` / `decline_challenge_cancellation`:
+ *   respondem ao pedido de cancelamento do desafio de
+ *   `action.params.challengeId`. Labels `Aceitar` / `Recusar`.
+ * - `confirm_challenge_result`: confirma o resultado ja enviado do desafio de
+ *   `action.params.challengeId`. Label `Confirmar`.
+ *
+ * Os pares de ida e volta (aceitar/recusar, aprovar/rejeitar) sao tipos
+ * SEPARADOS, nunca um booleano em `params`: `params` e `Record<string, string>`
+ * e o cliente nao deve reinterpretar string como decisao.
  *
  * Acao de MUTACAO nunca depende de `route` (o destino vem da resposta) — o
  * unico tipo que exige `route` nao nulo e `open_route`.
@@ -101,6 +121,15 @@ export const PENDING_ACTION_TYPE_OPTIONS = [
   "pay_tournament_entry",
   "accept_partner_invite",
   "decline_partner_invite",
+  "approve_league_membership",
+  "reject_league_membership",
+  "approve_tournament_entry",
+  "reject_tournament_entry",
+  "accept_challenge_proposal",
+  "decline_challenge_proposal",
+  "accept_challenge_cancellation",
+  "decline_challenge_cancellation",
+  "confirm_challenge_result",
 ] as const;
 
 export type PendingDomain = (typeof PENDING_DOMAIN_OPTIONS)[number];

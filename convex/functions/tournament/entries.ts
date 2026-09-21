@@ -232,6 +232,9 @@ async function notifyEntryCreatedForApproval(
   await scheduleTournamentNotification(ctx, {
     actorUserId: input.createdByUserId,
     eventType: "tournament.entry.created",
+    // IBX-0077: o id da inscricao viaja no `data` para o botao Aprovar /
+    // Recusar do organizador (o mesmo `entryId` que `entries.approve` exige).
+    metadata: { entryId: input.entry.id as string },
     recipientUserIds: managerIds,
     sourceEntityId: input.entry.id as string,
     sourceEntityType: "tournamentEntry",
@@ -508,6 +511,9 @@ export const create = authMutation
     await scheduleTournamentNotification(ctx, {
       actorUserId: createdByUserId,
       eventType: "tournament.partner.invited",
+      // IBX-0077: o id da inscricao viaja no `data` para o botao Aceitar /
+      // Recusar do convite (o mesmo `entryId` que `respondPartnerInvite` exige).
+      metadata: { entryId: created.id as string },
       recipientUserIds: [partnerUser.id as Id<"user">],
       sourceEntityId: created.id as string,
       sourceEntityType: "tournamentEntry",

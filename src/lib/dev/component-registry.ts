@@ -38,6 +38,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "alerts",
     title: "Alertas",
   },
+  {
+    description: "Todos os tipos de notificação para aprovação",
+    id: "notifications",
+    title: "Notificações",
+  },
 ];
 
 export function findComponentGalleryEntry(

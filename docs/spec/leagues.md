@@ -304,7 +304,7 @@ Ligas são o núcleo competitivo do app: o organizador cria uma liga (modo fixo 
 - **Evidência:** `convex/functions/crons.ts` só registra jobs de pagamento/notificação (`expire-stale-charges`, `send-renewal-reminders`, `reconcile-charges`, `sweep-stale-deliveries`, `refresh-subaccount-balances`, `sweep-pending-withdraw-fees`). Não há cron/job para expirar desafios sem resposta, marcar partidas atrasadas como walkover ou aplicar penalidade de inatividade; não há `convex/functions/league/maintenance.ts`. O enforcement de inatividade segue config-only. Flags (`matchDeadlineDays`, `inactivityDropDays`, `inactivityBottomDays`, `resetLimitsMonthly`) não existem no contrato atual. Semânticas planejadas no modelo original: 15 dias de inatividade → cai 1 posição; 30 dias → fim do ranking; reset mensal de contadores por membro (as opções `drop_one_position`/`move_to_ranking_end` existem em `LeagueInactivityPenaltyTypeOptions`, sem enforcement).
 
 ### Notificações push de desafio
-- **Status:** nao implementado — push nativo de desafio segue fora de escopo; o app tem `convex/functions/league/_challenges/notifications.ts` e central de notificações (`src/app/(private)/settings/notifications.tsx`), mas sem envio de push nativo verificado no domínio de desafios.
+- **Status:** implementado (o push chega; o que não existe é BOTÃO nele) — os 18 eventos `league.challenge.*` têm emissor vivo em `convex/functions/league/challenges.ts`, todos passando pelo helper `convex/functions/league/_challenges/notifications.ts:8`, e percorrem o MESMO pipeline de feed + push do resto do app: `notification.orchestrator.createForRecipients` cria a linha em `notificationFeed` e as `notificationDelivery` por device (`convex/functions/notification/orchestrator.ts:270` e `:313`) e `sendPending` (`:517`) envia ao Expo. O que NÃO existe para esses eventos é categoria de push (nenhum tem `categoryId`: `convex/shared/notifications/protocol.ts:64-69`), ou seja o push do sistema não traz botão; o item da central carrega ação desde o IBX-0077 (`docs/spec/notifications.md`).
 
 ### Geração automática de slots a partir da disponibilidade de quadras
 - **Status:** nao implementado (fora de escopo mantido) — o agendamento usa os slots escolhidos manualmente nas propostas, com checagem de conflito (`listOccupiedSlots`, `isChallengeSlotBlocked`, `challenge-scheduling-rules.ts`).
@@ -384,3 +384,17 @@ Pedido direto do usuário ("aproveita e já coloca o JoinFooter na liga agora").
 - **Padding:** `footerClassName="pb-floating-tab-bar-4"` — a floating tab bar do cluster da liga EXISTE pra visitante (mesma sobreposição que o torneio tinha no r16).
 - Visual da pílula herda o design final do componente (chip de vagas success, preço com sufixo do intervalo via `formatLeaguePriceParts`, CTA sm). `GuestOverview` intocado.
 - **Fix H1 do review (20-09): o gate de lotada/`!canRequestJoin` agora vale DENTRO do CTA** (`join-footer.tsx:222-228`): o `isDisabled` do MorphButton trava só o press da raiz (`morph-button.js:146`), então na liga lotada a pílula mostrava "Sem vagas" mas o toque disparava mutate → recusa → toast de erro (o rodapé antigo era inerte). O `isDisabled` do botão soma o gate SO no modo liga (`!hasCategories`); torneio/galeria inalterados.
+
+## QA no simulador (20-09, sem commit) — BUG-0046 (KPI Posição)
+
+- **BUG-0046:** o KPI "Posição" da casa da liga montava o texto literal
+  "#undefined de 0" quando o jogador não tinha posição no ranking.
+  `buildPlayerPositionCard` (`lib/leagues/player-overview-derived.ts:29-46`) só
+  tratava `null` como "sem posição" — `undefined` passava e o card saía com
+  `position: undefined`. Agora o guarda é de TIPO (`typeof input.viewerPosition
+  !== "number"`): `null` e `undefined` são o MESMO estado explícito da derived e
+  o card volta `null`; a tela usa o guarda explícito `position === null`
+  (`pages/leagues/player-overview.tsx:74-81`, não mais a veracidade do objeto) e
+  segue mostrando "0" sem posição. Com posição nada muda (`#1 de 3`). Prova: 3
+  casos em `player-overview-derived.test.ts` (`undefined` → `null`, `null` →
+  `null`, valor → card com `position`/`totalPlayers`).

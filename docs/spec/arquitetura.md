@@ -50,12 +50,14 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
   nas telas (ex.: `src/app/(private)/leagues/[leagueId]/challenges.tsx`).
 - **Erro de procedure vira toast pela mensagem DO SERVIDOR:** todo `onError`
   passa por `getToastErrorMessage(error, fallback)`
-  (`src/lib/errors/toast-message.ts`). O helper lê a mensagem do `CRPCError`
-  onde ela realmente viaja — no payload do `ConvexError` (`error.data =
-  { code, message }`), porque o `message` do erro do cliente é só o wrapper do
-  Convex ("[CONVEX M(...)] [Request ID: ...] Server Error") — e mantém o
-  genérico apenas como último recurso (erro de transporte,
-  `ArgumentValidationError`, payload sem mensagem própria).
+  (`src/lib/errors/toast-message.ts`). O helper tira a mensagem de dentro do
+  envelope do Convex no `message` do erro do cliente ("[CONVEX M(...)]
+  [Request ID: ...] Server Error" + "Uncaught CRPCError: <mensagem>" — entra só
+  a primeira linha depois do rótulo intencional) e mantém o payload do
+  `ConvexError` (`error.data = { code, message }`) como o outro caminho — os
+  dois sob o mesmo crivo de envelope —, com o genérico apenas como último
+  recurso (erro de transporte, `ArgumentValidationError`, payload sem mensagem
+  própria).
 - **`src/components/pages/`** guarda views complexas (overviews por papel,
   dialogs); lógica derivada em `src/lib/leagues/*-derived.ts`.
 - **HeroUI Native + Uniwind** para componentes e estilos; `onPress`, não onClick.

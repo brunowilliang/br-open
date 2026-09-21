@@ -320,3 +320,15 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   MESMA inscrição (`rd714y595ax7zp5xy3gbpb2grs8erhda`, Copa Vila Tênis Clube,
   R$ 5,00) vista pelos dois lados — jogador ("1 inscrição aguardando pagamento"
   + `Pagar`) e organização ("1 inscrição aguardando pagamento" + `Ver`).
+
+## QA no simulador (20-09, sem commit)
+
+- **BUG-0047 (toast de recusa do convite, cartão 5):** o toast de sucesso da ação
+  `decline_partner_invite` repetia a frase (título "Convite recusado" +
+  descrição "Convite recusado."). A descrição passa a dizer o PRÓXIMO PASSO —
+  "Convite recusado, as vagas voltaram para a categoria." — no renderer único
+  (`ui/pending-alerts.tsx:120`), sem tocar em título, ids, invalidação nem nas
+  outras copies do fluxo (o aceite segue "Convite aceito, a dupla está fechada.").
+  O texto reflete o efeito do servidor: a inscrição recusada fica terminal e as
+  vagas da categoria voltam a ficar livres (`respondPartnerInvite`,
+  `convex/functions/tournament/entries.ts:552-558`).

@@ -12,7 +12,6 @@ import { type Href, router } from "expo-router";
 import {
   Alert,
   Button,
-  Card,
   Chip,
   Dialog,
   ListGroup,
@@ -26,6 +25,7 @@ import { AppState, Linking, Alert as RNAlert, View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import { NotificationCard } from "@/components/notifications/notification-card";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -34,7 +34,6 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { formatDateTimeShort } from "@/lib/format/date";
 import {
   getPushPermissionStatusAsync,
   type NotificationPermissionStatus,
@@ -48,6 +47,7 @@ import {
   type NotificationResponseActor,
   resolveNotificationResponseIntent,
 } from "@/lib/notifications/response-intent";
+import { usePendingActionRunner } from "@/lib/pendings/use-pending-action-runner";
 
 type NotificationItem = ApiOutputs["notification"]["feed"]["list"][number];
 type NotificationStatus = ApiOutputs["notification"]["settings"]["status"];
@@ -120,76 +120,6 @@ function NotificationRouteMenu(props: {
   );
 }
 
-function NotificationFeedItem(props: {
-  notification: NotificationItem;
-  onOpen: (notification: NotificationItem) => void;
-  onRemove: (notification: NotificationItem) => void;
-}) {
-  return (
-    <PressableFeedback
-      animation={false}
-      onPress={() => props.onOpen(props.notification)}
-    >
-      <Card className="flex-row items-start gap-3">
-        <View className="flex-1 gap-1">
-          <View className="flex-row items-center gap-1">
-            {props.notification.isRead ? null : (
-              <View className="size-1.5 rounded-full bg-accent" />
-            )}
-            <Text
-              className={
-                props.notification.isRead ? "text-muted" : "text-accent"
-              }
-              numberOfLines={1}
-              weight="semibold"
-            >
-              {props.notification.title}
-            </Text>
-          </View>
-          <Text color="muted" numberOfLines={2} variant="description">
-            {props.notification.body}
-          </Text>
-          <Text color="muted" size="xs">
-            {formatDateTimeShort(new Date(props.notification.occurredAt))}
-          </Text>
-        </View>
-        <Menu className="absolute top-2 right-2">
-          <Menu.Trigger asChild>
-            <Button
-              isIconOnly
-              onPress={(event) => {
-                event.stopPropagation();
-              }}
-              size="sm"
-              variant="ghost"
-            >
-              <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
-            </Button>
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Overlay className="bg-backdrop" />
-            <Menu.Content presentation="popover" width={240}>
-              <Menu.Item
-                onPress={() => {
-                  props.onRemove(props.notification);
-                }}
-                variant="danger"
-              >
-                <Menu.ItemTitle className="text-danger">Remover</Menu.ItemTitle>
-                <HugeIcons
-                  className="size-4.5 text-danger"
-                  icon={Delete02Icon}
-                />
-              </Menu.Item>
-            </Menu.Content>
-          </Menu.Portal>
-        </Menu>
-        <PressableFeedback.Highlight />
-      </Card>
-    </PressableFeedback>
-  );
-}
-
 export default function SettingsNotificationsRoute() {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isPreferencesDialogOpen, setIsPreferencesDialogOpen] = useState(false);
@@ -219,6 +149,13 @@ export default function SettingsNotificationsRoute() {
       ),
     ]);
   }
+
+  // A EXECUÇÃO das ações do cartão (os itens do menu ⋮) é o runner
+  // compartilhado com o renderer de pendências (IBX-0076/IBX-0077): a tela só
+  // diz o que invalidar depois.
+  const { isActionPending, runAction } = usePendingActionRunner({
+    onPerformed: invalidateNotifications,
+  });
 
   const setPreference = useMutation({
     mutationFn: crpcClient.notification.settings.setPreference.mutate,
@@ -577,13 +514,17 @@ export default function SettingsNotificationsRoute() {
           {!(isFeedLoading || isFeedError || isFeedEmpty) && (
             <View className="gap-2">
               {notificationsQuery.data.map((notification) => (
-                <NotificationFeedItem
+                <NotificationCard
+                  isActionPending={isActionPending}
                   key={notification.id}
                   notification={notification}
-                  onOpen={handleOpenNotification}
-                  onRemove={(nextNotification) => {
+                  onAction={runAction}
+                  onOpen={() => {
+                    handleOpenNotification(notification).catch(() => undefined);
+                  }}
+                  onRemove={() => {
                     removeNotification.mutate({
-                      notificationId: nextNotification.id,
+                      notificationId: notification.id,
                     });
                   }}
                 />

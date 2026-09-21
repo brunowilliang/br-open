@@ -2907,6 +2907,47 @@ export const api: {
           id: string;
           isRead: boolean;
           occurredAt: number;
+          presentation: {
+            action: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
+            } | null;
+            actionLabel: string | null;
+            bodyHighlights: Array<string>;
+            secondaryAction: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
+            } | null;
+            secondaryActionLabel: string | null;
+          } | null;
           readAt: number | null;
           recipientActorKind: "player" | "organization";
           recipientOrganizationId: string | null;
@@ -2981,6 +3022,47 @@ export const api: {
           id: string;
           isRead: boolean;
           occurredAt: number;
+          presentation: {
+            action: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
+            } | null;
+            actionLabel: string | null;
+            bodyHighlights: Array<string>;
+            secondaryAction: {
+              params: Record<string, string> | null;
+              type:
+                | "open_route"
+                | "pay_league_membership"
+                | "pay_tournament_entry"
+                | "accept_partner_invite"
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
+            } | null;
+            secondaryActionLabel: string | null;
+          } | null;
           readAt: number | null;
           recipientActorKind: "player" | "organization";
           recipientOrganizationId: string | null;
@@ -3437,7 +3519,16 @@ export const api: {
                 | "pay_league_membership"
                 | "pay_tournament_entry"
                 | "accept_partner_invite"
-                | "decline_partner_invite";
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
             } | null;
             actionLabel: string | null;
             count: number | null;
@@ -3474,7 +3565,16 @@ export const api: {
                 | "pay_league_membership"
                 | "pay_tournament_entry"
                 | "accept_partner_invite"
-                | "decline_partner_invite";
+                | "decline_partner_invite"
+                | "approve_league_membership"
+                | "reject_league_membership"
+                | "approve_tournament_entry"
+                | "reject_tournament_entry"
+                | "accept_challenge_proposal"
+                | "decline_challenge_proposal"
+                | "accept_challenge_cancellation"
+                | "decline_challenge_cancellation"
+                | "confirm_challenge_result";
             } | null;
             secondaryActionLabel: string | null;
             severity: "danger" | "info" | "warning";
