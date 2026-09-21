@@ -14,7 +14,7 @@ import {
   type JoinFooterPartnerOption,
 } from "@/components/ui/join-footer";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { MonthlyMatchesCard } from "@/components/ui/monthly-matches-card";
+import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import {
   WidgetAlert,
   type WidgetAlertDescriptionLine,
@@ -288,7 +288,7 @@ const galleryMatchesByMonth = buildPlayerResultsChart(
   galleryResultsByMonth
 ).map((month) => ({
   label: month.label,
-  matches: month.wins + month.losses,
+  value: month.wins + month.losses,
 }));
 
 /**
@@ -303,7 +303,11 @@ function ChartCrosshairGallerySection() {
         Série de exemplo no mesmo shape da home do jogador (lá entra a série
         real de 6 meses). Toque e arraste no gráfico para ver o crosshair.
       </Text>
-      <MonthlyMatchesCard data={galleryMatchesByMonth} />
+      <MonthlyChartCard
+        data={galleryMatchesByMonth}
+        description="Total de partidas por mês nos últimos 6 meses."
+        title="Partidas por mês"
+      />
     </View>
   );
 }

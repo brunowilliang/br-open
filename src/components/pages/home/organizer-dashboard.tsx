@@ -18,8 +18,7 @@ type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
  * Home da organização: saldo, recebido, previsto/mês e em atraso no KpiCard
  * da galeria (IBX-0075 r2), com o botão de saque no slot de ação do card do
  * saldo; rótulo e valor do molde texto-simples. A série de receita por mês
- * (`getRevenueSeries`) segue em TEXTO na home (index.tsx) e os gráficos
- * continuam fora.
+ * (`getRevenueSeries`) é o `MonthlyChartCard` na home (index.tsx, IBX-0078).
  */
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
   const router = useRouter();

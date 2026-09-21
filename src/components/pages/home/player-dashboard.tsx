@@ -7,7 +7,7 @@ import { Text } from "@/components/core/text";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { MonthlyMatchesCard } from "@/components/ui/monthly-matches-card";
+import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -20,7 +20,7 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 /**
  * Home do jogador (IBX-0075): "Partidas por mês" é o chart aprovado na
- * galeria (`MonthlyMatchesCard`, série real de 6 meses do dash); o desempenho
+ * galeria (`MonthlyChartCard`, série real de 6 meses do dash); o desempenho
  * em três cards ("Vitórias", "Derrotas" e "Aproveitamento") e "Suas
  * inscrições" seguem no KpiCard. "Próximos jogos" continua como está (lista
  * com navegação pra competição) e as pendências/alertas seguem GAP de dado.
@@ -56,7 +56,7 @@ export function PlayerDashboard() {
   // chart aprovado na galeria.
   const monthlyMatches = resultsByMonth.map((month) => ({
     label: month.label,
-    matches: month.wins + month.losses,
+    value: month.wins + month.losses,
   }));
   const entriesTotal = overview.entryCategories.reduce(
     (total, category) => total + category.entryCount,
@@ -75,8 +75,13 @@ export function PlayerDashboard() {
       />
 
       {/* Bloco 2 (ordem do usuário): o chart aprovado na galeria, com a série
-          real de 6 meses do dash. O antigo KpiCard de texto saiu (IBX-0075 r4). */}
-      <MonthlyMatchesCard data={monthlyMatches} />
+          real de 6 meses do dash. O antigo KpiCard de texto saiu (IBX-0075 r4);
+          o card virou o genérico `MonthlyChartCard` no IBX-0078. */}
+      <MonthlyChartCard
+        data={monthlyMatches}
+        description="Total de partidas por mês nos últimos 6 meses."
+        title="Partidas por mês"
+      />
 
       {/* Desempenho = três KPIs numa ÚNICA linha (IBX-0075 r2, ordem do
           usuário), labels literais do pedido. O "%" fica no VALOR: o rótulo

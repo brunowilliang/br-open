@@ -6,6 +6,7 @@ import { PlayerDashboard } from "@/components/pages/home/player-dashboard";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
+import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -21,10 +22,9 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 /** PLN-0007 (plano de conteúdo IBX-0071, composição do IBX-0075): a home
- * compõe os blocos de número com o `KpiCard` da galeria nos dois papéis
- * (jogador e organização); o que segue fora é só o que a spec do domínio
- * declara (gráficos, trilha de competições e as pendências/alertas, que
- * dependem de contrato — `docs/spec/dashboard.md`). */
+ * compõe os blocos de número com o `KpiCard` da galeria e as séries mensais com
+ * o `MonthlyChartCard` (IBX-0078) nos dois papéis (jogador e organização); a
+ * trilha de competições segue fora (GAP de dado) — `docs/spec/dashboard.md`. */
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
@@ -156,19 +156,29 @@ export default function Home() {
 
             {revenueSeriesQuery.data ? (
               <View className="gap-3">
-                <View className="gap-1">
-                  <Text color="muted" variant="description" weight="medium">
-                    Receita por mês
-                  </Text>
-                  <Text weight="semibold">
-                    {revenueSeriesQuery.data.series
-                      .map(
-                        (point) =>
-                          `${formatDashboardMonthLabel(point.month)} ${formatCurrencyCents(point.receivedCents)}`
-                      )
-                      .join(" · ") || "0"}
-                  </Text>
-                </View>
+                {/* Bloco do chart (IBX-0078): a MESMA série de
+                    `getRevenueSeries` que o texto mostrava (mês + centavos
+                    recebidos, `receivedCents`), agora no `MonthlyChartCard`
+                    aprovado na galeria; o balão do crosshair mostra o mesmo
+                    valor formatado pelo `formatCurrencyCents` de antes. */}
+                <MonthlyChartCard
+                  data={revenueSeriesQuery.data.series.map((point) => ({
+                    label: formatDashboardMonthLabel(point.month),
+                    value: point.receivedCents,
+                  }))}
+                  description="Total de receita por mês nos últimos 6 meses."
+                  /* Eixo em REAIS, sem centavos (BUG-0055): o valor da série é
+                     em centavos, então o rótulo do eixo sai pelo MESMO
+                     `formatCurrencyCents` com `whole` (formato curto do repo) —
+                     os ticks lidos de hoje ("1000 / 800 / 600 / 400 / 200 / 0",
+                     centavos crus) viram "R$ 10 / R$ 8 / R$ 6 / R$ 4 / R$ 2 /
+                     R$ 0". */
+                  formatAxis={(cents) =>
+                    formatCurrencyCents(cents, { whole: true })
+                  }
+                  formatValue={formatCurrencyCents}
+                  title="Receita por mês"
+                />
                 <View className="gap-1">
                   <Text color="muted" variant="description" weight="medium">
                     Total da janela
