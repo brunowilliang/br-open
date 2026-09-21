@@ -6,13 +6,10 @@ import { PlayerDashboard } from "@/components/pages/home/player-dashboard";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { authClient } from "@/lib/convex/auth-client";
 import { useCRPC } from "@/lib/convex/crpc";
-import { formatCurrencyCents } from "@/lib/format/currency";
 import { getGreetingLabel } from "@/lib/format/user";
-import { formatDashboardMonthLabel } from "@/lib/home/player-dashboard-view";
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -21,10 +18,25 @@ import { Badge } from "heroui-native-pro";
 import { useEffect } from "react";
 import { View } from "react-native";
 
+/** Mensagem do erro do ator (copy do usuário, BUG-0056). */
+const ACTOR_ERROR_MESSAGE = "Não foi possível identificar o seu perfil.";
+
+/** Mensagem do painel financeiro (a que a tela já mostrava). */
+const DASHBOARD_ERROR_MESSAGE = "Não foi possível carregar o painel.";
+
+/** Mensagem do painel do jogador — a MESMA copy que o próprio painel mostrava,
+ * só içada pra cá junto com a carga (IBX-0083). */
+const PLAYER_DASHBOARD_ERROR_MESSAGE = "Não foi possível carregar seu painel.";
+
 /** PLN-0007 (plano de conteúdo IBX-0071, composição do IBX-0075): a home
  * compõe os blocos de número com o `KpiCard` da galeria e as séries mensais com
- * o `MonthlyChartCard` (IBX-0078) nos dois papéis (jogador e organização); a
- * trilha de competições segue fora (GAP de dado) — `docs/spec/dashboard.md`. */
+ * o `MonthlyChartCard` (IBX-0078) nos dois papéis. A rota monta o casco (header
+ * + ScrollView), carrega o dado PRIMÁRIO de cada painel (`getOverview` da
+ * organização e do jogador) e resolve os QUATRO estados do conteúdo DENTRO do
+ * `Page.ScrollView` (a cadeia do `{…}`); cada painel segue com os próprios
+ * blocos e queries de bloco (`PlayerDashboard` / `OrganizerDashboard` — a série
+ * de receita da organização desceu pro painel dela no IBX-0081). A trilha de
+ * competições segue fora (GAP de dado) — `docs/spec/dashboard.md`. */
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
@@ -37,7 +49,15 @@ export default function Home() {
   // Player queries
   const playerProfile = useQuery({
     ...crpc.player.profile.get.staticQueryOptions(),
-    enabled: !isOrganizationActor,
+    /* BUG-0056: o perfil do jogador só é buscado depois de o ator resolver —
+       `!isOrganizationActor` sozinho dispara no PRIMEIRO frame (o
+       `viewer.context.get` ainda está pendente e `activeActor` é null), ou seja
+       um request inútil para quem entra como organização. É o mesmo sinal dos
+       ramos de conteúdo (o ator manda): no ERRO do ator `isPending` é false e
+       o perfil volta a ser buscado — o comportamento do HEAD nesse caminho, e
+       ali o dado segue com consumidor, que é o HEADER (nome/avatar), em tela nos
+       quatro estados. */
+    enabled: !(viewerContext.isPending || isOrganizationActor),
   });
 
   useEffect(() => {
@@ -75,11 +95,16 @@ export default function Home() {
     ...crpc.payment.dashboard.getOverview.staticQueryOptions(),
     enabled: isOrganizationActor,
   });
-  const revenueSeriesQuery = useQuery({
-    ...crpc.payment.dashboard.getRevenueSeries.staticQueryOptions({
-      months: 6,
-    }),
-    enabled: isOrganizationActor,
+
+  // Player panel query (IBX-0083): o dado primário do painel do jogador sobe
+  // pra rota — é ela que resolve carga e erro dos quatro estados da tela. O
+  // `enabled` espera o ator RESOLVER com sucesso (nem primeiro frame, nem
+  // organização) e, no erro do ator, nem busca: o painel do jogador não monta
+  // nesse caminho e o payload seria descartado (LOW 3 do delta-check). O painel
+  // NÃO repete esta query.
+  const playerOverviewQuery = useQuery({
+    ...crpc.player.dashboard.getOverview.staticQueryOptions({ months: 6 }),
+    enabled: viewerContext.isSuccess && !isOrganizationActor,
   });
 
   const notificationStatus = useQuery(
@@ -95,113 +120,18 @@ export default function Home() {
   const greeting = `${getGreetingLabel()},`;
   const unreadCount = notificationStatus.data?.unreadCount ?? 0;
 
-  // --- Organizer mode: dashboard financeiro + receita por mês ---
-  if (isOrganizationActor) {
-    const dashboardData = dashboardQuery.data;
-    const isLoading = dashboardQuery.isPending && !dashboardData;
-
-    return (
-      <Page>
-        <Page.Header>
-          <View className="flex-1 flex-row items-center justify-between gap-4">
-            <PressableFeedback
-              onPress={() => router.navigate("/settings/organization/profile")}
-            >
-              <View className="flex-row items-center gap-3">
-                <Badge.Anchor>
-                  <Image
-                    alt={userName}
-                    className="size-10 rounded-full"
-                    fallback="green"
-                    source={userAvatarSource}
-                  />
-                  {unreadCount > 0 ? (
-                    <Badge color="danger" size="sm">
-                      {unreadCount}
-                    </Badge>
-                  ) : null}
-                </Badge.Anchor>
-                <View>
-                  <Text>{greeting}</Text>
-                  <Text className="-mt-1" variant="title">
-                    {userName}
-                  </Text>
-                </View>
-              </View>
-            </PressableFeedback>
-            <Button
-              isIconOnly
-              onPress={() => router.navigate("/settings")}
-              variant="ghost"
-            >
-              <HugeIcons icon={Settings02Icon} />
-            </Button>
-          </View>
-        </Page.Header>
-        <ScrollShadow className="flex-1" color="background" size={100}>
-          <Page.ScrollView
-            contentContainerClassName="gap-4 px-4 pb-safe-offset-23"
-            showsVerticalScrollIndicator={false}
-          >
-            {isLoading ? (
-              <LoadingState />
-            ) : dashboardQuery.isError ? (
-              <ErrorState
-                error={dashboardQuery.error}
-                message="Não foi possível carregar o painel."
-              />
-            ) : dashboardData ? (
-              <OrganizerDashboard data={dashboardData} />
-            ) : null}
-
-            {revenueSeriesQuery.data ? (
-              <View className="gap-3">
-                {/* Bloco do chart (IBX-0078): a MESMA série de
-                    `getRevenueSeries` que o texto mostrava (mês + centavos
-                    recebidos, `receivedCents`), agora no `MonthlyChartCard`
-                    aprovado na galeria; o balão do crosshair mostra o mesmo
-                    valor formatado pelo `formatCurrencyCents` de antes. */}
-                <MonthlyChartCard
-                  data={revenueSeriesQuery.data.series.map((point) => ({
-                    label: formatDashboardMonthLabel(point.month),
-                    value: point.receivedCents,
-                  }))}
-                  description="Total de receita por mês nos últimos 6 meses."
-                  /* Eixo em REAIS, sem centavos (BUG-0055): o valor da série é
-                     em centavos, então o rótulo do eixo sai pelo MESMO
-                     `formatCurrencyCents` com `whole` (formato curto do repo) —
-                     os ticks lidos de hoje ("1000 / 800 / 600 / 400 / 200 / 0",
-                     centavos crus) viram "R$ 10 / R$ 8 / R$ 6 / R$ 4 / R$ 2 /
-                     R$ 0". */
-                  formatAxis={(cents) =>
-                    formatCurrencyCents(cents, { whole: true })
-                  }
-                  formatValue={formatCurrencyCents}
-                  title="Receita por mês"
-                />
-                <View className="gap-1">
-                  <Text color="muted" variant="description" weight="medium">
-                    Total da janela
-                  </Text>
-                  <Text weight="semibold">
-                    {formatCurrencyCents(revenueSeriesQuery.data.totalCents)}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </Page.ScrollView>
-        </ScrollShadow>
-      </Page>
-    );
-  }
-
-  // --- Player mode: dash pessoal em texto simples ---
   return (
     <Page>
       <Page.Header>
         <View className="flex-1 flex-row items-center justify-between gap-4">
           <PressableFeedback
-            onPress={() => router.navigate("/settings/player/profile")}
+            onPress={() =>
+              router.navigate(
+                isOrganizationActor
+                  ? "/settings/organization/profile"
+                  : "/settings/player/profile"
+              )
+            }
           >
             <View className="flex-row items-center gap-3">
               <Badge.Anchor>
@@ -225,7 +155,6 @@ export default function Home() {
               </View>
             </View>
           </PressableFeedback>
-
           <Button
             isIconOnly
             onPress={() => router.navigate("/settings")}
@@ -237,10 +166,43 @@ export default function Home() {
       </Page.Header>
       <ScrollShadow className="flex-1" color="background" size={100}>
         <Page.ScrollView
-          contentContainerClassName="grow gap-4 px-4 pb-safe-offset-23"
+          contentContainerClassName="gap-4 px-4 pb-safe-offset-23"
           showsVerticalScrollIndicator={false}
         >
-          <PlayerDashboard />
+          {/* Os QUATRO estados da home (IBX-0082/IBX-0083) são decididos AQUI,
+              dentro do ScrollView: o ator manda primeiro (sem ele não se sabe de
+              quem é a home); depois o painel do papel resolve a própria
+              carga/erro, e "sem erro e sem dado" é a espera. O `ErrorState`
+              cobre as TRÊS falhas: ator, painel da organização e painel do
+              jogador. Ator resolvido e NULO cai no jogador. */}
+          {viewerContext.isPending ? (
+            <LoadingState />
+          ) : viewerContext.isError ? (
+            <ErrorState
+              error={viewerContext.error}
+              message={ACTOR_ERROR_MESSAGE}
+            />
+          ) : isOrganizationActor ? (
+            dashboardQuery.isError ? (
+              <ErrorState
+                error={dashboardQuery.error}
+                message={DASHBOARD_ERROR_MESSAGE}
+              />
+            ) : dashboardQuery.data ? (
+              <OrganizerDashboard data={dashboardQuery.data} />
+            ) : (
+              <LoadingState />
+            )
+          ) : playerOverviewQuery.isError ? (
+            <ErrorState
+              error={playerOverviewQuery.error}
+              message={PLAYER_DASHBOARD_ERROR_MESSAGE}
+            />
+          ) : playerOverviewQuery.data ? (
+            <PlayerDashboard data={playerOverviewQuery.data} />
+          ) : (
+            <LoadingState />
+          )}
         </Page.ScrollView>
       </ScrollShadow>
     </Page>

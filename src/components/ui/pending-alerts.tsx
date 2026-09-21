@@ -4,7 +4,6 @@ import { View } from "react-native";
 import { cn } from "better-styled";
 
 import { ErrorMessage } from "@/components/ui/error-state";
-import { LoadingState } from "@/components/ui/loading-state";
 import { WidgetAlert } from "@/components/ui/widget-alert";
 import {
   PENDING_ALERT_STATUS,
@@ -59,7 +58,7 @@ export function PendingAlerts(props: PendingAlertsProps) {
   });
 
   if (props.isLoading) {
-    return <LoadingState />;
+    return null;
   }
 
   if (props.isError) {

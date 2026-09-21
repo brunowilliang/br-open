@@ -60,9 +60,6 @@ mock.module("heroui-native", () => ({
 mock.module("@/components/ui/widget-alert", () => ({
   WidgetAlert: (props: unknown) => props,
 }));
-mock.module("@/components/ui/loading-state", () => ({
-  LoadingState: () => null,
-}));
 mock.module("@/components/ui/error-state", () => ({
   ErrorMessage: () => null,
 }));
@@ -203,7 +200,7 @@ beforeEach(() => {
 // devolução abaixo, qualquer arquivo de teste que rode DEPOIS herdaria os stubs
 // em silêncio. Os três caminhos com namespace real carregável sob bun voltam ao
 // original aqui (provado com sonda descartável: `createStyledContext`,
-// `QueryClient` e `CRPCProvider` reaparecem). Os outros seis NÃO têm como voltar:
+// `QueryClient` e `CRPCProvider` reaparecem). Os outros cinco NÃO têm como voltar:
 // `react-native` é Flow e estoura "Unexpected typeof" sob bun, o que inviabiliza
 // também expo-router, HeroUI e os dois componentes que os importam — e o runner
 // compartilha o registro de módulos entre arquivos do mesmo processo, então um

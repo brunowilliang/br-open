@@ -4,11 +4,9 @@ import { Button } from "heroui-native";
 import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
-import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
-import { LoadingState } from "@/components/ui/loading-state";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
@@ -17,38 +15,32 @@ import { formatRateAsPercent } from "@/lib/format/percent";
 import { formatMinuteToHHMM } from "@/lib/format/time";
 import { formatCount } from "@/lib/format/pluralize";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import type { ApiOutputs } from "@convex/shared/api";
+
+type PlayerDashboardOverview = ApiOutputs["player"]["dashboard"]["getOverview"];
 
 /**
  * Home do jogador (IBX-0075): "Partidas por mês" é o chart aprovado na
  * galeria (`MonthlyChartCard`, série real de 6 meses do dash); o desempenho
  * em três cards ("Vitórias", "Derrotas" e "Aproveitamento") e "Suas
  * inscrições" seguem no KpiCard. "Próximos jogos" continua como está (lista
- * com navegação pra competição) e as pendências/alertas seguem GAP de dado.
+ * com navegação pra competição) e as pendências/alertas vêm do SERVIDOR
+ * (`pendings.list` escopo player, no bloco `PendingAlerts`).
+ *
+ * APRESENTAÇÃO com o dado primário recebido do pai (IBX-0083): o dashboard do
+ * jogador (`getOverview`) é carregado pela HOME, que resolve carga e erro dos
+ * quatro estados da tela — igual ao `OrganizerDashboard`, que recebe `data`.
+ * Ficam aqui as queries de BLOCO (as pendências do `PendingAlerts`), como no
+ * painel da organização, que também é só apresentação no bloco de número.
  */
-export function PlayerDashboard() {
+export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
   const crpc = useCRPC();
   const router = useRouter();
-  const overviewQuery = useQuery(
-    crpc.player.dashboard.getOverview.staticQueryOptions({ months: 6 })
-  );
   const pendingsQuery = useQuery(
     crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
   );
 
-  if (overviewQuery.isPending) {
-    return <LoadingState />;
-  }
-
-  if (overviewQuery.isError || !overviewQuery.data) {
-    return (
-      <ErrorState
-        error={overviewQuery.error}
-        message="Não foi possível carregar seu painel."
-      />
-    );
-  }
-
-  const overview = overviewQuery.data;
+  const overview = props.data;
   const performance = overview.performance;
   const resultsByMonth = buildPlayerResultsChart(performance.byMonth);
   // Série do bloco "Partidas por mês" (IBX-0075 r4): os MESMOS números que o
