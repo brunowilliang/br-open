@@ -18,6 +18,8 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   formatEntrySideLabel,
   getEntryStatusChip,
+  resolveTournamentEntriesTab,
+  type TournamentEntriesTab,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
@@ -116,7 +118,7 @@ export default function TournamentEntriesRoute() {
       toast.show({
         description: variables.accept
           ? "Convite aceito, a dupla está fechada."
-          : "Convite recusado.",
+          : "Convite recusado, as vagas voltaram para a categoria.",
         id: "respond-partner-success",
         label: variables.accept ? "Convite aceito" : "Convite recusado",
         variant: "success",
@@ -143,9 +145,18 @@ export default function TournamentEntriesRoute() {
   // PLN-0007 (decisão 1): pendências são superfície do ORGANIZADOR — o
   // jogador nunca vê pendência (nem a própria: convite/pagamento ficam na
   // overview, com ação, na página única).
-  const [activeTab, setActiveTab] = useState<"confirmed" | "pending">(
-    isOrganizer && initialTab === "pending" ? "pending" : "confirmed"
-  );
+  //
+  // A aba é DERIVADA (BUG-0045): o `initialTab=pending` do alerta só é honrado
+  // quando o contexto do organizador já carregou — na entrada fria (pela home)
+  // `access` é `undefined` no primeiro render e um estado inicializado uma
+  // única vez cairia em Confirmados. `userTab` guarda só a escolha MANUAL, que
+  // tem precedência e nunca é sobrescrita quando o contexto chega.
+  const [userTab, setUserTab] = useState<null | TournamentEntriesTab>(null);
+  const activeTab = resolveTournamentEntriesTab({
+    initialTab,
+    isOrganizer,
+    userTab,
+  });
   const visibleEntries =
     activeTab === "pending" && isOrganizer ? pendingEntries : confirmedEntries;
 
@@ -303,7 +314,7 @@ export default function TournamentEntriesRoute() {
           {isOrganizer ? (
             <Tabs
               onValueChange={(value) => {
-                setActiveTab(value as typeof activeTab);
+                setUserTab(value as TournamentEntriesTab);
               }}
               value={activeTab}
             >

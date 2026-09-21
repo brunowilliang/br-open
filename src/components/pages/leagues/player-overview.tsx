@@ -74,7 +74,9 @@ export function PlayerOverview(props: {
         <KpiCard
           label="Posição"
           value={
-            position ? `#${position.position} de ${position.totalPlayers}` : "0"
+            position === null
+              ? "0"
+              : `#${position.position} de ${position.totalPlayers}`
           }
         />
         <KpiCard label="Partidas no mês" value={String(matchesThisMonth)} />

@@ -190,6 +190,42 @@ export function isDoublesEntry(entry: TournamentEntryWithPlayers): boolean {
   return entry.playerB !== null;
 }
 
+/** Abas da tela de inscrições (PLN-0007 decisão 1: pendências são superfície
+ * do organizador). */
+export type TournamentEntriesTab = "confirmed" | "pending";
+
+/**
+ * Aba ATIVA da tela de inscrições, derivada a cada render (BUG-0045).
+ *
+ * O `initialTab` do item de pendência (`initialTab=pending` no deep-link do
+ * alerta) só vale para o ORGANIZADOR, e o contexto do organizador NÃO existe no
+ * primeiro render da entrada fria (pela home): `access` ainda é `undefined`.
+ * Com estado inicializado uma única vez (`useState`), o `pending` se perdia
+ * nessa entrada e o CTA "Ver" caía em Confirmados. Aqui a decisão é derivada —
+ * quando o contexto chega, a mesma chamada passa a devolver `pending`.
+ *
+ * `userTab` é a aba tocada pelo usuário: com ela escolhida, a derivada nunca
+ * volta ao `initialTab` (a escolha manual não é atropelada por um contexto que
+ * carrega depois nem por re-render).
+ */
+export function resolveTournamentEntriesTab(input: {
+  /** `initialTab` do deep-link (params do expo-router). */
+  initialTab?: string;
+  /** `access?.canManage`: `false` enquanto o contexto do organizador não
+   * carregou. */
+  isOrganizer: boolean;
+  /** Aba tocada pelo usuário; `null` enquanto ele não escolheu. */
+  userTab: null | TournamentEntriesTab;
+}): TournamentEntriesTab {
+  if (input.userTab) {
+    return input.userTab;
+  }
+
+  return input.isOrganizer && input.initialTab === "pending"
+    ? "pending"
+    : "confirmed";
+}
+
 /**
  * Stage of a match by draw size (2^(totalRounds - round + 1) slots):
  * Final, Semifinal, Quartas de final, Oitavas de final; uncommon draw

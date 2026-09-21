@@ -96,7 +96,7 @@ export default function TournamentOverviewRoute() {
       toast.show({
         description: variables.accept
           ? "Convite aceito, a dupla está fechada."
-          : "Convite recusado.",
+          : "Convite recusado, as vagas voltaram para a categoria.",
         id: "respond-partner-success",
         label: variables.accept ? "Convite aceito" : "Convite recusado",
         variant: "success",

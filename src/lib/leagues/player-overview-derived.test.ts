@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildPlayerMonthlyWinLoss,
+  buildPlayerPositionCard,
   buildPlayerWinRate,
 } from "./player-overview-derived";
 
@@ -171,5 +172,28 @@ describe("buildPlayerWinRate", () => {
     expect(
       buildPlayerWinRate({ challenges, viewerMembershipId: "m-1" })
     ).toEqual({ losses: 1, rate: 0, total: 1, wins: 0 });
+  });
+});
+
+describe("buildPlayerPositionCard", () => {
+  it("treats undefined as no position (KPI must not render #undefined)", () => {
+    expect(
+      buildPlayerPositionCard({
+        rankingItemsCount: 0,
+        viewerPosition: undefined,
+      })
+    ).toBeNull();
+  });
+
+  it("treats null as no position", () => {
+    expect(
+      buildPlayerPositionCard({ rankingItemsCount: 0, viewerPosition: null })
+    ).toBeNull();
+  });
+
+  it("carries position and total when the viewer is ranked", () => {
+    expect(
+      buildPlayerPositionCard({ rankingItemsCount: 3, viewerPosition: 1 })
+    ).toEqual({ position: 1, totalPlayers: 3 });
   });
 });

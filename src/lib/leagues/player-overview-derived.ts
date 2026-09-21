@@ -28,9 +28,14 @@ function isFinished(challenge: ChallengeItem) {
 
 export function buildPlayerPositionCard(input: {
   rankingItemsCount: number;
-  viewerPosition: null | number;
+  viewerPosition: null | number | undefined;
 }): PlayerPositionCard | null {
-  if (input.viewerPosition === null) {
+  // "Sem posição" é estado EXPLÍCITO da derivada (BUG-0046): o viewer sem
+  // posição no ranking chega aqui como `null` (buscado e não achado) ou
+  // `undefined` (posição ausente do payload/no primeiro render). Sem este
+  // guarda o card saía com `position: undefined` e o KPI montava o texto
+  // "#undefined de 0".
+  if (typeof input.viewerPosition !== "number") {
     return null;
   }
 

@@ -14,6 +14,7 @@ import {
   formatBracketStage,
   formatMatchScheduleSummary,
   isBracketPublic,
+  resolveTournamentEntriesTab,
 } from "./tournament-details-derived";
 
 describe("buildTournamentDetailsRole", () => {
@@ -533,5 +534,70 @@ describe("buildStartWarnings", () => {
     expect(warnings).toEqual([
       "A chave tem 2 vagas em aberto (A definir) · o início só é liberado com a chave completa.",
     ]);
+  });
+});
+
+describe("resolveTournamentEntriesTab", () => {
+  test("cold organizer entry (context not loaded yet) then applies pending", () => {
+    // Primeiro render da entrada pela home: `access` ainda é undefined, então
+    // o isOrganizer é false — a derivada devolve Confirmados.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        isOrganizer: false,
+        userTab: null,
+      })
+    ).toBe("confirmed");
+
+    // Mesma chamada quando o contexto do organizador chega (re-render): o
+    // initialTab do alerta é honrado, sem estado intermediário.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        isOrganizer: true,
+        userTab: null,
+      })
+    ).toBe("pending");
+  });
+
+  test("organizer without initialTab stays on confirmed", () => {
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        isOrganizer: true,
+        userTab: null,
+      })
+    ).toBe("confirmed");
+  });
+
+  test("player never lands on pending", () => {
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        isOrganizer: false,
+        userTab: null,
+      })
+    ).toBe("confirmed");
+  });
+
+  test("manual tab wins over the initialTab and survives the context loading", () => {
+    // Usuário tocou Confirmados depois de chegar em Pendências: o contexto já
+    // carregado (nem um novo render) não devolve a aba do initialTab.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        isOrganizer: true,
+        userTab: "confirmed",
+      })
+    ).toBe("confirmed");
+
+    // E a escolha manual de Pendências vale mesmo sem initialTab.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        isOrganizer: true,
+        userTab: "pending",
+      })
+    ).toBe("pending");
   });
 });
