@@ -18,10 +18,8 @@ import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { getSecurityErrorMessage } from "@/lib/account/security-errors";
 import {
-  USERNAME_CANNOT_REMOVE_MESSAGE,
   normalizeUsername,
-  resolveUsernameSubmitIssue,
-  validateUsernameFormat,
+  validateUsernameField,
 } from "@/lib/account/username-rules";
 import { useUsernameAvailability } from "@/lib/account/use-username-availability";
 import {
@@ -47,20 +45,18 @@ const PlayerProfileFormSchema = z
     gender: playerProfileSchema.shape.gender.optional(),
     nickname: playerProfileSchema.shape.nickname,
     phone: z.string().nullable().optional(),
-    username: z
-      .string()
-      .optional()
-      .superRefine((value, ctx) => {
-        if (!value) {
-          return;
-        }
+    username: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    const message = validateUsernameField(values.username ?? "");
 
-        const message = validateUsernameFormat(value);
-
-        if (message) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
-        }
-      }),
+    if (message) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message,
+        path: ["username"],
+      });
+    }
   })
   .pipe(upsertPlayerProfileSchema);
 
@@ -141,9 +137,15 @@ export default function PlayerProfile() {
       await queryClient.invalidateQueries(
         crpc.player.profile.get.queryFilter()
       );
+      // O payload do upsert não carrega username (o builder faz
+      // `.pipe(upsertPlayerProfileSchema)`, que descarta o campo): sem
+      // reinserir a fonte da sessão aqui, o reset apagaria o campo e o schema
+      // obrigatório marcaria "Informe um username." depois de um save
+      // bem-sucedido — com o Salvar desabilitado até redigitar.
       form.reset({
         ...nextProfile,
         avatarDraftUri: undefined,
+        username: currentUsername,
       });
       await form.trigger();
       setAvatarPreviewUri(null);
@@ -178,19 +180,6 @@ export default function PlayerProfile() {
 
   const submitForm = form.handleSubmit(async (values) => {
     updateProfile.reset();
-
-    const usernameIssue = resolveUsernameSubmitIssue({
-      currentUsername,
-      value: form.getValues("username") ?? "",
-    });
-
-    if (usernameIssue === "cannot_remove") {
-      form.setError("username", {
-        message: USERNAME_CANNOT_REMOVE_MESSAGE,
-        type: "manual",
-      });
-      return;
-    }
 
     let didUpdateUsername = false;
     const nextUsername = normalizeUsername(form.getValues("username") ?? "");

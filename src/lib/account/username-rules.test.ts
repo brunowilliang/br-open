@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import {
   normalizeUsername,
-  resolveUsernameSubmitIssue,
   shouldCheckUsernameAvailability,
+  USERNAME_REQUIRED_MESSAGE,
+  validateUsernameField,
   validateUsernameFormat,
 } from "./username-rules";
 
@@ -45,41 +46,26 @@ describe("validateUsernameFormat", () => {
     expect(validateUsernameFormat("maria@silva")).toBe(message);
   });
 
-  test("campo vazio não é erro de formato (regra de vazio é do submit)", () => {
+  test("campo vazio não é erro de formato (a obrigatoriedade é do campo)", () => {
     expect(validateUsernameFormat("")).toBeNull();
     expect(validateUsernameFormat("   ")).toBeNull();
   });
 });
 
-describe("resolveUsernameSubmitIssue", () => {
-  test("username definido + campo vazio no submit = cannot_remove", () => {
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: "maria", value: "" })
-    ).toBe("cannot_remove");
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: "maria", value: "  " })
-    ).toBe("cannot_remove");
+describe("validateUsernameField", () => {
+  test("vazio (ou só espaços) é obrigatório", () => {
+    expect(validateUsernameField("")).toBe(USERNAME_REQUIRED_MESSAGE);
+    expect(validateUsernameField("   ")).toBe(USERNAME_REQUIRED_MESSAGE);
   });
 
-  test("sem username atual, vazio segue válido (campo opcional)", () => {
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: null, value: "" })
-    ).toBeNull();
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: "", value: "" })
-    ).toBeNull();
-  });
-
-  test("valor preenchido (mesmo igual ao atual) não gera issue de submit", () => {
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: "maria", value: "maria" })
-    ).toBeNull();
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: "maria", value: "MARIA" })
-    ).toBeNull();
-    expect(
-      resolveUsernameSubmitIssue({ currentUsername: null, value: "joao_p" })
-    ).toBeNull();
+  test("preenchido cai na regra de formato", () => {
+    expect(validateUsernameField("Maria.Silva")).toBeNull();
+    expect(validateUsernameField("ab")).toBe(
+      "O username deve ter no mínimo 3 caracteres."
+    );
+    expect(validateUsernameField("maria silva")).toBe(
+      "Use apenas letras, números, ponto e underline."
+    );
   });
 });
 

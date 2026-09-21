@@ -34,7 +34,7 @@ export type ProfileDetailsFormValues = {
   gender?: string;
   nickname: string;
   phone?: null | string;
-  username?: string;
+  username: string;
 };
 
 type ProfileDetailsSectionProps = {
@@ -137,6 +137,7 @@ export function ProfileDetailsSection(props: ProfileDetailsSectionProps) {
             <TextField
               className="w-full"
               isInvalid={Boolean(fieldState.error) || isTaken}
+              isRequired
             >
               <Label>Username</Label>
               <Input

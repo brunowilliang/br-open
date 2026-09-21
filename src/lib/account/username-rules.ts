@@ -11,9 +11,8 @@ export const USERNAME_MAX_LENGTH = 30;
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 
 export const USERNAME_FIELD_HINT =
-  "3 a 30 caracteres: letras, números, ponto e underline. Sempre em minúsculas.";
-export const USERNAME_CANNOT_REMOVE_MESSAGE =
-  "O username não pode ser removido, apenas trocado.";
+  "3 a 30 caracteres, apenas letras, números, ponto e underline.";
+export const USERNAME_REQUIRED_MESSAGE = "Informe um username.";
 export const USERNAME_TAKEN_MESSAGE =
   "Esse username já está em uso. Escolha outro.";
 
@@ -43,23 +42,17 @@ export function validateUsernameFormat(value: string): null | string {
   return null;
 }
 
-export type UsernameSubmitIssue = "cannot_remove" | null;
-
 /**
- * Issue de submit que o schema estático não cobre: username já definido não
- * pode ser removido (o servidor rejeita string vazia pelo mínimo de 3 chars).
+ * Validação do CAMPO do form (o username é obrigatório no perfil): vazio
+ * devolve a mensagem de obrigatório, preenchido delega para a regra de
+ * formato. O schema do perfil (`profile.tsx`) consome esta função.
  */
-export function resolveUsernameSubmitIssue(input: {
-  currentUsername: null | string | undefined;
-  value: string;
-}): UsernameSubmitIssue {
-  const current = normalizeUsername(input.currentUsername ?? "");
-
-  if (current && !normalizeUsername(input.value)) {
-    return "cannot_remove";
+export function validateUsernameField(value: string): null | string {
+  if (!normalizeUsername(value)) {
+    return USERNAME_REQUIRED_MESSAGE;
   }
 
-  return null;
+  return validateUsernameFormat(value);
 }
 
 /** Deve checar disponibilidade no servidor? (formato válido, mudou, não vazio) */
