@@ -1,7 +1,10 @@
 import { Alert, Button } from "heroui-native";
 import { type GestureResponderEvent, View } from "react-native";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { Text } from "@/components/core/text";
+import { Settings02Icon } from "@hugeicons/core-free-icons";
+import { HugeIcons } from "./huge-icons";
 
 type WidgetAlertAction = {
   isDisabled?: boolean;
@@ -106,62 +109,73 @@ export function WidgetAlert(props: WidgetAlertProps) {
   const primaryVariant = props.status === "danger" ? "danger" : "primary";
 
   return (
-    <Alert status={props.status}>
-      {props.isIndicatorHidden ? null : <Alert.Indicator />}
-      <Alert.Content className={props.contentClassName}>
-        <Alert.Title numberOfLines={props.titleNumberOfLines}>
-          {props.title}
-        </Alert.Title>
-        {typeof props.description === "string" ? (
-          <Alert.Description numberOfLines={props.descriptionNumberOfLines}>
-            {props.description}
-          </Alert.Description>
-        ) : null}
-        {Array.isArray(props.description) ? (
-          <View className="gap-0.5">
-            {props.description.map((line, lineIndex) => (
-              <Text
-                color="muted"
-                key={lineIndex}
-                numberOfLines={props.descriptionNumberOfLines}
-                variant="description"
-              >
-                {line.parts.map((part, partIndex) =>
-                  part.isHighlighted ? (
-                    <Text
-                      color="muted"
-                      key={partIndex}
-                      variant="description"
-                      weight="bold"
-                    >
-                      {part.text}
-                    </Text>
-                  ) : (
-                    part.text
-                  )
-                )}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-        {props.secondaryAction ? (
-          <View className="mt-1.5 flex-row items-center gap-2 self-end">
-            <WidgetAlertButton
-              action={props.secondaryAction}
-              variant="secondary"
-            />
-            {props.action ? (
+    <Swipeable
+      enableTrackpadTwoFingerGesture
+      friction={2}
+      renderRightActions={() => (
+        <Button isIconOnly size="sm" variant="secondary">
+          <HugeIcons icon={Settings02Icon} />
+        </Button>
+      )}
+      rightThreshold={40}
+    >
+      <Alert status={props.status}>
+        {props.isIndicatorHidden ? null : <Alert.Indicator />}
+        <Alert.Content className={props.contentClassName}>
+          <Alert.Title numberOfLines={props.titleNumberOfLines}>
+            {props.title}
+          </Alert.Title>
+          {typeof props.description === "string" ? (
+            <Alert.Description numberOfLines={props.descriptionNumberOfLines}>
+              {props.description}
+            </Alert.Description>
+          ) : null}
+          {Array.isArray(props.description) ? (
+            <View className="gap-0.5">
+              {props.description.map((line, lineIndex) => (
+                <Text
+                  color="muted"
+                  key={lineIndex}
+                  numberOfLines={props.descriptionNumberOfLines}
+                  variant="description"
+                >
+                  {line.parts.map((part, partIndex) =>
+                    part.isHighlighted ? (
+                      <Text
+                        color="muted"
+                        key={partIndex}
+                        variant="description"
+                        weight="bold"
+                      >
+                        {part.text}
+                      </Text>
+                    ) : (
+                      part.text
+                    )
+                  )}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {props.secondaryAction ? (
+            <View className="mt-1.5 flex-row items-center gap-2 self-end">
               <WidgetAlertButton
-                action={props.action}
-                variant={primaryVariant}
+                action={props.secondaryAction}
+                variant="secondary"
               />
-            ) : null}
-          </View>
+              {props.action ? (
+                <WidgetAlertButton
+                  action={props.action}
+                  variant={primaryVariant}
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </Alert.Content>
+        {props.action && !props.secondaryAction ? (
+          <WidgetAlertButton action={props.action} variant={primaryVariant} />
         ) : null}
-      </Alert.Content>
-      {props.action && !props.secondaryAction ? (
-        <WidgetAlertButton action={props.action} variant={primaryVariant} />
-      ) : null}
-    </Alert>
+      </Alert>
+    </Swipeable>
   );
 }
