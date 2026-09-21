@@ -31,56 +31,58 @@ export function KpiCard(props: KpiCardProps) {
 
   return (
     <>
-      <Card className="flex-1 gap-1">
-        <View className="flex-row items-center gap-1.5">
-          {props.icon ? (
-            <HugeIcons
-              className={cn(
-                "size-4",
-                props.tint === "danger" ? "text-danger" : "text-muted"
-              )}
-              icon={props.icon}
-            />
+      <Card className="flex-1 flex-row items-center gap-1">
+        <View className="flex-1 gap-1">
+          <View className="flex-row items-center gap-1.5">
+            {props.icon ? (
+              <HugeIcons
+                className={cn(
+                  "size-4",
+                  props.tint === "danger" ? "text-danger" : "text-muted"
+                )}
+                icon={props.icon}
+              />
+            ) : null}
+            <Text
+              className="flex-1"
+              color={props.tint === "danger" ? "danger" : "muted"}
+              numberOfLines={1}
+              variant="description"
+              weight="medium"
+            >
+              {props.label}
+            </Text>
+            {props.info ? (
+              <InfoTrigger
+                onPress={() => {
+                  setIsInfoOpen(true);
+                }}
+                title={props.info.title}
+              />
+            ) : null}
+          </View>
+          {props.isLoading ? (
+            <Skeleton className="h-8 w-28 rounded-xl" />
+          ) : (
+            <Text
+              color={props.tint === "danger" ? "danger" : undefined}
+              size="base"
+              weight="semibold"
+            >
+              {props.value}
+            </Text>
+          )}
+          {props.description ? (
+            <Text
+              color={props.tint === "danger" ? "danger" : "muted"}
+              variant="description"
+              weight="normal"
+            >
+              {props.description}
+            </Text>
           ) : null}
-          <Text
-            className="flex-1"
-            color={props.tint === "danger" ? "danger" : "muted"}
-            numberOfLines={1}
-            variant="description"
-            weight="medium"
-          >
-            {props.label}
-          </Text>
-          {props.info ? (
-            <InfoTrigger
-              onPress={() => {
-                setIsInfoOpen(true);
-              }}
-              title={props.info.title}
-            />
-          ) : null}
-          {props.action ? <View>{props.action}</View> : null}
         </View>
-        {props.isLoading ? (
-          <Skeleton className="h-8 w-28 rounded-xl" />
-        ) : (
-          <Text
-            color={props.tint === "danger" ? "danger" : undefined}
-            size="base"
-            weight="semibold"
-          >
-            {props.value}
-          </Text>
-        )}
-        {props.description ? (
-          <Text
-            color={props.tint === "danger" ? "danger" : "muted"}
-            variant="description"
-            weight="normal"
-          >
-            {props.description}
-          </Text>
-        ) : null}
+        {props.action ? <View>{props.action}</View> : null}
       </Card>
 
       {props.info ? (
