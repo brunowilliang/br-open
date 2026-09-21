@@ -191,8 +191,43 @@ export function isDoublesEntry(entry: TournamentEntryWithPlayers): boolean {
 }
 
 /** Abas da tela de inscrições (PLN-0007 decisão 1: pendências são superfície
- * do organizador). */
-export type TournamentEntriesTab = "confirmed" | "pending";
+ * do organizador; IBX-0080: "minhas" é o segmento do jogador com as próprias
+ * inscrições — a lista global de confirmados continua no segmento ao lado). */
+export type TournamentEntriesTab = "confirmed" | "mine" | "pending";
+
+export type TournamentEntriesTabItem = {
+  label: string;
+  value: TournamentEntriesTab;
+};
+
+/**
+ * Itens da barra de segmentos da aba Inscrições, pelo PAPEL RESOLVIDO
+ * (IBX-0080). A barra só é montada com 2+ itens (precedente do repo: as tabs de
+ * categoria do chaveamento só existem com 2+ categorias com chave) — o que zera
+ * a barra em dois casos reais: o guest, que não tem inscrição viva por
+ * construção (`viewerEntryIds` vazio, `buildTournamentDetailsRole`), e a
+ * entrada FRIA, em que `role` ainda é `null` porque a descoberta não hidratou —
+ * é nessa janela que a barra pintada não pode ser a do jogador para um gestor.
+ */
+export function buildTournamentEntriesTabItems(input: {
+  role: null | TournamentDetailsRole;
+}): TournamentEntriesTabItem[] {
+  if (input.role === "organizer") {
+    return [
+      { label: "Confirmados", value: "confirmed" },
+      { label: "Pendências", value: "pending" },
+    ];
+  }
+
+  if (input.role === "player") {
+    return [
+      { label: "Minhas", value: "mine" },
+      { label: "Confirmados", value: "confirmed" },
+    ];
+  }
+
+  return [];
+}
 
 /**
  * Aba ATIVA da tela de inscrições, derivada a cada render (BUG-0045).
@@ -206,24 +241,45 @@ export type TournamentEntriesTab = "confirmed" | "pending";
  *
  * `userTab` é a aba tocada pelo usuário: com ela escolhida, a derivada nunca
  * volta ao `initialTab` (a escolha manual não é atropelada por um contexto que
- * carrega depois nem por re-render).
+ * carrega depois nem por re-render) — mas só VALE se a aba estiver na lista do
+ * PAPEL RESOLVIDO (`buildTournamentEntriesTabItems`), porque o papel pode mudar
+ * com a tela aberta (IBX-0080):
+ *   - o gestor toca "Minhas" antes de o contexto do organizador chegar (a
+ *     barra era a do jogador nessa janela) e ficaria preso numa aba que os
+ *     triggers dele não têm;
+ *   - o jogador cancela a ÚNICA inscrição e vira guest com a tela aberta: a
+ *     barra desmonta (o guest não tem "Minhas") e a escolha herdada deixaria a
+ *     tela presa no segmento do jogador, SEM trigger para voltar a Confirmados.
+ * Sem lista de itens (guest ou papel ainda não resolvido) nenhuma escolha vale
+ * e a derivada cai no default do papel.
+ *
+ * IBX-0080 (decisão do usuário): fora do organizador a entrada é "minhas" — e o
+ * viewer SEM inscrição viva (`viewerEntryIds` vazio, o caso do guest) cai em
+ * Confirmados, a lista GLOBAL, nunca numa aba vazia. O organizador não tem
+ * "minhas" (para o ator de organização `viewerEntryIds` é vazio por construção).
  */
 export function resolveTournamentEntriesTab(input: {
   /** `initialTab` do deep-link (params do expo-router). */
   initialTab?: string;
-  /** `access?.canManage`: `false` enquanto o contexto do organizador não
-   * carregou. */
-  isOrganizer: boolean;
+  /** Papel resolvido do torneio; `null` enquanto a descoberta não hidratou. */
+  role: null | TournamentDetailsRole;
   /** Aba tocada pelo usuário; `null` enquanto ele não escolheu. */
   userTab: null | TournamentEntriesTab;
 }): TournamentEntriesTab {
-  if (input.userTab) {
+  const items = buildTournamentEntriesTabItems({ role: input.role });
+  const isUserTabAvailable =
+    input.userTab !== null &&
+    items.some((item) => item.value === input.userTab);
+
+  if (input.userTab && isUserTabAvailable) {
     return input.userTab;
   }
 
-  return input.isOrganizer && input.initialTab === "pending"
-    ? "pending"
-    : "confirmed";
+  if (input.role === "organizer") {
+    return input.initialTab === "pending" ? "pending" : "confirmed";
+  }
+
+  return input.role === "player" ? "mine" : "confirmed";
 }
 
 /**

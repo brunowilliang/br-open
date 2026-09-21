@@ -1,14 +1,16 @@
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "@convex/domains/payment/contract";
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
-import { Button, Card, Chip, Tabs, useToast } from "heroui-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Button, Card, Chip, Dialog, Tabs, useToast } from "heroui-native";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -16,6 +18,8 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
+  buildTournamentEntriesTabItems,
+  canCancelTournamentEntry,
   formatEntrySideLabel,
   getEntryStatusChip,
   resolveTournamentEntriesTab,
@@ -28,13 +32,14 @@ export default function TournamentEntriesRoute() {
     initialTab?: string;
     tournamentId: string;
   }>();
+  const router = useRouter();
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
-  const access = useValue(bucket$.derived.access);
+  const role = useValue(bucket$.derived.role);
   const tournament = useValue(bucket$.data.tournament);
   const entries = useValue(bucket$.data.entries);
   const categoriesById = useValue(bucket$.derived.categoriesById);
@@ -126,7 +131,71 @@ export default function TournamentEntriesRoute() {
     },
   });
 
-  const isOrganizer = access?.canManage ?? false;
+  const [cancelEntryTarget, setCancelEntryTarget] = useState<null | {
+    categoryName: string;
+    entryId: string;
+  }>(null);
+
+  // Cancelamento da PRÓPRIA inscrição (migrado do bloco "Suas inscrições" do
+  // overview, IBX-0080): o dialog de confirmação e a mutation vivem nesta
+  // tela — a única casa do CANCELAR INSCRIÇÃO no app.
+  const cancelEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.cancel.mutate,
+    mutationKey: crpc.tournament.entries.cancel.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível cancelar a inscrição. Tente novamente."
+        ),
+        id: "cancel-entry-error",
+        label: "Falha ao cancelar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      setCancelEntryTarget(null);
+      toast.show({
+        description:
+          "Inscrição cancelada. Se já estava paga, o estorno integral é automático.",
+        id: "cancel-entry-success",
+        label: "Inscrição cancelada",
+        variant: "success",
+      });
+    },
+  });
+
+  // "Pagar" da inscrição do viewer (mesma migração): createCharge e a
+  // navegação pro checkout, fluxo idêntico ao do JoinFooter.
+  const createCharge = useMutation({
+    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível gerar o PIX. Tente novamente."
+        ),
+        id: "tournament-charge-error",
+        label: "Falha ao gerar PIX",
+        variant: "danger",
+      });
+    },
+    onSuccess: (result) => {
+      router.navigate({
+        params: { chargeId: result.chargeId },
+        pathname: "/checkout/[chargeId]",
+      });
+    },
+  });
+
+  // O PAPEL RESOLVIDO manda na tela (IBX-0080): `access`/`role` só existem
+  // depois que a descoberta hidrata, e é justamente aí que a barra de segmentos
+  // pode ser montada — antes disso a barra pintada seria a do jogador para
+  // qualquer um (o gestor entrava e tocava "Minhas" numa aba que ele não tem).
+  const isOrganizer = role === "organizer";
+  const entriesTabItems = buildTournamentEntriesTabItems({ role });
 
   const pendingEntries = useMemo(
     () =>
@@ -142,23 +211,39 @@ export default function TournamentEntriesRoute() {
     () => entries.filter((entry) => entry.status === "active"),
     [entries]
   );
+  // "Minhas" (IBX-0080): as inscrições do VIEWER — o MESMO conjunto que o
+  // bloco "Suas inscrições" do overview mostrava. O servidor só devolve
+  // `viewerEntryIds` para o ator de jogador (vazio para organização e guest).
+  const myEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) => tournament?.viewerEntryIds.includes(entry.id) ?? false
+      ),
+    [entries, tournament]
+  );
   // PLN-0007 (decisão 1): pendências são superfície do ORGANIZADOR — o
-  // jogador nunca vê pendência (nem a própria: convite/pagamento ficam na
-  // overview, com ação, na página única).
+  // jogador nunca vê a aba de pendências (a pendência DELE, com ação, vive no
+  // alerta do overview e no segmento "Minhas" — IBX-0080).
   //
   // A aba é DERIVADA (BUG-0045): o `initialTab=pending` do alerta só é honrado
-  // quando o contexto do organizador já carregou — na entrada fria (pela home)
-  // `access` é `undefined` no primeiro render e um estado inicializado uma
-  // única vez cairia em Confirmados. `userTab` guarda só a escolha MANUAL, que
-  // tem precedência e nunca é sobrescrita quando o contexto chega.
+  // quando o papel do organizador já resolveu — na entrada fria (pela home) o
+  // `role` ainda é `null` no primeiro render e um estado inicializado uma única
+  // vez cairia em Confirmados. `userTab` guarda só a escolha MANUAL, que tem
+  // precedência quando o contexto chega e é DESCARTADA quando a aba não existe
+  // no papel novo (IBX-0080: o gestor na janela fria, e o jogador que cancela a
+  // única inscrição e vira guest com a tela aberta).
   const [userTab, setUserTab] = useState<null | TournamentEntriesTab>(null);
   const activeTab = resolveTournamentEntriesTab({
     initialTab,
-    isOrganizer,
+    role,
     userTab,
   });
   const visibleEntries =
-    activeTab === "pending" && isOrganizer ? pendingEntries : confirmedEntries;
+    activeTab === "pending"
+      ? pendingEntries
+      : activeTab === "mine"
+        ? myEntries
+        : confirmedEntries;
 
   function renderEntry(entryId: string) {
     const entry = entries.find((item) => item.id === entryId);
@@ -311,7 +396,9 @@ export default function TournamentEntriesRoute() {
             </Page.Header.Center>
             <Page.Header.Right />
           </View>
-          {isOrganizer ? (
+          {/* Barra só com 2+ itens (IBX-0080): o guest não tem "Minhas" (sem
+              inscrição viva) e na entrada fria o papel ainda é null. */}
+          {entriesTabItems.length > 1 ? (
             <Tabs
               onValueChange={(value) => {
                 setUserTab(value as TournamentEntriesTab);
@@ -321,12 +408,11 @@ export default function TournamentEntriesRoute() {
               <Tabs.List>
                 <Tabs.ScrollView>
                   <Tabs.Indicator />
-                  <Tabs.Trigger value="confirmed">
-                    <Tabs.Label>Confirmados</Tabs.Label>
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="pending">
-                    <Tabs.Label>Pendências</Tabs.Label>
-                  </Tabs.Trigger>
+                  {entriesTabItems.map((item) => (
+                    <Tabs.Trigger key={item.value} value={item.value}>
+                      <Tabs.Label>{item.label}</Tabs.Label>
+                    </Tabs.Trigger>
+                  ))}
                 </Tabs.ScrollView>
               </Tabs.List>
             </Tabs>
@@ -346,20 +432,17 @@ export default function TournamentEntriesRoute() {
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           {activeTab === "pending" ? (
             <EmptyState
-              description={
-                isOrganizer
-                  ? "Quando alguém se inscrever, ela aparecerá aqui."
-                  : "Convites e pagamentos pendentes aparecem aqui."
-              }
+              description="Quando alguém se inscrever, ela aparecerá aqui."
               title="Nenhuma pendência"
+            />
+          ) : activeTab === "mine" ? (
+            <EmptyState
+              description="Suas inscrições neste torneio aparecem aqui."
+              title="Nenhuma inscrição"
             />
           ) : (
             <EmptyState
-              description={
-                isOrganizer
-                  ? "As inscrições confirmadas aparecem aqui."
-                  : "Suas inscrições confirmadas aparecem aqui."
-              }
+              description="As inscrições confirmadas aparecem aqui."
               title="Nenhuma inscrição confirmada"
             />
           )}
@@ -369,10 +452,173 @@ export default function TournamentEntriesRoute() {
           contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4"
           showsVerticalScrollIndicator={false}
         >
-          {visibleEntries.map((entry) => renderEntry(entry.id))}
+          {visibleEntries.map((entry) => {
+            if (activeTab !== "mine") {
+              return renderEntry(entry.id);
+            }
+
+            // Card do bloco "Suas inscrições" (migrado do overview no
+            // IBX-0080, markup preservado): categoria + chip de status e as
+            // ações do PRÓPRIO jogador — CANCELAR (com o dialog desta tela),
+            // responder convite de dupla e PAGAR.
+            const category = categoriesById[entry.categoryId];
+            const chip = getEntryStatusChip(entry.status);
+            const isViewerPartner =
+              viewerProfileId !== null && entry.playerBId === viewerProfileId;
+            const canRespondInvite =
+              entry.status === "pending_partner" && isViewerPartner;
+            const canPay =
+              entry.status === "awaiting_payment" &&
+              viewerProfileId !== null &&
+              entry.playerAId === viewerProfileId;
+            const canCancel = tournament
+              ? canCancelTournamentEntry({
+                  entryStatus: entry.status,
+                  tournamentStatus: tournament.status,
+                })
+              : false;
+
+            return (
+              <Card className="p-3" key={entry.id}>
+                <View className="flex-row items-center gap-3">
+                  <View className="min-w-0 flex-1 gap-1">
+                    <Text numberOfLines={1} weight="semibold">
+                      {category?.displayName ?? ""}
+                    </Text>
+                    <Chip
+                      className="self-start"
+                      color={chip.color}
+                      size="sm"
+                      variant="soft"
+                    >
+                      {chip.label}
+                    </Chip>
+                  </View>
+
+                  <View className="flex-row items-center gap-1">
+                    {canCancel ? (
+                      <Button
+                        isIconOnly
+                        onPress={() => {
+                          setCancelEntryTarget({
+                            categoryName: category?.displayName ?? "",
+                            entryId: entry.id,
+                          });
+                        }}
+                        size="sm"
+                        variant="danger-soft"
+                      >
+                        <HugeIcons
+                          className="text-danger"
+                          icon={Cancel01Icon}
+                        />
+                      </Button>
+                    ) : null}
+
+                    {canRespondInvite ? (
+                      <>
+                        <Button
+                          isDisabled={respondPartnerInvite.isPending}
+                          isIconOnly
+                          onPress={() => {
+                            respondPartnerInvite.mutate({
+                              accept: false,
+                              entryId: entry.id,
+                            });
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <HugeIcons icon={Cancel01Icon} />
+                        </Button>
+                        <Button
+                          isDisabled={respondPartnerInvite.isPending}
+                          isIconOnly
+                          onPress={() => {
+                            respondPartnerInvite.mutate({
+                              accept: true,
+                              entryId: entry.id,
+                            });
+                          }}
+                          size="sm"
+                        >
+                          <HugeIcons
+                            className="text-accent-foreground"
+                            icon={Tick02Icon}
+                          />
+                        </Button>
+                      </>
+                    ) : null}
+
+                    {canPay ? (
+                      <Button
+                        isDisabled={createCharge.isPending}
+                        onPress={() => {
+                          createCharge.mutate({
+                            sourceId: entry.id,
+                            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+                          });
+                        }}
+                        size="sm"
+                      >
+                        <Button.Label>Pagar</Button.Label>
+                      </Button>
+                    ) : null}
+                  </View>
+                </View>
+              </Card>
+            );
+          })}
         </Page.ScrollView>
       )}
       <Page.Footer className="pb-floating-tab-bar-4" />
+
+      {/* Dialog do CANCELAR INSCRIÇÃO (migrado do overview, IBX-0080): vive na
+          única tela que cancela a própria inscrição. */}
+      <Dialog
+        isOpen={cancelEntryTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelEntryTarget(null);
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className="gap-4 p-5">
+            <DialogCloseButton className="absolute top-4 right-4 z-100" />
+            <Dialog.Title>Cancelar inscrição</Dialog.Title>
+            <Text color="muted" variant="description">
+              {`Sua inscrição em ${cancelEntryTarget?.categoryName ?? ""} será cancelada. Em duplas, a saída vale para os dois jogadores. Inscrição paga recebe estorno integral.`}
+            </Text>
+            <View className="flex-row gap-2 self-end">
+              <Button
+                onPress={() => {
+                  setCancelEntryTarget(null);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                <Button.Label>Voltar</Button.Label>
+              </Button>
+              <Button
+                isDisabled={cancelEntry.isPending}
+                onPress={() => {
+                  if (cancelEntryTarget) {
+                    cancelEntry.mutate({
+                      entryId: cancelEntryTarget.entryId,
+                    });
+                  }
+                }}
+                size="sm"
+                variant="danger-soft"
+              >
+                <Button.Label>Cancelar inscrição</Button.Label>
+              </Button>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
     </Page>
   );
 }

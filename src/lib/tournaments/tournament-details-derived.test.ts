@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   buildBracketPlaceholder,
+  buildTournamentEntriesTabItems,
   buildRegistrationWindowState,
   buildTournamentActiveEntriesCountByCategory,
   buildTournamentCategoryVacancy,
@@ -539,12 +540,13 @@ describe("buildStartWarnings", () => {
 
 describe("resolveTournamentEntriesTab", () => {
   test("cold organizer entry (context not loaded yet) then applies pending", () => {
-    // Primeiro render da entrada pela home: `access` ainda é undefined, então
-    // o isOrganizer é false — a derivada devolve Confirmados.
+    // Primeiro render da entrada pela home: a descoberta ainda não hidratou,
+    // então `role` é null — a derivada devolve Confirmados e a barra nem é
+    // montada (buildTournamentEntriesTabItems não tem itens sem papel).
     expect(
       resolveTournamentEntriesTab({
         initialTab: "pending",
-        isOrganizer: false,
+        role: null,
         userTab: null,
       })
     ).toBe("confirmed");
@@ -554,7 +556,7 @@ describe("resolveTournamentEntriesTab", () => {
     expect(
       resolveTournamentEntriesTab({
         initialTab: "pending",
-        isOrganizer: true,
+        role: "organizer",
         userTab: null,
       })
     ).toBe("pending");
@@ -564,17 +566,44 @@ describe("resolveTournamentEntriesTab", () => {
     expect(
       resolveTournamentEntriesTab({
         initialTab: undefined,
-        isOrganizer: true,
+        role: "organizer",
         userTab: null,
       })
     ).toBe("confirmed");
   });
 
-  test("player never lands on pending", () => {
+  test("player with a live entry opens on mine", () => {
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "player",
+        userTab: null,
+      })
+    ).toBe("mine");
+
+    // O initialTab=pending do alerta nunca vale fora do organizador.
     expect(
       resolveTournamentEntriesTab({
         initialTab: "pending",
-        isOrganizer: false,
+        role: "player",
+        userTab: null,
+      })
+    ).toBe("mine");
+  });
+
+  test("viewer without entry never opens on an empty tab", () => {
+    // Guest (sem inscrição viva): cai na lista global de confirmados.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "guest",
+        userTab: null,
+      })
+    ).toBe("confirmed");
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        role: "guest",
         userTab: null,
       })
     ).toBe("confirmed");
@@ -586,7 +615,7 @@ describe("resolveTournamentEntriesTab", () => {
     expect(
       resolveTournamentEntriesTab({
         initialTab: "pending",
-        isOrganizer: true,
+        role: "organizer",
         userTab: "confirmed",
       })
     ).toBe("confirmed");
@@ -595,9 +624,115 @@ describe("resolveTournamentEntriesTab", () => {
     expect(
       resolveTournamentEntriesTab({
         initialTab: undefined,
-        isOrganizer: true,
+        role: "organizer",
         userTab: "pending",
       })
     ).toBe("pending");
+
+    // No jogador, a escolha manual de Confirmados segura a lista global mesmo
+    // com inscrição viva (a derivada não devolve "minhas" por cima).
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "player",
+        userTab: "confirmed",
+      })
+    ).toBe("confirmed");
+  });
+
+  test("organizer never sits on mine (aba do viewer não existe para ele)", () => {
+    // O gestor toca "Minhas" na janela de load (a barra era a do jogador antes
+    // de o papel resolver): a aba não está na lista do papel dele, então a
+    // derivada DESCARTA a escolha em vez de prender a tela num segmento que os
+    // triggers dele não têm.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "organizer",
+        userTab: "mine",
+      })
+    ).toBe("confirmed");
+
+    // E o deep-link de pendências segue valendo depois do clamp.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: "pending",
+        role: "organizer",
+        userTab: "mine",
+      })
+    ).toBe("pending");
+  });
+
+  test("player never sits on pending (aba do organizador)", () => {
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "player",
+        userTab: "pending",
+      })
+    ).toBe("mine");
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "guest",
+        userTab: "pending",
+      })
+    ).toBe("confirmed");
+  });
+
+  test("papel degrada com a tela aberta: a aba herdada sai para a lista global", () => {
+    // Jogador com UMA inscrição abriu Inscrições (default Minhas).
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "player",
+        userTab: "mine",
+      })
+    ).toBe("mine");
+
+    // Cancelou a inscrição: o contexto invalida, `viewerEntryIds` zera e o
+    // papel vira guest COM A TELA ABERTA. A barra desmonta (o guest não tem
+    // itens), então a escolha herdada não pode sobreviver — senão a tela fica
+    // presa no segmento do jogador SEM trigger para voltar.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: "guest",
+        userTab: "mine",
+      })
+    ).toBe("confirmed");
+
+    // Mesma proteção enquanto o papel novo ainda não resolveu.
+    expect(
+      resolveTournamentEntriesTab({
+        initialTab: undefined,
+        role: null,
+        userTab: "mine",
+      })
+    ).toBe("confirmed");
+  });
+});
+
+describe("buildTournamentEntriesTabItems", () => {
+  test("organizer: Confirmados|Pendências, sem Minhas", () => {
+    expect(buildTournamentEntriesTabItems({ role: "organizer" })).toEqual([
+      { label: "Confirmados", value: "confirmed" },
+      { label: "Pendências", value: "pending" },
+    ]);
+  });
+
+  test("player: Minhas|Confirmados", () => {
+    expect(buildTournamentEntriesTabItems({ role: "player" })).toEqual([
+      { label: "Minhas", value: "mine" },
+      { label: "Confirmados", value: "confirmed" },
+    ]);
+  });
+
+  test("guest e entrada fria não montam barra (o repo só monta com 2+ itens)", () => {
+    // Guest não tem inscrição viva por construção, então "Minhas" seria uma aba
+    // morta; e na entrada fria o papel ainda é null (a barra errada do gestor
+    // era pintada justamente aqui).
+    expect(buildTournamentEntriesTabItems({ role: "guest" })).toEqual([]);
+    expect(buildTournamentEntriesTabItems({ role: null })).toEqual([]);
   });
 });

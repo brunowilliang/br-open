@@ -190,6 +190,9 @@
   `published`/`drawn`, `canCancelTournamentEntry`; dialog de confirmação
   molde do cancelar torneio avisando que em dupla a saída vale pros dois e
   que entry paga recebe estorno integral; `entries.cancel` + invalidate);
+  **SUPERSEDE no IBX-0080 (21-09-2026): o bloco inteiro — cartões e as três
+  ações — MIGROU para o segmento "Minhas" da aba Inscrições (ver a seção
+  IBX-0080 no fim do doc); o overview do jogador não mostra mais este bloco**;
   copy do username do parceiro ("Seu parceiro precisa de conta no app com
   username no perfil") nas linhas Description e FieldError, com o precheck
   ao vivo mantido como dica (nunca gate); bugfix: erro do `entriesQuery`
@@ -704,7 +707,10 @@
   estimativa (120).
 - **`entries.tsx`** (Inscrições) — tabs segmentadas Confirmados|Pendências
   (Confirmados é a PRIMEIRA aba e a de entrada: sem `initialTab` a tela abre
-  nela), no molde challenges.tsx (QA round 7; pendências = `pending_approval` /
+  nela; **SUPERSEDE no IBX-0080, 21-09-2026: a barra é montada por PAPEL
+  RESOLVIDO (organizador Confirmados|Pendências, jogador Minhas|Confirmados, guest
+  e entrada fria SEM barra) e a entrada do jogador com inscrição viva é Minhas —
+  ver a seção IBX-0080 no fim do doc**), no molde challenges.tsx (QA round 7; pendências = `pending_approval` /
   `pending_partner` / `awaiting_payment`, confirmados = `active`; empty
   state por tab por papel no tom da liga; dica de seeds no fim da lista
   EXTINTA — IBX-0036);
@@ -1854,7 +1860,7 @@ A página do torneio deixa de ter tabs (decisão do usuário no PLN-0007): **pá
 - **Acesso novo:** organizador ganha menu ⋮ "Chave" (`canOpenBracket`) e ⋮ "Inscrições" (rota `entries`, `initialTab="pending"`); jogador/guest chegam à chave quando pública.
 - **Overview (`index.tsx`):** chips de categorias do topo e contagem global na meta line SAEM; meta line = `Início <data> · <estado da janela>` sempre com label (`buildRegistrationWindowState`); organizador ganha chip de ciclo (`getTournamentCycleChip`: draft/published/drawn/ongoing/finished/cancelled → cor semântica).
 - **Bloco de inscrição (`tournament-join-sheet.tsx`, substitui o extinto `tournament-join-footer.tsx`):** card terciário "a partir de R$X" + CTA no CORPO (some o overlay `Page.Footer` com form, defeitos 4.1/4.5); CTA abre **BottomSheet** heroui-native (`isOpen` controlado; linhas de categoria no molde `SelectOptionItem` com taxa+`vacancyLabel`+"Lotada" desabilitada; campo de parceiro com checagem ao vivo `searchByUsername` + `useBottomSheetAwareHandlers`/`keyboardBehavior="extend"`; confirmar = MESMAS mutations `entries.create` → `charge.createCharge` → checkout). Jogador já inscrito: CTA "Inscrever-se em outra categoria".
-- **Inscritos confirmados:** jogador vê TODOS os confirmados na página (decisão 1), linhas planas `bg-surface-secondary` (nomes via `formatEntrySideLabel` + categoria); pendências NUNCA pro jogador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`).
+- **Inscritos confirmados:** jogador vê TODOS os confirmados do torneio (decisão 1) — a lista mora na aba Inscrições, no segmento **Confirmados**, e desde o IBX-0080 convive com o segmento **Minhas** (as inscrições do viewer), linhas planas `bg-surface-secondary` (nomes via `formatEntrySideLabel` + categoria); pendências NUNCA pro jogador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`).
 - **Concorrência (decisão 7):** `TournamentEntriesByCategoryChart` (BarChart heroui-native-pro sobre `buildTournamentEntriesByCategorySeries`, entries `active` por categoria, vazias com zero) na página de jogador/guest E no painel do organizador.
 - **Organizador:** KPIs "Pendências" e "Categorias" saíram (duplicação; alertas já contam as pendências e ganharam ação "Ver" → `entries?initialTab=pending`); gráficos novos: bar por categoria + **AreaChart "Evolução das inscrições"** (`buildTournamentEntriesEvolutionSeries`, acumulado por dia de `entry.createdAt`, desde a primeira até hoje, Brasil); alerta de janela fechada mantido.
 - **Guest:** EmptyState aponta para o bloco de inscrição (não mais "no rodapé").
@@ -1866,7 +1872,7 @@ O usuário marcou a lista de dashboards item a item e fechou o conteúdo das tel
 - **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
 - **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (molde `league-join-footer`: card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
 - **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
-- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações (mantido) e "Próximo jogo" (primeiro match `scheduled` com data/hora envolvendo entry do viewer; adversário via `formatEntrySideLabel`).
+- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (primeiro match `scheduled` com data/hora envolvendo entry do viewer; adversário via `formatEntrySideLabel`).
 - **Casa guest:** só a descrição.
 - **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
 - **Invariável:** pendências NUNCA pro jogador (aba Inscrições sem segmento Pendências para não-organizador — mantido); privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.
@@ -1919,3 +1925,82 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
   descreve o que a recusa faz no servidor: a inscrição vira terminal e as vagas
   da dupla voltam para a categoria (`respondPartnerInvite`,
   `convex/functions/tournament/entries.ts:552-558`).
+
+## IBX-0080 · "Suas inscrições" vira o segmento Minhas da aba Inscrições (21-09-2026, em andamento/sem commit)
+
+Decisão do usuário ("pode ser"): vale a opção (a) — segmento do jogador. **O modo
+ORGANIZADOR não mudou nada.**
+
+- **Segmentos por PAPEL RESOLVIDO (`entries.tsx:399-419`, itens de
+  `buildTournamentEntriesTabItems`):** organizador mantém **Confirmados|Pendências**
+  (intocado); o jogador tem **Minhas|Confirmados**; **guest e a entrada FRIA ficam SEM
+  barra** (a barra só é montada com 2+ itens, precedente das tabs de categoria do
+  chaveamento — o guest não tem inscrição viva e, na entrada fria, `role` ainda é
+  `null` porque `derived.role = access?.role ?? null` e `derived.access` devolve null
+  sem `data.tournament` hidratado). Antes disso a barra era escolhida por
+  `access?.canManage ?? false`, ou seja, na janela de load ela pintava Minhas|Confirmados
+  para QUALQUER um — inclusive o gestor, que podia tocar "Minhas" numa aba que os
+  triggers dele não têm. "Minhas" = as inscrições do viewer
+  (`tournament.viewerEntryIds`, o MESMO conjunto que o bloco do overview filtrava; o
+  servidor só devolve a lista para o ator de jogador) e "Confirmados" = a **lista
+  GLOBAL** de confirmados do torneio, que segue sendo o que o jogador já via.
+- **Default de aba (`resolveTournamentEntriesTab`, `lib/tournaments/tournament-details-derived.ts`):**
+  `TournamentEntriesTab = "confirmed" | "mine" | "pending"` e a derivada recebe o PAPEL
+  resolvido (`role: null | TournamentDetailsRole`) — `viewerHasEntries` saiu do input
+  porque o papel já é derivado de `viewerEntryIds`. Organizador = `pending` com
+  `initialTab=pending` (o deep-link dos alertas kinds 11/12 segue valendo), senão
+  `confirmed`; jogador = `mine`; guest (ou papel ainda não resolvido) = `confirmed`, a
+  lista global — nunca uma aba vazia, e o `initialTab=pending` continua sem efeito fora
+  do organizador. Cobertura: `tournament-details-derived.test.ts` (7 casos, incluindo a
+  escolha manual do jogador que segura Confirmados).
+- **Clamp da aba ativa pelos ITENS do papel (`resolveTournamentEntriesTab`):** a escolha
+  manual (`userTab`) só vale se a aba estiver na lista do papel
+  (`buildTournamentEntriesTabItems({ role })`); fora da lista a derivada cai no default do
+  papel. INVARIANTE: o `activeTab` devolvido sempre pertence aos itens do papel (ou é
+  `confirmed` quando não há itens). Isso cobre duas degradações reais, e o clamp por
+  `isOrganizer` (versão anterior) só cobria a primeira:
+  - **gestor** que toca "Minhas" na janela de load (a barra pintada era a do jogador) —
+    fica em Confirmados, ou no `initialTab=pending` do deep-link, que segue valendo;
+  - **L4 do delta-check (21-09):** o jogador cancela a ÚNICA inscrição e o papel DEGRADA
+    para guest COM A TELA ABERTA — a barra desmonta (o guest não tem itens) e a escolha
+    herdada de "mine" deixaria o corpo preso no empty state do segmento do jogador, SEM
+    trigger para voltar a Confirmados. Com o clamp pelos itens, ele cai na lista global.
+  Prova: 3 casos em `tournament-details-derived.test.ts` ("organizer never sits on mine",
+  "player never sits on pending" e "papel degrada com a tela aberta") — a mutação que
+  volta o clamp por `isOrganizer` derruba o terceiro (47 pass / 1 fail, só ele). O corpo da
+  tela usa o MESMO papel para escolher o segmento e a lista
+  (`isOrganizer = role === "organizer"`).
+- **Migração do bloco "Suas inscrições" (overview do jogador → segmento Minhas):** o card
+  migrou com o MESMO markup (categoria + chip via `getEntryStatusChip` + as ações) e o
+  overview deixou de renderizá-lo — lá ficam os alertas do servidor e o "Próximo jogo"
+  (`pages/tournaments/player-overview.tsx:93-98` e `:100-120`; as props `onCancelEntry`/
+  `onPayEntry`/`onRespondInvite` foram extintas, e as citações de molde do par de ícones
+  recusar/aceitar que a spec `dashboard.md` fazia para aquele arquivo passaram a apontar
+  para o ramo mine desta tela, com a extinção registrada lá). As AÇÕES ficaram com um dono
+  só, e TODA ação do card gateia o próprio pending no toque (`isDisabled=
+  {respondPartnerInvite.isPending}` nos dois botões do convite (`entries.tsx:518-551`; botões
+  em `:520-533` e `:534-549`), e `isDisabled={createCharge.isPending}` no botão Pagar,
+  `:553-566` — o `renderEntry` já
+  gateava as ações dele e o ramo migrado não gateava NENHUMA). O gate do Pagar é UX: o
+  SERVIDOR já reaproveita a cobrança pendente do mesmo insumo — `createCharge` consulta
+  `findPendingChargeForSource` antes de falar com o provedor e devolve a cobrança PENDING
+  existente (mesmo `sourceType`+`sourceId`, dona do caller e com PIX não expirado:
+  `convex/functions/payment/charge.ts:203-215`, `:101-137` + `hasUsablePix`/
+  `ownsPayableSource` em `convex/domains/payment/rules.ts:84-94` e `:474-483`), então um
+  segundo toque sequencial NÃO cria uma segunda cobrança; o servidor só cria outra quando
+  a anterior expirou ou foi consumida:
+  - **CANCELAR INSCRIÇÃO** (o único lugar do app): botão danger-soft + dialog de
+    confirmação **migrados para `entries.tsx`** junto da mutation `entries.cancel` — o
+    `index.tsx` perdeu a mutation, o estado `cancelEntryTarget` e o dialog. Copy do
+    dialog intacta (dupla = a saída vale para os dois; paga = estorno integral).
+  - **Responder convite de dupla:** usa a `respondPartnerInvite` que já vivia na tela
+    (a instância do overview foi extinta); copy e toasts intactos.
+  - **PAGAR** (`awaiting_payment` com o viewer como pagador): `payment.charge.createCharge`
+    → `/checkout/[chargeId]`, o mesmo fluxo do rodapé. A constante de origem passou a vir
+    do contrato (`SOURCE_TYPE_TOURNAMENT_ENTRY`, `convex/domains/payment/contract.ts`) nas
+    duas telas do torneio, no lugar da cópia local que o `index.tsx` mantinha.
+- **Copy dos empty states:** "Minhas" → título "Nenhuma inscrição" / "Suas inscrições
+  neste torneio aparecem aqui."; "Confirmados" → "Nenhuma inscrição confirmada" / "As
+  inscrições confirmadas aparecem aqui." (a frase antiga do jogador, "Suas inscrições
+  confirmadas aparecem aqui.", descrevia errado a lista global); Pendências segue com a
+  frase do organizador e o ramo de não-organizador morreu (a aba não existe para ele).

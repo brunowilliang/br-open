@@ -1,3 +1,4 @@
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "@convex/domains/payment/contract";
 import type { TournamentPlayerCard } from "@convex/domains/tournament/contract";
 import type { ApiOutputs } from "@convex/shared/api";
 import {
@@ -54,8 +55,6 @@ import {
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
-const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
-
 export default function TournamentOverviewRoute() {
   const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
   const router = useRouter();
@@ -76,33 +75,6 @@ export default function TournamentOverviewRoute() {
       crpc.tournament.discovery.getById.queryFilter({ tournamentId })
     );
   }
-
-  const respondPartnerInvite = useMutation({
-    mutationFn: crpcClient.tournament.entries.respondPartnerInvite.mutate,
-    mutationKey: crpc.tournament.entries.respondPartnerInvite.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível responder ao convite. Tente novamente."
-        ),
-        id: "respond-partner-error",
-        label: "Falha ao responder convite",
-        variant: "danger",
-      });
-    },
-    onSuccess: async (_entry, variables) => {
-      await invalidateTournamentContext();
-      toast.show({
-        description: variables.accept
-          ? "Convite aceito, a dupla está fechada."
-          : "Convite recusado, as vagas voltaram para a categoria.",
-        id: "respond-partner-success",
-        label: variables.accept ? "Convite aceito" : "Convite recusado",
-        variant: "success",
-      });
-    },
-  });
 
   const createCharge = useMutation({
     mutationFn: crpcClient.payment.charge.createCharge.mutate,
@@ -192,10 +164,6 @@ export default function TournamentOverviewRoute() {
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
-  const [cancelEntryTarget, setCancelEntryTarget] = useState<null | {
-    categoryName: string;
-    entryId: string;
-  }>(null);
 
   const publishTournament = useMutation({
     mutationFn: crpcClient.tournament.management.publish.mutate,
@@ -244,33 +212,6 @@ export default function TournamentOverviewRoute() {
           "Torneio cancelado. Inscrições pagas serão estornadas automaticamente.",
         id: "cancel-tournament-success",
         label: "Torneio cancelado",
-        variant: "success",
-      });
-    },
-  });
-
-  const cancelEntry = useMutation({
-    mutationFn: crpcClient.tournament.entries.cancel.mutate,
-    mutationKey: crpc.tournament.entries.cancel.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível cancelar a inscrição. Tente novamente."
-        ),
-        id: "cancel-entry-error",
-        label: "Falha ao cancelar",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      setCancelEntryTarget(null);
-      toast.show({
-        description:
-          "Inscrição cancelada. Se já estava paga, o estorno integral é automático.",
-        id: "cancel-entry-success",
-        label: "Inscrição cancelada",
         variant: "success",
       });
     },
@@ -571,19 +512,7 @@ export default function TournamentOverviewRoute() {
               )}
               {role === "player" && (
                 <PlayerOverview
-                  onCancelEntry={(categoryName, entryId) => {
-                    setCancelEntryTarget({ categoryName, entryId });
-                  }}
-                  onPayEntry={(entryId) => {
-                    createCharge.mutate({
-                      sourceId: entryId,
-                      sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-                    });
-                  }}
                   onPendingActionPerformed={invalidateTournamentContext}
-                  onRespondInvite={(accept, entryId) => {
-                    respondPartnerInvite.mutate({ accept, entryId });
-                  }}
                   tournament={tournament}
                 />
               )}
@@ -670,51 +599,6 @@ export default function TournamentOverviewRoute() {
                 variant="danger-soft"
               >
                 <Button.Label>Cancelar torneio</Button.Label>
-              </Button>
-            </View>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-
-      <Dialog
-        isOpen={cancelEntryTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelEntryTarget(null);
-          }
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <DialogCloseButton className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>Cancelar inscrição</Dialog.Title>
-            <Text color="muted" variant="description">
-              {`Sua inscrição em ${cancelEntryTarget?.categoryName ?? ""} será cancelada. Em duplas, a saída vale para os dois jogadores. Inscrição paga recebe estorno integral.`}
-            </Text>
-            <View className="flex-row gap-2 self-end">
-              <Button
-                onPress={() => {
-                  setCancelEntryTarget(null);
-                }}
-                size="sm"
-                variant="secondary"
-              >
-                <Button.Label>Voltar</Button.Label>
-              </Button>
-              <Button
-                isDisabled={cancelEntry.isPending}
-                onPress={() => {
-                  if (cancelEntryTarget) {
-                    cancelEntry.mutate({
-                      entryId: cancelEntryTarget.entryId,
-                    });
-                  }
-                }}
-                size="sm"
-                variant="danger-soft"
-              >
-                <Button.Label>Cancelar inscrição</Button.Label>
               </Button>
             </View>
           </Dialog.Content>
