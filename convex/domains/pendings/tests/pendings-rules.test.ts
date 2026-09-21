@@ -348,8 +348,7 @@ describe("pendings: acao de cada kind", () => {
       player_league_inactivity_risk: null,
       player_league_membership_payment_due: "pay_league_membership",
       player_league_membership_payment_due_soon: "pay_league_membership",
-      // O suspenso nao tem CTA: o do estado e o `Renovar inscrição` do rodape.
-      player_league_membership_suspended: null,
+      player_league_membership_suspended: "pay_league_membership",
       player_tournament_entries_awaiting_payment: "pay_tournament_entry",
       player_tournament_entry_awaiting_approval: null,
       player_tournament_partner_invite_received: "accept_partner_invite",

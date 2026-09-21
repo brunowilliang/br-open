@@ -116,14 +116,17 @@ export function buildMembershipPaymentPending(
   }
 
   if (input.membershipStatus === LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED) {
-    // O CTA do suspenso vive no RODAPE de entrada da liga (JoinFooter do
-    // membro suspenso) — o alerta so INFORMA. Sem acao e sem rotulo aqui, o
-    // renderer omite o botao e nao nasce um SEGUNDO caminho de pagamento para a
-    // mesma membership na mesma tela (BUG-0042, decisao aprovada em 20-09).
+    // O CTA vive no PROPRIO item (decisao de 21-09, IBX-0084): o MESMO item e
+    // renderizado pelo `PendingAlerts` em 6 superficies e so a CASA da liga tem
+    // rodape de entrada — na home o alerta era beco sem saida (a copy manda
+    // renovar sem afordancia). `Renovar` e a MESMA acao dos kinds 1 e 2
+    // (`canMembershipBeCharged` aceita `suspended`), entao nao nasce caminho de
+    // pagamento novo. O motivo do BUG-0042 (dois botoes de pagamento para a
+    // mesma membership na MESMA tela) segue valendo e passa a ser resolvido do
+    // lado da TELA: a casa da liga nao renderiza mais o pagamento no rodape.
     return {
       ...base,
-      action: null,
-      actionLabel: null,
+      actionLabel: "Renovar",
       deadlineAt: input.dueAtMs,
       description:
         "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar.",

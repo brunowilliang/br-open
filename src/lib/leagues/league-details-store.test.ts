@@ -267,8 +267,67 @@ describe("leagueDetailsStore$", () => {
     bucket$.actions.setViewerMembershipStatus("suspended");
 
     expect(String(bucket$.viewer.role)).toBe("guest");
-    expect(bucket$.derived.showJoinFooter()).toBe(true);
-    expect(bucket$.derived.canResumeCheckout()).toBe(true);
+    // Suspenso: sem rodapé (o Renovar vive no alerta) e sem atalho de checkout
+    // no rodapé (IBX-0084).
+    expect(bucket$.derived.showJoinFooter()).toBe(false);
+    expect(bucket$.derived.canResumeCheckout()).toBe(false);
+  });
+
+  it("keeps the join footer gate on the join capability, for every status", () => {
+    // MEDIO-1 do review do IBX-0084: o rodapé monta para o visitante que PODE
+    // entrar e NÃO monta para quem não pode (ator organização), em nenhum
+    // estado. Com a capacidade, monta como o HEAD montava — todos os estados do
+    // papel `guest` menos o suspenso (que tem o Renovar no alerta); `active` e
+    // `payment_due` são papel de MEMBRO e nunca tiveram rodapé.
+    const footerByStatus: [
+      LeagueOverview["viewerMembershipStatus"],
+      boolean,
+    ][] = [
+      [null, true],
+      ["awaiting_payment", true],
+      ["pending", true],
+      ["rejected", true],
+      ["left", true],
+      ["removed", true],
+      ["suspended", false],
+      ["active", false],
+      ["payment_due", false],
+    ];
+    const bucket$ = getLeagueDetailsBucket$("league-1");
+
+    bucket$.actions.hydrateOverview({
+      canJoinLeagues: false,
+      canUseOrganizerCapabilities: false,
+      league: makeLeagueOverview(),
+      viewerActor: { id: "org-1", kind: "organization" },
+    });
+
+    expect(String(bucket$.viewer.role)).toBe("guest");
+
+    for (const [status] of footerByStatus) {
+      bucket$.actions.setViewerMembershipStatus(status);
+
+      expect({
+        showJoinFooter: bucket$.derived.showJoinFooter(),
+        status,
+      }).toEqual({ showJoinFooter: false, status });
+    }
+
+    bucket$.actions.hydrateOverview({
+      canJoinLeagues: true,
+      canUseOrganizerCapabilities: false,
+      league: makeLeagueOverview(),
+      viewerActor: { id: "player-1", kind: "player" },
+    });
+
+    for (const [status, showJoinFooter] of footerByStatus) {
+      bucket$.actions.setViewerMembershipStatus(status);
+
+      expect({
+        showJoinFooter: bucket$.derived.showJoinFooter(),
+        status,
+      }).toEqual({ showJoinFooter, status });
+    }
   });
 
   it("marks bucket resets so mounted league layouts can rehydrate cached data", () => {

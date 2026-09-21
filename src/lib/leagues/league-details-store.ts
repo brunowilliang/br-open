@@ -299,6 +299,7 @@ function createLeagueDetailsBucket(leagueId: string) {
         buildLeagueDetailsShowJoinFooter({
           canJoinLeagues: bucket$.viewer.canJoinLeagues.get(),
           role: bucket$.viewer.role.get(),
+          viewerMembershipStatus: bucket$.viewer.membershipStatus.get(),
         }),
       viewerMembershipId: () => {
         const items = bucket$.derived.rankingItems.get();

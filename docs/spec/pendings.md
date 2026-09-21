@@ -62,7 +62,7 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 | `action.type` | O que o cliente executa | Kinds |
 |---|---|---|
 | `open_route` | `router.navigate({ pathname: route, params })` (destino no item) | 8, 10, 11, 12, 13 e o agregado de 4 com mais de uma inscrição |
-| `pay_league_membership` | `createCharge({ sourceType: "league_membership", sourceId: source.id })` e abrir o checkout | 1, 2 (`Pagar` e `Renovar` são a MESMA ação; o rótulo é que difere) |
+| `pay_league_membership` | `createCharge({ sourceType: "league_membership", sourceId: source.id })` e abrir o checkout | 1, 2 e 3 (`Pagar` e `Renovar` são a MESMA ação; o rótulo é que difere) |
 | `pay_tournament_entry` | `createCharge({ sourceType: "tournament_entry", sourceId: action.params.entryId })` e abrir o checkout | 4 com **uma** inscrição (`action.params.entryId`) |
 | `accept_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: true })` | 5 (`Aceitar`) |
 | `decline_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: false })` | 5 (`Recusar`, no `secondaryAction`) |
@@ -70,7 +70,7 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 Invariantes (cobertas por teste):
 
 1. **Todo kind tem ação declarada** — ou uma ação executável, ou `null` com os
-   rótulos nulos (kinds 3, 6, 7, 9 e 14 não têm CTA).
+   rótulos nulos (kinds 6, 7, 9 e 14 não têm CTA).
 2. **`open_route` sempre tem destino** (`route` + `params` do ITEM não nulos) e
    nunca carrega `action.params`: para navegação pura o destino é o par do item.
 3. **Ação de mutação nunca depende de `route`/`params`** — o ALVO vive em
@@ -127,7 +127,7 @@ Invariantes (cobertas por teste):
 |---|---|---|---|---|---|---|---|
 | 1 | `player_league_membership_payment_due` | player | payment | warning | Pagamento atrasado | Pagar | — (ação: gerar PIX) |
 | 2 | `player_league_membership_payment_due_soon` | player | payment | warning | Mensalidade vence hoje/amanhã/em N dias | Renovar | — (ação: gerar PIX) |
-| 3 | `player_league_membership_suspended` | player | payment | danger | Inscrição suspensa | — | — (o CTA do estado é o `Renovar inscrição` do RODAPÉ da liga) |
+| 3 | `player_league_membership_suspended` | player | payment | danger | Inscrição suspensa | Renovar | — (ação: gerar PIX) |
 | 4 | `player_tournament_entries_awaiting_payment` | player | tournament | warning | N inscrição(ões) aguardando pagamento | Pagar | uma inscrição: — (o destino é a ação); 2 ou mais: `/tournaments/[tournamentId]` + `tournamentId` |
 | 5 | `player_tournament_partner_invite_received` | player | tournament | info | Convite de dupla aguardando sua resposta | Aceitar (+ Recusar) | `/tournaments/[tournamentId]` + `tournamentId` (contexto; o alvo da resposta é a inscrição) |
 | 6 | `player_tournament_partner_invite_sent` | player | tournament | info | Convite de dupla enviado | — | `/tournaments/[tournamentId]` + `tournamentId` (contexto) |
@@ -284,6 +284,25 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   página mantém o rodapé de entrada habilitado com `Renovar inscrição`, e dois
   botões de pagamento para a mesma membership na mesma tela é o BUG-0042. O
   alerta só INFORMA; a ação do estado é o rodapé (decisão de 20-09).
+- **O suspenso (kind 3) PASSOU A TER CTA no próprio item** (21-09-2026,
+  IBX-0084 — vale sobre o bullet acima, que fica como histórico): o MESMO item é
+  renderizado pelas 6 montagens de `PendingAlerts` em `src/` (as duas homes, as
+  duas overviews da casa da liga e as duas do torneio — IBX-0084 r2 corrigiu o
+  número: eram 7) e só a casa da liga
+  tem rodapé de entrada — na home o alerta era beco sem saída, com a copy
+  mandando renovar sem afordância. O item passa a devolver
+  `actionLabel: "Renovar"` + `action: { type: "pay_league_membership", params: null }`
+  (a MESMA ação dos kinds 1 e 2) com o alvo no `source` do item
+  (`league_membership` + o id da membership), que é o que o runner do cliente
+  lê. A ação é executável NESSE estado: `canMembershipBeCharged` aceita
+  `suspended` (`CHARGEABLE_MEMBERSHIP_STATUSES`, `convex/domains/payment/rules.ts`)
+  e o par alerta↔executabilidade fica preso por teste. O motivo do BUG-0042
+  (dois botões de pagamento para a mesma membership na MESMA tela) continua
+  valendo e passa a ser resolvido do lado da TELA: a casa da liga deixa de
+  renderizar o pagamento no rodapé do suspenso (corte do Frontend, mesmo card:
+  fora do `canResumeCheckout` e o rodapé de entrada não monta para o suspenso —
+  `buildLeagueDetailsShowJoinFooter`, ver `docs/spec/leagues.md`, bullet do
+  IBX-0084).
 - **O convite recebido (cartão 5) ficou sem `route`**: responder o convite é
   mutação (`accept_partner_invite` / `decline_partner_invite`) e a tela real
   responde no lugar — route nulo é o contrato, não uma perda.

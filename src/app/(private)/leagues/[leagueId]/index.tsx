@@ -218,12 +218,15 @@ export default function LeagueOverviewRoute() {
   const role = useValue(bucket$.viewer.role);
 
   // Rodapé guest (JoinFooter modo liga, cutover do LeagueJoinFooter): todo o
-  // fluxo de entrada — join, cancelamento, pagamento — é wiring da página.
+  // fluxo de entrada — join, cancelamento, pagamento — é wiring da página. O
+  // gate de montagem vem da derivada: o membro suspenso fica FORA (a ação dele
+  // é o Renovar do alerta — IBX-0084).
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
   const canResumeCheckout = useValue(bucket$.derived.canResumeCheckout);
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
   const membershipId = useValue(bucket$.viewer.membershipId);
   const membershipStatus = useValue(bucket$.viewer.membershipStatus);
+  const showJoinFooter = useValue(bucket$.derived.showJoinFooter);
   const pendingChargeQuery = useQuery({
     ...crpc.payment.charge.getPendingCharge.staticQueryOptions({
       sourceId: membershipId ?? "",
@@ -232,8 +235,7 @@ export default function LeagueOverviewRoute() {
     enabled:
       Boolean(membershipId) &&
       (membershipStatus === "awaiting_payment" ||
-        membershipStatus === "payment_due" ||
-        membershipStatus === "suspended"),
+        membershipStatus === "payment_due"),
   });
   const pendingChargeId = pendingChargeQuery.data?.chargeId ?? null;
   const joinMutationIntentRef = useRef<"cancel" | "request">("request");
@@ -540,7 +542,7 @@ export default function LeagueOverviewRoute() {
         )}
       </Page.ScrollView>
 
-      {role === "guest" && guestFooter && !showStatusState ? (
+      {showJoinFooter && guestFooter && !showStatusState ? (
         <JoinFooter
           actionLabel={guestFooter.actionLabel}
           actionTrailing={

@@ -164,24 +164,43 @@ export function buildLeagueDetailsCanRequestJoin(input: {
 
 /**
  * Quando o rodapé da liga vira atalho direto para o checkout em vez de
- * solicitar entrada. Vale para quem ainda cai no rodapé (`awaiting_payment` e
- * `suspended`). Desde o IBX-0039 o `payment_due` é membro e o CTA dele vive no
- * aviso de pagamento do overview, não no rodapé.
+ * solicitar entrada. Hoje vale só para a entrada ainda não ativada
+ * (`awaiting_payment`), que é o único sub-estado do rodapé com ação de
+ * pagamento nele. Desde o IBX-0039 o `payment_due` é membro e o CTA dele vive
+ * no aviso de pagamento do overview, não no rodapé; desde o IBX-0084 o
+ * `suspended` não passa mais por aqui — a ação dele (Renovar, a MESMA
+ * `payment.charge.createCharge`) vive no alerta da casa e o rodapé dele sai da
+ * tela (buildLeagueDetailsShowJoinFooter, abaixo).
  */
 export function buildLeagueDetailsCanResumeCheckout(input: {
   viewerMembershipStatus: null | string | undefined;
 }) {
-  return (
-    input.viewerMembershipStatus === "awaiting_payment" ||
-    input.viewerMembershipStatus === "suspended"
-  );
+  return input.viewerMembershipStatus === "awaiting_payment";
 }
 
+/**
+ * Se o rodapé fixo de ENTRADA da liga (molde liga do `JoinFooter`: chip de
+ * vagas + preço + CTA) monta na tela. Ele é a superfície de adesão do
+ * VISITANTE: monta para quem PODE entrar (`canJoinLeagues`, a capacidade do
+ * viewer) no papel `guest`, menos no membro SUSPENSO — desde o IBX-0084 a ação
+ * dele (Renovar) vive no alerta da própria casa e o rodapé sairia com um
+ * SEGUNDO botão de pagamento da MESMA membership na MESMA tela (o BUG-0042).
+ *
+ * O input `canJoinLeagues` é o MESMO de `buildLeagueDetailsCanRequestJoin` e
+ * FALHA FECHADO (`=== true`): sem a capacidade o rodapé não monta — quem não
+ * pode entrar não recebe superfície de adesão (o HEAD já era assim; o gate de
+ * capacidade do CTA desabilitado segue no `isActionDisabled` da tela).
+ */
 export function buildLeagueDetailsShowJoinFooter(input: {
-  canJoinLeagues: boolean;
+  canJoinLeagues?: boolean;
   role: LeagueDetailsRole;
+  viewerMembershipStatus: null | string | undefined;
 }) {
-  return input.canJoinLeagues && input.role === "guest";
+  return (
+    input.canJoinLeagues === true &&
+    input.role === "guest" &&
+    input.viewerMembershipStatus !== "suspended"
+  );
 }
 
 export function buildLeagueDetailsRequestItems(

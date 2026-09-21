@@ -307,14 +307,16 @@ describe("buildLeagueDetailsCanResumeCheckout", () => {
         viewerMembershipStatus: "awaiting_payment",
       })
     ).toBe(true);
+  });
+
+  it("does not offer the footer shortcut to the suspended or to members in grace period", () => {
+    // O suspenso tem o Renovar no alerta (IBX-0084): o rodapé não é o caminho
+    // de pagamento dele.
     expect(
       buildLeagueDetailsCanResumeCheckout({
         viewerMembershipStatus: "suspended",
       })
-    ).toBe(true);
-  });
-
-  it("does not offer the footer shortcut to members in grace period", () => {
+    ).toBe(false);
     expect(
       buildLeagueDetailsCanResumeCheckout({
         viewerMembershipStatus: "payment_due",
@@ -332,32 +334,98 @@ describe("buildLeagueDetailsCanResumeCheckout", () => {
 });
 
 describe("buildLeagueDetailsShowJoinFooter", () => {
-  it("keeps the join footer visible for visitors who can join leagues", () => {
+  it("keeps the join footer visible for the visitors that have no membership", () => {
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
         role: "guest",
+        viewerMembershipStatus: null,
       })
     ).toBe(true);
   });
 
-  it("hides the join footer for participants, owners, and users who cannot join leagues", () => {
+  it("keeps the join footer visible for the visitors whose state lives in the footer", () => {
+    expect(
+      buildLeagueDetailsShowJoinFooter({
+        canJoinLeagues: true,
+        role: "guest",
+        viewerMembershipStatus: "pending",
+      })
+    ).toBe(true);
+    expect(
+      buildLeagueDetailsShowJoinFooter({
+        canJoinLeagues: true,
+        role: "guest",
+        viewerMembershipStatus: "awaiting_payment",
+      })
+    ).toBe(true);
+    expect(
+      buildLeagueDetailsShowJoinFooter({
+        canJoinLeagues: true,
+        role: "guest",
+        viewerMembershipStatus: "rejected",
+      })
+    ).toBe(true);
+  });
+
+  it("hides the join footer for the suspended visitor (the Renovar is in the alert)", () => {
+    expect(
+      buildLeagueDetailsShowJoinFooter({
+        canJoinLeagues: true,
+        role: "guest",
+        viewerMembershipStatus: "suspended",
+      })
+    ).toBe(false);
+  });
+
+  it("hides the join footer for EVERY status when the viewer cannot join leagues", () => {
+    // O gate de capacidade volta a valer no rodapé (MEDIO-1 do review do
+    // IBX-0084): sem `canJoinLeagues` (ator organização) o rodapé não monta em
+    // NENHUM estado — é a paridade com o HEAD, que já era `canJoinLeagues &&
+    // role === "guest"`.
+    for (const viewerMembershipStatus of [
+      null,
+      "active",
+      "awaiting_payment",
+      "payment_due",
+      "pending",
+      "rejected",
+      "suspended",
+      "left",
+      "removed",
+    ]) {
+      expect(
+        buildLeagueDetailsShowJoinFooter({
+          canJoinLeagues: false,
+          role: "guest",
+          viewerMembershipStatus,
+        })
+      ).toBe(false);
+    }
+  });
+
+  it("hides the join footer when the capability is unknown (fail closed)", () => {
+    expect(
+      buildLeagueDetailsShowJoinFooter({
+        role: "guest",
+        viewerMembershipStatus: null,
+      })
+    ).toBe(false);
+  });
+
+  it("hides the join footer for participants and owners", () => {
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
         role: "player",
+        viewerMembershipStatus: "active",
       })
     ).toBe(false);
     expect(
       buildLeagueDetailsShowJoinFooter({
         canJoinLeagues: true,
         role: "organizer",
-      })
-    ).toBe(false);
-    expect(
-      buildLeagueDetailsShowJoinFooter({
-        canJoinLeagues: false,
-        role: "guest",
+        viewerMembershipStatus: "active",
       })
     ).toBe(false);
   });

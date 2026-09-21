@@ -6,6 +6,7 @@ import {
   buildMembershipPaymentPending,
 } from "../pendings-rules";
 import type { PendingDescription, PendingItem } from "../../pendings/contract";
+import { canMembershipBeCharged } from "../rules";
 
 /** Texto corrido da descricao, so para provar a copy aprovada nas partes. */
 function itemText(item: PendingItem | null | undefined) {
@@ -76,26 +77,47 @@ describe("pendencia de mensalidade: atraso (cartao 1)", () => {
 });
 
 describe("pendencia de mensalidade: suspensa (cartao 3)", () => {
-  it("vira danger SEM acao: o CTA do suspenso vive no rodape da liga", () => {
+  it("vira danger com o CTA Renovar no PROPRIO item", () => {
     const item = buildMembershipPaymentPending(
       membershipInput({ membershipStatus: S.SUSPENDED })
     );
 
     expect(item?.kind).toBe("player_league_membership_suspended");
+    expect(item?.id).toBe("player_league_membership_suspended:membership-1");
     expect(item?.severity).toBe("danger");
     expect(item?.title).toBe("Inscrição suspensa");
     expect(item?.description).toBe(
       "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar."
     );
-    // Sem CTA aqui de proposito: no mesmo estado a pagina mantem o
-    // JoinFooter habilitado com `Renovar inscrição`, e dois botoes de pagamento
-    // para a MESMA membership na mesma tela e o BUG-0042 (decisao de 20-09).
-    expect(item?.action).toBeNull();
-    expect(item?.actionLabel).toBeNull();
+    // O CTA vive no ITEM (decisao de 21-09): a copy manda renovar e o alerta e
+    // renderizado em 6 superficies, mas so a casa da liga tem rodape — na home
+    // a pendencia era beco sem saida. A acao e a MESMA dos kinds 1 e 2
+    // (`pay_league_membership`) e o alvo do runner e o `source` do item.
+    expect(item?.actionLabel).toBe("Renovar");
+    expect(item?.action).toEqual({
+      params: null,
+      type: "pay_league_membership",
+    });
+    expect(item?.source).toEqual({
+      id: "membership-1",
+      type: "league_membership",
+    });
     expect(item?.secondaryAction).toBeNull();
     expect(item?.secondaryActionLabel).toBeNull();
     expect(item?.route).toBeNull();
     expect(item?.deadlineAt).toBeNull();
+  });
+
+  it("a acao prometida pelo alerta e executavel nesse estado", () => {
+    const item = buildMembershipPaymentPending(
+      membershipInput({ membershipStatus: S.SUSPENDED })
+    );
+
+    expect(item?.action?.type).toBe("pay_league_membership");
+    // Prova negativa do par: se `suspended` sair de
+    // CHARGEABLE_MEMBERSHIP_STATUSES, o `createCharge` recusa e o alerta passa
+    // a oferecer botao morto — este pin quebra junto.
+    expect(canMembershipBeCharged({ status: S.SUSPENDED })).toBe(true);
   });
 });
 

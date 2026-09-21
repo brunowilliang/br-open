@@ -212,10 +212,6 @@ export function getMembershipActionLabel(
     return "Pagar agora";
   }
 
-  if (status === "suspended") {
-    return "Renovar inscrição";
-  }
-
   if (status === "pending") {
     return "Pendente";
   }
