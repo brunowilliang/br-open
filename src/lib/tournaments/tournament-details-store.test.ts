@@ -27,11 +27,16 @@ describe("tournament details bucket", () => {
 
     bucket$.actions.hydrateMatches([matchFixture("m-1")]);
     bucket$.actions.setBootstrapStatus("ready");
+    bucket$.actions.setEntriesLoading(true);
+    bucket$.actions.setMatchesLoading(true);
 
     bucket$.actions.reset();
 
     expect(bucket$.data.matches.get()).toEqual([]);
     expect(String(bucket$.identity.bootstrapStatus)).toBe("loading");
+    // Flag de carga preso em true = esqueleto eterno nos KPIs (IBX-0087).
+    expect(bucket$.identity.entriesLoading.get()).toBe(false);
+    expect(bucket$.identity.matchesLoading.get()).toBe(false);
     expect(bucket$.identity.resetVersion.get()).toBe(versionBefore + 1);
 
     // Monotonica, nunca um binario que volta ao mesmo valor: e a mudanca

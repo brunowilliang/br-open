@@ -343,6 +343,8 @@ describe("leagueDetailsStore$", () => {
       },
     });
     bucket$.actions.setActiveRoute("rules");
+    bucket$.actions.setChallengesLoading(true);
+    bucket$.actions.setMembershipOverviewLoading(true);
 
     const resetVersion = bucket$.identity.resetVersion.get();
 
@@ -351,6 +353,9 @@ describe("leagueDetailsStore$", () => {
     expect(bucket$.identity.resetVersion.get()).toBe(resetVersion + 1);
     expect(String(bucket$.identity.activeRoute)).toBe("overview");
     expect(String(bucket$.identity.bootstrapStatus)).toBe("idle");
+    // Flag de carga preso em true = esqueleto eterno nos KPIs (IBX-0087).
+    expect(bucket$.identity.challengesLoading.get()).toBe(false);
+    expect(bucket$.identity.membershipOverviewLoading.get()).toBe(false);
     expect(bucket$.data.league.get()).toBeNull();
     expect(getLeagueDetailsBucket$("league-1")).not.toBe(bucket$);
   });

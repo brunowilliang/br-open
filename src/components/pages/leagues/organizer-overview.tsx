@@ -9,20 +9,17 @@ import { formatCurrencyCents } from "@/lib/format/currency";
 import { getLeagueDetailsBucket$ } from "@/lib/leagues/league-details-store";
 import { buildOrganizerMonthlyMatchesSeries } from "@/lib/leagues/organizer-overview-derived";
 
-/**
- * Casa da liga para o organizador: receita da liga, inscritos e partidas no
- * mês no KpiCard da galeria (IBX-0075 r2), com o rótulo+valor do molde
- * texto-simples (WidgetAlerts, TrendChip e AreaChart seguem fora). Receita
- * soma `bySource` da série da organização (query existente) filtrada pelos
- * memberships DESTA liga no cliente — nenhuma query nova.
- */
 export function OrganizerOverview() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();
   const crpc = useCRPC();
   const bucket$ = getLeagueDetailsBucket$(leagueId);
   const challenges = useValue(bucket$.data.challenges);
+  const challengesLoading = useValue(bucket$.identity.challengesLoading);
   const league = useValue(bucket$.data.league);
   const membershipOverview = useValue(bucket$.data.membershipOverview);
+  const membershipOverviewLoading = useValue(
+    bucket$.identity.membershipOverviewLoading
+  );
 
   const now = Date.now();
   const monthlySeries = buildOrganizerMonthlyMatchesSeries({
@@ -60,10 +57,12 @@ export function OrganizerOverview() {
           2 por linha na ordem ditada (Receita, Inscritos, Partidas no mês). */}
       <View className="flex-row gap-3">
         <KpiCard
+          isLoading={revenueSeriesQuery.isPending || membershipOverviewLoading}
           label="Receita da liga"
           value={formatCurrencyCents(leagueRevenueCents)}
         />
         <KpiCard
+          isLoading={membershipOverviewLoading}
           label="Inscritos"
           value={
             maxPlayers === null
@@ -74,7 +73,11 @@ export function OrganizerOverview() {
       </View>
 
       <View className="flex-row gap-3">
-        <KpiCard label="Partidas no mês" value={String(matchesThisMonth)} />
+        <KpiCard
+          isLoading={challengesLoading}
+          label="Partidas no mês"
+          value={String(matchesThisMonth)}
+        />
       </View>
     </View>
   );

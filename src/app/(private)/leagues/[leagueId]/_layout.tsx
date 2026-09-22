@@ -46,12 +46,9 @@ const LEAGUE_DETAIL_SCREEN_NAMES = [
 ] as const;
 
 export default function LeagueDetailsLayout() {
-  // Parametro LOCAL da rota (nunca useGlobalSearchParams aqui): o global
-  // segue a rota FOCADA, entao uma liga empilhada embaixo da outra passaria
-  // a ler o leagueId de cima e trocaria de bucket no meio da pilha
-  // (reset/hidratacao no bucket errado, e na volta o bucket do de baixo
-  // ficava vazio). O local vem do proprio Route node, um por instancia
-  // (expo-router build/Route.js:34). Mesmo fix do torneio (BUG-0033).
+  // Parametro LOCAL da rota (nunca useGlobalSearchParams): o global segue a rota
+  // FOCADA, então uma liga empilhada leria o leagueId de cima e trocaria de
+  // bucket no meio da pilha.
   const { leagueId: rawLeagueId } = useLocalSearchParams<{
     leagueId?: string | string[];
   }>();
@@ -77,18 +74,18 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
       leagueId,
     }),
   });
+  const shouldFetchMembershipOverview =
+    shouldFetchLeagueDetailsMembershipOverview(access);
   const membershipOverviewQuery = useQuery({
     ...crpc.league.membership.getOverview.staticQueryOptions({ leagueId }),
-    enabled: shouldFetchLeagueDetailsMembershipOverview(access),
+    enabled: shouldFetchMembershipOverview,
   });
   const challengesQuery = useQuery({
     ...crpc.league.challenges.listForLeague.staticQueryOptions({ leagueId }),
     enabled: access.canOpenChallenges,
   });
-  // Pendências do cluster (IBX-0076 / PLN-0008): o escopo é o do JOGADOR (a
-  // casa da liga mostra as pendências da própria membership, inclusive a do
-  // suspenso). Sem gate de papel aqui: o servidor devolve `items: []` quando o
-  // ator não tem pendência de jogador (conta de organização, por exemplo).
+  // Escopo do JOGADOR mesmo na casa da liga, sem gate de papel: o servidor
+  // devolve items: [] quando o ator não tem pendência de jogador.
   const pendingsQuery = useQuery(
     crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
   );
@@ -127,11 +124,28 @@ function LeagueDetailsLayoutContent(props: { leagueId: string }) {
     }
   }, [bucket$, membershipOverviewQuery.data]);
 
+  // O gate entra junto pra query desabilitada não fixar o flag em true.
+  useEffect(() => {
+    bucket$.actions.setMembershipOverviewLoading(
+      shouldFetchMembershipOverview && membershipOverviewQuery.isPending
+    );
+  }, [
+    bucket$,
+    membershipOverviewQuery.isPending,
+    shouldFetchMembershipOverview,
+  ]);
+
   useEffect(() => {
     if (challengesQuery.data) {
       bucket$.actions.hydrateChallenges(challengesQuery.data);
     }
   }, [bucket$, challengesQuery.data]);
+
+  useEffect(() => {
+    bucket$.actions.setChallengesLoading(
+      access.canOpenChallenges && challengesQuery.isPending
+    );
+  }, [access.canOpenChallenges, bucket$, challengesQuery.isPending]);
 
   useEffect(() => {
     bucket$.actions.hydratePendings({

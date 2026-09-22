@@ -42,10 +42,6 @@ export type LeagueDetailsRoute =
   | "rules"
   | "schedule";
 
-/**
- * Estado da leitura de pendências do cluster (`pendings.list`, escopo player):
- * a casa da liga não pisca área vazia enquanto o servidor responde.
- */
 export type LeaguePendingsStatus = "error" | "idle" | "loading" | "ready";
 
 export type LeagueDetailsChallengeCreateTarget = {
@@ -119,6 +115,8 @@ function createLeagueDetailsBucket(leagueId: string) {
         });
         bucket$.identity.activeRoute.set("overview");
         bucket$.identity.bootstrapStatus.set("idle");
+        bucket$.identity.challengesLoading.set(false);
+        bucket$.identity.membershipOverviewLoading.set(false);
         bucket$.identity.pendingsStatus.set("idle");
         bucket$.identity.resetVersion.set(
           bucket$.identity.resetVersion.get() + 1
@@ -146,6 +144,12 @@ function createLeagueDetailsBucket(leagueId: string) {
         target: LeagueDetailsChallengeCreateTarget | null
       ) => {
         bucket$.ui.challengeCreateTarget.set(target);
+      },
+      setChallengesLoading: (isLoading: boolean) => {
+        bucket$.identity.challengesLoading.set(isLoading);
+      },
+      setMembershipOverviewLoading: (isLoading: boolean) => {
+        bucket$.identity.membershipOverviewLoading.set(isLoading);
       },
       setViewerMembership: (input: {
         membershipId: null | string;
@@ -209,7 +213,7 @@ function createLeagueDetailsBucket(leagueId: string) {
       league: null as LeagueOverview | null,
       membershipOverview: null as MembershipOverview | null,
       occupiedSlots: [] as OccupiedChallengeSlot[],
-      /** Itens de `pendings.list` (escopo player) do cluster. */
+      /** Itens de pendings.list, escopo player. */
       pendings: [] as PendingItem[],
     },
     derived: {
@@ -261,10 +265,7 @@ function createLeagueDetailsBucket(leagueId: string) {
             bucket$.data.membershipOverview.get()
           ).length,
         }),
-      /**
-       * Pendências da casa da liga: os itens do escopo player recortados para
-       * ESTA liga (a ordem é a do servidor).
-       */
+      /** Itens do escopo player recortados para ESTA liga, na ordem do servidor. */
       pendings: () =>
         resolvePendingsForLeague({
           items: bucket$.data.pendings.get(),
@@ -314,7 +315,9 @@ function createLeagueDetailsBucket(leagueId: string) {
     identity: {
       activeRoute: "overview" as LeagueDetailsRoute,
       bootstrapStatus: "idle" as "bootstrapping" | "error" | "idle" | "ready",
+      challengesLoading: false,
       leagueId,
+      membershipOverviewLoading: false,
       pendingsStatus: "idle" as LeaguePendingsStatus,
       resetVersion: 0,
     },

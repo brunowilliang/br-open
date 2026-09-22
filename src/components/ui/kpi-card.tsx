@@ -62,7 +62,7 @@ export function KpiCard(props: KpiCardProps) {
             ) : null}
           </View>
           {props.isLoading ? (
-            <Skeleton className="h-8 w-28 rounded-xl" />
+            <Skeleton className="h-6 w-28 rounded-xl" />
           ) : (
             <Text
               color={props.tint === "danger" ? "danger" : undefined}

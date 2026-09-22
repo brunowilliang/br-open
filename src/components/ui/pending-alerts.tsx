@@ -1,10 +1,16 @@
-import type { PendingItem } from "@convex/domains/pendings/contract";
+import type {
+  PendingItem,
+  PendingSurface,
+} from "@convex/domains/pendings/contract";
+import { Fragment } from "react";
 import { View } from "react-native";
-
-import { cn } from "better-styled";
+import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 
 import { ErrorMessage } from "@/components/ui/error-state";
-import { WidgetAlert } from "@/components/ui/widget-alert";
+import {
+  WidgetAlert,
+  type WidgetAlertSwipeClassNames,
+} from "@/components/ui/widget-alert";
 import {
   PENDING_ALERT_STATUS,
   resolvePendingAction,
@@ -12,52 +18,23 @@ import {
 import { usePendingActionRunner } from "@/lib/pendings/use-pending-action-runner";
 
 type PendingAlertsProps = {
-  className?: string;
+  dismissSurface?: PendingSurface;
   isError?: boolean;
   isLoading?: boolean;
+  isSwipeEnabled?: boolean;
   items: PendingItem[];
-  /**
-   * Chamado depois de CADA ação concluída com sucesso. O renderer é genérico:
-   * ele invalida só a lista de pendências (que é dele); quem conhece a entidade
-   * da tela (a casa do torneio, a casa da liga) passa aqui a invalidação do
-   * próprio contexto — sem isso, responder ao convite de dentro do alerta
-   * deixaria o card da inscrição e os KPIs velhos até o próximo refetch.
-   */
   onActionPerformed?: () => Promise<void> | void;
+  /** Par espelhado do gutter do pai, para o sangramento do gesto. */
+  swipeClassNames?: WidgetAlertSwipeClassNames;
 };
 
-/**
- * Renderer ÚNICO de pendências/alertas (IBX-0076 / PLN-0008): o item do
- * servidor já vem com kind, severidade, título, descrição (string ou LINHAS de
- * partes, com o destaque do servidor), os dois rótulos de ação, a AÇÃO, a rota
- * e os params. Aqui só se mapeia:
- *
- * - severidade → status do `WidgetAlert` (`info` não existe no alerta →
- *   `accent`, como na galeria aprovada);
- * - ação → a resolução viva do app, no ÚNICO ponto de tradução
- *   (`resolvePendingAction`, `lib/pendings/pendings-view.ts`) — quem EXECUTA é
- *   o runner compartilhado (`usePendingActionRunner`), o mesmo do cartão de
- *   notificação (IBX-0077): pagar a mensalidade/inscrição é o MESMO
- *   `payment.charge.createCharge` das telas (com o checkout no sucesso),
- *   responder ao convite é a MESMA `tournament.entries.respondPartnerInvite` da
- *   casa do torneio e a navegação pura abre o `route` do item;
- * - ordem: a do array do servidor (severidade → prazo → valor), nunca
- *   reordenada aqui.
- *
- * Com `secondaryActionLabel`, as duas ações saem no rodapé do alerta na ordem
- * secundária → principal, que é a ordem que o `WidgetAlert` já renderiza. CADA
- * botão resolve a SUA ação pelo SEU `action` (o principal por `item.action`, o
- * secundário por `item.secondaryAction`) e dispara o SEU comando: era o bug de
- * o `Recusar` (secundária do convite) reusar o `onPress` do `Aceitar` e ACEITAR
- * o convite. Botão cuja ação não resolve não é desenhado (mesma regra
- * defensiva do principal).
- */
 export function PendingAlerts(props: PendingAlertsProps) {
-  const { isActionPending, runAction } = usePendingActionRunner({
-    onPerformed: props.onActionPerformed,
-  });
+  const { dismissPendingItem, isActionPending, runAction } =
+    usePendingActionRunner({ onPerformed: props.onActionPerformed });
+  // Const local: o narrowing da prop precisa sobreviver ao closure do handler.
+  const dismissSurface = props.dismissSurface;
 
-  if (props.isLoading) {
+  if (props.isLoading || props.items.length === 0) {
     return null;
   }
 
@@ -67,50 +44,62 @@ export function PendingAlerts(props: PendingAlertsProps) {
     );
   }
 
-  if (props.items.length === 0) {
-    return null;
-  }
-
   return (
-    <View className={cn("gap-3", props.className)}>
+    <View className="gap-3">
       {props.items.map((item) => {
-        // CADA CTA tem a SUA ação: o principal resolve por `item.action` e o
-        // secundário por `item.secondaryAction` (era o bug de o Recusar do
-        // convite reusar o onPress do Aceitar e aceitar).
         const primary = resolvePendingAction(item);
         const secondary = item.secondaryAction
           ? resolvePendingAction({ ...item, action: item.secondaryAction })
           : null;
+        // Cada botão resolve a SUA ação: o Recusar já mandou `accept: true`.
+        const button = (label?: string | null, resolution?: typeof primary) =>
+          label && resolution
+            ? {
+                isDisabled: isActionPending(resolution),
+                label,
+                onPress: () => runAction(resolution),
+              }
+            : undefined;
 
-        return (
+        const card = (
           <WidgetAlert
-            action={
-              item.actionLabel && primary
-                ? {
-                    isDisabled: isActionPending(primary),
-                    label: item.actionLabel,
-                    onPress: () => {
-                      runAction(primary);
-                    },
-                  }
-                : undefined
-            }
+            action={button(item.actionLabel, primary)}
             description={item.description}
-            key={item.id}
-            secondaryAction={
-              item.secondaryActionLabel && secondary
+            dismissAction={
+              dismissSurface
                 ? {
-                    isDisabled: isActionPending(secondary),
-                    label: item.secondaryActionLabel,
+                    isDisabled: dismissPendingItem.isPending,
                     onPress: () => {
-                      runAction(secondary);
+                      dismissPendingItem.mutate({
+                        itemId: item.id,
+                        surface: dismissSurface,
+                      });
                     },
                   }
                 : undefined
             }
+            isSwipeEnabled={props.isSwipeEnabled}
+            secondaryAction={button(item.secondaryActionLabel, secondary)}
             status={PENDING_ALERT_STATUS[item.severity]}
+            swipeClassNames={props.swipeClassNames}
             title={item.title}
           />
+        );
+
+        // Sem superfície de dispensa a casa não anima nada: o item sai como saía.
+        if (!dismissSurface) {
+          return <Fragment key={item.id}>{card}</Fragment>;
+        }
+
+        return (
+          // Fade no item que sai; os irmãos sobem pelo layout. Só o layout mexe no espaço.
+          <Animated.View
+            exiting={FadeOut.duration(180)}
+            key={item.id}
+            layout={LinearTransition}
+          >
+            {card}
+          </Animated.View>
         );
       })}
     </View>

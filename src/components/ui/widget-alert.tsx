@@ -1,83 +1,109 @@
-import { Alert, Button } from "heroui-native";
+import { Alert, Button, Card, PressableFeedback } from "heroui-native";
+import { useRef } from "react";
 import { type GestureResponderEvent, View } from "react-native";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Swipeable, {
+  type SwipeableMethods,
+} from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  type SharedValue,
+  useAnimatedStyle,
+} from "react-native-reanimated";
+import { withUniwind } from "uniwind";
 
 import { Text } from "@/components/core/text";
-import { Settings02Icon } from "@hugeicons/core-free-icons";
+import { EyeOffIcon } from "@hugeicons/core-free-icons";
 import { HugeIcons } from "./huge-icons";
+
+/** Só as props `{nome}ClassName` chegam ao `Swipeable` (ele sobrescreve `style`). */
+const StyledSwipeable = withUniwind(Swipeable);
+
+/** Entrada da ação revelada (px): só pintura, não entra na medida do `rightWidth`. */
+const SWIPE_ACTION_ENTER_PX = 16;
+
+const ACTION_WIDTH_PX = 120; // w-30
 
 type WidgetAlertAction = {
   isDisabled?: boolean;
   label: string;
-  /** Recebe o evento do toque: quem aninha o alerta num touchable usa para
-   * parar a propagação (o cartão de notificação faz isso nos dois botões). */
+  /** Quem aninha o alerta num touchable usa para parar a propagação. */
   onPress: (event: GestureResponderEvent) => void;
 };
 
-/** Trecho da descrição: texto + flag de destaque (IBX-0076 r4). */
+/** Ação revelada ("Esconder") com handler de verdade; sem ela a ação é só pintura. */
+type WidgetAlertDismissAction = {
+  isDisabled?: boolean;
+  onPress: () => void;
+};
+
 export type WidgetAlertDescriptionPart = {
   isHighlighted?: boolean;
   text: string;
 };
 
-/**
- * UMA linha da descrição, com as suas partes (IBX-0076 r4). Alerta que agrega
- * mais de um tipo de pendência usa uma linha por tipo — nunca um separador no
- * meio da frase.
- */
 export type WidgetAlertDescriptionLine = {
   parts: WidgetAlertDescriptionPart[];
 };
 
+/** Sangramento do gesto por classe: par espelhado do gutter do pai + inset da ação. */
+export type WidgetAlertSwipeClassNames = {
+  /** → ação revelada (ex.: `pr-4`): padding/width entram na medida do `rightWidth`. */
+  action: string;
+  /** → `childrenContainerClassName`: o nó do conteúdo, que carrega o deslize. */
+  childrenContainer: string;
+  /** → `containerClassName`: a caixa do gesto (é ela que clipa). */
+  container: string;
+};
+
 type WidgetAlertProps = {
   action?: WidgetAlertAction;
-  /**
-   * Classes do `Alert.Content`. Existe pelo cartão da central (IBX-0077 r2): o
-   * gatilho do menu ⋮ é ABSOLUTO no canto do cartão e o conteúdo precisa
-   * reservar essa faixa (`pr-*`) para o texto nunca passar por baixo dele.
-   */
+  /** Faixa livre para um gatilho absoluto no canto do cartão (`pr-*`). */
   contentClassName?: string;
-  /** Frase simples (string) OU linhas com trechos destacados (IBX-0076 r4). */
+  /** Frase simples OU linhas com trechos destacados. */
   description?: WidgetAlertDescriptionLine[] | string;
-  /**
-   * Corte da descrição em N linhas (`numberOfLines` do texto). No caminho de
-   * LINHAS vale POR linha — o cartão da central (IBX-0077) manda uma linha só e
-   * usa isto para manter o corte de 2 linhas que o feed já tinha.
-   */
+  /** Corte do `numberOfLines`; no caminho de LINHAS vale por LINHA. */
   descriptionNumberOfLines?: number;
+  /** Esconde o item desta superfície: liga o TOQUE da ação revelada.
+   * Ausente = ação revelada só de pintura. */
+  dismissAction?: WidgetAlertDismissAction;
   /**
-   * SEM o indicador de status. O `Alert.Indicator` do HeroUI Native é uma PARTE
-   * composta (anatomia `Alert > Alert.Indicator + Alert.Content`), não uma prop:
-   * a doc bundled (`node_modules/heroui-native/lib/module/components/alert/alert.md`)
-   * e a API do componente não expõem nenhum jeito de escondê-lo — o mecanismo
-   * oficial é justamente OMITIR a parte, e o layout se mantém (o
-   * `alert__content` é quem tem `flex: 1`, `alert.css:21-23`). O cartão de
-   * notificação (IBX-0077) é o usuário disto: layout do alerta só com título,
-   * descrição e botões.
+   * Omite o `Alert.Indicator` (é parte composta — não há prop que o esconda);
+   * o layout se mantém porque `flex: 1` é do `alert__content`.
    */
   isIndicatorHidden?: boolean;
-  /** Ação de menor hierarquia, DENTRO da superfície do alerta (IBX-0076). */
+  /**
+   * Liga o swipe inteiro (gesto, ação revelada, sangramento por classe e toque
+   * do card que abre/fecha). Ausente = cartão puro, sem `Swipeable`, sem
+   * Pressable e com `swipeClassNames` ignorado.
+   */
+  isSwipeEnabled?: boolean;
   secondaryAction?: WidgetAlertAction;
   status?: "accent" | "danger" | "default" | "success" | "warning";
+  /** Sangramento do gesto por classe: par espelhado do gutter do pai + inset da ação.
+   * Ausente = caixa do cartão, sem classe nenhuma (comportamento de sempre). */
+  swipeClassNames?: WidgetAlertSwipeClassNames;
   title: string;
   /** Corte do título em N linhas (`numberOfLines` do texto). */
   titleNumberOfLines?: number;
 };
 
-/**
- * O padrão do HeroUI Native para ação dentro do alerta (`alert.md` da versão
- * instalada, seção "With Action Buttons" e o exemplo): `Button size="sm"` com
- * `variant="primary"` e `variant="danger"` quando o status do alerta é danger.
- * O componente não tem slot de ação.
- */
+/** Ação do alerta: `Button size="sm"`, `variant="danger"` quando o status é danger
+ * (padrão do HeroUI Native; o componente não tem slot de ação). */
 function WidgetAlertButton(props: {
   action: WidgetAlertAction;
   variant: "danger" | "primary" | "secondary";
 }) {
+  // Não deixa o toque vazar para o swipe de quem aninha o alerta.
+  function handlePress(event: GestureResponderEvent) {
+    event.stopPropagation();
+    props.action.onPress(event);
+  }
+
   return (
     <Button
       isDisabled={props.action.isDisabled}
-      onPress={props.action.onPress}
+      onPress={handlePress}
       size="sm"
       variant={props.variant}
     >
@@ -86,96 +112,158 @@ function WidgetAlertButton(props: {
   );
 }
 
-/**
- * Com DUAS ações (IBX-0076 r3), elas vão para uma linha no rodapé do alerta,
- * dentro da superfície: a secundária primeiro e a principal por último, a
- * mesma ordem do molde do app no convite do torneio
- * (pages/tournaments/player-overview.tsx:175-196, recusar antes de aceitar).
- * O MENU ⋮ do cartão de notificação usa a ordem INVERSA (principal →
- * secundária) de propósito: são desenhos diferentes, com réguas próprias (o
- * alerta empilha botões, o menu é uma lista de comandos) — ver
- * `buildNotificationMenuItems` em `lib/notifications/notification-view.ts`.
- * Com UMA ação, ela segue no slot irmão do conteúdo, o layout que as telas
- * vivas já usam.
- *
- * A descrição em LINHAS (IBX-0076 r4) é empilhada dentro do `Alert.Content`
- * com o gap das linhas empilhadas do app (molde requests.tsx:189): a parte
- * destacada é o MESMO texto da descrição com o peso `bold`, por isso repete
- * `color`/`variant` — o Text do app aplica as classes base (`text-foreground
- * font-normal`) e sem isso a parte sairia maior e na cor padrão. As partes sem
- * destaque ficam sem wrapper e herdam o estilo da linha.
- */
-export function WidgetAlert(props: WidgetAlertProps) {
-  const primaryVariant = props.status === "danger" ? "danger" : "primary";
+function WidgetAlertSwipeAction({
+  actionClassName,
+  dismissAction,
+  progress,
+  translation,
+}: {
+  actionClassName?: string;
+  dismissAction?: WidgetAlertDismissAction;
+  progress: SharedValue<number>;
+  translation: SharedValue<number>;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const value = progress.value;
+
+    return {
+      opacity: value,
+      transform: [
+        {
+          translateX: interpolate(
+            value,
+            [0, 1],
+            [SWIPE_ACTION_ENTER_PX, 0],
+            Extrapolation.CLAMP
+          ),
+        },
+        {
+          scale: interpolate(value, [0, 1], [0.7, 1], Extrapolation.CLAMP),
+        },
+      ],
+    };
+  });
+
+  // Passado o ponto de abrir, a caixa cresce 1:1 com o dedo (`rightWidth` = `-translation / progress`).
+  const widthStyle = useAnimatedStyle(() => {
+    const value = progress.value;
+    const overflow = value > 1 ? -translation.value * ((value - 1) / value) : 0;
+
+    return { width: ACTION_WIDTH_PX + overflow };
+  });
 
   return (
-    <Swipeable
-      enableTrackpadTwoFingerGesture
-      friction={2}
-      renderRightActions={() => (
-        <Button isIconOnly size="sm" variant="secondary">
-          <HugeIcons icon={Settings02Icon} />
-        </Button>
-      )}
-      rightThreshold={40}
-    >
-      <Alert status={props.status}>
-        {props.isIndicatorHidden ? null : <Alert.Indicator />}
-        <Alert.Content className={props.contentClassName}>
-          <Alert.Title numberOfLines={props.titleNumberOfLines}>
-            {props.title}
-          </Alert.Title>
-          {typeof props.description === "string" ? (
-            <Alert.Description numberOfLines={props.descriptionNumberOfLines}>
-              {props.description}
-            </Alert.Description>
-          ) : null}
-          {Array.isArray(props.description) ? (
-            <View className="gap-0.5">
-              {props.description.map((line, lineIndex) => (
-                <Text
-                  color="muted"
-                  key={lineIndex}
-                  numberOfLines={props.descriptionNumberOfLines}
-                  variant="description"
-                >
-                  {line.parts.map((part, partIndex) =>
-                    part.isHighlighted ? (
-                      <Text
-                        color="muted"
-                        key={partIndex}
-                        variant="description"
-                        weight="bold"
-                      >
-                        {part.text}
-                      </Text>
-                    ) : (
-                      part.text
-                    )
-                  )}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-          {props.secondaryAction ? (
-            <View className="mt-1.5 flex-row items-center gap-2 self-end">
-              <WidgetAlertButton
-                action={props.secondaryAction}
-                variant="secondary"
-              />
-              {props.action ? (
-                <WidgetAlertButton
-                  action={props.action}
-                  variant={primaryVariant}
-                />
-              ) : null}
-            </View>
-          ) : null}
-        </Alert.Content>
-        {props.action && !props.secondaryAction ? (
-          <WidgetAlertButton action={props.action} variant={primaryVariant} />
+    <Animated.View className={actionClassName} style={animatedStyle}>
+      <Animated.View className="h-full" style={widthStyle}>
+        <PressableFeedback
+          className="h-full w-full"
+          isDisabled={dismissAction?.isDisabled}
+          onPress={dismissAction?.onPress}
+        >
+          <Card className="centered h-full w-full gap-1">
+            <HugeIcons className="size-4" icon={EyeOffIcon} />
+            <Text size="sm" weight="semibold">
+              Esconder
+            </Text>
+            <PressableFeedback.Highlight />
+          </Card>
+        </PressableFeedback>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+export function WidgetAlert(props: WidgetAlertProps) {
+  const primaryVariant = props.status === "danger" ? "danger" : "primary";
+  const swipeableRef = useRef<SwipeableMethods | null>(null);
+
+  /** Só "garanta ABERTO": fechar é do tap interno do `Swipeable`. */
+  function openSwipe() {
+    swipeableRef.current?.openRight();
+  }
+
+  const card = (
+    <Alert status={props.status}>
+      {props.isIndicatorHidden ? null : <Alert.Indicator />}
+      <Alert.Content className={props.contentClassName}>
+        <Alert.Title numberOfLines={props.titleNumberOfLines}>
+          {props.title}
+        </Alert.Title>
+        {typeof props.description === "string" ? (
+          <Alert.Description numberOfLines={props.descriptionNumberOfLines}>
+            {props.description}
+          </Alert.Description>
         ) : null}
-      </Alert>
-    </Swipeable>
+        {Array.isArray(props.description) ? (
+          <View className="gap-0.5">
+            {props.description.map((line, lineIndex) => (
+              <Text
+                color="muted"
+                key={lineIndex}
+                numberOfLines={props.descriptionNumberOfLines}
+                variant="description"
+              >
+                {line.parts.map((part, partIndex) =>
+                  part.isHighlighted ? (
+                    <Text
+                      color="muted"
+                      key={partIndex}
+                      variant="description"
+                      weight="bold"
+                    >
+                      {part.text}
+                    </Text>
+                  ) : (
+                    part.text
+                  )
+                )}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+        {props.secondaryAction ? (
+          <View className="mt-1.5 flex-row items-center gap-2 self-end">
+            <WidgetAlertButton
+              action={props.secondaryAction}
+              variant="secondary"
+            />
+            {props.action ? (
+              <WidgetAlertButton
+                action={props.action}
+                variant={primaryVariant}
+              />
+            ) : null}
+          </View>
+        ) : null}
+      </Alert.Content>
+      {props.action && !props.secondaryAction ? (
+        <WidgetAlertButton action={props.action} variant={primaryVariant} />
+      ) : null}
+    </Alert>
+  );
+
+  // Sem o opt-in, cartão puro: nenhuma caixa de gesto, nenhum Pressable e
+  // nenhuma classe de sangramento (o resto do app não desliza).
+  if (!props.isSwipeEnabled) {
+    return card;
+  }
+
+  return (
+    <StyledSwipeable
+      childrenContainerClassName={props.swipeClassNames?.childrenContainer}
+      containerClassName={props.swipeClassNames?.container}
+      enableTrackpadTwoFingerGesture
+      ref={swipeableRef}
+      renderRightActions={(progress, translation) => (
+        <WidgetAlertSwipeAction
+          actionClassName={props.swipeClassNames?.action}
+          dismissAction={props.dismissAction}
+          progress={progress}
+          translation={translation}
+        />
+      )}
+    >
+      <PressableFeedback onPress={openSwipe}>{card}</PressableFeedback>
+    </StyledSwipeable>
   );
 }

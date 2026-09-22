@@ -7,30 +7,10 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
 
 type UsePendingActionRunnerInput = {
-  /**
-   * Chamado depois de CADA ação concluída com sucesso. O runner é genérico: ele
-   * invalida só a lista de pendências (que é dele); quem conhece a entidade da
-   * tela passa aqui a invalidação do próprio contexto (a casa do torneio, a
-   * casa da liga, a central de notificações).
-   */
+  /** O runner invalida só a lista de pendências; o contexto da tela entra aqui. */
   onPerformed?: () => Promise<void> | void;
 };
 
-/**
- * EXECUÇÃO das ações do vocabulário de pendências (IBX-0076 / PLN-0008) e da
- * apresentação do item da central (IBX-0077 / PLN-0009): as MESMAS mutations
- * das telas vivas, com os MESMOS toasts aprovados nelas.
- *
- * O par deste módulo é `resolvePendingAction` (`./pendings-view`), o ÚNICO
- * ponto que traduz `action` do contrato para uma ação do app; aqui a resolução
- * já vem pronta e isto só dispara o comando certo. Duas superfícies usam o
- * runner hoje: o renderer de pendências (`components/ui/pending-alerts.tsx`) e
- * o cartão de notificação do feed (`components/notifications/notification-card.tsx`).
- *
- * Invalidação de contexto de domínio NÃO mora aqui: as telas de liga/torneio
- * invalidam o que é delas pelo `onPerformed` (as queries refazem no mount, sem
- * `staleTime` global em `lib/convex/query-client.ts`).
- */
 export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
@@ -303,10 +283,28 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     },
   });
 
-  /**
-   * Dispara UMA resolução já traduzida (o principal e o secundário passam por
-   * aqui com a SUA resolução, nunca a mesma).
-   */
+  // Não é otimista: quem tira o item da tela é a releitura (falha não esconde nada).
+  const dismissPendingItem = useMutation({
+    mutationFn: crpcClient.pendings.dismiss.dismiss.mutate,
+    mutationKey: crpc.pendings.dismiss.dismiss.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível esconder a pendência. Tente novamente."
+        ),
+        id: "pending-dismiss-error",
+        label: "Falha ao esconder",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.pendings.list.list.queryFilter()
+      );
+    },
+  });
+
   const runAction = (resolution: PendingActionResolution | null) => {
     if (!resolution) {
       return;
@@ -386,7 +384,6 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     }
   };
 
-  /** Cada botão desabilita pela SUA mutation em voo (o secundário também). */
   const isActionPending = (
     resolution: PendingActionResolution | null
   ): boolean => {
@@ -418,5 +415,9 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     }
   };
 
-  return { isActionPending, runAction };
+  return {
+    dismissPendingItem,
+    isActionPending,
+    runAction,
+  };
 }

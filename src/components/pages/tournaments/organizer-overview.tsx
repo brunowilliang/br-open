@@ -13,17 +13,6 @@ import {
   buildTournamentMatchesKpi,
 } from "@/lib/tournaments/organizer-overview-derived";
 
-/**
- * Casa do torneio para o organizador: as pendências/alertas das inscrições vêm
- * do SERVIDOR (`pendings.list`, recortado para este torneio no bucket) e o
- * renderer único as desenha — os builders do cliente
- * (`buildTournamentPendingApprovalAlert`, `buildTournamentAwaitingPaymentAlert`)
- * foram EXTINTOS no cutover do PLN-0008. Os três blocos de número (Receita do
- * torneio, Inscrições, Partidas) seguem no KpiCard da galeria (IBX-0075 r2),
- * com o rótulo+valor do molde texto-simples. A receita soma `bySource` da série
- * da organização (query existente) filtrada pelas inscrições DESTE torneio no
- * cliente — nenhuma query nova.
- */
 export function OrganizerOverview(props: {
   onPendingActionPerformed?: () => void;
   tournamentId: string;
@@ -31,8 +20,10 @@ export function OrganizerOverview(props: {
   const crpc = useCRPC();
   const bucket$ = getTournamentDetailsBucket$(props.tournamentId);
   const entries = useValue(bucket$.data.entries);
-  const matches = useValue(bucket$.data.matches);
   const entriesById = useValue(bucket$.derived.entriesById);
+  const entriesLoading = useValue(bucket$.identity.entriesLoading);
+  const matches = useValue(bucket$.data.matches);
+  const matchesLoading = useValue(bucket$.identity.matchesLoading);
   const pendings = useValue(bucket$.derived.pendings);
   const pendingsStatus = useValue(bucket$.identity.pendingsStatus);
 
@@ -73,17 +64,21 @@ export function OrganizerOverview(props: {
           `flex-row gap-3` = molde dos dashboards (KpiCard com flex-1). */}
       <View className="flex-row gap-3">
         <KpiCard
+          isLoading={revenueSeriesQuery.isPending || entriesLoading}
           label="Receita do torneio"
           value={formatCurrencyCents(tournamentRevenueCents)}
         />
         <KpiCard
+          isLoading={entriesLoading}
           label="Inscrições"
           value={`${confirmed.confirmedCount} ativas`}
         />
       </View>
 
       <View className="flex-row gap-3">
+        {/* "Partidas" lê entries (lados) e matches: o valor espera os dois. */}
         <KpiCard
+          isLoading={entriesLoading || matchesLoading}
           label="Partidas"
           value={
             matchesKpi ? `${matchesKpi.finishedCount}/${matchesKpi.total}` : "0"

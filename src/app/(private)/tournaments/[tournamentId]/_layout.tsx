@@ -40,12 +40,9 @@ const TOURNAMENT_DETAIL_SCREEN_NAMES = [
 ] as const;
 
 export default function TournamentDetailsLayout() {
-  // Parametro LOCAL da rota (nunca useGlobalSearchParams aqui): o global
-  // segue a rota FOCADA, entao um detalhe empilhado embaixo de outro
-  // passaria a ler o tournamentId de cima e trocaria de bucket no meio da
-  // pilha (reset/hidratacao no bucket errado, e na volta o bucket do de
-  // baixo ficava vazio). O local vem do proprio Route node, um por
-  // instancia (expo-router build/Route.js:34).
+  // Parametro LOCAL da rota (nunca useGlobalSearchParams): o global segue a rota
+  // FOCADA, então um detalhe empilhado leria o tournamentId de cima e trocaria
+  // de bucket no meio da pilha.
   const { tournamentId: rawTournamentId } = useLocalSearchParams<{
     tournamentId?: string | string[];
   }>();
@@ -82,10 +79,8 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
       tournamentId,
     })
   );
-  // Pendências do cluster (IBX-0076 / PLN-0008): os DOIS escopos são pedidos
-  // sem gate de papel — o servidor devolve `items: []` no escopo que não é do
-  // ator ativo, e assim a casa do torneio serve o jogador (4 a 7) e o
-  // organizador (11 e 12) sem o cliente decidir visibilidade.
+  // Os DOIS escopos, sem gate de papel: o servidor devolve items: [] no escopo
+  // que não é do ator, então a casa serve jogador e organizador igual.
   const playerPendingsQuery = useQuery(
     crpc.pendings.list.list.staticQueryOptions({ scope: "player" })
   );
@@ -94,11 +89,8 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
   );
 
   useEffect(() => {
-    // O reset e quem destrava a hidratacao: ele INCREMENTA
-    // identity.resetVersion, e os efeitos abaixo dependem dela (o gate
-    // `resetVersion === 0` protege o bucket recem-criado). Um bootstrap
-    // que so devolvia a versao para 1 dentro do mesmo efeito nao mudava
-    // dependencia nenhuma e deixava o bucket vazio (BUG-0033).
+    // O reset incrementa identity.resetVersion: é dela que a hidratação abaixo
+    // depende.
     bucket$.actions.reset();
   }, [bucket$]);
 
@@ -129,8 +121,7 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     }
   }, [bucket$, tournamentQuery.isError]);
 
-  // entriesQuery em erro não pode ficar silencioso (IBX-0067): sem entries
-  // o role caía pra guest com bucket vazio e a tela virava null sem estado.
+  // Sem entries o role caía pra guest e a tela virava null sem estado.
   useEffect(() => {
     if (entriesQuery.isError) {
       bucket$.actions.setBootstrapStatus("error");
@@ -144,14 +135,24 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
   }, [bucket$, entriesQuery.data]);
 
   useEffect(() => {
+    bucket$.actions.setEntriesLoading(entriesQuery.isPending);
+  }, [bucket$, entriesQuery.isPending]);
+
+  // A query de partidas é gated, então o gate entra junto.
+  useEffect(() => {
+    bucket$.actions.setMatchesLoading(
+      shouldFetchMatches && matchesQuery.isPending
+    );
+  }, [bucket$, matchesQuery.isPending, shouldFetchMatches]);
+
+  useEffect(() => {
     if (matchesQuery.data) {
       bucket$.actions.hydrateMatches(matchesQuery.data);
     }
   }, [bucket$, matchesQuery.data]);
 
   useEffect(() => {
-    // Só um dos escopos tem item (o outro volta vazio), então a concatenação
-    // preserva a ordem que o servidor mandou.
+    // Só um dos escopos tem item; a concatenação preserva a ordem do servidor.
     bucket$.actions.hydratePendings({
       items: [
         ...(playerPendingsQuery.data?.items ?? []),
