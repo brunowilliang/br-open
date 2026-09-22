@@ -60,6 +60,12 @@ the Backend agent rule. Do not duplicate it here; read the source of truth:
     `noNamespaceImport` = **off**, `noExportedImports` = **off**.
   - `src/uniwind-types.d.ts` is generated — formatter disabled there.
 - TS: `strict: true` but **`strictFunctionTypes: false`**; `bun-types`.
+- **Comments in code are the EXCEPTION:** only what keeps the next dev from
+  getting lost in the logic (a library trap, a counterintuitive decision, a
+  `file:line` that saves real time), in 1 to 3 lines glued to what they explain.
+  Behavior lives in `docs/spec/<domain>.md`; history lives in the card.
+  Forbidden: narrating the round/card, repeating what the code already says,
+  citing gates.
 
 ## Working notes
 

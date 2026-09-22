@@ -399,7 +399,23 @@ Pedido direto do usuário ("aproveita e já coloca o JoinFooter na liga agora").
   `position: undefined`. Agora o guarda é de TIPO (`typeof input.viewerPosition
   !== "number"`): `null` e `undefined` são o MESMO estado explícito da derived e
   o card volta `null`; a tela usa o guarda explícito `position === null`
-  (`pages/leagues/player-overview.tsx:74-81`, não mais a veracidade do objeto) e
+  (`pages/leagues/player-overview.tsx:66-74`, não mais a veracidade do objeto) e
   segue mostrando "0" sem posição. Com posição nada muda (`#1 de 3`). Prova: 3
   casos em `player-overview-derived.test.ts` (`undefined` → `null`, `null` →
   `null`, valor → card com `position`/`totalPlayers`).
+
+## IBX-0087 · Esqueleto no valor dos KPIs da casa da liga (21-09-2026, sem commit)
+
+O usuário viu KPI sem esqueleto enquanto carregava. A prop `isLoading` do
+`KpiCard` (`src/components/ui/kpi-card.tsx:23`) agora está ligada nos cinco KPIs
+desta casa: "Receita da liga" (`organizer-overview.tsx:59`, `isPending` da
+`getRevenueSeries` do próprio painel **ou** o flag de `membershipOverview` — o
+valor cruza `bySource` com `membershipIds`), "Inscritos" (`:64`) e "Posição"
+(`player-overview.tsx:66`) pelo status de `membershipOverview`, e "Partidas no
+mês" (`organizer-overview.tsx:76` / `player-overview.tsx:75`) +
+Vitórias/Derrotas/Aproveitamento (`player-overview.tsx:85`, `:90`, `:95`) pelo
+status de `challenges`. Os dois status são flags novos do bucket
+(`identity.challengesLoading` / `identity.membershipOverviewLoading`), alimentados
+pelo `_layout` do cluster com gate + `isPending` (`_layout.tsx:129-136` e
+`:145-148`) e zerados no `reset()`. Nenhum rótulo, valor, layout ou texto mudou —
+detalhe e tabela completa em `dashboard.md` (seção do IBX-0087).

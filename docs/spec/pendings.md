@@ -1,9 +1,17 @@
 # Pendencias e alertas — Estado atual
 
 > Verificado em 20-09-2026 contra o código do repo (`convex/`) e o DEV
-> (kindred-yak-142, function-spec + sonda read-only). **EM ANDAMENTO (sem
-> commit):** a Etapa 1 entrega o CONTRATO de leitura — nada está ligado em tela
-> ainda (o wiring é a Etapa 2, com o Frontend).
+> (kindred-yak-142, function-spec + sonda read-only). **IBX-0076 (Etapa 1 +
+> Etapa 2 entregues, sem commit):** o contrato de leitura e o wiring nas telas
+> estão no código — as duas homes montam o bloco de pendências e as casas de
+> liga/torneio leem o mesmo servidor pelo bucket.
+>
+> **IBX-0085 (21-09-2026, sem commit):** o sistema ganha a DISPENSA por
+> superfície — tabela `pendingDismissal`, mutation `pendings.dismiss` e o
+> parâmetro `surface` na leitura. Backend/estado estão no DEV (migration
+> `20260921_191850_add_pending_dismissal` aplicada); o gesto na tela está no
+> `ui/pending-alerts.tsx` (prop opt-in `dismissSurface`, `:68-79`) e nas duas
+> homes (as casas leem sem `surface`).
 
 ## Visão geral
 
@@ -24,8 +32,11 @@ shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
 
 - **Procedimento:** `convex/functions/pendings/list.ts` (`authQuery`) → no
   cliente, `api.pendings.list.list` (módulo `pendings`, arquivo `list`, função
-  `list`). Sem tabela nova, sem migration, sem cron.
-- **Input:** `{ scope: "organization" | "player" }` (raiz `z.object`).
+  `list`). Sem tabela nova (a tabela de recibos é da dispensa, abaixo), sem
+  cron.
+- **Input:** `{ scope: "organization" | "player", surface?: "home" | "house" }`
+  (raiz `z.object`). Sem `surface` a leitura vale a CASA — ver "Dispensa por
+  superfície".
 - **Output:** `{ counts, items, saturation, scope, truncated }`
   (`pendingsListResultSchema`, `convex/domains/pendings/contract.ts`).
 
@@ -104,6 +115,50 @@ Invariantes (cobertas por teste):
   agregado nunca deve ser lido como total quando o kind aparece ali). `truncated`
   e `saturation` são coisas diferentes: o primeiro é o corte da LISTA no cap de
   20 itens; o segundo, o corte de uma varredura que alimenta o dado.
+
+### Dispensa por superfície (IBX-0085)
+
+O item pode ser ESCONDIDO, e a dispensa é **por superfície**: o MESMO item
+aparece na home e na casa da liga/torneio, e o gesto de esconder só existe na
+home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde.
+
+- **Tabela `pendingDismissal`** (`domains/pendings/tables.ts`), uma linha por
+  `(ator, superfície, item)`: `actorKind` (`organization`/`player`), `actorId`
+  (id do ator dono da pendência), `surface`, `itemId` (o id determinístico
+  `<kind>:<sourceId>`), `dismissedAt` e o **snapshot**
+  `severity`/`count`/`deadlineAt` do item no momento da dispensa. Índice único
+  `actor_surface_item` — serve o upsert da dispensa e a leitura.
+- **Mutation `pendings.dismiss`** (`functions/pendings/dismiss.ts`,
+  `authMutation`, input `{ itemId, surface }`): o dono do recibo é o ATOR ATIVO
+  resolvido no servidor (o cliente não manda ator), e o snapshot é
+  **re-derivado** pelo mesmo caminho da leitura — o cliente não escolhe o que
+  congela, então não consegue manter escondido um item que já piorou. Só o que
+  a leitura daquele ator mostra é dispensável: item de outro ator/escopo (ou id
+  sem kind registrado) devolve `NOT_FOUND` (o código diz `"Pendencia nao encontrada."`, sem acento — `convex/functions/pendings/dismiss.ts:32` e `:49`).
+  Dispensar de novo o mesmo item regrava o recibo (upsert) — é o passo em que o
+  recibo morto é substituído.
+- **Recibo na casa é aceito e INERTE** (`surface: "house"`): a mutation grava,
+  mas a leitura da casa nunca filtra — por isso o botão de esconder não pode
+  existir na casa (o gesto é só da home).
+- **Regra do recibo vivo** (`filterDismissedPendingItems`, `pendings-rules.ts`):
+  o item fica escondido **enquanto o recibo casar com o item atual nos três
+  campos do snapshot** — severidade igual, contagem igual (caso único, `count`
+  nulo, conta 1) e prazo igual. Qualquer diferença (severidade que sobe, ex.:
+  `warning` → `danger` no MESMO id; contagem que cresce; `deadlineAt` novo ou
+  diferente) mata o recibo e o item **VOLTA** para a tela — "se piorar,
+  reaparece" (DEC-0008, opção A). Recibo morto é ignorado na leitura, nunca
+  bloqueia.
+- **Efeito no resultado:** o filtro acontece ANTES do cap e das contagens
+  (`buildPendingsResult`), então item escondido não ocupa vaga no cap de 20 nem
+  entra em `counts` (a home nunca anuncia mais do que mostra) e `truncated`
+  reflete a lista visível.
+- **Leitura do estado:** `findPendingDismissals` (`registry.ts`) lê só os
+  recibos do ator e da superfície (índice `actor_surface_item`, cap
+  `PENDING_DISMISSAL_SCAN_LIMIT = 200`, ordem por `itemId`) e nem toca a tabela
+  quando a superfície é a casa.
+- **Migration:** `20260921_191850_add_pending_dismissal` — a tabela nasce vazia,
+  então não há dado a backfillar; o registro existe para o journal do DEV/PROD
+  acompanhar a mudança de schema (aplicada no DEV em 21-09).
 
 ### Autorização (invariante)
 
@@ -209,6 +264,7 @@ linha fica de fora depende da ordem interna do índice.
 | Torneios da organização lidos / varridos por inscrição | 50 / 20 (mais recentes) | 11 e 12 |
 | Categorias por torneio / inscrições por categoria | 10 / 300 | 11 e 12 |
 | Itens devolvidos (`PENDING_ITEM_CAP`) | 20 | `truncated` |
+| Recibos de dispensa por ator/superfície (`PENDING_DISMISSAL_SCAN_LIMIT`) | 200 | não emite `saturation`: é estado do próprio ator (e a casa nem lê) |
 
 **Leitura da tabela:** o cap da terceira coluna é onde a varredura para; quando
 ela ENCHE, o kind da quarta coluna aparece em `saturation` — ou seja, o número
@@ -223,9 +279,11 @@ próprio é trabalho futuro (exige migration, fora deste corte).
 
 ## O que NÃO entra na v1
 
-- **Dispensar/silenciar pendência** (`dismiss`/`snooze`) e **ação executável
-  dentro do item**: o item é leitura + CTA de navegação/ação da tela; nada de
-  esconder pendência nem de mutação a partir do alerta.
+- **`snooze` (silenciar por tempo) e limpeza automática global de recibos
+  mortos**: desde o IBX-0085 a dispensa existe e é POR SUPERFÍCIE, mas o item
+  volta por PIORA (severidade, contagem, prazo), nunca por relógio; o recibo
+  morto é substituído na próxima dispensa do MESMO item. A **ação executável
+  dentro do item** entrou no IBX-0084 (o CTA do item executa na tela).
 - **Push nativo, badge fora do app e e-mail**: fora do escopo do PLN-0008.
 - **Cobranças em atraso da ORGANIZAÇÃO** (membros `payment_due`/`suspended` nas
   ligas pagas, hoje o `metrics.overdueCount` da home da organização) e
@@ -335,19 +393,77 @@ próprio é trabalho futuro (exige migration, fora deste corte).
 - **Nome do procedimento:** o caminho do arquivo manda (`pendings/list.ts`), então
   o cliente chama `api.pendings.list.list` — convenção `módulo.arquivo.função`
   do repo, não um nome novo.
-- **Nenhum dado novo é criado:** o kind 4 e o 12 foram provados no DEV com a
-  MESMA inscrição (`rd714y595ax7zp5xy3gbpb2grs8erhda`, Copa Vila Tênis Clube,
-  R$ 5,00) vista pelos dois lados — jogador ("1 inscrição aguardando pagamento"
-  + `Pagar`) e organização ("1 inscrição aguardando pagamento" + `Ver`).
+- **A dispensa é POR SUPERFÍCIE e o dono é o ATOR (IBX-0085).** O mesmo item é
+  renderizado na home e na casa da liga/torneio: esconder na home não apaga o
+  alerta da casa (`surface: "house"` nunca filtra e nem lê os recibos). O recibo
+  pertence ao ator dono da pendência (organização ou perfil de jogador), não à
+  sessão que dispensou — os dois gestores da mesma organização veem o mesmo item
+  escondido; o cliente nunca escolhe o dono (o input da mutation só tem
+  `itemId` e `surface`).
+- **O snapshot é re-derivado no servidor, não vem do cliente.** Se o cliente
+  mandasse `severity`/`count`/`deadlineAt`, uma tela desonesta poderia congelar
+  um snapshot à frente do item real e furar o "se piorar, reaparece"; a mutation
+  deriva o item pelo MESMO caminho da leitura e congela o que ela mostra.
+- **Sem `surface` a leitura vale a CASA.** É a única superfície que nunca
+  esconde, então quem esquece o parâmetro recebe a lista completa — o default
+  nunca faz uma pendência SUMIR por engano. As chamadas da casa (layouts de liga
+  e torneio) seguem sem o parâmetro; a home passa `surface: "home"` no corte do
+  Frontend.
+- **Nenhum dado novo é criado PELA DERIVAÇÃO:** os itens continuam derivados a
+  cada leitura (sem tabela de pendência). A ÚNICA escrita do sistema é o recibo
+  de dispensa. O kind 4 e o 12 foram provados no DEV com a MESMA inscrição
+  (`rd714y595ax7zp5xy3gbpb2grs8erhda`, Copa Vila Tênis Clube, R$ 5,00) vista
+  pelos dois lados — jogador ("1 inscrição aguardando pagamento" + `Pagar`) e
+  organização ("1 inscrição aguardando pagamento" + `Ver`).
+
+### Seed de DEV do cenário de pendências (IBX-0090)
+
+- `bunx convex run seed:pendencyScenario '{"primaryUserEmail":"<email>"}'` cria
+  (e repara) o estado que faz a home da conta mostrar os **14 kinds**: 3 ligas
+  pagas com a membership do alvo em `payment_due`, `active` com ciclo pago a
+  vencer em 2 dias e `suspended`; 3 solicitações de entrada; 6 desafios (3 com
+  ação do jogador, 2 esperando a validação da organização e 1 partida antiga
+  para o risco de inatividade); 2 torneios com inscrições (aguardando pagamento,
+  aguardando aprovação, convite enviado e recebido). O plano puro vive em
+  `convex/domains/seed/pendency-plan.ts` (testes em `domains/seed/tests/`).
+- Os 5 kinds da ORGANIZAÇÃO vêm de uma organização PRÓPRIA do seed ("Arena
+  Beira-Rio", alvo como owner), **sem conta de recebimento** (o cenário dele tem
+  conta ativa, e o cartão 10 só existe onde a conta não está ativa). No escopo do
+  jogador o cenário inteiro aparece na home dele.
+- **Cobertura da organização que o alvo JÁ usa (r2, 22-09).** O seletor do app
+  ativa a PRIMEIRA organização da lista de membros
+  (`availableActors.find(kind === "organization")`, `app/(private)/settings/index.tsx`)
+  e não oferece escolher outra: sem isto os kinds da organização só existiriam
+  numa organização que ele não consegue abrir. O seed ACRESCENTA — nunca altera —
+  dado de teste nas organizações em que o alvo é `owner`/`admin` (até 3): na liga
+  mais recente, 2 solicitações de entrada pendentes (cartão 13); no torneio mais
+  recente com inscrições abertas, 2 inscrições aguardando pagamento e 1
+  aguardando aprovação (cartões 11 e 12). O alvo do plantio é o TOTAL por status
+  no torneio, então rodada repetida não acumula (o "aguardando pagamento" pede 2
+  de propósito: o item já dispensado volta quando a contagem muda). Ficam de
+  fora: o cartão 10 (exigiria desligar a conta de recebimento real da organização
+  dele) e os desafios do cartão 14 (plantariam chave/proposta numa liga real —
+  esse par existe na organização do cenário). O perfil `player-01` do seed (mesmo
+  nome do dono da conta) fica fora das candidatas, e o par de dupla respeita o
+  gênero da categoria (IBX-0074).
+- **Idempotente e repetível**: rodar de novo não duplica (`primaryEntriesCreated`
+  e `primaryJoinRequestsCreated` voltam 0) e não faz reset; a charge do "a vencer"
+  e o `finishedAt` da partida do risco de inatividade são REFRESCADOS para o
+  cenário seguir válido dias depois. **RESSURREIÇÃO**: o item dispensado volta
+  quando `severity`, `count` ou `deadlineAt` mudam
+  (`filterDismissedPendingItems`, `domains/pendings/pendings-rules.ts`), então
+  mudar o que o item mostra ressuscita o alerta — no cartão 9, reduzir as "dias
+  sem jogar para penalidade" nos ajustes da liga (warning vira danger); nos
+  cartões 11/12, a entrada nova que muda a contagem do torneio.
 
 ## QA no simulador (20-09, sem commit)
 
 - **BUG-0047 (toast de recusa do convite, cartão 5):** o toast de sucesso da ação
   `decline_partner_invite` repetia a frase (título "Convite recusado" +
   descrição "Convite recusado."). A descrição passa a dizer o PRÓXIMO PASSO —
-  "Convite recusado, as vagas voltaram para a categoria." — no renderer único
-  (`ui/pending-alerts.tsx:120`), sem tocar em título, ids, invalidação nem nas
+  "Convite recusado, as vagas voltaram para a categoria." — no toast do caminho
+  do item (`lib/pendings/use-pending-action-runner.ts:68`), sem tocar em título, ids, invalidação nem nas
   outras copies do fluxo (o aceite segue "Convite aceito, a dupla está fechada.").
   O texto reflete o efeito do servidor: a inscrição recusada fica terminal e as
   vagas da categoria voltam a ficar livres (`respondPartnerInvite`,
-  `convex/functions/tournament/entries.ts:552-558`).
+  `convex/functions/tournament/entries.ts:553-565`).

@@ -34,7 +34,7 @@ Os dashboards por persona consomem duas queries novas de LEITURA, sem tabela nov
 O usuário marcou a lista de dashboards item por item (RUL-0033) e fechou o conteúdo de 9 superfícies: TODOS os componentes de dashboard (KPI, chart, TrendChip, card de stat, feed de resumo) saem das telas e cada item vira LINHA DE TEXTO SIMPLES (rótulo + valor, classes tipográficas já usadas no app, valor sem dado = 0, separador "·"). WidgetAlert, listas de próximos jogos, floating tabs, rodapés fixos, blocos de AÇÃO ("Suas inscrições" com ações; Saldo + Realizar Saque) e o BottomSheet de categoria CONTINUAM. **Processo:** componente de KPI e de gráfico serão definidos e aprovados UM A UM com o usuário antes de qualquer re-introdução. **(SUPERSEDE 20-09, IBX-0075 r2: o usuário ditou a composição final das 9 telas/modos e depois CORRIGIU o escopo no app — TODO bloco de número da lista dele é o `KpiCard` da galeria (a marcação `(KPI)` era exemplo do tipo, não a lista dos que viram card); o que não é número segue no componente reutilizado (`WidgetAlert`, `ScheduleCard`, `JoinFooter`) ou em texto (descrições). A composição final por tela/modo, com file:line, está na seção IBX-0075 no fim desta spec.)**
 
 - **Home jogador:** "Partidas por mês" (série mensal), "Desempenho" (`XV · YD`) e "Suas inscrições" (contagem) em `KpiCard` (IBX-0075 r2); "Próximos jogos" (lista). **Pendências/Alertas = bloco do SERVIDOR** (Etapa 2 do PLN-0008 — `pendings.list` escopo player no 1º bloco; a "nota A" desta spec está RESOLVIDA, ver a seção da Etapa 2). REMOVIDOS: RadialChart, BarChart V/D, TrendChip, LineChart de posição, PieChart, parceiro de dupla, trilha "Suas competições", vitrine "Inscrições abertas" (+ queries `listParticipating`/`listAvailable` sem consumidor na home).
-- **Home organizador:** Saldo + "Realizar Saque" (ação no `KpiCard`), "Recebido este mês", "Previsto/mês" e "Em atraso" em `KpiCard` (IBX-0075 r2); "Receita por mês" em TEXTO (série mensal + "Total da janela") **— SUPERSEDE no IBX-0078: virou o `MonthlyChartCard` aprovado, com o "Total da janela" mantido em texto**. **Pendências/Alertas = bloco do SERVIDOR** (Etapa 2 do PLN-0008 — `pendings.list` escopo organization no 1º bloco; mesma nota A resolvida). REMOVIDOS: TrendChip, "Atividade recente", "Minhas competições" (decisão anterior) e, no AJUSTE FINAL do usuário, o próprio chart de receita (widget extinto; app com ZERO charts até aprovação do componente de gráfico).
+- **Home organizador:** Saldo + "Realizar Saque" (ação no `KpiCard`), "Recebido este mês", "Previsto/mês" e "Em atraso" em `KpiCard` (IBX-0075 r2); "Receita por mês" em TEXTO (série mensal + "Total da janela") **— SUPERSEDE no IBX-0078: virou o `MonthlyChartCard` aprovado, com o "Total da janela" mantido em texto**. **Pendências/Alertas = bloco do SERVIDOR** (Etapa 2 do PLN-0008 — `pendings.list` escopo organization no 1º bloco; mesma nota A resolvida). REMOVIDOS: TrendChip, "Atividade recente", "Minhas competições" (decisão anterior) e, no AJUSTE FINAL do usuário, o próprio chart de receita (widget extinto; **SUPERSEDE 21-09: o "Total da janela" foi REMOVIDO por pedido direto no chat e o chart da receita segue no `MonthlyChartCard` — ver a seção "Remoção do bloco Total da janela"**).
 - **Torneio (casa):** organizador = **pendências do SERVIDOR** (`PendingsAlerts`, kinds 11/12 recortados pelo `tournamentId`; Etapa 2 do PLN-0008) + **"Receita do torneio", "Inscrições" e "Partidas" em `KpiCard` (IBX-0075 r2)** (`bySource` × entryIds no cliente, janela 12 meses); jogador = **pendências do SERVIDOR** das próprias entries (kinds 4 a 7, os todos na casa: 5/6/7 pelo `params.tournamentId` e o 4 com UMA inscrição pelo `source` de torneio)  (o bloco "Suas inscrições" MIGROU para a aba Inscrições no IBX-0080) + **"Próximo jogo" no `ScheduleCard` (IBX-0075)**; guest = descrição. Tabs flutuantes e rodapé fixo de inscrição (CTA → BottomSheet) restaurados. REMOVIDOS: charts de categoria/evolução, chip de ciclo, meta line, alerta de janela, bloco no corpo, EmptyState guest, "Inscritos confirmados" na casa.
 - **Liga (casa):** jogador = **pendências do SERVIDOR** (`PendingsAlerts`; Etapa 2 do PLN-0008) + **"Posição", "Partidas no mês" e "Desempenho" em `KpiCard` (IBX-0075 r2)**; organizador = **"Receita da liga", "Inscritos" (`N/limite`) e "Partidas no mês" em `KpiCard` (IBX-0075 r2)** (`bySource` × membershipIds no cliente, janela 12 meses); guest = descrição + alerta do membro suspenso (restaurado no BUG-0042, ver `docs/spec/leagues.md`; rodapé de entrada — que não monta para o suspenso desde o IBX-0084, quando o CTA `Renovar` passou para o próprio alerta). REMOVIDOS: RadialChart/BarChart/feed/CTAs do jogador; alertas, TrendChip, KPI Ocupação e AreaChart do organizador; features card do guest.
 - **Apontamentos de dado (nenhuma query nova neste corte):** pendências agregadas da home = DADO NOVO (continua; cada página tem a sua); receita por torneio/liga = resolvida no cliente via `bySource` (janela da query, 12 meses; charges de memberships cancelados ficam fora do total da liga).
@@ -87,11 +87,11 @@ O round 1 trocou só os 5 blocos que ele havia marcado com `(KPI)` literal e dei
 
 | Tela/modo | Blocos convertidos no round 2 | Call sites (file:line) |
 | --- | --- | --- |
-| Home jogador | "Suas inscrições" e o bloco "Desempenho" desdobrado em "Vitórias", "Derrotas" e "Aproveitamento" (o "Partidas por mês" deste round virou o chart card no r4 — ver seção no fim) | `pages/home/player-dashboard.tsx:71-85` |
-| Home organizador | "Saldo disponível" (botão de saque no `action`), "Recebido este mês", "Previsto/mês", "Em atraso" | `pages/home/organizer-dashboard.tsx:52-96` (KPI do saldo `:61-78`, botão `:64-72`) |
-| Torneio organizador | "Receita do torneio" | `pages/tournaments/organizer-overview.tsx:99-118` (linha do KPI) |
-| Liga jogador | "Vitórias", "Derrotas" e "Aproveitamento" | `pages/leagues/player-overview.tsx:201-220` |
-| Liga organizador | "Receita da liga", "Inscritos", "Partidas no mês" | `pages/leagues/organizer-overview.tsx:61-78` |
+| Home jogador | "Suas inscrições" e o bloco "Desempenho" desdobrado em "Vitórias", "Derrotas" e "Aproveitamento" (o "Partidas por mês" deste round virou o chart card no r4 — ver seção no fim) | `pages/home/player-dashboard.tsx:105-116` |
+| Home organizador | "Saldo disponível" (botão de saque no `action`), "Recebido este mês", "Previsto/mês", "Em atraso" | `pages/home/organizer-dashboard.tsx:78-109` (KPI do saldo `:78-93`, botão `:79-89`) |
+| Torneio organizador | "Receita do torneio" | `pages/tournaments/organizer-overview.tsx:66-70` (linha do KPI) |
+| Liga jogador | "Vitórias", "Derrotas" e "Aproveitamento" | `pages/leagues/player-overview.tsx:85-99` |
+| Liga organizador | "Receita da liga", "Inscritos", "Partidas no mês" | `pages/leagues/organizer-overview.tsx:59-80` |
 
 ### Estado final por tela/modo (ordem ditada: KpiCard x reutilizado x texto x GAP)
 
@@ -249,7 +249,7 @@ O usuário aprovou o item da galeria ("certo!"): o bloco "Partidas por mês" da 
 
 ### Varredura
 
-- Nenhuma outra tela renderiza o bloco "Partidas por mês" (grep em `src/`: só o componente, a galeria e a home citam o nome). O **"Partidas no mês"** das duas telas da LIGA (jogador `pages/leagues/player-overview.tsx:208` e organizador `pages/leagues/organizer-overview.tsx:77`) é **outro dado** (contagem do mês corrente via `buildPlayerMonthlyWinLoss`/`buildOrganizerMonthlyMatchesSeries`) — não tocado, como o card pediu.
+- Nenhuma outra tela renderiza o bloco "Partidas por mês" (grep em `src/`: só o componente, a galeria e a home citam o nome). O **"Partidas no mês"** das duas telas da LIGA (jogador `pages/leagues/player-overview.tsx:75` e organizador `pages/leagues/organizer-overview.tsx:76`) é **outro dado** (contagem do mês corrente via `buildPlayerMonthlyWinLoss`/`buildOrganizerMonthlyMatchesSeries`) — não tocado, como o card pediu.
 
 ## Galeria: item Alertas (IBX-0076 r1 — 20-09-2026, sem commit)
 
@@ -271,7 +271,7 @@ Superfície de APROVAÇÃO VISUAL do sistema de pendências/alertas (PLN-0008, c
 | Alerta 5 | REAL + composição nova | Torneio (jogador): convite de dupla recebido | título e status accent do card de convite que morava em `player-overview.tsx:119-124` (bloco EXTINTO no IBX-0080); par de ícones do molde, hoje `entries.tsx:518-551` |
 | Alerta 6 | PROPOSTA | Torneio (jogador): convite de dupla enviado | nova; o real hoje é o chip `Aguardando parceiro` (`lib/tournaments/tournament-details-derived.ts:124`) |
 | Alerta 7 | PROPOSTA | Torneio (jogador): inscrição aguardando aprovação | nova; o real hoje é o chip `Aguardando aprovação` (`:123`) |
-| Alerta 8 | REAL + CTA composto | Liga (jogador): pendências de desafio | `pages/leagues/player-overview.tsx:187-196` com o resumo `:25-71`; `Ver` do rótulo do organizador |
+| Alerta 8 | REAL + CTA composto | Liga (jogador): pendências de desafio | hoje o item é do SERVIDOR, no bloco do `PendingAlerts` da casa (`pages/leagues/player-overview.tsx:55-60`); as linhas `:187-196`/`:25-71` eram do builder extinto na Etapa 2 do PLN-0008; `Ver` do rótulo do organizador |
 | Alerta 9 | REAL | Liga (jogador): risco de inatividade | view `:170-184` sobre `lib/leagues/player-overview-derived.ts:92-143` |
 | Alerta 10 | REAL + CTA composto | Configurações da liga: conta de pagamento não conectada | `settings/leagues/[mode]/settings.tsx:363-368`; `Conectar conta` de `organization-form-fields.tsx:1088` |
 | Alerta 11 | REAL | Torneio (organizador): inscrições aguardando aprovação | `pages/tournaments/organizer-overview.tsx:66-78` (accent) |
@@ -282,7 +282,7 @@ Superfície de APROVAÇÃO VISUAL do sistema de pendências/alertas (PLN-0008, c
 
 ### Divergências e apontamentos (o que não coube no shape)
 
-- **Um CTA só:** o `WidgetAlert` aceita UMA ação (`ui/widget-alert.tsx:9-14` e `:27-35`). Onde o caso pede duas (convite de dupla), o par entrou composto abaixo do alerta com os ícones do molde real (hoje `entries.tsx:518-551`, Alerta 5; o trecho vivia em `player-overview.tsx:188-209`, extinto no IBX-0080); as solicitações da liga ficaram com CTA único `Revisar` porque a tela real já tem o par aprovar/recusar (Alerta 13). Ação dentro do alerta é composição NOVA nos cartões 4, 5, 8 e 10: hoje esses alertas não têm CTA. **SUPERSEDE (r2):** o par de botões fora do alerta foi REPROVADO pelo usuário; as ações passaram para dentro da superfície (ver seção do r2).
+- **Um CTA só:** o `WidgetAlert` aceita UMA ação (`ui/widget-alert.tsx:27-32` e `:59-60`). Onde o caso pede duas (convite de dupla), o par entrou composto abaixo do alerta com os ícones do molde real (hoje `entries.tsx:518-551`, Alerta 5; o trecho vivia em `player-overview.tsx:188-209`, extinto no IBX-0080); as solicitações da liga ficaram com CTA único `Revisar` porque a tela real já tem o par aprovar/recusar (Alerta 13). Ação dentro do alerta é composição NOVA nos cartões 4, 5, 8 e 10: hoje esses alertas não têm CTA. **SUPERSEDE (r2):** o par de botões fora do alerta foi REPROVADO pelo usuário; as ações passaram para dentro da superfície (ver seção do r2).
 - **Status pedido diferente do status real:** convite de dupla recebido (accent real, o pedido dizia warning), organizador aguardando aprovação (accent real, pedido warning), conta de pagamento (warning real, pedido danger) e mensalidade em atraso (CTA real `Pagar agora`, pedido renovar). Em todos, o cartão mostra o REAL e a nota registra a diferença: a marcação do usuário decide.
 - **`info` não existe no componente:** o vocabulário é accent/danger/default/success/warning; o pedido dizia info e os cartões 6 e 7 usam accent, com a nota explicando.
 - **Casos que não existem como alerta hoje** (cartões 6, 7, 13, 14 e 15): nascem como PROPOSTA de copy e o equivalente real de cada um está na nota (chip de status, cards da aba, badge, aviso do diálogo Iniciar).
@@ -372,7 +372,7 @@ Ajustes literais do usuário depois de ele aprovar a direção ("ta melhorando, 
 ### Trechos destacados (negrito) na descrição
 
 - **Mecanismo verificado no código, não suposto:** (a) o `better-styled` monta o className na ordem base → variantes (na ordem das chaves) → `className` do consumidor (`node_modules/better-styled/dist/index.js:1`, função interna `fH`: `p(base, variantClasses, compoundVariants, rest)`); (b) o `Text` do app declara as variantes na ordem `align, color, size, variant, weight` (`src/components/core/text.tsx:18-57`, com `weight` por último, :50); (c) o Uniwind resolve propriedade por propriedade e **o token POSTERIOR vence** quando a complexidade empata (`node_modules/uniwind/src/core/native/store.ts:158-182`: o guard de `complexity`/`important` em :162-174 e a escrita `resultGetters[property] = valueGetter` em :182). A doc do Uniwind avisa que não há dedupe de classes em conflito (`style-specificity#class-name-conflicts`), e é por isso que a parte destacada repete `color`/`variant` do texto em volta e só troca o peso.
-- **API:** `description?: ReactNode` (`widget-alert.tsx:14`) — string continua funcionando (os 8 usos vivos passam string; nada muda neles) e a galeria passa PARTES.
+- **API:** `description?: ReactNode` (`widget-alert.tsx:64`) — string continua funcionando (os 8 usos vivos passam string; nada muda neles) e a galeria passa PARTES.
 - **Na galeria:** o type `AlertDescriptionPart = { isHighlighted?, text }` (:330) e o renderizador `HighlightedDescription` (:332-351) mostram o destaque como `Text color="muted" variant="description" weight="semibold"` — mesmo tamanho e cor da descrição do alerta, só o peso muda; as partes sem destaque ficam sem wrapper e herdam o estilo da `Alert.Description`.
 - **Apontamento:** um `Text` aninhado SEM `color`/`variant` explícitos repinta a parte com as classes base do componente (`text-foreground` + `text-base`), saindo maior e na cor padrão.
 - **Cartões com destaque:** 5 (Marina Costa, Duplas Mistas, Copa Dracena 8), 6 (Gustavo Lima, Duplas Mistas, Copa Dracena 8) e 9 (o prazo, 3 dias). O texto final é o mesmo dos rounds anteriores, só dividido em partes; a categoria usa o formato real do app (`convex/domains/tournament/entry-rules.ts:29-38`).
@@ -608,7 +608,7 @@ O usuário marcou a galeria e ditou uma correção de desenho, literal: *"coloca
 
 O usuário olhou a rodada 2 e corrigiu duas coisas no MENU, literal: *"o recusar NUNCA é em primeiro; o recusar é em segundo. Então, por exemplo, ACEITAR, RECUSAR e REMOVER NOTIFICAÇÃO"* e *"o recusar também tem que seguir meio que o estilo do remover notificação, porque é uma recusa, então ele é DANGER. E o aceitar... o verde, o SUCESSO"*.
 
-- **ORDEM (supersede a rodada 2):** PRINCIPAL → SECUNDÁRIA → DESTRUTIVA (`Aprovar`, `Recusar`, `Remover notificação`). Esta é a ordem do MENU e ela é DIFERENTE, de propósito, da ordem do rodapé do ALERTA (`ui/widget-alert.tsx`), que desenha a secundária antes da principal por causa do molde do convite do torneio (`pages/tournaments/player-overview.tsx:175-196`): o alerta empilha BOTÕES (quem confirma fecha a linha, à direita), o menu é uma LISTA DE COMANDOS (o principal abre). A régua está no comentário do derivado e no do alerta — quem mexer num não deve "consertar" o outro.
+- **ORDEM (supersede a rodada 2):** PRINCIPAL → SECUNDÁRIA → DESTRUTIVA (`Aprovar`, `Recusar`, `Remover notificação`). Esta é a ordem do MENU e ela é DIFERENTE, de propósito, da ordem do rodapé do ALERTA (`ui/widget-alert.tsx`), que desenha a secundária antes da principal por causa do molde do convite do torneio (`tournaments/[tournamentId]/entries.tsx:518-551`): o alerta empilha BOTÕES (quem confirma fecha a linha, à direita), o menu é uma LISTA DE COMANDOS (o principal abre). A régua está no comentário do derivado e no do alerta — quem mexer num não deve "consertar" o outro.
 - **COR POR SEMÂNTICA, nunca pelo nome do tipo:** o item carrega um `tone` (`NotificationMenuItemTone`) que o cartão traduz para a aparência: aceitar/aprovar/confirmar (incl. o `accept: true` do convite de dupla) = `success`; recusar/recusar-cancelamento (incl. `accept: false`) e o destrutivo = `danger`; pagar/renovar e a navegação pura = neutro. O mapeamento é por `resolution.kind` (`readActionTone`, derivado), então renomear um `type` do contrato não muda a cor. **SUPERSEDE (rodada 4):** o tom `success` saiu do mapa — hoje é `danger` × `default` (ver "RODADA 4" abaixo); o resto do bullet (cor por SEMÂNTICA, via `readActionTone` sobre `resolution.kind`) segue valendo.
 - **As variants REAIS do `Menu.Item` são só duas:** `default` e `danger` (`menu.types.d.ts`: `ItemVariant = 'default' | 'danger'`; o CSS só tem `menu__item-title--variant-default` e `--variant-danger`, `menu.css:71-77`). **NÃO existe variant de sucesso** — o verde entra pelo className `text-success!` no `Menu.ItemTitle` (o token `--success` vive no tema do app, `src/global.css`), com o `!` que a doc do Uniwind manda usar quando um utilitário precisa vencer outro estilo (`style-specificity`). O perigo e o destrutivo usam a variant `danger` de verdade. **SUPERSEDE (rodada 4):** o `text-success!` e o token `--success` não são mais usados pelo cartão — o `tone` entra DIRETO como `variant` e o mapa de aparência morreu junto (ver "RODADA 4").
 - **Pagar/Renovar ficam NEUTROS** (o usuário não disse e o componente não tem tom de dinheiro): a escolha está APONTADA na galeria e no apontamento 9 abaixo — trocar é uma linha em `readActionTone`. **SUPERSEDE (rodada 4):** o neutro virou a REGRA GERAL — todo item que não é recusa nem destrutivo é `default`, e pagar/renovar segue neutro junto de aceitar/aprovar/confirmar.
@@ -817,10 +817,10 @@ Pedido do usuário no chat ("MonthlyChartCard não deveria estar dentro de Organ
 
 | | Antes | Depois |
 | --- | --- | --- |
-| Bloco do chart | `(tabs)/index.tsx:157-191`, IRMÃO do `OrganizerDashboard` dentro do `Page.ScrollView` | `pages/home/organizer-dashboard.tsx:104-120`, último bloco do `View className="gap-3"` do painel |
-| `<MonthlyChartCard>` | `(tabs)/index.tsx:164-181` | `pages/home/organizer-dashboard.tsx:105-119` |
+| Bloco do chart | `(tabs)/index.tsx:157-191`, IRMÃO do `OrganizerDashboard` dentro do `Page.ScrollView` | `pages/home/organizer-dashboard.tsx:111-133`, último bloco do `View className="gap-3"` do painel |
+| `<MonthlyChartCard>` | `(tabs)/index.tsx:164-181` | `pages/home/organizer-dashboard.tsx:117-133` |
 | "Total da janela" (rótulo + valor) | `(tabs)/index.tsx:182-189` | chegou a descer pra `pages/home/organizer-dashboard.tsx:121-128` no IBX-0081 e foi **REMOVIDO em 21-09-2026** (a pedido do usuário) |
-| Query `getRevenueSeries` | `(tabs)/index.tsx:78-83`, `{ ...staticQueryOptions({ months: 6 }), enabled: isOrganizationActor }` | `pages/home/organizer-dashboard.tsx:36-38`, `crpc.payment.dashboard.getRevenueSeries.staticQueryOptions({ months: 6 })` — sem `enabled`, no padrão das outras queries do painel, porque o painel só monta no ator organização (o gate que já existia) |
+| Query `getRevenueSeries` | `(tabs)/index.tsx:78-83`, `{ ...staticQueryOptions({ months: 6 }), enabled: isOrganizationActor }` | `pages/home/organizer-dashboard.tsx:44-46`, `crpc.payment.dashboard.getRevenueSeries.staticQueryOptions({ months: 6 })` — sem `enabled`, no padrão das outras queries do painel, porque o painel só monta no ator organização (o gate que já existia) |
 | Gate do bloco | `revenueSeriesQuery.data ? … : null`, FORA do gate do painel | mesmo `data ? … : null`, agora DENTRO do bloco que já trata loading/erro/vazio |
 
 - **Nada de dado, contrato ou copy:** mesma série (`series[].receivedCents`), mesma janela (`months: 6`), mesmo `formatDashboardMonthLabel` no eixo X, mesmo `formatCurrencyCents(cents, { whole: true })` no eixo Y (`organizer-dashboard.tsx:116`), mesmo `formatCurrencyCents` no balão (`:117`), mesmo título "Receita por mês" (`:118`) e mesma description — **zero string nova, zero texto trocado** (RUL-0039). O rótulo "Total da janela", que desceu junto neste card no IBX-0081, saiu com a remoção do bloco em 21-09-2026.
@@ -901,10 +901,10 @@ Report do usuário (literal): "quando eu faco o reload do app, ele aparece o loa
 ### A causa real (achada pelo USUÁRIO, 21-09-2026, direto no chat)
 
 - **Palavras dele, literais:** "o erro do loading a mais, eu descobri onde que era. Era no pending alerts. Porque la tem a propria loading. Eu coloquei agora como null. Da uma conferida. Entao tudo que voce fez, da uma revisada pra ver se realmente precisa ser feito. E esse animation aí disable, cara, pelo amor de Deus, tira isso."
-- **Fato no código:** a home tem **TRÊS cargas** — (1) o ATOR (`viewer.context.get`), (2) o painel do papel (`dashboardQuery` / `playerOverviewQuery`) e (3) as **pendências de BLOCO** (`pendings.list`, query montada DENTRO do painel). Até esta rodada o `PendingAlerts` desenhava o **PRÓPRIO `<LoadingState />`** enquanto `isLoading` (`pending-alerts.tsx:61-63` no HEAD: `if (props.isLoading) { return <LoadingState />; }`, import em `:7`), e **os SEIS call sites** passam `isLoading` do estado da própria query de pendências (`pages/home/organizer-dashboard.tsx:52-55`, `pages/home/player-dashboard.tsx:63-66`, `pages/leagues/guest-overview.tsx:32-35`, `pages/leagues/player-overview.tsx:63-66`, `pages/tournaments/organizer-overview.tsx:63-66`, `pages/tournaments/player-overview.tsx:93-96`). **Era ESSE o desenho que aparecia DEPOIS de o painel já estar em tela** — o terceiro loading, não a espera do ator nem a do painel.
+- **Fato no código:** a home tem **TRÊS cargas** — (1) o ATOR (`viewer.context.get`), (2) o painel do papel (`dashboardQuery` / `playerOverviewQuery`) e (3) as **pendências de BLOCO** (`pendings.list`, query montada DENTRO do painel). Até esta rodada o `PendingAlerts` desenhava o **PRÓPRIO `<LoadingState />`** enquanto `isLoading` (`pending-alerts.tsx` no WIP do usuário: `if (props.isLoading) { return <LoadingState />; }` — hoje o arquivo devolve `null` em `:37`), e **os SEIS call sites** passam `isLoading` do estado da própria query de pendências (`pages/home/organizer-dashboard.tsx:59`, `pages/home/player-dashboard.tsx:76`, `pages/leagues/guest-overview.tsx:37`, `pages/leagues/player-overview.tsx:57`, `pages/tournaments/organizer-overview.tsx:56`, `pages/tournaments/player-overview.tsx:95`). **Era ESSE o desenho que aparecia DEPOIS de o painel já estar em tela** — o terceiro loading, não a espera do ator nem a do painel.
 - **Decisão do usuário (21-09-2026, direta no chat), já no disco:** `isLoading` devolve **`null`** NAQUELE componente (`pending-alerts.tsx:60-62`), com o import de `LoadingState` removido (o `ErrorMessage` passou a ser o import de topo, `:6`); o **estado de ERRO fica intacto** — `props.isError` segue renderizando o `ErrorMessage` ("Não foi possível carregar suas pendências.", `:64-68`). O arquivo é **WIP do usuário** (md5 `9addd6624c1fd655cf40dddcf75e1d7b`; snapshot em `/tmp/BUG-0057-wip-usuario-pending-alerts-20260921-1005.tsx`) — ninguém mais edita. Efeito: as seis telas que usam o renderer (ele é COMPARTILHADO, não é só a home) deixam de mostrar spinner de pendências; o bloco aparece quando o dado chega. **O prop `isLoading` NÃO é código morto e não deve ser removido:** nos SEIS call sites ele segue sendo o CONTRATO do renderer (o par do `isError`, alimentado pelo estado de pendências de cada tela — `pendingsQuery.isPending` nas duas homes e `bucket$.identity.pendingsStatus === "loading"` nos quatro overviews) e é ele que declara "esta tela ainda não tem o dado de pendências"; apagar o prop é mudança de contrato nas seis telas, não limpeza (a decisão do usuário foi `isLoading -> null`, não matar o prop).
 - **O fix do fade do spinner foi DESCARTADO e REVERTIDO.** A rodada anterior tinha aplicado `<Spinner animation="disabled" />` + docblock em `src/components/ui/loading-state.tsx`; o usuário mandou tirar ("E esse animation aí disable, cara, pelo amor de Deus, tira isso"), porque a causa era outra. O arquivo voltou ao HEAD **byte a byte**: `git diff -- src/components/ui/loading-state.tsx` VAZIO e md5 do working tree = md5 de `git show HEAD:src/components/ui/loading-state.tsx` = `23e632548f574355ffc8e4a095f2b893`. O `LoadingState` é de novo `<Spinner />` sem docblock. **Nenhum outro arquivo foi cortado sob o BUG-0057:** `grep -rn "BUG-0057"` no repo aponta só para esta spec.
-- **Limpeza do resíduo APLICADA (mesma leva):** `ui/pending-alerts.test.tsx` **não tem caso de `isLoading`** (nenhuma asserção sobre o ramo — os cinco casos são wiring dos botões/navegação), então **nada mudou nele por comportamento**; só o `mock.module("@/components/ui/loading-state", …)` ficou SEM uso depois da remoção do import e foi DELETADO (3 linhas, era `:63-65`), com o comentário do `afterAll` corrigido de "seis" para **"cinco"** módulos que não voltam (`:203`). Os oito stubs que ficam continuam consumidos: `react-native`/`better-styled`/`widget-alert`/`error-state`/`crpc` pelo renderer e `react-query`/`expo-router`/`heroui-native` pelo runner (`useMutation`+`useQueryClient`, `useRouter`, `useToast` em `lib/pendings/use-pending-action-runner.ts:1-3`).
+- **Limpeza do resíduo APLICADA (mesma leva):** `ui/pending-alerts.test.tsx` **não tem caso de `isLoading`** (nenhuma asserção sobre o ramo — os casos são wiring dos botões/navegação), então **nada mudou nele por comportamento**; só o `mock.module("@/components/ui/loading-state", …)` ficou SEM uso depois da remoção do import e foi DELETADO (3 linhas, era `:63-65`), com o comentário do `afterAll` corrigido de "seis" para **"cinco"** módulos que não voltam (`:203`). Os oito stubs que ficam continuam consumidos: `react-native`/`better-styled`/`widget-alert`/`error-state`/`crpc` pelo renderer e `react-query`/`expo-router`/`heroui-native` pelo runner (`useMutation`+`useQueryClient`, `useRouter`, `useToast` em `lib/pendings/use-pending-action-runner.ts:1-3`).
 
 ### O diagnóstico que NÃO era a causa (fica como fato estrutural, sem mudança de comportamento)
 
@@ -923,5 +923,135 @@ Decisão do usuário nesta rodada (bloco removido a pedido dele, 21-09-2026, dec
 - **O que saiu:** o `View className="gap-1"` com o par de `Text` (rótulo **"Total da janela"** + `formatCurrencyCents(revenueSeriesQuery.data.totalCents)`), que era o ÚLTIMO filho do `View className="gap-3"` do `OrganizerDashboard` — antes da remoção ele vivia em `pages/home/organizer-dashboard.tsx:121-128` (faixa lida no arquivo); o arquivo passou de 133 para 123 linhas (`wc -l`; o mesmo delta de -10 em qualquer contagem).
 - **O que ficou, byte a byte:** o `<MonthlyChartCard>` do bloco do chart (`:104-120`, card `:105-119`) — mesma série (`series[].receivedCents`), mesmo `formatDashboardMonthLabel` no eixo X, mesmo `formatCurrencyCents(cents, { whole: true })` no eixo Y (`:116`), mesmo `formatCurrencyCents` no balão (`:117`), mesmo título "Receita por mês" (`:118`) e mesma description. O fragmento `<>…</>` saiu junto, porque sobrou UM filho (o cartão) — sem wrapper à toa.
 - **Cutover limpo (RUL-0005):** o import `{ Text }` de `@/components/core/text` SAIU (o par de `Text` do total era o único uso do arquivo — conferido com `grep`); `formatCurrencyCents` FICOU (eixo do gráfico, balão e os KPIs "Recebido este mês"/"Previsto/mês"); `revenueSeriesQuery` FICOU (alimenta `series` no chart).
-- **Campo APONTADO como morto no app:** o `totalCents` de TOPO do `getRevenueSeries` deixou de ser lido por qualquer arquivo de `src/` (os outros dois leitores de `totalCents` são `bySource[].totalCents`, outro campo, em `pages/leagues/organizer-overview.tsx:50` e `pages/tournaments/organizer-overview.tsx:52`). O campo segue no contrato: o `totalCents` da SÉRIE é o `dashboardRevenueSeriesSchema.totalCents` (`convex/domains/payment/contract.ts:311` — o `:305` é o `totalCents` de `dashboardRevenueSourceSchema`, o `bySource`, OUTRO campo), é calculado em `convex/domains/payment/dashboard-rules.ts:113` e tem teste de backend (`convex/domains/payment/tests/dashboard-rules.test.ts:104`) — tirar é mudança de contrato/backend e precisa da palavra do usuário.
+- **Campo APONTADO como morto no app:** o `totalCents` de TOPO do `getRevenueSeries` deixou de ser lido por qualquer arquivo de `src/` (os outros dois leitores de `totalCents` são `bySource[].totalCents`, outro campo, em `pages/leagues/organizer-overview.tsx:47` e `pages/tournaments/organizer-overview.tsx:43`). O campo segue no contrato: o `totalCents` da SÉRIE é o `dashboardRevenueSeriesSchema.totalCents` (`convex/domains/payment/contract.ts:311` — o `:305` é o `totalCents` de `dashboardRevenueSourceSchema`, o `bySource`, OUTRO campo), é calculado em `convex/domains/payment/dashboard-rules.ts:113` e tem teste de backend (`convex/domains/payment/tests/dashboard-rules.test.ts:104`) — tirar é mudança de contrato/backend e precisa da palavra do usuário.
 - **Gates:** `bun run check` EXIT 0, `bun run test` 1278 pass / 0 fail, `git diff --check` limpo. Arquivos: `src/components/pages/home/organizer-dashboard.tsx` + esta spec. SEM COMMIT.
+
+## Esqueleto no valor de todos os KPIs (IBX-0087 · 21-09-2026, sem commit)
+
+O usuário viu KPI **sem esqueleto no lugar do valor** enquanto carregava. A prop
+`isLoading` do `KpiCard` já existia (`src/components/ui/kpi-card.tsx:23`; o valor
+vira `Skeleton className="h-6 w-28 rounded-xl"`, `:64-65`) e era usada **só** no
+saldo da home da organização (`pages/home/organizer-dashboard.tsx:78-93`) — o buraco
+estava nos call sites que não passavam a prop. Esta rodada liga a prop em TODO KPI
+cujo número tem carga própria, e nada mais: layout, padding, rótulo, valor,
+`tint`, `action`, textos e o componente em si ficaram intocados (nenhum
+`className` extraído, RUL-0026).
+
+**SUPERSEDE o bullet do IBX-0075 r2** ("`KpiCard` entra só com `label` + `value`
+(e `isLoading` no saldo)"): agora todo KPI com carga própria entra com `isLoading`.
+
+### Call sites com a prop ligada (de onde vem o valor → condição)
+
+| KPI | Arquivo:linha | Dono do valor | `isLoading` |
+| --- | --- | --- | --- |
+| Receita da liga | `pages/leagues/organizer-overview.tsx:59` | `getRevenueSeries` do próprio painel (`:39`) cruzada com `membershipIds` (de `membershipOverview`) | `revenueSeriesQuery.isPending \|\| membershipOverviewLoading` |
+| Inscritos | `pages/leagues/organizer-overview.tsx:64` | `membershipOverview` do bucket (`league.membership.getOverview`, hidratada pelo `_layout` do cluster) | `membershipOverviewLoading` |
+| Partidas no mês | `pages/leagues/organizer-overview.tsx:76` | `challenges` do bucket (`league.challenges.listForLeague`) | `challengesLoading` |
+| Posição | `pages/leagues/player-overview.tsx:66` | `rankingItems`/`viewerPosition` (derivadas de `membershipOverview`) | `membershipOverviewLoading` |
+| Partidas no mês | `pages/leagues/player-overview.tsx:75` | `challenges` do bucket | `challengesLoading` |
+| Vitórias / Derrotas / Aproveitamento | `pages/leagues/player-overview.tsx:85`, `:90`, `:95` | `buildPlayerWinRate`/`buildPlayerMonthlyWinLoss` sobre `challenges` | `challengesLoading` |
+| Receita do torneio | `pages/tournaments/organizer-overview.tsx:66` | `getRevenueSeries` do próprio painel (`:34`) cruzada com `entryIds` (de `entries`) | `revenueSeriesQuery.isPending \|\| entriesLoading` |
+| Inscrições | `pages/tournaments/organizer-overview.tsx:71` | `entries` do bucket (`entries.listForTournament`) | `entriesLoading` |
+| Partidas | `pages/tournaments/organizer-overview.tsx:80` | `entries` (lados) **e** `matches` do bucket | `entriesLoading \|\| matchesLoading` |
+
+A **receita espera as DUAS cargas**: o valor sai do cruzamento de `bySource` com
+os ids da outra query (`membershipIds`/`entryIds`), então o `isLoading` dos dois
+KPIs de receita é `isPending` **ou** o flag da outra fonte (com `isPending`
+sozinho o esqueleto podia sumir antes de os ids chegarem).
+
+### Call sites SEM a prop (o dado já chega resolvido — nada inventado)
+
+- **Home do organizador** — "Recebido este mês" (`organizer-dashboard.tsx:96`),
+  "Previsto/mês" (`:100`) e "Em atraso" (`:106`) saem de `props.data`
+  (`payment.dashboard.getOverview`), que a ROTA espera antes de montar o painel
+  (`(tabs)/index.tsx:186-194`: erro → `ErrorState`, dado → painel, senão
+  `LoadingState`). O saldo (`:90`) já tinha a prop.
+- **Home do jogador** — "Vitórias" (`player-dashboard.tsx:105`), "Derrotas"
+  (`:106`), "Aproveitamento" (`:107`) e "Suas inscrições" (`:113`) vêm de
+  `props.data` (`player.dashboard.getOverview`), resolvido na rota pelo mesmo
+  gate (`(tabs)/index.tsx:196-204`, IBX-0083).
+- **Casa do torneio (jogador)** — `pages/tournaments/player-overview.tsx` não tem
+  `KpiCard` (só `PendingAlerts` + `ScheduleCard`).
+- **Galeria dev** — `settings/components/[component].tsx:74-102` são variantes
+  estáticas (props fixas, nenhuma query): não existe estado de carga ali.
+
+### O estado que faltava nos KPIs de bucket
+
+As casas da liga e do torneio leem o número pelo bucket, e o bucket só tinha
+status de **pendências** — a query de bloco vive no `_layout` do cluster, então o
+`KpiCard` não tinha como saber que ela estava em voo. Cada layout passou a
+alimentar dois flags por casa: `identity.challengesLoading` /
+`identity.membershipOverviewLoading` (liga) e `identity.entriesLoading` /
+`identity.matchesLoading` (torneio). A escrita é **POR FLAG**: liga com gate +
+`isPending` (`leagues/[leagueId]/_layout.tsx:129-136` e `:145-148`); torneio em
+`tournaments/[tournamentId]/_layout.tsx:143-146` (matches, com o gate
+`shouldFetchMatches`) e `:138` (entries, SEM gate, porque a query nunca é
+desabilitada). Query desabilitada não pode fixar o flag em `true` (seria
+esqueleto eterno nos KPIs). O `reset()` do bucket
+zera os flags — flag preso em `true` depois do reset é o mesmo defeito —, e isso
+está coberto nos testes de reset dos dois stores.
+
+### Gates desta rodada
+
+- `git diff --check` limpo; `bun run check` EXIT 0; `bun run test` **1284 pass / 0
+  fail** em 103 arquivos. Sem device, sem Metro e sem OTA (RUL-0032). Arquivos:
+  `src/lib/leagues/league-details-store.ts`, `src/lib/tournaments/tournament-details-store.ts`,
+  os dois `_layout.tsx` dos clusters, os três `*-overview.tsx` com KPI, os dois
+  testes de store e esta spec (mais as notas em `leagues.md` e `tournaments.md`).
+  SEM COMMIT.
+
+## Esconder na home — dispensa por superfície (IBX-0085 · 21-09-2026, sem commit)
+
+Corte do Frontend sobre o contrato já publicado no DEV (tabela, mutation e o
+parâmetro `surface` da leitura; a regra é de `docs/spec/pendings.md`, não
+repetida aqui). O gesto de esconder existe SÓ na home — a casa continua sem ele.
+
+- **As duas homes leem a superfície `home`:** `pages/home/organizer-dashboard.tsx:38-43`
+  (escopo organization) e `pages/home/player-dashboard.tsx:44-49` (escopo player)
+  passam `surface: "home"` na `pendings.list`. As casas (layouts de liga e
+  torneio) seguem SEM o parâmetro, ou seja, lendo a casa — que nunca esconde.
+- **A ação revelada deixou de ser só pintura.** `PendingAlerts` ganhou a prop
+  OPT-IN `dismissSurface` (`ui/pending-alerts.tsx:21`) e repassa por item um
+  `dismissAction` ao `WidgetAlert` (`:68-79`), que liga o toque do
+  `PressableFeedback` da ação revelada (`ui/widget-alert.tsx:158-170`; o `onPress`
+  está em `:161`). A prop é aditiva: AUSENTE = nenhum handler, ação revelada como
+  sempre foi. Os dois
+  painéis são os ÚNICOS call sites que passam `dismissSurface="home"`
+  (`organizer-dashboard.tsx:57`, `player-dashboard.tsx:74`); as quatro overviews
+  das casas não passam.
+- **A dispensa executa pelo runner compartilhado, sem caminho paralelo:**
+  `dismissPendingItem` (`lib/pendings/use-pending-action-runner.ts:287-306`)
+  chama `pendings.dismiss` com `{ itemId, surface }` (o ator vem da sessão, no
+  servidor) e, no SUCESSO, invalida `pendings.list` pelo `queryFilter()` do CRPC
+  — o MESMO padrão de invalidação que o runner já usava. Não é otimista de
+  propósito: quem tira o item da tela é a RELEITURA, então falha não faz alerta
+  sumir — vira toast (`"Falha ao esconder"`, `getToastErrorMessage`) e o item
+  fica onde está. O botão desabilita pela mutation em voo.
+- **Nada de visual novo:** rótulo "Esconder", ícone, `size-4`/`size="sm"` e todo
+  o desenho da ação revelada intactos (WIP do usuário no `widget-alert.tsx`:
+  md5 de entrada `62808186b82f39a3810d5ffb05aee6ec` → saída
+  `ad086def6f1efc18fd8650b68ec5f7da`), e o corte do swipe (só nos dois
+  dashboards, via `isSwipeEnabled`) segue igual.
+- **O item dispensado anima ao SAIR (IBX-0089 r5 · 22-09-2026):** com
+  `dismissSurface` o item vai num `Animated.View` com
+  `exiting={FadeOut.duration(180)}` e `layout={LinearTransition}`: o cartão
+  desbota e os de baixo sobem pela animação de layout, sem animação de altura na
+  linha. Sem a prop a casa não anima; quem tira o item é a RELEITURA e a falha
+  não esconde o cartão.
+- **O reflow hoje (IBX-0089 r5 · 22-09-2026):** cada home tem UM wrapper animado
+  por grupo, com `layout={LinearTransition}` —
+  `pages/home/organizer-dashboard.tsx:72-134` (bloco de número + chart) e
+  `pages/home/player-dashboard.tsx:89-166`, mais a raiz do painel do jogador
+  (`:67-167`); o item dispensado é o ÚNICO elemento com
+  `exiting={FadeOut.duration(180)}` (`ui/pending-alerts.tsx:96-102`). Assim a
+  altura que muda no bloco de cima (item saindo, lista chegando do servidor,
+  item ressuscitando) move KPIs e charts na mesma cadência, sem salto. São
+  `Animated.View` do próprio repo: nenhum componente animado novo e nenhum
+  worklet.
+- **Teste do wiring:** `ui/pending-alerts.test.tsx` (10 testes) prova que o gesto,
+  com `dismissSurface`, manda `{ itemId, surface: "home" }` (`:295-302`), que SEM
+  a prop o item não tem `dismissAction` (`:304-308`) e que `exiting`/`layout`
+  existem só no caminho opt-in (`:312-323`). O arquivo NÃO cobre swipe/settle.
+- **Gates:** `git diff --check` limpo; `bun run check` EXIT 0; `bun run test`
+  **1306 pass / 0 fail** em 105 arquivos. Sem device, sem Metro e sem OTA
+  (RUL-0025/0032) — a prova visual do gesto é do usuário. SEM COMMIT.
