@@ -1,12 +1,15 @@
+import { and, eq, inArray } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 
 import { dismissPendingItemSchema } from "../../domains/pendings/contract";
 import {
   buildPendingDismissalSnapshot,
   resolvePendingItemScope,
+  selectDeadPendingDismissals,
 } from "../../domains/pendings/pendings-rules";
 import {
-  collectPendings,
+  derivePendings,
+  findPendingDismissals,
   resolvePendingsActor,
   toPendingActorRef,
 } from "../../domains/pendings/registry";
@@ -33,13 +36,13 @@ export const dismiss = authMutation
       });
     }
 
-    const current = await collectPendings({
+    const derivation = await derivePendings({
       actor,
       ctx,
       nowMs: Date.now(),
       scope,
     });
-    const item = current.items.find(
+    const item = derivation.items.find(
       (candidate) => candidate.id === input.itemId
     );
 
@@ -73,4 +76,32 @@ export const dismiss = authMutation
           pendingDismissal.itemId,
         ],
       });
+
+    const receipts = await findPendingDismissals({
+      actor,
+      ctx,
+      surface: input.surface,
+    });
+    const dead = selectDeadPendingDismissals({
+      actor: owner,
+      items: derivation.items,
+      receipts,
+      surface: input.surface,
+    });
+
+    if (dead.length === 0) {
+      return;
+    }
+
+    await ctx.orm.delete(pendingDismissal).where(
+      and(
+        eq(pendingDismissal.actorKind, owner.kind),
+        eq(pendingDismissal.actorId, owner.id),
+        eq(pendingDismissal.surface, input.surface),
+        inArray(
+          pendingDismissal.itemId,
+          dead.map((receipt) => receipt.itemId)
+        )
+      )!
+    );
   });

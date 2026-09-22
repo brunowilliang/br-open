@@ -166,21 +166,27 @@ export function resolvePendingItemScope(itemId: string): PendingScope | null {
 }
 
 /**
- * Esconde o que foi dispensado NAQUELA superficie: recibo de outro ator nao
- * vale e a casa nunca esconde. Recibo MORTO (o item piorou desde a dispensa)
- * fica de fora e o item VOLTA para a tela.
+ * Classificacao UNICA dos recibos do ator naquela superficie, servindo as duas
+ * pontas: `hiddenIds` e o que a LEITURA esconde (recibo vivo = item intacto nos
+ * tres campos do snapshot, caso unico contando 1; roda antes do corte) e `dead`
+ * e o que ela ja ignora — item fora da derivacao ou snapshot que nao casa — e a
+ * poda do dismiss pode apagar. Recibo de outro ator/superficie nao entra em
+ * nenhum dos dois, e a casa nunca esconde.
  */
-function filterDismissedPendingItems(input: {
+function classifyPendingDismissals(input: {
   actor: PendingsActorRef;
-  items: PendingItem[];
+  items: readonly PendingItem[];
   receipts: readonly PendingDismissalReceipt[];
   surface: PendingSurface;
-}) {
-  if (input.surface === "house" || input.receipts.length === 0) {
-    return input.items;
+}): { dead: PendingDismissalReceipt[]; hiddenIds: Set<string> } {
+  const dead: PendingDismissalReceipt[] = [];
+  const hiddenIds = new Set<string>();
+
+  if (input.surface === "house") {
+    return { dead, hiddenIds };
   }
 
-  const receiptByItemId = new Map<string, PendingDismissalReceipt>();
+  const itemById = new Map(input.items.map((item) => [item.id, item]));
 
   for (const receipt of input.receipts) {
     if (
@@ -191,28 +197,47 @@ function filterDismissedPendingItems(input: {
       continue;
     }
 
-    receiptByItemId.set(receipt.itemId, receipt);
+    const item = itemById.get(receipt.itemId);
+    const isAlive =
+      item !== undefined &&
+      receipt.severity === item.severity &&
+      (receipt.count ?? 1) === (item.count ?? 1) &&
+      receipt.deadlineAt === item.deadlineAt;
+
+    if (isAlive) {
+      hiddenIds.add(receipt.itemId);
+    } else {
+      dead.push(receipt);
+    }
   }
 
-  if (receiptByItemId.size === 0) {
+  return { dead, hiddenIds };
+}
+
+function filterDismissedPendingItems(input: {
+  actor: PendingsActorRef;
+  items: PendingItem[];
+  receipts: readonly PendingDismissalReceipt[];
+  surface: PendingSurface;
+}) {
+  if (input.surface === "house" || input.receipts.length === 0) {
     return input.items;
   }
 
-  return input.items.filter((item) => {
-    const receipt = receiptByItemId.get(item.id);
+  const { hiddenIds } = classifyPendingDismissals(input);
 
-    if (!receipt) {
-      return true;
-    }
+  return hiddenIds.size === 0
+    ? input.items
+    : input.items.filter((item) => !hiddenIds.has(item.id));
+}
 
-    // Caso unico conta 1 (`count` nulo); qualquer diferenca no triplete mata o
-    // recibo — o recibo so segura o item INTACTO.
-    return (
-      receipt.severity !== item.severity ||
-      (receipt.count ?? 1) !== (item.count ?? 1) ||
-      receipt.deadlineAt !== item.deadlineAt
-    );
-  });
+export function selectDeadPendingDismissals(input: {
+  actor: PendingsActorRef;
+  items: readonly PendingItem[];
+  receipts: readonly PendingDismissalReceipt[];
+  surface: PendingSurface;
+}): PendingDismissalReceipt[] {
+  return classifyPendingDismissals(input).dead;
 }
 
 /**

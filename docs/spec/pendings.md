@@ -156,6 +156,23 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
   recibos do ator e da superfície (índice `actor_surface_item`, cap
   `PENDING_DISMISSAL_SCAN_LIMIT = 200`, ordem por `itemId`) e nem toca a tabela
   quando a superfície é a casa.
+- **Poda no write-path do dismiss (BUG-0062).** Depois de gravar o recibo, a
+  `pendings.dismiss` apaga os recibos **mortos daquele ator + superfície**
+  (`selectDeadPendingDismissals`, `pendings-rules.ts`): item fora da **derivação**
+  ou snapshot que não casa mais. A comparação roda sobre a derivação COMPLETA
+  (`derivePendings`, o mesmo array que a leitura recebe ANTES de
+  `buildPendingsResult` filtrar/ordenar/cortar) — nunca sobre a lista cortada em
+  20, senão a poda enxerga um universo menor que a leitura e mata recibo vivo de
+  item que a ordenação jogou para fora do cap. A classificação é a mesma das duas
+  pontas (`classifyPendingDismissals`), então a poda não muda nada do que a tela
+  mostra. Recibo vivo (inclusive o que a própria mutation acabou de regravar)
+  nunca entra, e o `delete` pina `actorKind`/`actorId`/`surface` no `where`, nunca
+  tocando recibo alheio. Efeito: a tabela passa a guardar só recibo vivo por ator,
+  então o corte de 200 da leitura deixa de ser alcançável na prática.
+- **Item dispensável = item da derivação (não da lista cortada).** O `itemId` é
+  resolvido na derivação completa: item que existe na derivação mas caiu fora dos
+  20 é dispensável como qualquer outro (antes devolvia `NOT_FOUND`, porque a
+  mutation tratava a lista cortada como se fosse a derivação).
 - **Migration:** `20260921_191850_add_pending_dismissal` — a tabela nasce vazia,
   então não há dado a backfillar; o registro existe para o journal do DEV/PROD
   acompanhar a mudança de schema (aplicada no DEV em 21-09).
@@ -264,7 +281,7 @@ linha fica de fora depende da ordem interna do índice.
 | Torneios da organização lidos / varridos por inscrição | 50 / 20 (mais recentes) | 11 e 12 |
 | Categorias por torneio / inscrições por categoria | 10 / 300 | 11 e 12 |
 | Itens devolvidos (`PENDING_ITEM_CAP`) | 20 | `truncated` |
-| Recibos de dispensa por ator/superfície (`PENDING_DISMISSAL_SCAN_LIMIT`) | 200 | não emite `saturation`: é estado do próprio ator (e a casa nem lê) |
+| Recibos de dispensa por ator/superfície (`PENDING_DISMISSAL_SCAN_LIMIT`) | 200 | não emite `saturation`: é estado do próprio ator (e a casa nem lê). A poda do dismiss compara com a derivação COMPLETA e mantém a tabela só com recibo vivo, então na prática o corte não é alcançável (os vivos são no máximo os itens distintos que aquele ator vê) |
 
 **Leitura da tabela:** o cap da terceira coluna é onde a varredura para; quando
 ela ENCHE, o kind da quarta coluna aparece em `saturation` — ou seja, o número
@@ -446,6 +463,18 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   esse par existe na organização do cenário). O perfil `player-01` do seed (mesmo
   nome do dono da conta) fica fora das candidatas, e o par de dupla respeita o
   gênero da categoria (IBX-0074).
+- **Direção do ranking no DEV (22-09).** O alvo entra como CHALLENGER na **pior
+  posição** do grupo e os adversários ACIMA dele — a regra da liga exige
+  `challengerPosition > challengedPosition` (`domains/league/challenge-rules.ts`).
+  `ensureMembership` não regrava linha existente, então a posição CONVERGE pela
+  rodada seguinte (`refreshSeedMembershipRankingPosition`): o plantio antigo
+  (invertido, no DEV) foi convertido em 22-09 — na "SEED · Copa do Vale" o alvo
+  ficou em `pos=4` com os adversários em 1..3 e os 4 desafios dele todos com o
+  challenger abaixo. Desafio criado por plantio antigo com os lados trocados
+  NÃO é removido (o dedup é por challenger+challenged+status, `ensureSeedChallenge`):
+  a rodada acrescenta o par correto ao lado do antigo. No DEV os 2 pares antigos
+  do cenário foram removidos em 22-09 (nada além deles foi tocado) e a rodada
+  seguinte não os recria.
 - **Idempotente e repetível**: rodar de novo não duplica (`primaryEntriesCreated`
   e `primaryJoinRequestsCreated` voltam 0) e não faz reset; a charge do "a vencer"
   e o `finishedAt` da partida do risco de inatividade são REFRESCADOS para o

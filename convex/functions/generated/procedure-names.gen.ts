@@ -128,7 +128,7 @@ export const procedureNames = {
     { column: 3, line: 493, name: "payment/withdraw:upsertBalanceCache" },
   ],
   "pendings/dismiss.ts": [
-    { column: 3, line: 24, name: "pendings/dismiss:dismiss" },
+    { column: 3, line: 27, name: "pendings/dismiss:dismiss" },
   ],
   "pendings/list.ts": [
     { column: 3, line: 42, name: "pendings/list:list" },

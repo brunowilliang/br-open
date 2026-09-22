@@ -949,20 +949,18 @@ export async function findPendingDismissals(input: {
 }
 
 /**
- * Fecho da query: roda os derivadores do escopo pedido, confere que cada item
+ * Derivacao CRUA do escopo pedido: roda os derivadores, confere que cada item
  * saiu no escopo em que o kind foi registrado (fio errado vira erro, nunca
- * pendencia no escopo errado) e devolve escondendo/ordenando/cortando/contando.
+ * pendencia no escopo errado) e devolve o array SEM filtro de dispensa e SEM
+ * corte. E a base da leitura (`collectPendings` corta em cima dela) e da poda do
+ * write-path — as duas pontas tem de olhar o MESMO universo.
  */
-export async function collectPendings(input: {
+export async function derivePendings(input: {
   actor: PendingsActor;
   ctx: PendingsReadCtx;
-  dismissals?: {
-    receipts: readonly PendingDismissalReceipt[];
-    surface: PendingSurface;
-  };
   nowMs: number;
   scope: PendingScope;
-}): Promise<PendingsListResult> {
+}): Promise<PendingsDerivation> {
   const derivations = await Promise.all(
     PENDING_DERIVERS[input.scope].map((deriver) =>
       deriver.derive(input.ctx, input.actor, input.nowMs)
@@ -978,12 +976,34 @@ export async function collectPendings(input: {
     }
   }
 
+  return {
+    items,
+    saturations: derivations.flatMap((derivation) => derivation.saturations),
+  };
+}
+
+/**
+ * Fecho da leitura: deriva e devolve escondendo o dispensado, ordenando,
+ * cortando no cap e contando o que sobrou.
+ */
+export async function collectPendings(input: {
+  actor: PendingsActor;
+  ctx: PendingsReadCtx;
+  dismissals?: {
+    receipts: readonly PendingDismissalReceipt[];
+    surface: PendingSurface;
+  };
+  nowMs: number;
+  scope: PendingScope;
+}): Promise<PendingsListResult> {
+  const derivation = await derivePendings(input);
+
   return buildPendingsResult({
     dismissals: input.dismissals
       ? { ...input.dismissals, actor: toPendingActorRef(input.actor) }
       : undefined,
-    items,
-    saturation: derivations.flatMap((derivation) => derivation.saturations),
+    items: derivation.items,
+    saturation: derivation.saturations,
     scope: input.scope,
   });
 }

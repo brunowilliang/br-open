@@ -13,6 +13,7 @@ import {
   type PendingsActorRef,
   type PendingDismissalReceipt,
   resolvePendingItemScope,
+  selectDeadPendingDismissals,
 } from "../pendings-rules";
 import { toPendingActorRef } from "../registry";
 
@@ -252,5 +253,206 @@ describe("pendings: identidade do recibo de dispensa", () => {
     ]) {
       expect(resolvePendingItemScope(itemId)).toBeNull();
     }
+  });
+});
+
+describe("pendings: poda dos recibos mortos no write-path (BUG-0062)", () => {
+  it("item que saiu da derivacao deixa o recibo morto e o vivo intacto", () => {
+    const gone = makeItem({ id: "item-saiu" });
+    const kept = makeItem({ id: "item-fica" });
+    const receipts = [makeReceipt({ item: gone }), makeReceipt({ item: kept })];
+
+    const dead = selectDeadPendingDismissals({
+      actor: PLAYER,
+      items: [kept],
+      receipts,
+      surface: "home",
+    });
+
+    expect(dead.map((receipt) => receipt.itemId)).toEqual(["item-saiu"]);
+    // Recibo vivo nunca entra na poda: o item "item-fica" segue escondido.
+    expect(
+      result({ items: [kept], receipts: receipts.slice(1) }).items
+    ).toEqual([]);
+  });
+
+  it("item que PIOROU deixa o recibo morto nos tres campos do snapshot", () => {
+    const baseline = makeItem({ id: "item-a" });
+    const receipt = makeReceipt({ item: baseline });
+    const worse = [
+      makeItem({ id: "item-a", severity: "danger" }),
+      makeItem({ count: 3, id: "item-a" }),
+      makeItem({ deadlineAt: 1_700_000_000_000, id: "item-a" }),
+    ];
+
+    for (const item of worse) {
+      expect(
+        selectDeadPendingDismissals({
+          actor: PLAYER,
+          items: [item],
+          receipts: [receipt],
+          surface: "home",
+        })
+      ).toEqual([receipt]);
+    }
+
+    // Intacto (mesmo caso unico, com ou sem o `count` nulo) segue VIVO: e o que
+    // garante a idempotencia do dismiss, que regrava o recibo do item atual.
+    expect(
+      selectDeadPendingDismissals({
+        actor: PLAYER,
+        items: [baseline, makeItem({ count: 1, id: "item-a" })],
+        receipts: [receipt],
+        surface: "home",
+      })
+    ).toEqual([]);
+  });
+
+  it("a poda e do ator + superficie: recibo alheio nunca e selecionado", () => {
+    const item = makeItem({ id: "item-a" });
+    const mine = makeReceipt({ item });
+    const otherActor = makeReceipt({ actor: ORGANIZATION, item });
+    const otherSurface = makeReceipt({ item, surface: "house" });
+    const receipts = [mine, otherActor, otherSurface];
+
+    expect(
+      selectDeadPendingDismissals({
+        actor: PLAYER,
+        items: [item],
+        receipts,
+        surface: "home",
+      })
+    ).toEqual([]);
+
+    // Mesmo com o item FORA da derivacao, so o recibo do ator+superficie morre.
+    expect(
+      selectDeadPendingDismissals({
+        actor: PLAYER,
+        items: [],
+        receipts,
+        surface: "home",
+      })
+    ).toEqual([mine]);
+  });
+
+  it("a poda nao muda o que a leitura esconde nem o que ela mostra", () => {
+    const alive = makeItem({ id: "item-vivo" });
+    const plain = makeItem({ id: "item-comum" });
+    const worseBase = makeItem({ id: "item-piorou" });
+    const items = [alive, plain, makeItem({ count: 4, id: "item-piorou" })];
+    const receipts = [
+      makeReceipt({ item: alive }),
+      makeReceipt({ item: makeItem({ id: "item-saiu" }) }),
+      makeReceipt({ item: worseBase }),
+    ];
+
+    const dead = selectDeadPendingDismissals({
+      actor: PLAYER,
+      items,
+      receipts,
+      surface: "home",
+    });
+    expect(dead.map((receipt) => receipt.itemId)).toEqual([
+      "item-saiu",
+      "item-piorou",
+    ]);
+
+    const before = result({ items, receipts });
+    const after = result({
+      items,
+      receipts: receipts.filter((receipt) => !dead.includes(receipt)),
+    });
+
+    expect(before.items.map((item) => item.id)).toEqual([
+      "item-comum",
+      "item-piorou",
+    ]);
+    expect(after).toEqual(before);
+  });
+
+  it("recibo vivo de item fora do top-20 nao morre: a poda compara com a derivacao, nao com a lista cortada", () => {
+    const derivation = Array.from(
+      { length: PENDING_ITEM_CAP + 1 },
+      (_, index) => makeItem({ id: `item-${String(index).padStart(2, "0")}` })
+    );
+    const tail = derivation[PENDING_ITEM_CAP]!;
+    const receipts = [
+      makeReceipt({ item: derivation[0]! }),
+      makeReceipt({ item: tail }),
+    ];
+    const before = result({ items: derivation, receipts });
+
+    expect(before.items).toHaveLength(PENDING_ITEM_CAP - 1);
+
+    const prune = (items: readonly PendingItem[]) => {
+      const dead = selectDeadPendingDismissals({
+        actor: PLAYER,
+        items,
+        receipts,
+        surface: "home",
+      });
+
+      return {
+        dead: dead.map((receipt) => receipt.itemId),
+        read: result({
+          items: derivation,
+          receipts: receipts.filter((receipt) => !dead.includes(receipt)),
+        }),
+      };
+    };
+
+    // Base CORRETA (a derivacao crua, como o dismiss a entrega): o recibo VIVO
+    // do item fora do cap nao entra em dead e a leitura antes/depois e a MESMA
+    // (mesmo conjunto e mesma contagem).
+    expect(prune(derivation).dead).toEqual([]);
+    expect(prune(derivation).read).toEqual(before);
+
+    // Base CORTADA (a regressao do H1): o recibo vivo morre, o item volta para
+    // a tela e a leitura muda.
+    const cut = buildPendingsResult({
+      items: derivation,
+      scope: "player",
+    }).items;
+    expect(cut).toHaveLength(PENDING_ITEM_CAP);
+    expect(cut.map((item) => item.id)).not.toContain(tail.id);
+
+    const afterCut = prune(cut);
+    expect(afterCut.dead).toEqual([tail.id]);
+    expect(afterCut.read).not.toEqual(before);
+    expect(afterCut.read.items).toHaveLength(PENDING_ITEM_CAP);
+  });
+
+  it("com 201 recibos so os vivos sobrevivem e a leitura segue igual", () => {
+    // O id vivo e o ULTIMO na ordem `itemId asc` da leitura: era ele que ficava
+    // fora do cap de 200 e fazia o item dispensado voltar em silencio.
+    const alive = makeItem({ id: "item-vivo" });
+    const stale = Array.from({ length: 200 }, (_, index) =>
+      makeItem({ id: `item-morto-${String(index).padStart(3, "0")}` })
+    );
+    const receipts = [
+      ...stale.map((item) => makeReceipt({ item })),
+      makeReceipt({ item: alive }),
+    ];
+    const items = [alive, makeItem({ id: "item-visivel" })];
+
+    const dead = selectDeadPendingDismissals({
+      actor: PLAYER,
+      items,
+      receipts,
+      surface: "home",
+    });
+    const survivors = receipts.filter((receipt) => !dead.includes(receipt));
+
+    expect(dead).toHaveLength(200);
+    expect([...dead.map((receipt) => receipt.itemId)].sort()).toEqual(
+      [...stale.map((item) => item.id)].sort()
+    );
+    expect(survivors.map((receipt) => receipt.itemId)).toEqual(["item-vivo"]);
+
+    const before = result({ items, receipts });
+    const after = result({ items, receipts: survivors });
+
+    expect(before.items.map((item) => item.id)).toEqual(["item-visivel"]);
+    expect(after).toEqual(before);
   });
 });
