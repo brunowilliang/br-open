@@ -13,11 +13,12 @@ de CLI, de máquina e de agente.
 
 ## Regras de manutenção
 
-1. **Quem atualiza:** o executor da feature, como parte do critério de pronto
-   — quem implementou atualiza o doc do domínio na MESMA entrega, antes de
-   reportar. Em feature full-stack, quem fecha (Frontend) consolida o doc. O
-   Code Reviewer confere a atualização na revisão; o Orquestrador só fecha o
-   card com a spec atualizada.
+1. **Quem atualiza e quando:** a spec é escrita na RODADA DE FECHAMENTO, pelo
+   executor que escreveu o código — em feature full-stack, o Frontend consolida
+   o doc inteiro. Durante a implementação ninguém mexe na spec: o executor
+   entrega código + gates, o usuário testa, e o delta da spec entra junto do
+   Code Review, que confere a spec contra o diff. O Orquestrador só fecha o card
+   e arquiva depois do fechamento.
 2. **1 domínio = 1 arquivo.** Feature pequena não ganha doc novo: atualize o
    existente.
 3. **Verifique no código antes de escrever** — nunca descreva intenção.

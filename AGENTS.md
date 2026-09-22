@@ -9,7 +9,8 @@ v4 for RN) and HeroUI Native (OSS + Pro).
 - Install: `bun install`
 - Start app: `bun run dev` (Expo) — for native, build a dev client: `bun run dev:client`
 - Typecheck: `bun run typecheck` (app **and** convex) — app only: `bun run typecheck` minus convex, i.e. `tsc --noEmit`
-- Lint/format: `bun run check` (runs `ultracite check` **then** `typecheck`) — this is the full gate
+- Lint/format: `bun run check` (runs `hygiene` **then** `ultracite check` **then** `typecheck`) — this is the full gate
+- Code hygiene: `bun run hygiene` (`scripts/check-hygiene.ts`: comentário citando card/rodada, travessão em texto de usuário, `renderX` devolvendo JSX). Aceita caminho: `bun run hygiene src/lib`.
 - Auto-fix formatting: `bun run fix` (`ultracite fix`)
 - Tests: `bun run test` (= `bun test --isolate`: fresh module registry per file, so module stubs can't leak) — subset: `bun run test src`
   - Tests are co-located next to the file under test as `*.test.ts` (logic) or `*.test.tsx` (component).
@@ -44,9 +45,10 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun run test` on
 Backend code lives in `convex/`. The complete backend guide — kitcn CLI and
 commands, directory layout, CRPC builders, domain structure, auth (Better Auth
 wiring + auth field codegen), migrations and backend conventions — is owned by
-the Backend agent rule. Do not duplicate it here; read the source of truth:
+the Backend rule. Do not duplicate it here; read the source of truth:
 
-→ **`docs/agents/backend.md`**
+→ **`docs/agents/backend-reference.md`** (invariantes) e
+**`docs/agents/backend.md`** (o papel)
 
 ## Style & linting (Ultracite / Biome)
 
@@ -75,8 +77,9 @@ the Backend agent rule. Do not duplicate it here; read the source of truth:
   explicitly changing them.
 - The current state of the product — implemented features, architecture and
   decisions per domain — lives in `docs/spec/` (versioned). Read the doc of the
-  domain before starting a feature slice and update it in the same step (part
-  of done; the orchestrator checks it before closing the task).
+  domain before starting a feature slice. The spec is written in the CLOSING
+  ROUND — the user triggers it, together with the code review — by whoever wrote
+  the code; during implementation nobody touches it.
 
 ## NEVER commit or push without explicit approval
 
@@ -98,6 +101,6 @@ about "committing when done" — here, the user reviews before every commit.
 Run the checks appropriate to the touched scope (but do NOT commit):
 
 - minimum: `git diff --check`
-- usually: `bun run check` (lint + typecheck)
+- usually: `bun run check` (hygiene + lint + typecheck)
 - when logic/contracts changed: `bun run test`
 - when the change touches backend (schema/functions/contracts): follow `docs/agents/backend.md`
