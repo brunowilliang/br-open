@@ -78,6 +78,12 @@
       "sourceType": "github",
       "skillPath": "skills/serve-sim/SKILL.md",
       "computedHash": "f36989794356ed42ce288b292f825c2b6261e9cbf4aba2ebdccefd672ffdc47f"
+    },
+    "uniwind": {
+      "source": "uni-stack/uniwind",
+      "sourceType": "github",
+      "skillPath": "skills/uniwind/SKILL.md",
+      "computedHash": "d886797a7bf8989393c3f784b48242e4d6baeb9ad85ef765143010f893ea3656"
     }
   }
 }
