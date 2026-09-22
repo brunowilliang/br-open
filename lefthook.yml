@@ -1,5 +1,6 @@
 pre-commit:
   jobs:
+    - run: bun run hygiene
     - run: bun x ultracite fix
       glob:
         - "**/*.js"
