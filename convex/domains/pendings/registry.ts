@@ -44,9 +44,14 @@ import type {
   PendingKind,
   PendingSaturation,
   PendingScope,
+  PendingSurface,
 } from "./contract";
 import { PENDING_KIND_SCOPES } from "./contract";
-import { buildPendingsResult } from "./pendings-rules";
+import {
+  buildPendingsResult,
+  type PendingsActorRef,
+  type PendingDismissalReceipt,
+} from "./pendings-rules";
 
 // ---------------------------------------------------------------------------
 // Registro das pendencias (IBX-0076 / PLN-0008)
@@ -80,6 +85,8 @@ const ORG_TOURNAMENT_ENTRY_LIMIT = 20;
 const ORG_CATEGORY_SCAN_LIMIT = 10;
 /** Inscricoes lidas por categoria/status. */
 const ORG_ENTRY_SCAN_LIMIT = 300;
+/** Recibos de dispensa lidos por ator/superficie (cap do ator, nao da casa). */
+const PENDING_DISMISSAL_SCAN_LIMIT = 200;
 
 export type PendingsReadCtx = AuthenticatedCtx<QueryCtx>;
 
@@ -130,6 +137,16 @@ export function resolvePendingsActor(
         organizationId: viewerActor.id as Id<"organization">,
       }
     : null;
+}
+
+/**
+ * O recibo de dispensa pertence ao ATOR (o dono da pendencia), nao a sessao que
+ * dispensou: os dois gestores da mesma organizacao veem o mesmo item escondido.
+ */
+export function toPendingActorRef(actor: PendingsActor): PendingsActorRef {
+  return actor.kind === "player"
+    ? { id: actor.playerProfileId as string, kind: "player" }
+    : { id: actor.organizationId as string, kind: "organization" };
 }
 
 /** Kinds alimentados pela varredura de memberships do jogador. */
@@ -905,13 +922,44 @@ export const PENDING_DERIVERS: Record<
 };
 
 /**
+ * Recibos que a leitura daquela superficie consulta. A casa NUNCA esconde (o
+ * gesto so existe na home), entao nem le a tabela; a leitura e pelo indice do
+ * ator e limitada.
+ */
+export async function findPendingDismissals(input: {
+  actor: PendingsActor;
+  ctx: PendingsReadCtx;
+  surface: PendingSurface;
+}): Promise<PendingDismissalReceipt[]> {
+  if (input.surface === "house") {
+    return [];
+  }
+
+  const actor = toPendingActorRef(input.actor);
+
+  return await input.ctx.orm.query.pendingDismissal.findMany({
+    limit: PENDING_DISMISSAL_SCAN_LIMIT,
+    orderBy: { itemId: "asc" },
+    where: {
+      actorId: actor.id,
+      actorKind: actor.kind,
+      surface: input.surface,
+    },
+  });
+}
+
+/**
  * Fecho da query: roda os derivadores do escopo pedido, confere que cada item
  * saiu no escopo em que o kind foi registrado (fio errado vira erro, nunca
- * pendencia no escopo errado) e devolve ordenado/cortado/contado.
+ * pendencia no escopo errado) e devolve escondendo/ordenando/cortando/contando.
  */
 export async function collectPendings(input: {
   actor: PendingsActor;
   ctx: PendingsReadCtx;
+  dismissals?: {
+    receipts: readonly PendingDismissalReceipt[];
+    surface: PendingSurface;
+  };
   nowMs: number;
   scope: PendingScope;
 }): Promise<PendingsListResult> {
@@ -931,6 +979,9 @@ export async function collectPendings(input: {
   }
 
   return buildPendingsResult({
+    dismissals: input.dismissals
+      ? { ...input.dismissals, actor: toPendingActorRef(input.actor) }
+      : undefined,
     items,
     saturation: derivations.flatMap((derivation) => derivation.saturations),
     scope: input.scope,

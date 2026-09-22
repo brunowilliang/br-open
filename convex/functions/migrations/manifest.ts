@@ -19,6 +19,7 @@ import { migration as migration_12 } from './20260814_163103_backfill_withdrawal
 import { migration as migration_13 } from './20260916_103007_clear_entry_seed_phase';
 import { migration as migration_14 } from './20260917_221648_backfill_team_member_count';
 import { migration as migration_15 } from './20260920_091746_backfill_tournament_entry_slots';
+import { migration as migration_16 } from './20260921_191850_add_pending_dismissal';
 
 export const migrations = defineMigrationSet([
   migration_0,
@@ -37,4 +38,5 @@ export const migrations = defineMigrationSet([
   migration_13,
   migration_14,
   migration_15,
+  migration_16,
 ]);

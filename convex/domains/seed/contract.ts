@@ -48,3 +48,37 @@ export type ParticipantScenarioInput = z.infer<
 export type ParticipantScenarioResult = z.infer<
   typeof participantScenarioResultSchema
 >;
+
+/**
+ * Cenario de PENDENCIAS (IBX-0090): cria, na conta do email informado, o estado
+ * que faz a home mostrar o maximo de kinds das duas superficies. O email e
+ * obrigatorio de proposito — o cenario nunca roda "na conta errada" por engano.
+ */
+export const PendencyScenarioSchema = z.object({
+  primaryUserEmail: z.string().email(),
+});
+
+export const pendencyScenarioResultSchema = z.object({
+  categoriesCreated: z.number().int().nonnegative(),
+  challengesCreated: z.number().int().nonnegative(),
+  chargesCreated: z.number().int().nonnegative(),
+  chargesRefreshed: z.number().int().nonnegative(),
+  entriesCreated: z.number().int().nonnegative(),
+  leaguesCreated: z.number().int().nonnegative(),
+  membershipsCreated: z.number().int().nonnegative(),
+  organizationId: z.string(),
+  playerProfileId: z.string(),
+  playerProfilesCreated: z.number().int().nonnegative(),
+  /** Plantio na organizacao que o alvo JA usa (kinds 11, 12 e 13). */
+  primaryEntriesCreated: z.number().int().nonnegative(),
+  primaryJoinRequestsCreated: z.number().int().nonnegative(),
+  primaryOrganizationsTouched: z.number().int().nonnegative(),
+  tournamentsCreated: z.number().int().nonnegative(),
+  userId: z.string(),
+  usersCreated: z.number().int().nonnegative(),
+});
+
+export type PendencyScenarioInput = z.infer<typeof PendencyScenarioSchema>;
+export type PendencyScenarioResult = z.infer<
+  typeof pendencyScenarioResultSchema
+>;

@@ -1,12 +1,15 @@
 import {
   PENDING_DOMAIN_OPTIONS,
+  PENDING_KIND_SCOPES,
   PENDING_SEVERITY_OPTIONS,
   type PendingsCounts,
   type PendingsListResult,
   type PendingItem,
+  type PendingKind,
   type PendingSaturation,
   type PendingScope,
   type PendingSeverity,
+  type PendingSurface,
 } from "./contract";
 
 // ---------------------------------------------------------------------------
@@ -123,17 +126,114 @@ export function buildPendingsCounts(items: PendingItem[]): PendingsCounts {
   return { byDomain, bySeverity, total: items.length };
 }
 
+/** Dono do recibo de dispensa: o MESMO ator ativo que pede a leitura. */
+export type PendingsActorRef = { id: string; kind: PendingScope };
+
 /**
- * Fecho da query: ordena, corta no cap, conta o que sobrou, diz se cortou e
- * carrega o sinal de saturacao das LEITURAS. Este e o UNICO caminho que produz
- * o resultado de `pendings.list`.
+ * Recibo de dispensa como ele vive na tabela `pendingDismissal`: o snapshot
+ * (severidade, contagem e prazo) e o que decide se o item segue escondido.
+ */
+export type PendingDismissalReceipt = {
+  actorId: string;
+  actorKind: PendingScope;
+  count: number | null;
+  deadlineAt: number | null;
+  itemId: string;
+  severity: PendingSeverity;
+  surface: PendingSurface;
+};
+
+/** Snapshot que o recibo congela: o item como o usuario o viu ao dispensar. */
+export function buildPendingDismissalSnapshot(item: PendingItem) {
+  return {
+    count: item.count,
+    deadlineAt: item.deadlineAt,
+    severity: item.severity,
+  };
+}
+
+/**
+ * Escopo dono do item a partir do id deterministico (`<kind>:<sourceId>`).
+ * `null` quando o id nao carrega kind registrado: nao ha pendencia a dispensar.
+ */
+export function resolvePendingItemScope(itemId: string): PendingScope | null {
+  const separator = itemId.indexOf(":");
+  const kind = separator > 0 ? itemId.slice(0, separator) : "";
+
+  return Object.hasOwn(PENDING_KIND_SCOPES, kind)
+    ? PENDING_KIND_SCOPES[kind as PendingKind]
+    : null;
+}
+
+/**
+ * Esconde o que foi dispensado NAQUELA superficie: recibo de outro ator nao
+ * vale e a casa nunca esconde. Recibo MORTO (o item piorou desde a dispensa)
+ * fica de fora e o item VOLTA para a tela.
+ */
+function filterDismissedPendingItems(input: {
+  actor: PendingsActorRef;
+  items: PendingItem[];
+  receipts: readonly PendingDismissalReceipt[];
+  surface: PendingSurface;
+}) {
+  if (input.surface === "house" || input.receipts.length === 0) {
+    return input.items;
+  }
+
+  const receiptByItemId = new Map<string, PendingDismissalReceipt>();
+
+  for (const receipt of input.receipts) {
+    if (
+      receipt.actorKind !== input.actor.kind ||
+      receipt.actorId !== input.actor.id ||
+      receipt.surface !== input.surface
+    ) {
+      continue;
+    }
+
+    receiptByItemId.set(receipt.itemId, receipt);
+  }
+
+  if (receiptByItemId.size === 0) {
+    return input.items;
+  }
+
+  return input.items.filter((item) => {
+    const receipt = receiptByItemId.get(item.id);
+
+    if (!receipt) {
+      return true;
+    }
+
+    // Caso unico conta 1 (`count` nulo); qualquer diferenca no triplete mata o
+    // recibo — o recibo so segura o item INTACTO.
+    return (
+      receipt.severity !== item.severity ||
+      (receipt.count ?? 1) !== (item.count ?? 1) ||
+      receipt.deadlineAt !== item.deadlineAt
+    );
+  });
+}
+
+/**
+ * Fecho da query: esconde o dispensado, ordena, corta no cap, conta o que sobrou
+ * e carrega a saturacao das LEITURAS — o UNICO caminho do resultado de
+ * `pendings.list`. A dispensa entra ANTES do corte/contagem (nao ocupa vaga).
  */
 export function buildPendingsResult(input: {
+  dismissals?: {
+    actor: PendingsActorRef;
+    receipts: readonly PendingDismissalReceipt[];
+    surface: PendingSurface;
+  };
   items: PendingItem[];
   saturation?: PendingSaturation[];
   scope: PendingScope;
 }): PendingsListResult {
-  const sorted = sortPendingItems(input.items);
+  const visible = input.dismissals
+    ? filterDismissedPendingItems({ ...input.dismissals, items: input.items })
+    : input.items;
+  const sorted = sortPendingItems(visible);
   const items = sorted.slice(0, PENDING_ITEM_CAP);
 
   return {

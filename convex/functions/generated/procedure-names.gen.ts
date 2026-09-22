@@ -127,8 +127,11 @@ export const procedureNames = {
     { column: 54, line: 741, name: "payment/withdraw:sweepPendingWithdrawFees" },
     { column: 3, line: 493, name: "payment/withdraw:upsertBalanceCache" },
   ],
+  "pendings/dismiss.ts": [
+    { column: 3, line: 24, name: "pendings/dismiss:dismiss" },
+  ],
   "pendings/list.ts": [
-    { column: 3, line: 33, name: "pendings/list:list" },
+    { column: 3, line: 42, name: "pendings/list:list" },
   ],
   "player/dashboard.ts": [
     { column: 3, line: 128, name: "player/dashboard:getOverview" },
@@ -139,8 +142,9 @@ export const procedureNames = {
     { column: 3, line: 64, name: "player/profile:upsert" },
   ],
   "seed.ts": [
-    { column: 3, line: 1941, name: "seed:participantScenario" },
-    { column: 3, line: 1416, name: "seed:preview" },
+    { column: 3, line: 1991, name: "seed:participantScenario" },
+    { column: 3, line: 2748, name: "seed:pendencyScenario" },
+    { column: 3, line: 1464, name: "seed:preview" },
   ],
   "tournament/bracket.ts": [
     { column: 3, line: 483, name: "tournament/bracket:autoStartTournaments" },

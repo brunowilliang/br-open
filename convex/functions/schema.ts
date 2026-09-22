@@ -8,6 +8,7 @@ import { defineNotificationRelations } from "../domains/notification/relations";
 import * as notificationTables from "../domains/notification/tables";
 import { definePaymentRelations } from "../domains/payment/relations";
 import * as paymentTables from "../domains/payment/tables";
+import * as pendingsTables from "../domains/pendings/tables";
 import { definePlayerRelations } from "../domains/player/relations";
 import * as playerTables from "../domains/player/tables";
 import { defineTournamentRelations } from "../domains/tournament/relations";
@@ -18,6 +19,7 @@ export const tables = {
   ...leagueTables,
   ...notificationTables,
   ...paymentTables,
+  ...pendingsTables,
   ...playerTables,
   ...tournamentTables,
 };

@@ -247,8 +247,28 @@ export const pendingsListResultSchema = z.object({
   truncated: z.boolean(),
 });
 
+/**
+ * Superficie de LEITURA: a dispensa vale por superficie. `home` esconde o item
+ * dispensado enquanto ele nao piorar; `house` (a casa da liga/torneio) mostra
+ * sempre, porque o gesto de esconder so existe na home.
+ */
+export const PENDING_SURFACE_OPTIONS = ["home", "house"] as const;
+
+export type PendingSurface = (typeof PENDING_SURFACE_OPTIONS)[number];
+
 export const listPendingsSchema = z.object({
   scope: z.enum(PENDING_SCOPE_OPTIONS),
+  /**
+   * Sem ela vale a CASA (a que NUNCA esconde): quem esquece o parametro perde a
+   * dispensa, nunca uma pendencia.
+   */
+  surface: z.enum(PENDING_SURFACE_OPTIONS).optional(),
+});
+
+/** Dispensa de UM item na superficie. O ator dono vem da sessao, nunca daqui. */
+export const dismissPendingItemSchema = z.object({
+  itemId: z.string().min(1),
+  surface: z.enum(PENDING_SURFACE_OPTIONS),
 });
 
 export type PendingDescription = z.infer<typeof pendingDescriptionSchema>;

@@ -10,13 +10,11 @@ import {
   type GeneratedRegistryCallerForContext,
   type GeneratedRegistryHandlerForContext,
 } from 'kitcn/server';
-import type { ActionCtx, MutationCtx, QueryCtx } from './server';
+import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
-  "participantScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").participantScenario>("seed:participantScenario"), () => (require("../seed") as Record<string, unknown>)["participantScenario"])],
-  "pendencyScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").pendencyScenario>("seed:pendencyScenario"), () => (require("../seed") as Record<string, unknown>)["pendencyScenario"])],
-  "preview": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").preview>("seed:preview"), () => (require("../seed") as Record<string, unknown>)["preview"])],
+  "dismiss": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../pendings/dismiss").dismiss>("pendings/dismiss:dismiss"), () => (require("../../pendings/dismiss") as Record<string, unknown>)["dismiss"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;
@@ -59,7 +57,7 @@ type GeneratedProcedureHandler<
 >;
 
 
-export function createSeedCaller<TCtx extends ProcedureCallerContext>(
+export function createPendingsDismissCaller<TCtx extends ProcedureCallerContext>(
   ctx: TCtx
 ): GeneratedProcedureCaller<TCtx> {
   return generatedRuntime.getCallerFactory()(
@@ -67,7 +65,7 @@ export function createSeedCaller<TCtx extends ProcedureCallerContext>(
   ) as GeneratedProcedureCaller<TCtx>;
 }
 
-export function createSeedHandler<TCtx extends ProcedureHandlerContext>(
+export function createPendingsDismissHandler<TCtx extends ProcedureHandlerContext>(
   ctx: TCtx
 ): GeneratedProcedureHandler<TCtx> {
   return generatedRuntime.getHandlerFactory()(ctx) as GeneratedProcedureHandler<TCtx>;

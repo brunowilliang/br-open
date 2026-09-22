@@ -1048,6 +1048,44 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  pendingDismissal: {
+    document: {
+      actorId: string;
+      actorKind: "organization" | "player";
+      count?: null | number;
+      deadlineAt?: null | number;
+      dismissedAt: number;
+      itemId: string;
+      severity: "danger" | "info" | "warning";
+      surface: "home" | "house";
+      _id: Id<"pendingDismissal">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "actorId"
+      | "actorKind"
+      | "count"
+      | "deadlineAt"
+      | "dismissedAt"
+      | "itemId"
+      | "severity"
+      | "surface";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      actor_surface_item: [
+        "actorKind",
+        "actorId",
+        "surface",
+        "itemId",
+        "_creationTime",
+      ];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   playerProfile: {
     document: {
       avatarStorageId?: null | string;

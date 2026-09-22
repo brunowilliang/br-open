@@ -99,6 +99,9 @@ export const api = {
     },
   },
   pendings: {
+    dismiss: {
+      dismiss: createApiLeaf<"mutation", typeof import("../functions/pendings/dismiss").dismiss>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/pendings/dismiss").dismiss>("pendings/dismiss:dismiss"), { auth: "required", type: "mutation" }),
+    },
     list: {
       list: createApiLeaf<"query", typeof import("../functions/pendings/list").list>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/pendings/list").list>("pendings/list:list"), { auth: "required", type: "query" }),
     },

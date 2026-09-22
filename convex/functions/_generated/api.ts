@@ -3495,11 +3495,19 @@ export const api: {
     };
   };
   pendings: {
+    dismiss: {
+      dismiss: FunctionReference<
+        "mutation",
+        "public",
+        { itemId: string; surface: "home" | "house" },
+        any
+      >;
+    };
     list: {
       list: FunctionReference<
         "query",
         "public",
-        { scope: "organization" | "player" },
+        { scope: "organization" | "player"; surface?: "home" | "house" },
         {
           counts: {
             byDomain: {
@@ -5427,6 +5435,29 @@ export const internal: {
         challengesCreated: number;
         membershipsCreated: number;
         playerProfilesCreated: number;
+        usersCreated: number;
+      }
+    >;
+    pendencyScenario: FunctionReference<
+      "mutation",
+      "internal",
+      { primaryUserEmail: string },
+      {
+        categoriesCreated: number;
+        challengesCreated: number;
+        chargesCreated: number;
+        chargesRefreshed: number;
+        entriesCreated: number;
+        leaguesCreated: number;
+        membershipsCreated: number;
+        organizationId: string;
+        playerProfileId: string;
+        playerProfilesCreated: number;
+        primaryEntriesCreated: number;
+        primaryJoinRequestsCreated: number;
+        primaryOrganizationsTouched: number;
+        tournamentsCreated: number;
+        userId: string;
         usersCreated: number;
       }
     >;

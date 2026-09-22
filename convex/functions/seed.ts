@@ -9,6 +9,8 @@ import {
   SEED_LEAGUE_NAME_PREFIX,
   participantScenarioResultSchema,
   ParticipantScenarioSchema,
+  pendencyScenarioResultSchema,
+  PendencyScenarioSchema,
   seedPreviewResultSchema,
   SeedPreviewSchema,
 } from "../domains/seed/contract";
@@ -17,6 +19,23 @@ import {
   seedLeagueTemplates,
   seedPlayers,
 } from "../domains/seed/data";
+import {
+  buildPendencyChargeCorrelationId,
+  comparePendencyTargetRecency,
+  PENDENCY_SEED_LAST_MATCH_DAYS_AGO,
+  PENDENCY_SEED_LEAGUES,
+  PENDENCY_SEED_ORGANIZATION_NAME,
+  PENDENCY_SEED_PRIMARY_ENTRY_TARGETS,
+  PENDENCY_SEED_PRIMARY_JOIN_REQUEST_LIMIT,
+  PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT,
+  PENDENCY_SEED_PRIMARY_TOURNAMENT_STATUSES,
+  PENDENCY_SEED_TOURNAMENTS,
+  PENDENCY_SEED_VIEWER_GENDER,
+  type PendencySeedEntry,
+  type PendencySeedLeague,
+  type PendencySeedTournament,
+  selectFreePendencyEntryProfiles,
+} from "../domains/seed/pendency-plan";
 import {
   buildTargetLeagueMemberships,
   buildTargetLeagueChallengePlans,
@@ -38,6 +57,17 @@ import {
   type LeagueMatchConfig,
 } from "../domains/league/contract";
 import * as playerTables from "../domains/player/tables";
+import { SOURCE_TYPE_LEAGUE_MEMBERSHIP } from "../domains/payment/contract";
+import * as paymentTables from "../domains/payment/tables";
+import {
+  buildCategoryDisplayName,
+  entrySlotFields,
+} from "../domains/tournament/entry-rules";
+import type {
+  TournamentGender,
+  TournamentModality,
+} from "../domains/tournament/contract";
+import * as tournamentTables from "../domains/tournament/tables";
 import { privateMutation } from "../lib/crpc";
 
 type SeedCtx = MutationCtx;
@@ -753,6 +783,28 @@ async function ensureMembership(
   return { created: true, membership: createdMembership };
 }
 
+/**
+ * `ensureMembership` nao regrava linha existente; a posicao do cenario precisa
+ * CONVERGIR, senao o plantio antigo continua valendo e o desafio fica com a
+ * direcao de ranking invertida.
+ */
+async function refreshSeedMembershipRankingPosition(
+  ctx: SeedCtx,
+  input: {
+    membership: LeagueMembershipRecord;
+    rankingPosition: number | null;
+  }
+) {
+  if (input.membership.rankingPosition === input.rankingPosition) {
+    return;
+  }
+
+  await ctx.db.patch(input.membership.id as Id<"leagueMembership">, {
+    rankingPosition: input.rankingPosition,
+    updatedAt: Date.now(),
+  });
+}
+
 async function getLeagueByIdOrThrow(ctx: SeedCtx, leagueId: Id<"league">) {
   const currentLeague = await ctx.orm.query.league.findFirst({
     where: { id: leagueId },
@@ -765,11 +817,7 @@ async function getLeagueByIdOrThrow(ctx: SeedCtx, leagueId: Id<"league">) {
   return currentLeague;
 }
 
-async function findPrimaryUser(ctx: SeedCtx, email?: string) {
-  if (!email) {
-    return null;
-  }
-
+async function requirePrimaryUser(ctx: SeedCtx, email: string) {
   const currentUser = await ctx.orm.query.user.findFirst({
     where: { email },
   });
@@ -1429,7 +1477,9 @@ export const preview = privateMutation
     }
 
     const existingSeedLeagues = await listSeedLeagues(ctx);
-    const primaryUser = await findPrimaryUser(ctx, input.primaryUserEmail);
+    const primaryUser = input.primaryUserEmail
+      ? await requirePrimaryUser(ctx, input.primaryUserEmail)
+      : null;
 
     if (existingSeedLeagues.length > 0 && !input.reset) {
       // Continue. The helpers below are idempotent and won't duplicate data.
@@ -2038,5 +2088,1025 @@ export const participantScenario = privateMutation
       membershipsCreated,
       playerProfilesCreated,
       usersCreated,
+    };
+  });
+
+// Cenario de pendencias na CONTA do usuario: o estado que
+// `domains/pendings/registry.ts` le. Tudo idempotente pelo nome/correlationId;
+// NUNCA faz reset nem apaga linha.
+
+/** Jogadores ATIVOS por liga do cenario (indices em `seedPlayers`). */
+const PENDENCY_LEAGUE_OPPONENT_INDEXES: Record<string, readonly number[]> = {
+  "due-soon": [11, 12, 13],
+  "payment-due": [0, 1, 2, 3, 4, 5],
+  suspended: [14, 15],
+};
+
+/** Jogadores com SOLICITACAO PENDENTE por liga. */
+const PENDENCY_LEAGUE_REQUEST_INDEXES: Record<string, readonly number[]> = {
+  "payment-due": [6, 7, 10],
+};
+
+/** Bounds do plantio na organizacao do alvo (mesmo molde dos caps das leituras). */
+const PENDENCY_SEED_PRIMARY_CATEGORY_SCAN_LIMIT = 10;
+const PENDENCY_SEED_PRIMARY_ENTRY_SCAN_LIMIT = 300;
+const PENDENCY_SEED_PRIMARY_JOIN_REQUEST_SCAN_LIMIT = 100;
+const PENDENCY_SEED_PRIMARY_TOURNAMENT_SCAN_LIMIT = 50;
+
+/** Desafios com acao DO JOGADOR na liga do "a vencer". */
+const PENDENCY_PLAYER_CHALLENGES = [
+  {
+    challengedIndex: 0,
+    dayOffset: -1,
+    key: "player-pending-register",
+    startMinute: 540,
+    status: "pending_result_submission",
+  },
+  {
+    challengedIndex: 1,
+    dayOffset: -2,
+    key: "player-pending-confirm",
+    result: { submittedBy: "challenged", winner: "challenged" },
+    startMinute: 660,
+    status: "pending_result_confirmation",
+  },
+  {
+    challengedIndex: 2,
+    dayOffset: -3,
+    key: "player-pending-correction",
+    startMinute: 780,
+    status: "pending_result_correction",
+  },
+  {
+    challengedIndex: 0,
+    dayOffset: -PENDENCY_SEED_LAST_MATCH_DAYS_AGO,
+    key: "player-last-match",
+    result: {
+      confirmedBy: "challenged",
+      submittedBy: "challenger",
+      winner: "challenger",
+    },
+    startMinute: 900,
+    status: "finished",
+  },
+] as const;
+
+/** Desafios esperando a validacao DA ORGANIZACAO. */
+const PENDENCY_ORGANIZER_CHALLENGES = [
+  {
+    challengedIndex: 0,
+    challengerIndex: 1,
+    dayOffset: -3,
+    key: "org-result-validation",
+    result: {
+      confirmedBy: "challenged",
+      submittedBy: "challenger",
+      winner: "challenger",
+    },
+    resultValidationMode: "manual",
+    startMinute: 480,
+    status: "pending_organizer_result_validation",
+  },
+  {
+    challengedIndex: 2,
+    challengerIndex: 3,
+    dayOffset: -4,
+    key: "org-proposal-decision",
+    startMinute: 600,
+    status: "pending_organizer_decision",
+  },
+] as const;
+
+/**
+ * Nasce SEM conta de recebimento — e o que faz a liga paga virar pendencia — e
+ * com o usuario alvo como owner.
+ */
+async function ensurePendencyOrganization(ctx: SeedCtx, userId: Id<"user">) {
+  const slug = `seed-pendencies-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  const existingOrganization = await ctx.orm.query.organization.findFirst({
+    where: { slug },
+  });
+
+  if (existingOrganization) {
+    const existingMember = await ctx.orm.query.member.findFirst({
+      where: {
+        organizationId: existingOrganization.id as Id<"organization">,
+        userId,
+      },
+    });
+
+    if (!existingMember) {
+      await ctx.orm.insert(authTables.member).values({
+        createdAt: new Date(),
+        organizationId: existingOrganization.id as Id<"organization">,
+        role: "owner",
+        userId,
+      });
+    }
+
+    return { created: false, organization: existingOrganization };
+  }
+
+  const now = new Date();
+  const [createdOrganization] = await ctx.orm
+    .insert(authTables.organization)
+    .values({
+      createdAt: now,
+      metadata: { pendencyScenario: true, seed: true },
+      name: PENDENCY_SEED_ORGANIZATION_NAME,
+      slug,
+      updatedAt: now,
+    })
+    .returning();
+
+  await ctx.orm.insert(authTables.member).values({
+    createdAt: now,
+    organizationId: createdOrganization.id as Id<"organization">,
+    role: "owner",
+    userId,
+  });
+
+  return { created: true, organization: createdOrganization };
+}
+
+async function ensurePendencyLeague(
+  ctx: SeedCtx,
+  input: { organizationId: Id<"organization">; template: PendencySeedLeague }
+) {
+  const expectedName = buildSeedLeagueName(input.template.name);
+  // ruleConfig COMPLETO: a leitura de pendencias valida o json inteiro, entao
+  // liga sem os modos de validacao cai fora do risco de inatividade.
+  const ruleConfig = {
+    ...defaultSeedRuleConfig,
+    challengeValidationMode: DEFAULT_LEAGUE_CHALLENGE_VALIDATION_MODE,
+    hasInactivityPenalty: input.template.hasInactivityPenalty,
+    resultValidationMode: DEFAULT_LEAGUE_RESULT_VALIDATION_MODE,
+    ...(input.template.inactivityPenaltyType === null
+      ? {}
+      : {
+          inactivityPenaltyDays: input.template.inactivityPenaltyDays,
+          inactivityPenaltyType: input.template.inactivityPenaltyType,
+        }),
+  };
+  const existingLeague = await ctx.orm.query.league.findFirst({
+    where: { name: expectedName, organizationId: input.organizationId },
+  });
+
+  if (existingLeague) {
+    await ctx.db.patch(existingLeague.id as Id<"league">, {
+      reminderDaysBefore: input.template.reminderDaysBefore,
+      ruleConfig,
+      updatedAt: Date.now(),
+    });
+
+    return { created: false, league: { ...existingLeague, ruleConfig } };
+  }
+
+  const now = new Date();
+  const [createdLeague] = await ctx.orm
+    .insert(leagueTables.league)
+    .values({
+      avatarStorageId: DEFAULT_LEAGUE_STORAGE.avatarStorageId,
+      categories: ["Todas", "A", "B"],
+      city: input.template.city,
+      coverStorageId: DEFAULT_LEAGUE_STORAGE.coverStorageId,
+      createdAt: now,
+      description: "Liga do cenário de pendências do seed.",
+      locationNotes: "",
+      maxPlayers: null,
+      mode: DEFAULT_LEAGUE_MODE,
+      monthlyPriceCents: input.template.monthlyPriceCents,
+      name: expectedName,
+      organizationId: input.organizationId,
+      priceBillingInterval: DEFAULT_LEAGUE_PRICE_BILLING_INTERVAL,
+      reminderDaysBefore: input.template.reminderDaysBefore,
+      ruleConfig,
+      state: input.template.state,
+      updatedAt: now,
+      visibility: "public",
+    })
+    .returning();
+
+  return { created: true, league: createdLeague };
+}
+
+/**
+ * Charge PAGA do ciclo: e o que da vencimento a membership ativa. Re-execucao so
+ * REFRESCA as datas — o cenario "a vencer" precisa seguir valido.
+ */
+async function ensurePendencyPaidCharge(
+  ctx: SeedCtx,
+  input: {
+    daysUntilDue: number;
+    key: string;
+    league: LeagueRecord;
+    membershipId: Id<"leagueMembership">;
+    organizationId: Id<"organization">;
+    playerProfileId: Id<"playerProfile">;
+  }
+) {
+  const correlationId = buildPendencyChargeCorrelationId({
+    key: input.key,
+    membershipId: input.membershipId as string,
+  });
+  const nowMs = Date.now();
+  const paidAt = addDays(new Date(nowMs), -28);
+  const periodEndAt = addDays(new Date(nowMs), input.daysUntilDue);
+  const existingCharge = await ctx.orm.query.paymentCharge.findFirst({
+    where: { correlationId },
+  });
+
+  if (existingCharge) {
+    await ctx.db.patch(existingCharge.id as Id<"paymentCharge">, {
+      paidAt: paidAt.getTime(),
+      periodEndAt: periodEndAt.getTime(),
+      updatedAt: nowMs,
+    });
+
+    return { created: false };
+  }
+
+  await ctx.orm.insert(paymentTables.paymentCharge).values({
+    amountCents: input.league.monthlyPriceCents ?? 0,
+    correlationId,
+    createdAt: new Date(nowMs),
+    organizationId: input.organizationId,
+    paidAt,
+    periodEndAt,
+    playerProfileId: input.playerProfileId,
+    sourceId: input.membershipId as string,
+    sourceLabel: input.league.name,
+    sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
+    status: "PAID",
+    updatedAt: new Date(nowMs),
+  });
+
+  return { created: true };
+}
+
+/** Torneio do cenario: publicado, com inscricoes abertas (a leitura da org le). */
+async function ensurePendencyTournament(
+  ctx: SeedCtx,
+  input: {
+    organizationId: Id<"organization">;
+    template: PendencySeedTournament;
+  }
+) {
+  const now = new Date();
+  const registrationDeadlineAt = addDays(
+    now,
+    input.template.registrationDeadlineDays
+  );
+  const startDate = addDays(now, input.template.startDateDays);
+  const existingTournament = await ctx.orm.query.tournament.findFirst({
+    where: {
+      name: input.template.name,
+      organizationId: input.organizationId,
+    },
+  });
+
+  if (existingTournament) {
+    await ctx.db.patch(existingTournament.id as Id<"tournament">, {
+      registrationDeadlineAt: registrationDeadlineAt.getTime(),
+      startDate: startDate.getTime(),
+      updatedAt: now.getTime(),
+    });
+
+    return { created: false, tournament: existingTournament };
+  }
+
+  const [createdTournament] = await ctx.orm
+    .insert(tournamentTables.tournament)
+    .values({
+      city: input.template.city,
+      courts: [],
+      createdAt: now,
+      description: "Torneio do cenário de pendências do seed.",
+      locationNotes: "",
+      matchConfig: defaultSeedRuleConfig.matchConfig,
+      name: input.template.name,
+      organizationId: input.organizationId,
+      registrationDeadlineAt,
+      startDate,
+      state: input.template.state,
+      status: "published",
+      updatedAt: now,
+      visibility: "public",
+    })
+    .returning();
+
+  return { created: true, tournament: createdTournament };
+}
+
+/** Categoria da entrada: uma por (modalidade, genero), como o indice unico. */
+async function ensurePendencyCategory(
+  ctx: SeedCtx,
+  input: { entry: PendencySeedEntry; tournamentId: Id<"tournament"> }
+) {
+  const existingCategory = await ctx.orm.query.tournamentCategory.findFirst({
+    where: {
+      gender: input.entry.gender,
+      modality: input.entry.modality,
+      tournamentId: input.tournamentId,
+    },
+  });
+
+  if (existingCategory) {
+    return { category: existingCategory, created: false };
+  }
+
+  const now = new Date();
+  const [createdCategory] = await ctx.orm
+    .insert(tournamentTables.tournamentCategory)
+    .values({
+      createdAt: now,
+      displayName: buildCategoryDisplayName(
+        input.entry.modality,
+        input.entry.gender
+      ),
+      entryFeeCents: input.entry.entryFeeCents,
+      gender: input.entry.gender,
+      modality: input.entry.modality,
+      tournamentId: input.tournamentId,
+      updatedAt: now,
+    })
+    .returning();
+
+  return { category: createdCategory, created: true };
+}
+
+/** Inscricao viva do cenario: idempotente pelo (categoria, lado A). */
+async function ensurePendencyEntry(
+  ctx: SeedCtx,
+  input: {
+    categoryId: Id<"tournamentCategory">;
+    createdByUserId: Id<"user">;
+    partnerUserId: Id<"user"> | null;
+    playerAId: Id<"playerProfile">;
+    playerBId: Id<"playerProfile"> | null;
+    status: string;
+  }
+) {
+  const existingEntry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { activeAId: input.playerAId, categoryId: input.categoryId },
+  });
+
+  if (existingEntry) {
+    return { created: false };
+  }
+
+  const now = new Date();
+
+  await ctx.orm.insert(tournamentTables.tournamentEntry).values({
+    categoryId: input.categoryId,
+    createdAt: now,
+    createdByUserId: input.createdByUserId,
+    partnerUserId: input.partnerUserId ?? undefined,
+    playerAId: input.playerAId,
+    playerBId: input.playerBId ?? undefined,
+    status: input.status,
+    updatedAt: now,
+    ...entrySlotFields({
+      playerAId: input.playerAId,
+      playerBId: input.playerBId,
+      status: input.status,
+    }),
+  });
+
+  return { created: true };
+}
+
+/** Perfil de jogador do seed com o usuario dono (o plantio precisa dos dois). */
+type SeedProfileRef = {
+  gender: null | string;
+  profileId: Id<"playerProfile">;
+  userId: Id<"user">;
+};
+
+/** Alvo mais recente de uma lista (o desempate por id vive no plano puro). */
+function sortByPendencyRecency<T extends { id: string; recencyMs: number }>(
+  rows: T[]
+) {
+  return [...rows].sort((left, right) =>
+    comparePendencyTargetRecency({ left, right })
+  );
+}
+
+/** Organizacoes que o alvo MANDA e que nao sao a do cenario. */
+async function listPrimaryManagedOrganizations(
+  ctx: SeedCtx,
+  input: { excludeOrganizationId: Id<"organization">; userId: Id<"user"> }
+) {
+  const memberships = await ctx.orm.query.member.findMany({
+    limit: 100,
+    where: { userId: input.userId },
+  });
+
+  return memberships
+    .filter((row) => row.role === "owner" || row.role === "admin")
+    .map((row) => row.organizationId as string)
+    .filter(
+      (organizationId) =>
+        organizationId !== (input.excludeOrganizationId as string)
+    )
+    .sort()
+    .slice(0, PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT)
+    .map((organizationId) => organizationId as Id<"organization">);
+}
+
+/**
+ * Solicitacoes de entrada pendentes na liga do alvo. So ACRESCENTA: quem ja tem
+ * membership na liga nao e tocado e a contagem de pendentes ja existentes conta
+ * para o teto, entao repetir a rodada nao acumula.
+ */
+async function ensurePrimaryJoinRequests(
+  ctx: SeedCtx,
+  input: {
+    leagueId: Id<"league">;
+    seedProfiles: readonly SeedProfileRef[];
+  }
+) {
+  const pending = await ctx.orm.query.leagueMembership.findMany({
+    limit: PENDENCY_SEED_PRIMARY_JOIN_REQUEST_SCAN_LIMIT,
+    where: { leagueId: input.leagueId, status: "pending" },
+  });
+  let planted = 0;
+
+  for (const seedProfile of input.seedProfiles) {
+    if (pending.length + planted >= PENDENCY_SEED_PRIMARY_JOIN_REQUEST_LIMIT) {
+      break;
+    }
+
+    const result = await ensureMembership(ctx, {
+      leagueId: input.leagueId,
+      status: "pending",
+      userId: seedProfile.userId,
+    });
+
+    if (result.created) {
+      planted += 1;
+    }
+  }
+
+  return planted;
+}
+
+/**
+ * Inscricoes pendentes no torneio do alvo. O alvo e o TOTAL por status no
+ * torneio: alcancado, a rodada seguinte nao planta nada.
+ */
+async function ensurePrimaryEntryPendencies(
+  ctx: SeedCtx,
+  input: {
+    organizationId: Id<"organization">;
+    seedProfiles: readonly SeedProfileRef[];
+  }
+) {
+  const tournaments = await ctx.orm.query.tournament.findMany({
+    limit: PENDENCY_SEED_PRIMARY_TOURNAMENT_SCAN_LIMIT,
+    orderBy: { updatedAt: "desc" },
+    where: { organizationId: input.organizationId },
+  });
+  const tournament = sortByPendencyRecency(
+    tournaments
+      .filter((row) =>
+        (
+          PENDENCY_SEED_PRIMARY_TOURNAMENT_STATUSES as readonly string[]
+        ).includes(row.status)
+      )
+      .map((row) => ({
+        id: row.id as string,
+        recencyMs: row.updatedAt.getTime(),
+        row,
+      }))
+  )[0];
+
+  if (!tournament) {
+    return 0;
+  }
+
+  const categories = await ctx.orm.query.tournamentCategory.findMany({
+    limit: PENDENCY_SEED_PRIMARY_CATEGORY_SCAN_LIMIT,
+    orderBy: { createdAt: "desc" },
+    where: { tournamentId: tournament.row.id as Id<"tournament"> },
+  });
+  const orderedCategories = sortByPendencyRecency(
+    categories.map((row) => ({
+      id: row.id as string,
+      recencyMs: row.createdAt.getTime(),
+      row,
+    }))
+  );
+
+  if (orderedCategories.length === 0) {
+    return 0;
+  }
+
+  const entries = await ctx.orm.query.tournamentEntry.findMany({
+    limit: PENDENCY_SEED_PRIMARY_ENTRY_SCAN_LIMIT,
+    where: {
+      categoryId: {
+        in: orderedCategories.map(
+          (category) => category.row.id as Id<"tournamentCategory">
+        ),
+      },
+    },
+  });
+  // Coluna de ocupacao viva (terminal limpa): e a chave do indice unico.
+  const occupied = entries
+    .flatMap((entry) => [entry.activeAId, entry.activeBId])
+    .filter(
+      (profileId): profileId is Id<"playerProfile"> =>
+        typeof profileId === "string"
+    )
+    .map((profileId) => profileId as string);
+  let planted = 0;
+
+  for (const plan of PENDENCY_SEED_PRIMARY_ENTRY_TARGETS) {
+    if (
+      entries.filter((entry) => entry.status === plan.status).length >=
+      plan.target
+    ) {
+      continue;
+    }
+
+    for (const category of orderedCategories) {
+      // A contagem do item e por torneio: se a categoria ja tem o status, a
+      // inscricao plantada vai para a proxima (nunca duplica o mesmo caso).
+      if (
+        entries.some(
+          (entry) =>
+            entry.categoryId === category.row.id && entry.status === plan.status
+        )
+      ) {
+        continue;
+      }
+
+      const freeSlots = category.row.modality === "doubles" ? 2 : 1;
+      const free = selectFreePendencyEntryProfiles({
+        candidates: input.seedProfiles.map((seedProfile) => ({
+          gender: seedProfile.gender,
+          profileId: seedProfile.profileId,
+        })),
+        gender: category.row.gender as TournamentGender,
+        modality: category.row.modality as TournamentModality,
+        occupied,
+      });
+
+      if (free.length < freeSlots) {
+        continue;
+      }
+
+      const [playerA, playerB] = free;
+      const seedProfileA = input.seedProfiles.find(
+        (seedProfile) => seedProfile.profileId === playerA
+      )!;
+      const seedProfileB = input.seedProfiles.find(
+        (seedProfile) => seedProfile.profileId === playerB
+      );
+      const result = await ensurePendencyEntry(ctx, {
+        categoryId: category.row.id as Id<"tournamentCategory">,
+        createdByUserId: seedProfileA.userId,
+        partnerUserId: seedProfileB?.userId ?? null,
+        playerAId: seedProfileA.profileId,
+        playerBId: seedProfileB?.profileId ?? null,
+        status: plan.status,
+      });
+
+      if (!result.created) {
+        continue;
+      }
+
+      planted += 1;
+      occupied.push(...free);
+      break;
+    }
+  }
+
+  return planted;
+}
+
+/**
+ * Cobertura da organizacao que o alvo JA usa: nunca altera dado existente nem a
+ * conta de recebimento dele.
+ */
+async function ensurePrimaryOrganizationPendencies(
+  ctx: SeedCtx,
+  input: {
+    excludeOrganizationId: Id<"organization">;
+    seedProfiles: readonly SeedProfileRef[];
+    userId: Id<"user">;
+  }
+) {
+  const organizations = await listPrimaryManagedOrganizations(ctx, input);
+  let entriesCreated = 0;
+  let joinRequestsCreated = 0;
+
+  for (const organizationId of organizations) {
+    const leagues = await ctx.orm.query.league.findMany({
+      limit: 50,
+      orderBy: { createdAt: "desc" },
+      where: { organizationId },
+    });
+    const league = sortByPendencyRecency(
+      leagues.map((row) => ({
+        id: row.id as string,
+        recencyMs: row.createdAt.getTime(),
+        row,
+      }))
+    )[0];
+
+    if (league) {
+      joinRequestsCreated += await ensurePrimaryJoinRequests(ctx, {
+        leagueId: league.row.id as Id<"league">,
+        seedProfiles: input.seedProfiles,
+      });
+    }
+
+    entriesCreated += await ensurePrimaryEntryPendencies(ctx, {
+      organizationId,
+      seedProfiles: input.seedProfiles,
+    });
+  }
+
+  return {
+    entriesCreated,
+    joinRequestsCreated,
+    organizationsTouched: organizations.length,
+  };
+}
+
+/**
+ * `seed:pendencyScenario` — estado de pendencias na CONTA do email informado:
+ * nenhum usuario novo entra no lugar dele e o cenario nao faz reset. Os kinds da
+ * ORGANIZACAO pedem um organizador SEM conta de recebimento — dai a organizacao
+ * propria.
+ */
+export const pendencyScenario = privateMutation
+  .input(PendencyScenarioSchema)
+  .output(pendencyScenarioResultSchema)
+  .mutation(async ({ ctx, input }) => {
+    const primaryUser = await requirePrimaryUser(ctx, input.primaryUserEmail);
+
+    const userId = primaryUser.id as Id<"user">;
+    const seedCoreResult = await seedCoreUsers(ctx);
+    const { userIds } = seedCoreResult;
+    const profileResult = await ensureSeedPlayerProfile(ctx, userId, {
+      emailLocalPart: "primary",
+      fullName: primaryUser.name || "Bruno Willian Garcia",
+      gender: PENDENCY_SEED_VIEWER_GENDER,
+      image: seedPlayers[0]!.image,
+      nickname: "Bruno",
+    });
+    const playerProfileId = profileResult.profile.id as Id<"playerProfile">;
+    const organizationResult = await ensurePendencyOrganization(ctx, userId);
+    const organizationId = organizationResult.organization
+      .id as Id<"organization">;
+
+    const seedProfiles = await ctx.orm.query.playerProfile.findMany({
+      limit: userIds.length,
+      where: { userId: { in: userIds } },
+    });
+    const profileIdByUserId = new Map(
+      seedProfiles.map((profile) => [
+        profile.userId as string,
+        profile.id as Id<"playerProfile">,
+      ])
+    );
+
+    let chargesCreated = 0;
+    let chargesRefreshed = 0;
+    let challengesCreated = 0;
+    let leaguesCreated = 0;
+    let membershipsCreated = 0;
+
+    const leagueByKey = new Map<string, LeagueRecord>();
+    const viewerMembershipByKey = new Map<string, LeagueMembershipRecord>();
+    const opponentsByKey = new Map<string, LeagueMembershipRecord[]>();
+
+    for (const template of PENDENCY_SEED_LEAGUES) {
+      const leagueResult = await ensurePendencyLeague(ctx, {
+        organizationId,
+        template,
+      });
+
+      if (leagueResult.created) {
+        leaguesCreated += 1;
+      }
+
+      const league = leagueResult.league;
+      const leagueId = league.id as Id<"league">;
+      const viewerIsActive = template.viewerMembershipStatus === "active";
+      const opponentIndexes =
+        PENDENCY_LEAGUE_OPPONENT_INDEXES[template.key] ?? [];
+      // challenge-rules: o challenger precisa estar ABAIXO do challenged, entao
+      // o alvo fica na PIOR posicao do grupo e os adversarios ACIMA dele (mesma
+      // convencao de `domains/seed/plan.ts`).
+      const viewerRankingPosition = viewerIsActive
+        ? opponentIndexes.length + 1
+        : null;
+      leagueByKey.set(template.key, league);
+
+      const viewerMembership = await ensureMembership(ctx, {
+        leagueId,
+        rankingPosition: viewerRankingPosition,
+        status: template.viewerMembershipStatus,
+        userId,
+      });
+      if (viewerMembership.created) {
+        membershipsCreated += 1;
+      }
+      await refreshSeedMembershipRankingPosition(ctx, {
+        membership: viewerMembership.membership,
+        rankingPosition: viewerRankingPosition,
+      });
+      // Posicao EFETIVA (a membership existente acabou de ser regravada).
+      viewerMembershipByKey.set(template.key, {
+        ...viewerMembership.membership,
+        rankingPosition: viewerRankingPosition,
+      });
+
+      const opponents: LeagueMembershipRecord[] = [];
+
+      for (const [position, opponentIndex] of opponentIndexes.entries()) {
+        const opponentMembership = await ensureMembership(ctx, {
+          leagueId,
+          rankingPosition: position + 1,
+          status: "active",
+          userId: userIds[opponentIndex]!,
+        });
+        if (opponentMembership.created) {
+          membershipsCreated += 1;
+        }
+        await refreshSeedMembershipRankingPosition(ctx, {
+          membership: opponentMembership.membership,
+          rankingPosition: position + 1,
+        });
+        opponents.push({
+          ...opponentMembership.membership,
+          rankingPosition: position + 1,
+        });
+      }
+      opponentsByKey.set(template.key, opponents);
+
+      for (const requestIndex of PENDENCY_LEAGUE_REQUEST_INDEXES[
+        template.key
+      ] ?? []) {
+        const requestMembership = await ensureMembership(ctx, {
+          leagueId,
+          rankingPosition: null,
+          status: "pending",
+          userId: userIds[requestIndex]!,
+        });
+        if (requestMembership.created) {
+          membershipsCreated += 1;
+        }
+      }
+
+      if (template.paidDaysUntilDue !== null) {
+        const chargeResult = await ensurePendencyPaidCharge(ctx, {
+          daysUntilDue: template.paidDaysUntilDue,
+          key: template.key,
+          league,
+          membershipId: viewerMembership.membership
+            .id as Id<"leagueMembership">,
+          organizationId,
+          playerProfileId,
+        });
+
+        if (chargeResult.created) {
+          chargesCreated += 1;
+        } else {
+          chargesRefreshed += 1;
+        }
+      }
+    }
+
+    const ruleConfigByKey = new Map(
+      [...leagueByKey].map(([key, league]) => [
+        key,
+        parseLeagueRuleConfig(league.ruleConfig),
+      ])
+    );
+
+    for (const [key, league] of leagueByKey) {
+      const viewerMembership = viewerMembershipByKey.get(key);
+      const opponents = opponentsByKey.get(key) ?? [];
+      const ruleConfig = ruleConfigByKey.get(key);
+
+      if (!(viewerMembership && opponents.length > 0 && ruleConfig)) {
+        continue;
+      }
+
+      const courtId = await ensureSeedCourtForLeague(ctx, league);
+      const challengePlans: SeedChallengePlan[] = [];
+
+      if (key === "due-soon") {
+        for (const scenario of PENDENCY_PLAYER_CHALLENGES) {
+          challengePlans.push({
+            challenged: {
+              id: opponents[scenario.challengedIndex]!
+                .id as Id<"leagueMembership">,
+              rankingPosition: opponents[scenario.challengedIndex]!
+                .rankingPosition as number,
+            },
+            challenger: {
+              id: viewerMembership.id as Id<"leagueMembership">,
+              rankingPosition: viewerMembership.rankingPosition as number,
+            },
+            dayOffset: scenario.dayOffset,
+            endMinute: scenario.startMinute + 90,
+            key: scenario.key,
+            result: "result" in scenario ? scenario.result : undefined,
+            startMinute: scenario.startMinute,
+            status: scenario.status,
+          });
+        }
+      }
+
+      if (key === "payment-due") {
+        for (const scenario of PENDENCY_ORGANIZER_CHALLENGES) {
+          challengePlans.push({
+            challenged: {
+              id: opponents[scenario.challengedIndex]!
+                .id as Id<"leagueMembership">,
+              rankingPosition: opponents[scenario.challengedIndex]!
+                .rankingPosition as number,
+            },
+            challenger: {
+              id: opponents[scenario.challengerIndex]!
+                .id as Id<"leagueMembership">,
+              rankingPosition: opponents[scenario.challengerIndex]!
+                .rankingPosition as number,
+            },
+            dayOffset: scenario.dayOffset,
+            endMinute: scenario.startMinute + 90,
+            key: scenario.key,
+            result: "result" in scenario ? scenario.result : undefined,
+            resultValidationMode:
+              "resultValidationMode" in scenario
+                ? scenario.resultValidationMode
+                : undefined,
+            startMinute: scenario.startMinute,
+            status: scenario.status,
+          });
+        }
+      }
+
+      for (const plan of challengePlans) {
+        const challengeResult = await ensureSeedChallenge({
+          courtId,
+          ctx,
+          league,
+          matchConfig: ruleConfig.matchConfig,
+          plan,
+          responseDeadlineHours: ruleConfig.responseDeadlineHours.value,
+        });
+
+        if (challengeResult.created) {
+          challengesCreated += 1;
+        }
+      }
+
+      // `ensureSeedChallenge` grava finishedAt fixo em 6 dias; a ultima partida
+      // da liga com penalidade precisa dos dias do plano.
+      if (ruleConfig.hasInactivityPenalty) {
+        const lastMatch = await ctx.orm.query.leagueChallenge.findFirst({
+          where: {
+            challengedMembershipId: opponents[0]!.id as Id<"leagueMembership">,
+            challengerMembershipId:
+              viewerMembership.id as Id<"leagueMembership">,
+            leagueId: league.id as Id<"league">,
+            status: "finished",
+          },
+        });
+
+        if (lastMatch) {
+          await ctx.db.patch(lastMatch.id as Id<"leagueChallenge">, {
+            finishedAt: addDays(
+              new Date(),
+              -PENDENCY_SEED_LAST_MATCH_DAYS_AGO
+            ).getTime(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+
+    let categoriesCreated = 0;
+    let entriesCreated = 0;
+    let tournamentsCreated = 0;
+
+    for (const template of PENDENCY_SEED_TOURNAMENTS) {
+      const tournamentResult = await ensurePendencyTournament(ctx, {
+        organizationId,
+        template,
+      });
+
+      if (tournamentResult.created) {
+        tournamentsCreated += 1;
+      }
+
+      const tournamentId = tournamentResult.tournament.id as Id<"tournament">;
+
+      for (const entry of template.entries) {
+        const categoryResult = await ensurePendencyCategory(ctx, {
+          entry,
+          tournamentId,
+        });
+
+        if (categoryResult.created) {
+          categoriesCreated += 1;
+        }
+
+        const counterpartUserId =
+          entry.counterpartIndex === null
+            ? null
+            : userIds[entry.counterpartIndex]!;
+        const counterpartProfileId = counterpartUserId
+          ? (profileIdByUserId.get(counterpartUserId as string) ?? null)
+          : null;
+        const isViewerEntry = entry.viewerSide !== null;
+
+        if (
+          isViewerEntry &&
+          !counterpartProfileId &&
+          entry.modality === "doubles"
+        ) {
+          continue;
+        }
+
+        const playerAId =
+          entry.viewerSide === "B"
+            ? (counterpartProfileId as Id<"playerProfile">)
+            : isViewerEntry
+              ? playerProfileId
+              : (counterpartProfileId as Id<"playerProfile">);
+        const playerBId =
+          entry.viewerSide === "A"
+            ? counterpartProfileId
+            : entry.viewerSide === "B"
+              ? playerProfileId
+              : null;
+        const createdByUserId =
+          entry.viewerSide === "B"
+            ? (counterpartUserId as Id<"user">)
+            : isViewerEntry
+              ? userId
+              : (counterpartUserId as Id<"user">);
+
+        const entryResult = await ensurePendencyEntry(ctx, {
+          categoryId: categoryResult.category.id as Id<"tournamentCategory">,
+          createdByUserId,
+          partnerUserId:
+            entry.modality === "doubles" && playerBId
+              ? ((entry.viewerSide === "A"
+                  ? counterpartUserId
+                  : userId) as Id<"user">)
+              : null,
+          playerAId,
+          playerBId,
+          status: entry.status,
+        });
+
+        if (entryResult.created) {
+          entriesCreated += 1;
+        }
+      }
+    }
+
+    const primaryPendencies = await ensurePrimaryOrganizationPendencies(ctx, {
+      excludeOrganizationId: organizationId,
+      // O player-01 carrega o MESMO nome do dono da conta: plantar esse perfil na
+      // organizacao dele pareceria o proprio usuario pedindo entrada.
+      seedProfiles: seedProfiles
+        .filter((profile) => profile.userId !== userIds[0])
+        .map((profile) => ({
+          gender: profile.gender,
+          profileId: profile.id as Id<"playerProfile">,
+          userId: profile.userId as Id<"user">,
+        }))
+        .sort((left, right) => (left.profileId < right.profileId ? -1 : 1)),
+      userId,
+    });
+
+    return {
+      categoriesCreated,
+      challengesCreated,
+      chargesCreated,
+      chargesRefreshed,
+      entriesCreated,
+      leaguesCreated,
+      membershipsCreated,
+      organizationId: organizationId as string,
+      playerProfileId: playerProfileId as string,
+      playerProfilesCreated:
+        seedCoreResult.playerProfilesCreated + (profileResult.created ? 1 : 0),
+      primaryEntriesCreated: primaryPendencies.entriesCreated,
+      primaryJoinRequestsCreated: primaryPendencies.joinRequestsCreated,
+      primaryOrganizationsTouched: primaryPendencies.organizationsTouched,
+      tournamentsCreated,
+      userId: userId as string,
+      usersCreated: seedCoreResult.usersCreated,
     };
   });

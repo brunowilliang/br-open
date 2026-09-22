@@ -20,6 +20,7 @@ type TargetLeagueChallengeStatus =
   | "pending_organizer_result_validation"
   | "pending_opponent_response"
   | "pending_result_confirmation"
+  | "pending_result_correction"
   | "pending_result_submission";
 
 type TargetLeagueChallengeMembership<MembershipId> = {
