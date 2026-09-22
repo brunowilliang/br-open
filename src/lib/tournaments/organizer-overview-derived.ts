@@ -20,9 +20,7 @@ export function buildTournamentEntriesKpi(input: {
   };
 }
 
-/** KPI de partidas — `null` enquanto não há chave (antes do sorteio).
- * Linhas vacant (subárvore podada de um cabeça, IBX-0035) não contam:
- * nunca são jogadas, inflariam o total. */
+/** Linhas `vacant` de subárvore podada não contam: nunca são jogadas. */
 export function buildTournamentMatchesKpi(input: {
   matches: TournamentMatchWithSides[];
 }): TournamentMatchesKpi | null {

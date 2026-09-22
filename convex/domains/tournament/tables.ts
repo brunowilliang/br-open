@@ -77,12 +77,10 @@ export const tournamentCategory = convexTable(
 export const tournamentEntry = convexTable(
   "tournamentEntry",
   {
-    // IBX-0074 r19: slot reservation mirrors — set while the entry is live
-    // (see ENTRY_LIVE_STATUSES), cleared with unsetToken when it goes
-    // terminal. The unique indexes below key on THESE columns so cancelled/
-    // rejected entries leave the index and re-registration works (a player
-    // id can never be removed from the index while sitting on playerAId —
-    // that column is NOT NULL on purpose, history keeps it).
+    // Reserva de vaga espelhada: preenchida enquanto a inscrição está viva
+    // (ver ENTRY_LIVE_STATUSES) e limpa com unsetToken quando ela termina —
+    // os índices únicos abaixo são nestas colunas, então cancelar libera a
+    // vaga. `playerAId` é NOT NULL de propósito: o histórico fica.
     activeAId: id("playerProfile"),
     activeBId: id("playerProfile"),
     categoryId: id("tournamentCategory")
@@ -93,9 +91,9 @@ export const tournamentEntry = convexTable(
     createdByUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
     }),
-    // IBX-0035 (PLN-0004): round where the entry enters the bracket
-    // (null/1 = round 1). Direct entry beyond round 1 is a head-of-seed
-    // privilege validated at draw time (validateEntryRounds).
+    // Rodada em que a inscrição entra na chave (null ou 1 = início). Entrada
+    // direta depois disso é privilégio de cabeça de chave, validado no
+    // sorteio.
     entryRound: integer(),
     partnerUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
@@ -120,10 +118,10 @@ export const tournamentEntry = convexTable(
       tournamentEntry.categoryId,
       tournamentEntry.status
     ),
-    // A live entry reserves each player at most once per category — enforced
-    // by the database on the mirrored active columns (IBX-0074 r19: terminal
-    // entries are out of the index, so cancel frees the slot for
-    // re-registration). Missing sides (singles' playerB) are not indexed.
+    // Uma inscrição viva reserva cada jogador no máximo uma vez por
+    // categoria — garantido no banco pelas colunas espelhadas (a terminal sai
+    // do índice, então cancelar libera a vaga). Lado ausente (playerB de
+    // simples) não entra no índice.
     uniqueIndex("categoryId_activeAId").on(
       tournamentEntry.categoryId,
       tournamentEntry.activeAId
@@ -187,9 +185,9 @@ export const tournamentMatch = convexTable(
   ]
 );
 
-// IBX-0028: audit trail for published-result edits. One row per organizer
-// edit — `before`/`after` carry the full result snapshot (score, winner,
-// walkover) so the bracket history stays reconstructible.
+// Auditoria das edições de resultado publicado: uma linha por edição, com o
+// snapshot completo antes/depois (placar, vencedor, W.O.), para a chave
+// continuar reconstruível.
 export const tournamentMatchEdit = convexTable(
   "tournamentMatchEdit",
   {

@@ -22,7 +22,7 @@ import {
 } from "./_shared/guards";
 import { shuffle, toSwapBoard } from "./_shared/board";
 
-/** Random open side for the fit (decisão 7: sorteio entre as vagas). */
+/** Random open side for the fit. */
 function pickRandomSide<
   Side extends { round: number; side: "a" | "b"; slotInRound: number },
 >(sides: Side[]): Side {
@@ -30,9 +30,9 @@ function pickRandomSide<
 }
 
 /**
- * Persists a fit/removal row rewrite. The rewritten pair loses its booking
- * (BUG-0028 pattern: no card stays scheduled with the old pair) and bumps
- * its row version for the clients watching the bracket.
+ * Persists a fit/removal row rewrite. The rewritten pair loses its booking (no
+ * card stays scheduled with the old pair) and bumps its row version for the
+ * clients watching the bracket.
  */
 async function applyPlacementUpdate(
   ctx: MutationCtx,
@@ -84,13 +84,11 @@ async function insertPlacementRow(
 }
 
 /**
- * IBX-0067 (PLN-0001, Etapa 1): the incremental placement core. Called on
- * EVERY transition into `active` (free+auto create, manual approve, partner
- * invite acceptance, paid charge confirmation). While the tournament has
- * not started it joins the entry into its category bracket at once: birth
- * with the 2nd confirmed entry, a random open slot afterwards, and one new
- * bottom round when the bracket is full. Idempotent by board membership —
- * an entry already placed is a no-op.
+ * The incremental placement core, called on EVERY transition into `active`
+ * (free+auto create, manual approve, partner acceptance, paid confirmation).
+ * Before the tournament starts it joins the entry into its category bracket:
+ * birth with the 2nd confirmed entry, a random open slot afterwards, one new
+ * bottom round when full. Idempotent by board membership.
  */
 export const placeActiveEntry = privateMutation
   .input(
@@ -158,10 +156,9 @@ export const placeActiveEntry = privateMutation
         pickSide: pickRandomSide,
       });
       if (error) {
-        // IBX-0067 review MEDIUM-1: a silent refusal strands an ACTIVE
-        // entry outside the bracket. The organizers learn NOW — the same
-        // manager-notice pattern as the approval pending (never re-notifies:
-        // the fit is attempted once per ACTIVE transition).
+        // A silent refusal would strand an ACTIVE entry outside the bracket, so
+        // the organizers learn NOW (same manager-notice pattern as a pending
+        // approval; never re-notifies — one fit attempt per ACTIVE transition).
         const managerIds = await getTournamentManagerUserIds(
           ormCtx,
           tournamentRecord.organizationId as Id<"organization">
@@ -220,8 +217,8 @@ export const placeActiveEntry = privateMutation
 
 /**
  * The inverse move: a cancelled entry leaves the bracket and its slot stays
- * EMPTY ("A definir", decisão 8 — no automatic bye re-derivation). Runs
- * while the tournament has not started; idempotent by board membership.
+ * EMPTY ("A definir", no automatic bye re-derivation). Runs while the tournament
+ * has not started; idempotent by board membership.
  */
 export const removeCancelledEntry = privateMutation
   .input(

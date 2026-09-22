@@ -240,7 +240,7 @@ describe("planBracketGrowth", () => {
       expect(update.entryAId).toBe((before as PlacementBoardMatch).entryAId);
       expect(update.entryBId).toBe((before as PlacementBoardMatch).entryBId);
     }
-    // os 4 confrontos da 1ª rodada continuam existindo (agora na rodada 2)
+    // os 4 confrontos da 1ª rodada continuam existindo (agora na semifinal)
     for (const [entryAId, entryBId] of roundOnePairs) {
       const moved = updates.find(
         (update) =>
@@ -390,7 +390,7 @@ describe("planEntryRemoval", () => {
         id: `new-${index}`,
       })),
     ];
-    // "a" está no bye new-0 (rodada 1) e no confronto preservado (rodada 2)
+    // "a" está no bye new-0 (1ª rodada) e no confronto preservado (2ª rodada)
     expect(coordinatesOf(grown, "a")).toEqual(["1:0:a", "2:0:a"]);
     const { updates: removalUpdates } = planEntryRemoval({
       board: grown,

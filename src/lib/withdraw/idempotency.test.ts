@@ -18,7 +18,7 @@ describe("withdraw idempotency key", () => {
     const lifecycle = createWithdrawAttemptKeyLifecycle();
     const first = lifecycle.attemptKey();
     // Retry após erro: MESMA chave — o backend faz replay da reserva em
-    // vez de um 2º POST (BUG-0005).
+    // vez de um 2º POST.
     expect(lifecycle.attemptKey()).toBe(first);
   });
 

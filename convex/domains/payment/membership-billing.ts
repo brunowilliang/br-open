@@ -2,15 +2,11 @@
  * League membership billing cycle — resolves the due date a membership has
  * already paid for.
  *
- * Shared by charge creation/renewal (`functions/payment/charge.ts`) and by the
- * league detail query that exposes `viewerMembershipDueAt`
- * (`functions/league/discovery.ts`).
- *
  * The cycle end is snapshotted on the charge that bought the period
  * (`paymentCharge.periodEndAt`), so an early renewal stacks on top of the
- * current due date instead of restarting from the payment date (IBX-0039).
- * Charges created before that column existed (and non-recurring sources) fall
- * back to `paidAt + billingInterval`, which is the previous behaviour.
+ * current due date instead of restarting from the payment date. Charges created
+ * before that column existed (and non-recurring sources) fall back to
+ * `paidAt + billingInterval`.
  */
 
 import type { InferSelectModel } from "kitcn/orm";

@@ -54,7 +54,6 @@ const DEFAULT_TITLE = "Ajustar imagem";
 const MAX_ZOOM = 4;
 const MIN_STAGE_PADDING = 24;
 const MIN_ZOOM = 1;
-const OVERLAY_CLASS_NAME = "absolute bg-black/75";
 
 function getImageCropRuntime() {
   const { Button } = require("heroui-native") as typeof import("heroui-native");
@@ -574,12 +573,12 @@ export function ImageCropper(props: ImageCropperProps) {
                   Fragment,
                   null,
                   createElement(View, {
-                    className: OVERLAY_CLASS_NAME,
+                    className: "absolute bg-black/75",
                     pointerEvents: "none",
                     style: { height: maskFrame.y, left: 0, right: 0, top: 0 },
                   }),
                   createElement(View, {
-                    className: OVERLAY_CLASS_NAME,
+                    className: "absolute bg-black/75",
                     pointerEvents: "none",
                     style: {
                       bottom: 0,
@@ -589,7 +588,7 @@ export function ImageCropper(props: ImageCropperProps) {
                     },
                   }),
                   createElement(View, {
-                    className: OVERLAY_CLASS_NAME,
+                    className: "absolute bg-black/75",
                     pointerEvents: "none",
                     style: {
                       height: maskFrame.height,
@@ -599,7 +598,7 @@ export function ImageCropper(props: ImageCropperProps) {
                     },
                   }),
                   createElement(View, {
-                    className: OVERLAY_CLASS_NAME,
+                    className: "absolute bg-black/75",
                     pointerEvents: "none",
                     style: {
                       height: maskFrame.height,

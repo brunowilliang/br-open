@@ -98,8 +98,7 @@ export default function TournamentOverviewRoute() {
     },
   });
 
-  // Inscrição pelo rodapé (JoinFooter): mesma sequência do extinto
-  // TournamentJoinSheet — create → (awaiting_payment) charge → checkout.
+  // Inscrição pelo rodapé: create → (awaiting_payment) charge → checkout.
   const createEntry = useMutation({
     mutationFn: crpcClient.tournament.entries.create.mutate,
     mutationKey: crpc.tournament.entries.create.mutationKey(),
@@ -140,15 +139,13 @@ export default function TournamentOverviewRoute() {
     },
   });
 
-  // Busca viva do parceiro de duplas: debounce 500ms +
-  // players.searchByUsername — contrato r18-A devolve LISTA alfabética
-  // (≤10, [] = ninguém) por prefixo; r25 resolve o gênero no servidor a
-  // partir da categoria (o cliente nunca manda gender); r26 alimenta a
-  // categoria com a seleção em tempo real do painel (onCategoryChange).
+  // players.searchByUsername devolve LISTA alfabética (≤10, [] = ninguém) por
+  // prefixo; o servidor resolve o gênero pela categoria, o cliente nunca
+  // manda gender.
   const [partnerSearch, setPartnerSearch] = useState("");
   const [debouncedPartnerSearch, setDebouncedPartnerSearch] = useState("");
-  // Categoria escolhida no painel do JoinFooter, em tempo real (r26): alimenta
-  // a busca de parceiro. Estado da TELA; o painel continua dono da seleção.
+  // Categoria escolhida no painel do JoinFooter, em tempo real: alimenta a
+  // busca de parceiro; o painel continua dono da seleção.
   const [selectedCategoryId, setSelectedCategoryId] = useState<null | string>(
     null
   );
@@ -255,8 +252,7 @@ export default function TournamentOverviewRoute() {
   });
   const activeEntriesCountByCategory =
     buildTournamentActiveEntriesCountByCategory(entries);
-  // Categorias escolhíveis com vaga montada (molde do extinto rodapé-form):
-  // alimenta o bloco de inscrição e o sheet de categoria.
+  // Categorias escolhíveis e com vaga — base do bloco de inscrição.
   const joinableCategories = tournament
     ? categories
         .filter((category) =>
@@ -296,10 +292,9 @@ export default function TournamentOverviewRoute() {
   const hasActiveEntry =
     role === "player" && (tournament?.viewerEntryIds.length ?? 0) > 0;
 
-  // r26: a busca de parceiro usa a CATEGORIA SELECIONADA no painel do
-  // JoinFooter (onCategoryChange); sem categoria — ou numa singles — a busca
-  // segue desabilitada. O servidor resolve o gênero pela categoria (contrato
-  // r25); o cliente nunca manda gender.
+  // A busca de parceiro usa a categoria selecionada no painel; sem categoria
+  // — ou numa singles — fica desabilitada. O servidor resolve o gênero pela
+  // categoria; o cliente nunca manda gender.
   const selectedJoinCategory = joinableCategories.find(
     (category) => category.id === selectedCategoryId
   );
@@ -316,10 +311,9 @@ export default function TournamentOverviewRoute() {
     staleTime: 15_000,
   });
 
-  // r30: busca de parceiro EM ANDAMENTO — janela do debounce (o termo cru já
-  // mudou e o debounced ainda não acompanhou) OU fetch da query (`isFetching`
-  // cobre o primeiro disparo e o refetch). O rodapé troca o Empty pelo
-  // LoadingState com isso; "Nenhum jogador encontrado." fica pra resolvida.
+  // Busca de parceiro EM ANDAMENTO: janela do debounce (o termo cru já mudou
+  // e o debounced ainda não acompanhou) ou fetch da query em curso — o rodapé
+  // troca o Empty pelo LoadingState nesse caso.
   const isPartnerSearchPending =
     partnerQuery.isFetching ||
     debouncedPartnerSearch !== partnerSearch.trim().toLowerCase();
@@ -335,13 +329,9 @@ export default function TournamentOverviewRoute() {
     })
   );
 
-  // Rodapé de inscrição (JoinFooter): categorias com labels prontos e o
-  // CTA do painel no vocabulário do extinto sheet ("Inscrever e pagar" com
-  // taxa, "Confirmar inscrição" grátis; categoria mista = neutro).
-  // r27 (contrato de discovery): a elegibilidade do ator desce como veio —
-  // `viewerEligible === false` vira linha DESABILITADA com o motivo do
-  // servidor (`viewerIneligibleReason`); nenhuma regra de gênero é
-  // recalculada aqui e nenhuma categoria é escondida.
+  // A elegibilidade do ator desce do servidor como veio: viewerEligible ===
+  // false vira linha DESABILITADA com o viewerIneligibleReason; nenhuma regra
+  // de gênero é recalculada nem categoria escondida aqui.
   const joinFooterCategories: JoinFooterCategory[] = joinableCategories.map(
     (category) => ({
       displayName: category.displayName,
@@ -364,8 +354,8 @@ export default function TournamentOverviewRoute() {
     : joinableCategories.every((category) => category.entryFeeCents > 0)
       ? "Inscrever e pagar"
       : "Inscrever-se";
-  // Avisos do diálogo de Iniciar (só o organizador, em `drawn`): convites
-  // sem resposta e vagas em aberto que recusam o início no servidor.
+  // Avisos do diálogo de Iniciar: convites sem resposta e vagas em aberto que
+  // o servidor recusa no início.
   const startWarnings =
     tournament && access?.canManage && tournament.status === "drawn"
       ? buildStartWarnings({ entries, matches })
@@ -522,10 +512,8 @@ export default function TournamentOverviewRoute() {
         )}
       </Page.ScrollView>
 
-      {/* Rodapé fixo de inscrição = JoinFooter (molde unificado liga+torneio,
-          IBX-0074): respeita prazo e estados — só existe com a janela aberta
-          e categoria com vaga; o painel expande com seletor de categoria e
-          parceiro de duplas (busca viva); a confirmação é o wiring da página
+      {/* Rodapé fixo de inscrição = JoinFooter: só existe com a janela aberta
+          e categoria com vaga; a confirmação é o wiring da página
           (create → charge → checkout). */}
       {!showStatusState &&
       role !== "organizer" &&
@@ -650,9 +638,8 @@ export default function TournamentOverviewRoute() {
 }
 
 /**
- * Stretch banner (molde LeagueBanner, leagues/[leagueId]/index.tsx). Reage ao
- * offset de scroll da página (SharedValue da UI thread) com o efeito
- * "stretch to zoom" no overscroll.
+ * Stretch banner: reage ao scroll da página (SharedValue da UI thread) com o
+ * efeito "stretch to zoom" no overscroll. Molde de leagues/[leagueId]/index.tsx.
  */
 function TournamentBanner(props: {
   tournament: ApiOutputs["tournament"]["discovery"]["getById"];

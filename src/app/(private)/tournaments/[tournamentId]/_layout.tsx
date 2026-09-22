@@ -121,7 +121,8 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     }
   }, [bucket$, tournamentQuery.isError]);
 
-  // Sem entries o role caía pra guest e a tela virava null sem estado.
+  // A falha de entries também vira estado de erro: sem isso o role cai pra
+  // guest e a tela fica null.
   useEffect(() => {
     if (entriesQuery.isError) {
       bucket$.actions.setBootstrapStatus("error");

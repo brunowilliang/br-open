@@ -34,10 +34,8 @@ type DatePickerOption = {
   value: string;
 };
 
-/**
- * Slot ocupado NEUTRO (liga manda challengeId, torneio matchId — o adapter
- * de cada domínio renomeia para slotId na fronteira, RUL-0005).
- */
+/** Slot ocupado NEUTRO: liga manda `challengeId` e torneio `matchId` — o
+ * adapter de cada domínio renomeia para `slotId` na fronteira. */
 type OccupiedSlot = {
   courtId: string;
   endMinute: number;
@@ -51,7 +49,7 @@ type ChallengeProposalDialogProps = {
   slotIdToIgnore?: string;
   courts: LeagueCourt[];
   defaultDurationMinutes: number;
-  /** Sobrescreve a descrição league-phrased (adaptação por domínio — RUL-0005). */
+  /** Sobrescreve a descrição league-phrased (adaptação por domínio). */
   description?: string;
   initialValue?: ChallengeProposalDialogValue;
   isOpen: boolean;
@@ -257,9 +255,8 @@ export const ChallengeProposalDialog = (
     setErrorMessage("");
     await onSubmit({
       courtId,
-      // Derived from the start minute + the match duration; consumers treat
-      // it as an opaque contract field (IBX-0030 keeps the tournament UI
-      // free of a duration input).
+      // Derived from the start minute + the match duration; consumers treat it
+      // as an opaque field (the tournament UI has no duration input).
       endMinute: Number(startMinute) + defaultDurationMinutes,
       matchDate: matchDate.value,
       startMinute: Number(startMinute),

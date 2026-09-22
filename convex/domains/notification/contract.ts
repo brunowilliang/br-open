@@ -41,17 +41,12 @@ export const NotificationDevicePlatformSchema = z.enum([
 ]);
 
 /**
- * Apresentacao acionavel do item da central (IBX-0077 / PLN-0009): o servidor
- * decide SE o item tem botao, QUAL acao cada botao executa e QUAL palavra do
- * corpo vai em negrito — a tela so renderiza, nunca infere por `eventType`
- * (mesma regra do item de pendencias, `../pendings/contract.ts`).
+ * Apresentacao acionavel do item da central: o servidor decide SE o item tem
+ * botao, QUAL acao cada botao executa e QUAL palavra do corpo vai em negrito —
+ * a tela so renderiza, nunca infere por `eventType`.
  *
- * `null` = item INFORMATIVO (a maioria dos 44 eventos): a tela desenha o cartao
- * de hoje, sem botao. Linha antiga (criada antes deste campo) tambem chega
- * `null`, entao o app cai no cartao informativo sem nenhuma migration.
- *
- * O `action`/`secondaryAction` reusam o MESMO schema e o MESMO enum do modulo
- * de pendencias (`pendingActionSchema`) — um so vocabulario de acao no repo.
+ * `null` = item INFORMATIVO (a maioria dos 44 eventos), e linha criada antes
+ * deste campo tambem chega `null`: o app cai no cartao informativo, sem migration.
  */
 export const notificationPresentationSchema = z.object({
   /** Acao do botao principal; `null` so em apresentacao sem decisao. */

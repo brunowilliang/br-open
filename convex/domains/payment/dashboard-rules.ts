@@ -1,11 +1,9 @@
 /**
  * Organizer dashboard revenue rules — pure functions only.
  *
- * IBX-0071: the org home needs a monthly revenue SERIES — `getOverview` only
- * carries two points (this month × last month). The series is derived from
- * the real `paymentCharge` history (status PAID, organizer split cents): no
- * new table, no migration, no cron. Month keys follow the repo product
- * calendar (Brazil, UTC-3 fixed — see `buildBrazilMonthKey`).
+ * The series comes from the real `paymentCharge` history (PAID charges,
+ * organizer split), so it costs no table and no cron. Month keys follow the
+ * product calendar (Brazil, UTC-3 fixed — see `buildBrazilMonthKey`).
  */
 
 import {

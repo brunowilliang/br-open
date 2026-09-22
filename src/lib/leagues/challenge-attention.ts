@@ -3,29 +3,10 @@ import type { ApiOutputs } from "@convex/shared/api";
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
 
-/**
- * ============================================================================
- * CHALLENGE ATTENTION — REGRA ÚNICA (BUG-0043)
- * ============================================================================
- *
- * Fonte da verdade de "este desafio exige a AÇÃO IMEDIATA do viewer".
- *
- * A regra existia DUPLICADA em challenge-route-view.ts e
- * challenge-tab-counts.ts, e as duas cópias podiam divergir: a aba "Atenção"
- * mostrava/contava uma coisa e o alerta contava outra, com o MESMO dado na
- * tela (badge mentindo em relação à lista). Agora a lista
- * (challenge-route-view.ts) e o badge (challenge-tab-counts.ts) saem desta
- * mesma função por construção.
- *
- * A regra veio verbatim de `challenge-route-view.ts` — a versão que monta a
- * LISTA que o usuário vê, portanto a que vale quando as cópias divergem.
- * ============================================================================
- */
+// Fonte ÚNICA da atenção: a lista (challenge-route-view.ts) e o badge
+// (challenge-tab-counts.ts) chamam isChallengeAttention, então a aba "Atenção"
+// e o alerta saem do MESMO dado por construção.
 
-/**
- * Subset do ChallengeItem necessário para resolver a atenção. Manter mínimo
- * evita restringir os tipos nos callers e facilita testes.
- */
 export type ChallengeAttentionItem = {
   challenged: {
     membershipId?: string | null;
@@ -57,13 +38,8 @@ export function isChallengeViewerParticipant(
 }
 
 /**
- * Determina se um desafio requer a ATENÇÃO do jogador (viewer).
- *
- * A regra combina status + papel do viewer, pois o mesmo status pode exigir
- * ação de um lado e não do outro (ex.: pending_result_confirmation — quem
- * NÃO publicou o placar precisa confirmar; quem publicou fica em "Aguardando").
- *
- * Não é jogador? Nunca é atenção (nem aparece para o jogador).
+ * Ação IMEDIATA do viewer: combina status + papel, pois o mesmo status pode
+ * exigir ação de um lado e não do outro (ex.: pending_result_confirmation).
  */
 export function isChallengeAttention(
   challenge: ChallengeAttentionItem,

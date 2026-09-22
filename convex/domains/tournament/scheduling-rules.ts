@@ -6,14 +6,12 @@ import {
 import type { LeagueMatchConfig } from "../league/contract";
 
 /**
- * IBX-0069: a tournament whose start date has arrived (on the BRAZILIAN
- * calendar, repo convention — BUG-0024) starts ITSELF — the organizer no
- * longer has to touch Iniciar. Day-boundary comparison of both instants
- * (not a 24h window): a startDate at any hour of day D must fire during D.
- * `drawn` starts directly; `published` draws FIRST and then starts (IBX-0069
- * round 2, user decision: with no draw by the start day, the random draw
- * runs itself — "azar do organizador"). Past states are untouchable —
- * idempotent by status: once `ongoing`, the rule can never fire again.
+ * A data de início chegou (no calendário BRASILEIRO, convenção do repo) e o
+ * torneio começa SOZINHO, sem o organizador tocar em Iniciar. Compara o DIA
+ * dos dois instantes, não uma janela de 24h — um startDate em qualquer hora
+ * do dia D dispara durante D. `drawn` começa direto; `published` sorteia
+ * primeiro e depois começa. Idempotente por status: uma vez `ongoing`, nunca
+ * dispara de novo.
  */
 export function shouldAutoStartTournament(input: {
   nowMs: number;
@@ -30,9 +28,9 @@ export function shouldAutoStartTournament(input: {
 }
 
 /**
- * Minimal scheduling fields the court conflict check needs from a match row.
- * Absent keys are modeled explicitly: Convex omits unset keys, so runtime
- * values can be undefined even where the row type says `| null` (BUG-0030).
+ * Campos de agendamento que a checagem de conflito de quadra precisa. Chaves
+ * ausentes são modeladas explicitamente: o Convex omite chaves não gravadas,
+ * então o runtime entrega undefined mesmo onde o tipo diz `| null`.
  */
 export type TournamentScheduledMatch = {
   courtId: string | null | undefined;
@@ -56,11 +54,11 @@ export function isScheduledTournamentMatch(
 }
 
 /**
- * First scheduled match occupying [start, start + defaultDurationMinutes) on
- * the same court and date, or null. Occupancy is derived from the rules'
- * default duration on BOTH sides, so a client-sent endMinute can never shrink
- * a booking out of the way (BUG-0027). The match being rescheduled ignores
- * itself. Walkovers keep occupying the court: the booking was made.
+ * Primeira partida agendada que ocupa [start, start + duração padrão) na
+ * mesma quadra e data, ou null. A ocupação é derivada da duração padrão dos
+ * DOIS lados, então um endMinute vindo do cliente não encurta uma reserva já
+ * feita. A partida sendo reagendada ignora a si mesma. W.O. continua ocupando
+ * a quadra: a reserva foi feita.
  */
 export function findCourtSlotConflict(input: {
   courtId: string;

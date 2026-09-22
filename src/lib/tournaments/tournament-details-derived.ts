@@ -66,9 +66,7 @@ export type TournamentNavigationTabItem = {
   value: TournamentNavigationTabValue;
 };
 
-/** Abas flutuantes da página do torneio, filtradas pelo acesso do papel
- * (restauração da navegação do PLN-0007: as tabs voltam; o conteúdo da casa
- * segue o plano de conteúdo em texto simples). */
+/** Abas filtradas pelo acesso do papel; a barra só é montada com 2+ itens. */
 export function buildTournamentNavigationTabItems(
   access: TournamentDetailsAccess
 ): TournamentNavigationTabItem[] {
@@ -94,7 +92,6 @@ export function buildTournamentNavigationTabItems(
   return items.length > 1 ? items : [];
 }
 
-/** Placeholder da aba Chave enquanto a chave não é pública (spec: drawn). */
 export function buildBracketPlaceholder(input: {
   access: TournamentDetailsAccess;
   startDateMs: number;
@@ -145,10 +142,7 @@ export function getMatchStatusChip(status: string): TournamentMatchStatusChip {
   return MATCH_STATUS_CHIPS[status] ?? { color: "default", label: status };
 }
 
-/**
- * Linha de agendamento do card do chaveamento (IBX-0033): "12 de set. ·
- * 14:00 · Quadra 2". `null` enquanto a partida não tem os três dados.
- */
+/** "12 de set. · 14:00 · Quadra 2": `null` enquanto faltar qualquer um dos três. */
 export function formatMatchScheduleSummary(input: {
   courtName: null | string;
   matchDate: null | string;
@@ -167,7 +161,7 @@ export function formatMatchScheduleSummary(input: {
   )} · ${input.courtName}`;
 }
 
-/** Nome de exibição de um lado da partida (dupla junta os dois nomes curtos). */
+/** Rótulo do lado: `null` vira "A definir"; dupla junta os dois nomes curtos. */
 export function formatEntrySideLabel(
   entry: null | TournamentEntryWithPlayers
 ): string {
@@ -190,9 +184,6 @@ export function isDoublesEntry(entry: TournamentEntryWithPlayers): boolean {
   return entry.playerB !== null;
 }
 
-/** Abas da tela de inscrições (PLN-0007 decisão 1: pendências são superfície
- * do organizador; IBX-0080: "minhas" é o segmento do jogador com as próprias
- * inscrições — a lista global de confirmados continua no segmento ao lado). */
 export type TournamentEntriesTab = "confirmed" | "mine" | "pending";
 
 export type TournamentEntriesTabItem = {
@@ -200,15 +191,9 @@ export type TournamentEntriesTabItem = {
   value: TournamentEntriesTab;
 };
 
-/**
- * Itens da barra de segmentos da aba Inscrições, pelo PAPEL RESOLVIDO
- * (IBX-0080). A barra só é montada com 2+ itens (precedente do repo: as tabs de
- * categoria do chaveamento só existem com 2+ categorias com chave) — o que zera
- * a barra em dois casos reais: o guest, que não tem inscrição viva por
- * construção (`viewerEntryIds` vazio, `buildTournamentDetailsRole`), e a
- * entrada FRIA, em que `role` ainda é `null` porque a descoberta não hidratou —
- * é nessa janela que a barra pintada não pode ser a do jogador para um gestor.
- */
+/** Itens pelo PAPEL RESOLVIDO: papel nulo (a descoberta ainda não hidratou) zera
+ * a barra; é nessa janela que a barra pintada não pode ser a do jogador para um
+ * gestor. */
 export function buildTournamentEntriesTabItems(input: {
   role: null | TournamentDetailsRole;
 }): TournamentEntriesTabItem[] {
@@ -229,41 +214,12 @@ export function buildTournamentEntriesTabItems(input: {
   return [];
 }
 
-/**
- * Aba ATIVA da tela de inscrições, derivada a cada render (BUG-0045).
- *
- * O `initialTab` do item de pendência (`initialTab=pending` no deep-link do
- * alerta) só vale para o ORGANIZADOR, e o contexto do organizador NÃO existe no
- * primeiro render da entrada fria (pela home): `access` ainda é `undefined`.
- * Com estado inicializado uma única vez (`useState`), o `pending` se perdia
- * nessa entrada e o CTA "Ver" caía em Confirmados. Aqui a decisão é derivada —
- * quando o contexto chega, a mesma chamada passa a devolver `pending`.
- *
- * `userTab` é a aba tocada pelo usuário: com ela escolhida, a derivada nunca
- * volta ao `initialTab` (a escolha manual não é atropelada por um contexto que
- * carrega depois nem por re-render) — mas só VALE se a aba estiver na lista do
- * PAPEL RESOLVIDO (`buildTournamentEntriesTabItems`), porque o papel pode mudar
- * com a tela aberta (IBX-0080):
- *   - o gestor toca "Minhas" antes de o contexto do organizador chegar (a
- *     barra era a do jogador nessa janela) e ficaria preso numa aba que os
- *     triggers dele não têm;
- *   - o jogador cancela a ÚNICA inscrição e vira guest com a tela aberta: a
- *     barra desmonta (o guest não tem "Minhas") e a escolha herdada deixaria a
- *     tela presa no segmento do jogador, SEM trigger para voltar a Confirmados.
- * Sem lista de itens (guest ou papel ainda não resolvido) nenhuma escolha vale
- * e a derivada cai no default do papel.
- *
- * IBX-0080 (decisão do usuário): fora do organizador a entrada é "minhas" — e o
- * viewer SEM inscrição viva (`viewerEntryIds` vazio, o caso do guest) cai em
- * Confirmados, a lista GLOBAL, nunca numa aba vazia. O organizador não tem
- * "minhas" (para o ator de organização `viewerEntryIds` é vazio por construção).
- */
+/** Aba ATIVA DERIVADA a cada render: um `useState` inicializado uma vez perderia
+ * o `initialTab=pending`, que só chega com o contexto do organizador no
+ * re-render. `userTab` só vale se ainda estiver na lista do papel resolvido. */
 export function resolveTournamentEntriesTab(input: {
-  /** `initialTab` do deep-link (params do expo-router). */
   initialTab?: string;
-  /** Papel resolvido do torneio; `null` enquanto a descoberta não hidratou. */
   role: null | TournamentDetailsRole;
-  /** Aba tocada pelo usuário; `null` enquanto ele não escolheu. */
   userTab: null | TournamentEntriesTab;
 }): TournamentEntriesTab {
   const items = buildTournamentEntriesTabItems({ role: input.role });
@@ -282,11 +238,8 @@ export function resolveTournamentEntriesTab(input: {
   return input.role === "player" ? "mine" : "confirmed";
 }
 
-/**
- * Stage of a match by draw size (2^(totalRounds - round + 1) slots):
- * Final, Semifinal, Quartas de final, Oitavas de final; uncommon draw
- * sizes fall back to "Rodada N".
- */
+/** Nome do estágio pelo tamanho do quadro (2^(totalRounds - round + 1));
+ * tamanhos incomuns caem em "Rodada N". */
 export function formatBracketStage(round: number, totalRounds: number): string {
   const drawSize = 2 ** (totalRounds - round + 1);
 
@@ -308,20 +261,12 @@ export function buildCategoryDisplayNameFromKey(key: CategoryKey) {
   return buildCategoryDisplayName(key.modality, key.gender);
 }
 
-// ---------------------------------------------------------------------------
-// Inscrição na visão geral (IBX-0067/PLN-0001, Etapa 2): estado da janela,
-// vagas por categoria e categorias que o viewer ainda pode escolher.
-// ---------------------------------------------------------------------------
-
 export type TournamentRegistrationWindowState = {
   open: boolean;
 };
 
-/**
- * Mesma regra do servidor (`isRegistrationOpen`, entry-rules): janela aberta
- * em `published`/`drawn` com prazo futuro; fechada em qualquer outro estado
- * ou com prazo vencido.
- */
+/** Mesma regra do servidor (`isRegistrationOpen`): aberta só em
+ * `published`/`drawn` com prazo futuro. */
 export function buildRegistrationWindowState(input: {
   nowMs: number;
   registrationDeadlineMs: number;
@@ -336,11 +281,8 @@ export function buildRegistrationWindowState(input: {
   return { open };
 }
 
-/**
- * Vagas da categoria no seletor do rodapé, na MESMA semântica do servidor
- * (`assertCategoryCapacity` conta só entries `active`): "{ativas}/{max}
- * vagas"; categoria cheia sai como "Lotada". Sem limite, nada a mostrar.
- */
+/** Mesma semântica do servidor (`assertCategoryCapacity`, só entries `active`):
+ * "{ativas}/{max} vagas", ou "Lotada" quando enche. Sem teto, nada a mostrar. */
 export function buildTournamentCategoryVacancy(input: {
   activeEntriesCount: number;
   maxEntries: null | number;
@@ -359,10 +301,6 @@ export function buildTournamentCategoryVacancy(input: {
   };
 }
 
-/**
- * Contagem de entries CONFIRMADAS (`active`) por categoria — o insumo do
- * seletor de vagas. Mesmo critério do `activeEntryCount` do discovery.
- */
 export function buildTournamentActiveEntriesCountByCategory(
   entries: ReadonlyArray<{ categoryId: string; status: string }>
 ): Record<string, number> {
@@ -380,18 +318,13 @@ export function buildTournamentActiveEntriesCountByCategory(
 }
 
 export type TournamentJoinOptions = {
-  /** Categorias onde o viewer JÁ tem inscrição viva (saem do seletor). */
   joinedCategoryIds: string[];
-  /** Categorias que o viewer ainda pode escolher (decisão 22/08). */
   joinableCategoryIds: string[];
 };
 
-/**
- * Multi-categoria do jogador: o rodapé aparece pra guest E para quem já
- * está inscrito; a categoria já inscrita sai do seletor (o servidor recusa
- * jogador repetido na categoria). `viewerEntryIds` já exclui cancelled —
- * cancelou, a categoria volta a ser escolhível.
- */
+/** Categoria com inscrição viva sai do seletor (o servidor recusa jogador
+ * repetido); `viewerEntryIds` já exclui cancelled, então cancelar devolve a
+ * categoria às escolhíveis. */
 export function buildTournamentJoinOptions(input: {
   categoryIds: readonly string[];
   entries: ReadonlyArray<{ categoryId: string; id: string }>;
@@ -410,10 +343,8 @@ export function buildTournamentJoinOptions(input: {
   };
 }
 
-/**
- * Cancelar inscrição (IBX-0067, Etapa 2): entry viva em torneio pré-início
- * (`published`/`drawn` — mesma guard do servidor, entries.cancel).
- */
+/** Só entry viva em torneio pré-início (`published`/`drawn`) — mesma guard do
+ * servidor, entries.cancel. */
 export function canCancelTournamentEntry(input: {
   entryStatus: string;
   tournamentStatus: string;
@@ -427,11 +358,6 @@ export function canCancelTournamentEntry(input: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Avisos do diálogo de Iniciar (IBX-0067, Etapa 3): o usuário vê os
-// problemas ANTES de tentar e tomar o erro do servidor.
-// ---------------------------------------------------------------------------
-
 type StartWarningMatch = {
   categoryId: string;
   entryAId: null | string;
@@ -442,13 +368,9 @@ type StartWarningMatch = {
   walkover: boolean;
 };
 
-/**
- * Vagas em aberto ("A definir") que impedem o início — MESMO critério do
- * `validateBracketStartable` (bracket-rules): lado vazio na rodada 1 ou
- * alimentado por subtree podada (`vacant`); lado esperando feed vivo é o
- * desenho normal. A busca do filho é POR CATEGORIA (round/slot colidem
- * entre categorias da lista global de matches).
- */
+/** Lado vazio na primeira rodada ou alimentado por subtree podada (`vacant`) é
+ * buraco; lado esperando feed vivo é o desenho normal. A busca do filho é POR
+ * CATEGORIA (round/slot colidem entre categorias na lista global de matches). */
 function countBracketStartHoles(matches: readonly StartWarningMatch[]) {
   const boardByCategory = new Map<string, Map<string, StartWarningMatch>>();
 
@@ -495,11 +417,6 @@ function countBracketStartHoles(matches: readonly StartWarningMatch[]) {
   return holes;
 }
 
-/**
- * Warnings prontos pro corpo do diálogo de Iniciar: convites de dupla sem
- * resposta que ficam de fora e vagas em aberto que recusam o início.
- * Vazio = começa sem aviso.
- */
 export function buildStartWarnings(input: {
   entries: ReadonlyArray<{ status: string }>;
   matches: readonly StartWarningMatch[];

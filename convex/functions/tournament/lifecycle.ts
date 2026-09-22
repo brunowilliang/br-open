@@ -86,8 +86,8 @@ export const cancel = authMutation
         where: { categoryId: category.id as Id<"tournamentCategory"> },
       });
       for (const entry of entries) {
-        // L2: only ACTIVE entrants get the cancellation notice — pending/
-        // rejected/cancelled entries were never in the tournament.
+        // Only ACTIVE entrants get the cancellation notice; pending, rejected
+        // and cancelled entries were never in the tournament.
         if (entry.status === "active") {
           if (entry.createdByUserId) {
             recipients.add(entry.createdByUserId as Id<"user">);
@@ -97,8 +97,7 @@ export const cancel = authMutation
           }
         }
         if (entry.status !== "cancelled" && entry.status !== "rejected") {
-          // Tournament cancelled = every entry goes terminal: free the
-          // category slots (IBX-0074 r19).
+          // Tournament cancelled = every entry goes terminal: free the slots.
           await ctx.orm
             .update(tournamentEntry)
             .set({
@@ -175,9 +174,9 @@ export const processRefunds = privateAction
             valueCents: charge.amountCents,
           }
         );
-        // M5: only a provider CONFIRMED flips the charge to refunded.
-        // IN_PROCESSING stays `pending` — the sweep keeps checking until it
-        // settles; a late REJECTED flips to failed and the sweep retries.
+        // Only a provider CONFIRMED flips the charge to refunded. IN_PROCESSING
+        // stays `pending` (the sweep keeps checking); a late REJECTED flips to
+        // failed and the sweep retries.
         await ctx.runMutation(
           internal.tournament.lifecycle.applyRefundOutcome,
           {
@@ -251,7 +250,7 @@ export const applyRefundOutcome = privateMutation
 
 /**
  * Cron entry (15 min): retries failed/pending tournament refunds across all
- * tournaments. Mirrors the withdraw-fee sweep pattern (BUG-0006).
+ * tournaments, mirroring the withdraw-fee sweep.
  */
 export const sweepPendingRefunds = privateMutation.mutation(async ({ ctx }) => {
   if (getEnv().DEPLOY_ENV !== "production") {

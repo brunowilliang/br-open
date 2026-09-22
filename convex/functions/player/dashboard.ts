@@ -116,11 +116,10 @@ function createPlayerCardLoader(ctx: QueryCtx) {
 }
 
 /**
- * The player-mode home dash (IBX-0071): one read-only aggregate over the
- * league + tournament buckets of the active player profile — upcoming
- * matches, consolidated W/L with the monthly series, current league
- * positions with their ranking-snapshot series, active entries per category
- * and the most frequent doubles partner.
+ * Player-mode home dash: one read-only aggregate over the league + tournament
+ * buckets of the active player profile — upcoming matches, consolidated W/L with
+ * the monthly series, current league positions with their ranking-snapshot
+ * series, active entries per category and the most frequent doubles partner.
  */
 export const getOverview = authQuery
   .input(z.object({ months: z.number().int().min(1).max(24).optional() }))

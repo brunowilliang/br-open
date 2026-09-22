@@ -190,9 +190,9 @@ describe("withdraw rules (DECISAO-003)", () => {
       ).toBe(false);
     });
 
-    // Review IBX-0006: both race guards delegate to this rule —
-    // isWithdrawFeeStillDue (pre-debit skip) and markWithdrawFeeCollected
-    // (pre-flip re-check, keeps the webhook's failureReason).
+    // Both race guards delegate to this rule — isWithdrawFeeStillDue
+    // (pre-debit skip) and markWithdrawFeeCollected (pre-flip re-check, keeps
+    // the webhook's failureReason).
     it("a MOVEMENT_FAILED after the sweep snapshot makes the item stale", () => {
       // Snapshot said completed + pending fee...
       expect(

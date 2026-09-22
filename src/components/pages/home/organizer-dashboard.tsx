@@ -21,15 +21,9 @@ import { useCRPC } from "@/lib/convex/crpc";
 
 type DashboardOverview = ApiOutputs["payment"]["dashboard"]["getOverview"];
 
-/**
- * Home da organização: saldo, recebido, previsto/mês e em atraso no KpiCard
- * da galeria (IBX-0075 r2), com o botão de saque no slot de ação do card do
- * saldo; rótulo e valor do molde texto-simples. A série de receita por mês
- * (`getRevenueSeries`) é o `MonthlyChartCard` DESTE painel (IBX-0078; morava
- * solta em `(tabs)/index.tsx` e desceu pra cá no IBX-0081, junto da query). O
- * "Total da janela", que ficava em texto logo abaixo do painel, foi REMOVIDO a
- * pedido do usuário (21-09-2026, decisão direta no chat) — o chart fica igual.
- */
+/** Saldo (com o saque no slot de ação), recebido, previsto/mês e em atraso em
+ * `KpiCard`, e a série de receita por mês (`getRevenueSeries`, query DESTE
+ * painel) no `MonthlyChartCard`. */
 export function OrganizerDashboard(props: { data: DashboardOverview }) {
   const router = useRouter();
   const crpc = useCRPC();
@@ -66,9 +60,8 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
         }}
       />
 
-      {/* KPIs (IBX-0075 r2): todo bloco de número é o KpiCard da galeria
-          (ui/kpi-card.tsx), rótulo+valor idênticos ao texto-simples, com o
-          botão de saque no slot de ação do card. */}
+      {/* Todo bloco de número é o KpiCard da galeria (ui/kpi-card.tsx), com o
+          botão de saque no slot de ação do card do saldo. */}
       <Animated.View
         className="gap-3"
         entering={FadeIn}
@@ -108,12 +101,9 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
           value={formatCount(metrics.overdueCount, "cobrança", "cobranças")}
         />
 
-        {/* Bloco do chart (IBX-0078; desceu pra cá no IBX-0081): a MESMA série de
-          `getRevenueSeries` que o texto mostrava (mês + centavos recebidos,
-          `receivedCents`), no `MonthlyChartCard` aprovado na galeria; o balão do
-          crosshair mostra o mesmo valor formatado pelo `formatCurrencyCents` de
-          antes. É bloco do painel como os outros — a query mora aqui e o chart
-          não aparece quando o painel está em loading/erro/vazio. */}
+        {/* A MESMA série de `getRevenueSeries` que o texto mostrava
+          (`receivedCents`), no `MonthlyChartCard`: a query mora aqui e o bloco
+          some em loading/erro/vazio. */}
         {revenueSeriesQuery.data ? (
           <MonthlyChartCard
             data={revenueSeriesQuery.data.series.map((point) => ({
@@ -121,11 +111,9 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
               value: point.receivedCents,
             }))}
             description="Total de receita por mês nos últimos 6 meses."
-            /* Eixo em REAIS, sem centavos (BUG-0055): o valor da série é em
-               centavos, então o rótulo do eixo sai pelo MESMO
-               `formatCurrencyCents` com `whole` (formato curto do repo) — os
-               ticks lidos de hoje ("1000 / 800 / 600 / 400 / 200 / 0", centavos
-               crus) viram "R$ 10 / R$ 8 / R$ 6 / R$ 4 / R$ 2 / R$ 0". */
+            /* Eixo em REAIS, sem centavos: o valor da série é em centavos, então o
+               rótulo sai pelo MESMO `formatCurrencyCents` com `whole` (formato
+               curto do repo) — "1000" vira "R$ 10". */
             formatAxis={(cents) => formatCurrencyCents(cents, { whole: true })}
             formatValue={formatCurrencyCents}
             title="Receita por mês"

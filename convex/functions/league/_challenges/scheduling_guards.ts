@@ -110,9 +110,9 @@ export async function assertCourtSlotAvailable(input: {
       continue;
     }
 
-    // Occupancy is derived from the challenge's frozen match config, never
-    // from the stored proposal endMinute, which a client can understate to
-    // squeeze past an existing booking (BUG-0027).
+    // Occupancy comes from the challenge's FROZEN match config, never from the
+    // stored proposal endMinute, which a client can understate to squeeze past
+    // an existing booking.
     const occupiedEndMinute = resolveMatchOccupiedEndMinute({
       matchConfig: parentChallenge.matchConfigSnapshot as LeagueMatchConfig,
       startMinute: proposal.startMinute,

@@ -14,16 +14,9 @@ import {
   type ChallengeTabCountItem,
 } from "./challenge-tab-counts";
 
-/**
- * BUG-0043: a aba "Atenção" e o alerta contavam números diferentes para o
- * mesmo dado, porque a regra de atenção existia duplicada (uma cópia na lista,
- * outra no badge). Estes testes travam as duas coisas:
- *
- * 1. a verdade da regra única (`isChallengeAttention`), status a status;
- * 2. o acoplamento badge ↔ lista: para qualquer fixture, a contagem da aba
- *    TEM que ser o tamanho da lista daquela aba. Se alguém reintroduzir uma
- *    cópia local da regra, este teste quebra.
- */
+// Trava a regra única de atenção (status a status) e o acoplamento badge ↔
+// lista: para qualquer fixture, a contagem da aba TEM de ser o tamanho da lista
+// daquela aba. Uma cópia local da regra quebra estes testes.
 
 const CHALLENGER = {
   membershipId: "membership-challenger",

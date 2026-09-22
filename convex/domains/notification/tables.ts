@@ -58,12 +58,9 @@ export const notificationFeed = convexTable(
     eventType: text().notNull(),
     isRead: boolean().notNull(),
     occurredAt: timestamp().notNull(),
-    // Apresentacao acionavel do item (IBX-0077 / PLN-0009): acao, rotulos e os
-    // trechos do corpo que vao em negrito. Nasce no ponto unico de criacao
-    // (`functions/notification/orchestrator.ts`) pela funcao pura
-    // `buildNotificationPresentation`. Ausente = item INFORMATIVO, que e o caso
-    // de toda linha anterior a este campo: o app cai no cartao de hoje sem
-    // migration.
+    // Acao, rotulos e trechos em negrito do item, resolvidos no ponto unico de
+    // criacao (`functions/notification/orchestrator.ts`). Ausente = item
+    // INFORMATIVO (toda linha anterior a este campo): sem migration.
     presentation: json<NotificationPresentation>(),
     readAt: timestamp(),
     recipientActorKind: text().notNull(),

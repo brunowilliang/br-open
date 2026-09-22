@@ -34,7 +34,7 @@ describe("tournament details bucket", () => {
 
     expect(bucket$.data.matches.get()).toEqual([]);
     expect(String(bucket$.identity.bootstrapStatus)).toBe("loading");
-    // Flag de carga preso em true = esqueleto eterno nos KPIs (IBX-0087).
+    // Flag de carga preso em true = esqueleto eterno nos KPIs.
     expect(bucket$.identity.entriesLoading.get()).toBe(false);
     expect(bucket$.identity.matchesLoading.get()).toBe(false);
     expect(bucket$.identity.resetVersion.get()).toBe(versionBefore + 1);

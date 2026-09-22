@@ -114,11 +114,8 @@ type CourtsFormValues = {
   courts: LeagueCourt[];
 };
 
-/**
- * Editor de quadras do form (RUL-0005 — global: wizard da liga e do torneio).
- * Escreve no campo `courts` do RHF context do form hospedeiro; header, menu
- * "Salvar" e estados de submit ficam na rota de cada wizard.
- */
+/** Escreve no campo `courts` do RHF context do form hospedeiro: header, menu
+ * "Salvar" e estados de submit ficam na rota de cada wizard. */
 export function CourtEditor(props: { isDisabled: boolean }) {
   const isDisabled = props.isDisabled;
   const { control, getValues, setValue } = useFormContext<CourtsFormValues>();

@@ -1,10 +1,6 @@
 import type { TournamentMatchWithSides } from "./bracket-view";
 
-/**
- * Rounds of one category: index 0 = round 1, matches sorted by slotInRound.
- * Parent of (round r, slot s) receives children (r-1, 2s) and (r-1, 2s+1)
- * — the slot mapping used by the backend buildBracket.
- */
+/** Index 0 = round 1; parent (r, s) takes children (r-1, 2s) and (r-1, 2s+1). */
 export type BracketCategoryColumns = TournamentMatchWithSides[][];
 
 export type BracketCategoryTree = {
@@ -21,9 +17,7 @@ export type BracketTreeCardLayout = {
 };
 
 export type BracketTreeLink = {
-  /** Match feeding the connector (child card). */
   from: string;
-  /** Match receiving it (parent card, next round). */
   to: string;
 };
 
@@ -37,15 +31,10 @@ export type BracketTreeLayout = {
   width: number;
 };
 
-/** Screen points the canvas keeps clear around the graph when fitting. */
 export const BRACKET_FIT_VIEW_PADDING = 24;
 
-/**
- * The exact zoom a centered fit of one bracket tree lands on: the formula
- * Flow's fitView uses, without its floor — the caller passes it back as
- * minZoom, so pinching out stops exactly at the framed graph instead of
- * shrinking it into dust. Capped at 1 because the canvas never upscales.
- */
+/** Fit centrado com teto 1 (o canvas nunca upscala), reaplicado como minZoom
+ * do gesto: a pinça para exatamente no grafo enquadrado. */
 export function bracketFitZoom(input: {
   graphHeight: number;
   graphWidth: number;
@@ -68,15 +57,10 @@ export function bracketFitZoom(input: {
   );
 }
 
-/** Screen band of the graph that stays visible at the pan limits (QA R20). */
 export const PAN_VISIBILITY_BAND = 24;
 
-/**
- * Keeps a translated/scaled graph inside the viewport: at the drag limit the
- * graph edge rests `PAN_VISIBILITY_BAND` inside the screen edge, on either
- * axis, at any zoom. The graph spans [0..graphWidth]x[0..graphHeight], the
- * mapping is screen = translate + zoom * graph.
- */
+/** Malha [0..graphWidth]x[0..graphHeight], screen = translate + zoom * graph:
+ * no limite do arrasto cada borda para `PAN_VISIBILITY_BAND` dentro da tela. */
 export function clampPanToViewport(input: {
   graphHeight: number;
   graphWidth: number;
@@ -99,13 +83,9 @@ export function clampPanToViewport(input: {
   };
 }
 
-/**
- * O transform do enquadramento centrado — o estado INICIAL do canvas e o valor
- * re-aplicado a cada re-enquadramento. Ser uma função só (inicial == aplicado)
- * é o que garante que o PRIMEIRO frame nativo do conteúdo já nasça no fit: sem
- * isso o conteúdo pinta em identidade (1x) por um frame e salta (a piscada da
- * 1ª abertura do chaveamento, BUG-0033).
- */
+/** Estado INICIAL do canvas e valor re-aplicado a cada re-enquadramento saem
+ * daqui: o PRIMEIRO frame nativo do conteúdo já nasce no fit, em vez de pintar
+ * em 1x por um frame e saltar. */
 export function bracketFitTransform(input: {
   fitZoom: number;
   graphHeight: number;
@@ -120,17 +100,9 @@ export function bracketFitTransform(input: {
   };
 }
 
-/**
- * The translate that keeps the graph point under the fingers at gesture
- * start pinned under the fingers now, while the zoom moves from `fromScale`
- * to `toScale` (the zoom-toolkit focal-follow core, in this canvas's
- * absolute frame: t1 = f1 - (f0 - t0) * k1/k0). Anchoring on the point
- * under the CURRENT focal instead would freeze a two-finger drag in place —
- * the fingers must carry the content they grabbed. Invariants, pinned by
- * unit tests: a pure zoom keeps the start focal fixed on screen; a moving
- * focal with unchanged zoom translates by exactly the focal delta; the two
- * compose into one gesture.
- */
+/** O ponto do grafo pego no início do gesto fica sob os dedos enquanto o zoom
+ * vai de `fromScale` a `toScale` (t1 = f1 - (f0 - t0)*k1/k0); ancorar no focal
+ * ATUAL congelaria o arrasto de dois dedos. */
 export function pinchFollowTransform(input: {
   focalX: number;
   focalY: number;
@@ -149,41 +121,22 @@ export function pinchFollowTransform(input: {
   };
 }
 
-/**
- * Fallback antes do `onLayout` reportar a altura real do card. O valor é a
- * altura MEDIDA do card compacto no device (112-120; 120 é a do card da 1ª
- * rodada, a que define a altura do grafo): com 120 a PRIMEIRA passada do
- * layout já fecha a malha da chave com byes (5x52 + 3x120 + 7x12 = 704, o H
- * medido) — sem reflow e sem re-fit visível na entrada. O valor antigo (136)
- * era suposição: fazia o grafo inteiro pular ~8pt ao assentar, que é a
- * piscada da primeira abertura (BUG-0033).
- */
+/** Altura MEDIDA no device, usada até o `onLayout` reportar a real: a 1ª rodada
+ * mede 120 e as rodadas fundas 112; recalculada fora do módulo, o primeiro
+ * layout não fecha a malha e o grafo re-enquadra ao medir. */
 export const BRACKET_CARD_ESTIMATED_HEIGHT = 120;
 
-/**
- * Altura do card de BYE (vaga derivada do sorteio): o card existe VAZIO (sem
- * fase, sem chip, sem lado fantasma e sem identidade) e a altura é FIXADA
- * pelo próprio componente neste MESMO número, então o retângulo do layout
- * casa com o render por construção e a medida nunca precisa commitar (o
- * `onHeightChange` da rota sai cedo para o bye). O valor é o slot do card
- * vazio: mexer nele remexe a geometria e a âncora dos conectores. Um bye
- * medido fora daqui reintroduz o desalinhamento de âncora do BUG-0033.
- */
+/** Altura do card de BYE, card VAZIO fixado nesta mesma altura pelo componente:
+ * o retângulo do layout casa com o render por construção e a medida nunca
+ * commita; mexer no valor desalinha a âncora dos conectores. */
 export const BRACKET_BYE_CARD_HEIGHT = 52;
 
 /** Altura medida por match; ausente = ainda não medida (vale a estimativa). */
 export type BracketCardHeights = Record<string, number>;
 
-/**
- * Commits one card height measured by `onLayout`. O valor EFETIVO de um card
- * sem medida é `BRACKET_CARD_ESTIMATED_HEIGHT`, então uma medida igual à
- * altura efetiva não mexe no layout e não deve entrar no state (a montagem
- * de uma chave de 64 commita ZERO vezes — lição IBX-0022). A comparação é
- * com a altura EFETIVA, nunca com a constante: um card commitado em 154 que
- * volta a medir 136 (a linha de agendamento sai do card) PRECISA commitar,
- * senão o retângulo fica 9pt acima do centro do card para sempre e o
- * conector nasce fora do eixo (BUG-0033).
- */
+/** Compara com a altura EFETIVA, nunca com a constante: medida igual não entra
+ * no state (chave de 64 monta sem commit), mas um card que volta ao valor
+ * estimado PRECISA commitar, senão o conector nasce fora do eixo. */
 export function commitCardHeight(input: {
   heights: BracketCardHeights;
   matchId: string;
@@ -203,11 +156,8 @@ type BracketTreeSizing = {
   gapY: number;
 };
 
-/**
- * Groups matches per category, each category with its own round columns
- * (round ascending, matches by slotInRound) — connectors stay inside one
- * category instead of crossing categories like the old mixed columns.
- */
+/** Uma coluna por rodada dentro de cada categoria: nenhum conector cruza
+ * categorias. */
 export function buildBracketCategoryTrees(
   matches: TournamentMatchWithSides[],
   categoriesById: Record<string, { displayName?: string; id: string }> = {}
@@ -247,10 +197,6 @@ export function buildBracketCategoryTrees(
   return trees;
 }
 
-/**
- * Lays out one category tree as absolute card positions plus child->parent
- * match links for the canvas edges.
- */
 export function layoutBracketCategoryTree(
   tree: BracketCategoryColumns,
   sizing: BracketTreeSizing
@@ -306,7 +252,6 @@ export function layoutBracketCategoryTree(
     });
   });
 
-  // Connectors: child match -> parent match (next round).
   tree.forEach((roundMatches, roundIndex) => {
     if (roundIndex === 0) {
       return;

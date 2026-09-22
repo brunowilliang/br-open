@@ -1,22 +1,10 @@
 /**
- * Incremental bracket placement (IBX-0067 / PLN-0001, Etapa 1). While the
- * tournament has NOT started (`published` or `drawn`), the bracket is the
- * live mirror of the entries: the moment an entry reaches `active` it joins
- * its category bracket, and a cancellation leaves an empty slot behind.
- *
- * Decisions that shape the rules (plano v3, decisões 7 e 8 do usuário):
- * - A newly confirmed entry fits a RANDOM open first-round side (injected
- *   pick). No automatic bye re-derivation happens on placement.
- * - A full bracket GROWS one power of two by inserting a new first round
- *   BELOW: every existing match moves up one round and every existing pair
- *   is preserved; each entrant descends into its own new round-1 row as a
- *   resolved bye (walkover), so the tournament stays startable.
- * - A cancelled entry leaves its slot EMPTY ("A definir") — the survivor
- *   never receives an automatic walkover (decisão 8). Starting with the
- *   hole stays refused by `validateBracketStartable` (bracket-rules).
- *
- * Pure rules only: deterministic given the injected randomness, Convex-free,
- * heavily unit-tested next to this file (molde bracket-rules).
+ * Incremental bracket placement: while the tournament has NOT started, the bracket
+ * mirrors the entries — a newly `active` entry fits a RANDOM open first-round side
+ * (injected pick, no bye re-derivation), and a cancellation leaves its slot EMPTY
+ * ("A definir"), never an automatic walkover. A full bracket GROWS one power of two
+ * by inserting a new first round BELOW (pairs preserved, each entrant descending as
+ * a resolved bye, so the bracket stays startable). Pure rules: Convex-free.
  */
 import {
   buildBracket,
@@ -40,7 +28,6 @@ export type PlacementBoardMatch = {
   winnerEntryId: string | null;
 };
 
-/** Row rewrite the procedure persists after a fit/removal/growth. */
 export type PlacementPersistUpdate = {
   bumpRowVersion: boolean;
   entryAId: string | null;
@@ -53,7 +40,6 @@ export type PlacementPersistUpdate = {
   winnerEntryId: string | null;
 };
 
-/** New row a birth/growth inserts (no id yet). */
 export type PlacementInsert = {
   entryAId: string | null;
   entryBId: string | null;
@@ -64,7 +50,6 @@ export type PlacementInsert = {
   winnerEntryId: string | null;
 };
 
-/** Bracket rows for a category drawn from scratch (buildBracket output). */
 export function toPlacementInserts(
   bracket: BuiltBracketMatch[]
 ): PlacementInsert[] {
@@ -79,10 +64,7 @@ export function toPlacementInserts(
   }));
 }
 
-/**
- * Birth of a category bracket: exactly what the manual draw builds today
- * (buildBracket on pre-shuffled entries — randomness stays with the caller).
- */
+/** Birth of a category bracket: what the manual draw builds (randomness stays with the caller). */
 export function planBracketBirth(entries: BracketSeedEntry[]): {
   error: string | null;
   inserts: PlacementInsert[];
@@ -99,8 +81,7 @@ export function canPlaceEntries(status: string) {
   return status === "published" || status === "drawn";
 }
 
-// entryOfSide/setEntryOfSide twins live at 4+ call sites each across the
-// three planners below — lockstep side access (a/b) stays in one place.
+// Side access (a/b) twins: 4+ call sites each across the planners below.
 function sideOf(
   match: PlacementBoardMatch,
   side: BracketSwapCoordinate["side"]
@@ -135,7 +116,6 @@ function feedingSideOf(slotInRound: number): BracketSwapCoordinate["side"] {
   return slotInRound % 2 === 0 ? "a" : "b";
 }
 
-/** Every coordinate where the entry currently sits (placement or fed win). */
 export function findBoardEntryCoordinates(
   board: PlacementBoardMatch[],
   entryId: string
@@ -155,7 +135,6 @@ export function findBoardEntryCoordinates(
   return coordinates;
 }
 
-/** Empty first-round sides — every slot a new entry may occupy. */
 export function listOpenFirstRoundSides(
   board: PlacementBoardMatch[]
 ): BracketSwapCoordinate[] {
@@ -173,11 +152,7 @@ export function listOpenFirstRoundSides(
   return sides;
 }
 
-/**
- * Placement semantics for a rewritten ROUND-1 row: a lone entrant is the
- * draw's bye semantics (walkover resolved in place), a pair is a real match.
- * Never applies above round 1 — walkovers exist only at the bottom row.
- */
+/** A lone entrant in the first round resolves as the draw's bye (walkover); never above it. */
 function deriveFirstRoundRowAfterFit(row: PlacementBoardMatch) {
   if (row.hasPublishedResult) {
     return;
@@ -195,10 +170,7 @@ function deriveFirstRoundRowAfterFit(row: PlacementBoardMatch) {
   row.winnerEntryId = null;
 }
 
-/**
- * Removal semantics for a rewritten ROUND-1 row (decisão 8): a lone
- * survivor is "A definir" — NEVER an automatic bye (walkover stays dead).
- */
+/** A lone survivor stays "A definir" — removal NEVER hands an automatic bye. */
 function deriveFirstRoundRowAfterRemoval(row: PlacementBoardMatch) {
   if (row.hasPublishedResult) {
     return;
@@ -211,10 +183,8 @@ function deriveFirstRoundRowAfterRemoval(row: PlacementBoardMatch) {
 }
 
 /**
- * Placement semantics for a rewritten row ABOVE round 1: playable or lone
- * rows are pending; a row with no sides goes vacant ONLY when both feeding
- * subtrees are dead — a live (non-vacant) feed keeps it pending, waiting
- * for the winner that will be propagated when that match resolves.
+ * Above the first round: a row with no sides goes vacant ONLY when both feeding
+ * subtrees are dead — a live feed keeps it pending, waiting for that winner.
  */
 function deriveAboveRoundRow(
   row: PlacementBoardMatch,
@@ -242,14 +212,10 @@ function deriveAboveRoundRow(
 }
 
 /**
- * Re-derives the chain of matches ABOVE (round, slotInRound) after that row
- * changed. The feeding side of each ancestor takes the child's walkover
- * winner, or clears when the child no longer resolves (the old winner is
- * pulled back out — the same re-derivation the slot move performs). A side
- * holding an unrelated PLACEMENT (an organizer move) is never overwritten:
- * the chain flags the conflict and the caller decides (a fit filters the
- * slot out beforehand; a removal keeps the placement and re-derives only
- * the status).
+ * Re-derives the chain above (round, slotInRound) after that row changed: each
+ * ancestor's feeding side takes the child's walkover winner or clears the old winner
+ * when the child no longer resolves. A side holding an unrelated PLACEMENT (organizer
+ * move) is never overwritten — the chain flags the conflict and the caller decides.
  */
 function deriveAncestorChain(
   board: PlacementBoardMatch[],
@@ -292,11 +258,9 @@ function deriveAncestorChain(
 }
 
 /**
- * A first-round open side is usable when the fit cannot collide with a
- * placement parked above it: the feeding parent side must be free or hold
- * exactly the value the re-derivation is about to clear (the old bye
- * winner). Boards shaped by organizer moves can park a placement over a
- * slot — the fit then picks another open side (or the organizer re-draws).
+ * An open side is usable when the fit cannot collide with a placement parked above:
+ * the parent side must be free or hold the old bye winner the re-derivation clears —
+ * organizer-moved boards can park a placement over a slot, so the fit picks another.
  */
 export function listUsableFirstRoundSides(
   board: PlacementBoardMatch[]
@@ -313,9 +277,8 @@ export function listUsableFirstRoundSides(
     ) as PlacementBoardMatch;
     const oldExpected = row.status === "walkover" ? row.winnerEntryId : null;
     const current = sideOf(parent, feedingSideOf(coordinate.slotInRound));
-    // After the fit the child resolves to the NEW entry (lone fit) or to
-    // null (pair fit) — both differ from `current` unless current is free
-    // or holds the old bye winner being cleared.
+    // After the fit the child resolves to the new entry (lone) or null (pair) —
+    // both differ from `current` unless it is free or holds the old bye winner.
     return current === null || current === oldExpected;
   });
 }
@@ -355,9 +318,8 @@ function diffBoardUpdates(
 }
 
 /**
- * Fits a newly active entry into a random (injected) open first-round side.
- * The caller decides birth (empty board) and growth (no open sides) first.
- * Idempotent: an entry already on the board comes back untouched.
+ * Fits a newly active entry into a random open first-round side; the caller decides
+ * birth/growth first. Idempotent: an entry already on the board comes back untouched.
  */
 export function planEntryFit(input: {
   board: PlacementBoardMatch[];
@@ -389,12 +351,9 @@ export function planEntryFit(input: {
 }
 
 /**
- * Removes a cancelled entry from the board: the entry disappears from every
- * row it occupies (placements AND fed sides) and the affected columns are
- * re-derived WITHOUT new byes (decisão 8) — a lone survivor stays "A
- * definir", a dead walkover row goes vacant, and the propagated win is
- * pulled out of the parent side. Idempotent: an entry not on the board is a
- * no-op.
+ * Removes a cancelled entry from every row it occupies (placements AND fed sides) and
+ * re-derives the columns WITHOUT new byes: a lone survivor stays "A definir", a dead
+ * walkover row goes vacant, the propagated win is pulled out of the parent. Idempotent.
  */
 export function planEntryRemoval(input: {
   board: PlacementBoardMatch[];
@@ -431,13 +390,10 @@ export function planEntryRemoval(input: {
 }
 
 /**
- * Grows a FULL bracket one power of two by inserting a new first round
- * below: every existing row moves up one round (pairs preserved verbatim —
- * schedules stay attached to the same pair), and every current entrant
- * descends into its own new round-1 row as a resolved bye (walkover), so a
- * grown bracket stays startable. The caller persists updates TOP-DOWN
- * (descending round) to respect the (categoryId, round, slotInRound) unique
- * index while the old rows still occupy their previous coordinates.
+ * Grows a FULL bracket one power of two by inserting a new first round below: existing
+ * rows move up one round (pairs preserved — schedules stay attached to the same pair)
+ * and each entrant descends into its own new round-1 row as a resolved bye. The caller
+ * persists updates TOP-DOWN to respect the (categoryId, round, slotInRound) unique index.
  */
 export function planBracketGrowth(input: { board: PlacementBoardMatch[] }): {
   error: string | null;

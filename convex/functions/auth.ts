@@ -126,22 +126,15 @@ export default defineAuth(() => {
         authConfig,
         jwks: env.JWKS,
       }),
-      // Username (22-08-2026, torneios IBX-0010 slice 1): identificador
-      // único para o convite de dupla. Defaults do plugin: 3–30 chars,
-      // `/^[a-zA-Z0-9_.]+$/`, normalização lowercase, unique no user.
-      // Sem opções nesta versão (1.6.24) — "displayUsername: false" do design
-      // é atendido por NÃO expor o campo na UI; a coluna displayUsername é
-      // técnica (exigida pelo schema do plugin) e fica SEMPRE null neste app:
-      // o auto-fill do databaseHook só roda no create com username no corpo,
-      // e o sign-up do app não envia username. Login continua por e-mail.
+      // Username: identificador único do convite de dupla. O plugin (1.6.24,
+      // sem opções) exige a coluna displayUsername, que fica SEMPRE null —
+      // o sign-up não envia username e o login continua por e-mail.
       username(),
       emailOTP({
         changeEmail: {
           enabled: true,
-          // Single-OTP (decisão de produto, IBX-0007 QA round 8): a troca
-          // prova posse apenas do e-mail NOVO. O step do código do e-mail
-          // atual foi removido — nunca validava no client (qualquer código
-          // avançava) e só adicionava fricção.
+          // Single-OTP: a troca prova posse só do e-mail NOVO — o step do
+          // e-mail atual foi removido (o client aceitava qualquer código).
           verifyCurrentEmail: false,
         },
         async sendVerificationOTP({ email, otp, type }) {

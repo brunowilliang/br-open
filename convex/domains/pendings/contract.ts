@@ -1,29 +1,16 @@
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Pendencias/alertas centralizados (IBX-0076 / PLN-0008) — contrato do item
+// Pendencias/alertas centralizados — contrato do item
 // ---------------------------------------------------------------------------
-//
 // Fonte unica: o item nasce no SERVIDOR (kind + copy + destaque + ordem + rota)
-// e a tela so renderiza. O shape bate 1:1 com o `WidgetAlert` do app
-// (`src/components/ui/widget-alert.tsx`) e com a galeria visual aprovada pelo
-// usuario — os 16 cartoes de `AlertsVariantsSection`
-// (`src/app/(private)/settings/components/[component].tsx`), sem adaptador:
-// `description` carrega LINHAS de PARTES (`{ text, isHighlighted? }`) porque
-// quem decide o destaque E a quebra por linha e o servidor, nao a tela.
-//
-// Severidade: `danger|warning|info`. O componente do app nao tem `info` (o
-// vocabulario dele e accent/danger/default/success/warning) — o cliente mapeia
-// `info` para o `accent` do alerta, exatamente como os cartoes aprovados 5, 6,
-// 7 e 11 (status real accent na galeria).
-//
-// `actionLabel`/`secondaryActionLabel` tem UMA palavra (regra aprovada; o
-// cartao 5 e o unico com duas acoes: `Recusar` secundaria + `Aceitar`).
-//
-// Nome do kind: primeiro segmento = QUEM DEVE A ACAO (`player`|`organization`),
-// depois dominio + pendencia. O enum e FECHADO e cresce por ADICAO: kind novo
-// entra aqui + em `PENDING_KINDS_BY_SCOPE` + no registro (`registry.ts`) + na
-// spec. Pendencia sem cartao aprovado pelo usuario NAO entra (RUL-0033/0039).
+// e a tela so renderiza. `description` carrega LINHAS de PARTES porque quem
+// decide o destaque e a quebra por linha e o servidor, nao a tela.
+// Severidade `info` nao existe no componente do app: o cliente a mapeia para `accent`.
+// Nomes: primeiro segmento = QUEM DEVE A ACAO (`player`|`organization`), depois
+// dominio + pendencia. O enum e FECHADO e cresce por ADICAO (aqui +
+// `PENDING_KINDS_BY_SCOPE` + registro + spec). Pendencia sem cartao aprovado
+// pelo usuario NAO entra.
 
 export const PENDING_SCOPE_OPTIONS = ["organization", "player"] as const;
 
@@ -56,11 +43,6 @@ export const PENDING_KIND_OPTIONS = [
   ...PENDING_KINDS_BY_SCOPE.player,
 ] as const;
 
-/**
- * Dominio dono da REGRA que sustenta a pendencia (nao o da tela): `player` fica
- * reservado para pendencia do proprio perfil do jogador e nao tem kind na v1 —
- * o valor existe porque o shape aprovado o tem, e o registro cresce por adicao.
- */
 export const PENDING_DOMAIN_OPTIONS = [
   "league",
   "payment",
@@ -79,41 +61,12 @@ export const PENDING_SOURCE_TYPE_OPTIONS = [
 ] as const;
 
 /**
- * TIPO da acao do CTA — enum FECHADO que cresce por ADICAO. O rótulo
- * (`actionLabel`/`secondaryActionLabel`, copy aprovada) diz o que a tela MOSTRA;
- * este campo diz o que o cliente EXECUTA, sem adivinhar por kind:
- *
- * - `open_route`: navegacao pura — o destino e o `route` + `params` do item.
- * - `pay_league_membership`: cria a cobranca da MESMA membership do item
- *   (`source`, tipo `league_membership`) e abre o checkout. Label `Pagar`.
- *   Na NOTIFICACAO (`notificationFeed.presentation`) o id viaja em
- *   `action.params.membershipId`, porque o item do feed nao tem `source`.
- * - `pay_tournament_entry`: cria a cobranca da inscricao de
- *   `action.params.entryId` (a inscricao a pagar, que NAO e o `source` quando o
- *   item agrega o torneio) e abre o checkout. Label `Pagar`.
- * - `accept_partner_invite` / `decline_partner_invite`: respondem ao convite de
- *   `action.params.entryId`.
- * - `approve_league_membership` / `reject_league_membership`: aprovam/recusam a
- *   solicitacao de entrada de `action.params.membershipId` (manager da liga).
- *   Labels `Aprovar` / `Recusar`.
- * - `approve_tournament_entry` / `reject_tournament_entry`: aprovam/recusam a
- *   inscricao de `action.params.entryId` (manager da organizacao). Labels
- *   `Aprovar` / `Recusar`.
- * - `accept_challenge_proposal` / `decline_challenge_proposal`: respondem a
- *   proposta vigente do desafio de `action.params.challengeId`. Labels
- *   `Aceitar` / `Recusar`.
- * - `accept_challenge_cancellation` / `decline_challenge_cancellation`:
- *   respondem ao pedido de cancelamento do desafio de
- *   `action.params.challengeId`. Labels `Aceitar` / `Recusar`.
- * - `confirm_challenge_result`: confirma o resultado ja enviado do desafio de
- *   `action.params.challengeId`. Label `Confirmar`.
- *
- * Os pares de ida e volta (aceitar/recusar, aprovar/rejeitar) sao tipos
- * SEPARADOS, nunca um booleano em `params`: `params` e `Record<string, string>`
- * e o cliente nao deve reinterpretar string como decisao.
- *
- * Acao de MUTACAO nunca depende de `route` (o destino vem da resposta) — o
- * unico tipo que exige `route` nao nulo e `open_route`.
+ * TIPO da acao do CTA — enum FECHADO que cresce por ADICAO. O rotulo diz o que a
+ * tela MOSTRA; este campo diz o que o cliente EXECUTA, sem adivinhar por kind.
+ * Pares de ida e volta sao tipos SEPARADOS, nunca booleano em `params`; so
+ * `open_route` navega — acao de mutacao nunca depende de `route`, e
+ * `pay_league_membership` cobra o `source` do item (na notificacao o id vem de
+ * `action.params.membershipId`, porque o item do feed nao tem `source`).
  */
 export const PENDING_ACTION_TYPE_OPTIONS = [
   "open_route",
@@ -139,7 +92,6 @@ export type PendingScope = (typeof PENDING_SCOPE_OPTIONS)[number];
 export type PendingSeverity = (typeof PENDING_SEVERITY_OPTIONS)[number];
 export type PendingSourceType = (typeof PENDING_SOURCE_TYPE_OPTIONS)[number];
 
-/** kind -> escopo dono. Unico lugar que decide em qual escopo um kind aparece. */
 export const PENDING_KIND_SCOPES = Object.fromEntries(
   PENDING_SCOPE_OPTIONS.flatMap((scope) =>
     PENDING_KINDS_BY_SCOPE[scope].map((kind) => [kind, scope])
@@ -147,7 +99,6 @@ export const PENDING_KIND_SCOPES = Object.fromEntries(
 ) as Record<PendingKind, PendingScope>;
 
 export const pendingDescriptionPartSchema = z.object({
-  /** Trecho em negrito na tela (o peso e escolha do usuario na galeria). */
   isHighlighted: z.boolean().optional(),
   text: z.string().min(1),
 });
@@ -157,9 +108,8 @@ export const pendingDescriptionLineSchema = z.object({
 });
 
 /**
- * UMA frase (string — os casos em que a copy real do app ja e uma string) OU
- * LINHAS de partes. Alerta que agrega mais de um tipo de pendencia usa uma
- * LINHA por tipo, nunca um separador no meio da frase (r4 da galeria).
+ * UMA frase, ou LINHAS de partes: alerta que agrega mais de um tipo de pendencia
+ * usa uma LINHA por tipo, nunca um separador no meio da frase.
  */
 export const pendingDescriptionSchema = z.union([
   z.string().min(1),
@@ -171,39 +121,26 @@ export const pendingSourceSchema = z.object({
   type: z.enum(PENDING_SOURCE_TYPE_OPTIONS),
 });
 
-/** Acao EXECUTAVEL de um CTA (o rótulo aprovado mora no `*ActionLabel`). */
 export const pendingActionSchema = z.object({
-  /** O que a acao precisa para rodar (ex.: a inscricao a pagar/responder). */
   params: z.record(z.string(), z.string()).nullable(),
   type: z.enum(PENDING_ACTION_TYPE_OPTIONS),
 });
 
 export const pendingItemSchema = z.object({
-  /** Acao do CTA principal; `null` quando o item nao tem CTA. */
   action: pendingActionSchema.nullable(),
-  /** CTA principal, sempre de UMA palavra; `null` = pendencia sem acao. */
   actionLabel: z.string().min(1).nullable(),
-  /** Quantos casos o item agrega; `null` quando o item e de um caso so. */
   count: z.number().int().positive().nullable(),
-  /** Prazo em epoch ms que decide a acao (vencimento, fim de inscricao). */
   deadlineAt: z.number().int().nullable(),
   description: pendingDescriptionSchema,
   domain: z.enum(PENDING_DOMAIN_OPTIONS),
-  /** Deterministico: `<kind>:<sourceId>` — a tela usa como key/identidade. */
   id: z.string().min(1),
   kind: z.enum(PENDING_KIND_OPTIONS),
-  /** Dinheiro envolvido em centavos; `null` quando a pendencia nao tem valor. */
   moneyCents: z.number().int().nonnegative().nullable(),
-  /** Query params do destino (o `route` ja e o pathname do expo-router). */
   params: z.record(z.string(), z.string()).nullable(),
-  /** Pathname do expo-router (molde dos CTAs vivos dos alertas), ou `null`. */
   route: z.string().min(1).nullable(),
-  /** Acao do CTA secundario (rodape do alerta); `null` quando nao ha segundo. */
   secondaryAction: pendingActionSchema.nullable(),
-  /** Acao de menor hierarquia (rodape do alerta), tambem de UMA palavra. */
   secondaryActionLabel: z.string().min(1).nullable(),
   severity: z.enum(PENDING_SEVERITY_OPTIONS),
-  /** Entidade que originou a pendencia (para acao e rastreio). */
   source: pendingSourceSchema,
   title: z.string().min(1),
 });
@@ -221,23 +158,18 @@ export const pendingsCountsSchema = z.object({
 });
 
 /**
- * Sinal de SATURACAO da leitura: a fonte bateu no cap da varredura, entao o
- * item/contagem daquele kind pode estar SUBESTIMADO (o titulo nunca deve ser
- * lido como total quando o kind aparece aqui). Lista vazia = leitura completa.
- * Nao confundir com `truncated`, que e o corte da LISTA no cap de itens.
+ * Sinal de SATURACAO: a fonte bateu no cap da varredura, entao item/contagem
+ * daquele kind pode estar SUBESTIMADO — nao confundir com `truncated`, que e o
+ * corte da LISTA. Lista vazia = leitura completa.
  */
 export const pendingSaturationSchema = z.object({
-  /** Kind cujo dado pode ter sobrado fora da leitura. */
   kind: z.enum(PENDING_KIND_OPTIONS),
-  /** Cap da leitura que cortou. */
   limit: z.number().int().positive(),
 });
 
 /**
- * Resultado de `pendings.list`: os `counts` sao derivados do MESMO array
- * devolvido (o badge nunca mente SOBRE a lista), `truncated` avisa quando o cap
- * de itens cortou e `saturation` avisa quando uma LEITURA cortou (contagem
- * possivelmente menor que a real).
+ * `counts` sao derivados do MESMO array devolvido (o badge nunca mente sobre a
+ * lista); `truncated` avisa do cap de itens e `saturation` da leitura.
  */
 export const pendingsListResultSchema = z.object({
   counts: pendingsCountsSchema,
@@ -248,9 +180,8 @@ export const pendingsListResultSchema = z.object({
 });
 
 /**
- * Superficie de LEITURA: a dispensa vale por superficie. `home` esconde o item
- * dispensado enquanto ele nao piorar; `house` (a casa da liga/torneio) mostra
- * sempre, porque o gesto de esconder so existe na home.
+ * A dispensa vale por superficie: `home` esconde enquanto o item nao piorar;
+ * `house` (casa da liga/torneio) mostra sempre — o gesto so existe na home.
  */
 export const PENDING_SURFACE_OPTIONS = ["home", "house"] as const;
 
@@ -258,10 +189,7 @@ export type PendingSurface = (typeof PENDING_SURFACE_OPTIONS)[number];
 
 export const listPendingsSchema = z.object({
   scope: z.enum(PENDING_SCOPE_OPTIONS),
-  /**
-   * Sem ela vale a CASA (a que NUNCA esconde): quem esquece o parametro perde a
-   * dispensa, nunca uma pendencia.
-   */
+  /** Sem ela vale a CASA (a que NUNCA esconde): quem esquece o parametro perde a dispensa, nunca uma pendencia. */
   surface: z.enum(PENDING_SURFACE_OPTIONS).optional(),
 });
 

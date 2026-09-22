@@ -41,10 +41,9 @@ type CategoryListItem = CategoryItem & {
 
 let categoryIdCounter = 0;
 function buildCategoryItemId(): string {
-  // Monotonic counter + timestamp + random suffix. Avoids the collision risk
-  // of Date.now()+Math.random() under fast double-tap (same millisecond +
-  // short random suffix) without needing the `crypto` global, which is not
-  // available in the Hermes runtime by default.
+  // Contador monotônico + timestamp + sufixo aleatório: evita a colisão do
+  // Date.now()+Math.random() em toque duplo rápido (mesmo milissegundo), sem
+  // depender do global `crypto`, que não existe no Hermes por padrão.
   categoryIdCounter += 1;
   return `cat-${Date.now()}-${categoryIdCounter}-${Math.random()
     .toString(36)

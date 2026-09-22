@@ -186,14 +186,12 @@ export default function SignIn() {
             isDisabled={isSubmitPending}
             onPress={handleSocialApple}
             provider="apple"
-            // variant="tertiary"
           />
           <SocialAuthButton
             className="flex-1"
             isDisabled={isSubmitPending}
             onPress={handleSocialGoogle}
             provider="google"
-            // variant="tertiary"
           />
         </View>
 

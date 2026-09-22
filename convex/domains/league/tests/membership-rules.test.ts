@@ -69,8 +69,8 @@ describe("league membership rules", () => {
       (status) => status !== LEAGUE_MEMBERSHIP_STATUSES.PENDING
     );
 
-    // BUG-0048: sem o gate, aprovar/recusar por um botao de notificacao velha
-    // mexia numa solicitacao ja resolvida (approve reativava qualquer status).
+    // Sem o gate, aprovar/recusar por um botao de notificacao velha mexe numa
+    // solicitacao ja resolvida (approve reativaria qualquer status).
     expect(resolvedStatuses.map(resolveMembershipReviewError)).toEqual(
       resolvedStatuses.map(
         () => "Essa solicitação de entrada já foi resolvida."

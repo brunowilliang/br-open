@@ -1,8 +1,4 @@
-/**
- * Pure tournament entry rules (IBX-0010 slice 2): category naming and
- * gender validation for doubles `mixed` (spec: 1 man + 1 woman, both with
- * gender defined on their player profile).
- */
+/** Regras puras de inscrição: nome da categoria e gates de gênero. */
 import {
   PLAYER_GENDER_FEMALE,
   PLAYER_GENDER_MALE,
@@ -48,32 +44,17 @@ const MIXED_GENDER_REQUIRED_MESSAGE =
   "Duplas mistas exigem o gênero definido no perfil dos dois jogadores.";
 
 /**
- * Dois textos por recusa: `reason` é a frase pt-BR completa (erro/recusa do
- * create, sem limite de espaço) e `label` é o rótulo de CHIP, no máximo 2
- * palavras (micro-ajuste de copy 20-09). O caso "perfil sem gênero" é legado
- * (a escrita do perfil exige gender) e não tem chip: `label` vai null e a
- * frase longa segue no `reason`.
+ * Recusa carrega `reason` (frase completa) e `label` (chip de até 2
+ * palavras); perfil sem gênero é legado e não tem chip.
  */
 export type CategoryCallerEligibility =
   | { eligible: true; label: null; reason: null }
   | { eligible: false; label: null | string; reason: string };
 
 /**
- * Caller eligibility for ONE category (IBX-0074 r27) — the single source
- * behind the create gate (composed into `validateEntryGenders` below) and
- * the per-category flags the tournament read exposes to the app, so the
- * client never re-implements the rule. Fixed-gender categories
- * (simples masculino/feminino, duplas masculinas/femininas) admit only a
- * caller whose profile gender matches; `mixed` admits any caller, but the
- * DOUBLES flow needs a defined gender to resolve the opposite partner
- * (r25 `resolvePartnerGenderTarget`), so an undefined profile is refused
- * there; `Simples Misto` has no partner and no gate.
- *
- * Ineligible results carry BOTH texts: `reason` (the full pt-BR sentence for
- * the create refusal) and `label` (≤2 words for the badge the app renders —
- * the chip has no room for a sentence, micro-ajuste 20-09). A profile without
- * a gender has no badge at all (legacy state; the profile write requires
- * gender), so `label` is null there and only `reason` is filled.
+ * Fonte única do gate do create e dos flags expostos ao app. Categoria de
+ * gênero fixo aceita só o gênero do CALLER; `mixed` de duplas exige gênero
+ * definido (resolve o parceiro oposto) e `Simples Misto` não gateia.
  */
 export function resolveCallerEligibility(input: {
   gender: TournamentGender;
@@ -107,20 +88,16 @@ export function resolveCallerEligibility(input: {
     input.playerAGender === PLAYER_GENDER_FEMALE;
   return {
     eligible: false,
-    // Gênero definido e divergente = a categoria é do outro gênero (rótulo
-    // curto pro chip); gênero ausente = caso legado, sem badge.
+    // Definido e divergente = categoria do outro gênero; ausente = legado.
     label: isDefined ? (input.gender === "male" ? "Homens" : "Mulheres") : null,
     reason: `Você não pode se inscrever em ${buildCategoryDisplayName(input.modality, input.gender)}. A categoria aceita apenas o gênero ${input.gender === "male" ? "masculino" : "feminino"}.`,
   };
 }
 
 /**
- * Gender gate of an entry (IBX-0074 r25 + r27): the CALLER gate runs first
- * in every modality (r27 closed the r25 hole where a male profile could
- * register in Duplas Femininas as long as the invited partner was female);
- * then, in doubles, the PARTNER gate — `mixed` requires exactly one
- * "Masculino" + one "Feminino", both defined, and `male`/`female`
- * categories require the partner (playerB) to match the category gender.
+ * O gate do CALLER roda primeiro em toda modalidade, inclusive nas duplas de
+ * gênero fixo; só depois o gate do PARCEIRO (`mixed` = um de cada gênero,
+ * ambos definidos).
  */
 export function validateEntryGenders(input: GenderCheckInput) {
   const caller = resolveCallerEligibility({
@@ -167,13 +144,7 @@ export function validateEntryGenders(input: GenderCheckInput) {
   return null;
 }
 
-/**
- * Gender the PARTNER must have for the caller to invite them into a
- * category (IBX-0074 r25): fixed by the category for male/female; the
- * OPPOSITE of the caller's gender for mixed. `null` means "cannot decide"
- * (mixed with the caller's gender undefined) — the search returns nobody
- * and the create gate rejects with its own clear message.
- */
+/** Gênero exigido do PARCEIRO: o da categoria, ou o oposto do caller. */
 export function resolvePartnerGenderTarget(input: {
   categoryGender: TournamentGender;
   playerGender: null | string | undefined;
@@ -193,16 +164,7 @@ export function resolvePartnerGenderTarget(input: {
   return null;
 }
 
-/**
- * Gate of the partner search (IBX-0074 r25 + r27 review MEDIUM): the gender
- * the suggestions may have, or `null` when the search must offer NOTHING.
- * The CALLER gate runs first — a viewer the category would refuse (fixed
- * gender mismatch, or `mixed` without a defined gender) gets no suggestion
- * at all, so the autocomplete never offers what `create` would answer with
- * an error; then `resolvePartnerGenderTarget` decides the candidate gender.
- * Single source consumed by `players.searchByUsername` (the procedure never
- * re-implements either rule).
- */
+/** `null` quando o gate do CALLER já recusaria: nada a sugerir na busca. */
 export function resolvePartnerSearchGender(input: {
   categoryGender: TournamentGender;
   modality: TournamentModality;
@@ -223,12 +185,6 @@ export function resolvePartnerSearchGender(input: {
   });
 }
 
-/**
- * An entry joins a paid category through `awaiting_payment` (checkout is
- * the gate) or, in manual approval, through `pending_approval`. Free
- * categories with manual approval also use `pending_approval`; free +
- * auto approve straight to `active`.
- */
 export function resolveEntryStatusAfterPartnerAccepted(input: {
   approvalMode: "auto" | "manual";
   entryFeeCents: number;
@@ -243,25 +199,15 @@ export function resolveEntryStatusAfterPartnerAccepted(input: {
     : ("active" as const);
 }
 
-/**
- * Canonical username lookup form — mirrors the better-auth username plugin
- * normalization (lowercase; the stored value is always lowercase). Used by
- * the partner invite and by `players.searchByUsername` so both sides agree
- * on the same key. Prefix search (IBX-0074 r18-A): the caller sends partial
- * text, matches are case-insensitive by normalization.
- */
+/** Espelha a normalização do plugin de username do better-auth (minúsculo). */
 export function normalizeUsernameLookup(value: string) {
   return value.trim().toLowerCase();
 }
 
 /**
- * Statuses where an entry RESERVES its players' slots in the category.
- * Terminal statuses (`cancelled`, `rejected`) keep the row for history but
- * must not hold the player: the DB unique indexes key on the mirrored
- * `activeAId`/`activeBId` columns, which mutations clear (unsetToken) when
- * an entry goes terminal. IBX-0074 r19: terminal rows used to sit on the
- * `categoryId_playerAId`/`categoryId_playerBId` unique indexes forever and
- * blocked re-registration after a cancel.
+ * Status em que a inscrição RESERVA as vagas; os terminais guardam a linha
+ * para histórico, mas a limpeza das colunas espelhadas com `unsetToken`
+ * tira o jogador do índice — sem isso cancelar bloquearia a reinscrição.
  */
 export const ENTRY_LIVE_STATUSES = [
   "pending_partner",
@@ -279,11 +225,8 @@ export function isLiveEntryStatus(
 }
 
 /**
- * Mirror slot columns for an entry insert: live statuses reserve the
- * players, terminal statuses reserve nothing. Terminal transitions must
- * clear the columns with `unsetToken` (never `null` — a null value would
- * still be indexed and two cancelled entries in the same category would
- * collide).
+ * Só status vivo reserva as colunas espelhadas; no terminal a limpeza é
+ * `unsetToken`, nunca `null` (nulo também entra no índice e colide).
  */
 export function entrySlotFields<T extends string>(input: {
   playerAId: T;
@@ -299,12 +242,7 @@ export function entrySlotFields<T extends string>(input: {
   };
 }
 
-/**
- * Partner autocomplete matches (IBX-0074 r18-A): users whose username
- * starts with the normalized prefix, alphabetical, capped at `limit`.
- * Users without a username are not findable (the username index never
- * contains them, so they don't even reach this selector).
- */
+/** Quem não tem username nem chega aqui: o índice não contém essas linhas. */
 export function selectUsernameMatches(input: {
   limit: number;
   prefix: string;
@@ -323,11 +261,8 @@ export function selectUsernameMatches(input: {
 }
 
 /**
- * Registration window (IBX-0067 / PLN-0001): open while the tournament is
- * `published` OR `drawn` — drawing no longer closes entries (the deadline
- * is the only closer) — and the deadline has not passed. `ongoing` and the
- * earlier/terminal states are closed. Single source shared by the entry
- * mutations (entries.ts) and the paid-charge activator (charge.ts M1).
+ * Aberta em `published`/`drawn` até o prazo: o sorteio não fecha as
+ * inscrições, só o prazo fecha. Fonte única de `entries.ts` e `charge.ts`.
  */
 export function isRegistrationOpen(input: {
   nowMs: number;
@@ -340,12 +275,6 @@ export function isRegistrationOpen(input: {
   return input.registrationDeadlineMs > input.nowMs;
 }
 
-/**
- * User-facing reason the window is closed: the deadline passed while the
- * state would still allow entries (published/drawn), or the state itself
- * forbids them. Single source shared by entries.ts and the checkout
- * resolver (charge.ts).
- */
 export function registrationClosedMessage(input: {
   nowMs: number;
   registrationDeadlineMs: number;
@@ -358,10 +287,9 @@ export function registrationClosedMessage(input: {
 }
 
 /**
- * The LAST gate for reaching ACTIVE (IBX-0067 review HIGH-1): every path
- * that activates an entry counts ACTIVE entries only, and a PAID
- * activation that would overflow maxEntries follows the refund pattern
- * (entry cancelled, charge refund-pending) instead of squeezing in.
+ * Último gate do ACTIVE: conta só inscrições ACTIVE; pagamento que estouraria
+ * `maxEntries` segue o padrão de refund (inscrição cancelada, cobrança em
+ * refund-pending) em vez de espremer mais um na chave.
  */
 export function resolvePaidActivation(input: {
   activeCount: number;
@@ -375,18 +303,11 @@ export function resolvePaidActivation(input: {
     : ("refund" as const);
 }
 
-/** Entries that take part in the draw (spec: draw uses active entries). */
 export function isEntryDrawable(status: string) {
   return status === "active";
 }
 
-/**
- * BUG-0017: the viewer's entries in a tournament — non-cancelled entries
- * whose category belongs to it. Single source for both the detail gate
- * (`discovery.getById`) and the entries listing gate
- * (`entries.listForTournament`); the returned ids double as the
- * client-facing `viewerEntryIds`.
- */
+/** Ids das inscrições do viewer (não canceladas) — viram `viewerEntryIds`. */
 export function selectViewerTournamentEntryIds(input: {
   categoryIds: readonly string[];
   entries: readonly { categoryId: string; id: string; status: string }[];

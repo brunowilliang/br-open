@@ -57,17 +57,16 @@ export function rangesOverlap(input: {
 
 /**
  * Effective end of a match's occupied court window, derived from the rules'
- * default duration (defaultDurationMinutes). Occupancy is always derived from
- * the rule instead of trusting a client-sent endMinute, so a booking can
- * never shrink itself out of a conflict (BUG-0027).
+ * default duration instead of a client-sent endMinute — a booking can never
+ * shrink itself out of a conflict.
  */
 export function resolveMatchOccupiedEndMinute(input: {
   matchConfig: LeagueMatchConfig;
   startMinute: number;
 }) {
-  // BUG-0030: old configs may lack defaultDurationMinutes (and stored keys
-  // can be absent/invalid) — fall back to the shipped default instead of
-  // deriving a NaN occupied window.
+  // Configs saved before this key existed may lack defaultDurationMinutes (or
+  // hold an invalid one) — fall back to the shipped default instead of deriving
+  // a NaN occupied window.
   const duration = input.matchConfig.defaultDurationMinutes;
   const effectiveDuration =
     typeof duration === "number" && Number.isFinite(duration) && duration > 0

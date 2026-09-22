@@ -87,8 +87,8 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
-  // hasUsablePix — the reuse rule of createCharge and the pendingCharge of the
-  // checkout (BUG-0025): the screen may only show a PIX this returns true for.
+  // hasUsablePix — the reuse rule shared by createCharge and the checkout's
+  // pendingCharge: the screen may only show a PIX this returns true for.
   // -------------------------------------------------------------------------
 
   describe("hasUsablePix", () => {
@@ -230,7 +230,7 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
-  // computeSplit — organizer vs BR-Open split math (DECISAO-004)
+  // computeSplit — organizer vs BR-Open split math
   // -------------------------------------------------------------------------
 
   describe("computeSplit", () => {
@@ -571,7 +571,7 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Early renewal window + period stacking (IBX-0039)
+  // Early renewal window + period stacking
   // -------------------------------------------------------------------------
 
   describe("resolveBillingIntervalMs", () => {

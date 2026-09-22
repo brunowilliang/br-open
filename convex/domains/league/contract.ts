@@ -195,8 +195,8 @@ export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
 
 export const LeagueChallengeScoreSetKindOptions = [
   "set",
-  // REWORK-2 (10/09): linha avulsa de tie-break — pontos livres, sem
-  // relação com o set anterior (o placar manual é LIVRE).
+  // Linha avulsa de tie-break — pontos livres, sem relação com o set
+  // anterior (o placar manual é LIVRE).
   "tiebreak",
   "super_tiebreak",
 ] as const;
@@ -792,10 +792,9 @@ export const leagueChallengeScoreSetSchema = z.object({
   challengedGames: z.number().int().min(0),
   challengerGames: z.number().int().min(0),
   kind: z.enum(LeagueChallengeScoreSetKindOptions),
-  // IBX-0034 (PLN-0003): optional tie-break mini-score for sets decided in
-  // a tie-break (7x6 with TB 7-3). Absent on old results — validation only
-  // applies when present; super tie-break sets never carry it. nullish:
-  // client drafts naturally carry null when unset.
+  // Optional tie-break mini-score for sets decided in a tie-break (7x6 with TB
+  // 7-3): validation only applies when present, super tie-break sets never carry
+  // it and client drafts carry null when unset — hence `nullish()`.
   tieBreak: z
     .object({
       challengedPoints: z.number().int().min(0),
@@ -807,14 +806,14 @@ export const leagueChallengeScoreSetSchema = z.object({
 export const leagueChallengeScoreSchema = z
   .object({
     sets: z.array(leagueChallengeScoreSetSchema).min(1),
-    // IBX-0026: a W.O. (walkover) declares a winner without a played score —
-    // it carries exactly one all-zero placeholder set (same convention as the
-    // tournament's PublishMatchResultSchema). Absent for played scores.
+    // A W.O. (walkover) declares a winner without a played score: it carries
+    // exactly one all-zero placeholder set (same convention as the tournament's
+    // PublishMatchResultSchema); absent for played scores.
     walkover: z.boolean().optional(),
-    // REWORK-2 (10/09): vencedor EXPLÍCITO do payload — obrigatório só
-    // quando as linhas empatam (o placar não decide); null quando o placar
-    // resolve. A validação (resolveChallengeScoreOutcome) garante que o
-    // resultado final tem exatamente 1 vencedor.
+    // Vencedor EXPLÍCITO do payload — obrigatório só quando as linhas
+    // empatam (o placar não decide); null quando o placar resolve. A
+    // validação (resolveChallengeScoreOutcome) garante que o resultado
+    // final tem exatamente 1 vencedor.
     winnerMembershipId: leagueMembershipIdSchema.nullish(),
   })
   .superRefine((value, ctx) => {

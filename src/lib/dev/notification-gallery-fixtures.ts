@@ -9,39 +9,26 @@ import { NOTIFICATION_EVENT_TYPES } from "@convex/shared/notifications/protocol"
 import type { NotificationCardItem } from "@/lib/notifications/notification-view";
 
 /**
- * FIXTURES da galeria dev do item da central (IBX-0077 / PLN-0009).
+ * Fixtures da galeria dev do item da central: cada cartão chama os DOIS builders
+ * do servidor (`buildNotificationContent` e `buildNotificationPresentation`)
+ * com a MESMA entrada (`NotificationContentInput`), sem adaptador nem copy
+ * digitada aqui — texto alterado no servidor aparece na galeria sem tocar neste
+ * arquivo. Fixture é só o INPUT (ator, competição e os ids do emissor).
  *
- * A copy NÃO é digitada aqui: cada cartão chama os DOIS builders do servidor —
- * `buildNotificationContent` (`convex/domains/notification/definitions.ts`,
- * título/corpo/url) e `buildNotificationPresentation`
- * (`convex/domains/notification/presentation.ts`, ação + rótulos + destaques) —
- * com a MESMA entrada (`NotificationContentInput`). Texto ou rótulo alterado no
- * servidor aparece na galeria sem tocar neste arquivo; fixture é só o INPUT
- * (nome do ator, nome da competição e os ids que o emissor mandaria).
- *
- * `NOTIFICATION_GALLERY_GROUPS` cobre os 44 tipos do catálogo
- * (`convex/shared/notifications/protocol.ts:1-45`), um a um, nos 8 grupos
- * aprovados no levantamento. Um teste co-localizado garante que o conjunto dos
- * grupos é EXATAMENTE o catálogo (nenhum tipo fica de fora, nenhum inventado).
- *
- * `GALLERY_TEMPLATE_LINES` é a procedência: a linha do template no servidor,
- * citada na nota de cada cartão (RUL-0007, molde do IBX-0076).
+ * `NOTIFICATION_GALLERY_GROUPS` cobre os 44 tipos do catálogo, um a um; um teste
+ * co-localizado garante que o conjunto é EXATAMENTE o catálogo.
  */
 
-/** Quem recebe o evento (o mapa REAL do servidor):
- * `ORGANIZER_RECIPIENT_EVENTS`, `convex/functions/notification/orchestrator.ts:120-124`.
- * Todo o resto resolve ator jogador. */
+/** Quem recebe o evento (`ORGANIZER_RECIPIENT_EVENTS` do orchestrator); todo o
+ * resto resolve ator jogador. */
 const ORGANIZER_EVENT_TYPES: readonly NotificationEventType[] = [
   "league.membership.requested",
   "tournament.entry.created",
 ];
 
-/**
- * Ação REAL disponível hoje por evento acionável (12 dos 44): o rótulo vem do
- * builder de apresentação e a mutation daqui é a que o runner compartilhado
- * executa (`lib/pendings/use-pending-action-runner.ts`). Evento fora do mapa é
- * INFORMATIVO (`buildNotificationPresentation` devolve `null`).
- */
+/** Ação real de hoje por evento acionável (12 dos 44): rótulo do builder de
+ * apresentação, mutation executada pelo runner de pendências. Evento fora do
+ * mapa é INFORMATIVO (`buildNotificationPresentation` devolve `null`). */
 export const GALLERY_ACTION_NOTES: Partial<
   Record<NotificationEventType, string>
 > = {
@@ -71,7 +58,7 @@ export const GALLERY_ACTION_NOTES: Partial<
     "Aceitar/Recusar · tournament.entries.respondPartnerInvite (gate: pending_partner)",
 };
 
-/** Procedência: linha do template em `convex/domains/notification/definitions.ts`. */
+/** Linha do template em `convex/domains/notification/definitions.ts`. */
 export const GALLERY_TEMPLATE_LINES: Record<NotificationEventType, number> = {
   "league.challenge.cancellation_accepted": 130,
   "league.challenge.cancellation_rejected": 139,
@@ -119,7 +106,6 @@ export const GALLERY_TEMPLATE_LINES: Record<NotificationEventType, number> = {
   "tournament.partner.responded": 456,
 };
 
-/** Explicação extra por cartão (o que a nota precisa dizer e o texto não diz). */
 const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
   "league.membership.renewal_reminder":
     "O MESMO evento muda de texto pelo `metadata.daysLeft` que o cron reescreve todo dia (definitions.ts:98-127): as 4 variantes estão neste cartão em LabeledBlock.",
@@ -129,10 +115,8 @@ const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
     "INFORMATIVO por decisão de produto: evento pós-pagamento (a inscrição já está ativa e o charge já está PAID, um botão Pagar mentiria). O CTA de pagar do torneio vive na pendência, não no feed.",
 };
 
-/**
- * Metadata do emissor por evento: é dela que o builder de apresentação tira os
- * ids da ação (o id ausente devolve item INFORMATIVO, nunca botão quebrado).
- */
+/** Metadata do emissor por evento: é dela que o builder de apresentação tira os
+ * ids da ação (id ausente vira INFORMATIVO, nunca botão quebrado). */
 const GALLERY_METADATA: Partial<
   Record<NotificationEventType, Record<string, unknown>>
 > = {
@@ -198,7 +182,7 @@ const GALLERY_TOURNAMENT = {
   tournamentName: "Copa Dracena 8",
 };
 
-/** Nome do ator dos exemplos: dado DECLARADO (nunca um nome de teste). */
+/** Ator dos exemplos: nome DECLARADO (nunca um nome de teste). */
 const GALLERY_ACTOR_NAME = "Marina Costa";
 
 /** Instante fixo do exemplo: 21/09/2026 14:32 UTC (determinístico para o QA). */
@@ -226,11 +210,8 @@ export function buildGalleryNotificationInput(
   };
 }
 
-/**
- * Item de exemplo (o shape do contrato, `notificationFeedItemSchema`): o cartão
- * da galeria é o componente REAL do feed, então o dado tem que entrar no shape
- * dele — quem monta a linha na tela real é o serializer do servidor.
- */
+/** O cartão da galeria é o componente REAL do feed: o dado tem que entrar no
+ * shape do contrato (`notificationFeedItemSchema`), como o serializer manda. */
 export function buildGalleryNotificationItem(
   eventType: NotificationEventType,
   input?: {
@@ -257,7 +238,6 @@ export function buildGalleryNotificationItem(
   };
 }
 
-/** Nota de procedência de UM cartão (molde do IBX-0076). */
 export function buildGalleryNotificationNote(
   eventType: NotificationEventType
 ): string {
@@ -280,9 +260,8 @@ export function buildGalleryNotificationNote(
   return parts.join(" · ");
 }
 
-/** Os 8 grupos aprovados, na ordem APROVADA da galeria — que NÃO é a ordem do
- * catálogo: o grupo 1 abre em `league.membership.approved` enquanto o catálogo
- * abre em `league.membership.requested` (do organizador). */
+/** Os 8 grupos na ordem da galeria — que NÃO é a ordem do catálogo: o grupo 1
+ * abre em `league.membership.approved`, o catálogo em `...requested`. */
 export const NOTIFICATION_GALLERY_GROUPS: {
   eventTypes: readonly NotificationEventType[];
   title: string;

@@ -49,8 +49,7 @@ describe("bracketEdgeRoute", () => {
   });
 
   test("siblings share the corridor vertical (classic fork/join)", () => {
-    // The two children of one parent sit in the same column, so both routes
-    // must land their verticals on the same x — they read as one trunk.
+    // Both children sit in the same column: their verticals land on the same x.
     const childB: BracketRect = { ...CHILD, y: 200 };
     const corridorX = (256 + 288) / 2;
     const routeA = bracketEdgeRoute(CHILD, PARENT_BELOW);
@@ -72,9 +71,8 @@ describe("decomposeEdgeRoute", () => {
     const first = horizontal.at(0);
     const last = horizontal.at(-1);
 
-    // The first bar starts half a stroke inside the child, the last ends
-    // half a stroke inside the parent: attachment to the card border is by
-    // construction, not by luck.
+    // The first bar starts half a stroke inside the child, the last ends half a
+    // stroke inside the parent: attachment to the border is by construction.
     expect(first?.x).toBeCloseTo(256 - THICKNESS / 2, 6);
     expect(last ? last.x + last.width : 0).toBeCloseTo(288 + THICKNESS / 2, 6);
   });
@@ -86,9 +84,8 @@ describe("decomposeEdgeRoute", () => {
     expect(parts).toHaveLength(3);
     expect(parts.every((part) => part.kind === "bar")).toBe(true);
 
-    // The horizontal into the corner extends half a stroke PAST the corner
-    // x, and the vertical extends half a stroke ABOVE the corner y — the
-    // overlap welds the sharp corner with no seam and no rounding.
+    // The horizontal extends half a stroke PAST the corner and the vertical half
+    // a stroke ABOVE it: the overlap welds the corner with no seam and no rounding.
     const corridorX = (256 + 288) / 2;
     const intoCorner = parts.find(
       (p) => p.width > p.height && p.x + p.width > corridorX
@@ -144,14 +141,10 @@ describe("decomposeEdgeRoute", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Ancoragem na forma REAL da chave: os prints do repro do BUG-0033 (Copa
-// Dracena 8 Dev: 16 slots, 11 inscritos, 5 byes) fixam o contrato observável
-// do desenho — todo conector encosta nas faces dos DOIS cards que liga e a
-// geometria não sai do retângulo dos cards. Cobertura da lib pura: o
-// deslocamento visto na tela NÃO é reproduzível aqui (ele não é produzido por
-// estas funções — o gatilho segue em aberto, ver a spec).
-// ---------------------------------------------------------------------------
+// Ancoragem na forma REAL da chave (16 slots, 11 inscritos, 5 byes): todo
+// conector encosta nas faces dos DOIS cards que liga e a geometria não passa do
+// retângulo dos cards. O deslocamento visto na tela NÃO sai destas funções:
+// é layout, não geometria pura.
 
 /** Mesmas constantes do canvas (bracket.tsx). */
 const CANVAS_CARD_WIDTH = 256;
@@ -159,12 +152,9 @@ const CANVAS_CONNECTOR_WIDTH = 32;
 const CANVAS_GAP_Y = 12;
 /** EDGE_STROKE_GRAPH do canvas. */
 const CANVAS_STROKE = 1.5;
-/**
- * Altura do card comum na chave assentada — MEDIÇÃO DE DEVICE (onLayout): 120
- * na 1ª rodada e 112 nas rodadas fundas; é o valor que o layout usa. A leitura
- * da imagem do print (~120,4) é estimativa de pixel, não medição (ver spec,
- * BUG-0033/M1).
- */
+// Altura do card comum na chave assentada, medida no onLayout: 120 na 1ª rodada
+// e 112 nas rodadas fundas — é o valor que o layout usa. A leitura do print
+// (~120,4) é estimativa de pixel, não medição.
 const MEASURED_CARD_HEIGHT = 120;
 /** Byes do sorteio na 1ª rodada da chave do repro. */
 const BYE_SLOTS = [0, 2, 3, 4, 6];
@@ -209,7 +199,6 @@ function buildDracenaTree() {
   return [roundOne, roundTwo, roundThree, [buildScheduledMatch("r4-0", 4, 0)]];
 }
 
-/** O layout como a rota o monta: altura medida quando existe, senão a estimativa. */
 function buildDracenaLayout(measuredCardIds: string[] = []): BracketTreeLayout {
   const measured = new Set(measuredCardIds);
 
@@ -341,8 +330,7 @@ describe("bracket edges: attachment on the real bracket shape (BUG-0033)", () =>
     );
 
     // O traço invade meia espessura dentro do card e vive no corredor: a
-    // geometria nunca passa do retângulo dos cards. Guarda de FORMA da lib
-    // pura — não é o deslocamento do BUG-0033 (esse não sai destas funções).
+    // geometria nunca passa do retângulo dos cards.
     expect(partsBox.minX).toBeGreaterThanOrEqual(cardsBox.minX);
     expect(partsBox.minY).toBeGreaterThanOrEqual(cardsBox.minY);
     expect(partsBox.maxX).toBeLessThanOrEqual(cardsBox.maxX);

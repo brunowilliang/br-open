@@ -39,10 +39,9 @@ function formatDateLabel(date: CalendarDate) {
 }
 
 function parseCalendarDate(value: string): CalendarDate {
-  // `parseDate` is the canonical "YYYY-MM-DD" parse. The previous
-  // `today().set({ day, month, year })` mutated today's date field-by-field
-  // and silently constrained out-of-range intermediates (e.g. day 31 into a
-  // 30-day target month), corrupting the parsed date.
+  // `parseDate` é o parse canônico de "YYYY-MM-DD": `today().set({ day, month,
+  // year })` muta campo a campo e trunca em silêncio intermediários fora de
+  // faixa (dia 31 num mês de 30 dias), corrompendo a data.
   return parseDate(value);
 }
 
@@ -60,13 +59,9 @@ function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
   const { control } = useFormContext<TournamentScreenValues>();
   const { field, fieldState } = useController({ control, name: props.name });
 
-  // BUG-0012: the calendar state machine has no defined behavior for
-  // minValue > maxValue — the focused date flip-flops between the bounds on
-  // every alignment pass and the update loop takes React down (fatal in
-  // prod). Editing a tournament whose window is already in the past built
-  // exactly that (minValue=today > maxValue=start-1). When the bounds
-  // contradict, drop them: the form's Zod refine still enforces
-  // "prazo < início" on submit.
+  // minValue > maxValue não é definido na state machine do calendário: a data
+  // focada alterna entre os limites e o loop de update derruba o React, então
+  // com limites contraditórios descartamos ambos — o refine do form exige o prazo.
   const boundsAreConsistent =
     !(props.minValue && props.maxValue) ||
     props.minValue.compare(props.maxValue) <= 0;

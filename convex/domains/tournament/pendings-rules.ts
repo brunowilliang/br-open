@@ -7,16 +7,12 @@ import {
 } from "../pendings/pendings-rules";
 
 // ---------------------------------------------------------------------------
-// Pendencias do dominio de TORNEIO (IBX-0076)
+// Pendencias do dominio de TORNEIO
 // ---------------------------------------------------------------------------
 //
-// Regras PURAS (dado -> item, sem ctx). Copy literal da galeria aprovada:
-// cartoes 4 (`player_tournament_entries_awaiting_payment`), 5 (convite
-// recebido), 6 (convite enviado), 7 (aguardando aprovacao), 11 (organizador:
-// aguardando aprovacao) e 12 (organizador: aguardando pagamento). O titulo dos
-// agregados pluraliza como a TELA ja pluraliza hoje
-// (`pages/tournaments/player-overview.tsx:108-117` e
-// `pages/tournaments/organizer-overview.tsx:66-93`).
+// Regras PURAS (dado -> item, sem ctx) — copy literal, nao reescrever os textos.
+// O titulo dos agregados pluraliza como a TELA ja pluraliza hoje
+// (`pages/tournaments/player-overview.tsx:108-117` e organizer-overview.tsx).
 //
 // Quem responde ao convite e o `playerBId` (lado convidado, o mesmo gate do
 // `respondPartnerInvite`); quem paga a inscricao e o lado A (o criador, o
@@ -236,7 +232,7 @@ export type TournamentOrganizerPendingView = {
   tournamentName: string;
 };
 
-/** Pendencias do ORGANIZADOR por torneio: aprovacao (cartao 11) e pagamento (12). */
+/** Pendencias do ORGANIZADOR por torneio: aprovacao e pagamento. */
 export function buildOrganizerEntryPendings(input: {
   tournaments: TournamentOrganizerPendingView[];
 }): PendingItem[] {

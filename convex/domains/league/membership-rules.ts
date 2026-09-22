@@ -61,7 +61,7 @@ export function resolveRankingReorderError(input: RankingReorderInput) {
 }
 
 // ---------------------------------------------------------------------------
-// Review de solicitacao de entrada (BUG-0048 / IBX-0077)
+// Review de solicitacao de entrada
 // ---------------------------------------------------------------------------
 
 /**
@@ -71,10 +71,10 @@ export function resolveRankingReorderError(input: RankingReorderInput) {
 export const REVIEWABLE_MEMBERSHIP_STATUS = LEAGUE_MEMBERSHIP_STATUSES.PENDING;
 
 /**
- * Erro de review fora de `pending` (BUG-0048): sem este gate, `approve` setava
- * `active` para QUALQUER status anterior (reativando uma solicitacao ja
- * recusada ou removida) e `reject` derrubava uma membership ja `active`. Com
- * botao na notificacao, uma linha velha agiria sobre coisa ja resolvida.
+ * Erro de review fora de `pending`: sem este gate, `approve` setaria `active`
+ * para QUALQUER status anterior (reativando uma solicitacao ja recusada) e
+ * `reject` derrubaria uma membership ja `active` — um botao de notificacao
+ * velha agiria sobre coisa ja resolvida.
  */
 export const MEMBERSHIP_REVIEW_CONFLICT_MESSAGE =
   "Essa solicitação de entrada já foi resolvida.";

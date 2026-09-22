@@ -10,10 +10,8 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { COMPONENT_GALLERY_ENTRIES } from "@/lib/dev/component-registry";
 
 /**
- * Listagem da galeria dev (IBX-0072): um item por componente no registro
- * (`COMPONENT_GALLERY_ENTRIES`). DEV ONLY: gated por `EXPO_PUBLIC_IS_DEV`
- * (mesmo mecanismo do simulatePayment, checkout [chargeId]/index.tsx:365-370)
- * — perfil dev de conta não existe no app; usuário final não vê a entrada.
+ * DEV ONLY: gated por `EXPO_PUBLIC_IS_DEV`, mesmo mecanismo do simulatePayment
+ * do checkout.
  */
 export default function ComponentGalleryListingRoute() {
   if (process.env.EXPO_PUBLIC_IS_DEV !== "true") {

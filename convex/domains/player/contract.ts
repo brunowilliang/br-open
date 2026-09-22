@@ -52,14 +52,13 @@ export const playerProfileSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Player personal dashboard (IBX-0071) — `player.dashboard.getOverview`
+// Player personal dashboard — `player.dashboard.getOverview`
 // ---------------------------------------------------------------------------
 //
-// One aggregate for the player-mode home: upcoming matches (accepted league
-// proposals + scheduled tournament matches), consolidated W/L across leagues
-// and tournaments, current league positions with their position series
-// (ranking snapshots), active tournament entries per category and the most
-// frequent doubles partner. Read-only over the existing buckets — no new
+// One aggregate for the player-mode home: upcoming matches, consolidated W/L
+// across leagues and tournaments, current league positions with their position
+// series (ranking snapshots), active tournament entries per category and the
+// most frequent doubles partner. Read-only over the existing buckets — no new
 // table.
 
 export const playerDashboardPlayerCardSchema = z.object({

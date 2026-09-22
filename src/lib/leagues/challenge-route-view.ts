@@ -17,57 +17,10 @@ import {
 type ChallengeItem =
   ApiOutputs["league"]["challenges"]["listForLeague"][number];
 
-/**
- * ============================================================================
- * CHALLENGE ROUTE VIEW — TAB & ACTION RULES
- * ============================================================================
- *
- * Esta é a fonte da verdade para quais desafios aparecem em cada aba e quais
- * ações  de organizador são visíveis por status.
- *
- * PRINCÍPIOS:
- *
- * 1. SETS DISJUNTOS POR ABA — cada status aparece em EXATAMENTE UMA aba,
- *    nunca em duas. Isso elimina a confusão de "abro o desafio aqui e ele
- *    aparece noutra aba". (Antes, pending_result_submission aparecia tanto
- *    em "Pendentes" quanto em "Ativos", gerando inconsistência.)
- *
- * 2. AÇÃO VISÍVEL = AÇÃO EXECUTÁVEL — toda ação  de organizador listada aqui tem um
- *    guard correspondente no backend (em convex/functions/league/challenges.ts,
- *    sets ADMIN_*_STATUSES). Se o backend rejeita um status, a ação NÃO pode
- *    ser visível. A tabela de mapeamento está documentada em cada set abaixo.
- *
- * 3. STATUS PODE SER DERIVADO — o status exibido pode diferir do status
- *    armazenado no DB (via computeEffectiveChallengeStatus). As mutations de
- *    admin chamam syncTimeDrivenChallengeStatus antes de validar, garantindo
- *    que o status usado aqui (derivado) é o mesmo aceito pelo backend.
- *
- * ----------------------------------------------------------------------------
- * TABELA: STATUS → ABA (ADMIN)
- * ----------------------------------------------------------------------------
- * pending_organizer_challenge_validation → Atenção
- * pending_organizer_result_validation     → Atenção
- * pending_organizer_decision              → Atenção
- * pending_result_correction           → Atenção
- * pending_opponent_response           → Em andamento
- * pending_creator_reapproval          → Em andamento
- * confirmed                           → Em andamento
- * pending_cancellation_acceptance     → Em andamento
- * pending_result_submission           → Em andamento
- * pending_result_confirmation         → Em andamento
- * finished/declined/cancelled/invalidated → Histórico
- *
- * ----------------------------------------------------------------------------
- * TABELA: STATUS → ABA (PARTICIPANTE)
- * ----------------------------------------------------------------------------
- * A lógica do jogador é por AÇÃO NECESSÁRIA do viewer, não só por status
- * (ver isChallengeAttention em challenge-attention.ts, a regra única
- * compartilhada com as contagens de badge). Um mesmo status pode cair em
- * "Atenção" ou "Aguardando" dependendo do papel do viewer (ex.: em
- * pending_result_confirmation, quem NÃO publicou o placar precisa confirmar
- * → Atenção; quem publicou → Aguardando).
- * ============================================================================
- */
+// Fonte da verdade de aba e de ação do organizador: cada status cai em UMA
+// aba só. Ação visível exige guard no backend (`ADMIN_*_STATUSES`), e o status
+// usado aqui é o derivado (computeEffectiveChallengeStatus), o mesmo que o
+// backend valida.
 
 type ChallengeOrganizerActionItem = {
   latestResultSubmission?: { id?: string | null } | null;
@@ -86,23 +39,12 @@ export type ChallengeOrganizerMenuActionId =
   | "request_result_reminder"
   | "submit_result";
 
-/**
- * Abas disponíveis. Unificadas entre organizer e jogador: ambos vêem
- * "Atenção", "Aguardando" (admin: "Em andamento") e "Histórico".
- * - Participante: incoming/outgoing foram removidos (não ajudavam a saber o
- *   que fazer; "Atenção/Aguardando" é orientado a ação).
- * - Admin: corrections foi removido (fundido em "Atenção", pois o admin é quem
- *   age sobre correções). pending virou "Atenção".
- */
+// Abas unificadas entre admin e jogador; as abas são orientadas a AÇÃO
+// (o admin vê as mesmas três, com "Em andamento" no lugar de "Aguardando").
 export type ChallengeRouteTab = "active" | "attention" | "history" | "ongoing";
 
-/**
- * Escolhe a aba inicial ao abrir a tela de desafios.
- *
- * - Admin: se há desafios precisando de atenção, abre em "Atenção" (urgência);
- *   senão em "Em andamento".
- * - Participante: sempre abre em "Atenção" (o que ele precisa fazer agora).
- */
+// Admin abre em "Atenção" quando há pendência, senão em "Em andamento";
+// o jogador abre sempre em "Atenção" (o que ele precisa fazer agora).
 export function buildChallengeRouteInitialTab(input: {
   canManage: boolean;
   pendingCount: number;
@@ -188,13 +130,7 @@ function buildPlayerVisibleChallenges(input: {
   }
 }
 
-/**
- * Constrói a lista de IDs de ações  de organizador para um desafio.
- *
- * Cada ação é adicionada somente se o status permite, alinhado com os guards
- * do backend. As ações de perigo (invalidar/cancelar) são sempre empilhadas
- * ao final, mantendo a ordem: [ações neutras..., ações de perigo...].
- */
+// As ações de perigo (invalidar/cancelar) ficam SEMPRE ao final da lista.
 export function buildChallengeOrganizerMenuActionIds(
   challenge: ChallengeOrganizerActionItem
 ): ChallengeOrganizerMenuActionId[] {
@@ -208,7 +144,6 @@ export function buildChallengeOrganizerMenuActionIds(
     actionIds.push("approve_challenge", "reject_challenge");
   }
 
-  // Resultado enviado e esperando validação do organizador.
   if (
     challenge.status === "pending_organizer_result_validation" &&
     challenge.latestResultSubmission
@@ -218,9 +153,7 @@ export function buildChallengeOrganizerMenuActionIds(
 
   // --- Ações de placar ---
 
-  // Admin pode lançar/editar o placar em qualquer status editável.
-  // (Inclui pending_organizer_decision e pending_result_correction, que antes
-  // estavam ausentes e geravam o bug de "só aparece cancelar".)
+  // Inclui pending_organizer_decision e pending_result_correction.
   if (ADMIN_SCORE_EDITABLE_CHALLENGE_STATUSES.has(challenge.status)) {
     actionIds.push("submit_result");
   }

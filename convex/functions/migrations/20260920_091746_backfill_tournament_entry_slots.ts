@@ -1,18 +1,17 @@
 import { defineMigration } from "../generated/migrations.gen";
 
 /**
- * IBX-0074 r19: the tournamentEntry unique indexes moved from
- * `categoryId_playerAId`/`categoryId_playerBId` (held forever — playerAId is
- * NOT NULL, so cancelled entries blocked re-registration with a raw 500) to
- * the mirrored `activeAId`/`activeBId` columns, which are set only while the
- * entry is live. This backfill fills the mirrors for existing live rows so
- * they are protected by the new indexes; terminal rows stay out of them.
+ * Os índices únicos de tournamentEntry saíram de
+ * `categoryId_playerAId`/`categoryId_playerBId` (playerAId é NOT NULL, então
+ * uma inscrição cancelada travava a reinscrição com um 500 cru) para as colunas
+ * espelho `activeAId`/`activeBId`, preenchidas só enquanto a inscrição está
+ * viva. Este backfill preenche os espelhos das linhas vivas existentes; linhas
+ * terminais ficam fora dos índices novos.
  *
- * SELF-CONTAINED ON PURPOSE: applied migrations must never import app code —
- * the checksum covers the deployed bundle, so a domain import makes the
- * checksum drift whenever that domain file changes (seen 20/09 with
- * entry-rules.ts r25 edits). Keep the live-status list in sync with
- * `ENTRY_LIVE_STATUSES` (domains/tournament/entry-rules.ts) by hand.
+ * SELF-CONTAINED ON PURPOSE: migração aplicada NÃO importa código do app — o
+ * checksum cobre o bundle publicado, e um import de domínio faz o checksum
+ * divergir quando aquele arquivo muda. Mantenha a lista de status viva em
+ * sincronia manual com `ENTRY_LIVE_STATUSES`.
  */
 const ENTRY_LIVE_STATUSES = [
   "pending_partner",

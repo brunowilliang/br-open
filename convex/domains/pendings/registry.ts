@@ -54,36 +54,24 @@ import {
 } from "./pendings-rules";
 
 // ---------------------------------------------------------------------------
-// Registro das pendencias (IBX-0076 / PLN-0008)
+// Registro das pendencias
 // ---------------------------------------------------------------------------
-//
 // `pendings.list` resolve o ATOR no servidor e chama os derivadores do escopo
 // pedido. Cada derivador LE o minimo via `ctx.orm` e delega a copy para as
 // regras puras de `domains/<dono>/pendings-rules.ts`; o resultado passa sempre
-// pelo mesmo fecho (`buildPendingsResult`: ordena, corta no cap, conta).
-//
-// Bounds: nenhum scan ilimitado, todos declarados abaixo — o mesmo padrao ja
-// shipado em `functions/player/dashboard.ts` (scan limitado + `in` por id).
+// pelo mesmo fecho (`buildPendingsResult`: ordena, corta no cap, conta). Nenhum
+// scan ilimitado: todo cap e declarado abaixo.
 
-/** Memberships varridas por status no escopo do jogador (molde `LEAGUE_LIMIT`). */
 const PLAYER_MEMBERSHIP_SCAN_LIMIT = 20;
-/** Desafios varridos por lado/membership (molde `CHALLENGE_SCAN_LIMIT`). */
 const PLAYER_CHALLENGE_SCAN_LIMIT = 200;
-/** Inscricoes de torneio varridas por lado (molde `ENTRY_LIMIT`). */
 const PLAYER_ENTRY_SCAN_LIMIT = 100;
-/** Ligas da organizacao lidas de uma vez. */
 const ORG_LEAGUE_SCAN_LIMIT = 50;
-/** Solicitacoes de entrada lidas por liga. */
 const ORG_JOIN_REQUEST_SCAN_LIMIT = 100;
-/** Desafios varridos por liga no escopo da organizacao. */
 const ORG_CHALLENGE_SCAN_LIMIT = 300;
-/** Torneios lidos da organizacao (ordenados por atualizacao em memoria). */
 const ORG_TOURNAMENT_SCAN_LIMIT = 50;
-/** Torneios cujas inscricoes sao varridas (os mais recentes primeiro). */
+/** Torneios cujas inscricoes sao varridas, dos mais recentes para os mais antigos. */
 const ORG_TOURNAMENT_ENTRY_LIMIT = 20;
-/** Categorias lidas por torneio. */
 const ORG_CATEGORY_SCAN_LIMIT = 10;
-/** Inscricoes lidas por categoria/status. */
 const ORG_ENTRY_SCAN_LIMIT = 300;
 /** Recibos de dispensa lidos por ator/superficie (cap do ator, nao da casa). */
 const PENDING_DISMISSAL_SCAN_LIMIT = 200;
@@ -94,11 +82,6 @@ export type PendingsActor =
   | { kind: "organization"; organizationId: Id<"organization"> }
   | { kind: "player"; playerProfileId: Id<"playerProfile"> };
 
-/**
- * O que um derivador devolve: os itens E o sinal de saturacao das LEITURAS que
- * encheram o cap (leitura saturada pode ter deixado item/contagem para tras;
- * `limit` e o cap que cortou).
- */
 export type PendingsDerivation = {
   items: PendingItem[];
   saturations: PendingSaturation[];
@@ -115,11 +98,8 @@ export type PendingsDeriver = {
 };
 
 /**
- * Ator de pendencias a partir do ator ativo da sessao. `null` = sem pendencia:
- * conta sem perfil de jogador nao tem escopo, e o escopo da ORGANIZACAO e do
- * MANAGER (owner/admin) — um member puro NAO recebe pendencia de organizacao, o
- * mesmo gate das leituras equivalentes (`requireActiveManager`, a aba
- * Solicitacoes e o valor da mensalidade no ajuste da liga).
+ * `null` = sem pendencia: conta sem perfil de jogador nao tem escopo, e o escopo
+ * da ORGANIZACAO e do MANAGER — member puro NAO recebe pendencia de organizacao.
  */
 export function resolvePendingsActor(
   viewerActor: Pick<ViewerActor, "id" | "kind" | "role">
@@ -140,8 +120,8 @@ export function resolvePendingsActor(
 }
 
 /**
- * O recibo de dispensa pertence ao ATOR (o dono da pendencia), nao a sessao que
- * dispensou: os dois gestores da mesma organizacao veem o mesmo item escondido.
+ * O recibo pertence ao ATOR (dono da pendencia), nao a sessao que dispensou: os
+ * dois gestores da mesma organizacao veem o mesmo item escondido.
  */
 export function toPendingActorRef(actor: PendingsActor): PendingsActorRef {
   return actor.kind === "player"
@@ -149,7 +129,6 @@ export function toPendingActorRef(actor: PendingsActor): PendingsActorRef {
     : { id: actor.organizationId as string, kind: "organization" };
 }
 
-/** Kinds alimentados pela varredura de memberships do jogador. */
 const PLAYER_MEMBERSHIP_KINDS: readonly PendingKind[] = [
   "player_league_challenges_pending_actions",
   "player_league_inactivity_risk",
@@ -157,29 +136,25 @@ const PLAYER_MEMBERSHIP_KINDS: readonly PendingKind[] = [
   "player_league_membership_payment_due_soon",
   "player_league_membership_suspended",
 ];
-/** Kinds alimentados pela varredura de inscricoes do jogador. */
 const PLAYER_ENTRY_KINDS: readonly PendingKind[] = [
   "player_tournament_entries_awaiting_payment",
   "player_tournament_entry_awaiting_approval",
   "player_tournament_partner_invite_received",
   "player_tournament_partner_invite_sent",
 ];
-/** Kinds alimentados pela varredura de ligas da organizacao. */
 const ORG_LEAGUE_KINDS: readonly PendingKind[] = [
   "organization_league_challenges_awaiting_validation",
   "organization_league_join_requests",
   "organization_league_payment_account_missing",
 ];
-/** Kinds alimentados pela varredura de inscricoes por torneio (organizacao). */
 const ORG_ENTRY_KINDS: readonly PendingKind[] = [
   "organization_tournament_entries_awaiting_approval",
   "organization_tournament_entries_awaiting_payment",
 ];
 
 /**
- * Fonte do sinal de saturacao de UM derivador: `markIfFull` marca os kinds da
- * leitura que encheu o cap (a leitura cheia NAO prova que ha mais, mas e o
- * unico aviso honesto de que o dado pode ter sobrado).
+ * `markIfFull` marca os kinds da leitura que encheu o cap: a leitura cheia NAO
+ * prova que ha mais, mas e o unico aviso honesto de que o dado pode ter sobrado.
  */
 export function createSaturationCollector() {
   const saturations: PendingSaturation[] = [];
@@ -206,10 +181,8 @@ const PLAYER_CHALLENGE_SCAN_STATUSES = [
 const ORG_ENTRY_TOURNAMENT_STATUSES = ["published", "drawn", "ongoing"];
 
 /**
- * Status EFETIVO do desafio — o que a lista da tela recebe. So o `confirmed`
- * pode derivar por tempo para uma pendencia (jogo cujo fim passou sem placar),
- * e por isso e o unico que paga o custo de carregar proposta + placar. Sem
- * proposta (linha legada) vale o status gravado.
+ * Status EFETIVO do desafio: so `confirmed` deriva por tempo para uma pendencia
+ * (jogo cujo fim passou sem placar) e so ele paga carregar proposta + placar.
  */
 async function resolveEffectiveChallengeStatus(
   ctx: PendingsReadCtx,
@@ -246,8 +219,8 @@ async function resolveEffectiveChallengeStatus(
 /**
  * Escopo do jogador: um passe pelas memberships dele que podem gerar pendencia
  * (os status que o app trata como jogador) e, por liga, as pendencias de
- * mensalidade (cartoes 1-3), o alerta agregado de desafios (cartao 8) e o risco
- * de inatividade (cartao 9). Cada membership e uma liga.
+ * mensalidade, o alerta agregado de desafios e o risco de inatividade. Cada
+ * membership e uma liga.
  */
 async function collectPlayerLeaguePendings(
   ctx: PendingsReadCtx,
@@ -544,10 +517,9 @@ async function collectPlayerEntryPendings(
       : [];
   const userById = new Map(users.map((row) => [row.id as string, row]));
 
-  // Nome que a copy NOMEIA: a cadeia dos moldes vivos do app (ver
-  // `buildPlayerProfileDisplayName`) — um perfil sem `fullName` ainda rende o
-  // apelido, o nome da conta ou o `Jogador#NNNN` do app, entao o convite NUNCA
-  // deixa de virar pendencia por dado incompleto (o tier de nome so).
+  // A copy NOMEIA o perfil pela cadeia de `buildPlayerProfileDisplayName`: sem
+  // `fullName` ainda rende apelido, nome da conta ou `Jogador#NNNN` — o convite
+  // nunca morre por dado incompleto.
   const nameByProfileId = new Map(
     profiles.map((profile) => [
       profile.id as string,
@@ -602,10 +574,8 @@ async function collectPlayerEntryPendings(
 }
 
 /**
- * Ligas da organizacao, do mais recente para o mais antigo: o `orderBy` e o que
- * torna o cap DETERMINISTICO (sem ele, qual liga fica de fora depende da ordem
- * interna do indice). Cap do bloco = `ORG_LEAGUE_SCAN_LIMIT`, sinalizado por
- * `markIfFull` em cada derivador que usa este lote.
+ * O `orderBy` e o que torna o cap DETERMINISTICO (sem ele, qual liga fica de fora
+ * depende da ordem interna do indice). `markIfFull` sinaliza o cap em quem usa.
  */
 function orgLeagues(ctx: PendingsReadCtx, organizationId: Id<"organization">) {
   return ctx.orm.query.league.findMany({
@@ -616,9 +586,8 @@ function orgLeagues(ctx: PendingsReadCtx, organizationId: Id<"organization">) {
 }
 
 /**
- * Escopo da organizacao: ligas PAGAS que nao conseguem cobrar porque a conta
- * Woovi da organizacao nao esta ativa (cartao 10) — a regra da tela real e
- * "liga com mensalidade + conta fora de `active`".
+ * Ligas PAGAS que nao conseguem cobrar porque a conta Woovi da organizacao nao
+ * esta ativa: a regra e "liga com mensalidade + conta fora de `active`".
  */
 async function collectOrgPaymentAccountPendings(
   ctx: PendingsReadCtx,
@@ -657,10 +626,6 @@ async function collectOrgPaymentAccountPendings(
   };
 }
 
-/**
- * Escopo da organizacao: solicitacoes de entrada por liga (status `pending`, o
- * mesmo conjunto da aba Solicitacoes) — cartao 13.
- */
 async function collectOrgJoinRequestPendings(
   ctx: PendingsReadCtx,
   actor: PendingsActor
@@ -705,10 +670,9 @@ async function collectOrgJoinRequestPendings(
 }
 
 /**
- * Escopo da organizacao: desafios esperando a validacao DELE, somados nas
- * ligas da organizacao (cartao 14, agregado e sem rota). O status considerado e
- * o EFETIVO — um pedido de desafio sem resposta ja virou decisao do
- * organizador, exatamente como o set de atencao do servidor define.
+ * Desafios esperando a validacao DELE, somados nas ligas da organizacao
+ * (agregado, sem rota). Vale o status EFETIVO: um pedido sem resposta ja virou
+ * decisao do organizador, o mesmo set de atencao do servidor.
  */
 async function collectOrgChallengePendings(
   ctx: PendingsReadCtx,
@@ -770,10 +734,9 @@ async function collectOrgChallengePendings(
 }
 
 /**
- * Escopo da organizacao: inscricoes aguardando aprovacao (cartao 11) e
- * aguardando pagamento (cartao 12) por torneio. So torneios em que a inscricao
- * ainda pode virar ativa entram (publicado/sorteado/em andamento): em torneio
- * encerrado ou cancelado nao ha mais acao possivel. Os mais recentes primeiro.
+ * Inscricoes aguardando aprovacao e aguardando pagamento por torneio. So
+ * torneios em que a inscricao ainda pode virar ativa entram (publicado, sorteado
+ * ou em andamento): encerrado ou cancelado nao tem mais acao possivel.
  */
 async function collectOrgEntryPendings(
   ctx: PendingsReadCtx,
@@ -865,8 +828,8 @@ async function collectOrgEntryPendings(
 }
 
 /**
- * Derivadores do escopo do JOGADOR. `kinds` e explicito (nao derivado do
- * contrato): a completude e a ausencia de duplicata sao auditadas por teste.
+ * `kinds` e explicito (nao derivado do contrato): completude e ausencia de
+ * duplicata sao auditadas por teste.
  */
 const PLAYER_PENDING_DERIVERS: readonly PendingsDeriver[] = [
   {
@@ -922,9 +885,8 @@ export const PENDING_DERIVERS: Record<
 };
 
 /**
- * Recibos que a leitura daquela superficie consulta. A casa NUNCA esconde (o
- * gesto so existe na home), entao nem le a tabela; a leitura e pelo indice do
- * ator e limitada.
+ * A casa NUNCA esconde (o gesto so existe na home), entao nem le a tabela de
+ * recibos; a leitura e pelo indice do ator e limitada.
  */
 export async function findPendingDismissals(input: {
   actor: PendingsActor;
@@ -949,11 +911,10 @@ export async function findPendingDismissals(input: {
 }
 
 /**
- * Derivacao CRUA do escopo pedido: roda os derivadores, confere que cada item
- * saiu no escopo em que o kind foi registrado (fio errado vira erro, nunca
- * pendencia no escopo errado) e devolve o array SEM filtro de dispensa e SEM
- * corte. E a base da leitura (`collectPendings` corta em cima dela) e da poda do
- * write-path — as duas pontas tem de olhar o MESMO universo.
+ * Derivacao CRUA do escopo pedido: confere que cada item saiu no escopo em que o
+ * kind foi registrado (fio errado vira erro, nunca pendencia no escopo errado) e
+ * devolve o array SEM filtro de dispensa e SEM corte — a base da leitura e da
+ * poda do write-path olham o MESMO universo.
  */
 export async function derivePendings(input: {
   actor: PendingsActor;
@@ -982,10 +943,6 @@ export async function derivePendings(input: {
   };
 }
 
-/**
- * Fecho da leitura: deriva e devolve escondendo o dispensado, ordenando,
- * cortando no cap e contando o que sobrou.
- */
 export async function collectPendings(input: {
   actor: PendingsActor;
   ctx: PendingsReadCtx;

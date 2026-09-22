@@ -1,18 +1,5 @@
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Payment charge statuses
-// ---------------------------------------------------------------------------
-//
-// Provider-agnostic. Woovi maps onto this as:
-//   ACTIVE      -> PENDING  (charge awaiting payment)
-//   COMPLETED   -> PAID     (webhook OPENPIX:TRANSACTION_RECEIVED)
-//   EXPIRED     -> EXPIRED  (webhook OPENPIX:CHARGE_EXPIRED)
-//
-// REFUNDED is reached via the over-enrollment guard or a manual dashboard
-// refund reconciled by webhook. FAILED is reserved for charge-creation
-// failures (kept for diagnostics; the player retries with a new charge).
-
 export const PAYMENT_CHARGE_STATUSES = [
   "PENDING",
   "PAID",
@@ -25,26 +12,14 @@ export type PaymentChargeStatus = (typeof PAYMENT_CHARGE_STATUSES)[number];
 
 export const paymentChargeStatusSchema = z.enum([...PAYMENT_CHARGE_STATUSES]);
 
-// ---------------------------------------------------------------------------
-// Payable source types (the polymorphic sourceType + sourceId pair)
-// ---------------------------------------------------------------------------
-//
-// `sourceType` discriminates what a charge paid for; the webhook/handlers
-// dispatch on it. Kept here (not in the function file) so domain modules can
-// interpret a source without importing a Convex function file.
+// Lives in the contract (not in a function file) so domain modules can read a
+// source without importing a Convex function file.
 
 export const SOURCE_TYPE_LEAGUE_MEMBERSHIP = "league_membership";
 export const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
 
-// ---------------------------------------------------------------------------
-// Payment account statuses (organization onboarding)
-// ---------------------------------------------------------------------------
-//
-// The provider creates the subaccount synchronously and it is usable
-// immediately (no async KYC for subaccounts — validated in the 2026-07-02
-// PoC). The `pending` -> `active` transition is therefore immediate in
-// practice, but we keep the enum so a future stricter KYC flow can fit in
-// without schema changes.
+// The provider creates the subaccount synchronously and it is usable right
+// away (no async KYC); the enum stays for a future stricter KYC flow.
 
 export const PAYMENT_ACCOUNT_STATUSES = [
   "pending",
@@ -56,66 +31,42 @@ export type PaymentAccountStatus = (typeof PAYMENT_ACCOUNT_STATUSES)[number];
 
 export const paymentAccountStatusSchema = z.enum([...PAYMENT_ACCOUNT_STATUSES]);
 
-// ---------------------------------------------------------------------------
-// Payment account snapshot — embedded JSON on `organization.paymentAccount`
-// ---------------------------------------------------------------------------
-//
-// Mirrors the `metadata` pattern: raw JSON at the schema level, validated
-// by this zod schema in the organization serializer. One organization has
-// at most one payment account (1:1), so the JSON embed replaces the old
-// `organizationWooviAccount` table.
+// Embedded JSON (one account per organization) validated by this zod schema in
+// the organization serializer.
 
 export const paymentAccountSchema = z.object({
-  // Display name of the account holder (IBX-0002) — the organizer-facing
-  // label shown on the withdraw destination ("account name + pix key").
-  // Nullable with default so pre-existing snapshots (no field) keep parsing;
-  // the withdraw screen falls back to "Chave PIX" when null.
+  // Withdraw destination label ("account name + pix key"); nullable with
+  // default so snapshots saved before the field existed keep parsing.
   accountName: z.string().nullable().default(null),
   name: z.string(),
   onboardedAt: z.string().nullable(),
-  // min(1) mirrors splitConfigSchema.recipientPixKey: a snapshot with an
-  // empty key is an invalid account (getStatus/getBalance fall back to
-  // "not configured").
+  // min(1) mirrors splitConfigSchema.recipientPixKey: an empty key is an
+  // invalid account.
   pixKey: z.string().min(1),
   status: paymentAccountStatusSchema,
 });
 
 export type PaymentAccount = z.infer<typeof paymentAccountSchema>;
 
-// ---------------------------------------------------------------------------
-// Split config snapshot
-// ---------------------------------------------------------------------------
-//
-// Stored on each paymentCharge at charge time so historical payments stay
-// correct even if the platform fee percent changes later. The actual split
-// is enforced by the provider from the charge payload; this is informational.
+// Snapshotted at charge time so historical payments stay correct when the fee
+// percent changes; the provider enforces the real split from its own payload.
 
 export const splitConfigSchema = z.object({
   brOpenCents: z.number().int().nonnegative(),
   feePercent: z.number().min(0).max(100),
   organizerCents: z.number().int().nonnegative(),
   recipientPixKey: z.string().min(1),
-  // Woovi PIX-IN fee snapshot (DECISAO-004): clamp(0.8% · amount, R$ 0,50,
-  // R$ 5,00). Always present on charges created after DECISAO-004; optional
-  // in the parse so legacy charges (no value) don't fail validation — treat
-  // the absence as unknown platform revenue (null), not zero.
+  // Optional so charges snapshotted before this field keep parsing — absent
+  // means unknown platform revenue, not zero.
   wooviFeeCents: z.number().int().nonnegative().optional(),
 });
 
 export type SplitConfig = z.infer<typeof splitConfigSchema>;
 
-// ---------------------------------------------------------------------------
-// Withdrawals (DECISAO-003)
-// ---------------------------------------------------------------------------
-
-/**
- * Local lifecycle of a withdrawal request. `pending` — row reserved, PIX out
- * in flight (before the provider returns an id); `completed` — provider
- * accepted the PIX out (set by `completeWithdrawal`); `failed` — provider
- * rejected it or `OPENPIX:MOVEMENT_FAILED` arrived (from `pending` or
- * `completed`). `completed` rows are NOT "in flight": they never gate a new
- * withdrawal (BUG-0001).
- */
+/** `pending` — reserved, PIX out in flight before the provider returns an id;
+ * `completed` — provider accepted it; `failed` — rejected or hit by
+ * `OPENPIX:MOVEMENT_FAILED`. Completed rows are NOT in flight: they never gate
+ * a new withdrawal. */
 export const WITHDRAW_STATUSES = ["pending", "failed", "completed"] as const;
 
 export type WithdrawStatus = (typeof WITHDRAW_STATUSES)[number];
@@ -127,15 +78,10 @@ export const withdrawFeeTierSchema = z.object({
   upToCents: z.number().int().positive(),
 });
 
-/**
- * `payment/withdraw:getBalance` output — mirrors
- * `src/lib/withdraw/contract.ts` (WithdrawBalance).
- */
+/** Mirrors `src/lib/withdraw/contract.ts` (WithdrawBalance). */
 export const withdrawBalanceSchema = z.object({
-  // Withdraw destination (IBX-0002): account display name + masked pix key.
-  // accountName is null for keys registered before the field existed — the
-  // client falls back to a generic "Chave PIX" label. pixKey is masked
-  // (same as payment.onboarding.getStatus).
+  // `accountName` is null for keys registered before the field existed (the
+  // client then shows a generic label); `pixKey` is masked.
   accountName: z.string().nullable(),
   balanceCents: z.number().int().nonnegative(),
   feeTiers: z.array(withdrawFeeTierSchema),
@@ -146,10 +92,7 @@ export const withdrawBalanceSchema = z.object({
 
 export type WithdrawBalance = z.infer<typeof withdrawBalanceSchema>;
 
-/**
- * `payment/withdraw:requestWithdraw` output — mirrors
- * `src/lib/withdraw/contract.ts` (WithdrawRequestResult).
- */
+/** Mirrors `src/lib/withdraw/contract.ts` (WithdrawRequestResult). */
 export const requestWithdrawOutputSchema = z.object({
   feeCents: z.number().int().nonnegative(),
   liquidAmountCents: z.number().int().nonnegative(),
@@ -157,10 +100,6 @@ export const requestWithdrawOutputSchema = z.object({
 });
 
 export type RequestWithdrawOutput = z.infer<typeof requestWithdrawOutputSchema>;
-
-// ---------------------------------------------------------------------------
-// Charge output (returned to the client after creating a PIX charge)
-// ---------------------------------------------------------------------------
 
 export const createChargeOutputSchema = z.object({
   brCode: z.string(),
@@ -172,19 +111,9 @@ export const createChargeOutputSchema = z.object({
 
 export type CreateChargeOutput = z.infer<typeof createChargeOutputSchema>;
 
-// ---------------------------------------------------------------------------
-// Checkout context (returned by getCheckoutContext for /checkout/[chargeId])
-// ---------------------------------------------------------------------------
-
-/**
- * Charge projection carried by a checkout payload: everything the screen needs
- * to render a PIX (copy-and-paste code, QR image, countdown, amount) plus the
- * charge id and its status at read time.
- *
- * The checkout context returns it FLAT for the charge the link points at and
- * nested under `pendingCharge` for the live obligation of the source
- * (BUG-0025). The screen swaps the whole projection, never fields from both.
- */
+/** Returned FLAT for the charge the link points at and nested under
+ * `pendingCharge` for the live obligation of the source — the screen swaps the
+ * whole projection, never fields from both. */
 export const checkoutChargeSchema = z.object({
   amountCents: z.number().int().nonnegative(),
   brCode: z.string(),
@@ -199,20 +128,16 @@ export type CheckoutCharge = z.infer<typeof checkoutChargeSchema>;
 export const checkoutContextSchema = z.object({
   amountCents: z.number().int().nonnegative(),
   brCode: z.string(),
-  // Current membership state of the source (IBX-0040), so the checkout can tell
-  // "renew now" from "already paid" instead of trusting the charge's historical
-  // status. Same signal the payments hub publishes as `canRegenerate`.
+  // Membership state of the source, so the checkout can tell "renew now" from
+  // "already paid" without trusting the charge's historical status.
   canRenew: z.boolean(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
   membershipDueAt: z.number().nullable(),
   membershipStatus: z.string().nullable(),
-  // Live obligation of the source (BUG-0025): the caller's own PENDING charge
-  // for this source, if one still carries a usable PIX. A notification link can
-  // carry a terminal charge (EXPIRED/PAID) while a newer PIX is open for the
-  // same source, and the screen must render THAT one instead of the historical
-  // state. Null means there is nothing to show beyond the link's charge, and
-  // the screen keeps its previous behaviour. Reading it never creates a charge.
+  // The caller's own PENDING charge with a usable PIX, so a link carrying a
+  // terminal charge still renders the newer open one. Null means nothing beyond
+  // the link's charge; reading it never creates a charge.
   pendingCharge: checkoutChargeSchema.nullable(),
   qrCodeUrl: z.string(),
   sourceId: z.string(),
@@ -222,10 +147,6 @@ export const checkoutContextSchema = z.object({
 });
 
 export type CheckoutContext = z.infer<typeof checkoutContextSchema>;
-
-// ---------------------------------------------------------------------------
-// My payments list item (player-facing payment hub)
-// ---------------------------------------------------------------------------
 
 export const myPaymentItemSchema = z.object({
   amountCents: z.number().int().nonnegative(),
@@ -246,10 +167,6 @@ export const listMyPaymentsOutputSchema = z.object({
 });
 
 export type ListMyPaymentsOutput = z.infer<typeof listMyPaymentsOutputSchema>;
-
-// ---------------------------------------------------------------------------
-// Organizer dashboard overview (Home screen in organizer mode)
-// ---------------------------------------------------------------------------
 
 export const dashboardRecentChargeSchema = z.object({
   amountCents: z.number().int().nonnegative(),
@@ -283,15 +200,8 @@ export const dashboardOverviewSchema = z.object({
 
 export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;
 
-// ---------------------------------------------------------------------------
-// Organizer dashboard revenue series (IBX-0071) —
-// `payment.dashboard.getRevenueSeries`
-// ---------------------------------------------------------------------------
-//
-// Monthly revenue evolution from the real charge history (getOverview only
-// carries two points). All months of the window are always present (empty =
-// zero) so charts don't drop gaps; `bySource` breaks the same window down by
-// the polymorphic competition the charge paid for.
+// All months of the window are always present (empty = zero) so charts don't
+// drop gaps; `bySource` breaks the same window down by competition.
 
 export const dashboardRevenuePointSchema = z.object({
   month: z.string(),

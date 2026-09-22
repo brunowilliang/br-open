@@ -447,20 +447,13 @@ describe("commitCardHeight (altura medida do card)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Estabilidade do PRIMEIRO layout (a "piscada" da entrada — BUG-0033): a malha
-// montada com a ESTIMATIVA precisa fechar o MESMO grafo que a malha assentada
-// (alturas medidas); se a estimativa estiver longe, o grafo inteiro re-layouta
-// e re-enquadra no primeiro frame depois de medir => salto visível.
-// Forma real do repro: 16 slots, 11 inscritos, 5 byes (slots 0, 2, 3, 4 e 6).
-// ---------------------------------------------------------------------------
+// Estabilidade do PRIMEIRO layout: a malha montada com a ESTIMATIVA precisa
+// fechar o MESMO grafo que a malha assentada, senão o grafo re-layouta e
+// re-enquadra depois de medir => salto visível na entrada.
 describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () => {
   const BYE_SLOTS = [0, 2, 3, 4, 6];
-  /**
-   * Altura MEDIDA no device (onLayout): 1ª rodada 120, rodadas fundas 112 — e
-   * 120 é o valor que o layout usa (a leitura do print, ~120,4, é estimativa
-   * de pixel). Ver spec, BUG-0033/M1.
-   */
+  /** Altura MEDIDA no device (onLayout): a 1ª rodada mede 120 e as rodadas
+   * fundas 112 (a leitura do print, ~120,4, é ruído de pixel). */
   const FIRST_ROUND_MEASURED = 120;
   const DEEP_ROUND_MEASURED = 112;
   /** Estimativa antiga (suposição), para a contraprova. */
@@ -546,12 +539,9 @@ describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () =>
   });
 });
 
-// ---------------------------------------------------------------------------
 // bracketFitTransform: o estado INICIAL do transform do canvas e o valor
-// re-aplicado a cada re-enquadramento saem da MESMA função — é o que garante
-// que o primeiro frame nativo do conteúdo já nasça no fit (BUG-0033: o
-// conteúdo pintava em identidade/1x por um frame e saltava).
-// ---------------------------------------------------------------------------
+// re-aplicado a cada re-enquadramento saem da MESMA função, então o primeiro
+// frame nativo do conteúdo já nasce no fit (sem pintar em 1x e saltar).
 describe("bracketFitTransform", () => {
   const VIEWPORT = { viewportHeight: 956, viewportWidth: 440 };
   const GRAPH = { graphHeight: 704, graphWidth: 1120 };

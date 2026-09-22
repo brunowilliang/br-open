@@ -988,8 +988,7 @@ function PaymentSection() {
   });
 
   const account = statusQuery.data ?? null;
-  // MENOR-2 (IBX-0002): o label do card usa o accountName cadastrado; para
-  // chaves legadas (accountName null) cai no nome da subconta (nome da org).
+  // Chaves legadas (accountName null) caem no nome da subconta (nome da org).
   const accountLabel = account?.accountName ?? account?.name ?? null;
 
   function handleEditPixKey() {

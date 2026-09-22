@@ -149,8 +149,8 @@ export const getById = authQuery
           })
         : null;
 
-    // Due date of the cycle the viewer already paid for (IBX-0039) — the
-    // league screen shows it and uses it to open early renewal.
+    // Due date of the cycle the viewer already paid for: the league screen shows
+    // it and uses it to open early renewal.
     const viewerMembershipDueAtMs = currentMembership
       ? await resolveMembershipDueMs(ctx, {
           membershipId: currentMembership.id,

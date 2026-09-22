@@ -26,9 +26,8 @@ import { useThemeColor } from "heroui-native";
 
 /** Distance a finger travels before the pan takes over (taps reach cards). */
 const PAN_ACTIVATION_DISTANCE = 12;
-/** Connector stroke in GRAPH points: constant like everything else in the
- * graph, so it scales with the content (stage C verdict — end-of-gesture
- * stroke compensation snapped and read as "the line thickens"). */
+/** Connector stroke em pt de GRAFO: constante como o resto do grafo, escala com
+ * o conteúdo (compensar a espessura no fim do gesto "engrossava" a linha). */
 const EDGE_STROKE_GRAPH = 1.5;
 
 const ZOOM_TIMING = {
@@ -39,11 +38,8 @@ const ZOOM_TIMING = {
 type BracketCanvasCard = BracketTreeLayout["cards"][number];
 
 type BracketCanvasProps = {
-  /**
-   * Versão monotônica do foco da aba: mudar (re-entrada na tela) re-enquadra a
-   * chave no fit, SEM remontar o canvas. O remount antigo (key por foco)
-   * reconstruía cards/alturas/fit e piscava a tela a cada entrada.
-   */
+  /** Versão monotônica do foco: mudar (re-entrada na tela) re-enquadra a chave
+   * no fit SEM remontar o canvas (o remount por foco piscava a tela). */
   focusSeed: number;
   layout: BracketTreeLayout;
   renderCard: (card: BracketCanvasCard) => ReactNode;
@@ -57,8 +53,8 @@ type FramedBracketContentProps = BracketCanvasProps & {
 
 function EdgePartView({ part, tint }: { part: BracketEdgePart; tint: string }) {
   return (
-    // As barras são filhas DIRETAS do container dos cards (sem camada 0x0 no
-    // caminho — BUG-0033), então cada uma carrega o próprio pointerEvents none.
+    // Barras filhas DIRETAS do container dos cards (sem camada 0x0 no caminho):
+    // cada uma carrega o próprio pointerEvents none.
     <View
       pointerEvents="none"
       style={{
@@ -73,13 +69,9 @@ function EdgePartView({ part, tint }: { part: BracketEdgePart; tint: string }) {
   );
 }
 
-/**
- * The connectors as ABSOLUTE Views in graph coordinates, filhos DIRETOS do
- * mesmo container que hospeda os cards (o Animated.View do canvas): sem view
- * intermediária (nenhuma superfície 0x0 no caminho — BUG-0033). A stroke é
- * constante em pt de grafo: o transform do pai carrega as barras e a espessura
- * escala com o conteúdo, exatamente como os cards (stage C verdict).
- */
+/** Conectores como Views ABSOLUTE em coordenadas de grafo, filhas DIRETAS do
+ * mesmo container dos cards: sem view intermediária (superfície 0x0 no caminho
+ * não recebe toque). A stroke é constante em pt de grafo, como os cards. */
 const BracketEdges = memo(function BracketEdges({
   cards,
   links,
@@ -114,10 +106,8 @@ const BracketEdges = memo(function BracketEdges({
   }, [cards, links, thickness]);
 
   return (
-    // SEM view intermediária (BUG-0033): as barras são filhas DIRETAS do
-    // container dos cards (mesma natureza estrutural dos cards, que sempre
-    // pintaram certo), cada uma com pointerEvents none e a ordem conectores ->
-    // cards preservada no canvas.
+    // Ordem conectores -> cards preservada no canvas: as barras terminais ficam
+    // sob a borda dos cards.
     <>
       {parts.map(({ key, part }) => (
         <EdgePartView key={key} part={part} tint={tint} />
@@ -126,29 +116,12 @@ const BracketEdges = memo(function BracketEdges({
   );
 });
 
-/**
- * PLN-0002 bracket canvas: pan + pinch + double-tap over ONE transformed
- * layer. Everything that moves together (cards and connector Views) lives
- * inside the single Animated.View that owns the transform; there is no
- * second coordinate system, so layers cannot drift apart by construction.
- *
- * Engine: RNGH gestures drive three shared values on the UI thread; no
- * React state changes during or after a gesture (the stroke is constant
- * graph-space). Pinch activates manually on the second finger, pan stays
- * single-finger, double-tap toggles fit <-> native zoom (QA R15/R18: the
- * zoom clamps to [fitZoom, 1] — the whole bracket visible at rest, never an
- * upscale).
- */
-/**
- * O CONTEÚDO enquadrado do chaveamento: dono do transform (gestos, pan, zoom) e
- * dos cards/conectores. Por que existe este filho (BUG-0033): `useSharedValue`
- * só aceita valor inicial na PRIMEIRA renderização, e o pai (o medidor) só
- * conhece o fit DEPOIS de medir o viewport — um seed condicional lá nasceria em
- * identidade (1x) e o PRIMEIRO frame nativo do conteúdo pintaria o grafo
- * gigante antes de saltar para o fit (a piscada da 1ª abertura). Montado só
- * com o fit pronto, este componente NASCE enquadrado: o estado inicial e o
- * re-enquadramento saem do mesmo `bracketFitTransform`.
- */
+/** Conteúdo enquadrado: dono do transform (pan + pinch + double-tap numa ÚNICA
+ * camada transformada — sem segundo sistema de coordenadas as camadas não podem
+ * divergir) e dos cards/conectores. Monta só com o fit pronto porque
+ * `useSharedValue` só aceita valor inicial na PRIMEIRA renderização: um seed
+ * condicional nasceria em identidade e o primeiro frame nativo pintaria o grafo
+ * gigante antes de saltar pro fit (a piscada da 1ª abertura). */
 function FramedBracketContent({
   fitZoom,
   focusSeed,
@@ -178,19 +151,13 @@ function FramedBracketContent({
     zoom: 1,
   });
   const pinchActive = useSharedValue(false);
-  /** Set the moment a second pointer lands; cleared by the next clean
-   * single-pointer touch. While set, a double-tap "activation" is really
-   * two fingers of a pinch landing fast — blocked. This is the clock-free
-   * form of a multi-touch recency window: RNGH events carry no timestamp
-   * the worklet can read, and it needs no tuning constant. */
+  /** Marcada quando o segundo dedo encosta e limpa no próximo toque de um dedo
+   * só: um double-tap "ativado" por dois dedos de um pinch caindo rápido fica
+   * bloqueado (RNGH não expõe timestamp pro worklet). */
   const multiTouchedSinceTap = useSharedValue(false);
 
-  // The bracket starts framed and stays framed through every resize of the
-  // graph itself (card heights settling, category tabs remount the canvas):
-  // snap the transform to the centered fit before paint (QA R18). O `focusSeed`
-  // entra nas deps para a RE-ENTRADA na tela re-enquadrar a chave sem remontar
-  // o canvas (o remount por foco piscava a tela; a instância segue viva). Mesma
-  // função do estado inicial: inicial == aplicado, por construção.
+  // Re-enquadra no fit antes do paint a cada resize do grafo; `focusSeed` nas
+  // deps é o gatilho INTENCIONAL da re-entrada na aba (inicial == aplicado).
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusSeed é o gatilho INTENCIONAL do re-enquadramento na re-entrada da aba (não é lido no corpo; o remount por foco piscava a tela)
   useLayoutEffect(() => {
     const next = bracketFitTransform({
@@ -215,10 +182,8 @@ function FramedBracketContent({
     zoom,
   ]);
 
-  // Double-tap zoom animation, run from the RN thread: gesture worklets
-  // cannot capture the cross-module `withTiming` import (ReferenceError on
-  // the UI thread — the frozen-canvas bug class, caught live in Metro).
-  // Writing shared values from RN is ordinary Reanimated.
+  // Roda da thread do RN: worklet não captura o import cross-module de
+  // `withTiming` (ReferenceError na UI thread = canvas congelado).
   const animateTo = useCallback(
     (target: number, x: number, y: number) => {
       zoom.value = withTiming(target, ZOOM_TIMING);
@@ -241,11 +206,8 @@ function FramedBracketContent({
         "worklet";
         panStart.value = { x: translateX.value, y: translateY.value };
       })
-      // While the pinch is active it owns the translate entirely (the
-      // focal-follow already carries two-finger panning): a simultaneous pan
-      // adding its own translation on top is the classic double-apply that
-      // makes a pinch zoom "the whole view" instead of the content under
-      // the fingers (stage B symptom report).
+      // Com o pinch ativo ele já é dono do translate (o focal-follow carrega o
+      // pan de dois dedos): um pan somando translation em cima dá double-apply.
       .onUpdate((event) => {
         "worklet";
         if (pinchActive.value) {
@@ -263,10 +225,8 @@ function FramedBracketContent({
         translateX.value = next.x;
         translateY.value = next.y;
       })
-      // A stream can deliver its whole travel in the single event that
-      // activates the gesture (synthetic automation does); a finger streams
-      // updates instead. Settling the final translation here makes the pan
-      // correct under both, and is a no-op for a streamed finger.
+      // Um stream pode entregar todo o trajeto no único evento que ativa o
+      // gesto; assentar o translate final aqui é no-op pro dedo.
       .onEnd((event) => {
         "worklet";
         if (pinchActive.value) {
@@ -285,9 +245,8 @@ function FramedBracketContent({
         translateY.value = next.y;
       });
 
-    // Manual activation (zoom-toolkit recipe): the pinch only comes alive on
-    // the second finger and dies the moment one lifts, so it never races the
-    // single-finger pan for the same touch.
+    // Ativação manual: o pinch nasce no segundo dedo e morre quando um levanta,
+    // então nunca disputa o mesmo toque com o pan.
     const pinch = Gesture.Pinch()
       .manualActivation(true)
       .onTouchesDown((event, stateManager) => {
@@ -314,16 +273,14 @@ function FramedBracketContent({
       })
       .onStart((event) => {
         "worklet";
-        // Single writer: a double-tap animation still in flight would fight
-        // the pinch for zoom/translate frame by frame (the stage C stutter).
-        // It dies here, seeds read the values it left behind.
+        // Escritor único: uma animação de double-tap em voo brigaria com o
+        // pinch quadro a quadro; os seeds leem o que ela deixou.
         cancelAnimation(zoom);
         cancelAnimation(translateX);
         cancelAnimation(translateY);
         pinchActive.value = true;
-        // Seeds are read from the REAL fingers at activation: baseline
-        // translate/zoom plus the focal they land on (no jump when the
-        // second finger touches down).
+        // Seeds lidos dos dedos REAIS na ativação (baseline + focal): sem salto
+        // quando o segundo dedo encosta.
         pinchStart.value = {
           fx: event.focalX,
           fy: event.focalY,
@@ -338,10 +295,9 @@ function FramedBracketContent({
       })
       .onUpdate((event) => {
         "worklet";
-        // Focal-follow (zoom-toolkit core, unit-tested in bracket-tree):
-        // seeds captured once at activation, the focal rides the fingers
-        // every frame — the point under them never moves on screen, and a
-        // two-finger drag pans because the focal itself moves.
+        // Focal-follow (receita do zoom-toolkit, testada em bracket-tree): seeds
+        // da ativação, o focal acompanha os dedos todo quadro — o ponto sob eles
+        // não anda na tela, e um arrasto de dois dedos pan porque o focal anda.
         zoom.value = Math.min(
           Math.max(pinchStart.value.zoom * event.scale, fitZoom),
           1
@@ -368,8 +324,7 @@ function FramedBracketContent({
         translateX.value = clamped.x;
         translateY.value = clamped.y;
       })
-      // Same settle-at-end safety as the pan: streams that deliver the whole
-      // scale in one event still land the final transform.
+      // Mesmo settle do pan: stream que entrega a escala inteira num evento.
       .onEnd((event) => {
         "worklet";
         zoom.value = Math.min(
@@ -401,25 +356,23 @@ function FramedBracketContent({
 
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)
-      // Hardened tap: the taps must be still (pinch fingers land far
-      // apart, so their "two taps" fail the delta) and brisk.
+      // Tap endurecido: os toques têm que ser parados (dedos de pinch caem
+      // longe, então os "dois toques" falham no delta) e rápidos.
       .maxDeltaX(10)
       .maxDeltaY(10)
       .maxDuration(250)
       .onTouchesDown((event) => {
         "worklet";
-        // A clean single-pointer touch starts a fresh tap sequence; the
-        // second finger of a pinch lands before any of its fingers lift,
-        // so the flag is armed by the time a spurious activation could
-        // fire.
+        // Toque limpo de um dedo reinicia a sequência: o segundo dedo do pinch
+        // cai antes de qualquer dedo levantar, então a flag já está armada.
         if (event.numberOfTouches === 1) {
           multiTouchedSinceTap.value = false;
         }
       })
       .onEnd((event) => {
         "worklet";
-        // A live pinch owns the transform, and a recent multi-touch means
-        // those "two taps" were fingers landing, not taps.
+        // Pinch vivo é dono do transform, e multi-toque recente significa dedos
+        // caindo, não toques.
         if (pinchActive.value || multiTouchedSinceTap.value) {
           multiTouchedSinceTap.value = false;
           return;
@@ -442,24 +395,14 @@ function FramedBracketContent({
           y: nextY,
           zoom: target,
         });
-        // withTiming is a JS-module import: worklets cannot capture it (the
-        // frozen-Canvas bug class — a ReferenceError on the UI thread, seen
-        // live in Metro). Hand the target to the RN thread instead, the
-        // reportViewport pattern the previous canvas already proved.
+        // `withTiming` é import de módulo JS e worklet não o captura: o alvo vai
+        // pra thread do RN via `scheduleOnRN`.
         scheduleOnRN(animateTo, target, clamped.x, clamped.y);
       });
 
-    // The double-tap must NOT sit above the pan in an Exclusive: RNGH's
-    // Exclusive vetoes lower-priority gestures the moment the tap begins
-    // tracking (every touch begins a tap), so the pan would never receive a
-    // single event — proven live with probes. Taps and pan are naturally
-    // exclusive by threshold (tap maxDist vs PAN_ACTIVATION_DISTANCE), the
-    // zoom-toolkit composition.
-    // Tap and pan are naturally exclusive by threshold (tap maxDist vs
-    // PAN_ACTIVATION_DISTANCE). The double-tap must NOT sit above the pan in
-    // an Exclusive: RNGH's Exclusive vetoes lower-priority gestures the
-    // moment the tap begins tracking (every touch begins a tap), so the pan
-    // would never receive a single event — proven live with probes.
+    // Tap e pan já são exclusivos por threshold (tap maxDist vs
+    // PAN_ACTIVATION_DISTANCE), e o double-tap NÃO pode ficar acima do pan num
+    // Exclusive: o Exclusive veta o pan desde o começo do tracking do tap.
     return Gesture.Simultaneous(pan, pinch, doubleTap);
   }, [
     animateTo,
@@ -506,9 +449,8 @@ function FramedBracketContent({
   return (
     <GestureDetector gesture={gesture}>
       <View collapsable={false} style={{ flex: 1, overflow: "hidden" }}>
-        {/* The single transform owner (screen = translate + zoom * graph,
-                origin at the graph's top-left). Cards render after the
-                connectors so terminal bars land under the card borders. */}
+        {/* Dono único do transform (tela = translate + zoom * grafo, origem no
+                topo-esquerdo). Cards depois dos conectores: barras sob a borda. */}
         <Animated.View
           collapsable={false}
           style={[
@@ -536,12 +478,9 @@ function FramedBracketContent({
   );
 }
 
-/**
- * Mede o viewport e monta o conteúdo JÁ ENQUADRADO. O pai não renderiza nada
- * antes do fit existir (o filho só monta com `fitZoom` não-nulo) — e é
- * justamente aí que o primeiro frame nativo nasce no fit, sem passar por
- * identidade (BUG-0033).
- */
+/** Mede o viewport e monta o conteúdo JÁ enquadrado: o filho só monta com
+ * `fitZoom` pronto, então o primeiro frame nativo nasce no fit, sem passar por
+ * identidade. */
 export function BracketCanvas({
   focusSeed,
   layout,

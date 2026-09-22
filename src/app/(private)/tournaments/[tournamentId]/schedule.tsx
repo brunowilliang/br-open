@@ -56,14 +56,13 @@ export default function TournamentScheduleRoute() {
     [today, windowDays]
   );
 
-  // Sempre começa em "Hoje" (primeira tab).
   const [activeDate, setActiveDate] = useState<string>(
     () => dateTabs[0]?.matchDate ?? ""
   );
 
-  // Quando a janela muda, as tabs mudam; volta para "Hoje" de forma síncrona
-  // antes de re-renderizar os novos Triggers (mesma proteção da agenda da
-  // liga, molde schedule.tsx:52-60).
+  // A janela muda → tabs mudam: volta para "Hoje" de forma síncrona antes dos
+  // Triggers novos — senão o Tabs controlado recebe uma lista de triggers com
+  // um value possivelmente inconsistente (leagues/[leagueId]/schedule.tsx).
   useEffect(() => {
     if (dateTabs.length > 0) {
       setActiveDate(dateTabs[0].matchDate);

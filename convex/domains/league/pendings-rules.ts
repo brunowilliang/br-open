@@ -12,27 +12,15 @@ import {
 import { MS_PER_DAY } from "../payment/rules";
 
 // ---------------------------------------------------------------------------
-// Pendencias do dominio de LIGA (IBX-0076)
+// Pendencias do dominio de LIGA — regras PURAS (dado -> item, sem ctx).
 // ---------------------------------------------------------------------------
 //
-// Regras PURAS (dado -> item, sem ctx). Copy literal da galeria aprovada:
-// cartao 8 (jogador: desafios que pedem acao DELE), 9 (risco de inatividade),
-// 13 (organizador: solicitacoes de entrada) e 14 (organizador: desafios
-// esperando a validacao DELE).
-//
-// A fonte unica de QUEM deve a acao por status continua sendo o servidor:
-// `challenge-status.ts` (sets de atencao) + `resolvePlayerChallengePendingActionKind`
-// abaixo, que e o espelho do `resolvePendingAction` que a casa da liga do
-// jogador usava no cliente (`src/lib/leagues/player-overview-derived.ts`) e da
-// regra de receptor de proposta (`functions/league/_challenges/proposals.ts`).
-// O status considerado e o EFETIVO (derivado por tempo, `computeEffectiveChallengeStatus`):
-// um `confirmed` cujo horario passou sem placar ja conta como pendencia de
-// resultado, exatamente como a lista que a tela recebe.
+// A fonte de QUEM deve a acao por status e o servidor (`challenge-status.ts` +
+// `resolvePlayerChallengePendingActionKind`); o status considerado e o EFETIVO
+// derivado por tempo, entao um `confirmed` cujo horario passou sem placar ja
+// conta como pendencia de resultado — igual a lista que a tela recebe.
 
-/**
- * Status em que o JOGADOR deve o resultado — o conjunto que o alerta do
- * jogador conta (mesmos tres tipos de `buildPlayerPendingActionsAlert`).
- */
+/** Status em que o JOGADOR deve o resultado — o conjunto que o alerta dele conta. */
 export const PLAYER_CHALLENGE_PENDING_ACTION_STATUSES: ReadonlySet<LeagueChallengeStatus> =
   new Set<LeagueChallengeStatus>([
     "pending_result_submission",
@@ -40,19 +28,12 @@ export const PLAYER_CHALLENGE_PENDING_ACTION_STATUSES: ReadonlySet<LeagueChallen
     "pending_result_correction",
   ]);
 
-/**
- * Status de origem cujo EFETIVO pode virar pendencia de resultado por passagem
- * de tempo (jogo agendado cujo fim ja passou e ninguem lancou placar).
- */
+/** Status de origem cujo EFETIVO vira pendencia de resultado quando o fim do jogo passa sem placar. */
 export const PLAYER_CHALLENGE_PENDING_ACTION_DRIFT_STATUSES: ReadonlySet<LeagueChallengeStatus> =
   new Set<LeagueChallengeStatus>(["confirmed"]);
 
-/**
- * Os quatro status do set de atencao do ORGANIZADOR, partidos nas duas linhas
- * aprovadas na galeria (cartao 14): resultado a validar x proposta a decidir.
- * Juntos formam EXATAMENTE `ORGANIZER_ATTENTION_CHALLENGE_STATUSES` — a
- * paridade e teste (`tests/pendings-rules.test.ts`).
- */
+/** Set de atencao do ORGANIZADOR, partido nas duas linhas do alerta: resultado a validar x
+ * proposta a decidir. Juntos formam EXATAMENTE `ORGANIZER_ATTENTION_CHALLENGE_STATUSES`. */
 export const ORGANIZER_ATTENTION_VALIDATION_STATUSES: ReadonlySet<LeagueChallengeStatus> =
   new Set<LeagueChallengeStatus>([
     "pending_organizer_result_validation",
@@ -80,9 +61,8 @@ export type PlayerChallengePendingActionKind =
   | "request_correction";
 
 /**
- * O que o VIEWER (dono da membership) precisa fazer neste desafio — a fonte
- * unica da pendencia de resultado do jogador. `null` = nada a fazer (ele
- * publicou e so aguarda, ou o status nao pede acao dele).
+ * O que o VIEWER (dono da membership) precisa fazer neste desafio. `null` =
+ * nada a fazer (ele publicou e so aguarda, ou o status nao pede acao dele).
  */
 export function resolvePlayerChallengePendingActionKind(input: {
   status: string;
@@ -109,12 +89,8 @@ export type PlayerChallengePendingCounts = {
   requestCorrection: number;
 };
 
-/**
- * Pendencia agregada dos desafios que pedem a acao do jogador (cartao 8): UMA
- * linha por tipo, na ordem da tela real (registrar, confirmar, corrigir), com
- * o destaque na EXPRESSAO da pendencia (`2 resultados`), nunca no numero solto.
- * Titulo e CTA sao os da tela/cartao aprovados.
- */
+/** Pendencia agregada dos desafios que pedem a acao do jogador: UMA linha por tipo, na ordem
+ * registrar -> confirmar -> corrigir, destaque na EXPRESSAO (`2 resultados`), nunca no numero. */
 export function buildPlayerChallengePendingItem(input: {
   counts: PlayerChallengePendingCounts;
   leagueId: string;
@@ -190,13 +166,8 @@ export function buildPlayerChallengePendingItem(input: {
   };
 }
 
-/**
- * Pendencia agregada dos desafios que esperam a validacao do ORGANIZADOR
- * (cartao 14), somando as ligas dele: uma linha de resultados a validar e uma
- * de propostas a decidir. Sem CTA (a decisao acontece na tela do desafio, que
- * ainda nao tem destino unico a partir do alerta) e sem rota — por isso o item
- * e da ORGANIZACAO, nao de uma liga.
- */
+/** Pendencia agregada dos desafios que esperam a validacao do ORGANIZADOR, somando as ligas dele:
+ * uma linha de resultados a validar e uma de propostas. Sem CTA nem rota — item da ORGANIZACAO. */
 export function buildOrganizerChallengePendingItem(input: {
   organizationId: string;
   proposals: number;
@@ -255,7 +226,7 @@ export function buildOrganizerChallengePendingItem(input: {
   };
 }
 
-/** Solicitacoes de entrada de UMA liga (cartao 13) — `null` com zero. */
+/** Solicitacoes de entrada de UMA liga — `null` com zero. */
 export function buildLeagueJoinRequestsPending(input: {
   count: number;
   leagueId: string;
@@ -296,19 +267,11 @@ export type LeagueInactivityRisk = {
   severity: "danger" | "warning";
 };
 
-/**
- * Janela em que o risco de inatividade vira alerta: mesma janela do app
- * (`WARNING_WINDOW_DAYS` em `src/lib/leagues/player-overview-derived.ts`).
- */
+/** Janela em que o risco de inatividade vira alerta — espelha o `WARNING_WINDOW_DAYS` do app. */
 export const INACTIVITY_WARNING_WINDOW_DAYS = 7;
 
-/**
- * Risco de inatividade do membro (cartao 9): a liga precisa aplicar a
- * penalidade, o membro precisa ter uma membership e a folga tem de estar na
- * janela. `daysSinceLastMatch` conta a partir da ultima partida FINALIZADA ou,
- * sem nenhuma, de zero (mesma leitura do app: sem historico, o relogio comeca
- * agora).
- */
+/** Risco de inatividade do membro: a liga precisa aplicar a penalidade e a folga tem de estar
+ * na janela. `daysSinceLastMatch` conta da ultima partida FINALIZADA; sem nenhuma, de zero. */
 export function resolveLeagueInactivityRisk(input: {
   hasInactivityPenalty: boolean;
   inactivityPenaltyDays: null | number;
@@ -346,12 +309,8 @@ export function resolveLeagueInactivityRisk(input: {
   };
 }
 
-/**
- * Pendencia de risco de inatividade (cartao 9) a partir do risco ja resolvido:
- * warning pede atencao ("Faltam N dias"), danger e o prazo estourado ("Voce
- * esta inativo"). O destaque da variante warning vai no prazo; a danger nao tem
- * destaque (copy real da tela, frase unica).
- */
+/** Pendencia de risco de inatividade a partir do risco ja resolvido: warning pede atencao
+ * ("Faltam N dias"), danger e o prazo estourado ("Voce esta inativo"); so o warning tem destaque. */
 export function buildLeagueInactivityPending(input: {
   membershipId: string;
   risk: LeagueInactivityRisk;

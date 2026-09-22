@@ -1,23 +1,9 @@
 /**
- * Organizer withdrawals (DECISAO-003).
- *
- * `getBalance` (authQuery) exposes the cached real subaccount balance plus
- * the fee schedule — queries can't call the provider, so the balance cache
- * (`subaccountBalance`) is refreshed by the `refresh-subaccount-balances`
- * cron (5 min) and adjusted immediately after a withdrawal.
- *
- * `requestWithdraw` (authAction) validates against the REAL balance fetched
- * from the provider, computes the tiered fee, and:
- *   1. RESERVES a `withdrawals` row (pending) with a unique local
- *      `idempotencyKey` BEFORE any provider call — a retry that reuses the
- *      key (or finds another pending row for the org) replays the stored
- *      result instead of POSTing a duplicate PIX out (the Woovi withdraw
- *      endpoint accepts no correlationID);
- *   2. requests a PARTIAL PIX out of the LIQUID amount to the pix key
- *      registered on the subaccount;
- *   3. collects the tiered fee for BR-Open via a subaccount → main account
- *      debit (the withdraw endpoint supports no split);
- *   4. completes the row (provider id + balance cache) or marks it failed.
+ * Organizer withdrawals. Queries can't call the provider, so `getBalance` serves a
+ * cached balance (5-min cron + adjustment after a withdrawal). `requestWithdraw`
+ * checks the REAL balance, RESERVES a row with a unique `idempotencyKey` BEFORE the
+ * PIX out (the endpoint accepts no correlationID, so retries dedupe locally), then
+ * PIXes out the LIQUID amount and the tiered fee in a separate debit.
  */
 
 import { eq } from "kitcn/orm";
@@ -66,12 +52,8 @@ function formatBRL(cents: number): string {
 }
 
 /**
- * Current subaccount balance (cached) + withdrawal rules for the active
- * organization. Mirrors `src/lib/withdraw/contract.ts` (WithdrawBalance).
- *
- * The balance comes from a short-lived cache (≤5 min stale after payments;
- * updated immediately after withdrawals). A fresh organization shows 0
- * until the first cron refresh.
+ * Cached subaccount balance + withdrawal rules for the active organization, mirroring
+ * `src/lib/withdraw/contract.ts`. ≤5 min stale after payments; 0 until the first refresh.
  */
 export const getBalance = authQuery
   .output(withdrawBalanceSchema)
@@ -97,9 +79,7 @@ export const getBalance = authQuery
     });
 
     return {
-      // Withdraw destination (IBX-0002): account display name + masked pix
-      // key, so the withdraw screen shows "account name + pix key" instead
-      // of fetching payment.onboarding.getStatus separately.
+      // Destination shown straight from here — no onboarding.getStatus call.
       accountName: account.accountName,
       balanceCents: cache?.balanceCents ?? 0,
       feeTiers: WITHDRAW_FEE_TIERS.map((tier) => ({
@@ -113,37 +93,20 @@ export const getBalance = authQuery
   });
 
 /**
- * Requests a partial withdrawal from the organization's subaccount to the
- * PIX key registered on it. Validates against the REAL provider balance,
- * computes the tiered fee, and:
- *
- *   1. RESERVES a `withdrawals` row (pending) with a unique local
- *      `idempotencyKey` BEFORE any provider call — the Woovi withdraw
- *      endpoint accepts no correlationID, so retries are deduplicated
- *      locally: a retry that reuses the key (or finds another pending
- *      withdrawal for the org) replays the stored result without POSTing
- *      a duplicate PIX out;
- *   2. requests a PARTIAL PIX out of the LIQUID amount (the organizer
- *      receives exactly the net value — DECISAO-003, decision 2026-08-10);
- *   3. collects the tiered fee for BR-Open via a subaccount → main account
- *      debit (the withdraw endpoint supports no split);
- *   4. completes the row (provider id + balance cache) or marks it failed.
- *
- * Public output shape (`requestWithdrawOutputSchema`) is unchanged.
+ * Withdraws part of the subaccount to its own PIX key: real provider balance,
+ * tiered fee, local reservation holding the idempotency key BEFORE any provider
+ * call, the PIX out of the LIQUID amount and the separate fee debit.
  */
 export const requestWithdraw = authAction
   .input(
     z.object({
       amountCents: z.number().int().positive(),
-      // Optional local idempotency key; generated server-side when absent.
-      // Keep it stable across retries of the same logical request.
+      // Optional; generated server-side when absent. Keep it stable on retries.
       idempotencyKey: z.string().min(1).max(128).optional(),
     })
   )
   .output(requestWithdrawOutputSchema)
   .action(async ({ ctx, input }) => {
-    // Resolve the active organization (owner/admin only) and its connected
-    // payment account. Reuses the charge module's private mutations.
     const { organizationId } = await ctx.runMutation(
       internal.payment.charge.resolveActiveManagerOrg,
       { userId: ctx.userId }
@@ -160,7 +123,6 @@ export const requestWithdraw = authAction
       });
     }
 
-    // Fetch the REAL balance + block flag from the provider.
     const balance = await ctx.runAction(
       internal.payment.providerNode.getSubaccountBalanceAction,
       { pixKey: account.pixKey }
@@ -186,9 +148,8 @@ export const requestWithdraw = authAction
       feeCents
     );
 
-    // Reserve the local row BEFORE any provider call: if the PIX out goes
-    // through and something fails afterwards, the money is never orphaned
-    // without a local record, and a retry can never double-POST.
+    // Reserve BEFORE the provider call: money never moves without a local row,
+    // and a retry can never double-POST.
     const idempotencyKey =
       input.idempotencyKey ?? generateWithdrawIdempotencyKey(organizationId);
     const reservation = await ctx.runMutation(
@@ -202,8 +163,7 @@ export const requestWithdraw = authAction
       }
     );
     if (!reservation.created) {
-      // Idempotent replay: this request (or another withdrawal for the org)
-      // is already in flight. Never POST again.
+      // Replay of an in-flight withdrawal — never POST again.
       if (reservation.status === "failed") {
         throw new CRPCError({
           code: "CONFLICT",
@@ -219,9 +179,7 @@ export const requestWithdraw = authAction
       };
     }
 
-    // 1) PIX out the LIQUID amount to the pix key registered on the
-    // subaccount. On failure: mark the reserved row failed and surface the
-    // provider error (no money moved).
+    // 1) PIX out the LIQUID amount — on failure the reserved row is marked failed.
     let wooviWithdrawId: string | null;
     try {
       const withdrawal = await ctx.runAction(
@@ -244,13 +202,9 @@ export const requestWithdraw = authAction
       throw error;
     }
 
-    // 2) Collect the tiered fee for BR-Open (subaccount → main account
-    // debit). If it fails the organizer already got paid — the row is
-    // COMPLETED with the fee note kept in `failureReason` and `feeStatus`
-    // stays "pending", so the fee sweep cron (sweepPendingWithdrawFees,
-    // BUG-0006) retries the debit later with the row as the local
-    // idempotency guard (the debit endpoint accepts no idempotency id).
-    // Never fail the whole withdrawal over the fee collection.
+    // 2) Collect the tiered fee (subaccount → main account debit). If it fails the
+    // organizer was already paid: the row stays COMPLETED, `feeStatus` stays "pending"
+    // and the fee sweep retries with the row as the local idempotency guard.
     let feeCollected = false;
     let failureReason: string | null = null;
     if (feeCents > 0) {
@@ -276,7 +230,6 @@ export const requestWithdraw = authAction
       }
     }
 
-    // 3) Complete the row: provider id + balance cache coherent.
     await ctx.runMutation(internal.payment.withdraw.completeWithdrawal, {
       balanceAfterCents: Math.max(balance.balanceCents - input.amountCents, 0),
       failureReason,
@@ -301,19 +254,11 @@ const reserveWithdrawalInput = z.object({
 });
 
 /**
- * Atomically reserves the local `withdrawals` row (pending) for a
- * withdrawal request BEFORE any provider call.
- *
- * Replay semantics (idempotency — the Woovi withdraw endpoint accepts no
- * correlationID), delegated to `resolveWithdrawalReservation`:
- *   - the same `idempotencyKey` was already reserved → replay that row;
- *   - a different row is still IN-FLIGHT for the org (pending WITHOUT a
- *     provider id) → replay it (blocks a second concurrent withdrawal);
- *   - otherwise insert a fresh pending row.
- * Rows that already have `wooviWithdrawId` (executed, status completed/failed
- * or pending) do NOT gate a new withdrawal (BUG-0001 fix).
- * The unique index on `idempotencyKey` backstops concurrent same-key
- * inserts (the loser's insert throws; a retry then replays).
+ * Reserves the local `withdrawals` row BEFORE any provider call. Replay lives in
+ * `resolveWithdrawalReservation`: the same `idempotencyKey` replays that row, and
+ * so does a row still IN-FLIGHT for the org (pending, no provider id), which
+ * blocks a second concurrent withdrawal. The unique index on `idempotencyKey`
+ * backstops concurrent same-key inserts.
  */
 export const reserveWithdrawal = privateMutation
   .input(reserveWithdrawalInput)
@@ -352,8 +297,7 @@ export const reserveWithdrawal = privateMutation
       amountCents: input.amountCents,
       createdAt: now,
       feeCents: input.feeCents,
-      // Fee sweep bookkeeping (BUG-0006): a tiered fee starts pending; the
-      // sweep only ever retries completed rows (see isFeeCollectionDue).
+      // A tiered fee starts pending; the sweep only retries completed rows.
       feeStatus: initialFeeStatus(input.feeCents),
       idempotencyKey: input.idempotencyKey,
       liquidAmountCents: input.liquidAmountCents,
@@ -379,15 +323,9 @@ const completeWithdrawalInput = z.object({
 });
 
 /**
- * Finalizes a reserved withdrawal after the provider accepted the PIX out:
- * transitions the row to `completed` (BUG-0001: a completed row must NOT
- * stay pending and gate future withdrawals as "in flight"), stores the
- * provider transaction id, records an optional fee-collection note, and
- * keeps the balance cache coherent right after the PIX out (the cron
- * reconciles drift from incoming payments).
- *
- * A `MOVEMENT_FAILED` webhook arriving afterwards can still transition
- * `completed` → `failed` (the money returns to the subaccount).
+ * Finalizes a reserved withdrawal after the provider accepted the PIX out: the row
+ * goes `completed` (it must NOT stay pending and gate future withdrawals as
+ * "in flight"). A later `MOVEMENT_FAILED` webhook can still flip it to `failed`.
  */
 export const completeWithdrawal = privateMutation
   .input(completeWithdrawalInput)
@@ -407,9 +345,7 @@ export const completeWithdrawal = privateMutation
       .update(withdrawals)
       .set({
         failureReason: input.failureReason ?? row.failureReason ?? undefined,
-        // Fee sweep bookkeeping (BUG-0006): the inline debit already moved
-        // the money → "collected"; otherwise keep "pending" so the sweep
-        // retries. Free-tier rows stay "not_owed" untouched.
+        // The debit already moved the money → "collected"; else keep "pending".
         feeStatus: input.feeCollected
           ? WITHDRAW_FEE_STATUS_COLLECTED
           : initialFeeStatus(row.feeCents),
@@ -421,8 +357,6 @@ export const completeWithdrawal = privateMutation
       })
       .where(eq(withdrawals.id, row.id));
 
-    // Keep the balance cache coherent right after the provider accepted the
-    // PIX out (the cron reconciles drift from incoming payments).
     const existing = await ctx.orm.query.subaccountBalance.findFirst({
       where: { organizationId: row.organizationId },
     });
@@ -451,9 +385,8 @@ const failWithdrawalInput = z.object({
 });
 
 /**
- * Marks a reserved withdrawal as failed when the provider rejected the PIX
- * out (no money moved). The balance cache is left untouched — the 5-min
- * refresh cron reconciles it.
+ * Marks a reserved withdrawal failed when the provider rejected the PIX out (no
+ * money moved). The balance cache is untouched — the 5-min cron reconciles it.
  */
 export const failWithdrawal = privateMutation
   .input(failWithdrawalInput)
@@ -469,9 +402,7 @@ export const failWithdrawal = privateMutation
       .update(withdrawals)
       .set({
         failureReason: input.failureReason,
-        // Fee sweep bookkeeping (BUG-0006): a fee still pending is no
-        // longer owed (the PIX out never executed / was returned); an
-        // already-collected fee is left untouched.
+        // A pending fee is no longer owed; an already-collected one is untouched.
         ...(feeStatusAfterFailure(row.feeStatus)
           ? { feeStatus: feeStatusAfterFailure(row.feeStatus) }
           : {}),
@@ -482,7 +413,6 @@ export const failWithdrawal = privateMutation
     return { ok: true };
   });
 
-/** Upserts the cached subaccount balance (cron). */
 export const upsertBalanceCache = privateMutation
   .input(
     z.object({
@@ -513,10 +443,7 @@ export const upsertBalanceCache = privateMutation
     return { ok: true };
   });
 
-/**
- * Lists organizations with a connected (active) payment account. Used by
- * the balance-refresh cron to reconcile the cache against the provider.
- */
+/** Organizations with a connected (active) payment account (balance cron). */
 export const listActivePaymentOrgs = privateQuery
   .output(
     z.array(
@@ -527,8 +454,6 @@ export const listActivePaymentOrgs = privateQuery
     )
   )
   .query(async ({ ctx }) => {
-    // Bounded scan (project pattern: limit 100, same as charge.ts) — the
-    // cron runs every 5 minutes and only needs orgs with an active account.
     const orgs = await ctx.orm.query.organization.findMany({ limit: 100 });
     const active: { organizationId: string; pixKey: string }[] = [];
     for (const org of orgs) {
@@ -546,9 +471,8 @@ export const listActivePaymentOrgs = privateQuery
   });
 
 /**
- * Cron entry: refreshes the cached subaccount balance for every
- * organization with an active payment account (production only, same gate
- * as the other crons). Runs every 5 minutes.
+ * Cron entry: refreshes the cached balance of every organization with an active
+ * payment account (production only). 5 minutes.
  */
 export const refreshSubaccountBalances = privateAction.action(
   async ({ ctx }) => {
@@ -561,9 +485,7 @@ export const refreshSubaccountBalances = privateAction.action(
     );
     let refreshed = 0;
     for (const org of orgs) {
-      // Isolate failures per organization: one invalid/restricted pix key
-      // must NOT abort the refresh of every other org (found in code review
-      // 2026-08-10 — a throw here left all caches stale for 5+ min).
+      // One bad pix key must not abort every other org's refresh.
       try {
         const balance = await ctx.runAction(
           internal.payment.providerNode.getSubaccountBalanceAction,
@@ -586,17 +508,9 @@ export const refreshSubaccountBalances = privateAction.action(
 );
 
 /**
- * Marks a withdrawal as failed when the provider reports
- * `OPENPIX:MOVEMENT_FAILED` (webhook). Matches by the provider transaction
- * id captured at request time. Accepts `pending` (provider rejected the PIX
- * out) and `completed` (provider accepted, then the movement failed on the
- * SPI — the money returns to the subaccount); unknown ids are logged and
- * ignored (the webhook still answers 200).
- *
- * NOTE (code review 2026-08-10): this does NOT restore the cached balance —
- * on failure the debited amount is returned to the subaccount by the
- * provider, and the 5-min refresh cron reconciles the cache within minutes.
- * Accepted as-is (cheap + self-healing).
+ * Marks a withdrawal failed on the provider's `OPENPIX:MOVEMENT_FAILED` webhook,
+ * matched by provider transaction id (accepts `pending` and `completed`). Unknown ids
+ * are logged and ignored; the cached balance is left to the 5-min cron.
  */
 export const markWithdrawFailedByProviderId = privateMutation
   .input(
@@ -620,8 +534,7 @@ export const markWithdrawFailedByProviderId = privateMutation
       .update(withdrawals)
       .set({
         failureReason: input.reason,
-        // Fee sweep bookkeeping (BUG-0006): same rule as failWithdrawal —
-        // a pending fee is no longer owed once the movement failed.
+        // Same rule as failWithdrawal: a pending fee is no longer owed.
         ...(feeStatusAfterFailure(withdrawal.feeStatus)
           ? { feeStatus: feeStatusAfterFailure(withdrawal.feeStatus) }
           : {}),
@@ -632,14 +545,7 @@ export const markWithdrawFailedByProviderId = privateMutation
     return { matched: true };
   });
 
-// ---------------------------------------------------------------------------
-// Fee sweep (BUG-0006)
-// ---------------------------------------------------------------------------
-
-/**
- * Lists completed withdrawals whose fee debit is still pending (bounded —
- * the sweep retries oldest first). Pure data access for the sweep cron.
- */
+/** Completed withdrawals whose fee is still pending (bounded, oldest first). */
 export const listUncollectedFees = privateQuery
   .output(
     z.array(
@@ -651,8 +557,6 @@ export const listUncollectedFees = privateQuery
     )
   )
   .query(async ({ ctx }) => {
-    // Bounded (same pattern as listActivePaymentOrgs): a fee backlog beyond
-    // this size would be an ops incident, not a cron payload.
     const rows = await ctx.orm.query.withdrawals.findMany({
       limit: 50,
       orderBy: { createdAt: "asc" },
@@ -679,11 +583,9 @@ export const listUncollectedFees = privateQuery
   });
 
 /**
- * Re-checks a single withdrawal's fee right before the sweep debits it
- * (review IBX-0006): a `MOVEMENT_FAILED` webhook may have flipped the row
- * to `failed` between `listUncollectedFees` and the debit — the sweep must
- * skip such stale items without error instead of debiting a fee for money
- * that returned to the subaccount.
+ * Re-checks one fee right before the sweep debits it: a `MOVEMENT_FAILED` may have
+ * flipped the row to `failed` in between, and debiting it would charge a fee for
+ * money that came back.
  */
 export const isWithdrawFeeStillDue = privateQuery
   .input(z.object({ id: z.string().min(1) }))
@@ -696,13 +598,9 @@ export const isWithdrawFeeStillDue = privateQuery
   });
 
 /**
- * Marks a withdrawal's fee as collected (called by the sweep after the
- * debit succeeded). Re-verifies the guard (`isFeeCollectionDue`: status
- * `completed` + feeStatus `pending`) BEFORE writing — a `MOVEMENT_FAILED`
- * that arrived between the debit and this flip leaves the row `failed`,
- * and overwriting it would both miscategorize the fee and wipe the
- * webhook's `failureReason` (review IBX-0006). Returns `ok: false`
- * without touching the row when the fee is no longer due.
+ * Marks a fee as collected after the sweep's debit, re-verifying
+ * `isFeeCollectionDue` BEFORE writing: a `MOVEMENT_FAILED` in between leaves the
+ * row `failed`, and overwriting it would wipe the webhook's `failureReason`.
  */
 export const markWithdrawFeeCollected = privateMutation
   .input(z.object({ id: z.string().min(1) }))
@@ -725,18 +623,11 @@ export const markWithdrawFeeCollected = privateMutation
   });
 
 /**
- * Cron entry: retries the fee debit (subaccount → BR-Open main account)
- * for completed withdrawals whose fee is still pending (BUG-0006 — a
- * transient debit failure used to mean lost revenue). Idempotency: the
- * row's feeStatus flips to "collected" only AFTER the debit returns ok,
- * and each run only picks rows still marked "pending" — a crash between
- * debit and flip re-locks the row for the next run (at-least-once, same
- * exposure class as the existing inline debit). Race guards (review
- * IBX-0006): the row is re-verified as due right before the debit
- * (isWithdrawFeeStillDue — a MOVEMENT_FAILED between the list snapshot and
- * the debit is skipped, not charged) and again before the collected flip
- * (markWithdrawFeeCollected — a row that failed mid-flight keeps its
- * webhook failureReason).
+ * Cron entry: retries the fee debit (subaccount → BR-Open main account) for
+ * completed withdrawals whose fee is still pending — a transient failure used to
+ * mean lost revenue. At-least-once: `feeStatus` flips to "collected" only AFTER
+ * the debit returns ok, and the row is re-verified as due right before the debit
+ * and again before the flip.
  */
 export const sweepPendingWithdrawFees = privateAction.action(
   async ({ ctx }) => {
@@ -749,11 +640,9 @@ export const sweepPendingWithdrawFees = privateAction.action(
     );
     let swept = 0;
     for (const item of due) {
-      // Isolate failures per row (same pattern as refreshSubaccountBalances).
       try {
-        // Re-query right before the debit (review IBX-0006): skip items
-        // whose withdrawal failed after listUncollectedFees snapshot —
-        // debiting them would charge a fee for money that came back.
+        // Re-query right before the debit: a row that failed after the list snapshot
+        // must not be charged a fee for money that came back.
         const stillDue = await ctx.runQuery(
           internal.payment.withdraw.isWithdrawFeeStillDue,
           { id: item.id }

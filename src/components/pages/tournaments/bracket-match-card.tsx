@@ -191,8 +191,7 @@ export function BracketMatchCard({
           </Text>
           <View className="flex-row items-center gap-1">
             {/* Vacant (subárvore podada de um cabeça de chave): sem chip de
-                status e sem ações — não é um jogo, é a moldura da chave
-                (IBX-0035). */}
+                status e sem ações — não é um jogo, é a moldura da chave. */}
             {match.status === "vacant" ? null : isFinal &&
               match.winnerEntryId ? (
               <Chip className="self-center" color="accent" size="sm">

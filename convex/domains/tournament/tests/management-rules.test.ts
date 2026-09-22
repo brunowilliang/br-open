@@ -46,8 +46,8 @@ describe("findRemovedScheduledCourt", () => {
   it("quadra só referenciada por partida NÃO agendada pode mudar", () => {
     const unscheduled: TournamentScheduledMatch[] = [
       {
-        // Absent keys (Convex omits unset keys) AND explicit null: neither
-        // holds a booking (BUG-0030-safe predicate).
+        // Chaves ausentes (o Convex omite o que não foi gravado) E null
+        // explícito: nenhum dos dois segura reserva.
         courtId: undefined,
         id: "match-2",
         matchDate: undefined,

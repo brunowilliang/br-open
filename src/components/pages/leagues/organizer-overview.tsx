@@ -52,9 +52,6 @@ export function OrganizerOverview() {
 
   return (
     <View className="gap-3">
-      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
-          (ui/kpi-card), rótulo+valor idênticos ao texto-simples, emparelhados
-          2 por linha na ordem ditada (Receita, Inscritos, Partidas no mês). */}
       <View className="flex-row gap-3">
         <KpiCard
           isLoading={revenueSeriesQuery.isPending || membershipOverviewLoading}

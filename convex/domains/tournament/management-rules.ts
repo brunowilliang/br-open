@@ -5,9 +5,9 @@ import {
 } from "./scheduling-rules";
 
 /**
- * Statuses the organizer may still edit through `tournament.update`. Drawn
- * and ONGOING are both adjustment phases (user decision after the drawn
- * lockdown proved too narrow); only finished events are frozen.
+ * Status em que o organizador ainda edita pelo `tournament.update`: rascunho,
+ * publicado, sorteado e em andamento são fases de ajuste; só o encerrado
+ * congela.
  */
 const EDITABLE_TOURNAMENT_STATUSES: Partial<Record<TournamentStatus, true>> = {
   draft: true,
@@ -25,11 +25,10 @@ export function validateTournamentEditStatus(
 }
 
 /**
- * Court safety for edits on a drawn bracket (mirrors the entry-safe category
- * sync): a court that LEFT the list may not break an existing booking. If a
- * SCHEDULED match (matchDate+startMinute+courtId present, BUG-0030-safe
- * predicate) still references a removed court, return that courtId; matches
- * without a booking never pin a court.
+ * Segurança de quadra nas edições da chave sorteada (espelha a sincronia de
+ * categoria): quadra que SAIU da lista não pode quebrar reserva existente. Se
+ * uma partida AGENDADA (data + hora + quadra presentes) ainda aponta para ela,
+ * devolve o id; partida sem reserva nunca prende quadra.
  */
 export function findRemovedScheduledCourt(input: {
   removedCourtIds: ReadonlySet<string>;

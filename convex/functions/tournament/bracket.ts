@@ -69,11 +69,11 @@ function getActiveEntries(ctx: OrmCtx, categoryId: Id<"tournamentCategory">) {
 }
 
 /**
- * IBX-0069: the draw CORE, shared by the manual action and the auto-start
- * cron (published with no draw on the start day draws itself — random is the
- * rule). No ownership check here: the auth wrapper proves the organizer
- * first; the cron is server-side trusted. Errors come back as data so the
- * cron can SKIP (nothing drawable) without blocking the other tournaments.
+ * The draw CORE, shared by the manual action and the auto-start cron (a
+ * `published` tournament with no draw on its start day draws itself). No
+ * ownership check here — the auth wrapper proves the organizer, the cron is
+ * trusted — and errors come back as data so the cron can SKIP without blocking
+ * the other tournaments.
  */
 export const performDraw = privateMutation
   .input(
@@ -95,9 +95,8 @@ export const performDraw = privateMutation
       ormCtx,
       input.tournamentId as Id<"tournament">
     );
-    // L2 (IBX-0069 review): the cron pins `published` — if the organizer drew
-    // manually in the same window (status already `drawn`), the re-draw
-    // reception of `drawn` must NOT let the cron re-shuffle the fresh draw.
+    // The cron pins `published`: if the organizer drew manually in the same
+    // window (already `drawn`), the cron must NOT re-shuffle that fresh draw.
     if (input.expectedStatus && record.status !== input.expectedStatus) {
       return {
         error: "O status do torneio mudou antes do sorteio automático.",
@@ -209,12 +208,10 @@ export const swapSlots = authMutation
       ctx,
       input.tournamentId as Id<"tournament">
     );
-    // IBX-0068: the bracket is an editable preview only while `drawn` — once
-    // the organizer starts the tournament it FREEZES (the same-round move in
-    // `ongoing`, IBX-0053 16/09, is extinct). Results and scheduling remain.
-    // LOW-2 (IBX-0068 review): in `draft`/`published` there is no bracket yet
-    // — the refusal is the pre-draw one, not the frozen one (draft never
-    // started, so "congelado" would lie).
+    // The bracket is an editable preview only while `drawn` — starting the
+    // tournament FREEZES it (moving in `ongoing` is extinct; results and
+    // scheduling remain). In `draft`/`published` there is no bracket yet, so the
+    // refusal is the pre-draw one and "congelado" would lie.
     if (record.status === "draft" || record.status === "published") {
       throw new CRPCError({
         code: "BAD_REQUEST",
@@ -228,8 +225,7 @@ export const swapSlots = authMutation
       });
     }
 
-    // Review C1: categoryId is client input — prove the category belongs to
-    // the managed tournament before reading (or writing) any of its matches.
+    // categoryId is client input: prove it belongs to the managed tournament.
     const category = await getCategoryRecordOrThrow(
       ctx,
       input.categoryId as Id<"tournamentCategory">
@@ -242,9 +238,8 @@ export const swapSlots = authMutation
       throw new CRPCError({ code: "NOT_FOUND", message: ownershipError });
     }
 
-    // IBX-0053: the board is the category's WHOLE bracket — a cross-round
-    // move needs the feeding match of each side to tell a placement (movable)
-    // from a win propagated from the match below (locked).
+    // The board is the category's WHOLE bracket: a cross-round move needs the
+    // feeding match of each side to tell a placement from a propagated win.
     const matches = await getCategoryMatches(
       ctx,
       input.categoryId as Id<"tournamentCategory">
@@ -280,10 +275,9 @@ export const swapSlots = authMutation
       await ctx.orm
         .update(tournamentMatch)
         .set({
-          // BUG-0028: the schedule dies with the pair. Every row the move
-          // rewrote loses its booking (the two clicked matches and the feed
-          // rows whose win changed), so no card stays "Agendado" with the old
-          // pair's court/date/time; untouched matches keep theirs.
+          // The schedule dies with the pair: every row the move rewrote loses its
+          // booking (both clicked matches and the feed rows whose win changed), so
+          // no card stays "Agendado" with the old court/date/time.
           courtId: null,
           endMinute: null,
           entryAId: update.entryAId as Id<"tournamentEntry"> | null,
@@ -303,8 +297,7 @@ export const swapSlots = authMutation
     }
 
     if (affectedEntryIds.length > 0) {
-      // L1: notify BOTH users of every affected entry (creator + partner),
-      // same pattern as the other match notifications.
+      // Notify BOTH users of every affected entry (creator + partner).
       const recipients = new Set<Id<"user">>();
       for (const entryId of affectedEntryIds) {
         const entry = await ctx.orm.query.tournamentEntry.findFirst({
@@ -333,12 +326,9 @@ export const swapSlots = authMutation
   });
 
 /**
- * IBX-0069: the start CORE — the manual action and the auto-start cron share
- * ONE path (status → ongoing, public bracket, `tournament.bracket.published`
- * to every active entrant). No ownership check here: the auth wrapper proves
- * the organizer first; the cron is server-side trusted. Errors come back as
- * data so the cron can SKIP a tournament that is not startable (an "A
- * definir" hole needs the organizer) without blocking the others.
+ * The start CORE — the manual action and the auto-start cron share ONE path
+ * (status → ongoing, public bracket, `tournament.bracket.published` to every
+ * active entrant). Same trusted-cron / stated-error contract as the draw core.
  */
 export const performStart = privateMutation
   .input(z.object({ tournamentId: z.string().min(1) }))
@@ -368,10 +358,9 @@ export const performStart = privateMutation
       record.id as Id<"tournament">
     );
 
-    // IBX-0053: an "A definir" hole (an empty side whose feed can never fill
-    // it) would go public as an unplayable match — publishResult needs two
-    // sides. The move opens this state; starting with it is refused until the
-    // organizer fixes the bracket.
+    // An "A definir" hole (an empty side whose feed can never fill it) would go
+    // public as an unplayable match — publishResult needs two sides. A move can
+    // open this state, so starting with it is refused until the organizer fixes it.
     for (const category of categories) {
       const startError = validateBracketStartable(
         toSwapBoard(
@@ -416,13 +405,10 @@ export const performStart = privateMutation
       });
     }
 
-    // IBX-0067: unanswered partner invites never reach the bracket (only
-    // ACTIVE entries place; the entry itself stays behind untouched when
-    // the tournament starts). Each creator learns it NOW — both on the
-    // manual start and on the auto-start cron (they share this core).
-    // Birth-race note: two near-simultaneous activations on an empty board
-    // are serialized by Convex OCC — the loser re-runs and sees the fresh
-    // bracket, so no double draw happens.
+    // Unanswered partner invites never reach the bracket (only ACTIVE entries
+    // place), so each creator is told NOW, on both the manual and the auto start.
+    // Birth race: two near-simultaneous activations on an empty board are
+    // serialized by Convex OCC — the loser re-runs and sees the fresh bracket.
     for (const category of categories) {
       const pending = await ormCtx.orm.query.tournamentEntry.findMany({
         limit: 300,
@@ -467,15 +453,12 @@ export const start = authMutation
   });
 
 /**
- * IBX-0069 cron body (hourly): every `published`/`drawn` tournament whose
- * start date has arrived on the Brazilian calendar starts itself. `drawn`
- * goes straight to the start core; `published` (round 2, user decision)
- * DRAWS ITSELF first through the same core as the manual draw — random vale
- * — and then starts. If NOTHING is drawable (no category with 2+ active
- * entries), the tournament stays `published` for the organizer. Idempotent
- * by status transition: the draw moves `published`→`drawn` and the start
- * moves `drawn`→`ongoing`, so a repeat run (or a manual action in the same
- * window) can never draw or start twice.
+ * Cron body (hourly): every `published`/`drawn` tournament whose start date has
+ * arrived on the Brazilian calendar starts itself — a `drawn` one goes straight
+ * to the start core, a `published` one DRAWS ITSELF first through the same core
+ * and then starts. If nothing is drawable it stays `published` for the organizer.
+ * Idempotent by status transition, so a repeat run (or a manual action) can never
+ * draw or start twice.
  */
 export const autoStartTournaments = privateMutation
   .input(z.object({}))

@@ -242,8 +242,8 @@ describe("notification presentation", () => {
   });
 
   it("keeps an informative post payment event without any button", () => {
-    // Decisao do IBX-0077: `tournament.entry.confirmed` com chargeId e
-    // pos pagamento, entao um botao de pagar ali mentiria.
+    // `tournament.entry.confirmed` com chargeId e pos pagamento: um botao de
+    // pagar ali mentiria.
     expect(
       buildNotificationPresentation({
         ...tournamentBase,

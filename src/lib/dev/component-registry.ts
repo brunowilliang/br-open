@@ -6,11 +6,9 @@ export type ComponentGalleryEntry = {
 };
 
 /**
- * Registro único da galeria dev (IBX-0072): a listagem em Configurações e a
- * rota dinâmica de variantes leem daqui. Componente novo = +1 entrada neste
- * array + uma seção de variantes na tela `[component]` — sem refazer
- * estrutura. Visível apenas com `EXPO_PUBLIC_IS_DEV=true` (mesmo gate do
- * simulatePayment no checkout).
+ * Registro único da galeria dev: a listagem em Configurações e a rota dinâmica
+ * de variantes leem daqui — componente novo pede +1 entrada neste array e uma
+ * seção de variantes na tela `[component]`.
  */
 export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
   {

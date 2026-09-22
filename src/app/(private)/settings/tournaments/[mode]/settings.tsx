@@ -81,7 +81,7 @@ export default function TournamentSettingsRoute() {
       await onDelete();
       setIsDeleteDialogOpen(false);
     } catch {
-      // Keep the dialog open so the user can retry after the toast feedback.
+      // Mantém o diálogo aberto para o usuário tentar de novo após o erro.
     }
   }
 

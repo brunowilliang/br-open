@@ -48,9 +48,8 @@ export function OrganizerOverview(props: {
 
   return (
     <View className="gap-3">
-      {/* Pendências/alertas do SERVIDOR (IBX-0076 / PLN-0008): o recorte deste
-          torneio vem do bucket; o `Ver` do item navega para a aba de
-          pendências das inscrições. */}
+      {/* Pendências/alertas do SERVIDOR: o recorte deste torneio vem do bucket;
+          o `Ver` do item navega para a aba de pendências das inscrições. */}
       <PendingAlerts
         isError={pendingsStatus === "error"}
         isLoading={pendingsStatus === "loading"}
@@ -58,10 +57,6 @@ export function OrganizerOverview(props: {
         onActionPerformed={props.onPendingActionPerformed}
       />
 
-      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
-          (ui/kpi-card), rótulo+valor idênticos ao texto-simples, emparelhados
-          2 por linha na ordem ditada (Receita, Inscrições, Partidas). Linha
-          `flex-row gap-3` = molde dos dashboards (KpiCard com flex-1). */}
       <View className="flex-row gap-3">
         <KpiCard
           isLoading={revenueSeriesQuery.isPending || entriesLoading}

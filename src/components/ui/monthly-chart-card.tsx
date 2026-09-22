@@ -20,56 +20,28 @@ import { Text } from "@/components/core/text";
 
 import { buildCrosshairLabels } from "./monthly-chart-labels";
 
-/** Ponto da série mensal: rótulo do mês já formatado ("set.") e o valor
- * daquele mês. O dado entra PRONTO — o componente não soma nada. */
+/** Rótulo do mês já formatado; o dado entra PRONTO, o componente não soma nada. */
 export type MonthlyChartPoint = {
   label: string;
   value: number;
 };
 
-/**
- * Bloco de série mensal no chart aprovado na galeria (IBX-0075): Card de
- * superfície, título e description no `Text` do app e o chart na receita da doc
- * bundled do HeroUI Pro — `AreaChart.Area` com `LinearGradient` do Skia
- * (degradê do accent pra transparente, `area-chart.md` "Gradient fill"),
- * `curveType="monotoneX"` ("Curve type"), `LineChart.Line` por cima da área
- * ("Outline strokes on top of areas") e o press do `useChartPressState` com
- * `ChartIndicator` + `ChartCrosshair` + `ChartCrosshair.Value` ("Chart press
- * overlays" e "ChartCrosshair.Value"). O `wrapperClassName` do chart não leva
- * padding: o Anchor do crosshair mede no mesmo espaço do canvas Skia.
- *
- * O eixo X leva os índices inteiros de `xAxis.tickValues` (doc bundled
- * `bar-chart.md`, "Categorical X-axis tick values") e o `tickCount` com o
- * número de pontos — sem o `tickCount` o victory-native corta um rótulo
- * (`DEFAULT_TICK_COUNT` = 5). O eixo Y sai cru por default e quem tem unidade
- * (dinheiro) passa o `formatAxis`: o rótulo formatado entra na conta da margem
- * do plot (`transformInputData.js:206-241`), então o eixo cresce junto e nada
- * é cortado.
- *
- * O balão do crosshair é montado na UI thread (o `value` do
- * `ChartCrosshair.Value` é um `SharedValue<string>`), e o texto segue uma regra
- * só: a tabela de rótulos do `buildCrosshairLabels` (`monthly-chart-labels.ts`)
- * é lida pelo índice pressado (`state.matchedIndex`) e o campo NASCE com o
- * MAIOR rótulo da série. O rótulo do pacote mede a LARGURA do campo pelo texto
- * do primeiro render e depois escreve o texto por `animatedProps`, fora do
- * layout (`helpers/internal/components/re-text.js:28` e `:41`) — nascendo no
- * maior rótulo, o campo cabe qualquer ponto; nascendo vazio (o que acontecia
- * antes do BUG-0055), ele cortava o valor ("ago · R$"). Quem re-semeia o maior
- * rótulo é o `key` do `ChartCrosshairValue`: o `useSharedValue` ignora o
- * argumento depois do mount, então o `SharedValue` mora DENTRO da subárvore que
- * o `key` remonta, e o remount re-mede o campo com o rótulo NOVO quando a série
- * muda de magnitude (o valor velho ficava no `SharedValue` e o campo seguia
- * dimensionado pelo rótulo antigo).
- */
+/** Chart na receita da doc bundled do HeroUI Pro: `AreaChart.Area` com
+ * `LinearGradient` do Skia, `LineChart.Line` por cima e o press do
+ * `useChartPressState` com Indicator/Crosshair. O `wrapperClassName` não leva
+ * padding porque o Anchor do crosshair mede no mesmo espaço do canvas Skia, e o
+ * eixo X leva os índices de `tickValues` com `tickCount` igual ao número de
+ * pontos — sem o `tickCount` o victory-native corta um rótulo
+ * (`DEFAULT_TICK_COUNT` = 5). O eixo Y sai cru por default; com `formatAxis` o
+ * rótulo formatado entra na conta da margem do plot
+ * (`transformInputData.js:206-241`), então o eixo cresce junto e nada é
+ * cortado. */
 
-/**
- * Balão do crosshair com `SharedValue` próprio. O `key` do call site é o que
- * re-semeia o valor: trocar a série remonta esta subárvore e o `useSharedValue`
- * nasce com o maior rótulo ATUAL — é esse texto que o `ReText` mede no primeiro
- * render (`re-text.js:28`). A tabela vem pronta do `buildCrosshairLabels` e o
- * `+ 1` é o deslocamento dela (a posição 0 é o "sem toque", `matchedIndex` -1):
- * o worklet só LÊ a posição, sem chamar função JS na UI thread.
- */
+/** `useSharedValue` ignora o argumento depois do mount: é o `key` do call site
+ * que remonta esta subárvore pra re-semear o valor com o maior rótulo ATUAL — é
+ * esse texto que o `ReText` mede no primeiro render (`re-text.js:28`). O `+ 1`
+ * é o deslocamento da tabela (a posição 0 é o "sem toque") e o worklet só LÊ a
+ * posição, sem chamar função JS na UI thread. */
 function ChartCrosshairValue(props: {
   matchedIndex: SharedValue<number>;
   pillLabelTable: string[];
@@ -106,19 +78,16 @@ export function MonthlyChartCard(props: {
     y: { value: 0 },
   });
   const [chartBounds, setChartBounds] = useState<ChartBounds | null>(null);
-  // `chart-3` é o token do accent no ramp de charts do pacote
-  // (`--chart-3: var(--accent)`, theme.css do Pro) — o hook resolve a cor em
-  // JS pro degradê do Skia.
+  // `--chart-3: var(--accent)` (theme.css do Pro): o hook resolve a cor em JS
+  // pro degradê do Skia.
   const accentColor = useThemeColorPro("chart-3");
   const pillLabels = useMemo(
     () => data.map((point) => `${point.label} · ${formatValue(point.value)}`),
     [data, formatValue]
   );
-  // Rótulos e fallback saem da regra pura (`monthly-chart-labels.ts`): o texto
-  // do balão segue o toque pela UI thread e `matchedIndex` é a API pública do
-  // press state (`useChartPressState.js:34`), que escolhe o ponto pelo ÍNDICE —
-  // os rótulos de mês repetem depois de 12 meses (`getRevenueSeries` aceita até
-  // 24), então casar por texto pegaria sempre a primeira ocorrência.
+  // O `matchedIndex` é a API pública do press state (`useChartPressState.js:34`)
+  // e escolhe o ponto pelo ÍNDICE: os rótulos de mês repetem depois de 12 meses
+  // (`getRevenueSeries` aceita até 24), então casar por texto erraria o ponto.
   const { byIndex: pillLabelTable, widest: widestPillLabel } = useMemo(
     () => buildCrosshairLabels(pillLabels),
     [pillLabels]

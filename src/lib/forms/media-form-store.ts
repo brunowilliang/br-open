@@ -76,10 +76,9 @@ function createMediaFormBucket(input: {
       deleteEntity: async () => {
         await context.callbacksHolder.get(sessionKey)?.onDelete?.();
       },
-      // Drop this session from the domain-scoped buckets/callbacks maps.
       // reset() keeps the bucket around so a remount finds it; dispose()
-      // fully frees memory (callbacks capture form/toast props and would
-      // otherwise leak if the screen unmounts without an explicit reset).
+      // frees it — callbacks capture form/toast props and would leak if the
+      // screen unmounts without an explicit reset.
       dispose: () => {
         context.releaseSession(sessionKey);
       },
@@ -213,11 +212,8 @@ export type MediaFormDomain = {
   useMediaFormRoute: () => MediaFormRoute;
 };
 
-/**
- * Shared media-form draft store (RUL-0005): one domain per wizard that needs
- * the create/edit pattern (cover + avatar with crop, deferred upload,
- * FloatingTabBar submit). Backing for the league and tournament wizards.
- */
+/** Draft store compartilhado: um domínio por wizard que precisa do padrão
+ * create/edit (cover + avatar com crop, upload diferido, submit da tab bar). */
 export function createMediaFormDomain(input: {
   defaultTitle: string;
 }): MediaFormDomain {

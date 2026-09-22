@@ -12,23 +12,19 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
 import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
 
 /**
- * WIRING do cartão da central (IBX-0077) na anatomia das rodadas 2/3 e no mapa
- * de cor da rodada 4: o corpo não tem botão, TODA ação vive no menu ⋮, na ordem
- * principal → secundária → destrutiva e com a cor pelo SENTIDO da ação (DANGER
- * só no que é recusa ou destrutivo; todo o resto é o `default` do componente).
+ * WIRING do cartão: o corpo não tem botão, TODA ação vive no menu ⋮, na ordem
+ * principal → secundária → destrutiva, e a cor sai do SENTIDO da ação (DANGER só
+ * no que é recusa ou destrutivo; o resto é o `default` do componente).
  *
- * O erro que este teste existe para pegar é o mesmo do IBX-0076 (HIGH do
- * `Recusar`): duas ações na mesma superfície com o MESMO `onPress`, em que a
- * secundária dispara a ação da principal. Aqui a asserção é a resolução que
- * CADA item do menu entrega ao runner, a ordem deles e a cor de cada um.
+ * O erro que este teste existe para pegar é duas ações na mesma superfície com o
+ * MESMO `onPress`, em que a secundária dispara a ação da principal: aqui a
+ * asserção é a resolução que CADA item entrega ao runner, a ordem e a cor.
  *
- * O último caso prova a COPY: para os 44 tipos do catálogo, o texto que o
- * cartão desenha (título + partes da descrição, na ordem) é o do servidor
- * VERBATIM — nada é reformulado aqui (RUL-0039).
+ * O último caso prova a COPY: para os 44 tipos do catálogo, o que o cartão
+ * desenha é o texto do servidor VERBATIM, sem reformulação.
  *
  * O repo não tem harness de render e `react-native` não parseia sob bun (Flow),
- * então os módulos são mockados ANTES do import dinâmico (molde do
- * `pending-alerts.test.tsx`).
+ * então os módulos são mockados ANTES do import dinâmico.
  */
 
 const actionCalls: PendingActionResolution[] = [];
@@ -140,11 +136,8 @@ function buildItem(input: {
   };
 }
 
-/**
- * A árvore devolvida como função: o pressable é o primeiro filho do `View`, e
- * dentro dele vêm o `WidgetAlert` (índice 0), o `Menu` (índice 1) e o
- * `Highlight`. O menu em si é `Menu > Portal > Content > itens`.
- */
+/** A árvore devolvida como função: o pressable é o primeiro filho do `View` e
+ * dentro dele vêm o `WidgetAlert` (0), o `Menu` (1) e o `Highlight`. */
 function renderCard(input: {
   isActionPending?: (resolution: PendingActionResolution | null) => boolean;
   isClamped?: boolean;
@@ -217,11 +210,9 @@ const approvePresentation = {
   secondaryActionLabel: "Recusar",
 };
 
-/**
- * O par do convite de dupla (kind 5): as DUAS ações caem no MESMO `kind`
- * (`respond_invite`) e o `accept` é quem decide o sentido — é o caso que prova
- * que a cor sai da AÇÃO resolvida, não do rótulo.
- */
+/** O par do convite de dupla: as DUAS ações caem no MESMO `kind`
+ * (`respond_invite`) e o `accept` decide o sentido — é o caso que prova que a
+ * cor sai da AÇÃO resolvida, não do rótulo. */
 const partnerInvitePresentation = {
   action: {
     params: { entryId: "entry-1" },
@@ -286,9 +277,8 @@ describe("NotificationCard", () => {
   });
 
   it("paints DANGER only on refusal or removal; every other action is default", () => {
-    // Rodada 4: o verde do aceitar saiu e o neutro do componente voltou. Como a
-    // régua é a EXCEÇÃO, os dois lados são provados — inclusive o par do convite
-    // de dupla, em que o mesmo `kind` sai neutro no aceitar e perigo no recusar.
+    // A régua é a EXCEÇÃO, então os dois lados são provados — inclusive o par do
+    // convite de dupla (mesmo `kind`: neutro no aceitar, perigo no recusar).
     const pair = renderCard({ item: buildItem(approvePresentation) });
     const invite = renderCard({ item: buildItem(partnerInvitePresentation) });
     const pay = renderCard({
@@ -399,11 +389,9 @@ describe("NotificationCard", () => {
   });
 
   it("renders the server copy VERBATIM for all 44 event types", () => {
-    // Prova de que o cartão NÃO mexe em título nem descrição: o que ele desenha
-    // é o `title`/`body` do `buildNotificationContent` para a MESMA entrada que
-    // gerou o item (as partes do destaque são só um recorte do MESMO texto). O
-    // corte do feed é ellipsis de RENDER (o `numberOfLines`), não perda de
-    // caractere — por isso ele não aparece nesta comparação.
+    // O que o cartão desenha é o `title`/`body` do `buildNotificationContent`
+    // para a MESMA entrada que gerou o item. O corte do feed é ellipsis de
+    // RENDER (`numberOfLines`), não perda de caractere.
     const mismatches: string[] = [];
 
     for (const eventType of NOTIFICATION_GALLERY_EVENT_TYPES) {

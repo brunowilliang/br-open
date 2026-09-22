@@ -40,10 +40,9 @@ crons.interval(
   {}
 );
 
-// Refresh the cached subaccount balance for every organization with an
-// active payment account (DECISAO-003). Queries can't call the provider, so
-// the withdraw screen reads a cache that this cron reconciles every 5
-// minutes (withdrawals also adjust the cache immediately).
+// Refresh the cached subaccount balance of every organization with an active
+// payment account: queries can't call the provider, so the withdraw screen reads
+// this cache (5 min; withdrawals also adjust it immediately).
 crons.interval(
   "refresh-subaccount-balances",
   { minutes: 5 },
@@ -52,7 +51,7 @@ crons.interval(
 );
 
 // Retry the fee debit (subaccount → BR-Open main account) for COMPLETED
-// withdrawals whose fee collection is still pending (BUG-0006) — a
+// withdrawals whose fee collection is still pending — a
 // transient debit failure at request time used to mean lost revenue.
 // feeStatus flips to "collected" only after the debit returns ok.
 crons.interval(
@@ -62,7 +61,7 @@ crons.interval(
   {}
 );
 
-// Retry tournament refunds that failed or never confirmed (IBX-0010).
+// Retry tournament refunds that failed or never confirmed.
 // Charges in refundStatus pending/failed get an idempotent provider retry
 // (`refund-<correlationId>` key) — same sweep pattern as withdraw fees.
 crons.interval(
@@ -72,10 +71,8 @@ crons.interval(
   {}
 );
 
-// Auto-start tournaments whose startDate has arrived (IBX-0069): `drawn`
-// starts directly; `published` (round 2) DRAWS ITSELF first — random vale.
-// Hourly so it lands within the first hour of the start date (00:00 BRT by
-// construction). Same cores as the manual draw/start; idempotent by status.
+// Auto-start tournaments whose startDate has arrived: a `drawn` tournament
+// starts directly, a `published` one DRAWS ITSELF first (it has no bracket yet).
 crons.interval(
   "auto-start-tournaments",
   { hours: 1 },

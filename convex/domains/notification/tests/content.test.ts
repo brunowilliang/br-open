@@ -103,10 +103,6 @@ describe("notification content", () => {
     );
   });
 
-  // -------------------------------------------------------------------------
-  // Renewal reminder countdown + deep link (IBX-0039)
-  // -------------------------------------------------------------------------
-
   describe("league.membership.renewal_reminder", () => {
     const build = (metadata: Record<string, unknown>) =>
       buildNotificationContent({

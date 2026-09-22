@@ -70,10 +70,9 @@ type ApplyChallengeResultToRankingInput = {
   challengerMembershipId: string;
   lossBehavior: LeagueChallengeLossBehavior;
   rankingMembershipIds: string[];
-  // IBX-0026: W.O. results shift the loser per the league's walkoverBehavior
-  // (automatic_loss keeps the standard loss effect; automatic_loss_and_move_to_end
-  // additionally sends the loser to the end of the ranking). Absent for played
-  // results — backward compatible.
+  // W.O. results shift the loser per the league's walkoverBehavior:
+  // automatic_loss keeps the standard loss effect, automatic_loss_and_move_to_end
+  // also sends the loser to the end of the ranking. Absent on played results.
   walkover?: boolean;
   walkoverBehavior?: LeagueWalkoverBehavior;
   winBehavior: LeagueChallengeWinBehavior;
@@ -266,14 +265,13 @@ export function resolveChallengeCreationRuleError(
 }
 
 /**
- * REWORK-2 (10/09): resolução do vencedor de um resultado MANUAL livre.
- * Cada linha vale 1 ponto: mais games vence a linha; linha EMPATADA em
- * games é decidida pelo tie-break ANEXO (mais pontos de TB vence a linha;
- * TB empatado ou ausente = linha de ninguém). Quem vence mais linhas leva
- * a partida. Empate total NÃO decide sozinho: aí o payload precisa mandar
- * o vencedor explícito (winnerMembershipId), e a resolução final exige
- * exatamente 1 vencedor — derivado OU explícito coerente. Sanidade apenas:
- * inteiros >= 0 e pelo menos 1 linha.
+ * Resolve o vencedor de um resultado MANUAL livre: cada linha vale 1 ponto
+ * (mais games vence; linha EMPATADA em games vai ao tie-break ANEXO — mais
+ * pontos de TB vence a linha, e TB empatado ou ausente = linha de ninguém) e
+ * quem vence mais linhas leva a partida. Empate total NÃO decide sozinho: aí
+ * o payload precisa mandar o vencedor explícito (winnerMembershipId), e a
+ * resolução final exige exatamente 1 vencedor — derivado OU explícito
+ * coerente. Sanidade apenas: inteiros >= 0 e pelo menos 1 linha.
  */
 export function resolveChallengeScoreOutcome(input: {
   challengedMembershipId: string;
@@ -368,11 +366,9 @@ export function resolveChallengeScoreOutcome(input: {
 }
 
 /**
- * IBX-0026: valida um resultado de W.O. (walkover) de desafio. O vencedor
- * precisa ser um dos lados (regra M4 do torneio, espelhada aqui) e o placar
- * deve ser exatamente o placeholder de um set zerado. A behavior
- * `cancel_challenge` desliga W.O. como resultado na liga — o desafio deve ser
- * cancelado em vez de encerrado por W.O.
+ * Valida um resultado de W.O. de desafio: o vencedor precisa ser um dos lados
+ * e o placar, exatamente o placeholder de um set zerado. Com `cancel_challenge`
+ * a liga desliga W.O. — o desafio deve ser cancelado em vez de encerrado.
  */
 export function resolveWalkoverScoreError(input: {
   challengedMembershipId: string;

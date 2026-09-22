@@ -150,9 +150,8 @@ export default function SettingsNotificationsRoute() {
     ]);
   }
 
-  // A EXECUÇÃO das ações do cartão (os itens do menu ⋮) é o runner
-  // compartilhado com o renderer de pendências (IBX-0076/IBX-0077): a tela só
-  // diz o que invalidar depois.
+  // A execução das ações do cartão é o runner compartilhado com o renderer de
+  // pendências: a tela só diz o que invalidar depois.
   const { isActionPending, runAction } = usePendingActionRunner({
     onPerformed: invalidateNotifications,
   });
@@ -262,7 +261,7 @@ export default function SettingsNotificationsRoute() {
       await removeAllNotifications.mutateAsync({});
       setIsClearDialogOpen(false);
     } catch {
-      // Keep the dialog open so the user can retry after the mutation error.
+      // Mantém o diálogo aberto para o usuário tentar de novo após o erro.
     }
   }
 

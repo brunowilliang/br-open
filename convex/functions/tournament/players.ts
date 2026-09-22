@@ -19,25 +19,18 @@ import {
 import { requireActivePlayerProfile } from "../viewer/context";
 
 const SEARCH_LIMIT = 10;
-// Over-fetch (fix L1 r25): popular prefixes can fill the first 10
-// alphabetical matches with the wrong gender — fetch more, then cap AFTER
-// the gender/caller filters.
+// Popular prefixes can fill the first 10 alphabetical matches with the wrong
+// gender — fetch more, then cap AFTER the gender/caller filters.
 const PREFETCH_LIMIT = 25;
 
 /**
- * Prefix search that feeds the doubles partner autocomplete (IBX-0074
- * r18-A; gender-filtered since r25; caller-gated since the r27 review).
- * The term is normalized the same way invites store it (lowercase, trim;
- * see `normalizeUsernameLookup`), so typing "Bru" finds "brunowilliang".
- * The gender the partner must have is resolved SERVER-SIDE from the
- * category and the authed caller's profile — never trusted from the client:
- * male/female categories fix it, mixed takes the opposite of the caller.
- * `resolvePartnerSearchGender` also applies the CALLER gate, so a viewer the
- * category refuses gets `[]` instead of suggestions `create` would reject.
- * Callers (or candidates) with the gender undefined on the profile are not
- * matched. Returns matches alphabetical by username, capped at 10,
- * excluding the caller — an empty array means "nobody to suggest", not an
- * error.
+ * Prefix search feeding the doubles partner autocomplete. The term is normalized
+ * the way invites store it (`normalizeUsernameLookup`). The partner gender is
+ * resolved SERVER-SIDE from the category and the caller's profile — never trusted
+ * from the client: fixed categories pin it, mixed takes the caller's opposite.
+ * `resolvePartnerSearchGender` also applies the CALLER gate, so a refused viewer
+ * gets `[]` instead of suggestions `create` would reject (as do profiles with no
+ * gender). Alphabetical by username, capped at 10, caller excluded.
  */
 export const searchByUsername = authQuery
   .input(
@@ -66,10 +59,9 @@ export const searchByUsername = authQuery
       modality: category.modality as TournamentModality,
       playerAGender: viewerProfile?.gender ?? null,
     });
-    // `null` = nothing to suggest: the category refuses this caller (r27
-    // review MEDIUM) or it is mixed and the caller's gender is undefined,
-    // so there is no opposite to invite (r25). The create gate explains
-    // what is missing.
+    // `null` = nothing to suggest: the category refuses this caller, or it is
+    // mixed and the caller's gender is undefined, so there is no opposite to
+    // invite. The create gate explains what is missing.
     if (partnerGender === null) {
       return [];
     }
@@ -115,10 +107,8 @@ export const searchByUsername = authQuery
           username: match.username,
         })
       );
-      // LOW r25: the page is capped at SEARCH_LIMIT — stop before the
-      // per-card storage lookup instead of serializing the whole over-fetch
-      // and discarding it at the end (popular prefixes burned up to 15
-      // lookups for nothing).
+      // The page is capped at SEARCH_LIMIT: stop before the per-card storage
+      // lookup instead of serializing the whole over-fetch and discarding it.
       if (cards.length === SEARCH_LIMIT) {
         break;
       }

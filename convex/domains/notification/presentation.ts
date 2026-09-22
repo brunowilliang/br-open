@@ -9,40 +9,14 @@ import {
 import type { NotificationEventType } from "./definitions";
 
 /**
- * Apresentacao acionavel do item da central (IBX-0077 / PLN-0009).
+ * Apresentacao acionavel do item da central: mapa declarativo evento -> decisao
+ * + destaque do corpo. Modulo PURO (molde de `./definitions`); `null` = item
+ * INFORMATIVO, e linha anterior a este campo tambem chega `null` (sem migration).
  *
- * Modulo PURO, molde de `./definitions`: sem runtime de servidor, sem `ctx`,
- * funcao deterministica do input. Ele recebe o MESMO input do
- * `buildNotificationContent` e devolve o que a tela precisa para desenhar a
- * DECISAO do item, ou `null` quando o evento e INFORMATIVO.
- *
- * Duas coisas nascem aqui e em nenhum outro lugar:
- *
- * 1. QUAIS eventos tem botao e QUAL acao cada botao executa — o mapa
- *    declarativo `EVENT_PRESENTATION_BUILDERS` abaixo. A tela nao infere acao
- *    por `eventType` (mesma regra do item de pendencias: o servidor decide).
- * 2. QUAIS palavras do corpo vao em negrito (`bodyHighlights`).
- *
- * Quem consome:
- * - `../../functions/notification/orchestrator` persiste o resultado em
- *   `notificationFeed.presentation` no ponto unico de criacao (toda linha nova
- *   ja nasce com a decisao tomada);
- * - a galeria dev do app importa ESTA funcao para montar os cartoes com os
- *   rotulos reais, sem copiar copy.
- *
- * REGRA DE PRODUTO (aprovada no IBX-0077): botao so onde existe mutation viva
- * E gate de estado que impede o botao de agir sobre coisa ja resolvida. Evento
- * que ja aconteceu (resultado confirmado, inscricao aprovada, entrada paga,
- * convite respondido) NAO ganha botao: o botao mentiria. Por isso
- * `tournament.entry.confirmed` (pos pagamento) e todos os desfechos ficam
- * informativos.
- *
- * Os ids que a acao precisa viajam em `data` (o `metadata` do emissor). Quando
- * o emissor nao manda o id, a funcao devolve `null` em vez de montar uma acao
- * quebrada: item sem id vira informativo, nunca botao morto.
- *
- * Regra dos rotulos: UMA palavra, portugues, a mesma copy dos cartoes ja
- * aprovados no IBX-0076 (`Aceitar` / `Recusar` no convite de dupla).
+ * REGRA DE PRODUTO: botao so onde existe mutation viva E gate de estado — evento
+ * ja acontecido (resultado confirmado, entrada paga, convite respondido) nao
+ * ganha botao, porque mentiria. Sem o id em `data` a funcao devolve `null`:
+ * item vira informativo, nunca botao morto.
  */
 
 type NotificationActionSpecInput = {
@@ -61,11 +35,7 @@ type NotificationActionSpecBuilder = (
   input: NotificationActionSpecInput
 ) => NotificationActionSpec | null;
 
-/**
- * Le um id do `metadata` do emissor. String vazia conta como ausente — o mesmo
- * criterio do `readString` que resolve a acao no cliente
- * (`src/lib/notifications/response-intent.ts`).
- */
+/** Le um id do `metadata`; string vazia conta como ausente. */
 function readMetadataId(
   metadata: Record<string, unknown> | undefined,
   key: string
@@ -75,7 +45,6 @@ function readMetadataId(
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-/** Par de botoes (principal + secundario) de UMA decisao. */
 function buildDecision(input: {
   action: NotificationPresentationAction;
   actionLabel: string;
@@ -92,7 +61,6 @@ function buildDecision(input: {
   };
 }
 
-/** Botao unico (sem par) de UMA decisao. */
 function buildSingleAction(input: {
   action: NotificationPresentationAction;
   actionLabel: string;
@@ -108,10 +76,8 @@ function buildSingleAction(input: {
 }
 
 /**
- * Aceitar / Recusar o desafio de `challengeId` — `acceptProposal` /
- * `declineProposal` (`../../functions/league/challenges.ts`). Vale para o
- * desafio recem criado e para a contraproposta: nos dois a decisao pendente e a
- * proposta vigente do mesmo desafio.
+ * Desafio recem criado e contraproposta compartilham este construtor: nos dois
+ * a decisao pendente e a proposta vigente do mesmo desafio.
  */
 function buildChallengeProposalDecision(
   input: NotificationActionSpecInput
@@ -132,10 +98,6 @@ function buildChallengeProposalDecision(
     : null;
 }
 
-/**
- * Aceitar / Recusar o pedido de cancelamento — `respondCancellationRequest`
- * (`../../functions/league/challenges.ts`).
- */
 function buildChallengeCancellationDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -158,11 +120,7 @@ function buildChallengeCancellationDecision(
     : null;
 }
 
-/**
- * Confirmar o resultado ja enviado pelo adversario — `confirmResult`
- * (`../../functions/league/challenges.ts`). O envio por W.O. pede a mesma
- * decisao, por isso os dois eventos compartilham este construtor.
- */
+/** O envio por W.O. pede a mesma decisao, por isso divide este construtor. */
 function buildConfirmResultDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -177,11 +135,6 @@ function buildConfirmResultDecision(
     : null;
 }
 
-/**
- * Aprovar / Recusar a solicitacao de entrada na liga — `approve` / `reject`
- * (`../../functions/league/membership.ts`), com o gate de status exigido pelo
- * BUG-0048.
- */
 function buildLeagueMembershipDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -201,10 +154,6 @@ function buildLeagueMembershipDecision(
     : null;
 }
 
-/**
- * Aprovar / Recusar a inscricao no torneio — `approve` / `reject`
- * (`../../functions/tournament/entries.ts`; os dois exigem `pending_approval`).
- */
 function buildTournamentEntryDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -224,13 +173,7 @@ function buildTournamentEntryDecision(
     : null;
 }
 
-/**
- * Aceitar / Recusar o convite de dupla — `respondPartnerInvite`
- * (`../../functions/tournament/entries.ts`; exige `pending_partner`). Mesmos
- * rotulos do item de pendencia do mesmo caso
- * (`../tournament/pendings-rules.ts`, kind
- * `player_tournament_partner_invite_received`).
- */
+/** Mesmos rotulos do item de pendencia do mesmo caso (`../tournament/pendings-rules.ts`). */
 function buildPartnerInviteDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -251,14 +194,10 @@ function buildPartnerInviteDecision(
 }
 
 /**
- * Pagar / Renovar a mensalidade — `payment.charge.createCharge` com
- * `sourceType: "league_membership"`. O id viaja em `action.params.membershipId`
- * porque o item do feed nao tem `source` (a pendencia do mesmo caso le
- * `source.id`).
- *
- * `chargeId` NAO entra na acao de proposito: o `createCharge` ja reusa a
- * cobranca PENDING valida do mesmo dono, entao o botao nao gera um segundo PIX
- * nem depende de um id que pode ter expirado.
+ * O id viaja em `action.params.membershipId` porque o item do feed nao tem
+ * `source` (a pendencia do mesmo caso le `source.id`). `chargeId` NAO entra de
+ * proposito: `createCharge` reusa a cobranca PENDING valida do mesmo dono, entao
+ * o botao nao gera um segundo PIX nem depende de id que pode ter expirado.
  */
 function buildPayMembershipAction(
   actionLabel: "Pagar" | "Renovar"
@@ -276,12 +215,9 @@ function buildPayMembershipAction(
 }
 
 /**
- * Mapa declarativo: evento -> decisao. Tipo ausente = INFORMATIVO (a maioria
- * dos 44 eventos), e o item cai no cartao de hoje.
- *
- * Um lugar so. Tipo novo com botao entra AQUI e nada mais muda no servidor: o
- * orquestrador persiste o que esta funcao devolver e o serializer ja entrega o
- * campo para o app.
+ * Mapa declarativo evento -> decisao. Tipo ausente = INFORMATIVO (a maioria dos
+ * 44 eventos): o item cai no cartao de hoje. Tipo novo com botao entra AQUI e
+ * nada mais muda no servidor.
  */
 const EVENT_PRESENTATION_BUILDERS: Partial<
   Record<NotificationEventType, NotificationActionSpecBuilder>
@@ -300,17 +236,13 @@ const EVENT_PRESENTATION_BUILDERS: Partial<
   "tournament.partner.invited": buildPartnerInviteDecision,
 };
 
-/** Os eventos que ganham botao hoje. Derivado do mapa, nunca digitado. */
 export const NOTIFICATION_ACTIONABLE_EVENT_TYPES = Object.keys(
   EVENT_PRESENTATION_BUILDERS
 ) as NotificationEventType[];
 
 /**
- * Recorta do PROPRIO corpo renderizado o trecho que cita o ator, comparando sem
- * caixa. O destaque passa a ser sempre subtrecho LITERAL do texto que o app
- * mostra: um template que formate o nome (maiuscula, por exemplo) continua
- * gerando negrito, em vez de perder o destaque em silencio por a entrada ter
- * outra caixa.
+ * Destaque e sempre subtrecho LITERAL do corpo renderizado (comparacao sem
+ * caixa), nunca da entrada — template que formate o nome ainda gera negrito.
  */
 export function findActorNameInBody(
   body: string,
@@ -323,13 +255,9 @@ export function findActorNameInBody(
 }
 
 /**
- * Apresentacao do item, ou `null` quando o evento e informativo.
- *
  * `bodyHighlights` e DERIVADO DO CORPO (nunca da entrada): o nome do ator entra
- * em negrito somente quando o texto realmente cita esse nome, e o trecho
- * destacado e o que o corpo mostra (o dado que o destinatario precisa
- * reconhecer para decidir, a mesma regua dos cartoes aprovados no IBX-0076).
- * Ator ausente (o corpo cai no generico `Um jogador`) nao gera destaque.
+ * em negrito so quando o texto realmente o cita, e o trecho e o que o corpo
+ * mostra. Ator ausente nao gera destaque.
  */
 export function buildNotificationPresentation(
   input: NotificationContentInput

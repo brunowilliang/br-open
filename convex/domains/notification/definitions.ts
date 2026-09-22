@@ -59,13 +59,10 @@ const getLeagueChallengesUrl = (input: NotificationContentInput) =>
 const getTournamentUrl = (input: NotificationContentInput) =>
   `/tournaments/${input.tournamentId}`;
 
-// Deep-link a player-facing payment notification to the checkout screen.
-// `getCheckoutUrl` only returns `/checkout/<chargeId>` when the caller passed a
-// `chargeId` in the metadata, and callers must only do that for a charge that is
-// still PENDING for the membership (IBX-0039) — a PAID/EXPIRED charge has no QR
-// code to show and the checkout would render "pagamento confirmado". Without a
-// usable `chargeId` the link falls back to the league (where the player
-// generates a new PIX) or the tournament.
+// `getCheckoutUrl` so devolve `/checkout/<chargeId>` quando o emissor mandou um
+// `chargeId` de cobranca ainda PENDING da membership: cobranca PAID/EXPIRED nao
+// tem QR e o checkout renderizaria "pagamento confirmado". Sem `chargeId` util o
+// link cai na liga (onde o jogador gera novo PIX) ou no torneio.
 const getCheckoutUrl = (input: NotificationContentInput) => {
   const chargeId =
     input.metadata && "chargeId" in input.metadata
@@ -78,9 +75,8 @@ const getCheckoutUrl = (input: NotificationContentInput) => {
 };
 
 /**
- * Whole days left until the membership renews, sent by the renewal cron in the
- * notification metadata (IBX-0039). Null when there is no countdown to show
- * (rows created before that change).
+ * Dias restantes ate a renovacao da membership, enviados pelo cron de renovacao
+ * no metadata. Null quando nao ha contagem a mostrar (linha anterior ao campo).
  */
 function readDaysLeft(metadata?: Record<string, unknown>): number | null {
   const daysLeft = metadata?.daysLeft;
@@ -329,9 +325,8 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
   },
   "league.membership.renewal_reminder": {
     getUrl: getCheckoutUrl,
-    // The cron rewrites this same feed row every day with the real days left
-    // (IBX-0039); rows created before that carry no countdown and keep the
-    // generic wording.
+    // O cron reescreve esta mesma linha do feed todo dia com os dias reais
+    // restantes; linha anterior a isso nao tem contagem e mantem o texto generico.
     template: (input) =>
       buildRenewalReminderText(input.leagueName, readDaysLeft(input.metadata)),
   },

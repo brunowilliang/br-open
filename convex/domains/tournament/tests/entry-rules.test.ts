@@ -83,10 +83,6 @@ describe("validateEntryGenders", () => {
       })
     ).toContain("1 homem e 1 mulher");
   });
-
-  // r25: male/female doubles now gate the PARTNER gender — covered in the
-  // "validateEntryGenders — gênero do parceiro (r25)" suite below. The v1
-  // "não-mistas não validam" assertion was superseded and removed.
 });
 
 describe("resolveEntryStatusAfterPartnerAccepted", () => {
@@ -640,7 +636,7 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
     );
   });
 
-  // r27 supersedes the r25 reading of these two: the caller is gated too.
+  // Categoria de gênero fixo gateia quem convida, não só o parceiro dele.
   it("o gênero de quem convida é exigido em categoria fixa (r27)", () => {
     expect(
       validateEntryGenders({

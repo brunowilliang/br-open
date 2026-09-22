@@ -5,26 +5,15 @@ import type {
 } from "@convex/domains/pendings/contract";
 
 /**
- * ============================================================================
- * PENDINGS VIEW (IBX-0076 / PLN-0008)
- * ============================================================================
- *
- * O servidor é a fonte de verdade do item de pendência (kind, copy, destaque,
- * ordem, rota e AÇÃO): aqui mora SÓ o que a tela precisa decidir para
- * apresentar — o status do alerta para cada severidade, a tradução da ação do
- * contrato para a ação viva do app e o recorte dos itens que pertencem à casa
- * de cada tela.
- *
- * Nada de re-derivar severidade, ordem, texto, ação ou visibilidade no cliente
- * (o servidor devolve vazio quando o escopo não é do ator).
+ * O servidor é a fonte de verdade do item (kind, copy, destaque, ordem, rota e
+ * AÇÃO): aqui só se decide como apresentar, nada de re-derivar no cliente.
  */
 
 type WidgetAlertStatus = "accent" | "danger" | "warning";
 
 /**
- * Severidade do item → status do `WidgetAlert` (galeria aprovada): o alerta do
- * app não tem `info` no vocabulário (accent/danger/default/success/warning), e
- * os cartões aprovados mostram os itens `info` no `accent`.
+ * O alerta do app não tem `info`: os cartões aprovados mostram os itens `info`
+ * no `accent`.
  */
 export const PENDING_ALERT_STATUS = {
   danger: "danger",
@@ -49,11 +38,9 @@ export type PendingActionResolution =
   | { challengeId: string; kind: "confirm_challenge_result" };
 
 /**
- * O que a ação precisa saber do ITEM — o recorte comum entre o item de
- * pendência e o item da central de notificações (IBX-0077). `PendingItem`
- * satisfaz este shape sem adaptador (o `source` extra traz `type`, permitido),
- * e a notificação monta o seu: `route` = `data.url`, `leagueId` = `data.leagueId`
- * e `source` = a entidade de origem quando ela é a membership.
+ * O recorte comum entre o item de pendência e o da central de notificações:
+ * `PendingItem` satisfaz sem adaptador e a notificação monta o seu (`route` =
+ * `data.url`, `leagueId` = `data.leagueId`, `source` = a membership de origem).
  */
 export type PendingActionTarget = {
   action: PendingAction | null;
@@ -67,22 +54,9 @@ export type PendingActionTarget = {
 };
 
 /**
- * O que a AÇÃO do item FAZ — o ÚNICO ponto que traduz o `action` do contrato
- * (enum fechado) para uma ação viva do app: navegação pura abre o destino do
- * ITEM (`route` + `params`), o pagamento gera a cobrança com a MESMA mutation
- * das telas (`payment.charge.createCharge`) e o convite responde com a MESMA
- * mutation da casa do torneio (`tournament.entries.respondPartnerInvite`).
- *
- * No `open_route` o destino é o PAR DO ITEM: `action.params` é sempre nulo nesse
- * tipo (invariante do contrato) e entra só como override, então os `params` da
- * navegação são o merge `item.params` + `action.params` (a ação vence). Sem ler
- * o `item.params`, os CTAs de navegação (Ver/Revisar/Conectar) abriam as rotas
- * com placeholder SEM o id da entidade.
- *
- * `null` = item sem ação resolvível (sem `action`, ou `open_route` sem `route`,
- * ou ação de mutação sem o `params` que ela exige): o renderer OMITE o botão em
- * vez de desenhar botão morto. Nunca se adivinha a ação pelo `kind` nem pelo
- * rótulo, e `actionLabel` NUNCA vira `navigate(route)` cru.
+ * Único ponto que traduz o `action` do contrato em ação viva do app; `null`
+ * omite o botão (nunca botão morto). No `open_route` a navegação é o merge
+ * `item.params` + `action.params` (a ação vence) — sem ele a rota abre sem o id.
  */
 export function resolvePendingAction(
   target: PendingActionTarget
@@ -103,9 +77,8 @@ export function resolvePendingAction(
           }
         : null;
     case "pay_league_membership": {
-      // A cobrança é da MESMA membership: na pendência ela é o `source` do
-      // item; na notificação o id viaja em `action.params.membershipId` (o
-      // item do feed não tem `source`).
+      // A cobrança é da MESMA membership: na pendência ela é o `source`; na
+      // notificação (item do feed, sem `source`) vem de `action.params.membershipId`.
       const membershipId = action.params?.membershipId ?? target.source?.id;
 
       return membershipId
@@ -129,9 +102,8 @@ export function resolvePendingAction(
           }
         : null;
     }
-    // `league.membership.approve|reject` exigem `{ leagueId, membershipId }`:
-    // o id da membership vem da AÇÃO e a liga do item (params da pendência,
-    // `data.leagueId` na notificação). Sem os dois não há botão.
+    // `league.membership.approve|reject` exigem `{ leagueId, membershipId }`: o
+    // id vem da AÇÃO e a liga do item — sem os dois não há botão.
     case "approve_league_membership":
     case "reject_league_membership": {
       const membershipId = action.params?.membershipId ?? target.source?.id;
@@ -145,7 +117,6 @@ export function resolvePendingAction(
         ? { kind: "approve_membership", leagueId, membershipId }
         : { kind: "reject_membership", leagueId, membershipId };
     }
-    // `tournament.entries.approve|reject` só precisam da inscrição.
     case "approve_tournament_entry":
     case "reject_tournament_entry": {
       const entryId = action.params?.entryId;
@@ -195,11 +166,9 @@ export function resolvePendingAction(
 }
 
 /**
- * Itens que pertencem à casa de UMA liga: os que carregam o `leagueId` nos
- * `params` (desafios) e os da MESMA membership do viewer — as pendências de
- * mensalidade e de inatividade não têm rota nem params (a identidade delas é o
- * `league_membership`) e sem esta segunda chave ficariam de fora da tela da
- * liga, que é onde o membro as vê.
+ * Casa de UMA liga: `params.leagueId` (desafios) OU a MESMA membership do
+ * viewer — mensalidade e inatividade não têm rota nem params (a identidade é o
+ * `source` `league_membership`).
  */
 export function resolvePendingsForLeague(input: {
   items: PendingItem[];
@@ -216,13 +185,9 @@ export function resolvePendingsForLeague(input: {
 }
 
 /**
- * Itens da casa de UM torneio. O `tournamentId` viaja nos `params` na maioria
- * dos casos; a pendência de inscrição aguardando pagamento com UMA inscrição
- * (kind 4) não tem `params` nem `route` — ela registra o torneio no `source`
- * (o dado que identifica a entidade), então o recorte cai para a source quando
- * não há params. A guarda de tipo é do `source.type`: o contrato garante que o
- * único kind de escopo player com source de torneio é o 4
- * (`convex/domains/tournament/pendings-rules.ts`, `buildPlayerEntryPendings`).
+ * Casa de UM torneio: `params.tournamentId` na maioria; a inscrição aguardando
+ * pagamento com UMA inscrição (kind 4) registra o torneio no `source`, então o
+ * recorte cai para a source quando não há params.
  */
 export function resolvePendingsForTournament(input: {
   items: PendingItem[];

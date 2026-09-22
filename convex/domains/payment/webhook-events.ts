@@ -1,63 +1,46 @@
 /**
- * Woovi (OpenPix) webhook event payload types.
- *
- * Source of truth: developers.woovi.com/docs/tags/webhook + the recovered
- * `woovi-client.ts@572dc61` design intent. Real payloads will be captured
- * end-to-end in the Phase 1.5 manual validation step (once a tunnel is up);
- * the shapes here are derived from the Woovi docs and may be tightened then.
- *
- * Woovi event names use the `OPENPIX:*` prefix (the previous AbacatePay
- * migration used `transparent.*`). Webhook routing keys off `event`.
+ * Woovi (OpenPix) webhook event payload types from the official docs —
+ * `OPENPIX:*` names, routing by `event`. Real payloads must still be captured
+ * end-to-end before these shapes are tightened.
  *
  * @see https://developers.woovi.com/docs/tags/webhook
  */
 
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Event name constants — single source of truth.
-// ---------------------------------------------------------------------------
-
 /**
- * Fired when a PIX payment is received for a charge. Payload includes the
- * charge (with `correlationID` — our idempotency key) and the transaction
- * details. This is the "paid" signal.
+ * The "paid" signal: carries the charge (`correlationID` is our idempotency
+ * key) and the transaction details.
  */
 export const OPENPIX_TRANSACTION_RECEIVED =
   "OPENPIX:TRANSACTION_RECEIVED" as const;
 
-/**
- * Fired when a charge expires unpaid. We mirror it locally and notify the
- * player to generate a new PIX.
- */
+/** Mirrored locally; the player is told to generate a new PIX. */
 export const OPENPIX_CHARGE_EXPIRED = "OPENPIX:CHARGE_EXPIRED" as const;
 
 /**
- * Fired when a charge is completed (often paired with TRANSACTION_RECEIVED).
- * Treated as an alias of TRANSACTION_RECEIVED for activation purposes —
- * idempotency is enforced by the `status === "PAID"` short-circuit.
+ * Treated as an alias of TRANSACTION_RECEIVED (the two often arrive together);
+ * the `status === "PAID"` short-circuit absorbs the duplicate.
  */
 export const OPENPIX_CHARGE_COMPLETED = "OPENPIX:CHARGE_COMPLETED" as const;
 
 /**
- * Fired when a charge is refunded via the Woovi dashboard. The payload shape
- * mirrors the charge-expired event (charge with correlationID + status).
- * We dispatch to `markChargeRefunded` which already handles the membership
- * side effect (status → left, rankingPosition → null) and notification.
+ * Refund issued from the Woovi dashboard; the payload mirrors the expired
+ * event. `markChargeRefunded` already owns the membership side effect (leave
+ * the league, free the ranking slot) and the notification.
  */
 export const OPENPIX_CHARGE_REFUNDED = "OPENPIX:CHARGE_REFUNDED" as const;
 
 /**
- * Fired when a withdrawal/movement fails (e.g. subaccount saque): carries
- * the failed payment (correlationID/endToEndId) and the error code +
- * description. We mirror it locally by marking the withdrawal `failed`.
+ * Failed withdrawal/movement (e.g. subaccount saque): carries the failed
+ * payment (correlationID/endToEndId) and the error; marks the local withdrawal
+ * `failed`.
  */
 export const OPENPIX_MOVEMENT_FAILED = "OPENPIX:MOVEMENT_FAILED" as const;
 
 /**
- * Catch-all for events we acknowledge but don't process. Using a closed
- * union (not `string`) lets TS narrow the handled variants above by the
- * literal `event` value.
+ * Catch-all for events we acknowledge but don't process: a closed union (not
+ * `string`) is what lets TS narrow the variants above by `event`.
  */
 export type OtherWooviEventPayload = {
   data?: unknown;
@@ -66,9 +49,8 @@ export type OtherWooviEventPayload = {
 
 export type TransactionReceivedPayload = {
   event: typeof OPENPIX_TRANSACTION_RECEIVED;
-  // Woovi wraps the relevant entities under `charge` and `transaction`.
   // We only read `charge.correlationID` (our idempotency key) and the
-  // transaction's end-to-end identifier for reconciliation.
+  // transaction's end-to-end identifier.
   charge: {
     correlationID: string;
     status: string;
@@ -77,8 +59,7 @@ export type TransactionReceivedPayload = {
   transaction?: {
     status?: string;
     value?: number;
-    // PIX end-to-end id (also exposed as `e2eId` on some payloads). Captured
-    // as `wooviTransactionId` when the webhook confirms payment.
+    // PIX end-to-end id (also exposed as `e2eId` on some payloads).
     transactionID?: string;
     e2eId?: string;
   };
@@ -130,10 +111,7 @@ export type MovementFailedPayload = {
   };
 };
 
-/**
- * Any inbound Woovi webhook. Narrow with `payload.event === ...` before
- * reading `payload.charge` / `payload.transaction`.
- */
+/** Narrow with `payload.event === ...` before reading `charge`/`transaction`. */
 export type WooviWebhookPayload =
   | OtherWooviEventPayload
   | TransactionReceivedPayload
@@ -141,10 +119,6 @@ export type WooviWebhookPayload =
   | ChargeCompletedPayload
   | ChargeRefundedPayload
   | MovementFailedPayload;
-
-// ---------------------------------------------------------------------------
-// Runtime validators — used by webhook.ts to parse incoming payloads safely.
-// ---------------------------------------------------------------------------
 
 const chargeBaseSchema = z.object({
   correlationID: z.string().min(1),
@@ -213,13 +187,9 @@ const otherEventPayloadSchema = z
   .passthrough();
 
 /**
- * Parses any inbound Woovi webhook payload. Use
- * `wooviWebhookPayloadSchema.parse(JSON.parse(rawBody))` — the wrapper handles
- * `JSON.parse` failures separately.
- *
- * Note: `OtherWooviEventPayload` (open `event: string`) is the fallback; the
- * webhook handler dispatches on `event` after parse and silently ignores
- * unknown events.
+ * Parses any inbound Woovi webhook payload; the caller handles `JSON.parse`
+ * failures separately. The open `event: string` variant is the fallback, so
+ * unknown events parse and are then ignored by the dispatcher.
  */
 export const wooviWebhookPayloadSchema = z.union([
   chargeCompletedPayloadSchema,

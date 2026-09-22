@@ -22,7 +22,7 @@ import { Button, Card, Skeleton, useToast } from "heroui-native";
 
 const DANGER_THRESHOLD_MS = 300_000;
 
-/** Fundo do cartão de estado, no padrão dos cartões que já existiam aqui. */
+/** Fundo do cartão de estado, por severidade. */
 const CARD_BACKGROUND: Record<CheckoutChargeView["severity"], string> = {
   danger: "bg-danger-soft",
   success: "bg-success-soft",
@@ -140,9 +140,8 @@ export default function CheckoutScreen() {
   );
 
   // A cobrança VIGENTE manda na tela: a notificação antiga carrega o chargeId
-  // de uma charge já terminal, e o PIX que o jogador gerou depois vive em
-  // outra charge PENDING do mesmo source (BUG-0025). Sem pendente, a charge do
-  // link decide como antes. Nada aqui cria ou reaproveita cobrança.
+  // de uma charge já terminal, e o PIX gerado depois vive em outra charge
+  // PENDING do mesmo source. Sem pendente, a charge do link decide.
   const display = checkout
     ? resolveCheckoutDisplay({
         context: checkout,
@@ -157,9 +156,8 @@ export default function CheckoutScreen() {
   const amountCents = display?.charge.amountCents ?? 0;
 
   // Countdown zerado com o PIX na tela: o aparelho pode estar adiantado e ter
-  // zerado um PIX que o servidor considera VIVO, então quem decide o próximo
-  // estado é o servidor. UMA leitura por charge exibida (guard por id), sem
-  // loop: se o servidor devolver a mesma pendente, a tela segue com ela.
+  // zerado um PIX que o servidor considera vivo, então quem decide o próximo
+  // estado é o servidor. UMA leitura por charge exibida (guard por id).
   const revalidatedChargeIdRef = useRef<null | string>(null);
 
   useEffect(() => {
@@ -238,7 +236,7 @@ export default function CheckoutScreen() {
       <Page.View className="flex-1 gap-6 px-4">
         {/* Estado terminal da charge, dirigido pelo estado ATUAL da membership:
             com cobrança possível (atraso, suspensão ou janela de renovação) a
-            tela pede o PIX novo em vez de afirmar um pagamento (BUG-0024). */}
+            tela pede o PIX novo em vez de afirmar um pagamento. */}
         {card ? (
           <View className="flex-1 items-center justify-center gap-3">
             <View
@@ -269,13 +267,9 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {/* Layout de PIX da cobrança VIGENTE (e durante o loading): a charge
-            PENDING do source quando ela existe, senão a charge do link.
-            Estados terminais caem no cartão acima, então aqui nunca aparece
-            QR/"Expira em 00:00" de cobrança que não vale mais.
-            While loading, the same structure is rendered with skeletons
-            wrapping each element, so there is no layout jump when data
-            arrives. */}
+        {/* PIX da cobrança VIGENTE (a PENDING do source quando existe, senão a do
+            link); estados terminais caem no cartão acima, e no loading a mesma
+            estrutura sai com skeletons, sem layout jump. */}
         {card ? null : (
           <>
             {/* Price summary */}

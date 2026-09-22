@@ -24,20 +24,12 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 type PlayerDashboardOverview = ApiOutputs["player"]["dashboard"]["getOverview"];
 
-/**
- * Home do jogador (IBX-0075): "Partidas por mês" é o chart aprovado na
- * galeria (`MonthlyChartCard`, série real de 6 meses do dash); o desempenho
- * em três cards ("Vitórias", "Derrotas" e "Aproveitamento") e "Suas
- * inscrições" seguem no KpiCard. "Próximos jogos" continua como está (lista
- * com navegação pra competição) e as pendências/alertas vêm do SERVIDOR
- * (`pendings.list` escopo player, no bloco `PendingAlerts`).
+/** "Partidas por mês" é o `MonthlyChartCard` (série real de 6 meses do dash);
+ * desempenho e "Suas inscrições" no `KpiCard`, e as pendências vêm do SERVIDOR
+ * (`pendings.list` escopo player).
  *
- * APRESENTAÇÃO com o dado primário recebido do pai (IBX-0083): o dashboard do
- * jogador (`getOverview`) é carregado pela HOME, que resolve carga e erro dos
- * quatro estados da tela — igual ao `OrganizerDashboard`, que recebe `data`.
- * Ficam aqui as queries de BLOCO (as pendências do `PendingAlerts`), como no
- * painel da organização, que também é só apresentação no bloco de número.
- */
+ * É só APRESENTAÇÃO do `data` que a HOME carrega: aqui moram as queries de BLOCO
+ * (as pendências do `PendingAlerts`). */
 export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
   const crpc = useCRPC();
   const router = useRouter();
@@ -51,9 +43,8 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
   const overview = props.data;
   const performance = overview.performance;
   const resultsByMonth = buildPlayerResultsChart(performance.byMonth);
-  // Série do bloco "Partidas por mês" (IBX-0075 r4): os MESMOS números que o
-  // texto do KpiCard já mostrava (`wins + losses` por mês), agora no shape do
-  // chart aprovado na galeria.
+  // Os MESMOS números do KpiCard de texto (`wins + losses` por mês), agora no
+  // shape do chart.
   const monthlyMatches = resultsByMonth.map((month) => ({
     label: month.label,
     value: month.wins + month.losses,
@@ -83,9 +74,7 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
         }}
       />
 
-      {/* Bloco 2 (ordem do usuário): o chart aprovado na galeria, com a série
-          real de 6 meses do dash. O antigo KpiCard de texto saiu (IBX-0075 r4);
-          o card virou o genérico `MonthlyChartCard` no IBX-0078. */}
+      {/* Série real de 6 meses do dash no `MonthlyChartCard`. */}
       <Animated.View
         className="gap-3"
         entering={FadeIn}
@@ -98,9 +87,7 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
           title="Partidas por mês"
         />
 
-        {/* Desempenho = três KPIs numa ÚNICA linha (IBX-0075 r2, ordem do
-          usuário), labels literais do pedido. O "%" fica no VALOR: o rótulo
-          é "Aproveitamento" (ordem literal do usuário). */}
+        {/* Os três KPIs numa ÚNICA linha: o "%" fica no VALOR. */}
         <View className="flex-row gap-3">
           <KpiCard label="Vitórias" value={String(performance.wins)} />
           <KpiCard label="Derrotas" value={String(performance.losses)} />

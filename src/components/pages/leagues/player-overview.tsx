@@ -50,8 +50,8 @@ export function PlayerOverview(props: {
 
   return (
     <View className="gap-3">
-      {/* Pendências/alertas do SERVIDOR (IBX-0076 / PLN-0008): o recorte desta
-          liga vem do bucket e a copy/ordem/rota são do item. */}
+      {/* Pendências/alertas do SERVIDOR: o recorte desta liga vem do bucket e a
+          copy/ordem/rota são do item. */}
       <PendingAlerts
         isError={pendingsStatus === "error"}
         isLoading={pendingsStatus === "loading"}
@@ -59,9 +59,6 @@ export function PlayerOverview(props: {
         onActionPerformed={props.onPendingActionPerformed}
       />
 
-      {/* KPIs (IBX-0075 r2): os três blocos de número no KpiCard da galeria
-          (ui/kpi-card), rótulo+valor do molde texto-simples, emparelhados 2
-          por linha na ordem ditada (Posição, Partidas no mês, Desempenho). */}
       <View className="flex-row gap-3">
         <KpiCard
           isLoading={membershipOverviewLoading}
@@ -79,8 +76,7 @@ export function PlayerOverview(props: {
         />
       </View>
 
-      {/* Desempenho = os três KPIs na MESMA linha (IBX-0075 r2), labels
-          literais do pedido; o "%" fica no VALOR, o mesmo caminho da home. */}
+      {/* Os três KPIs na MESMA linha: o "%" fica no VALOR. */}
       <View className="flex-row gap-3">
         <KpiCard
           isLoading={challengesLoading}

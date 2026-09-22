@@ -149,10 +149,10 @@ async function assertCategoryCapacity(ctx: OrmCtx, category: CategoryRecord) {
 }
 
 /**
- * H3: one player, one side. Rejects when any of the given profiles already
- * participates in ANY non-terminal entry of the category (as playerA OR
- * playerB — the DB unique indexes only guard same-side duplicates, so a
- * player could otherwise enter twice via opposite sides of two entries).
+ * One player, one side. Rejects when any given profile already participates in
+ * ANY non-terminal entry of the category, as playerA OR playerB — the DB unique
+ * indexes only guard same-side duplicates, so a player could otherwise enter
+ * twice through opposite sides of two entries.
  */
 async function assertPlayersNotInCategory(
   ctx: OrmCtx,
@@ -192,8 +192,8 @@ function assertRegistrationOpen(
   tournamentRecord: { registrationDeadlineAt: Date; status: string },
   now: Date
 ) {
-  // IBX-0067: `drawn` keeps entries open — the deadline is the only closer
-  // (the incremental placement puts the entry straight into the bracket).
+  // `drawn` keeps entries open: the deadline is the only closer (incremental
+  // placement puts the entry straight into the bracket).
   const window = {
     nowMs: now.getTime(),
     registrationDeadlineMs: tournamentRecord.registrationDeadlineAt.getTime(),
@@ -232,8 +232,8 @@ async function notifyEntryCreatedForApproval(
   await scheduleTournamentNotification(ctx, {
     actorUserId: input.createdByUserId,
     eventType: "tournament.entry.created",
-    // IBX-0077: o id da inscricao viaja no `data` para o botao Aprovar /
-    // Recusar do organizador (o mesmo `entryId` que `entries.approve` exige).
+    // O id da inscricao viaja no `data` para o botao Aprovar / Recusar do
+    // organizador (o mesmo `entryId` que `entries.approve` exige).
     metadata: { entryId: input.entry.id as string },
     recipientUserIds: managerIds,
     sourceEntityId: input.entry.id as string,
@@ -263,10 +263,10 @@ async function notifyEntryConfirmed(
 }
 
 /**
- * IBX-0067 (PLN-0001): an entry that just became ACTIVE joins its category
- * bracket at once (incremental placement — birth with the 2nd confirmed,
- * random open slot after, bottom round when full). The placement core no-ops
- * outside the pre-start window or below 2 active entries.
+ * An entry that just became ACTIVE joins its category bracket at once
+ * (incremental placement: birth with the 2nd confirmed, a random open slot
+ * afterwards, one new bottom round when full). The core no-ops outside the
+ * pre-start window or below 2 active entries.
  */
 async function placeEntryIntoBracket(
   ctx: MutationCtx,
@@ -290,9 +290,9 @@ async function removeEntryFromBracket(
 }
 
 /**
- * IBX-0067 (decisão 1): cancelling a PAID entry marks its charge(s)
- * refund-pending and hands off to the proven refund pipeline (processRefunds
- * + the 15min sweep). The creator — who paid — is told the refund started.
+ * Cancelling a PAID entry marks its charge(s) refund-pending and hands off to the
+ * refund pipeline (processRefunds + the 15min sweep). The creator, who paid, is
+ * told the refund started.
  */
 async function scheduleEntryRefund(
   ctx: MutationCtx,
@@ -336,11 +336,11 @@ async function scheduleEntryRefund(
 }
 
 /**
- * Last-resort race net for entry inserts (IBX-0074 r19): the code guard
- * (`assertPlayersNotInCategory`) plus the mirrored-slot unique indexes make
- * a duplicate virtually impossible, but two concurrent creates for the same
- * player/category can still interleave check and insert. When that happens
- * the client must see a treated CONFLICT, never the raw unique-index 500.
+ * Last-resort race net for entry inserts: the code guard
+ * (`assertPlayersNotInCategory`) plus the mirrored-slot unique indexes make a
+ * duplicate virtually impossible, but two concurrent creates can still
+ * interleave check and insert — the client must see a treated CONFLICT, never
+ * the raw unique-index 500.
  */
 function isUniqueIndexViolation(error: unknown) {
   return (
@@ -364,11 +364,10 @@ export const create = authMutation
       );
     assertRegistrationOpen(tournamentRecord, new Date());
 
-    // r27: the CALLER (who creates the entry) must match a FIXED-gender
-    // category — simples masculino/feminino and duplas masculinas/
-    // femininas. Same pure rule the tournament read exposes per category
-    // (`viewerEligible`), so the client never duplicates it. Checked BEFORE
-    // capacity/duplicate so the wrong-gender diagnosis wins.
+    // The CALLER must match a FIXED-gender category (simples masculino/feminino
+    // and duplas masculinas/femininas) — the same pure rule the tournament read
+    // exposes per category (`viewerEligible`). Checked BEFORE capacity/duplicate
+    // so the wrong-gender diagnosis wins.
     const viewerProfile = await ctx.orm.query.playerProfile.findFirst({
       where: { id: playerProfileId },
     });
@@ -461,7 +460,7 @@ export const create = authMutation
         message: "Você não pode convidar a si mesmo.",
       });
     }
-    // H3: the invited partner must be free in this category too.
+    // The invited partner must be free in this category too.
     await assertPlayersNotInCategory(
       ctx,
       category.id as Id<"tournamentCategory">,
@@ -511,8 +510,8 @@ export const create = authMutation
     await scheduleTournamentNotification(ctx, {
       actorUserId: createdByUserId,
       eventType: "tournament.partner.invited",
-      // IBX-0077: o id da inscricao viaja no `data` para o botao Aceitar /
-      // Recusar do convite (o mesmo `entryId` que `respondPartnerInvite` exige).
+      // O id da inscricao viaja no `data` para o botao Aceitar / Recusar do
+      // convite (o mesmo `entryId` que `respondPartnerInvite` exige).
       metadata: { entryId: created.id as string },
       recipientUserIds: [partnerUser.id as Id<"user">],
       sourceEntityId: created.id as string,
@@ -551,8 +550,8 @@ export const respondPartnerInvite = authMutation
     const now = new Date();
 
     if (!input.accept) {
-      // Declined invite = terminal entry: free the category slots so both
-      // players can enter again (IBX-0074 r19).
+      // Declined invite = terminal entry: free the slots so both players can
+      // enter again.
       const [updated] = await ctx.orm
         .update(tournamentEntry)
         .set({
@@ -575,11 +574,11 @@ export const respondPartnerInvite = authMutation
       return serializeEntry(updated);
     }
 
-    // M1: the invite can only be accepted while registrations are open
-    // (published + before the deadline) — same rule as creating an entry.
+    // The invite can only be accepted while registrations are open (published +
+    // before the deadline) — same rule as creating an entry.
     assertRegistrationOpen(tournamentRecord, new Date());
-    // H3: the accepting partner must not belong to another entry in the
-    // category (this entry's own playerB side is ignored).
+    // The accepting partner must not belong to another entry in the category
+    // (this entry's own playerB side is ignored).
     await assertPlayersNotInCategory(
       ctx,
       category.id as Id<"tournamentCategory">,
@@ -646,10 +645,9 @@ export const approve = authMutation
     const now = new Date();
     const nextStatus =
       category.entryFeeCents > 0 ? "awaiting_payment" : "active";
-    // IBX-0067 (decisão 3): manual approval respects maxEntries — counting
-    // ACTIVE entries only (pending entries never reserve a slot). The other
-    // ACTIVE paths guard too: create/accept here, and the PAID activation
-    // at its last gate (charge.ts, overflow follows the refund pattern).
+    // Manual approval respects maxEntries, counting ACTIVE entries only (pending
+    // entries never reserve a slot). The other ACTIVE paths guard too: create and
+    // accept here, and the paid activation at its last gate.
     if (nextStatus === "active") {
       await assertCategoryCapacity(ctx, category);
     }
@@ -693,7 +691,7 @@ export const reject = authMutation
     }
 
     const now = new Date();
-    // Rejected = terminal entry: free the category slots (IBX-0074 r19).
+    // Rejected = terminal entry: free the category slots.
     const [updated] = await ctx.orm
       .update(tournamentEntry)
       .set({
@@ -762,9 +760,8 @@ export const cancel = authMutation
     }
 
     const now = new Date();
-    // Cancelled = terminal entry: free the category slots so the player can
-    // re-register (IBX-0074 r19 — the cancelled row used to hold the unique
-    // index forever and block re-entry).
+    // Cancelled = terminal entry: free the slots so the player can re-register —
+    // the cancelled row used to hold the unique index forever and block re-entry.
     const [updated] = await ctx.orm
       .update(tournamentEntry)
       .set({
@@ -776,10 +773,9 @@ export const cancel = authMutation
       .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
       .returning();
 
-    // IBX-0067: the bracket is the live mirror of the entries — the
-    // cancelled slot stays EMPTY ("A definir", decisão 8; no automatic bye
-    // for the survivor). A paid entry also gets its refund started
-    // (decisão 1) with a notice to the creator who paid.
+    // The bracket is the live mirror of the entries: the cancelled slot stays
+    // EMPTY ("A definir", no automatic bye for the survivor). A paid entry also
+    // gets its refund started, with a notice to the creator who paid.
     await removeEntryFromBracket(ctx, { entry: updated });
     await scheduleEntryRefund(ctx, {
       entry: updated,
@@ -829,9 +825,9 @@ export const setSeed = authMutation
     return serializeEntry(updated);
   });
 
-// IBX-0035 (PLN-0004): direct phase entry. Mirrors setSeed's guards —
-// published (pre-draw) and drawn (pre-start; the change feeds the re-draw,
-// IBX-0037). Completability is validated at draw time by validateEntryRounds.
+// Direct phase entry. Same window as setSeed — published (pre-draw) and drawn
+// (pre-start, feeds the re-draw); completability is validated at draw time by
+// validateEntryRounds.
 export const setEntryRound = authMutation
   .input(SetEntryRoundSchema)
   .output(tournamentEntrySchema)
@@ -848,9 +844,8 @@ export const setEntryRound = authMutation
       ctx,
       tournamentRecord.id as Id<"tournament">
     );
-    // IBX-0037: same window as setSeed — published (pre-draw) and drawn
-    // (pre-start, feeds the re-draw). Phase changes are inert until the
-    // organizer re-draws.
+    // Same window as setSeed: published (pre-draw) and drawn (pre-start, feeds
+    // the re-draw). Phase changes are inert until the organizer re-draws.
     if (
       tournamentRecord.status !== "published" &&
       tournamentRecord.status !== "drawn"
@@ -889,10 +884,10 @@ export const listForTournament = authQuery
       limit: 10,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
-    // Review M2: entries carry player cards (name/avatar/username) — same
-    // visibility gate as discovery.getById: organizer OR discoverable OR
-    // participant of THIS tournament. Without it any authenticated user
-    // could enumerate private/draft entries.
+    // Entries carry player cards (name/avatar/username), so the same visibility
+    // gate as discovery.getById applies: organizer OR discoverable OR participant
+    // of THIS tournament — otherwise any authenticated user could enumerate
+    // private/draft entries.
     const viewerContext = await getViewerContext(ctx, ctx.userId);
     const isTournamentOrganizer =
       viewerContext.activeActor.kind === "organization" &&

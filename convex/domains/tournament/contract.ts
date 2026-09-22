@@ -41,10 +41,7 @@ export const TournamentVisibilityOptions = ["public", "private"] as const;
 export const DEFAULT_TOURNAMENT_APPROVAL_MODE = "auto" as const;
 export const DEFAULT_TOURNAMENT_VISIBILITY = "public" as const;
 
-/**
- * Player gender values as stored on `playerProfile.gender` (pt-BR labels,
- * see convex/domains/player/contract.ts). `mixed` requires one of each.
- */
+/** Gênero do jogador como gravado em `playerProfile.gender` (rótulos pt-BR). */
 export const PLAYER_GENDER_MALE = "Masculino";
 export const PLAYER_GENDER_FEMALE = "Feminino";
 
@@ -169,18 +166,11 @@ export const tournamentCategorySchema = z.object({
 });
 
 /**
- * Discovery category (IBX-0074 r27): the organizer read
- * (`management.getById`) keeps the plain shape; the player-facing detail
- * adds the CALLER gate per category, computed server-side by
- * `resolveCallerEligibility` — the client filters/labels the selector from
- * these flags instead of re-implementing the rule. `viewerEligible` is
- * null when nobody is gated (organizer/guest viewer: no active player
- * profile), false only with `viewerIneligibleReason` filled. That field is
- * a SHORT badge label (≤2 palavras: "Mulheres" na categoria feminina vista
- * por um homem, "Homens" no inverso), NOT the long refusal sentence — the
- * sentence lives in the `create` error (micro-ajuste de copy 20-09: o chip
- * não cabe uma frase). The legacy profile-without-gender refusal has NO
- * badge: it arrives as null while `viewerEligible` is false.
+ * A categoria exposta ao jogador acrescenta o gate do CALLER. `viewerEligible`
+ * é null quando ninguém é barrado (organizador/convidado sem perfil ativo) e
+ * false só com `viewerIneligibleReason`: um CHIP de até 2 palavras ("Mulheres"
+ * na feminina vista por um homem), nunca a frase longa da recusa, que vive no
+ * erro do `create`. Perfil sem gênero (legado) não tem chip.
  */
 export const tournamentDiscoveryCategorySchema =
   tournamentCategorySchema.extend({
@@ -212,8 +202,8 @@ export const tournamentSchema = z.object({
 
 export const tournamentDiscoverySchema = tournamentSchema.extend({
   activeEntryCount: z.number().int().nonnegative(),
-  // Gap 2: public detail surface — the discovery page needs the category
-  // chips (fee/vacancies) for guests/players, not just the organizer.
+  // A página de descoberta também mostra os chips de categoria (taxa/vagas)
+  // para convidados e jogadores, não só para o organizador.
   categories: z.array(tournamentDiscoveryCategorySchema),
   isTournamentOrganizer: z.boolean(),
   viewerEntryIds: z.array(z.string()),
@@ -240,9 +230,8 @@ export const SetEntrySeedSchema = z.object({
   seedRank: z.number().int().min(1).nullable(),
 });
 
-// IBX-0035 (PLN-0004): round where the entry enters the bracket. Only
-// meaningful together with a seed (draw places it via slotOfSeed at the
-// entry round); full completability validation runs at draw time.
+// Rodada em que a inscrição entra na chave: só faz sentido junto com um seed
+// (o sorteio a posiciona a partir daí) e a validação de completude roda lá.
 export const SetEntryRoundSchema = z.object({
   entryId: z.string().min(1),
   entryRound: z.number().int().min(1).nullable(),
@@ -278,12 +267,11 @@ export const tournamentEntryWithPlayersSchema = tournamentEntrySchema.extend({
 export const tournamentMatchScoreSetSchema = z.object({
   aGames: z.number().int().min(0),
   bGames: z.number().int().min(0),
-  // REWORK-2 (10/09): placar manual LIVRE — 'tiebreak' é linha avulsa de
-  // pontos (sem relação de forma com o set anterior).
+  // Placar manual LIVRE: 'tiebreak' é uma linha avulsa de pontos, sem
+  // relação de forma com o set anterior.
   kind: z.enum(["set", "tiebreak", "super_tiebreak"]),
-  // IBX-0034 (PLN-0003): optional tie-break mini-score (A/B vocabulary —
-  // the league validator runs on the mapped challenger/challenged shape).
-  // nullish: client drafts naturally carry null when unset.
+  // Mini-placar de tie-break opcional, no vocabulário A/B; nullish porque o
+  // rascunho do cliente traz null enquanto não preenchido.
   tieBreak: z
     .object({
       aPoints: z.number().int().min(0),
@@ -294,9 +282,8 @@ export const tournamentMatchScoreSetSchema = z.object({
 
 export const tournamentMatchScoreSchema = z.object({
   sets: z.array(tournamentMatchScoreSetSchema).min(1),
-  // REWORK-2 (10/09): vencedor EXPLÍCITO do payload — obrigatório só quando
-  // as linhas empatam; null quando o placar resolve (derivação por linhas
-  // vencidas, ver validateTournamentMatchScore).
+  // Vencedor EXPLÍCITO do payload: obrigatório só quando as linhas empatam;
+  // null quando o placar resolve (derivação por linhas vencidas).
   winnerEntryId: z.string().min(1).nullish(),
 });
 export const PublishMatchResultSchema = z
@@ -306,9 +293,8 @@ export const PublishMatchResultSchema = z
     walkover: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
-    // M4: a walkover declares a winner WITHOUT a played score — exactly one
-    // placeholder set. The winner-must-be-a-side guard runs in code against
-    // the stored entryAId/entryBId (the contract cannot see them).
+    // W.O. declara o vencedor SEM placar jogado: exatamente um set
+    // placeholder. O guarda de "vencedor é um dos lados" roda em código.
     if (value.walkover && value.score.sets.length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -316,7 +302,7 @@ export const PublishMatchResultSchema = z
         path: ["score"],
       });
     }
-    // IBX-0034: the W.O. placeholder carries no tie-break mini-score either.
+    // O placeholder do W.O. também não carrega mini-placar de tie-break.
     if (value.walkover && value.score.sets.some((set) => set.tieBreak)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -326,8 +312,7 @@ export const PublishMatchResultSchema = z
     }
   });
 
-// IBX-0028: the organizer's single edit endpoint for a PUBLISHED result —
-// same payload shape as publish (score/walkover), different lifecycle guards.
+// Mesmo payload do publish; o que muda são os guardas de ciclo de vida.
 export const EditMatchResultSchema = PublishMatchResultSchema;
 
 export const ScheduleTournamentMatchSchema = z.object({
@@ -338,7 +323,6 @@ export const ScheduleTournamentMatchSchema = z.object({
   startMinute: z.number().int().min(0).max(1440),
 });
 
-/** Occupied court slot for the schedule dialog (BUG-0027 contract). */
 export const tournamentMatchOccupiedSlotSchema = z.object({
   courtId: z.string().min(1, "Quadra inválida."),
   endMinute: z.number().int(),
@@ -354,10 +338,8 @@ export type TournamentEntryWithPlayers = z.infer<
 
 export const SwapBracketSlotsSchema = z.object({
   categoryId: z.string().min(1, "Categoria inválida."),
-  // IBX-0053: the move addresses TWO coordinates (round, slot in the round,
-  // side). Same-round = roundA === roundB at the same call site; a cross-round
-  // move (roundA !== roundB) is drawn-only. Direct phase entries make round
-  // >= 2 sides occupiable at draw time (IBX-0035).
+  // O movimento endereça duas coordenadas (rodada, slot, lado); rodadas
+  // iguais = troca na mesma rodada, diferentes = só na chave sorteada.
   roundA: z.number().int().min(1),
   roundB: z.number().int().min(1),
   sideA: z.enum(["a", "b"]),

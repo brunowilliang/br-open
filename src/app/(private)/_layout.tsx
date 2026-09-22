@@ -1,12 +1,9 @@
 import { Stack } from "expo-router";
 import { useThemeColor } from "heroui-native";
 
-// Without `initialRouteName`, the Stack has no default screen when the
-// `Stack.Protected` guard in the root layout mounts this group after login.
-// The only explicitly-declared `Stack.Screen` is `checkout/[chargeId]`, so
-// React Navigation falls back to it as the first route — landing the user on
-// the payment screen instead of the home tabs. Pinning `(tabs)` as the
-// initial route makes the post-login landing deterministic.
+// Without `initialRouteName`, React Navigation falls back to the only
+// explicitly-declared `Stack.Screen` — `checkout/[chargeId]` — as first route
+// when this group mounts after login, landing the user on the payment screen.
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
@@ -22,12 +19,9 @@ export default function Layout() {
       <Stack.Screen
         name="checkout/[chargeId]"
         options={{
-          // Checkout is reached from deeply nested routes (league detail
-          // has its own Tabs navigator) and from flat routes (settings).
-          // `presentation: "modal"` opens it as a full-screen overlay above
-          // the current screen — the underlying navigator stays mounted, so
-          // there's no "blink" from the nested Tabs/Stack unwinding before
-          // the checkout fade opens.
+          // `presentation: "modal"` opens a full-screen overlay above the
+          // current screen: the underlying navigator stays mounted, so deeply
+          // nested Tabs/Stack don't unwind and blink before the fade opens.
           animation: "fade",
           presentation: "fullScreenModal",
         }}

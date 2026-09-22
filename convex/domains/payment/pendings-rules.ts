@@ -11,22 +11,13 @@ import {
   shouldSendRenewalReminder,
 } from "./rules";
 
-// ---------------------------------------------------------------------------
-// Pendencias do dominio de PAGAMENTO (IBX-0076)
-// ---------------------------------------------------------------------------
-//
-// Regras PURAS (dado -> item, sem ctx). A copy e literal da galeria aprovada
-// (`AlertsVariantsSection`, cartoes 1, 2, 3 e 10) — que por sua vez veio do
-// builder real do app (`src/lib/leagues/league-details-derived.ts`), com o CTA
-// reduzido a UMA palavra pela regra aprovada.
-//
-// O vinculo mensalidade -> vencimento e o do dominio (`membershipDueMsFromCharge`
-// em `./membership-billing.ts`): quem chama resolve o `dueAtMs` e passa aqui.
+// Regras PURAS (dado -> item, sem ctx). A copy espelha o builder real do app
+// (`src/lib/leagues/league-details-derived.ts`) e o vinculo mensalidade ->
+// vencimento vem de `membershipDueMsFromCharge`: quem chama resolve o `dueAtMs`.
 
 /**
- * Rotulo pt-BR do vencimento no CALENDARIO DO BRASIL (UTC-3), sem ICU: a
- * mensagem do servidor tem de sair identica ao que o app mostrava com
- * `Intl.DateTimeFormat` no aparelho — "23 de set. de 2026".
+ * Rotulo pt-BR do vencimento no CALENDARIO DO BRASIL (UTC-3), sem ICU: tem de
+ * sair identico ao `Intl.DateTimeFormat` do aparelho — "23 de set. de 2026".
  */
 const BRAZIL_MONTH_ABBREVIATIONS = [
   "jan.",
@@ -49,9 +40,8 @@ function formatBrazilShortDate(ms: number) {
 }
 
 /**
- * Dias que faltam para o vencimento no calendario do Brasil: "hoje", "amanha"
- * ou "em N dias" — mesma conta e mesmo texto do app
- * (`src/lib/payments/membership-due.ts`, sobre `renewalDaysLeft`).
+ * Mesma conta e mesmo texto do app (`src/lib/payments/membership-due.ts`, sobre
+ * `renewalDaysLeft`).
  */
 function formatBrazilDueDayLabel(dueAtMs: number, nowMs: number) {
   const daysLeft = renewalDaysLeft({ nextDueMs: dueAtMs, nowMs });
@@ -78,10 +68,9 @@ export type MembershipPaymentPendingInput = {
 };
 
 /**
- * Pendencia de pagamento da MENSALIDADE da liga (cartoes 1, 2 e 3): atrasada
- * (`payment_due`, warning), a vencer dentro da janela de lembrete da liga
- * (`active`, warning) e suspensa por falta de pagamento (`suspended`, danger).
- * `null` nos demais status (a liga gratis nao gera pendencia de pagamento).
+ * Mensalidade da liga: atrasada (`payment_due`, warning), a vencer na janela de
+ * lembrete (`active`, warning) e suspensa (`suspended`, danger). `null` nos
+ * demais status — liga gratis nao gera pendencia de pagamento.
  */
 export function buildMembershipPaymentPending(
   input: MembershipPaymentPendingInput
@@ -116,14 +105,11 @@ export function buildMembershipPaymentPending(
   }
 
   if (input.membershipStatus === LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED) {
-    // O CTA vive no PROPRIO item (decisao de 21-09, IBX-0084): o MESMO item e
-    // renderizado pelo `PendingAlerts` em 6 superficies e so a CASA da liga tem
-    // rodape de entrada — na home o alerta era beco sem saida (a copy manda
-    // renovar sem afordancia). `Renovar` e a MESMA acao dos kinds 1 e 2
-    // (`canMembershipBeCharged` aceita `suspended`), entao nao nasce caminho de
-    // pagamento novo. O motivo do BUG-0042 (dois botoes de pagamento para a
-    // mesma membership na MESMA tela) segue valendo e passa a ser resolvido do
-    // lado da TELA: a casa da liga nao renderiza mais o pagamento no rodape.
+    // O CTA vive no PROPRIO item: o mesmo item e renderizado pelo
+    // `PendingAlerts` em 6 superficies e so a casa da liga tem rodape de
+    // entrada — na home o alerta ficava sem afordancia. `Renovar` e a MESMA
+    // acao dos kinds 1 e 2 (`canMembershipBeCharged` aceita `suspended`), entao
+    // nao nasce caminho de pagamento novo.
     return {
       ...base,
       actionLabel: "Renovar",
@@ -147,9 +133,7 @@ export function buildMembershipPaymentPending(
     return null;
   }
 
-  // Janela de lembrete da liga: a MESMA regra do lembrete de renovacao
-  // (`shouldSendRenewalReminder`), que e o corte por duracao do builder do app
-  // (vencimento no futuro e a no maximo `reminderDaysBefore` dias).
+  // Mesma regra do lembrete de renovacao (`shouldSendRenewalReminder`).
   if (
     !shouldSendRenewalReminder({
       nextDueMs: input.dueAtMs,
@@ -184,10 +168,9 @@ export function buildMembershipPaymentPending(
 }
 
 /**
- * Pendencia da CONTA DE PAGAMENTO da organizacao (cartao 10): a liga paga que
- * nao consegue cobrar porque a conta Woovi da organizacao nao esta ativa. A
- * regra real exige liga com mensalidade (`hasPaidPrice`) — quem chama so passa
- * ligas com preco; o CTA leva aos ajustes DAQUELA liga, onde a conexao vive.
+ * Liga paga que nao consegue cobrar porque a conta da organizacao nao esta
+ * ativa: quem chama so passa ligas com preco, e o CTA leva aos ajustes DAQUELA
+ * liga, onde a conexao vive.
  */
 export function buildLeaguePaymentAccountPending(input: {
   leagueId: string;

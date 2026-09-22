@@ -21,16 +21,10 @@ type PlayerOverviewProps = {
   tournament: TournamentOverview;
 };
 
-/**
- * Casa do torneio para o jogador: alertas de pendência das PROPRIAS
- * inscrições (pagamento, convite) e o "Próximo jogo" (ScheduleCard, o mesmo
- * card das agendas). Derivado do que a página já carrega — nenhuma query nova.
- *
- * O bloco "Suas inscrições" com ações morava aqui e MIGROU para o segmento
- * "Minhas" da aba Inscrições no IBX-0080 (decisão do usuário: as ações da
- * própria inscrição — cancelar, responder convite e pagar — vivem na aba
- * Inscrições, junto do resto da lista).
- */
+/** Casa do torneio para o jogador: alertas de pendência das PRÓPRIAS inscrições
+ * e o "Próximo jogo" (`ScheduleCard`). Derivado do que a página já carrega —
+ * nenhuma query nova. As ações da própria inscrição (cancelar, responder convite
+ * e pagar) vivem na aba Inscrições, não aqui. */
 export function PlayerOverview(props: PlayerOverviewProps) {
   const { tournament } = props;
   const bucket$ = getTournamentDetailsBucket$(tournament.id);
@@ -86,10 +80,8 @@ export function PlayerOverview(props: PlayerOverviewProps) {
 
   return (
     <View className="gap-2">
-      {/* Pendências/alertas do SERVIDOR (IBX-0076 / PLN-0008): o recorte deste
-          torneio vem do bucket e a copy/ordem/rota são do item — os alertas
-          derivados no cliente (`awaitingPaymentCount`, `pendingInvite`) foram
-          extintos no cutover. */}
+      {/* Pendências/alertas do SERVIDOR: o recorte deste torneio vem do bucket e
+          a copy/ordem/rota são do item. */}
       <PendingAlerts
         isError={pendingsStatus === "error"}
         isLoading={pendingsStatus === "loading"}

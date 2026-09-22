@@ -36,12 +36,11 @@ import {
 
 type CategoryInput = z.infer<typeof CreateTournamentSchema>["categories"];
 /**
- * Category sync by DIFF (H2 fix) — categories are keyed by their natural
- * pair (modality, gender; backed by uniqueIndex). Never delete+recreate:
- * the cascade would wipe entries/matches of published tournaments and
- * orphan paid charges with no refund. Instead: UPDATE kept pairs (fee/
- * caps, with a capacity floor), DELETE only removed pairs with zero
- * entries (with entries the caller gets a clear error), INSERT new pairs.
+ * Category sync by DIFF: categories are keyed by their natural pair (modality,
+ * gender; backed by uniqueIndex), so never delete+recreate — the cascade would
+ * wipe entries/matches of published tournaments and orphan paid charges with no
+ * refund. Instead: UPDATE kept pairs (fee/caps, with a capacity floor), DELETE
+ * only removed pairs with zero entries (otherwise a clear error), INSERT new ones.
  */
 async function syncCategories(
   ctx: OrmMutationCtx,

@@ -77,12 +77,9 @@ export type LeagueDetailsRulesView = {
   };
 };
 
-/**
- * `payment_due` (membro em carência) SEGUE membro: o pagamento está atrasado,
- * mas o acesso permanece até o fim da carência e o aviso de pagamento com o
- * CTA de pagar vive no overview de membro (IBX-0039). `awaiting_payment`
- * (entrada ainda não ativada) e `suspended` seguem como visitante.
- */
+// `payment_due` (carência) SEGUE membro: o acesso permanece até o fim do
+// prazo, e o CTA de pagar vive no overview de membro. `awaiting_payment` e
+// `suspended` seguem como visitante.
 export function buildLeagueDetailsRole(input: {
   canUseOrganizerCapabilities: boolean;
   isLeagueOrganizer: boolean;
@@ -162,35 +159,19 @@ export function buildLeagueDetailsCanRequestJoin(input: {
   return input.canJoinLeagues && input.role === "guest" && !isAwaitingAction;
 }
 
-/**
- * Quando o rodapé da liga vira atalho direto para o checkout em vez de
- * solicitar entrada. Hoje vale só para a entrada ainda não ativada
- * (`awaiting_payment`), que é o único sub-estado do rodapé com ação de
- * pagamento nele. Desde o IBX-0039 o `payment_due` é membro e o CTA dele vive
- * no aviso de pagamento do overview, não no rodapé; desde o IBX-0084 o
- * `suspended` não passa mais por aqui — a ação dele (Renovar, a MESMA
- * `payment.charge.createCharge`) vive no alerta da casa e o rodapé dele sai da
- * tela (buildLeagueDetailsShowJoinFooter, abaixo).
- */
+// Só `awaiting_payment` (entrada ainda não ativada) tem ação de PAGAMENTO no
+// rodapé — vira atalho de checkout em vez de solicitar entrada. O `payment_due`
+// é membro e o do `suspended` vive no alerta, fora do rodapé.
 export function buildLeagueDetailsCanResumeCheckout(input: {
   viewerMembershipStatus: null | string | undefined;
 }) {
   return input.viewerMembershipStatus === "awaiting_payment";
 }
 
-/**
- * Se o rodapé fixo de ENTRADA da liga (molde liga do `JoinFooter`: chip de
- * vagas + preço + CTA) monta na tela. Ele é a superfície de adesão do
- * VISITANTE: monta para quem PODE entrar (`canJoinLeagues`, a capacidade do
- * viewer) no papel `guest`, menos no membro SUSPENSO — desde o IBX-0084 a ação
- * dele (Renovar) vive no alerta da própria casa e o rodapé sairia com um
- * SEGUNDO botão de pagamento da MESMA membership na MESMA tela (o BUG-0042).
- *
- * O input `canJoinLeagues` é o MESMO de `buildLeagueDetailsCanRequestJoin` e
- * FALHA FECHADO (`=== true`): sem a capacidade o rodapé não monta — quem não
- * pode entrar não recebe superfície de adesão (o HEAD já era assim; o gate de
- * capacidade do CTA desabilitado segue no `isActionDisabled` da tela).
- */
+// Rodapé de adesão do VISITANTE: falha fechado (`canJoinLeagues === true`) —
+// sem a capacidade ele não monta em nenhum estado. Não monta para o suspenso
+// (o Renovar dele vive no alerta), senão a tela teria um SEGUNDO botão de
+// pagamento da MESMA membership.
 export function buildLeagueDetailsShowJoinFooter(input: {
   canJoinLeagues?: boolean;
   role: LeagueDetailsRole;

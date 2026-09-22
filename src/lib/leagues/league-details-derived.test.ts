@@ -310,8 +310,8 @@ describe("buildLeagueDetailsCanResumeCheckout", () => {
   });
 
   it("does not offer the footer shortcut to the suspended or to members in grace period", () => {
-    // O suspenso tem o Renovar no alerta (IBX-0084): o rodapé não é o caminho
-    // de pagamento dele.
+    // O suspenso tem o Renovar no alerta: o rodapé não é o caminho de
+    // pagamento dele.
     expect(
       buildLeagueDetailsCanResumeCheckout({
         viewerMembershipStatus: "suspended",
@@ -379,10 +379,8 @@ describe("buildLeagueDetailsShowJoinFooter", () => {
   });
 
   it("hides the join footer for EVERY status when the viewer cannot join leagues", () => {
-    // O gate de capacidade volta a valer no rodapé (MEDIO-1 do review do
-    // IBX-0084): sem `canJoinLeagues` (ator organização) o rodapé não monta em
-    // NENHUM estado — é a paridade com o HEAD, que já era `canJoinLeagues &&
-    // role === "guest"`.
+    // Sem `canJoinLeagues` (ator organização) o rodapé não monta em NENHUM
+    // estado: o gate de capacidade falha fechado.
     for (const viewerMembershipStatus of [
       null,
       "active",

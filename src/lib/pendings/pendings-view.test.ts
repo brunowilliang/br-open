@@ -40,8 +40,6 @@ function buildAction(overrides: Partial<PendingAction>): PendingAction {
 
 describe("PENDING_ALERT_STATUS", () => {
   it("maps every server severity to an alert status the component has", () => {
-    // O alerta não tem `info`: os cartões aprovados mostram os itens `info` no
-    // accent, e `warning`/`danger` mantêm o nome da severidade.
     expect(PENDING_ALERT_STATUS).toEqual({
       danger: "danger",
       info: "accent",
@@ -72,8 +70,7 @@ describe("resolvePendingAction", () => {
 
   it("has no action when the item has no action or the route is missing", () => {
     expect(resolvePendingAction(buildItem({}))).toBeNull();
-    // `open_route` é o ÚNICO tipo que exige `route`: sem ele não há destino e o
-    // renderer omite o botão (nunca botão morto).
+    // `open_route` é o único tipo que exige `route`: sem destino não há botão.
     expect(
       resolvePendingAction(
         buildItem({ action: buildAction({ type: "open_route" }) })
@@ -146,8 +143,7 @@ describe("resolvePendingAction", () => {
   });
 
   it("charges the membership from the action params when the item has no source", () => {
-    // Caminho da NOTIFICAÇÃO (IBX-0077): o item do feed não tem `source` de
-    // membership, o id viaja em `action.params.membershipId`.
+    // Item do feed não tem `source` de membership: o id viaja em `params`.
     expect(
       resolvePendingAction(
         buildItem({
@@ -191,8 +187,6 @@ describe("resolvePendingAction", () => {
   });
 
   it("has no membership decision without the league the mutation requires", () => {
-    // `league.membership.approve|reject` exigem `{ leagueId, membershipId }`:
-    // sem a liga o botão não é desenhado, nunca uma mutation quebrada.
     expect(
       resolvePendingAction(
         buildItem({

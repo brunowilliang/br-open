@@ -16,8 +16,8 @@ export async function applyChallengeRankingResult(input: {
   challenge: LeagueChallengeRecord;
   ctx: OrmMutationCtx;
   currentLeague: League;
-  // REWORK-2: placar JÁ RESOLVIDO — todas as mutations validam antes de
-  // chegar aqui (o vencedor pode vir do placar ou do explícito do payload).
+  // Placar JÁ RESOLVIDO: as mutations validam antes de chegar aqui (o vencedor
+  // pode vir do placar ou do explícito do payload).
   score: ResolvedLeagueChallengeScore;
 }) {
   const activeMemberships = await input.ctx.orm.query.leagueMembership.findMany(
@@ -113,7 +113,7 @@ export async function recordOrganizerChallengeAction(input: {
   ctx: OrmMutationCtx;
   fromStatus: LeagueChallengeStatus;
   performedByUserId: Id<"user">;
-  /** IBX-0028: resumo JSON da edição (antes/depois) para trilha de auditoria. */
+  /** Resumo JSON da edição (antes/depois) para trilha de auditoria. */
   reason?: string;
   toStatus: LeagueChallengeStatus;
 }) {

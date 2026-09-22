@@ -15,12 +15,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useState } from "react";
 
-/**
- * Página "Login e segurança": Segurança e Contas vinculadas em ListGroups no
- * padrão de settings/index.tsx (RUL-0006: linhas com ícone no ItemPrefix,
- * título + descrição, Separator entre linhas, ações no ItemSuffix). A rota é
- * dona das queries (sessão + contas) e dos dialogs liftados.
- */
+// Linhas no padrão de settings/index.tsx: ItemPrefix com ícone, título +
+// descrição, Separator entre linhas, ações no ItemSuffix.
 export default function SettingsSecurityRoute() {
   const session = authClient.useSession();
   const currentEmail = session.data?.user?.email;

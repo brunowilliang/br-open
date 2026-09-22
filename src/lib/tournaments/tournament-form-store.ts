@@ -7,8 +7,7 @@ import {
 export type TournamentMediaKind = MediaFormKind;
 export type TournamentFormMode = MediaFormMode;
 
-// Shared media-form draft machinery (RUL-0005) — same backing as the league
-// wizard; only the default title is tournament-specific.
+// Draft de mídia compartilhado com o wizard da liga; só o título muda.
 export const tournamentMediaFormDomain = createMediaFormDomain({
   defaultTitle: "Criar Torneio",
 });

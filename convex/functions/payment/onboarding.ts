@@ -14,10 +14,8 @@ import type { Id } from "../_generated/dataModel";
 import { requireActiveManager } from "../viewer/context";
 
 const startOnboardingInput = z.object({
-  // Display name of the account holder (IBX-0002) — shown on the withdraw
-  // destination. Optional for backward compat with the current client
-  // (`start({ pixKey })`); the new form always sends it. Persisted as null
-  // when absent (existing keys have no name).
+  // Display name do titular — mostrado no destino do saque. Opcional para
+  // seguir aceitando `start({ pixKey })`; ausente é persistido como null.
   accountName: z.string().trim().min(1).max(80).optional(),
   pixKey: z.string().min(1, "Informe a chave PIX."),
 });

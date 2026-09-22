@@ -1,12 +1,10 @@
 /**
  * Player personal dashboard rules — pure functions only.
  *
- * IBX-0071: the player home dash consolidates leagues + tournaments for the
- * viewer. Every rule here takes small typed projections (no ORM records, no
- * ctx) so the aggregation in `functions/player/dashboard.ts` stays a thin
- * wiring layer. Month/day boundaries follow the repo product calendar
- * (Brazil, UTC-3 fixed — `BRAZIL_UTC_OFFSET_MS` in `payment/rules.ts`, the
- * same convention as the renewal reminders and tournament auto-start).
+ * Every rule takes small typed projections (no ORM records, no ctx) so the
+ * aggregation in `functions/player/dashboard.ts` stays a thin wiring layer. The
+ * product calendar is Brazil, fixed UTC-3 (`BRAZIL_UTC_OFFSET_MS`), same
+ * convention as the renewal reminders.
  */
 
 import { BRAZIL_UTC_OFFSET_MS, buildBrazilMonthKey } from "../payment/rules";
@@ -20,10 +18,9 @@ export function brazilDayKey(ms: number): string {
 }
 
 /**
- * Whether the subject won their side of a decided match/challenge. `null`
- * when the result carries no winner yet (pending/undecided rows are never
- * counted as either outcome). One rule for both domains: the league compares
- * membership ids, the tournament entry ids — the shape is the same.
+ * Whether the subject won their side of a decided match/challenge; `null` when
+ * the result carries no winner yet (pending rows are never an outcome). One rule
+ * for both domains: the league compares membership ids, the tournament entry ids.
  */
 export function classifyResultOutcome(args: {
   subjectId: string;
@@ -44,11 +41,8 @@ export type DashResult = {
   outcome: "loss" | "win";
 };
 
-/**
- * Bucket results into the given month keys (ascending), counting wins and
- * losses per month. Results outside the window are dropped — the window is
- * the contract, so totals and the series always agree.
- */
+/** Bucket results into the given month keys: results outside the window are dropped, so the totals
+ * and the series always agree. */
 export function bucketResultsByMonth(input: {
   monthKeys: string[];
   results: DashResult[];
@@ -81,13 +75,9 @@ export type PositionSnapshotInput = {
   rankingSnapshotAfterResult: null | string[];
 };
 
-/**
- * The viewer's position over time in one league, reconstructed from the
- * league-wide snapshots written after each finished challenge
- * (`rankingSnapshotAfterResult`). Points without the member in the snapshot
- * or without any timestamp are skipped; the timestamp is the applied time
- * falling back to `finishedAt`. Same-instant points keep the last snapshot.
- */
+/** The viewer's position over time in one league, from the league-wide snapshots written after
+ * each finished challenge. Points missing the member in the snapshot or any timestamp are skipped;
+ * the timestamp falls back to `finishedAt`, and same-instant points keep the last snapshot. */
 export function buildPositionSeries(input: {
   challenges: PositionSnapshotInput[];
   membershipId: string;
@@ -124,12 +114,8 @@ export function buildPositionSeries(input: {
   };
 }
 
-/**
- * The most frequent doubles partner across the player's entries (both sides
- * counted: the player may be playerA or the invited playerB). Cancelled and
- * singles entries are ignored. Deterministic tie-break: most recent entry
- * first, then profile id ascending.
- */
+/** The most frequent doubles partner across the player's entries, either side counted. Cancelled and
+ * singles entries are ignored. Deterministic tie-break: most recent entry first, then profile id. */
 export function findMostFrequentPartner(input: {
   entries: {
     createdAtMs: number;
@@ -178,11 +164,8 @@ export function findMostFrequentPartner(input: {
   );
 }
 
-/**
- * Count of ACTIVE entries per category id — the "entries by category"
- * distribution (doc decision: active only; pending/cancelled rows are not
- * a confirmed entry).
- */
+/** Count of ACTIVE entries per category id — active only, since a pending or cancelled row is not
+ * a confirmed entry. */
 export function countActiveEntriesByCategory(input: {
   entries: { categoryId: string; status: string }[];
 }): Map<string, number> {
@@ -202,12 +185,8 @@ export type UpcomingMatchCandidate = {
   startMinute: number;
 };
 
-/**
- * Order + cut of the upcoming list: by date, then start minute, capped.
- * Both domains push freely and the NEAREST matches win regardless of origin
- * (review M2: a player loaded with scheduled league challenges must still
- * see their nearer tournament match).
- */
+/** Order + cut of the upcoming list: by date, then start minute, capped. Both domains push freely
+ * and the NEAREST matches win regardless of origin. */
 export function selectUpcomingMatches<T extends UpcomingMatchCandidate>(input: {
   limit: number;
   matches: T[];

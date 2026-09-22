@@ -16,12 +16,8 @@ type PersonCardProps = {
   username?: string;
 };
 
-/**
- * Cardzinho de pessoa (IBX-0074 round 11): foto + nome + @username,
- * extraído VERBATIM do join-footer (trigger do autocomplete e
- * rows do diálogo, rounds 6-10). Sem nome/username = estado vazio com
- * placeholders no lugar dos dados (desenho do usuário sobre a extração).
- */
+/** Foto + nome + @username. Sem nome/username = estado vazio com placeholders
+ * no lugar dos dados. */
 export function PersonCard(props: PersonCardProps) {
   if (!(props.fullName && props.username)) {
     return (

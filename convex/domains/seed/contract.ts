@@ -50,9 +50,9 @@ export type ParticipantScenarioResult = z.infer<
 >;
 
 /**
- * Cenario de PENDENCIAS (IBX-0090): cria, na conta do email informado, o estado
- * que faz a home mostrar o maximo de kinds das duas superficies. O email e
- * obrigatorio de proposito — o cenario nunca roda "na conta errada" por engano.
+ * Cenario de PENDENCIAS: cria, na conta do email informado, o estado que faz a
+ * home mostrar o maximo de kinds das duas superficies. O email e obrigatorio de
+ * proposito — o cenario nunca roda "na conta errada" por engano.
  */
 export const PendencyScenarioSchema = z.object({
   primaryUserEmail: z.string().email(),

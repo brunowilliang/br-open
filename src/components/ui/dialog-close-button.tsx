@@ -10,15 +10,9 @@ type DialogCloseButtonProps = {
   isDisabled?: boolean;
 };
 
-/**
- * Botão de fechar GLOBAL dos dialogs (RUL-0005): renderiza um `Button` puro
- * icon-only `tertiary` `size="sm"` com o `Cancel01Icon` do HugeIcons. O
- * fechamento usa o MESMO mecanismo interno do dialog — o contexto do root
- * (`useDialog().onOpenChange(false)`, exportado pela lib) —, sem envolver o
- * `Dialog.Close`. Não precisa receber callback: mantém a posição passada em
- * `className` (RUL-0008: absoluto ancora no pai direto, que segue sendo o
- * `Dialog.Content`).
- */
+/** Fecha pelo contexto do root (`useDialog().onOpenChange(false)`), sem passar
+ * pelo `Dialog.Close` — não precisa receber callback. O `className` traz a
+ * posição: absoluto em RN ancora no pai DIRETO, que aqui é o `Dialog.Content`. */
 export function DialogCloseButton(props: DialogCloseButtonProps) {
   const { onOpenChange } = useDialog();
 

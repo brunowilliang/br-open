@@ -1,30 +1,8 @@
-/**
- * Payment charge business rules — pure functions only.
- *
- * These centralize the state-machine + validation + split-math logic that
- * used to live inline inside `functions/payment/charge.ts`. Each function
- * takes a small typed input object and returns a value or boolean, with no
- * side effects. This mirrors the pattern of
- * `convex/domains/league/membership-rules.ts`.
- *
- * Status reference: `PAYMENT_CHARGE_STATUSES` in `./contract.ts`
- * (`PENDING`, `PAID`, `EXPIRED`, `REFUNDED`, `FAILED`).
- */
-
 import { LEAGUE_MEMBERSHIP_STATUSES } from "../league/contract";
 import type { PaymentChargeStatus, SplitConfig } from "./contract";
 
-/**
- * How long a PIX charge stays valid after creation, in seconds.
- * Used both when creating the charge (passed to Woovi as `expiresIn`) and
- * when computing the local `expiresAt` timestamp.
- */
+/** PIX validity, in seconds: the same value goes to Woovi as `expiresIn`. */
 export const CHARGE_EXPIRES_IN_SECONDS = 3600; // 1 hour
-
-// ---------------------------------------------------------------------------
-// Status string constants — single source of truth, no magic strings in
-// function files.
-// ---------------------------------------------------------------------------
 
 export const CHARGE_STATUS_PENDING =
   "PENDING" as const satisfies PaymentChargeStatus;
@@ -36,33 +14,18 @@ export const CHARGE_STATUS_REFUNDED =
 export const CHARGE_STATUS_FAILED =
   "FAILED" as const satisfies PaymentChargeStatus;
 
-// ---------------------------------------------------------------------------
-// Charge transition guards
-// ---------------------------------------------------------------------------
-
 type ChargeLike = { status: string };
 
-/**
- * A charge can only be marked PAID when it is currently PENDING.
- * Refunded/expired/failed charges cannot be paid again.
- */
 export function canChargeBePaid(charge: ChargeLike): boolean {
   return charge.status === CHARGE_STATUS_PENDING;
 }
 
-/**
- * A charge can be marked EXPIRED only when it is still PENDING (avoid
- * expiring an already-PAID charge after the webhook lands late).
- */
 export function canChargeBeExpired(charge: ChargeLike): boolean {
   return charge.status === CHARGE_STATUS_PENDING;
 }
 
-/**
- * Refunds are allowed from PAID only (you can't refund a charge that was
- * never collected). We also accept EXPIRED defensively so a late refund
- * webhook for a charge we already expired locally still reconciles.
- */
+/** PAID only, plus EXPIRED defensively so a late refund webhook for a
+ * locally-expired charge still reconciles. */
 export function canChargeBeRefunded(charge: ChargeLike): boolean {
   return (
     charge.status === CHARGE_STATUS_PAID ||
@@ -70,17 +33,9 @@ export function canChargeBeRefunded(charge: ChargeLike): boolean {
   );
 }
 
-/**
- * Whether a charge still carries a usable PIX: PENDING and not past its
- * `expiresAt`.
- *
- * One rule behind both ends of the checkout (BUG-0025): the charge
- * `createCharge` reuses and the `pendingCharge` the checkout resolves, so the
- * screen can only ever show a PIX that "Gerar novo Pix" would also hand back.
- *
- * A PENDING charge past its expiration is NOT usable even before the hourly
- * sweeper flips it to EXPIRED — the provider refuses the payment.
- */
+/** Single predicate behind both checkout ends (the charge `createCharge`
+ * reuses and the screen's `pendingCharge`). A PENDING charge past `expiresAt`
+ * is unusable already — the provider refuses it before the sweeper runs. */
 export function hasUsablePix(args: {
   charge: { expiresAt: null | Date; status: string } | null | undefined;
   nowMs: number;
@@ -93,10 +48,6 @@ export function hasUsablePix(args: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Membership charge precondition
-// ---------------------------------------------------------------------------
-
 type MembershipLike = { status: string };
 
 const CHARGEABLE_MEMBERSHIP_STATUSES: ReadonlySet<string> = new Set([
@@ -105,19 +56,9 @@ const CHARGEABLE_MEMBERSHIP_STATUSES: ReadonlySet<string> = new Set([
   LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED,
 ]);
 
-/**
- * Whether a membership is in a state where a PIX charge can be created
- * or validated against it.
- *
- * Accepts `awaiting_payment` (initial charge), `payment_due` (grace period —
- * player is generating a new charge before the cycle lapses), and `suspended`
- * (player was suspended for non-payment and is re-paying to reactivate).
- *
- * Early renewal (IBX-0039): an `active` membership is also chargeable while the
- * league renewal window is open — pass `renewal` with the current due date to
- * enable it. Without `renewal` (callers that don't resolve the billing cycle),
- * `active` stays non-chargeable, which is the pre-IBX-0039 behaviour.
- */
+/** `awaiting_payment`, `payment_due` and `suspended` are chargeable; `active`
+ * only with `renewal` (the current due date) inside the league window —
+ * callers that don't resolve the billing cycle keep it non-chargeable. */
 export function canMembershipBeCharged(
   membership: MembershipLike,
   renewal?: null | {
@@ -137,21 +78,7 @@ export function canMembershipBeCharged(
   return isWithinRenewalWindow(renewal);
 }
 
-// ---------------------------------------------------------------------------
-// Provider (Woovi) → domain status normalization
-// ---------------------------------------------------------------------------
-
-/**
- * Maps a provider charge status string onto our `PaymentChargeStatus` enum.
- *
- * Woovi statuses (from the 2026-07-02 PoC + developers.woovi.com):
- *   ACTIVE      — charge created, awaiting payment  → PENDING
- *   COMPLETED   — payment received                  → PAID
- *   EXPIRED     — charge expired unpaid             → EXPIRED
- *
- * Falls back to `PENDING` when the provider returns something we don't
- * recognize (defensive).
- */
+/** Unknown provider statuses fall back to PENDING, never to PAID. */
 export function normalizeProviderStatus(
   raw?: null | string
 ): PaymentChargeStatus {
@@ -167,71 +94,35 @@ export function normalizeProviderStatus(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Split math (DECISAO-004)
-// ---------------------------------------------------------------------------
-
-/**
- * BR-Open platform fee floor per charge: the platform never nets less than
- * this margin after paying the Woovi PIX-IN fee. The organizer pays the
- * difference when the percentage cut would be smaller (tickets below ~R$15
- * at the default 10%).
- */
+/** Floor of the BR-Open fee AFTER the Woovi fee: on cheap tickets the
+ * organizer pays the difference when the percentage cut would net less. */
 export const PLATFORM_FEE_MIN_MARGIN_CENTS = 100; // R$ 1,00
 
-/**
- * Woovi PIX-IN fee schedule (percentual plan, woovi.com/planos-e-precos):
- * 0.80% per confirmed PIX, minimum R$ 0.50, maximum R$ 5.00. Kept in
- * integer-friendly units (basis points + cents) so the math stays exact.
- */
+/** Woovi PIX-IN schedule (percentual plan): 0.80% per PIX, min R$ 0,50,
+ * max R$ 5,00 — in bps + cents so the math stays exact. */
 export const WOOVI_FEE_BPS = 80; // 0.80%
 export const WOOVI_FEE_MIN_CENTS = 50; // R$ 0,50
 export const WOOVI_FEE_MAX_CENTS = 500; // R$ 5,00
 
-/**
- * Woovi PIX-IN fee for a charge of `amountCents`, in cents:
- * `clamp(0.8% · amount, R$ 0,50, R$ 5,00)`.
- */
 export function computeWooviFeeCents(amountCents: number): number {
   const pct = Math.round((amountCents * WOOVI_FEE_BPS) / 10_000);
   return Math.min(Math.max(pct, WOOVI_FEE_MIN_CENTS), WOOVI_FEE_MAX_CENTS);
 }
 
-/**
- * Split as computed at charge time: same shape as `SplitConfig`, but with
- * `wooviFeeCents` always present (computeSplit always fills it).
- */
 export type ComputedSplit = Omit<SplitConfig, "wooviFeeCents"> & {
   wooviFeeCents: number;
 };
 
-/**
- * Computes the split between organizer and BR-Open for a paid league charge.
- *
- * `feePercent` is the BR-Open platform cut (0-100). The final BR-Open fee is
- * `max(feePercent · amount, Woovi fee + margin)`: the platform keeps its
- * percentage cut, and never nets less than `PLATFORM_FEE_MIN_MARGIN_CENTS`
- * after the Woovi PIX-IN fee is debited from the main account. The organizer
- * receives the remainder (`amount - fee`), so the split always sums exactly
- * to `amountCents`.
- *
- * @example computeSplit({ amountCents: 5000, feePercent: 10, recipientPixKey: "<org pix key>" }) === {
- *   brOpenCents: 500,
- *   feePercent: 10,
- *   organizerCents: 4500,
- *   recipientPixKey: "<the org's woovi pix key>",
- *   wooviFeeCents: 50,
- * }
- */
+/** BR-Open keeps `max(feePercent · amount, Woovi fee + margin)`; the organizer
+ * gets the remainder, so the split always sums exactly to `amountCents`. */
 export function computeSplit(args: {
   amountCents: number;
   feePercent: number;
   recipientPixKey: string;
 }): ComputedSplit {
   const wooviFeeCents = computeWooviFeeCents(args.amountCents);
-  // Fee never exceeds the ticket (organizer share stays >= 0 — a negative
-  // split would be invalid at the provider). Only reachable for tickets
-  // below the R$1.50 floor, which are not real league prices.
+  // Fee capped at the ticket: the organizer share must stay >= 0, since a
+  // negative split is invalid at the provider.
   const brOpenCents = Math.min(
     Math.max(
       Math.round(args.amountCents * (args.feePercent / 100)),
@@ -248,18 +139,8 @@ export function computeSplit(args: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Renewal timeline helpers (grace period + proactive reminders)
-// ---------------------------------------------------------------------------
-
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- * Whether the proactive renewal reminder should fire.
- *
- * True when `now` is within the `reminderDaysBefore` window before the due
- * date (i.e. due date is approaching but hasn't arrived yet).
- */
 export function shouldSendRenewalReminder(args: {
   nextDueMs: number;
   nowMs: number;
@@ -269,10 +150,6 @@ export function shouldSendRenewalReminder(args: {
   return msUntilDue > 0 && msUntilDue <= args.reminderDaysBefore * MS_PER_DAY;
 }
 
-/**
- * Whether the billing due date has passed (the membership should enter
- * `payment_due` if it's still `active`).
- */
 export function shouldMarkPaymentDue(args: {
   nextDueMs: number;
   nowMs: number;
@@ -280,11 +157,6 @@ export function shouldMarkPaymentDue(args: {
   return args.nextDueMs <= args.nowMs;
 }
 
-/**
- * Whether the grace period has elapsed (the membership should be suspended).
- *
- * True when `now` is past `nextDueMs + gracePeriodDays`.
- */
 export function shouldSuspend(args: {
   nextDueMs: number;
   nowMs: number;
@@ -294,18 +166,6 @@ export function shouldSuspend(args: {
   return args.nowMs >= suspensionMs;
 }
 
-// ---------------------------------------------------------------------------
-// Billing cycle helpers (IBX-0039: early renewal + period stacking)
-// ---------------------------------------------------------------------------
-
-/**
- * Billing interval in ms per league `priceBillingInterval` value. `once` means
- * the charge never renews (`Infinity`) — callers must skip cycle math for it.
- *
- * Lives in the domain (not in the payment cron file) because the league detail
- * query also needs it, to expose the viewer's due date
- * (`viewerMembershipDueAt`).
- */
 export const BILLING_INTERVAL_MS: Record<string, number> = {
   month: 30 * MS_PER_DAY,
   once: Number.POSITIVE_INFINITY,
@@ -314,10 +174,6 @@ export const BILLING_INTERVAL_MS: Record<string, number> = {
   year: 365 * MS_PER_DAY,
 };
 
-/**
- * Billing interval of a league, defaulting to `month` when the league has no
- * interval or an unknown one (mirrors the league serializer default).
- */
 export function resolveBillingIntervalMs(
   priceBillingInterval?: null | string
 ): number {
@@ -327,15 +183,8 @@ export function resolveBillingIntervalMs(
   );
 }
 
-/**
- * Whether the membership is inside the league renewal window — the due date is
- * at most `reminderDaysBefore` days away.
- *
- * This is the *charging* window (early renewal is allowed inside it) and is
- * deliberately wider than `shouldSendRenewalReminder`: it also true after the
- * due date, covering the gap where a membership is still `active` only because
- * the daily cron has not flipped it to `payment_due` yet.
- */
+/** Wider than `shouldSendRenewalReminder` and with no lower bound: also true
+ * past the due date, while the cron hasn't flipped `active` yet. */
 export function isWithinRenewalWindow(args: {
   nextDueMs: number;
   nowMs: number;
@@ -344,15 +193,8 @@ export function isWithinRenewalWindow(args: {
   return args.nextDueMs - args.nowMs <= args.reminderDaysBefore * MS_PER_DAY;
 }
 
-/**
- * End of the period the next PAID charge buys: the new period stacks on top of
- * the due date the member already paid for (`currentDueMs + intervalMs`), never
- * on the payment date — renewing early must not shrink the current period (and
- * paying late must not gift a full interval from today).
- *
- * Falls back to `paidAtMs + intervalMs` on the first payment, when there is no
- * cycle yet.
- */
+/** Stacks on the due date already paid for (or `paidAt` on the first payment),
+ * never on today: renewing early must not shrink the paid period. */
 export function computeStackedPeriodEndMs(args: {
   currentDueMs: null | number | undefined;
   intervalMs: number;
@@ -362,24 +204,13 @@ export function computeStackedPeriodEndMs(args: {
   return baseMs + args.intervalMs;
 }
 
-/**
- * Fixed offset of the Brazilian calendar (UTC-3). Brazil dropped DST in 2019,
- * so a constant is exact — and the app must use THE SAME offset when it labels
- * the renewal date, otherwise the notification and the league screen would
- * disagree near midnight.
- */
+/** Brazil dropped DST, so a fixed UTC-3 is exact; the app must label dates with
+ * this same offset or they disagree near midnight. */
 export const BRAZIL_UTC_OFFSET_MS = -3 * 60 * 60 * 1000;
 
-/**
- * Whole days between now and `nextDueMs` on the Brazilian calendar: 0 means
- * "due today", 1 "due tomorrow", negative once the due day has passed.
- *
- * Calendar days (not a 24h window) are what the reminder text needs: a due date
- * later today must read "vence hoje", never "vence amanhã". The day boundary is
- * the Brazilian one (`BRAZIL_UTC_OFFSET_MS`) applied to both terms — counting in
- * UTC would call a due instant in the 21:00-23:59 BRT window "tomorrow", one day
- * ahead of what the member sees in the app (review MEDIUM).
- */
+/** Calendar days, not a 24h window: a due date later today reads "vence
+ * hoje". Both terms shift by BRT — counted in UTC, a 21:00-23:59 BRT due
+ * instant lands a day ahead. */
 export function renewalDaysLeft(args: {
   nextDueMs: number;
   nowMs: number;
@@ -390,22 +221,15 @@ export function renewalDaysLeft(args: {
   );
 }
 
-/**
- * Month key ("YYYY-MM") of an instant on the Brazilian calendar. The dash
- * series (IBX-0071) bucket by month: a charge paid 23:59 BRT on the month's
- * last day must land in that month, not the next (same reasoning as
- * `renewalDaysLeft`, one bucket up).
- */
+/** Month bucket on the Brazilian calendar: a charge paid 23:59 BRT on the
+ * month's last day belongs to that month, not the next. */
 export function buildBrazilMonthKey(ms: number): string {
   const shifted = new Date(ms + BRAZIL_UTC_OFFSET_MS);
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-/**
- * The last `months` month keys ("YYYY-MM", Brazilian calendar) ending at the
- * month of `nowMs`, ascending. The x-axis of every dash series: fixed keys so
- * empty months render as zero instead of disappearing.
- */
+/** Fixed x-axis: every month of the window is present, so empty months render
+ * as zero instead of disappearing. */
 export function buildRecentMonthKeys(args: {
   months: number;
   nowMs: number;
@@ -425,27 +249,13 @@ export function buildRecentMonthKeys(args: {
   return keys;
 }
 
-/**
- * First instant of a month key on the Brazilian calendar: "2026-04" starts at
- * 2026-04-01 00:00 BRT = 03:00 UTC. Inclusive window start for "results since
- * month X".
- */
 export function monthKeyWindowStartMs(monthKey: string): number {
   const [year, month] = monthKey.split("-").map(Number);
   return Date.UTC(year, month - 1, 1) - BRAZIL_UTC_OFFSET_MS;
 }
 
-/**
- * Whether applying a paid charge would push the league over its player cap —
- * i.e. whether the over-enrollment guard must refund instead of activating
- * (BUG-0023).
- *
- * `otherActiveMembers` counts the league's *other* `active` memberships: the
- * membership being charged is never counted as a new occupant of the slot it
- * already owns. A renewal of an already-`active` membership holds its slot, so
- * it can never overfill the league and is always allowed — refunding it would
- * evict a paying member (the regression this rule encodes).
- */
+/** `otherActiveMembers` excludes the membership being charged, and a renewal
+ * holds the slot it owns — refunding it would evict a paying member. */
 export function wouldExceedLeagueCapacity(args: {
   isRenewal: boolean;
   maxPlayers: null | number | undefined;
@@ -462,15 +272,8 @@ export function wouldExceedLeagueCapacity(args: {
   return args.otherActiveMembers >= args.maxPlayers;
 }
 
-/**
- * Whether the caller owns the payable source of a charge (BUG-0022).
- *
- * A charge may only be created — or an existing PENDING one reused — by the
- * player who owns the source: the membership's player, or the tournament
- * entry's payer (`playerAId`, always the entry creator). A caller without a
- * player profile never owns a source, so nobody charges on someone else's
- * behalf.
- */
+/** Only the owner of the source (membership player / entry payer) may create
+ * or reuse its charge; a caller with no player profile never owns one. */
 export function ownsPayableSource(args: {
   callerProfileId: null | string | undefined;
   ownerProfileId: null | string | undefined;

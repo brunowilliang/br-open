@@ -10,11 +10,8 @@ type ExpandableSectionProps = {
   title: string;
 };
 
-/**
- * Card de seção de acordeão (RUL-0005: componente global compartilhado — usado
- * por organization e player). Deve ser renderizado dentro de um `<Accordion>`
- * com `selectionMode="single"` para só um card ficar expandido por vez.
- */
+/** Deve ser renderizado dentro de um `<Accordion>` com `selectionMode="single"`
+ * para só um card ficar expandido por vez. */
 export function ExpandableSection(props: ExpandableSectionProps) {
   return (
     <View>

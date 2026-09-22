@@ -44,15 +44,13 @@ export default function LeagueScheduleRoute() {
     [today, windowDays]
   );
 
-  // Sempre começa em "Hoje" (primeira tab).
   const [activeDate, setActiveDate] = useState<string>(
     () => dateTabs[0]?.matchDate ?? ""
   );
 
-  // Quando a janela muda, as tabs mudam; volta para "Hoje" de forma síncrona
-  // antes de re-renderizar os novos Triggers, evitando que o Tabs controlado
-  // receba uma lista de triggers diferente com um value possivelmente
-  // inconsistente entre renders.
+  // A janela muda → tabs mudam: volta para "Hoje" de forma síncrona antes de
+  // re-renderizar os novos Triggers, senão o Tabs controlado recebe uma lista
+  // de triggers diferente com um value possivelmente inconsistente.
   useEffect(() => {
     if (dateTabs.length > 0) {
       setActiveDate(dateTabs[0].matchDate);

@@ -62,11 +62,7 @@ export default function LeagueRulesRoute() {
 
       <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
         <View className="gap-4">
-          <Tabs
-            onValueChange={setActiveTab}
-            value={activeTab}
-            // variant="secondary"
-          >
+          <Tabs onValueChange={setActiveTab} value={activeTab}>
             <Tabs.List className="w-full">
               <Tabs.ScrollView>
                 <Tabs.Indicator />

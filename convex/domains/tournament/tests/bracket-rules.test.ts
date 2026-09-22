@@ -75,10 +75,9 @@ const toBoardRow = (match: BuiltBracketMatch): SwapBoardMatch =>
   });
 
 /**
- * BUG-0034: chave sorteada com a 2ª rodada exibindo um lado DERIVADO do bye
- * da 1ª rodada (w venceu o bye do slot 0 e foi propagado para o lado A da
- * semi) ao lado de um confronto real (x vs y). É o card das quartas que o
- * organizador tenta mover.
+ * Chave sorteada com um lado DERIVADO do bye da 1ª rodada (w venceu o bye do
+ * slot 0 e foi propagado para o lado A da semi) ao lado de um confronto real
+ * (x vs y): é o card das quartas que o organizador tenta mover.
  */
 const byeDerivedBoard = (): SwapBoardMatch[] => [
   boardMatch({
@@ -230,7 +229,7 @@ describe("buildBracket", () => {
       (m) => m.round === 2 && m.slotInRound === 0
     );
     // semifinal 1 recebe vencedor do bye do seed 1... e vencedor de a vs b?
-    // seed 1 em slot 0 (par 0), seu bye alimenta a final da rodada 2 slot 0
+    // seed 1 em slot 0 (par 0), seu bye alimenta a semifinal 1 (slot 0)
     expect(semifinal1).toBeDefined();
     const sides = [semifinal1?.entryAId, semifinal1?.entryBId];
     // um dos lados é s1 (bye resolvido)
@@ -373,7 +372,7 @@ describe("validateSlotSwap", () => {
   it("recusa vaga derivada de resultado PUBLICADO como origem e como destino", () => {
     // Duas quartas cujos lados vieram de partidas JOGADAS (publicadas): o
     // avanço não é re-derivável e o move segue recusado — a recusa de vaga
-    // derivada fica SÓ para resultado publicado (BUG-0034).
+    // derivada fica SÓ para resultado publicado.
     const played = [
       boardMatch({
         entryAId: "w",
@@ -411,8 +410,8 @@ describe("validateSlotSwap", () => {
       ).toContain("confronto já decidido");
     }
 
-    // IBX-0068: em ongoing a JANELA congela antes de qualquer coisa — o move
-    // (mesma rodada ou cruzado) recebe a recusa de chaveamento congelado.
+    // Em ongoing a JANELA congela antes de qualquer coisa — o move (na mesma
+    // rodada ou cruzado) recebe a recusa de chaveamento congelado.
     for (const [from, to] of [
       [coordinate(2, 0, "a"), coordinate(2, 1, "a")],
       [coordinate(2, 0, "a"), coordinate(1, 1, "a")],
@@ -510,7 +509,7 @@ describe("applySlotSwap", () => {
   });
 
   it("drawn: troca dois lados de rodada 2 alimentados por byes diferentes (BUG-0034)", () => {
-    // Dois byes (w no par 0, v no par 2) alimentando dois lados de rodada 2.
+    // Dois byes (w no par 0, v no par 2) alimentando os dois lados da semifinal.
     const board = [
       boardMatch({
         entryAId: "w",
@@ -697,7 +696,7 @@ describe("applySlotSwap", () => {
       from: coordinate(2, 1, "a"),
       to: coordinate(3, 0, "a"),
     });
-    // A vaga vazia de rodada 3 recebe a entrada e fica "A definir", não bye.
+    // A vaga vazia da semi recebe a entrada e fica "A definir", não bye.
     expect(patched[4]).toMatchObject({
       entryAId: "s1",
       entryBId: null,
@@ -854,8 +853,8 @@ describe("applySlotSwap", () => {
   });
 
   it("recusa o move quando a rodada seguinte já tem resultado publicado", () => {
-    // Sem L2: o bye de C ainda está propagado para o lado A da semi, que já
-    // foi jogada — retirar o avanço reescreveria uma partida publicada.
+    // O bye de C ainda está propagado para o lado A de uma semi que já foi
+    // jogada — retirar o avanço reescreveria uma partida publicada.
     const board = [
       boardMatch({
         entryAId: "C",
@@ -1004,7 +1003,7 @@ describe("buildSwapPersistPlan", () => {
     });
 
     // A partida intocada (m1-2, agendada) fica FORA do plano: a agenda só
-    // morre com os pares que o move reescreveu (BUG-0028).
+    // morre com os pares que o move reescreveu.
     expect(plan.updates.map((update) => update.id).sort()).toEqual([
       "m1-0",
       "m1-1",
@@ -1226,7 +1225,7 @@ describe("nextMatchCoordinates", () => {
 });
 
 // ---------------------------------------------------------------------------
-// H1 regression: bye distribution must put ONE bye per 1st-round pair and
+// Bye distribution must put ONE bye per 1st-round pair and
 // the bracket must always be completable (finished with a champion), for
 // every entry count and with/without seeds.
 // ---------------------------------------------------------------------------
@@ -1319,9 +1318,9 @@ describe("buildBracket H1 — one bye per pair, always finishable", () => {
 });
 
 // ---------------------------------------------------------------------------
-// IBX-0035 (PLN-0004): direct phase entry — a head of seed enters the
-// bracket at its entry round; the feeding subtree becomes VACANT rows and
-// each skipped round consumes one forced bye.
+// Direct phase entry: a head of seed enters the bracket at its entry round;
+// the feeding subtree becomes VACANT rows and each skipped round consumes one
+// forced bye.
 // ---------------------------------------------------------------------------
 
 describe("validateEntryRounds", () => {
@@ -1514,8 +1513,8 @@ describe("buildBracket IBX-0035 — entrada direta de fase", () => {
   });
 
   it("cabeças na mesma linha se enfrentam na fase de entrada", () => {
-    // 20 entries → chave de 32; seeds 1 e 8 entram nas quartas (rodada 3)
-    // e se encontram lá — posições padrão os colocam no mesmo confronto
+    // 20 entries → chave de 32; seeds 1 e 8 entram nas quartas e se
+    // encontram lá — posições padrão os colocam no mesmo confronto
     const entries: BracketSeedEntry[] = [
       entry("s1", 1, 3),
       entry("s2", 2),
@@ -1565,8 +1564,8 @@ describe("buildBracket IBX-0035 — entrada direta de fase", () => {
   });
 
   it("rejeita seed da 1ª rodada com posição absorvida por entrada direta", () => {
-    // 9 entries → chave de 16; seed 1 pula pra rodada 3 e poda os slots
-    // 0..3 — o seed 8 (slot 2) fica sem posição na 1ª rodada
+    // 9 entries → chave de 16; seed 1 pula pra semi e poda os slots 0..3 —
+    // o seed 8 (slot 2) fica sem posição na 1ª rodada
     const entries: BracketSeedEntry[] = [
       entry("s1", 1, 3),
       entry("s2", 2),
@@ -1607,7 +1606,7 @@ describe("applySlotSwap IBX-0035 — mesma rodada", () => {
       from: coordinate(2, 0, "a"),
       to: coordinate(2, 1, "a"),
     });
-    // lado preenchido + lado esperando adversário NÃO é bye na rodada 2+
+    // lado preenchido + lado esperando adversário NÃO é bye acima da 1ª rodada
     expect(patched[2]).toMatchObject({
       entryAId: "s2",
       entryBId: null,

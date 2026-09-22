@@ -1,11 +1,9 @@
 /**
- * Tournament score validation — the league's MANUAL result rules, reused
- * via an A/B mapping: the league resolver is written in terms of
- * challenger/challenged sides; this adapter maps tournament sides (A/B)
- * onto it so callers never touch league vocabulary. REWORK-2 (10/09):
- * manual scoring is FREE (no tennis patterns) — the winner comes from
- * lines won, or from the explicit `score.winnerEntryId` when the lines
- * tie; league messages are reused verbatim (same product voice).
+ * Validação de placar do torneio — reusa as regras de resultado MANUAL da
+ * liga por um mapeamento A/B: a liga fala challenger/challenged e o adapter
+ * traduz os lados do torneio, então o chamador nunca vê o vocabulário dela.
+ * O placar manual é LIVRE (sem padrões de tênis): o vencedor sai das linhas
+ * vencidas, ou do `score.winnerEntryId` explícito quando elas empatam.
  */
 import { resolveChallengeScoreOutcome } from "../league/challenge-rules";
 import type { LeagueMatchConfig } from "../league/contract";
@@ -33,9 +31,9 @@ function toLeagueSets(sets: SideScores[]) {
 }
 
 /**
- * Validates a free manual score and resolves the winner (derived from
- * lines won, or the explicit `score.winnerEntryId` when the lines tie).
- * `matchConfig` segue na assinatura só por compatibilidade de chamada.
+ * Resolve o vencedor do placar livre — pelas linhas vencidas, ou pelo
+ * `winnerEntryId` explícito quando elas empatam. `matchConfig` segue na
+ * assinatura só por compatibilidade de chamada.
  */
 export function validateTournamentMatchScore(input: {
   entryAId: string;
@@ -61,14 +59,10 @@ export function validateTournamentMatchScore(input: {
   return { error: null, winnerEntryId: outcome.winnerMembershipId };
 }
 
-/** Score tied to a finished match, mapped back to A/B sides for storage. */
-
 /**
- * M4: a WALKOVER declares the winner without a played score — but the
- * declared winner must be one of the two sides of the match. Pure rule so
- * the mutation and tests share it. REWORK-2: o vencedor pode chegar nulo
- * (o placar livre deixou de exigir o campo no payload) — W.O. sem vencedor
- * é rejeitado com mensagem própria.
+ * W.O. declara o vencedor sem placar jogado, mas ele precisa ser um dos dois
+ * lados do confronto; vencedor nulo (o placar livre deixou de exigir o campo)
+ * é recusado com mensagem própria.
  */
 export function validateWalkoverWinner(input: {
   entryAId: string;
@@ -107,11 +101,10 @@ export function serializeMatchScore(score: TournamentMatchScore) {
 }
 
 /**
- * IBX-0028: efeito de uma EDIÇÃO de resultado publicado sobre a partida
- * seguinte da chave. Trocar quem avança só é possível enquanto a partida
- * seguinte não foi jogada — caso contrário a edição ficaria inconsistente
- * com o resto da chave. Edição só de placar (mesmo vencedor) não mexe na
- * chave.
+ * Efeito de EDITAR um resultado já publicado sobre a partida seguinte da
+ * chave: trocar quem avança só é possível enquanto ela não foi jogada, senão
+ * a edição ficaria inconsistente com o resto da chave. Edição só de placar
+ * (mesmo vencedor) não mexe em nada.
  */
 export function resolveResultEditReverb(input: {
   newWinnerEntryId: string;

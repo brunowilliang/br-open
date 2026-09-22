@@ -136,9 +136,7 @@ export default function TournamentEntriesRoute() {
     entryId: string;
   }>(null);
 
-  // Cancelamento da PRÓPRIA inscrição (migrado do bloco "Suas inscrições" do
-  // overview, IBX-0080): o dialog de confirmação e a mutation vivem nesta
-  // tela — a única casa do CANCELAR INSCRIÇÃO no app.
+  // O CANCELAR INSCRIÇÃO vive só nesta tela: mutation e dialog de confirmação.
   const cancelEntry = useMutation({
     mutationFn: crpcClient.tournament.entries.cancel.mutate,
     mutationKey: crpc.tournament.entries.cancel.mutationKey(),
@@ -166,8 +164,7 @@ export default function TournamentEntriesRoute() {
     },
   });
 
-  // "Pagar" da inscrição do viewer (mesma migração): createCharge e a
-  // navegação pro checkout, fluxo idêntico ao do JoinFooter.
+  // "Pagar": createCharge e a navegação pro checkout — mesmo fluxo do JoinFooter.
   const createCharge = useMutation({
     mutationFn: crpcClient.payment.charge.createCharge.mutate,
     mutationKey: crpc.payment.charge.createCharge.mutationKey(),
@@ -190,10 +187,9 @@ export default function TournamentEntriesRoute() {
     },
   });
 
-  // O PAPEL RESOLVIDO manda na tela (IBX-0080): `access`/`role` só existem
-  // depois que a descoberta hidrata, e é justamente aí que a barra de segmentos
-  // pode ser montada — antes disso a barra pintada seria a do jogador para
-  // qualquer um (o gestor entrava e tocava "Minhas" numa aba que ele não tem).
+  // O papel resolvido manda na tela: `access`/`role` só existem depois que a
+  // descoberta hidrata — montar a barra de segmentos antes disso pintaria as
+  // abas de jogador para o gestor.
   const isOrganizer = role === "organizer";
   const entriesTabItems = buildTournamentEntriesTabItems({ role });
 
@@ -211,9 +207,8 @@ export default function TournamentEntriesRoute() {
     () => entries.filter((entry) => entry.status === "active"),
     [entries]
   );
-  // "Minhas" (IBX-0080): as inscrições do VIEWER — o MESMO conjunto que o
-  // bloco "Suas inscrições" do overview mostrava. O servidor só devolve
-  // `viewerEntryIds` para o ator de jogador (vazio para organização e guest).
+  // Inscrições do VIEWER: o servidor só devolve `viewerEntryIds` para o ator
+  // de jogador (vazio para organização e guest).
   const myEntries = useMemo(
     () =>
       entries.filter(
@@ -221,17 +216,9 @@ export default function TournamentEntriesRoute() {
       ),
     [entries, tournament]
   );
-  // PLN-0007 (decisão 1): pendências são superfície do ORGANIZADOR — o
-  // jogador nunca vê a aba de pendências (a pendência DELE, com ação, vive no
-  // alerta do overview e no segmento "Minhas" — IBX-0080).
-  //
-  // A aba é DERIVADA (BUG-0045): o `initialTab=pending` do alerta só é honrado
-  // quando o papel do organizador já resolveu — na entrada fria (pela home) o
-  // `role` ainda é `null` no primeiro render e um estado inicializado uma única
-  // vez cairia em Confirmados. `userTab` guarda só a escolha MANUAL, que tem
-  // precedência quando o contexto chega e é DESCARTADA quando a aba não existe
-  // no papel novo (IBX-0080: o gestor na janela fria, e o jogador que cancela a
-  // única inscrição e vira guest com a tela aberta).
+  // Pendências são superfície do ORGANIZADOR. A aba é DERIVADA: o
+  // `initialTab=pending` só vale com o papel resolvido (entrada fria tem `role`
+  // null); `userTab` é só a escolha MANUAL, descartada se a aba não existir.
   const [userTab, setUserTab] = useState<null | TournamentEntriesTab>(null);
   const activeTab = resolveTournamentEntriesTab({
     initialTab,
@@ -396,7 +383,7 @@ export default function TournamentEntriesRoute() {
             </Page.Header.Center>
             <Page.Header.Right />
           </View>
-          {/* Barra só com 2+ itens (IBX-0080): o guest não tem "Minhas" (sem
+          {/* Barra só com 2+ itens: o guest não tem "Minhas" (sem
               inscrição viva) e na entrada fria o papel ainda é null. */}
           {entriesTabItems.length > 1 ? (
             <Tabs
@@ -457,10 +444,9 @@ export default function TournamentEntriesRoute() {
               return renderEntry(entry.id);
             }
 
-            // Card do bloco "Suas inscrições" (migrado do overview no
-            // IBX-0080, markup preservado): categoria + chip de status e as
-            // ações do PRÓPRIO jogador — CANCELAR (com o dialog desta tela),
-            // responder convite de dupla e PAGAR.
+            // Card do jogador: categoria + chip de status e as ações da PRÓPRIA
+            // inscrição — cancelar (dialog desta tela), responder convite ou
+            // pagar.
             const category = categoriesById[entry.categoryId];
             const chip = getEntryStatusChip(entry.status);
             const isViewerPartner =
@@ -573,8 +559,6 @@ export default function TournamentEntriesRoute() {
       )}
       <Page.Footer className="pb-floating-tab-bar-4" />
 
-      {/* Dialog do CANCELAR INSCRIÇÃO (migrado do overview, IBX-0080): vive na
-          única tela que cancela a própria inscrição. */}
       <Dialog
         isOpen={cancelEntryTarget !== null}
         onOpenChange={(open) => {

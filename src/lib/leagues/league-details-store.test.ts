@@ -267,18 +267,18 @@ describe("leagueDetailsStore$", () => {
     bucket$.actions.setViewerMembershipStatus("suspended");
 
     expect(String(bucket$.viewer.role)).toBe("guest");
-    // Suspenso: sem rodapé (o Renovar vive no alerta) e sem atalho de checkout
-    // no rodapé (IBX-0084).
+    // Suspenso: sem rodapé (o Renovar vive no alerta) e sem atalho de
+    // checkout.
     expect(bucket$.derived.showJoinFooter()).toBe(false);
     expect(bucket$.derived.canResumeCheckout()).toBe(false);
   });
 
   it("keeps the join footer gate on the join capability, for every status", () => {
-    // MEDIO-1 do review do IBX-0084: o rodapé monta para o visitante que PODE
-    // entrar e NÃO monta para quem não pode (ator organização), em nenhum
-    // estado. Com a capacidade, monta como o HEAD montava — todos os estados do
-    // papel `guest` menos o suspenso (que tem o Renovar no alerta); `active` e
-    // `payment_due` são papel de MEMBRO e nunca tiveram rodapé.
+    // O rodapé monta para o visitante que PODE entrar e NÃO monta para quem
+    // não pode (ator organização), em nenhum estado. Com a capacidade, monta
+    // em todos os estados do papel `guest` menos o suspenso (que tem o Renovar
+    // no alerta); `active` e `payment_due` são papel de MEMBRO e nunca tiveram
+    // rodapé.
     const footerByStatus: [
       LeagueOverview["viewerMembershipStatus"],
       boolean,
@@ -353,7 +353,7 @@ describe("leagueDetailsStore$", () => {
     expect(bucket$.identity.resetVersion.get()).toBe(resetVersion + 1);
     expect(String(bucket$.identity.activeRoute)).toBe("overview");
     expect(String(bucket$.identity.bootstrapStatus)).toBe("idle");
-    // Flag de carga preso em true = esqueleto eterno nos KPIs (IBX-0087).
+    // Flag de carga preso em true = esqueleto eterno nos KPIs.
     expect(bucket$.identity.challengesLoading.get()).toBe(false);
     expect(bucket$.identity.membershipOverviewLoading.get()).toBe(false);
     expect(bucket$.data.league.get()).toBeNull();

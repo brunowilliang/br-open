@@ -153,7 +153,6 @@ export default function Onboarding() {
         snapToAlignment={"start"}
         snapToInterval={itemWidth + itemMargin * 2}
       />
-      {/* dots */}
       <View className="mb-safe-offset-2 flex-row justify-center gap-2">
         {onboardingData.map((_, index) => {
           const isActive = index === activeIndex;

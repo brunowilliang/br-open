@@ -1,19 +1,12 @@
 "use node";
 
 /**
- * Payment provider outbound API operations, running on the Convex Node.js
- * action runtime.
- *
- * This file has `"use node"` at the top and contains ONLY actions. It is the
- * ONLY place that imports `@woovi/node-sdk` (which depends on `node:crypto`).
- *
- * CRITICAL: callers must invoke these via `ctx.runAction(internal.payment.providerNode.*)`
- * — they must NOT import this file or its generated caller, because importing
- * a `"use node"` file from a non-`"use node"` file breaks Convex bundling.
- * `ctx.runAction` crosses the runtime boundary cleanly.
- *
- * Inbound webhook verification still lives in `webhook-signature.ts` (Web
- * Crypto) because the kitcn `publicRoute` HTTP handler runs in the V8 isolate.
+ * Payment provider outbound API. This file has `"use node"` (it is the ONLY
+ * importer of `@woovi/node-sdk`, which needs `node:crypto`) and contains only
+ * actions. CRITICAL: callers must reach it with `ctx.runAction(...)` — importing
+ * this file or its generated caller from a non-`"use node"` file breaks Convex
+ * bundling. Inbound webhook verification lives in `webhook-signature.ts` (Web
+ * Crypto), because the kitcn `publicRoute` handler runs in the V8 isolate.
  */
 
 import WooviSDK from "@woovi/node-sdk";
@@ -43,14 +36,8 @@ function providerClient() {
 }
 
 /**
- * Fetches the current status of a charge from the provider by correlationID.
- * Used by the reconciliation cron to catch payments that succeeded on the
- * provider side but whose webhook delivery was missed.
- *
- * Uses raw REST (not the SDK) because the SDK's `charge.get` typing doesn't
- * match the live API (same divergence pattern as the subaccount PascalCase
- * issue). The REST endpoint `GET /api/v1/charge/{correlationID}` was
- * validated in the 2026-07-02 PoC.
+ * Charge status by correlationID, for the reconciliation cron (missed webhooks).
+ * Raw REST instead of the SDK, whose `charge.get` typing doesn't match the live API.
  */
 export const getChargeStatusAction = privateAction
   .input(z.object({ correlationId: z.string().min(1) }))
@@ -84,9 +71,7 @@ export const getChargeStatusAction = privateAction
     return { status: data?.charge?.status ?? "ACTIVE" };
   });
 
-// ---------------------------------------------------------------------------
 // Subaccount provisioning
-// ---------------------------------------------------------------------------
 
 export const createSubaccountAction = privateAction
   .input(
@@ -133,9 +118,7 @@ export const createSubaccountAction = privateAction
     };
   });
 
-// ---------------------------------------------------------------------------
 // Charge creation with split
-// ---------------------------------------------------------------------------
 
 export const createChargeWithSplitAction = privateAction
   .input(
@@ -188,14 +171,11 @@ export const createChargeWithSplitAction = privateAction
     };
   });
 
-// ---------------------------------------------------------------------------
 // Subaccount balance & withdrawal
-// ---------------------------------------------------------------------------
 
 /**
- * Legible pt-BR messages for known withdrawal failure codes (Woovi docs:
- * "Tratamento de erros" — saque de subconta). Anything unknown falls back
- * to the raw description/code, never "[object Object]" (BUG-002 lesson).
+ * pt-BR messages for known withdrawal failure codes (Woovi docs: "Tratamento de
+ * erros"). Unknown ones fall back to the raw description/code, never "[object Object]".
  */
 const WITHDRAW_ERROR_MESSAGES: Record<string, string> = {
   ENTRY_ASSOCIATED_WITH_RESTRICTED_ACCOUNT_OR_USER:
@@ -248,11 +228,9 @@ async function toLegibleProviderError(response: Response): Promise<string> {
 }
 
 /**
- * Fetches the real subaccount balance + withdrawal-block flag from the
- * provider. `GET /api/v1/subaccount/{pixKey}` — the path param is the PIX
- * key registered on the subaccount (official docs:
- * developers.woovi.com/docs/subaccount/how-to-get-balance-and-details-of-subaccount-using-api).
- * The API returns `subAccount` (camelCase) — accept PascalCase too.
+ * Real subaccount balance + withdrawal-block flag: `GET /api/v1/subaccount/{pixKey}`,
+ * where the path param is the PIX key registered on the subaccount (Woovi docs). The
+ * API returns `subAccount` (camelCase) — accept PascalCase too.
  */
 export const getSubaccountBalanceAction = privateAction
   .input(z.object({ pixKey: z.string().min(1) }))
@@ -299,21 +277,11 @@ export const getSubaccountBalanceAction = privateAction
   });
 
 /**
- * Requests a PARTIAL withdrawal from the organization's subaccount to the
- * PIX key registered on it. `POST /api/v1/subaccount/{pixKey}/withdraw`
- * with `{ value }` in cents — the path param is the pix key registered on
- * the subaccount and the payload supports NO splits and NO correlationID
- * (official docs: developers.woovi.com/docs/subaccount/how-to-withdraw-from-subaccount-using-api
- * + OpenAPI `SubAccountWithdrawPayload`).
- *
- * DECISAO-003 (fee collection): the caller passes the NET amount — the
- * organizer receives exactly `valueCents` on their registered pix key and
- * the tiered fee is collected separately via `debitSubaccountAction`
- * (subaccount → BR-Open main account).
- *
- * The returned `transactionId` uses `correlationID` first and `endToEndId`
- * as fallback (same precedence as the webhook matcher — the official
- * `OPENPIX:MOVEMENT_FAILED` payload echoes `payment.correlationID`).
+ * PARTIAL withdrawal from the subaccount to the PIX key registered on it:
+ * `POST /api/v1/subaccount/{pixKey}/withdraw` with `{ value }` in cents — the payload
+ * supports NO splits and NO correlationID (`SubAccountWithdrawPayload`). The caller
+ * passes the NET amount (the tiered fee goes out in a separate debit) and
+ * `transactionId` prefers `correlationID` over `endToEndId`, like the webhook matcher.
  */
 export const withdrawSubaccountAction = privateAction
   .input(
@@ -380,12 +348,9 @@ export const withdrawSubaccountAction = privateAction
   });
 
 /**
- * Collects the withdrawal fee for BR-Open: `POST /api/v1/subaccount/{pixKey}/debit`
- * moves `valueCents` from the organizer's subaccount to the MAIN account —
- * the same account that already receives the charge split remainder
- * (official docs: developers.woovi.com/api — "Transfers the amount from the
- * subaccount to the main account"). The endpoint supports no idempotency id,
- * so callers MUST guard retries locally (reserved withdrawal row).
+ * Collects the withdrawal fee for BR-Open: `POST /api/v1/subaccount/{pixKey}/debit` moves
+ * `valueCents` to the MAIN account. No idempotency id on this endpoint, so callers MUST
+ * guard retries locally (reserved withdrawal row).
  */
 export const debitSubaccountAction = privateAction
   .input(
@@ -433,23 +398,15 @@ export const debitSubaccountAction = privateAction
     return { value: data.value };
   });
 
-// ---------------------------------------------------------------------------
-// Charge refund (tournament cancellation — IBX-0010 slice 2)
-// ---------------------------------------------------------------------------
+// Charge refund (tournament cancellation)
 
 /**
- * Refunds a charge IN FULL via the provider's REST API
- * `POST /api/v1/charge/{correlationID}/refund` (official docs:
- * developers.woovi.com — "charge refund create"). The refund's own
- * correlationID is deterministic (`refund-<chargeCorrelationId>`), so
- * retrying with the same key is idempotent on the provider side.
- *
- * Response statuses (SDK types charge-refund/create): CONFIRMED when the
- * refund is settled, IN_PROCESSING while it settles, REJECTED on failure.
- * The ACTION only relays the raw status — the outcome mapping lives in
- * `tournament/lifecycle.processRefunds` (M5): CONFIRMED → refunded,
- * IN_PROCESSING → stays pending for the sweep, REJECTED → failed (sweep
- * retries with the same idempotent key).
+ * Refunds a charge IN FULL: `POST /api/v1/charge/{correlationID}/refund` (Woovi
+ * docs, "charge refund create"). The refund's correlationID is deterministic
+ * (`refund-<chargeCorrelationId>`), so retrying the same key is idempotent on the
+ * provider side. The action relays the raw status only: CONFIRMED (settled),
+ * IN_PROCESSING (stays pending for the sweep) and REJECTED (failed) are mapped by
+ * the caller `tournament/lifecycle.processRefunds`.
  */
 export const refundChargeAction = privateAction
   .input(

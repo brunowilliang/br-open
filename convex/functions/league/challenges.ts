@@ -92,10 +92,10 @@ import {
 import { syncTimeDrivenChallengeStatus } from "./_challenges/status_helpers";
 
 /**
- * REWORK-2 (10/09): desfecho de um placar MANUAL submetido — W.O. segue o
- * caminho próprio (resolveWalkoverScoreError exige o vencedor explícito);
- * placar jogado é LIVRE e resolve o vencedor por linhas vencidas ou pelo
- * explícito quando as linhas empatam. Sem erro, sempre devolve vencedor.
+ * Desfecho de um placar MANUAL submetido: W.O. segue o caminho próprio
+ * (resolveWalkoverScoreError exige o vencedor explícito) e placar jogado é LIVRE,
+ * resolvendo o vencedor por linhas vencidas ou pelo explícito quando empatam.
+ * Sem erro, sempre devolve vencedor.
  */
 function resolveManualScoreOutcome(input: {
   challengedMembershipId: string;
@@ -351,7 +351,7 @@ export const create = authMutation
       league: currentLeague,
     });
     // Occupancy comes from the rules' default duration, not the client-sent
-    // endMinute (BUG-0027: N desafios empilhados na mesma quadra/horário).
+    // endMinute — otherwise N desafios stack on the same court/time.
     const occupiedEndMinute = resolveMatchOccupiedEndMinute({
       matchConfig: currentLeague.ruleConfig.matchConfig,
       startMinute: input.startMinute,
@@ -1574,8 +1574,8 @@ export const organizerSubmitResult = authMutation
 
     const currentStatus = syncedChallenge.status as LeagueChallengeStatus;
 
-    // IBX-0028: editar um resultado já confirmado/validado (desafio finished
-    // com submission resolvida) é uma edição auditada — diferente da primeira
+    // Editar um resultado já confirmado/validado (desafio finished com
+    // submission resolvida) é uma edição auditada, diferente da primeira
     // publicação do resultado.
     const isResultEdit =
       currentStatus === "finished" && Boolean(latestResultSubmission);

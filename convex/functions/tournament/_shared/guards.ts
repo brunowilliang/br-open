@@ -31,8 +31,8 @@ const DISCOVERABLE_STATUSES = [
 ] as const;
 
 /**
- * Public + not-cancelled: tournaments any viewer can discover. Shared by
- * the discovery detail gate and the entries listing gate (review M2).
+ * Public + not-cancelled: tournaments any viewer can discover. Shared by the
+ * discovery detail gate and the entries listing gate.
  */
 export function isDiscoverable(record: TournamentRecord) {
   return (

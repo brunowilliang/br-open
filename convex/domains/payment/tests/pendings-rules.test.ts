@@ -22,7 +22,7 @@ function itemText(item: PendingItem | null | undefined) {
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-/** 20/09/2026 09:00 BRT — mesma data de exemplo da galeria aprovada. */
+/** 20/09/2026 09:00 BRT — data fixa dos cenarios de vencimento. */
 const NOW_MS = Date.parse("2026-09-20T12:00:00.000Z");
 
 function membershipInput(input: {
@@ -89,10 +89,10 @@ describe("pendencia de mensalidade: suspensa (cartao 3)", () => {
     expect(item?.description).toBe(
       "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar."
     );
-    // O CTA vive no ITEM (decisao de 21-09): a copy manda renovar e o alerta e
-    // renderizado em 6 superficies, mas so a casa da liga tem rodape — na home
-    // a pendencia era beco sem saida. A acao e a MESMA dos kinds 1 e 2
-    // (`pay_league_membership`) e o alvo do runner e o `source` do item.
+    // O CTA vive no PROPRIO item: a copy manda renovar e a pendencia aparece em
+    // 6 superficies, mas so a casa da liga tem rodape — na home ficaria sem
+    // afordancia. A acao e a MESMA dos kinds 1 e 2 (`pay_league_membership`) e o
+    // alvo do runner e o `source` do item.
     expect(item?.actionLabel).toBe("Renovar");
     expect(item?.action).toEqual({
       params: null,

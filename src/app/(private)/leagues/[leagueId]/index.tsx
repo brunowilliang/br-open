@@ -46,7 +46,7 @@ import {
 type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
 type ViewerMembershipStatus = LeagueOverview["viewerMembershipStatus"];
 
-/** Toast de sucesso do requestJoin por status resultante (ex-LeagueJoinFooter). */
+/** Toast de sucesso do requestJoin, por status resultante. */
 function getJoinSuccessToast(status: ViewerMembershipStatus): {
   description: string;
   label: string;
@@ -82,7 +82,7 @@ function getJoinSuccessToast(status: ViewerMembershipStatus): {
   };
 }
 
-/** Rótulo do CTA do rodapé guest (ex-LeagueJoinFooter): derivada ou "Sem vagas". */
+/** Rótulo do CTA do rodapé guest: derivada, ou "Sem vagas". */
 function getJoinFooterActionLabel(input: {
   hasAvailableSpots: boolean;
   isJoinRequestPending: boolean;
@@ -96,14 +96,9 @@ function getJoinFooterActionLabel(input: {
 }
 
 /**
- * Stretch banner. Reads the page scroll offset (a SharedValue
- * updated on the UI thread by PageKeyboardAwareScrollView) and reacts without
- * touching the JS thread.
- *
- * - Normal scroll up (scrollY >= 0): no transform applied — the banner
- *   scrolls away with the content, driven by the scrollview itself.
- * - Pull down at top / overscroll (scrollY < 0): scales up to 2x and
- *   translates up → "stretch to zoom" refresh effect.
+ * Lê o scroll offset (SharedValue escrito na UI thread) sem tocar na JS thread:
+ * scrollY >= 0 é identidade (o banner segue o scrollview); scrollY < 0 escala
+ * até 2x e sobe — efeito "stretch to zoom".
  */
 function LeagueBanner(props: { league: LeagueOverview }) {
   const { league } = props;
@@ -217,10 +212,9 @@ export default function LeagueOverviewRoute() {
   const league = useValue(bucket$.data.league);
   const role = useValue(bucket$.viewer.role);
 
-  // Rodapé guest (JoinFooter modo liga, cutover do LeagueJoinFooter): todo o
-  // fluxo de entrada — join, cancelamento, pagamento — é wiring da página. O
-  // gate de montagem vem da derivada: o membro suspenso fica FORA (a ação dele
-  // é o Renovar do alerta — IBX-0084).
+  // Rodapé guest (JoinFooter modo liga): todo o fluxo de entrada — join,
+  // cancelamento, pagamento — é wiring da página. O gate de montagem vem da
+  // derivada: o membro suspenso fica FORA (a ação dele é o Renovar do alerta).
   const canRequestJoin = useValue(bucket$.derived.canRequestJoin);
   const canResumeCheckout = useValue(bucket$.derived.canResumeCheckout);
   const joinActionLabel = useValue(bucket$.derived.joinActionLabel);
@@ -289,8 +283,8 @@ export default function LeagueOverviewRoute() {
     if (!membershipId) {
       return;
     }
-    // Caminho rápido: charge pendente válida já existe — navega direto (sem
-    // round-trip do provider; mesma velocidade de "meus pagamentos").
+    // Caminho rápido: charge pendente válida já existe — navega direto, sem
+    // round-trip do provider.
     if (pendingChargeId) {
       router.navigate({
         params: { chargeId: pendingChargeId },
@@ -298,7 +292,6 @@ export default function LeagueOverviewRoute() {
       });
       return;
     }
-    // Caminho lento: cria a charge e navega.
     createCharge.mutate({
       sourceId: membershipId,
       sourceType: "league_membership",
@@ -375,8 +368,8 @@ export default function LeagueOverviewRoute() {
 
       await invalidateLeagueContext();
 
-      // Ligas pagas vão direto pro checkout após o request (createCharge tem
-      // early-return pra charge PENDING existente).
+      // Ligas pagas caem no checkout logo após o request: createCharge tem
+      // early-return pra charge PENDING existente.
       if (membership.status === "awaiting_payment") {
         createCharge.mutate({
           sourceId: membership.id,
@@ -396,8 +389,8 @@ export default function LeagueOverviewRoute() {
     if (intent === "cancel") {
       optimisticStatus = "left";
     } else {
-      // Ligas pagas vão direto pro checkout (o gate de aprovação, se houver,
-      // vem DEPOIS do pagamento no fluxo manual). Ligas grátis ficam na fila.
+      // Ligas pagas vão direto pro checkout: o gate de aprovação, se houver,
+      // vem DEPOIS do pagamento no fluxo manual.
       const isPaidLeague = (league?.monthlyPriceCents ?? 0) > 0;
       optimisticStatus = isPaidLeague ? "awaiting_payment" : "pending";
     }

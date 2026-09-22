@@ -89,9 +89,9 @@ export default function LeagueSettingsRoute() {
   const router = useRouter();
   const crpc = useCRPC();
 
-  // The organizer must have an active Woovi subaccount before they can charge
-  // players for a paid league. Fetched unconditionally (cheap authQuery) so the
-  // guard works in both create and edit modes.
+  // O organizador precisa de subconta Woovi ativa para cobrar por uma liga paga;
+  // a query é buscada sempre (authQuery barata) para o guard valer em criação e
+  // edição.
   const wooviStatusQuery = useQuery(
     crpc.payment.onboarding.getStatus.staticQueryOptions()
   );
@@ -175,7 +175,7 @@ export default function LeagueSettingsRoute() {
       await onDelete();
       setIsDeleteDialogOpen(false);
     } catch {
-      // Keep the dialog open so the user can retry after the toast feedback.
+      // Mantém o diálogo aberto para o usuário tentar de novo após o erro.
     }
   }
 
@@ -184,8 +184,8 @@ export default function LeagueSettingsRoute() {
   }
 
   function togglePaidPrice() {
-    // Turning charging ON requires an active Woovi subaccount. If not connected,
-    // block the toggle and prompt the organizer to set up payments instead.
+    // Ligar a cobrança exige subconta Woovi ativa: sem ela, bloqueia o toggle e
+    // manda o organizador configurar os pagamentos.
     if (!hasPaidPrice && wooviStatus !== "active") {
       setIsWooviDialogOpen(true);
       return;

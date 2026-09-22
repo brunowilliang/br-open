@@ -66,13 +66,10 @@ export const getById = authQuery
       viewerContext.activeActor.kind === "organization" &&
       viewerContext.activeActor.id === record.organizationId;
 
-    // M6/BUG-0017: compute the viewer's entries BEFORE the visibility gate
-    // — a participant of THIS tournament (non-cancelled entry in one of its
-    // categories) can always open the detail, even when private. The
-    // category filter ties participation to this tournament: a foreign
-    // entry must neither unlock the gate nor leak in the response.
-    // Gap 2: public detail surface includes the category chips (fee/
-    // vacancies) — same data the organizer reads via management.getById.
+    // Compute the viewer's entries BEFORE the visibility gate: a participant of
+    // THIS tournament (non-cancelled entry in one of its categories) can always
+    // open the detail, even when private. The category filter ties participation
+    // to the tournament, so a foreign entry neither unlocks the gate nor leaks.
     const categoryRecords = await ctx.orm.query.tournamentCategory.findMany({
       limit: 10,
       where: { tournamentId: record.id as Id<"tournament"> },
@@ -118,9 +115,8 @@ export const getById = authQuery
       });
     }
 
-    // r27: per-category CALLER gate (same pure rule as `entries.create`) so
-    // the join selector reads it from the server. null = no active player
-    // profile (organizer/guest), nothing to gate.
+    // Per-category CALLER gate (same pure rule as `entries.create`) read from the
+    // server. null = no active player profile (organizer/guest), nothing to gate.
     const categories = categoryRecords.map((category) => {
       const eligibility = isViewerPlayer
         ? resolveCallerEligibility({

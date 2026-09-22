@@ -150,8 +150,8 @@ async function maybeFinishTournament(
       limit: 300,
       where: { categoryId: category.id as Id<"tournamentCategory"> },
     });
-    // M2: a category left out of the draw (<2 entries → no bracket) counts
-    // as completed — it must not block `finished` forever.
+    // A category left out of the draw (<2 entries → no bracket) counts as
+    // completed: it must not block `finished` forever.
     if (matches.length === 0) {
       continue;
     }
@@ -243,8 +243,8 @@ export const publishResult = authMutation
     let winnerEntryId: string;
     const isWalkover = Boolean(input.walkover);
     if (input.walkover) {
-      // Walkover: winner declared by the organizer, no score validation —
-      // but the winner must be one of the two sides (M4).
+      // Walkover: winner declared by the organizer, no score validation — but
+      // the winner must be one of the two sides.
       const walkoverCheck = validateWalkoverWinner({
         entryAId: match.entryAId as string,
         entryBId: match.entryBId as string,
@@ -329,11 +329,11 @@ export const publishResult = authMutation
   });
 
 /**
- * IBX-0028: edita um resultado JÁ PUBLICADO. Mesmo payload do publish
- * (placar ou W.O.), com reverb na chave: trocar quem avança só entra em
- * produção se a partida seguinte ainda não foi jogada; editar só o placar
- * (mesmo vencedor) nunca mexe na chave. Toda edição fica auditada em
- * `tournamentMatchEdit` (antes/depois) e notifica os dois lados.
+ * Edita um resultado JÁ PUBLICADO com o mesmo payload do publish (placar ou
+ * W.O.). Reverb na chave: trocar quem avança só entra se a partida seguinte
+ * ainda não foi jogada, enquanto editar só o placar (mesmo vencedor) nunca mexe
+ * na chave. Toda edição fica auditada em `tournamentMatchEdit` e notifica os
+ * dois lados.
  */
 export const editResult = authMutation
   .input(EditMatchResultSchema)
@@ -538,8 +538,8 @@ export const scheduleMatch = authMutation
       throw new CRPCError({ code: "BAD_REQUEST", message: "Quadra inválida." });
     }
 
-    // BUG-0027: one match per court at a time. Occupancy is derived from the
-    // rules' default duration instead of the client-sent endMinute.
+    // One match per court at a time: occupancy comes from the rules' default
+    // duration, never from the client-sent endMinute.
     const matchConfig = tournamentRecord.matchConfig as LeagueMatchConfig;
     const occupiedEndMinute = resolveMatchOccupiedEndMinute({
       matchConfig,
@@ -574,8 +574,8 @@ export const scheduleMatch = authMutation
         rowVersion: match.rowVersion + 1,
         scheduledById: ctx.userId as Id<"user">,
         startMinute: input.startMinute,
-        // L3: a draw-time bye (walkover) stays a walkover — scheduling
-        // data can be attached without rewriting the resolved outcome.
+        // A draw-time bye (walkover) stays a walkover: scheduling data can be
+        // attached without rewriting the resolved outcome.
         status: match.status === "walkover" ? "walkover" : "scheduled",
         updatedAt: now,
       })
@@ -610,9 +610,9 @@ export const listForTournament = authQuery
       ctx,
       input.tournamentId as Id<"tournament">
     );
-    // M3: same gate as listBracket — the drawn bracket is PRIVATE to the
-    // organizer until the tournament starts; non-organizers only see
-    // ongoing/finished matches.
+    // Same gate as listBracket: the drawn bracket is PRIVATE to the organizer
+    // until the tournament starts — non-organizers only see ongoing/finished
+    // matches.
     const viewerContext = await getViewerContext(ctx, ctx.userId);
     const isOrganizer =
       viewerContext.activeActor.kind === "organization" &&
@@ -636,11 +636,9 @@ export const listForTournament = authQuery
 
 /**
  * Occupied court slots for the schedule dialog: every scheduled match's
- * [start, start + defaultDurationMinutes) window, so the client can offer
- * only free times per court/day (BUG-0027; the tournament dialog reused the
- * league dialog with occupiedSlots=[] until now). Same gate as
- * listForTournament: the drawn bracket is private until the tournament
- * starts.
+ * [start, start + defaultDurationMinutes) window, so the client can offer only
+ * free times per court/day. Same gate as listForTournament: the drawn bracket is
+ * private until the tournament starts.
  */
 export const listOccupiedSlots = authQuery
   .input(TournamentByIdSchema)
@@ -670,9 +668,8 @@ export const listOccupiedSlots = authQuery
       ctx,
       record.id as Id<"tournament">
     );
-    // BUG-0030: the runtime check must tolerate ABSENT keys (Convex omits
-    // unset keys) — the old `!== null` filter passed them through and the
-    // mapping emitted undefined/NaN into the output payload.
+    // Tolerate ABSENT keys here: Convex omits unset keys, and a `!== null`
+    // filter passes them through as undefined/NaN into the output payload.
     const scheduled = matches.filter(
       (
         row

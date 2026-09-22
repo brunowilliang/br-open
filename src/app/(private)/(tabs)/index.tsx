@@ -18,25 +18,17 @@ import { Badge } from "heroui-native-pro";
 import { useEffect } from "react";
 import { View } from "react-native";
 
-/** Mensagem do erro do ator (copy do usuário, BUG-0056). */
 const ACTOR_ERROR_MESSAGE = "Não foi possível identificar o seu perfil.";
 
-/** Mensagem do painel financeiro (a que a tela já mostrava). */
 const DASHBOARD_ERROR_MESSAGE = "Não foi possível carregar o painel.";
 
-/** Mensagem do painel do jogador — a MESMA copy que o próprio painel mostrava,
- * só içada pra cá junto com a carga (IBX-0083). */
 const PLAYER_DASHBOARD_ERROR_MESSAGE = "Não foi possível carregar seu painel.";
 
-/** PLN-0007 (plano de conteúdo IBX-0071, composição do IBX-0075): a home
- * compõe os blocos de número com o `KpiCard` da galeria e as séries mensais com
- * o `MonthlyChartCard` (IBX-0078) nos dois papéis. A rota monta o casco (header
- * + ScrollView), carrega o dado PRIMÁRIO de cada painel (`getOverview` da
- * organização e do jogador) e resolve os QUATRO estados do conteúdo DENTRO do
- * `Page.ScrollView` (a cadeia do `{…}`); cada painel segue com os próprios
- * blocos e queries de bloco (`PlayerDashboard` / `OrganizerDashboard` — a série
- * de receita da organização desceu pro painel dela no IBX-0081). A trilha de
- * competições segue fora (GAP de dado) — `docs/spec/dashboard.md`. */
+/**
+ * A rota monta o casco (header + ScrollView) e o dado PRIMÁRIO de cada painel;
+ * os blocos e as queries de bloco ficam nos próprios painéis. Composição e
+ * estados do conteúdo: `docs/spec/dashboard.md`.
+ */
 export default function Home() {
   const crpc = useCRPC();
   const router = useRouter();
@@ -46,17 +38,11 @@ export default function Home() {
   const activeActor = viewerContext.data?.activeActor ?? null;
   const isOrganizationActor = activeActor?.kind === "organization";
 
-  // Player queries
   const playerProfile = useQuery({
     ...crpc.player.profile.get.staticQueryOptions(),
-    /* BUG-0056: o perfil do jogador só é buscado depois de o ator resolver —
-       `!isOrganizationActor` sozinho dispara no PRIMEIRO frame (o
-       `viewer.context.get` ainda está pendente e `activeActor` é null), ou seja
-       um request inútil para quem entra como organização. É o mesmo sinal dos
-       ramos de conteúdo (o ator manda): no ERRO do ator `isPending` é false e
-       o perfil volta a ser buscado — o comportamento do HEAD nesse caminho, e
-       ali o dado segue com consumidor, que é o HEADER (nome/avatar), em tela nos
-       quatro estados. */
+    // O perfil só é buscado depois de o ator resolver: `!isOrganizationActor`
+    // sozinho dispara no primeiro frame (context pendente, ator null). No erro
+    // do ator ele volta a ser buscado de propósito — o HEADER o consome.
     enabled: !(viewerContext.isPending || isOrganizationActor),
   });
 
@@ -90,18 +76,14 @@ export default function Home() {
     router,
   ]);
 
-  // Organizer queries
   const dashboardQuery = useQuery({
     ...crpc.payment.dashboard.getOverview.staticQueryOptions(),
     enabled: isOrganizationActor,
   });
 
-  // Player panel query (IBX-0083): o dado primário do painel do jogador sobe
-  // pra rota — é ela que resolve carga e erro dos quatro estados da tela. O
-  // `enabled` espera o ator RESOLVER com sucesso (nem primeiro frame, nem
-  // organização) e, no erro do ator, nem busca: o painel do jogador não monta
-  // nesse caminho e o payload seria descartado (LOW 3 do delta-check). O painel
-  // NÃO repete esta query.
+  // O dado primário do painel do jogador vive na ROTA e o painel não repete a
+  // query; `enabled` espera o ator resolver com sucesso e, no erro do ator, nem
+  // busca — o painel não monta e o payload seria descartado.
   const playerOverviewQuery = useQuery({
     ...crpc.player.dashboard.getOverview.staticQueryOptions({ months: 6 }),
     enabled: viewerContext.isSuccess && !isOrganizationActor,
@@ -169,12 +151,7 @@ export default function Home() {
           contentContainerClassName="gap-4 px-4 pb-safe-offset-23"
           showsVerticalScrollIndicator={false}
         >
-          {/* Os QUATRO estados da home (IBX-0082/IBX-0083) são decididos AQUI,
-              dentro do ScrollView: o ator manda primeiro (sem ele não se sabe de
-              quem é a home); depois o painel do papel resolve a própria
-              carga/erro, e "sem erro e sem dado" é a espera. O `ErrorState`
-              cobre as TRÊS falhas: ator, painel da organização e painel do
-              jogador. Ator resolvido e NULO cai no jogador. */}
+          {/* Os QUATRO estados são decididos AQUI: o ator manda primeiro. */}
           {viewerContext.isPending ? (
             <LoadingState />
           ) : viewerContext.isError ? (

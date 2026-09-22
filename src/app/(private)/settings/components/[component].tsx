@@ -35,12 +35,7 @@ import {
   type NotificationCardItem,
 } from "@/lib/notifications/notification-view";
 
-/**
- * Moldura de variante na galeria: título curto e estável (numeração pra
- * aprovação: "KPI 1 · normal") + conteúdo. Mesmo título de seção leve
- * dos textos do app (molde schedule.tsx:162-164). `note` é a linha de
- * procedência usada pelos cartões de alerta (IBX-0076).
- */
+/** Moldura de variante: título, conteúdo e a linha de procedência (`note`). */
 function VariantSection(props: {
   children: ReactNode;
   note?: string;
@@ -61,12 +56,6 @@ function VariantSection(props: {
   );
 }
 
-/**
- * Galeria de variantes do KPI (IBX-0072): SOMENTE variantes do `KpiCard`
- * (ui/kpi-card.tsx) com as props que ele já tem — as composições de texto
- * solto saíram da galeria por ordem do usuário (o molde texto-simples dos
- * dashboards já está aprovado e frozen). Zero estilo novo.
- */
 function KpiVariantsSection() {
   return (
     <View className="gap-6">
@@ -105,12 +94,6 @@ function KpiVariantsSection() {
   );
 }
 
-/**
- * Galeria de papéis do texto (IBX-0073): cada papel do app com um exemplo
- * real de conteúdo, via props do componente (`core/text.tsx`) — ZERO estilo
- * na mão. `align` é a única dimensão nova (classes já existentes); a
- * migração dos usos de tela é decisão pendente do usuário.
- */
 function TextVariantsSection() {
   return (
     <View className="gap-6">
@@ -176,13 +159,8 @@ function TextVariantsSection() {
 }
 
 /**
- * Galeria do rodapé flutuante de inscrição (IBX-0074). ROUND 5 (esclarecimento
- * do usuário): as variantes são MODOS DE USO, não estados de chip — liga =
- * clique direto na ação (o painel nem abre); torneio = clique EXPANDE o painel
- * pra selecionar categoria (com duplas pra exercitar o campo de parceiro);
- * lotada = desabilitada. O chip de vagas é detalhe da variante de liga. O
- * rodapé é absoluto (Page.Footer): cada caixa h-28 ancora a instância no
- * próprio pai (RUL-0008). O CTA não tem ação aqui: o wiring é da página.
+ * O rodapé é absoluto (Page.Footer): cada caixa h-28 ancora a instância no pai
+ * direto.
  */
 const galleryPartnerOptions: JoinFooterPartnerOption[] = [
   { fullName: "Gustavo Lima", username: "gustavo.lima" },
@@ -269,11 +247,8 @@ function JoinFooterVariantsSection() {
 }
 
 /**
- * Série de EXEMPLO do item Gráfico (IBX-0075 r3): o MESMO shape que a home do
- * jogador consome (`performance.byMonth` do `player.dashboard.getOverview`)
- * passado pelo MESMO builder (`buildPlayerResultsChart`). A galeria é dev-only
- * e não consulta o dashboard (o dado real depende do ator jogador), então o
- * que aparece aqui é exemplo declarado — na home entra a série real de 6 meses.
+ * Série de exemplo no shape que a home do jogador consome
+ * (`performance.byMonth`), pelo mesmo builder.
  */
 const galleryResultsByMonth = [
   { losses: 1, month: "2026-04", wins: 2 },
@@ -291,11 +266,6 @@ const galleryMatchesByMonth = buildPlayerResultsChart(
   value: month.wins + month.losses,
 }));
 
-/**
- * Seção do item Gráfico (IBX-0075 r3b): UM chart só (o usuário reprovou as 3
- * variantes numeradas) — o bloco "Partidas por mês" como ele vai entrar na
- * home, com o dado de EXEMPLO declarado abaixo.
- */
 function ChartCrosshairGallerySection() {
   return (
     <View className="gap-4">
@@ -312,16 +282,10 @@ function ChartCrosshairGallerySection() {
   );
 }
 
-/** A galeria é superfície de aprovação visual: os CTAs não têm wiring
- * (IBX-0076). O feedback de toque é do próprio Button. */
 function noop() {
-  // sem ação por desenho: aqui o alerta se aprova, não se executa.
+  // sem ação por desenho: a galeria aprova, não executa.
 }
 
-/**
- * Bloco rotulado dentro de um cartão (IBX-0076): usado nos três moldes
- * divergentes e nos blocos numerados dos cartões propostos 16 e 17.
- */
 function LabeledBlock(props: { children: ReactNode; label: string }) {
   return (
     <View className="gap-1">
@@ -334,11 +298,8 @@ function LabeledBlock(props: { children: ReactNode; label: string }) {
 }
 
 /**
- * Copy dos estados de pagamento da liga do item Alertas: LITERAL do servidor
- * (`convex/domains/payment/pendings-rules.ts`), que passou a ser o dono dela no
- * cutover (IBX-0076 / PLN-0008) — o builder de alerta de pagamento do app
- * morreu e cada cartão cita o file:line do servidor na nota. Dado de exemplo
- * declarado, no MESMO shape que o contrato carrega.
+ * Copy LITERAL do servidor (`convex/domains/payment/pendings-rules.ts`): o app
+ * não monta mais essas descrições.
  */
 const galleryPaymentDueDescription =
   "O pagamento da sua mensalidade venceu. Pague para não ser suspenso.";
@@ -347,14 +308,8 @@ const galleryPaymentSuspendedDescription =
   "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar.";
 
 /**
- * Descrições do item Alertas (IBX-0076 r6): o TEXTO é o do r4, aprovado pelo
- * usuário — o r5 encurtou descrições que ele NÃO pediu para encurtar e o
- * encurtamento foi desfeito. A única mudança desta rodada é o DESTAQUE: no
- * máximo UM por linha, sempre a palavra-chave que identifica a pendência (nome
- * de pessoa, categoria, competição, valor, prazo, ou a expressão número +
- * objeto) — nunca número solto nem palavra genérica. O destaque é `bold`,
- * escolha do usuário. Dado de exemplo declarado, no MESMO shape que o contrato
- * futuro precisa carregar.
+ * No máximo UM destaque por descrição, sempre a palavra que identifica a
+ * pendência (nome, categoria, valor, prazo) — nunca número solto.
  */
 const galleryInviteReceivedParts: WidgetAlertDescriptionPart[] = [
   { isHighlighted: true, text: "Marina Costa" },
@@ -367,12 +322,10 @@ const galleryInviteSentParts: WidgetAlertDescriptionPart[] = [
   { text: " aceitar o convite para Duplas Mistas na Copa Dracena 8." },
 ];
 
-/** A data do exemplo do cartão 2, LITERAL do servidor (o mesmo formato
- * `12 de set. de 2026` que `formatBrazilShortDate` produz em
- * `convex/domains/payment/pendings-rules.ts`), separada para virar o destaque:
- * o texto do cartão é a descrição do servidor
- * (`convex/domains/payment/pendings-rules.ts:157-171`), verbatim, em partes só
- * para o prazo que decide a renovação ficar em negrito. */
+/**
+ * Descrição do servidor verbatim, em partes só para o prazo ficar em negrito;
+ * a data usa o formato de `formatBrazilShortDate`.
+ */
 const galleryPaymentDueSoonParts: WidgetAlertDescriptionPart[] = [
   { text: "Renove até " },
   { isHighlighted: true, text: "12 de set. de 2026" },
@@ -386,11 +339,8 @@ const galleryInactivityParts: WidgetAlertDescriptionPart[] = [
 ];
 
 /**
- * Alerta que AGREGA mais de um tipo de pendência (IBX-0076 r4): cada tipo vira
- * uma LINHA com o seu número, em vez de uma frase com separador no meio (era
- * "2 resultados para registrar · 1 resultado para confirmar"). O destaque de
- * cada linha vai na EXPRESSÃO da pendência (número + objeto), nunca no número
- * solto.
+ * Cada tipo de pendência vira uma LINHA com o próprio número, com o destaque
+ * na expressão número + objeto.
  */
 const galleryPendingActionsLines: WidgetAlertDescriptionLine[] = [
   {
@@ -422,11 +372,6 @@ const galleryOrganizerValidationLines: WidgetAlertDescriptionLine[] = [
   },
 ];
 
-/**
- * PROPOSTA (IBX-0076, Alerta 16): as DUAS agregações possíveis da cobrança em
- * atraso da organização. O destaque vai na EXPRESSÃO número + objeto (2
- * cobranças / 3 cobranças), nunca no número solto.
- */
 const galleryOrganizerOverdueByLeagueParts: WidgetAlertDescriptionPart[] = [
   { isHighlighted: true, text: "2 cobranças" },
   { text: " vencidas na Liga do Parque." },
@@ -438,10 +383,6 @@ const galleryOrganizerOverdueByOrganizationParts: WidgetAlertDescriptionPart[] =
     { text: " vencidas nas suas ligas." },
   ];
 
-/**
- * PROPOSTA (IBX-0076, Alerta 17): o PIX do jogador. O destaque é o dado que
- * decide a ação: o PRAZO no pendente e o VALOR no vencido.
- */
 const galleryPaymentChargeOpenParts: WidgetAlertDescriptionPart[] = [
   { text: "Pague até " },
   { isHighlighted: true, text: "12 de set. de 2026" },
@@ -455,10 +396,8 @@ const galleryPaymentChargeExpiredParts: WidgetAlertDescriptionPart[] = [
 ];
 
 /**
- * O aviso de push bloqueado nos TRÊS moldes que o app desenha hoje (o quarto
- * molde, o `RNAlert.alert` nativo, não dá para mostrar aqui). Compartilhado
- * pelos itens Alertas (IBX-0076) e Notificações (IBX-0077): é o MESMO aviso do
- * app, então a comparação serve aos dois e vive num lugar só (RUL-0005).
+ * O mesmo aviso de push nos três moldes que o app desenha; o quarto
+ * (`RNAlert.alert`) não dá para mostrar aqui.
  */
 function NoticeMoldsVariants() {
   return (
@@ -505,16 +444,9 @@ function NoticeMoldsVariants() {
 }
 
 /**
- * Galeria de alertas e pendências (IBX-0076): UM CARTÃO POR CASO, numerado,
- * com o contexto no título e o marcador REAL (a copy existe no app hoje) ou
- * PROPOSTA (copy nova). Padrão do HeroUI Native provado na doc bundled
- * (`node_modules/heroui-native/lib/module/components/alert/alert.md`): anatomia
- * Alert + Alert.Indicator + Alert.Content(Title, Description) SEM slot de
- * ações, a ação é um `Button` (`size="sm"`, `variant="primary"`, e
- * `variant="danger"` quando o status do alerta é danger), e os status são
- * default/accent/success/warning/danger (NÃO existe `info`). Ordem do usuário:
- * todo cartão com título E descrição, CTA de UMA palavra e ações DENTRO da
- * superfície do alerta (com duas ações, no rodapé). Nada aqui está wire em tela.
+ * Anatomia provada na doc bundled do heroui-native: Alert + Alert.Indicator +
+ * Alert.Content, SEM slot de ações (a ação é um `Button`) e status default/
+ * accent/success/warning/danger — NÃO existe `info`.
  */
 function AlertsVariantsSection() {
   return (
@@ -762,18 +694,9 @@ function AlertsVariantsSection() {
 }
 
 /**
- * ANATOMIA do menu ⋮ em texto, para aprovação estática (rodada 3 do IBX-0077):
- * os itens na ORDEM real e NA COR real, tirados do MESMO derivado que o cartão
- * usa (`buildNotificationMenuItems`) — nenhum rótulo digitado aqui — com a
- * resolução de cada item ao lado (prova de que cada um leva a ação certa).
- *
- * A cor aqui é a MESMA régua semântica do `tone` do item (o perigo é
- * `text-danger` e todo o resto é o `foreground` do título do item do menu), então
- * o que o usuário aprova no olho é o que sai no cartão. O verde do sucesso saiu
- * na rodada 4 (ver `docs/spec/dashboard.md`).
- *
- * Só os cartões ACIONÁVEIS ganham o bloco: no informativo o menu tem um item só
- * (o destrutivo), que é o mesmo em todos os cartões.
+ * Itens tirados do MESMO derivado do cartão do feed
+ * (`buildNotificationMenuItems`) e na mesma régua de cor do `tone`: o que se
+ * aprova aqui é o que sai na tela.
  */
 function NotificationMenuAnatomy(props: {
   notification: NotificationCardItem;
@@ -819,21 +742,9 @@ const galleryNotificationStateItem = buildGalleryNotificationItem(
 );
 
 /**
- * Galeria do item da CENTRAL DE NOTIFICAÇÕES (IBX-0077 / PLN-0009): o cartão
- * REAL do feed (`components/notifications/notification-card.tsx`), com a copy
- * dos DOIS builders do servidor — `buildNotificationContent` (título/corpo) e
- * `buildNotificationPresentation` (ação, rótulos e destaques) — um cartão por
- * tipo do catálogo (44), nos 8 grupos aprovados, na ORDEM APROVADA deles (que
- * não é a do catálogo: o grupo 1 abre em `league.membership.approved`).
- *
- * O corpo do cartão é só título + descrição; as ações do servidor saem no menu
- * ⋮ (rodada 2, pedido do usuário) e o cartão acionável mostra ao lado o bloco
- * com os itens REAIS do menu, na ordem real e nas cores reais (rodada 3). Os
- * cartões da galeria entram SEM corte de texto (`isClamped={false}`): a copy do
- * servidor aparece inteira para o usuário conferir — o corte de 1/2 linhas é do
- * FEED e continua valendo lá. CTA nenhum executa: o `onAction` não é passado,
- * como o `noop` do IBX-0076 — a galeria aprova, não age. O wiring real (runner
- * compartilhado, `lib/pendings/use-pending-action-runner.ts`) está no feed.
+ * Cartão REAL do feed (`components/notifications/notification-card.tsx`), com a
+ * copy dos dois builders do servidor; o corte de 1/2 linhas é do FEED, por isso
+ * aqui entra `isClamped={false}`.
  */
 function NotificationVariantsSection() {
   return (
@@ -935,11 +846,7 @@ function NotificationVariantsSection() {
   );
 }
 
-/**
- * Tela de variantes de um componente da galeria (rota dinâmica no padrão
- * settings/leagues/[mode]). DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da
- * entrada e do checkout — usuário final não chega aqui nem por deep link.
- */
+/** DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da entrada e do checkout. */
 export default function ComponentVariantsRoute() {
   const { component } = useLocalSearchParams<{ component: string }>();
   const entry = findComponentGalleryEntry(component);

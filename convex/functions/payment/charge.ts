@@ -71,18 +71,14 @@ import { getViewerContext } from "../viewer/context";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 
-// Source type discriminators. The polymorphic pair (sourceType + sourceId)
-// identifies what was paid for (league memberships and tournament entries
-// today); the webhook/handlers dispatch on it. The constants live in
-// `domains/payment/contract.ts` so domain modules that interpret a source
-// don't have to import this function file.
+// Source type discriminators: the (sourceType + sourceId) pair says what was
+// paid for and drives the webhook dispatch; the constants live in
+// `domains/payment/contract.ts` so domain modules don't import this file.
 const LEAGUE_MEMBERSHIP_SOURCE_ENTITY_TYPE = "leagueMembership";
 const RENEWAL_REMINDER_EVENT_TYPE =
   "league.membership.renewal_reminder" as const satisfies NotificationEventType;
 
-// ---------------------------------------------------------------------------
 // Charge creation (authAction — calls the provider SDK via a Node action)
-// ---------------------------------------------------------------------------
 
 const createChargeInput = z.object({
   sourceId: z.string().min(1),
@@ -90,13 +86,8 @@ const createChargeInput = z.object({
 });
 
 /**
- * Finds a still-valid PENDING charge for a (sourceType, sourceId) pair, owned
- * by the caller. "Still-valid" means status === PENDING and expiresAt is in the
- * future; "owned" means the charge was created for the caller's own player
- * profile (BUG-0022 — reuse must never hand out somebody else's PIX).
- *
- * Called by `createCharge` before hitting the provider API — if a reusable
- * charge exists we return it instead of creating a duplicate.
+ * Newest still-valid PENDING charge of a (sourceType, sourceId) pair, scoped to
+ * the caller's own player profile: reuse must never hand out somebody else's PIX.
  */
 export const findPendingChargeForSource = privateMutation
   .input(
@@ -109,8 +100,6 @@ export const findPendingChargeForSource = privateMutation
   .output(createChargeOutputSchema.nullable())
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
-    // `userId` arrives as a plain string; the column is an Id (same cast the
-    // other procedures in this file do).
     const profile = await ctx.orm.query.playerProfile.findFirst({
       where: { userId: input.userId as Id<"user"> },
     });
@@ -127,8 +116,6 @@ export const findPendingChargeForSource = privateMutation
       },
     });
 
-    // No pending charge, it belongs to another player, or it has already
-    // expired — caller should create a new one.
     if (
       !(
         charge &&
@@ -152,10 +139,8 @@ export const findPendingChargeForSource = privateMutation
   });
 
 /**
- * Public authQuery: returns just the chargeId of a still-valid PENDING charge
- * for a (sourceType, sourceId) pair, or null. Used by the league footer to
- * pre-fetch the pending charge so the "pay" button navigates instantly to
- * /checkout/[chargeId] without waiting for createCharge round-trip.
+ * Just the chargeId of a still-valid PENDING charge, or null: the league footer
+ * pre-fetches it so "pay" navigates straight to /checkout/[chargeId].
  */
 export const getPendingCharge = authQuery
   .input(
@@ -166,8 +151,7 @@ export const getPendingCharge = authQuery
   )
   .output(z.object({ chargeId: z.string() }).nullable())
   .query(async ({ ctx, input }) => {
-    // Ownership: resolve playerProfile from viewer, filter by it so a user
-    // can't enumerate other players' charge ids.
+    // Ownership: filter by the viewer's profile so ids can't be enumerated.
     const profile = await ctx.orm.query.playerProfile.findFirst({
       where: { userId: ctx.userId },
     });
@@ -200,10 +184,8 @@ export const createCharge = authAction
     const sourceId = input.sourceId;
     const sourceType = input.sourceType;
 
-    // Reuse an existing PENDING charge if it's still valid (not expired) AND it
-    // belongs to the caller. This prevents duplicate charges when the player
-    // taps "pay" multiple times, and makes the "resume checkout" path instant
-    // (no provider call).
+    // Reuse the caller's still-valid PENDING charge: no duplicate on a double
+    // tap, and "resume checkout" is instant (no provider call).
     const existing = await ctx.runMutation(
       internal.payment.charge.findPendingChargeForSource,
       { sourceId, sourceType, userId: ctx.userId }
@@ -212,7 +194,6 @@ export const createCharge = authAction
       return existing;
     }
 
-    // Validate the source is chargeable and gather amount + human label.
     const chargeData = await ctx.runMutation(
       internal.payment.charge.resolveSourceForCharge,
       {
@@ -222,22 +203,20 @@ export const createCharge = authAction
       }
     );
 
-    // Require the org to have an ACTIVE payment account to receive splits.
     const paymentAccount = await ctx.runMutation(
       internal.payment.charge.resolvePaymentAccount,
       { organizationId: chargeData.organizationId }
     );
 
-    // Compute the split snapshot (organizer vs BR-Open).
     const split = computeSplit({
       amountCents: chargeData.amountCents,
       feePercent: chargeData.platformFeePercent,
       recipientPixKey: paymentAccount.pixKey,
     });
 
-    // Call the provider SDK via a Node action (providerNode.ts has "use node").
-    // Use ctx.runAction (NOT the kitcn caller) so this file never imports the
-    // "use node" module — that would break Convex bundling.
+    // Call the provider SDK via a Node action — `providerNode.ts` has "use node",
+    // so use ctx.runAction (NOT the kitcn caller): importing that module here
+    // would break Convex bundling.
     let chargeResult: {
       brCode: string;
       correlationId: string;
@@ -253,7 +232,7 @@ export const createCharge = authAction
         internal.payment.providerNode.createChargeWithSplitAction,
         {
           amountCents: chargeData.amountCents,
-          comment: `Inscricao - ${asciiSafe(chargeData.sourceLabel)}`,
+          comment: `Inscricao: ${asciiSafe(chargeData.sourceLabel)}`,
           correlationId: buildCorrelationId({
             sourceId,
             sourceType,
@@ -302,9 +281,7 @@ export const createCharge = authAction
     };
   });
 
-// ---------------------------------------------------------------------------
 // Checkout context (re-display a charge's QR code by chargeId)
-// ---------------------------------------------------------------------------
 
 export const getCheckoutContext = authQuery
   .input(z.object({ chargeId: z.string().min(1) }))
@@ -319,8 +296,7 @@ export const getCheckoutContext = authQuery
         message: "Cobranca nao encontrada.",
       });
     }
-    // Ownership check: only the charge's owner may read it. Resolve
-    // paymentCharge -> playerProfile -> userId and verify against viewer.
+    // Ownership: resolve charge -> playerProfile -> userId against the viewer.
     const profile = await ctx.orm.query.playerProfile.findFirst({
       where: { id: charge.playerProfileId as Id<"playerProfile"> },
     });
@@ -330,18 +306,16 @@ export const getCheckoutContext = authQuery
         message: "Cobranca nao encontrada.",
       });
     }
-    // Live membership state (IBX-0040): an old notification link can point at a
-    // charge that is PAID while the membership is back to `payment_due` or
-    // `suspended`, so the screen must not read the billing situation from the
-    // charge's historical status. Non-membership sources report nulls.
+    // Never read the billing situation from the charge's historical status: an
+    // old link can point at a PAID charge while the membership is back to
+    // `payment_due`/`suspended`. Non-membership sources report nulls.
     const membershipState =
       charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP
         ? await resolveMembershipCheckoutState(ctx, charge.sourceId)
         : null;
 
-    // Live obligation of the source (BUG-0025): the caller may already have a
-    // new PENDING PIX for this source while the link still points at a terminal
-    // charge. Resolved generically (every source type) and read-only.
+    // The caller may already have a newer PENDING PIX for this source while the
+    // link still points at a terminal charge. Read-only, for every source type.
     const pendingCharge = await resolvePendingCheckoutCharge(ctx, {
       nowMs: Date.now(),
       playerProfileId: charge.playerProfileId as Id<"playerProfile">,
@@ -366,9 +340,7 @@ export const getCheckoutContext = authQuery
     } satisfies CheckoutContext;
   });
 
-// ---------------------------------------------------------------------------
 // List the viewer's payments (player-facing payment hub)
-// ---------------------------------------------------------------------------
 
 export const listMine = authQuery
   .output(listMyPaymentsOutputSchema)
@@ -389,9 +361,9 @@ export const listMine = authQuery
       },
     });
 
-    // No league join/cache needed: sourceLabel is snapshotted on each charge.
-    // Resolve membership chargeability so the UI can hide "Gerar novo Pix" when
-    // the source (e.g. a cancelled join request) can no longer be charged.
+    // sourceLabel is snapshotted on each charge (no league join needed), and
+    // chargeability is resolved so the UI can hide "Gerar novo Pix" for sources
+    // that can no longer be charged (e.g. a cancelled join request).
     const membershipIds = [
       ...new Set(
         charges
@@ -410,11 +382,9 @@ export const listMine = authQuery
         .map((m) => [m.id, m])
     );
 
-    // Renewal context (IBX-0039): an `active` membership can only be charged
-    // once the league's renewal window opens, so the hub resolves each
-    // membership's current due date the same way the checkout does. The cycle
-    // end comes from the charges already loaded above (no extra read) and the
-    // leagues are fetched in a single query.
+    // An `active` membership is only chargeable once the renewal window opens,
+    // so each due date is resolved the same way the checkout does; the cycle end
+    // comes from the charges already loaded (no extra read), leagues in one query.
     const leagueIds = [
       ...new Set(
         memberships
@@ -497,9 +467,7 @@ export const listMine = authQuery
     return { items };
   });
 
-// ---------------------------------------------------------------------------
 // Private mutations (called via the kitcn caller from the webhook + cron)
-// ---------------------------------------------------------------------------
 
 const saveChargeInput = z.object({
   amountCents: z.number(),
@@ -527,9 +495,8 @@ export const saveCharge = privateMutation
       ? new Date(input.expiresAt)
       : new Date(Date.now() + CHARGE_EXPIRES_IN_SECONDS * 1000);
 
-    // Always INSERT a new row. This gives a real per-charge history for the
-    // player-facing "my payments" list (the previous upsert collapsed
-    // retries onto a single row, hiding history).
+    // Always INSERT: the previous upsert collapsed retries onto one row and hid
+    // the per-charge history of "my payments".
     const row = (
       await ctx.orm
         .insert(paymentCharge)
@@ -560,9 +527,8 @@ export const saveCharge = privateMutation
 export const resolvePaymentAccount = privateMutation
   .input(z.object({ organizationId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    // The payment account is now embedded JSON on `organization.paymentAccount`
-    // (the old `organizationWooviAccount` table was removed). Validate it with
-    // `paymentAccountSchema` before trusting the raw JSON.
+    // `organization.paymentAccount` is embedded JSON (the old
+    // `organizationWooviAccount` table is gone): validate before trusting it.
     const org = await ctx.orm.query.organization.findFirst({
       where: { id: input.organizationId as Id<"organization"> },
     });
@@ -586,14 +552,10 @@ export const resolvePaymentAccount = privateMutation
   });
 
 /**
- * Resolves a payable source into the data needed to create a charge
- * (amount, human label, owning org, player profile).
- *
- * Polymorphic over `sourceType` + `sourceId`: `league_membership` (sourceId is
- * a `leagueMembership` id) and `tournament_entry` (a `tournamentEntry` id).
- * Other source types throw NOT_FOUND until a handler is added. Ownership is
- * enforced per branch: only the player who owns the source can be charged
- * (BUG-0022).
+ * Payable source -> what a charge needs (amount, label, org, player profile),
+ * polymorphic over `sourceType`: `league_membership` and `tournament_entry`;
+ * other types throw NOT_FOUND. Ownership is per branch — only the player who
+ * owns the source can be charged.
  */
 export const resolveSourceForCharge = privateMutation
   .input(
@@ -604,9 +566,8 @@ export const resolveSourceForCharge = privateMutation
     })
   )
   .mutation(async ({ ctx, input }) => {
-    // Ownership (BUG-0022): the caller must own the source. One lookup serves
-    // both branches — a caller without a player profile owns nothing.
-    // (`userId` arrives as a plain string; the column is an Id.)
+    // Ownership: one lookup serves both branches — a caller without a player
+    // profile owns nothing (`userId` is a plain string; the column is an Id).
     const callerProfile = await ctx.orm.query.playerProfile.findFirst({
       where: { userId: input.userId as Id<"user"> },
     });
@@ -662,9 +623,9 @@ export const resolveSourceForCharge = privateMutation
       });
     }
 
-    // Early renewal (IBX-0039): an `active` membership becomes chargeable once
-    // the league renewal window opens, so the next period can be paid before
-    // the current one lapses. The paid period stacks on the current due date.
+    // Early renewal: an `active` membership becomes chargeable once the window
+    // opens, so the next period can be paid before the current one lapses — it
+    // stacks on the current due date.
     const nextDueMs = await resolveMembershipDueMs(ctx, {
       membershipId,
       priceBillingInterval: currentLeague.priceBillingInterval,
@@ -708,15 +669,10 @@ export const resolveSourceForCharge = privateMutation
   });
 
 /**
- * Tournament entry source resolution: entry must be awaiting payment,
- * INSIDE the registration window (same single source as the entry
- * mutations — IBX-0067 review MEDIUM-2: a closed tournament must not mint
- * a PIX at all) and belong to a priced category. The payer is the entry
- * creator (`playerAId`); the amount is the category's entry fee (one
- * charge per entry, not per player).
- *
- * Only the payer may be charged (BUG-0022): `callerProfileId` must be the
- * entry's `playerAId`. The app only offers the pay button to that player.
+ * Tournament entry source: the entry must be awaiting payment, INSIDE the
+ * registration window (a closed tournament must not mint a PIX at all) and
+ * belong to a priced category. The payer is the entry creator (`playerAId`), so
+ * `callerProfileId` must be that id and the fee is per entry, not per player.
  */
 async function resolveTournamentEntrySource(
   ctx: MutationCtx,
@@ -796,22 +752,12 @@ async function resolveTournamentEntrySource(
 }
 
 /**
- * Live obligation of a source for the caller (BUG-0025): the newest PENDING
- * charge that still carries a usable PIX, or null when there is none.
- *
- * A notification link can carry a terminal charge (the PIX it pointed at
- * expired) while a newer PIX is open for the same source; the checkout must
- * render THAT one instead of the historical state.
- *
- * Read-only — opening the checkout never creates a charge. Ownership comes from
- * the caller's own player profile id (BUG-0022), the very profile whose charge
- * the link carries and which `getCheckoutContext` already verified against the
- * viewer, so this can only ever return the caller's own PIX. The pair
- * (sourceType, sourceId) is resolved generically, for every payable source.
- *
- * `hasUsablePix` is the same rule `createCharge` goes through to decide whether
- * an existing charge is reusable, so the PIX on screen is the one the "Gerar
- * novo Pix" CTA would hand back.
+ * The source's live obligation: newest PENDING charge that still carries a
+ * usable PIX, else null. A notification link can carry a terminal charge (its
+ * PIX expired) while a newer PIX is open for the same source, and the checkout
+ * must render THAT one — never the historical state. Read-only, and always
+ * scoped to the caller's own profile via `hasUsablePix`, the same rule
+ * `createCharge` uses to decide a charge is reusable.
  */
 async function resolvePendingCheckoutCharge(
   ctx: Pick<QueryCtx, "orm">,
@@ -847,13 +793,10 @@ async function resolvePendingCheckoutCharge(
 }
 
 /**
- * Current billing state of a league membership, resolved fresh from the
- * membership and its league — never from a charge's historical status
- * (IBX-0040).
- *
- * `membershipDueAt` comes from `resolveMembershipDueMs` (the same source the
- * renewal cron uses) and `canRenew` is `canMembershipBeCharged` fed with the
- * league renewal window, which is exactly the signal `listMine.canRegenerate`
+ * Billing state of a membership, resolved fresh from the membership and its
+ * league — never from a charge's historical status. `membershipDueAt` comes from
+ * `resolveMembershipDueMs` (the same source the renewal cron uses) and `canRenew`
+ * from the league renewal window, exactly the signal `listMine.canRegenerate`
  * publishes. Null when the membership or its league is gone.
  */
 async function resolveMembershipCheckoutState(
@@ -902,10 +845,8 @@ async function resolveMembershipCheckoutState(
 
 /**
  * Membership, its league and the due date of the cycle it currently pays for,
- * resolved while a new charge for it is still PENDING.
- *
- * That due date is the base the next period stacks on (IBX-0039) and the key
- * of the notification cycle. Null when the membership or its league is gone.
+ * resolved while a new charge is still PENDING: that due date is the base the
+ * next period stacks on and the key of the notification cycle. Null if gone.
  */
 async function resolveMembershipCycle(
   ctx: MutationCtx,
@@ -936,21 +877,13 @@ async function resolveMembershipCycle(
 }
 
 /**
- * Atomic "charge paid → apply source side effect" pipeline.
- *
- * Replaces the previous two-step `markChargePaid` → `activateMembership`
- * sequence that ran as separate transactions and could leave a charge PAID
- * with the membership still `awaiting_payment` if the second step failed.
- *
- * The webhook calls this single mutation so the full transition commits
- * atomically. The source-specific side effect (capacity re-check, membership
- * activation, refund on overflow, notifications) runs inside a
- * `sourceType === "league_membership"` branch; other source types just leave
- * the charge PAID for a reconciler.
- *
- * `providerTransactionId` carries the PIX end-to-end transaction identifier
- * (from `payload.transaction.transactionID` / `e2eId`), captured for
- * reconciliation. It is distinct from `providerChargeId` (the charge id).
+ * Atomic "charge paid → apply source side effect" pipeline: the webhook calls
+ * this ONE mutation because the previous two transactions (`markChargePaid` →
+ * `activateMembership`) could leave a charge PAID with the membership still
+ * `awaiting_payment`. The side effect (capacity re-check, activation, refund on
+ * overflow, notifications) runs per source type; other sources stay PAID for a
+ * reconciler. `providerTransactionId` is the PIX e2e id
+ * (`payload.transaction.transactionID` / `e2eId`), distinct from the charge id.
  */
 export const applyPaidCharge = privateMutation
   .input(
@@ -981,17 +914,15 @@ export const applyPaidCharge = privateMutation
       ? (charge.sourceId as Id<"leagueMembership">)
       : null;
 
-    // Resolve the cycle this charge must stack on BEFORE marking it PAID: the
-    // due date the member already paid for comes from the latest PAID charge of
-    // the membership, so it has to be read while this one is still PENDING
-    // (which also makes the computation idempotent).
+    // Resolve the cycle BEFORE marking PAID: the due date comes from the latest
+    // PAID charge, readable only while this one is still PENDING (which also
+    // makes the computation idempotent).
     const previousCycle =
       membershipId === null
         ? null
         : await resolveMembershipCycle(ctx, membershipId);
 
-    // Step 1: mark charge PAID. Persist the PIX transaction id when present;
-    // do NOT overwrite `providerChargeId` (captured at creation).
+    // Step 1: mark PAID, keeping the `providerChargeId` captured at creation.
     await ctx.orm
       .update(paymentCharge)
       .set({
@@ -1004,8 +935,6 @@ export const applyPaidCharge = privateMutation
       })
       .where(eq(paymentCharge.id, charge.id));
 
-    // Dispatch on source type: league_membership and tournament_entry have
-    // side effects; other sources leave the charge PAID for a reconciler.
     if (charge.sourceType === SOURCE_TYPE_TOURNAMENT_ENTRY) {
       return applyPaidTournamentEntryCharge(ctx, charge);
     }
@@ -1020,8 +949,7 @@ export const applyPaidCharge = privateMutation
       membership,
     } = previousCycle;
 
-    // Step 2: the membership must accept this payment. `active` is accepted
-    // while the league renewal window is open (IBX-0039 early renewal).
+    // Step 2: `active` is accepted while the league renewal window is open.
     const renewal =
       currentDueMs === null
         ? null
@@ -1034,22 +962,18 @@ export const applyPaidCharge = privateMutation
           };
 
     if (!canMembershipBeCharged(membership, renewal)) {
-      // Charge is PAID but membership is not in a chargeable state — leave
-      // it; a reconciler (future) can recover. Avoid reverting the charge.
+      // PAID but not chargeable — leave it; a reconciler can recover.
       return { activated: false, membershipId };
     }
 
-    // Step 2b: is this a renewal of a membership that already holds a slot?
-    // Decided before the capacity check, which must not treat it as a new
-    // occupant (BUG-0023).
+    // Step 2b: a renewal of a member who already holds a slot — decided before
+    // the capacity check, which must not treat it as a new occupant.
     const isEarlyRenewal =
       membership.status === LEAGUE_MEMBERSHIP_STATUSES.ACTIVE;
 
-    // Step 3: capacity re-check (over-enrollment guard).
-    // The guard exists to stop a NEW member from entering a full league, and the
-    // membership being charged is never counted as a new occupant — see
-    // `wouldExceedLeagueCapacity` (BUG-0023: a renewal that skipped this used to
-    // be refunded and dropped to `left`, losing the member's own slot).
+    // Step 3: capacity re-check (over-enrollment guard). The member being charged
+    // is never a new occupant (`wouldExceedLeagueCapacity`) — skipping this once
+    // refunded a renewal and dropped it to `left`, losing the member's own slot.
     const { maxPlayers } = currentLeague;
     if (maxPlayers !== null && maxPlayers !== undefined) {
       const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
@@ -1069,10 +993,9 @@ export const applyPaidCharge = privateMutation
           otherActiveMembers,
         })
       ) {
-        // League filled up between charge creation and webhook. Refund and
-        // revert membership to `left`. markChargeRefunded runs in its own
-        // transaction; we accept the small window (refund failure leaves
-        // charge PAID, membership awaiting).
+        // League filled up between charge creation and webhook: refund and drop
+        // to `left`. markChargeRefunded commits separately, so a failure leaves
+        // the charge PAID and the membership awaiting — an accepted window.
         await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
           correlationId: charge.correlationId,
         });
@@ -1080,15 +1003,12 @@ export const applyPaidCharge = privateMutation
       }
     }
 
-    // Step 4: decide the membership's next status.
-    // - Paid league + approvalMode `auto`   -> `active` (PIX was the only gate).
-    // - Paid league + approvalMode `manual` -> `pending` (manager must still
-    //   approve; payment is already confirmed so approval just flips to active).
+    // Step 4: `auto` -> `active` (PIX was the only gate); `manual` -> `pending`
+    // (the manager must still approve, though the payment is already confirmed).
     const approvalMode =
       currentLeague.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE;
-    // Early renewal (IBX-0039): a member who is already `active` keeps that
-    // status — the manual approval gate is for the initial join, and demoting a
-    // paying member to `pending` would cut their access mid-cycle.
+    // Early renewal: an already `active` member keeps that status — the manual
+    // gate is for the initial join, and demoting a payer cuts access mid-cycle.
     const requiresManualApproval = approvalMode === "manual" && !isEarlyRenewal;
 
     await ctx.orm
@@ -1100,9 +1020,8 @@ export const applyPaidCharge = privateMutation
       })
       .where(eq(leagueMembership.id, membershipId));
 
-    // Step 4b: stamp the end of the period this charge bought. Renewing inside
-    // the window stacks on the due date already paid for instead of restarting
-    // from `paidAt`; one-time leagues (`once`) never get a cycle end.
+    // Step 4b: renewing inside the window stacks on the due date already paid
+    // for instead of restarting from `paidAt`; `once` leagues get no cycle end.
     const intervalMs = resolveBillingIntervalMs(
       currentLeague.priceBillingInterval
     );
@@ -1122,8 +1041,7 @@ export const applyPaidCharge = privateMutation
         .where(eq(paymentCharge.id, charge.id));
     }
 
-    // The cycle the member was reminded about is over (paid, or renewed early):
-    // retire the live reminder so the next cycle starts a fresh one (IBX-0039).
+    // The reminded cycle is over (paid or renewed early): retire the reminder.
     await retractMembershipRenewalReminders(ctx, membershipId);
 
     // Step 5: notify — payment_confirmed for auto, requested-style for manual.
@@ -1132,16 +1050,13 @@ export const applyPaidCharge = privateMutation
     });
     if (playerProfile?.userId) {
       if (requiresManualApproval) {
-        // Tell the player their payment was received and is pending approval.
         await scheduleLeagueNotification(ctx, {
           eventType: "league.membership.payment_confirmed",
           leagueId: membership.leagueId as Id<"league">,
           metadata: { chargeId: charge.id, membershipId },
           recipientUserIds: [playerProfile.userId as Id<"user">],
         });
-        // Tell the managers there's a paid membership waiting for approval.
-        // The member table is owned by the auth domain; org admins/owners
-        // are the managers who approve join requests.
+        // Managers (org admins/owners) are the ones who approve join requests.
         const orgMembers = await ctx.orm.query.member.findMany({
           limit: 100,
           where: {
@@ -1174,9 +1089,8 @@ export const applyPaidCharge = privateMutation
   });
 
 /**
- * Paid tournament entry charge → entry active (payment is the only gate in
- * approvalMode auto; in manual, the entry already passed approval before
- * checkout). Notifies creator + partner with `tournament.entry.confirmed`.
+ * Paid entry charge -> entry active (payment is the only gate in `auto`; in
+ * `manual` the entry already passed approval). Notifies creator + partner.
  */
 async function applyPaidTournamentEntryCharge(
   ctx: MutationCtx,
@@ -1203,11 +1117,9 @@ async function applyPaidTournamentEntryCharge(
     return { activated: false, membershipId: null };
   }
 
-  // M1 (IBX-0067): the charge only activates an entry while REGISTRATIONS
-  // ARE OPEN — published or drawn, before the deadline. If the window
-  // closed between checkout and the webhook (race), the money must come
-  // back — mark refund-pending and hand off to the refund action; it never
-  // stays trapped in a dead entry.
+  // The charge only activates an entry while REGISTRATIONS ARE OPEN. If the
+  // window closed between checkout and the webhook the money must come back —
+  // refund-pending plus the refund action; never trapped in a dead entry.
   if (
     !isRegistrationOpen({
       nowMs: Date.now(),
@@ -1229,11 +1141,10 @@ async function applyPaidTournamentEntryCharge(
   }
 
   const now = new Date();
-  // IBX-0067 review HIGH-1: the paid activation is the LAST capacity gate —
-  // counting ACTIVE entries only (awaiting_payment never reserves a slot).
-  // An overflowing payment follows the M1 pattern: entry cancelled, charge
-  // refund-pending, the proven refund pipeline, and a notice to the payer
-  // that the category filled up and the money is coming back.
+  // The paid activation is the LAST capacity gate, counting ACTIVE entries only
+  // (`awaiting_payment` never reserves a slot). An overflowing payment follows
+  // the window-race path above: entry cancelled, charge refund-pending, and a
+  // notice to the payer that the category filled up and the money is coming back.
   const activeEntries = await ctx.orm.query.tournamentEntry.findMany({
     limit: 300,
     where: {
@@ -1247,8 +1158,7 @@ async function applyPaidTournamentEntryCharge(
       maxEntries: category.maxEntries,
     }) === "refund"
   ) {
-    // Cancelled by the paid-activation overflow = terminal entry: free the
-    // category slots (IBX-0074 r19).
+    // Cancelled by the paid-activation overflow = terminal entry: free the slots.
     await ctx.orm
       .update(tournamentEntry)
       .set({
@@ -1289,8 +1199,7 @@ async function applyPaidTournamentEntryCharge(
     .set({ status: "active", updatedAt: now })
     .where(eq(tournamentEntry.id, entryId));
 
-  // IBX-0067: payment confirmation is one of the four ACTIVE transitions —
-  // the entry joins its category bracket at once (incremental placement).
+  // One of the four ACTIVE transitions: the entry joins its bracket at once.
   await ctx.runMutation(internal.tournament.placement.placeActiveEntry, {
     categoryId: entry.categoryId as string,
     entryId: entryId as string,
@@ -1470,9 +1379,8 @@ export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
           await scheduleLeagueNotification(ctx, {
             eventType: "league.membership.payment_expired",
             leagueId: membership.leagueId as Id<"league">,
-            // No `chargeId`: the expired charge is gone and there is no PENDING
-            // one at this point, so the deep link falls back to the league
-            // (where the player generates a new PIX). IBX-0039 / C4.
+            // No `chargeId`: the expired charge is gone and no PENDING one exists
+            // yet, so the deep link falls back to the league.
             metadata: { membershipId: charge.sourceId },
             recipientUserIds: [playerProfile.userId as Id<"user">],
           });
@@ -1521,14 +1429,9 @@ export const resolveActiveManagerOrg = privateMutation
     };
   });
 
-// ---------------------------------------------------------------------------
-// Renewal reminder lifecycle (IBX-0039)
-//
-// Exactly ONE live feed row per (membership, billing cycle). The daily cron
-// rewrites that row with the real days left instead of pushing a new
-// notification every day, so the unread counter never grows; the row is
-// retracted when the cycle closes (paid, due or suspended).
-// ---------------------------------------------------------------------------
+// Renewal reminder lifecycle: exactly ONE live feed row per (membership, billing
+// cycle) — the daily cron REWRITES it instead of pushing a new notification, so
+// the unread counter never grows; it is retracted when the cycle closes.
 
 type RenewalReminderRow = InferSelectModel<typeof notificationFeed>;
 
@@ -1543,9 +1446,8 @@ async function findLiveRenewalReminders(
   ctx: MutationCtx,
   membershipId: string
 ): Promise<RenewalReminderRow[]> {
-  // Uses the `sourceEntity` index on (sourceEntityType, sourceEntityId), so the
-  // window only holds this membership's notifications; retracted cycles are
-  // filtered out below.
+  // The `sourceEntity` index keeps the window on this membership; retracted
+  // cycles are filtered out below.
   const rows = await ctx.orm.query.notificationFeed.findMany({
     limit: 100,
     where: {
@@ -1576,11 +1478,9 @@ async function retractMembershipRenewalReminders(
 }
 
 /**
- * Creates or refreshes the cycle's single reminder.
- *
- * Refreshing rewrites title/body/data (the days left) and `occurredAt`, and
- * deliberately leaves `isRead` alone: an update is not a new unread
- * notification and creates no delivery, so no push is sent again.
+ * Creates or refreshes the cycle's single reminder. Refreshing rewrites
+ * title/body/data (the days left) and `occurredAt` but deliberately leaves
+ * `isRead` alone — an update is not a new unread notification and sends no push.
  */
 async function upsertRenewalReminder(
   ctx: MutationCtx,
@@ -1608,9 +1508,8 @@ async function upsertRenewalReminder(
     recipientRole: "player" as const,
   };
   const content = buildNotificationContent(contentInput);
-  // A linha e REESCRITA no lugar a cada dia do ciclo (IBX-0039), entao a
-  // apresentacao e recalculada junto: o botao da renovacao nunca fica apontando
-  // para um estado que o corpo ja nao descreve.
+  // A linha e REESCRITA no lugar a cada dia do ciclo, entao a apresentacao e
+  // recalculada junto: o botao nunca aponta para um estado que o corpo ja nao descreve.
   const presentation = buildNotificationPresentation(contentInput);
 
   const cycleReminder = (
@@ -1631,9 +1530,8 @@ async function upsertRenewalReminder(
     return;
   }
 
-  // First reminder of this cycle: drop leftovers from previous cycles first so
-  // only one reminder stays live, then create it (the only run that delivers a
-  // push).
+  // First reminder of this cycle: drop previous cycles' leftovers first (only
+  // one stays live), then create it — the only run that delivers a push.
   await retractMembershipRenewalReminders(ctx, args.membershipId);
   await scheduleLeagueNotification(ctx, {
     eventType: RENEWAL_REMINDER_EVENT_TYPE,
@@ -1645,22 +1543,12 @@ async function upsertRenewalReminder(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Cron entry: renewal timeline with configurable grace period.
-//
-// The membership's due date is the cycle end snapshotted on its latest PAID
-// charge (`periodEndAt`, IBX-0039). Charges created before that column existed
-// fall back to paidAt + billingInterval, which is the previous behaviour.
-//
-//   D-reminderDaysBefore  → one live renewal_reminder per cycle, rewritten
-//                           daily with the real days left (no daily push)
-//   D-0 (due)             → mark membership payment_due (still playable),
-//                           retire the reminder, send payment_due
-//   D+gracePeriodDays     → suspend membership + send renewal_due
-//
-// The cron reads `reminderDaysBefore` and `gracePeriodDays` from the league
-// at runtime (not snapshotted) so organizers can adjust after creation.
-// ---------------------------------------------------------------------------
+// Cron entry: renewal timeline — D-reminderDaysBefore sends one live
+// renewal_reminder per cycle (rewritten daily, no daily push), D-0 marks the
+// membership payment_due (still playable), D+gracePeriodDays suspends it. The
+// due date is the cycle end snapshotted on the latest PAID charge `periodEndAt`
+// (older charges fall back to paidAt + interval) and both windows are read from
+// the league at RUNTIME, not snapshotted, so organizers can still adjust them.
 
 const REMINDER_DEDUPE_MS = 24 * 60 * 60 * 1000; // 24h
 
@@ -1672,7 +1560,6 @@ export const sendRenewalReminders = privateMutation.mutation(
     const now = Date.now();
     const nowDate = new Date(now);
 
-    // Sweep PAID charges in batches of 100.
     const paid = await ctx.orm.query.paymentCharge.findMany({
       limit: 100,
       where: { status: "PAID" },
@@ -1705,14 +1592,12 @@ export const sendRenewalReminders = privateMutation.mutation(
         continue;
       }
 
-      // Due date of the cycle this charge bought (IBX-0039). Legacy charges
-      // (created before `periodEndAt` existed) keep the paidAt + interval
-      // estimate that was used before.
+      // Due date of the cycle this charge bought; charges predating `periodEndAt`
+      // keep the paidAt + interval estimate.
       const nextDueMs =
         charge.periodEndAt?.getTime() ?? charge.paidAt.getTime() + intervalMs;
 
-      // Check if there's a newer PAID charge for this membership (player
-      // already renewed). If `charge` is not the latest PAID, skip entirely.
+      // Not the latest PAID charge means the player already renewed — skip.
       const newer = await ctx.orm.query.paymentCharge.findFirst({
         orderBy: { paidAt: "desc" },
         where: {
@@ -1749,16 +1634,16 @@ export const sendRenewalReminders = privateMutation.mutation(
             })
             .where(eq(leagueMembership.id, membership.id));
 
-          // The overdue notice supersedes the reminder: retire it so the
-          // player keeps a single live billing notice (IBX-0039).
+          // The overdue notice supersedes the reminder: retire it so the player
+          // keeps a single live billing notice.
           await retractMembershipRenewalReminders(ctx, membership.id);
 
           if (playerProfile?.userId) {
             await scheduleLeagueNotification(ctx, {
               eventType: "league.membership.renewal_due",
               leagueId: membership.leagueId as Id<"league">,
-              // No `chargeId`: there is no PENDING charge at this point, so the
-              // deep link points to the league (C4).
+              // No `chargeId`: no PENDING charge exists, so the deep link
+              // points to the league.
               metadata: { membershipId: membership.id },
               recipientUserIds: [playerProfile.userId as Id<"user">],
             });
@@ -1778,16 +1663,16 @@ export const sendRenewalReminders = privateMutation.mutation(
             })
             .where(eq(leagueMembership.id, membership.id));
 
-          // The overdue notice supersedes the reminder: retire it so the
-          // player keeps a single live billing notice (IBX-0039).
+          // The overdue notice supersedes the reminder: retire it so the player
+          // keeps a single live billing notice.
           await retractMembershipRenewalReminders(ctx, membership.id);
 
           if (playerProfile?.userId) {
             await scheduleLeagueNotification(ctx, {
               eventType: "league.membership.payment_due",
               leagueId: membership.leagueId as Id<"league">,
-              // No `chargeId`: renewing opens a fresh checkout on the league,
-              // and there is no PENDING charge right now (C4).
+              // No `chargeId`: renewing opens a fresh checkout on the league
+              // and no PENDING charge exists right now.
               metadata: { membershipId: membership.id },
               recipientUserIds: [playerProfile.userId as Id<"user">],
             });
@@ -1805,21 +1690,20 @@ export const sendRenewalReminders = privateMutation.mutation(
         })
       ) {
         // Re-run guard: the per-cycle dedupe is the reminder row itself (it is
-        // rewritten, never duplicated), so this only avoids double work when
-        // the cron fires twice within a day (e.g. before the previous run's
-        // feed row has landed).
+        // rewritten, never duplicated), so this only avoids double work when the
+        // cron fires twice within a day.
         const lastSentMs = membership.lastRenewalReminderSentAt?.getTime() ?? 0;
         if (now - lastSentMs >= REMINDER_DEDUPE_MS) {
           if (playerProfile?.userId) {
-            // Deep link target (C4): a PENDING charge when one exists, otherwise
-            // the league page — never the PAID charge that opened this cycle.
+            // Deep link: a PENDING charge when one exists, else the league page —
+            // never the PAID charge that opened this cycle.
             const pendingCharge = await ctx.runMutation(
               internal.payment.charge.findPendingChargeForSource,
               {
                 sourceId: membership.id,
                 sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
-                // The lookup enforces ownership, so it must run as the
-                // membership's own player (BUG-0022).
+                // The lookup enforces ownership, so it runs as the membership's
+                // own player.
                 userId: playerProfile.userId,
               }
             );
@@ -1850,17 +1734,11 @@ export const sendRenewalReminders = privateMutation.mutation(
 );
 
 /**
- * Reconciliation cron — catches missed webhooks by polling the provider for
- * PENDING charges that are older than 10 minutes. If the provider says the
- * charge was paid or expired, applies the same transition the webhook would
- * have (idempotent via the status guards in `canChargeBePaid` etc.).
- *
- * Runs every 30 minutes (registered in crons.ts).
- *
- * `reconcileCharges` is a privateAction because it needs `ctx.runAction` to
- * call the provider's REST API via the Node runtime. The ORM query that
- * finds stale charges is split into `findStaleChargesForReconciliation`
- * (privateMutation) so it can use `ctx.orm`.
+ * Catches missed webhooks by polling the provider for PENDING charges older than
+ * 10 minutes and applying the transition the webhook would have (idempotent via
+ * the status guards in `canChargeBePaid` etc.). A privateAction because it needs
+ * the Node runtime to reach the provider's REST API; the query that finds stale
+ * charges is split into `findStaleChargesForReconciliation` so it can use `ctx.orm`.
  */
 export const findStaleChargesForReconciliation = privateMutation.mutation(
   async ({ ctx }) => {
@@ -1909,8 +1787,8 @@ export const reconcileCharges = privateAction.action(async ({ ctx }) => {
         reconciled++;
       }
     } catch (error) {
-      // Provider call failed (rate limit, network, etc.) — skip this charge
-      // and try again on the next cron run. Don't crash the whole sweep.
+      // Provider call failed (rate limit, network, …): skip this charge and try
+      // again on the next cron run rather than crashing the whole sweep.
       console.warn(
         `[reconcileCharges] failed for ${charge.correlationId}:`,
         error instanceof Error ? error.message : String(error)
@@ -1935,11 +1813,8 @@ function asciiSafe(value: string): string {
     .join("");
 }
 
-// ---------------------------------------------------------------------------
-// DEV ONLY: simulate a PIX payment for testing checkout flow.
-// Calls applyPaidCharge directly, bypassing the webhook. Only callable when
-// DEPLOY_ENV !== "production".
-// ---------------------------------------------------------------------------
+// DEV ONLY: simulate a PIX payment by calling applyPaidCharge directly, with no
+// webhook. Throws unless DEPLOY_ENV !== "production".
 
 export const simulatePayment = authMutation
   .input(z.object({ chargeId: z.string().min(1) }))

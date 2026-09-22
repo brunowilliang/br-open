@@ -6,11 +6,6 @@ import type {
 import { formatShortDate } from "@/lib/format/date";
 import { formatBrazilDueDayLabel } from "@/lib/payments/membership-due";
 
-/**
- * Estados em que a charge não tem mais PIX utilizável: a partir daqui a tela
- * precisa olhar o estado ATUAL da membership, não o status histórico da charge
- * (BUG-0024: uma notificação antiga carrega o chargeId de uma charge já paga).
- */
 const TERMINAL_CHARGE_STATUS: Record<PaymentChargeStatus, boolean> = {
   EXPIRED: true,
   FAILED: true,
@@ -20,11 +15,9 @@ const TERMINAL_CHARGE_STATUS: Record<PaymentChargeStatus, boolean> = {
 };
 
 export type CheckoutChargeView = {
-  /** Label do CTA da tela; null quando não há ação a oferecer. */
   actionLabel: null | string;
   /** Texto sem travessão no estilo dos cartões de checkout existentes. */
   description: string;
-  /** Semântica do cartão (cor do título e do fundo). */
   severity: "danger" | "success" | "warning";
   title: string;
 };
@@ -34,10 +27,9 @@ type CheckoutContextSignals = {
   membershipDueAt?: number | null;
   membershipStatus?: string | null;
   /**
-   * Obrigação VIGENTE do source (IBX-0041): a charge PENDING do próprio
-   * chamador, ou `null` quando não há PIX utilizável. Opcional como os demais
-   * campos do contrato: uma resposta em cache de um bundle anterior não traz o
-   * campo e a tela mantém o comportamento anterior.
+   * Obrigação VIGENTE do source: a charge PENDING do próprio chamador, ou
+   * `null` sem PIX utilizável. Opcional: uma resposta em cache de um bundle
+   * anterior não traz o campo e a tela mantém o comportamento anterior.
    */
   pendingCharge?: CheckoutCharge | null;
   sourceType: string;
@@ -50,12 +42,9 @@ export type CheckoutRenewSignals = {
 };
 
 /**
- * Traduz o contexto do checkout nos sinais que o cartão consome.
- *
- * A fonte é o `canRenew` do próprio contexto (estado VIVO da membership,
- * IBX-0040); o `canRegenerate` de "meus pagamentos" fica só como fallback para
- * uma resposta em cache que ainda não traga o campo, e nesse intervalo a tela
- * mantém o comportamento anterior em vez de regredir.
+ * O `canRenew` do contexto (estado VIVO da membership) manda; o `canRegenerate`
+ * de "meus pagamentos" fica só como fallback para uma resposta em cache que
+ * ainda não traga o campo.
  */
 export function resolveCheckoutRenewSignals(input: {
   context: CheckoutContextSignals;
@@ -73,30 +62,9 @@ export function resolveCheckoutRenewSignals(input: {
 }
 
 /**
- * Cartão da tela de checkout quando a charge está em estado terminal.
- *
- * - Ainda dá para renovar (`canRenew`: membership em atraso, suspensa ou
- *   `active` dentro da janela de lembrete) → NADA de "Pagamento confirmado":
- *   o cabeçalho vem do estado da membership e o CTA gera a cobrança nova.
- * - `PAID` sem renovação → pagamento de fato liquidado, cartão de sucesso
- *   (com "Aguardando a aprovação do organizador." quando a membership ficou
- *   `pending` por aprovação manual).
- * - Charge terminal sem cobrança possível e membership `active`, ou seja, em
- *   dia com o período já pago → cartão da INSCRIÇÃO (com o vencimento), sem
- *   ação: um link histórico de mensalidade já paga não pode virar "PIX
- *   expirado" (BUG-0025).
- * - Demais estados terminais → cartão sem ação, nunca o layout de PIX (não
- *   existe cobrança utilizável para mostrar).
- *
- * Invariante: `actionLabel` nulo significa que NENHUMA frase do cartão pode
- * prometer uma ação ("Gere um novo PIX"), porque não há botão para executá-la.
- *
- * Devolve `null` apenas para `PENDING`: aí sim a tela mostra o layout de
- * PIX/countdown com a cobrança que está valendo.
- *
- * `membershipStatus`/`membershipDueAt` chegam pelo `getCheckoutContext`
- * (contrato aditivo); sem eles o cabeçalho da renovação fica genérico, mas
- * nunca afirma um pagamento que não aconteceu.
+ * `null` SÓ para `PENDING`: aí a tela mostra o layout de PIX/countdown. Com
+ * `actionLabel` nulo nenhuma frase pode prometer ação (não há botão), e charge
+ * terminal com a membership `active` vira cartão da INSCRIÇÃO, nunca de PIX.
  */
 export function buildCheckoutChargeView(input: {
   canRenew: boolean;
@@ -160,12 +128,8 @@ export function buildCheckoutChargeView(input: {
     };
   }
 
-  // Inscrição em dia: `active` sem cobrança possível é a membership cujo
-  // período já está pago e cujo vencimento ainda está fora da janela de
-  // renovação. A charge do link é história (a notificação antiga continua
-  // apontando para ela), então o cartão fala da inscrição e não promete PIX
-  // nenhum: sem este ramo, quem reabre a notificação depois de pagar via
-  // "PIX expirado" com um "gere um novo PIX" que não tem botão (BUG-0025).
+  // `active` sem cobrança possível: a charge do link é história (a notificação
+  // antiga aponta para ela), então o cartão fala da inscrição e não promete PIX.
   if (input.membershipStatus === "active") {
     return {
       actionLabel: null,
@@ -189,9 +153,7 @@ export function buildCheckoutChargeView(input: {
     };
   }
 
-  // FAILED/REFUNDED fora da renovação: mesmo cartão sem ação do ramo EXPIRED.
-  // Antes caíam no layout de PIX, que renderizava QR e "Expira em 00:00" de uma
-  // cobrança que não existe mais.
+  // FAILED/REFUNDED fora da renovação: cartão sem ação, nunca o layout de PIX.
   if (input.chargeStatus === "FAILED") {
     return {
       actionLabel: null,
@@ -209,41 +171,17 @@ export function buildCheckoutChargeView(input: {
   };
 }
 
-/**
- * Cobrança que a tela mostra: o `getCheckoutContext` devolve a projeção
- * `checkoutChargeSchema` FLAT para a charge do link e aninhada em
- * `pendingCharge` para a obrigação vigente do source (IBX-0041).
- */
+/** Do `getCheckoutContext`: charge do link FLAT, vigente aninhada em `pendingCharge`. */
 export type CheckoutDisplay = {
   /** Cartão terminal; `null` = layout de PIX/countdown da `charge`. */
   card: CheckoutChargeView | null;
-  /** Cobrança cujo PIX a tela mostra (e cujo vencimento o countdown conta). */
   charge: CheckoutCharge;
 };
 
 /**
- * O que a tela mostra, decidido pela cobrança VIGENTE e não pelo status
- * histórico da charge que o link trouxe.
- *
- * Uma notificação antiga (renovação, PIX expirado) carrega o chargeId de uma
- * charge já terminal; quando o jogador já gerou o PIX novo, a obrigação
- * vigente vive em OUTRA charge PENDING do MESMO source e é ela que tem de
- * aparecer, com o copia-e-cola, o QR e a contagem dela (BUG-0025).
- *
- * - `pendingCharge` PENDING do contexto → PIX dela, sem cartão. Ela vem
- *   validada pelo SERVIDOR (`hasUsablePix`), então o relógio do aparelho não a
- *   descarta: com o aparelho adiantado, esconder esse PIX cairia num cartão que
- *   promete um PIX novo e um `createCharge` que devolve a MESMA charge. O
- *   countdown zerado pede UMA revalidação, e aí sim o servidor decide
- *   (`resolveCountdownRevalidation`).
- * - Sem `pendingCharge` → comportamento anterior: a charge do link decide,
- *   com cartão terminal e o CTA de gerar PIX quando `canRenew`.
- * - Charge do link PENDING fora do prazo do aparelho (o cron ainda não marcou)
- *   → cartão terminal, como se já fosse `EXPIRED`. Esta é a única charge que o
- *   relógio local rebaixa: é um payload em cache que pode estar velho.
- *
- * `Date.parse` de `null` (ou de um valor ilegível) é `NaN`, e `NaN > now` é
- * falso: prazo ausente conta como vencido, nunca como PIX vivo.
+ * A cobrança VIGENTE decide, não o status histórico da charge do link: a
+ * `pendingCharge` PENDING (validada pelo SERVIDOR) vence e o relógio local não
+ * a descarta — só a charge do link PENDING fora do prazo vira terminal.
  */
 export function resolveCheckoutDisplay(input: {
   context: CheckoutCharge & CheckoutContextSignals;
@@ -282,15 +220,9 @@ export function resolveCheckoutDisplay(input: {
 }
 
 /**
- * Guarda da revalidação por countdown: quando o countdown da cobrança EXIBIDA
- * zera, quem decide o próximo estado é o SERVIDOR, com UMA leitura por charge
- * (sem loop). Com o aparelho adiantado o payload do servidor continua sendo a
- * última palavra; e um payload em cache cujo PIX já morreu no servidor cai, na
- * resposta seguinte, no cartão terminal.
- *
- * `displayedChargeId` é `null` quando a tela não está mostrando PIX (cartão
- * terminal ou carregando): aí não há countdown para estourar. Devolve o id que
- * a tela deve guardar como já revalidado, mais a decisão de revalidar agora.
+ * Quando o countdown da cobrança EXIBIDA zera, quem decide é o SERVIDOR, com
+ * UMA leitura por charge (sem loop). `displayedChargeId` nulo = tela sem PIX
+ * (cartão terminal ou carregando), logo sem countdown para estourar.
  */
 export function resolveCountdownRevalidation(input: {
   displayedChargeId: null | string;

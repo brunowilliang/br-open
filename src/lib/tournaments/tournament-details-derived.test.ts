@@ -501,7 +501,7 @@ describe("buildStartWarnings", () => {
     const warnings = buildStartWarnings({
       entries: [],
       matches: [
-        // cat-a: side B of round 2 fed by a vacant child below (hole).
+        // cat-a: lado B vazio alimentado por um filho vacant abaixo — buraco.
         { ...baseMatch, entryBId: null, round: 2, slotInRound: 0 },
         { ...baseMatch, slotInRound: 0 },
         { ...baseMatch, slotInRound: 1, status: "vacant" },

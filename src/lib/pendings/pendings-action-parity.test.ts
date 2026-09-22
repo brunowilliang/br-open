@@ -25,13 +25,8 @@ import {
 } from "./pendings-view";
 
 /**
- * PARIDADE SERVIDOR -> CLIENTE (IBX-0076 / PLN-0008): o invariante "nenhum
- * item da v1 cai na omissão do botão" era provado pela SOMA de duas suítes (o
- * servidor prova que todo kind tem ação; o cliente prova que omite quando
- * falta `action`/`route`/`params`). Aqui os itens são construídos pelos
- * BUILDERES REAIS do servidor e passam pelo MESMO `resolvePendingAction` do
- * renderer: se um kind novo nascer sem ação resolvível no cliente, este teste
- * quebra em vez de o botão sumir em silêncio na tela.
+ * Itens reais dos builders do servidor passam pelo MESMO `resolvePendingAction`
+ * da tela: nenhum kind pode nascer sem ação resolvível, ou o botão some calado.
  */
 
 const NOW_MS = Date.UTC(2026, 8, 15, 12);
@@ -58,7 +53,6 @@ function buildEntryView(
   };
 }
 
-/** Um item REAL de cada um dos 14 kinds da v1, pelos builders do servidor. */
 function buildEveryV1Item(): PendingItem[] {
   const membership = (status: string) =>
     buildMembershipPaymentPending({
@@ -78,11 +72,9 @@ function buildEveryV1Item(): PendingItem[] {
   });
 
   return [
-    // 1 · 2 · 3 — mensalidade (atrasada, a vencer na janela, suspensa).
     membership("payment_due"),
     membership("active"),
     membership("suspended"),
-    // 4 · 5 · 6 · 7 — inscrições do jogador.
     ...buildPlayerEntryPendings({
       entries: [buildEntryView({})],
     }),
@@ -108,7 +100,6 @@ function buildEveryV1Item(): PendingItem[] {
     ...buildPlayerEntryPendings({
       entries: [buildEntryView({ status: "pending_approval" })],
     }),
-    // 8 · 9 — desafios com atenção e risco de inatividade.
     buildPlayerChallengePendingItem({
       counts: { confirmResult: 1, registerResult: 2, requestCorrection: 0 },
       leagueId: "league-1",
@@ -117,7 +108,6 @@ function buildEveryV1Item(): PendingItem[] {
       membershipId: MEMBERSHIP_ID,
       risk: inactivityRisk as NonNullable<typeof inactivityRisk>,
     }),
-    // 10 · 13 · 14 — organização (conta de pagamento, solicitações, validação).
     buildLeaguePaymentAccountPending({
       leagueId: "league-1",
       monthlyPriceCents: 9000,
@@ -128,7 +118,6 @@ function buildEveryV1Item(): PendingItem[] {
       proposals: 1,
       results: 2,
     }),
-    // 11 · 12 — inscrições do torneio no escopo da organização.
     ...buildOrganizerEntryPendings({
       tournaments: [
         {
@@ -144,7 +133,6 @@ function buildEveryV1Item(): PendingItem[] {
   ].filter((item): item is PendingItem => item !== null);
 }
 
-/** Item REAL do kind 5 (convite recebido) para as asserções do secundário. */
 function inviteItem(): PendingItem {
   return buildEveryV1Item().find(
     (item) => item.kind === "player_tournament_partner_invite_received"
@@ -185,8 +173,7 @@ describe("pendings server -> client parity", () => {
     };
 
     expect(items.map(unresolvedAction).filter(Boolean)).toEqual([]);
-    // Prova negativa: com o rótulo no segundo botão e SEM ação secundária o
-    // MESMO predicado reprova (a asserção não pode passar por vacuidade).
+    // Prova negativa: o mesmo predicado reprova sem o rótulo do segundo botão.
     expect(unresolvedAction({ ...inviteItem(), secondaryAction: null })).toBe(
       "player_tournament_partner_invite_received: sem ação no CTA secundário"
     );
@@ -202,8 +189,7 @@ describe("pendings server -> client parity", () => {
       entryId: "entry-invited",
       kind: "respond_invite",
     });
-    // A secundária resolve pelo SEU `action` (era o bug de o Recusar reusar a
-    // resolução do Aceitar e aceitar o convite).
+    // A secundária resolve pelo SEU `action`, nunca pela resolução do primário.
     expect(
       resolvePendingAction({ ...invite, action: invite.secondaryAction })
     ).toEqual({
@@ -235,9 +221,8 @@ describe("pendings server -> client parity", () => {
     expect(withLabel).toEqual([]);
   });
 
-  // H2/achado do Backend: no `open_route` o destino é o par do ITEM e o
-  // `action.params` é sempre nulo — se o resolver esquecer o `item.params`, a
-  // navegação sai com `{}` e as rotas com placeholder abrem SEM o id.
+  // No `open_route` o destino é o par do ITEM (`action.params` é nulo): sem o
+  // `item.params` as rotas com placeholder abrem sem o id.
   it("fills every route placeholder of the navigation items", () => {
     const missing: string[] = [];
 
@@ -331,8 +316,6 @@ describe("pendings server -> client parity", () => {
     });
   });
 
-  // A ação de MUTAÇÃO não empurra params de contexto para navegação: ela não
-  // navega (pagar gera o PIX; responder ao convite chama a mutation).
   it("never turns a mutation into a navigation", () => {
     const navigations = items
       .filter(
@@ -344,9 +327,8 @@ describe("pendings server -> client parity", () => {
     expect(navigations).toEqual([]);
   });
 
-  // H1: com UMA inscrição aguardando pagamento o item não tem `params` nem
-  // `route` (o torneio vive só no `source`) e a casa do torneio precisa achá-lo
-  // mesmo assim — a regressão que este teste trava.
+  // Com UMA inscrição aguardando pagamento o item não tem `params` nem `route`
+  // (o torneio vive só no `source`) e a casa do torneio precisa achá-lo mesmo assim.
   it("finds the single-entry payment item in the tournament house", () => {
     const [singleEntryItem] = buildPlayerEntryPendings({
       entries: [buildEntryView({})],

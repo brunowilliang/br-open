@@ -137,11 +137,9 @@ export default function PlayerProfile() {
       await queryClient.invalidateQueries(
         crpc.player.profile.get.queryFilter()
       );
-      // O payload do upsert não carrega username (o builder faz
-      // `.pipe(upsertPlayerProfileSchema)`, que descarta o campo): sem
-      // reinserir a fonte da sessão aqui, o reset apagaria o campo e o schema
-      // obrigatório marcaria "Informe um username." depois de um save
-      // bem-sucedido — com o Salvar desabilitado até redigitar.
+      // O payload do upsert não carrega username (o `.pipe(upsertPlayerProfileSchema)`
+      // descarta o campo): sem reinserir a fonte da sessão, o reset apagaria o campo
+      // e o Salvar ficaria desabilitado até redigitar.
       form.reset({
         ...nextProfile,
         avatarDraftUri: undefined,
@@ -381,13 +379,9 @@ export default function PlayerProfile() {
           <>
             <Page.ScrollView contentContainerClassName="px-4 pb-safe-offset-4">
               <View className="gap-3">
-                {/* Cast do form justificado: o form da rota é tipado
-                    pelo schema COMPLETO com `.pipe` (TInput ≠ TOutput —
-                    o zodResolver transforma os valores no submit),
-                    enquanto a seção espera o UseFormReturn simples do
-                    subset que ela renderiza; os campos compartilhados
-                    têm o mesmo shape de entrada e a seção só lê/escreve
-                    esses campos — cast seguro. */}
+                {/* Cast do form: a rota é tipada pelo schema COMPLETO com `.pipe`
+                    (TInput ≠ TOutput, o zodResolver transforma no submit), enquanto
+                    a seção espera o UseFormReturn do subset que ela renderiza. */}
                 <ProfileDetailsSection
                   avatarSource={avatarSource}
                   form={

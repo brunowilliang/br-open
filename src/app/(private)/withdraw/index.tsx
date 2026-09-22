@@ -40,8 +40,8 @@ export default function WithdrawScreen() {
   const { amountInCents, parts, isEmpty, handleKeyPress, setAmountCents } =
     useAmountInputController();
 
-  // Chave estável por tentativa (BUG-0005): preservada entre erros/retries
-  // para o backend fazer replay da reserva em vez de um 2º POST.
+  // Chave estável por tentativa: preservada entre erros/retries para o backend
+  // fazer replay da reserva em vez de um 2º POST.
   const { attemptKey, confirmed } = useWithdrawIdempotencyKey();
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -64,18 +64,17 @@ export default function WithdrawScreen() {
           minWithdrawCents: balance.minWithdrawCents,
         });
   const isFree = feeCents === 0;
-  // Destino do saque vem do getBalance (IBX-0002): pixKey já mascarada pelo
-  // backend e accountName null para chaves legadas → rótulo "Chave PIX".
+  // Destino do saque vem do getBalance: pixKey já mascarada pelo backend e
+  // accountName null para chaves legadas → rótulo "Chave PIX".
   const pixKey = balance?.pixKey ?? null;
   const accountName = balance?.accountName ?? null;
 
   const requestWithdraw = useMutation(
     requestWithdrawMutationOptions({
       onError: (error) => {
-        // CONFLICT = replay de linha failed (falha DEFINITIVA do provedor):
-        // a chave estável já cumpriu seu papel (impediu o 2º POST) — libera
-        // para o retry nascer com chave nova, senão a tela fica presa em
-        // CONFLICT eterno (BUG-0005, review finding 3).
+        // CONFLICT = replay de linha failed (falha DEFINITIVA do provedor): a
+        // chave estável já cumpriu seu papel (impediu o 2º POST) — libera para
+        // o retry nascer com chave nova, senão a tela fica presa em CONFLICT.
         if (isWithdrawConflictError(error)) {
           confirmed();
         }
@@ -90,7 +89,7 @@ export default function WithdrawScreen() {
         });
       },
       onSuccess: (result) => {
-        // Sucesso confirmado: a próxima tentativa ganha chave nova (BUG-0005).
+        // Sucesso confirmado: a próxima tentativa ganha chave nova.
         confirmed();
         toast.show({
           description: `Você receberá ${formatCurrencyCents(

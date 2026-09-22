@@ -46,15 +46,10 @@ type ChangeEmailDialogProps = {
   onOpenChange: (nextOpen: boolean) => void;
 };
 
-/**
- * Fluxo de troca de e-mail (single-OTP, QA round 8 — `verifyCurrentEmail:
- * false`): 1. novo e-mail → `requestEmailChange({newEmail})` envia o código
- * OTP ao e-mail NOVO (prova de posse única; anti-enumeração nativa); 2.
- * código do e-mail novo → `changeEmail({newEmail, otp})` — o submit É a
- * validação (não existe pre-check consumível; erro não consome o código, 3
- * erros = TOO_MANY_ATTEMPTS). Reenvio chama `requestEmailChange` de novo
- * (código novo invalida o anterior; mesmo balde de cooldown 60s).
- */
+/** Single-OTP no e-mail NOVO (`verifyCurrentEmail: false`): o submit É a
+ * validação — não existe pre-check consumível, erro não consome o código e 3
+ * erros = TOO_MANY_ATTEMPTS. O reenvio invalida o código anterior (cooldown de
+ * 60s). */
 export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<ChangeEmailStep>("new-email");

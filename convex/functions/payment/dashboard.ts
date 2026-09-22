@@ -173,13 +173,12 @@ export const getOverview = authQuery
   });
 
 /**
- * Monthly revenue evolution for the org home (IBX-0071): PAID charges of the
- * organization across ALL source types (league memberships AND tournament
- * entries), bucketed by the Brazilian month of `paidAt` and valued at the
- * organizer split cents — the same money `getOverview` reports. Every month
- * of the window is present (empty = zero) and `bySource` breaks the same
- * window down per competition. The account gate mirrors `getOverview`: an
- * organization without an active Woovi account gets an empty series.
+ * Série mensal de receita da home da organização: charges PAID de TODOS os
+ * tipos de origem (mensalidade de liga e inscrição de torneio), agrupadas pelo
+ * mês brasileiro de `paidAt` e valoradas no split do organizador — o mesmo
+ * dinheiro que `getOverview` reporta. Todo mês da janela aparece (vazio = zero)
+ * e `bySource` abre a mesma janela por competição. Mesmo gate de conta:
+ * organização sem conta Woovi ativa recebe série vazia.
  */
 export const getRevenueSeries = authQuery
   .input(z.object({ months: z.number().int().min(1).max(24).optional() }))

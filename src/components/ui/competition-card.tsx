@@ -15,13 +15,8 @@ type CompetitionCardProps = {
   state?: string | null;
 };
 
-/** Card universal de competição (RUL-0005) — o chip identifica Liga ou Torneio.
- * Altura estável por linha (IBX-0021): corpo intrínseco constante de 64px de
- * conteúdo — cidade em caixa fixa de 1 linha (min-h-4) colada no título com 2
- * linhas reservadas (min-h-12, o vazio da reserva fica NO FIM do card). No
- * card de criação título e descrição ficam colados em caixas naturais,
- * centrados na mesma área de 64px de conteúdo (min-h-20 no body, que inclui o
- * py-2 de 16px — min-height no RN é border-box). O LegendList posiciona cada
+/** O chip identifica Liga ou Torneio. A altura por linha é ESTÁVEL (corpo de
+ * 64px; `min-height` no RN é border-box) porque o LegendList posiciona cada
  * célula com position absolute e não estica colunas como o FlatList. */
 export const CompetitionCard = (props: CompetitionCardProps) => (
   <PressableFeedback onPress={props.onPress}>

@@ -39,8 +39,8 @@ import { useChallengeMutations } from "@/lib/leagues/use-challenge-mutations";
 import { toLeagueScoreSets, toScoreDraftSets } from "@/lib/matches/score-draft";
 import type { LeagueChallengeScore } from "@convex/domains/league/contract";
 
-// IBX-0026: placeholder de set do W.O. — mesma convenção do WALKOVER_SET do
-// bracket de torneio, no vocabulário challenger/challenged da liga.
+// Placeholder de set do W.O. — mesma convenção do WALKOVER_SET do bracket de
+// torneio, no vocabulário challenger/challenged da liga.
 const LEAGUE_WALKOVER_SET = {
   challengedGames: 0,
   challengerGames: 0,
@@ -244,9 +244,8 @@ export default function LeagueChallengesRoute() {
   const [adminActionTarget, setOrganizerActionTarget] =
     useState<OrganizerActionTarget | null>(null);
 
-  // Se a aba "Atenção" (antiga "Pendentes") ficar vazia após uma ação (ex.:
-  // admin resolveu todos os pendentes), caímos para "Em andamento" para não
-  // exibir uma aba vazia.
+  // Aba "Atenção" esvaziada por uma ação do admin: cai para "Em andamento"
+  // em vez de exibir aba vazia.
   useEffect(() => {
     if (
       !(canManage && tabCounts.attention === 0 && activeTab === "attention")
@@ -273,12 +272,9 @@ export default function LeagueChallengesRoute() {
     hasAnyChallenges,
   });
 
-  // Callbacks object consumed by buildChallengeMenuActions. The handlers above
-  // are recreated each render, so this object is too; the ChallengeCard is
-  // memoized, but its props (menuActions array) still change per render. The
-  // main win of this refactor is pulling the menu logic out of the render
-  // block and into a pure builder; per-item memoization would require wrapping
-  // every handler in useCallback, which is out of scope here.
+  // Estes callbacks são recriados a cada render, então as props (menuActions)
+  // mudam e a memoização do ChallengeCard não segura; memoizar exigiria
+  // useCallback em todos os handlers.
   const menuCallbacks: ChallengeMenuCallbacks = {
     onAccept,
     onAdminManage: (target) => {
@@ -556,8 +552,8 @@ export default function LeagueChallengesRoute() {
                   }
                 }}
                 onSubmit={async (value) => {
-                  // IBX-0026: W.O. carrega 1 set placeholder 0-0 + flag —
-                  // mesma convenção do torneio (WALKOVER_SET no bracket).
+                  // W.O. carrega 1 set placeholder 0-0 + flag — mesma convenção
+                  // do torneio (WALKOVER_SET no bracket).
                   const score = {
                     sets: value.walkover
                       ? [LEAGUE_WALKOVER_SET]

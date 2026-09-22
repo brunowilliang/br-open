@@ -11,10 +11,9 @@ export const migration = defineMigration({
   up: {
     table: "team",
     migrateOne: async (ctx, doc) => {
-      // Better Auth 1.7 team counter (IBX-0056 deployment 1). The 1.7
-      // organization schema declares memberCount required with default 0,
-      // so every pre-existing team row gets its real count from the
-      // indexed teamId membership rows before the bump promotes the field.
+      // Better Auth 1.7 declara memberCount required (default 0) no schema de
+      // organização: sem o backfill a linha antiga sobe com 0 em vez do
+      // tamanho real do time.
       const team = doc as TeamDoc;
       if (typeof team.memberCount === "number") {
         return undefined;

@@ -1,7 +1,7 @@
 /**
- * Shared bracket row helpers for the function layer (IBX-0067): the move
- * rules (bracket.ts) and the incremental placement (placement.ts) read the
- * same category board and need the same randomness injection.
+ * Shared bracket row helpers for the function layer: the move rules (bracket.ts)
+ * and the incremental placement (placement.ts) read the same category board and
+ * need the same randomness injection.
  */
 import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../../_generated/dataModel";

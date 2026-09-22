@@ -175,9 +175,8 @@ export const team = convexTable(
   "team",
   {
     createdAt: timestamp().notNull(),
-    // Better Auth 1.7 team counter (IBX-0056, deployment 2): obrigatorio
-    // (required + default 0 no schema do adapter 1.7); backfill
-    // backfill_team_member_count ja rodou no DEV antes desta promocao.
+    // Better Auth 1.7 exige o contador de membros no formato do adapter
+    // (required com default 0): outro nome ou campo opcional quebra o adapter.
     memberCount: integer().notNull(),
     name: text().notNull(),
     organizationId: id("organization")
@@ -192,10 +191,9 @@ export const teamMember = convexTable(
   "teamMember",
   {
     createdAt: timestamp(),
-    // Better Auth 1.7 membership key (deployment 1 do upgrade IBX-0056):
-    // escrito pelo adapter 1.7 em novos teamMember; rows antigas ficam sem o
-    // campo (excluidas do indice unique pelo Convex, zero violacao) e o
-    // adapter faz fallback para o par (teamId, userId) existente.
+    // Better Auth 1.7 escreve a chave de membership neste formato; linha antiga
+    // fica sem o campo (o Convex a exclui do indice unique, zero violacao) e o
+    // adapter cai no par (teamId, userId) existente.
     membershipKey: text(),
     teamId: id("team")
       .notNull()

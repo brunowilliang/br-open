@@ -77,9 +77,8 @@ function Root() {
   }, [isAppReady, markInteractive]);
 
   // expo-router paints the native container behind each stack with the
-  // react-navigation theme background, which defaults to light gray in both
-  // appearances and shows through the scenes during fade transitions.
-  // Feeding it the themed app background keeps route changes flash free.
+  // react-navigation theme background (light gray in both appearances), which
+  // shows through during fades — feeding it the app background kills the flash.
   const navigationTheme = useMemo(() => {
     const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
     return {

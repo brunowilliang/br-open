@@ -13,20 +13,16 @@ import {
 } from "./contract";
 
 // ---------------------------------------------------------------------------
-// Regras puras compartilhadas do sistema de pendencias (IBX-0076)
+// Regras puras compartilhadas do sistema de pendencias
 // ---------------------------------------------------------------------------
-//
 // Sem ctx, sem tabela, sem Convex: tudo aqui e funcao de dado -> dado, testavel
-// isolado (mesmo molde de `domains/league/challenge-status.ts`). As regras POR
-// DOMINIO (copy + destaque de cada kind) vivem em
-// `domains/<dono>/pendings-rules.ts`; este modulo guarda o que e comum a todos:
+// isolado. As regras POR DOMINIO (copy + destaque de cada kind) vivem em
+// `domains/<dono>/pendings-rules.ts`; aqui fica o que e comum a todos:
 // identidade, ordem, cap, contagens e a gramatica das partes/linhas.
 
 /**
- * Cap do array devolvido por `pendings.list`. Os itens vem ORDENADOS antes do
- * corte (a pendencia mais urgente nunca e a que sobra), as contagens saem do
- * array JA cortado e `truncated` avisa que houve corte — badge e lista nunca
- * divergem.
+ * Os itens vem ORDENADOS antes do corte, as contagens saem do array JA cortado e
+ * `truncated` avisa o corte: badge e lista nunca divergem.
  */
 export const PENDING_ITEM_CAP = 20;
 
@@ -37,40 +33,26 @@ const SEVERITY_RANK: Record<PendingSeverity, number> = {
   warning: 1,
 };
 
-/**
- * Trecho destacado da descricao (o negrito e decisao do SERVIDOR, r4/r6 da
- * galeria). Partes sem destaque sao o literal `{ text }` — sem wrapper.
- */
 export function pendingHighlight(text: string) {
   return { isHighlighted: true as const, text };
 }
 
-/**
- * Concordancia de numero do app: `countNoun(1, "resultado", "resultados")` =
- * "1 resultado". Usada nas copias que ja pluralizam na tela hoje.
- */
 export function countNoun(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-/** Identidade deterministica do item: `<kind>:<sourceId>`. */
 export function buildPendingItemId(kind: string, sourceId: string) {
   return `${kind}:${sourceId}`;
 }
 
-/**
- * Acao de NAVEGACAO PURA: o destino e o `route` + `params` do item, entao a
- * acao nao carrega params proprios. Usada por todo CTA que so abre uma tela.
- */
 export function openRouteAction() {
   return { params: null, type: "open_route" as const };
 }
 
 /**
- * Ordem determinista do array: severidade (danger > warning > info), depois
- * `deadlineAt` ascendente (quem nao tem prazo vai por ultimo), depois
- * `moneyCents` descendente (valor que decide), depois `id` ascendente — o
- * desempate final garante ordem estavel entre execucoes.
+ * Ordem determinista: severidade (danger > warning > info), `deadlineAt`
+ * ascendente (sem prazo vai por ultimo), `moneyCents` descendente e `id`
+ * ascendente como desempate final estavel entre execucoes.
  */
 export function sortPendingItems(items: PendingItem[]) {
   return [...items].sort((left, right) => {
@@ -130,8 +112,8 @@ export function buildPendingsCounts(items: PendingItem[]): PendingsCounts {
 export type PendingsActorRef = { id: string; kind: PendingScope };
 
 /**
- * Recibo de dispensa como ele vive na tabela `pendingDismissal`: o snapshot
- * (severidade, contagem e prazo) e o que decide se o item segue escondido.
+ * Recibo como ele vive na tabela `pendingDismissal`: o snapshot (severidade,
+ * contagem e prazo) e o que decide se o item segue escondido.
  */
 export type PendingDismissalReceipt = {
   actorId: string;
@@ -153,7 +135,6 @@ export function buildPendingDismissalSnapshot(item: PendingItem) {
 }
 
 /**
- * Escopo dono do item a partir do id deterministico (`<kind>:<sourceId>`).
  * `null` quando o id nao carrega kind registrado: nao ha pendencia a dispensar.
  */
 export function resolvePendingItemScope(itemId: string): PendingScope | null {
@@ -168,10 +149,9 @@ export function resolvePendingItemScope(itemId: string): PendingScope | null {
 /**
  * Classificacao UNICA dos recibos do ator naquela superficie, servindo as duas
  * pontas: `hiddenIds` e o que a LEITURA esconde (recibo vivo = item intacto nos
- * tres campos do snapshot, caso unico contando 1; roda antes do corte) e `dead`
- * e o que ela ja ignora — item fora da derivacao ou snapshot que nao casa — e a
- * poda do dismiss pode apagar. Recibo de outro ator/superficie nao entra em
- * nenhum dos dois, e a casa nunca esconde.
+ * tres campos do snapshot; roda antes do corte) e `dead` e o que ela ja ignora —
+ * item fora da derivacao ou snapshot que nao casa — e a poda pode apagar. A casa
+ * nunca esconde e recibo de outro ator/superficie nao entra em nenhum dos dois.
  */
 function classifyPendingDismissals(input: {
   actor: PendingsActorRef;
@@ -241,9 +221,8 @@ export function selectDeadPendingDismissals(input: {
 }
 
 /**
- * Fecho da query: esconde o dispensado, ordena, corta no cap, conta o que sobrou
- * e carrega a saturacao das LEITURAS — o UNICO caminho do resultado de
- * `pendings.list`. A dispensa entra ANTES do corte/contagem (nao ocupa vaga).
+ * O UNICO caminho do resultado de `pendings.list`. A dispensa entra ANTES do
+ * corte/contagem: item escondido nao ocupa vaga da lista.
  */
 export function buildPendingsResult(input: {
   dismissals?: {

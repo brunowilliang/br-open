@@ -14,89 +14,22 @@ import {
 import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
 
 type NotificationCardProps = {
-  /**
-   * Item do menu ⋮ desabilitado enquanto a SUA ação está em voo
-   * (`usePendingActionRunner`, o mesmo runner do renderer de pendências).
-   */
   isActionPending?: (resolution: PendingActionResolution | null) => boolean;
-  /**
-   * Corta o texto como o FEED corta: título em 1 linha e descrição em 2. `false`
-   * deixa o texto INTEIRO — a galeria dev usa assim para o usuário ler a copy do
-   * servidor sem ellipsis (rodada 3 do IBX-0077). O corte do feed é de antes da
-   * extração (`git show HEAD:src/app/(private)/settings/notifications.tsx:143` e
-   * `:149`).
-   */
   isClamped?: boolean;
-  /**
-   * Executa a resolução do ITEM do menu (cada item entrega a sua). O dono do
-   * fluxo (queries/mutations) é a tela.
-   */
   onAction?: (resolution: PendingActionResolution) => void;
   onOpen: () => void;
   onRemove: () => void;
   notification: NotificationCardItem;
-  /**
-   * Hora do item. A central mostra hoje (default `true`); a galeria dev desenha
-   * a variante sem ela para o usuário decidir o desenho (IBX-0077).
-   */
   showTimestamp?: boolean;
-  /**
-   * Marca de NÃO LIDA (o ponto ao lado da hora). Importa porque o badge da home
-   * e de Configurações conta as não lidas (`notification.settings.status`); a
-   * galeria desenha a variante sem ela para o usuário decidir (IBX-0077).
-   */
   showUnreadMark?: boolean;
 };
 
-/**
- * O `tone` do item É o nome da variant REAL do `Menu.Item`: o componente só tem
- * `default` e `danger` (`menu.types.d.ts`: `ItemVariant = 'default' | 'danger'`,
- * e o CSS só tem `menu__item-title--variant-default` / `--variant-danger`,
- * `menu.css:71-77`). Não existe variant de sucesso — o verde da rodada 3 saiu na
- * rodada 4 — então a semântica da cor vive num lugar só, no `readActionTone` do
- * derivado (`lib/notifications/notification-view.ts`), e aqui o `tone` entra
- * direto como `variant`, sem tabela intermediária.
- */
+// O `tone` do item É o nome da variant REAL do `Menu.Item`: o componente só tem
+// `default` e `danger` (`menu.types.d.ts`), então não existe variant de sucesso —
+// a semântica da cor vive só no `readActionTone` do derivado.
 
-/**
- * O CARTÃO DA CENTRAL DE NOTIFICAÇÕES (IBX-0077 / PLN-0009): o layout do
- * ALERTA do app, SEM o indicador de status, com título e descrição (em PARTES,
- * quando o servidor manda `bodyHighlights`). O corpo NÃO tem botão — TODA ação
- * vive no menu ⋮ (rodada 2, pedido do usuário: "coloca TODOS os botões nesse
- * menu").
- *
- * Extraído do item que vivia dentro da tela
- * (`app/(private)/settings/notifications.tsx`, função local `NotificationFeedItem`)
- * para a galeria dev nascer do componente REAL, nunca de um desenho paralelo
- * (RUL-0005/0007). Comportamento preservado da tela: o toque abre a
- * notificação, o menu ⋮ remove, e há feedback de toque em toda superfície
- * tocável (RUL-0035) — o `Highlight` é o último filho e o gatilho para a
- * propagação (`stopPropagation`) para o toque nele não abrir o item.
- *
- * `isIndicatorHidden` é o mecanismo OFICIAL do `Alert` do HeroUI Native para
- * ficar sem ícone: `Alert.Indicator` é uma PARTE composta e omitir a parte é a
- * única forma (não existe prop para escondê-la) — ver o comentário do
- * componente em `components/ui/widget-alert.tsx`.
- *
- * As AÇÕES do menu vêm do servidor (`presentation.action` /
- * `secondaryAction`), traduzidas pelo ÚNICO ponto de tradução
- * (`resolvePendingAction`, via `buildNotificationMenuItems`) e executadas pela
- * tela pelo MESMO runner do renderer de pendências: item sem resolução não é
- * desenhado, nunca item morto.
- *
- * O `contentClassName` reserva a faixa do gatilho: ele é ABSOLUTO
- * (`top-2 right-2`) e, sem a reserva, o texto da descrição passaria por baixo
- * dele. O gatilho é `size="sm"` (o menor que o `Button` aceita: 40px, altura de
- * `button__root--size-sm`), então 8px do `right-2` + 40px do botão = 48px =
- * `pr-12` no conteúdo.
- *
- * A ORDEM dos itens é do derivado (`buildNotificationMenuItems`: principal,
- * secundária, destrutiva — NÃO é a ordem do rodapé do alerta) e a COR sai do
- * `tone` semântico de cada item: `danger` só no que é recusa ou destrutivo
- * (Recusar, Remover notificação) e o `default` do componente em TODO o resto
- * (Aceitar, Aprovar, Pagar, Renovar). O verde do sucesso foi tentado na rodada 3
- * e saiu na rodada 4 — ver `docs/spec/dashboard.md`.
- */
+/** O cartão da central: o layout do ALERTA sem o indicador de status e sem botão
+ * no corpo — TODA ação vive no menu ⋮. */
 export function NotificationCard(props: NotificationCardProps) {
   const { notification } = props;
   const menuItems = buildNotificationMenuItems(notification);
@@ -109,18 +42,17 @@ export function NotificationCard(props: NotificationCardProps) {
     <View className="gap-1">
       <PressableFeedback animation={false} onPress={props.onOpen}>
         <WidgetAlert
+          // 8px do `right-2` + 40px do botão `sm` = 48px = `pr-12`: sem a reserva,
+          // a descrição passa por baixo do gatilho absoluto.
           contentClassName="pr-12"
           description={buildNotificationDescription({
             body: notification.body,
             bodyHighlights: notification.presentation?.bodyHighlights,
           })}
-          // O MESMO corte que o item do feed tinha antes da extração
-          // (`git show HEAD:src/app/(private)/settings/notifications.tsx:143` no
-          // título e `:149` na descrição): título 1 linha, descrição 2. Vale
-          // para os DOIS caminhos do `WidgetAlert` (string e partes). A galeria
-          // passa `isClamped={false}` para o texto sair inteiro; `undefined` no
-          // `numberOfLines` é o "sem corte" do RN.
+          // Título 1 linha, descrição 2 (`undefined` = sem corte no RN).
           descriptionNumberOfLines={props.isClamped === false ? undefined : 2}
+          // `Alert.Indicator` é uma parte composta: omitir a parte é a única
+          // forma de ficar sem ícone (não existe prop para escondê-la).
           isIndicatorHidden
           status={isUnread ? "accent" : undefined}
           title={notification.title}
@@ -161,7 +93,7 @@ export function NotificationCard(props: NotificationCardProps) {
 
                 return (
                   // Cada item resolve a SUA ação: o do Recusar nunca dispara a
-                  // resolução do Aprovar (o defeito histórico do par).
+                  // resolução do Aprovar.
                   <Menu.Item
                     isDisabled={
                       props.isActionPending?.(item.resolution) ?? false

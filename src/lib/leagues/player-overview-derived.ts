@@ -22,19 +22,13 @@ function isFinished(challenge: ChallengeItem) {
   return challenge.status === "finished";
 }
 
-/**
- * Retorna o lado do viewer no desafio, ou null se não participa.
- */
-
 export function buildPlayerPositionCard(input: {
   rankingItemsCount: number;
   viewerPosition: null | number | undefined;
 }): PlayerPositionCard | null {
-  // "Sem posição" é estado EXPLÍCITO da derivada (BUG-0046): o viewer sem
-  // posição no ranking chega aqui como `null` (buscado e não achado) ou
-  // `undefined` (posição ausente do payload/no primeiro render). Sem este
-  // guarda o card saía com `position: undefined` e o KPI montava o texto
-  // "#undefined de 0".
+  // "Sem posição" é estado EXPLÍCITO: `null` (buscado e não achado) ou
+  // `undefined` (fora do payload/no primeiro render). Sem o guarda o KPI
+  // montaria "#undefined de 0".
   if (typeof input.viewerPosition !== "number") {
     return null;
   }
@@ -45,12 +39,9 @@ export function buildPlayerPositionCard(input: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Charts do jogador (PLN-0007 FASE 2): V/D por mês e win rate, derivados
-// dos desafios FINALIZADOS com resultado. Vencedor vem do submission
-// (`winnerMembershipId` persistido já resolvido pelo servidor, inclusive
-// para W.O. e placar que decide).
-// ---------------------------------------------------------------------------
+// Charts do jogador: V/D por mês e win rate, derivados dos desafios
+// FINALIZADOS com resultado. O vencedor vem de `winnerMembershipId`, já
+// resolvido pelo servidor (inclusive W.O. e placar que decide).
 
 export type PlayerMonthlyWinLossPoint = {
   losses: number;

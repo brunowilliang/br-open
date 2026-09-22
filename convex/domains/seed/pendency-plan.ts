@@ -3,10 +3,8 @@ import type {
   TournamentModality,
 } from "../tournament/contract";
 
-// Dado puro do cenario de pendencias que faz a home mostrar os dois escopos
-// (`organization` e `player`). Quem escreve no banco e `functions/seed.ts`
-// (`seed:pendencyScenario`); as regras que leem esse estado vivem em
-// `domains/pendings/registry.ts`. Sem ctx, testavel isolado.
+// Dado puro do cenario de pendencias que faz a home mostrar os dois escopos:
+// `functions/seed.ts` escreve no banco, as regras de leitura vivem no registry.
 
 export type PendencySeedMembershipStatus =
   | "active"
@@ -21,13 +19,11 @@ export type PendencySeedLeague = {
   inactivityPenaltyDays: number | null;
   /** O schema da liga exige o TIPO junto dos dias, quando a penalidade liga. */
   inactivityPenaltyType: "drop_one_position" | "move_to_ranking_end" | null;
-  /** Idempotencia da charge PAGA do ciclo (correlationId deterministico). */
   key: string;
   monthlyPriceCents: number;
   name: string;
   /** Dias ate o vencimento ja pago; so a liga do "a vencer" tem ciclo. */
   paidDaysUntilDue: number | null;
-  /** Solicitacoes de entrada pendentes de outros jogadores. */
   pendingRequests: number;
   reminderDaysBefore: number;
   state: string;
@@ -39,10 +35,8 @@ export type PendencySeedLeague = {
 export const PENDENCY_SEED_LAST_MATCH_DAYS_AGO = 13;
 
 /**
- * As tres variantes de mensalidade pedem memberships com status DIFERENTES, e
- * status e por (liga, jogador): cada variante tem a sua liga. Todas pagas —
- * liga gratuita nao tem ciclo de cobranca, e a conta de recebimento ausente so
- * aparece em liga com preco.
+ * Status DIFERENTES por variante e status e por (liga, jogador): cada variante
+ * tem a sua liga. Todas pagas — liga gratuita nao tem ciclo de cobranca.
  */
 export const PENDENCY_SEED_LEAGUES: readonly PendencySeedLeague[] = [
   {
@@ -195,7 +189,6 @@ export const PENDENCY_SEED_TOURNAMENTS: readonly PendencySeedTournament[] = [
   },
 ];
 
-/** Idempotencia da charge: mesma liga + mesma membership = mesma correlationId. */
 export function buildPendencyChargeCorrelationId(input: {
   key: string;
   membershipId: string;
@@ -203,23 +196,18 @@ export function buildPendencyChargeCorrelationId(input: {
   return `seed-pendency-${input.key}-${input.membershipId}`;
 }
 
-// Plantio na organizacao que o alvo JA usa: o cenario acima vive numa
-// organizacao PROPRIA e so aparece com o ator ativo nela, mas o seletor do app
-// ativa a PRIMEIRA organizacao da lista. Esta cobertura ACRESCENTA (nunca
-// altera) dado de teste na organizacao que ele ja gerencia; a conta de
-// recebimento dela fica intocada.
+// O seletor do app ativa a PRIMEIRA organizacao da lista, e o cenario acima vive
+// numa organizacao PROPRIA: esta cobertura ACRESCENTA dado de teste na
+// organizacao que o alvo ja gerencia, sem alterar nada dela.
 
-/** Teto de organizacoes do alvo cobertas (bounded, como as leituras do app). */
 export const PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT = 3;
 
-/** Solicitacoes de entrada plantadas por liga do alvo. */
 export const PENDENCY_SEED_PRIMARY_JOIN_REQUEST_LIMIT = 2;
 
 /**
- * Inscricoes que o plantio garante no torneio do alvo, por STATUS: o alvo e o
- * TOTAL no torneio (nao um flag), entao repetir a rodada nao acumula e um alvo
+ * O alvo e o TOTAL no torneio (nao um flag): repetir o plantio nao acumula e alvo
  * ja alcancado por dado real nao e duplicado. Dois "aguardando pagamento" de
- * proposito: com contagem 1 um item ja dispensado nao volta.
+ * proposito — com contagem 1 um item ja dispensado nao volta.
  */
 export const PENDENCY_SEED_PRIMARY_ENTRY_TARGETS = [
   { status: "awaiting_payment", target: 2 },
@@ -234,8 +222,8 @@ export const PENDENCY_SEED_PRIMARY_TOURNAMENT_STATUSES = [
 ] as const;
 
 /**
- * Alvo mais recente: `updatedAt`/`createdAt` desc com o id como desempate. Sem
- * o desempate o alvo mudaria entre execucoes e o plantio acumularia dado.
+ * `updatedAt`/`createdAt` desc com o id como desempate, sem ele o alvo mudaria
+ * entre execucoes e o plantio acumularia dado.
  */
 export function comparePendencyTargetRecency(input: {
   left: { id: string; recencyMs: number };
@@ -258,16 +246,14 @@ export type PendencySeedProfileGender =
   (typeof PENDENCY_SEED_PROFILE_GENDER)[keyof typeof PENDENCY_SEED_PROFILE_GENDER];
 
 /**
- * Genero do perfil DO ALVO: ele tambem OCUPA as inscricoes dele, entao entra no
- * par de generos que a categoria exige.
+ * O alvo tambem OCUPA as inscricoes dele: o genero dele entra no par exigido.
  */
 export const PENDENCY_SEED_VIEWER_GENDER: PendencySeedProfileGender =
   PENDENCY_SEED_PROFILE_GENDER.male;
 
 /**
- * Perfis LIVRES para uma inscricao na categoria: dupla feminina/masculina pede
- * dois perfis daquele genero e a mista um de cada; sem o par completo devolve
- * vazio (nunca planta entrada que o produto recusaria).
+ * Dupla feminina/masculina pede dois perfis daquele genero e a mista um de cada;
+ * sem o par completo devolve vazio — nunca planta entrada que o produto recusaria.
  */
 export function selectFreePendencyEntryProfiles<T extends string>(input: {
   candidates: readonly { gender: null | string; profileId: T }[];
@@ -282,7 +268,6 @@ export function selectFreePendencyEntryProfiles<T extends string>(input: {
   const { gender, modality } = input;
 
   if (gender === "mixed") {
-    // Mista e a unica categoria que aceita perfis de generos diferentes.
     if (modality === "singles") {
       const [single] = free;
 

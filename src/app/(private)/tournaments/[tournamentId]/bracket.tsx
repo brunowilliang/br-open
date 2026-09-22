@@ -85,14 +85,9 @@ export default function TournamentBracketRoute() {
   const [cardHeights, setCardHeights] = useState<BracketCardHeights>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isRedrawDialogOpen, setIsRedrawDialogOpen] = useState(false);
-  // The detail layout keeps inactive tab screens mounted
-  // (detachInactiveScreens={false}) and is reused across tournament
-  // revisits, so this screen and its canvas survive with the gesture
-  // transform the previous visit left behind. Re-entering the tab must
-  // start framed again (QA R18) — e pela MESMA instância: o seed vai como
-  // prop e o canvas re-enquadra no fit (useLayoutEffect). O remount por foco
-  // (key com o seed) reconstruía cards/alturas/fit e PISCAVA a tela a cada
-  // entrada/troca de aba.
+  // Inactive tab screens stay mounted (detachInactiveScreens={false}), so this
+  // canvas survives with the last visit's transform: re-entering the tab must
+  // re-seed the fit on the SAME instance — remounting by key blinks the screen.
   const hasFocusedBracket = useRef(false);
   const [bracketFocusSeed, setBracketFocusSeed] = useState(0);
   useFocusEffect(
@@ -105,9 +100,9 @@ export default function TournamentBracketRoute() {
     }, [])
   );
   const isOrganizer = access?.canManage ?? false;
-  // Janela do ajuste de posição (IBX-0068): o ajuste (mesma rodada ou entre
-  // rodadas) SÓ com a chave sorteada — iniciar congela a chave; a regra vive
-  // no modelo puro de bracket-view.
+  // O ajuste de posição (mesma rodada ou entre rodadas) SÓ existe com a chave
+  // sorteada — iniciar congela a chave; a regra vive no modelo puro de
+  // bracket-view.
   const tournamentStatus = tournament?.status ?? "";
   useEffect(() => {
     bucket$.actions.setActiveRoute("bracket");
@@ -169,9 +164,8 @@ export default function TournamentBracketRoute() {
       });
     },
   });
-  // IBX-0028: edição de resultado JÁ publicado. O CONFLICT do servidor
-  // (partida seguinte já jogada) chega com a mensagem pronta — o toast
-  // apenas a exibe. Sucesso refresha a chave via invalidateTournamentContext.
+  // Edição de resultado JÁ publicado: o CONFLICT do servidor (partida seguinte
+  // já jogada) chega com a mensagem pronta — o toast só a exibe.
   const editResult = useMutation({
     mutationFn: crpcClient.tournament.matches.editResult.mutate,
     mutationKey: crpc.tournament.matches.editResult.mutationKey(),
@@ -320,11 +314,9 @@ export default function TournamentBracketRoute() {
 
   const layout = activeTreeLayout?.layout;
 
-  // Partidas FILHAS por "rodada:slot" (a coluna da árvore ativa). O ajuste usa
-  // isto pra saber se o lado vazio de um card ainda espera o vencedor do
-  // confronto de baixo (feed vivo = não aceita inscrição; só linha podada
-  // aceita) e se a vaga é vitória propagada de um RESULTADO PUBLICADO (travada
-  // — regra do Forja em 16/09).
+  // Partidas FILHAS por "rodada:slot" (coluna da árvore ativa): o ajuste usa
+  // isto pra saber se o lado vazio ainda espera o vencedor de baixo (feed vivo
+  // não aceita inscrição; só linha podada aceita) ou se é vitória propagada.
   const feedBySlot = useMemo(() => {
     const bySlot = new Map<string, BracketFeed>();
 
@@ -341,13 +333,9 @@ export default function TournamentBracketRoute() {
   }, [activeTreeLayout]);
 
   const handleHeightChange = useCallback((matchId: string, height: number) => {
-    // A altura EFETIVA de um card sem medida é a estimativa (o fallback do
-    // layout), então medir a estimativa não mexe em nada e não entra no
-    // state — é a lição IBX-0022 (montagem de 64 chaves sem cascata de
-    // setState). Comparar com a constante em vez da altura efetiva congelava
-    // o retângulo: um card commitado em 154 que volta a medir 136 (a linha
-    // de agendamento sai do card) nunca re-alinhava e o conector ficava 9pt
-    // fora do eixo (BUG-0033). commitCardHeight resolve os dois.
+    // Medir a estimativa (card sem medida) não entra no state: sem cascata de
+    // setState na montagem. Comparar com a constante congelava o retângulo e
+    // jogava o conector fora do eixo — commitCardHeight cobre os dois casos.
     setCardHeights((previous) =>
       commitCardHeight({ heights: previous, matchId, measured: height })
     );
@@ -417,8 +405,7 @@ export default function TournamentBracketRoute() {
         onHeightChange={(height) => {
           // Card de bye: altura FIXA na constante do layout (o próprio card a
           // fixa), então a medida é sempre a mesma do retângulo e não entra no
-          // state — commitar reintroduziria o churn de re-layout que o
-          // BUG-0033 fechou.
+          // state — commitar reintroduziria o churn de re-layout.
           if (isByeMatch(match)) {
             return;
           }
@@ -481,10 +468,9 @@ export default function TournamentBracketRoute() {
       : null;
   const hasBracket = trees.length > 0 && activeTreeLayout !== null;
   const categories = tournament?.categories ?? [];
-  // IBX-0067 (Etapa 3): o "Sortear chave" manual foi EXTINTO — o placement
-  // incremental nasce a chave sozinha com as duas primeiras inscrições
-  // confirmadas. `published` ficou sem ação no menu (o menu some); em
-  // `drawn` resta o Re-sortear (reset aleatório total).
+  // O "Sortear chave" manual foi EXTINTO: o placement incremental nasce a chave
+  // sozinha com as duas primeiras inscrições confirmadas. `published` fica sem
+  // ação no menu (o menu some); em `drawn` resta o Re-sortear.
   const hasBracketMenu = isOrganizer && tournament?.status === "drawn";
   // The draw skips categories with fewer than 2 active entries, so a listed
   // category may have no bracket: only offer tabs that render a tree.
@@ -669,9 +655,8 @@ export default function TournamentBracketRoute() {
           onSubmit={async (value) => {
             await scheduleMatch.mutateAsync({
               courtId: value.courtId,
-              // Ghost minute: required by the deployed
-              // ScheduleTournamentMatchSchema — the tournament UI has no
-              // duration field (IBX-0030).
+              // Ghost minute: a UI do torneio não tem campo de duração, mas
+              // ScheduleTournamentMatchSchema (deployado) exige `endMinute`.
               endMinute: value.endMinute,
               matchDate: value.matchDate,
               matchId: scheduleTarget.id,

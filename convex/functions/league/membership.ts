@@ -525,9 +525,9 @@ export const approve = authMutation
       input.membershipId as Id<"leagueMembership">
     );
 
-    // BUG-0048: review so de solicitacao ainda em `pending`. Sem este gate,
-    // aprovar por um botao de notificacao velha reativava uma solicitacao ja
-    // recusada ou removida (o update setava `active` para qualquer status).
+    // Review so de solicitacao ainda em `pending`: sem este gate, aprovar por um
+    // botao de notificacao velha reativava uma solicitacao ja recusada/removida
+    // (o update setava `active` para qualquer status).
     const reviewError = resolveMembershipReviewError(currentMembership.status);
 
     if (reviewError) {
@@ -591,8 +591,8 @@ export const reject = authMutation
       input.membershipId as Id<"leagueMembership">
     );
 
-    // BUG-0048: o mesmo gate do approve. Sem ele, recusar por um botao de
-    // notificacao velha derrubava uma membership ja `active`.
+    // O mesmo gate do approve: sem ele, recusar por um botao de notificacao
+    // velha derrubava uma membership ja `active`.
     const reviewError = resolveMembershipReviewError(currentMembership.status);
 
     if (reviewError) {

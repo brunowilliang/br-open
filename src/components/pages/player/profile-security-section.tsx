@@ -15,14 +15,8 @@ type ProfileSecuritySectionProps = {
   onOpenChangePassword: () => void;
 };
 
-/**
- * ListGroup "Segurança" da página "Login e segurança" (/settings/security):
- * cada ação é uma linha clicável no padrão das linhas de settings/index.tsx
- * (RUL-0006: ícone direto no ItemPrefix, título + descrição, Highlight
- * último filho) — alterar senha (contas com e-mail+senha), alterar e-mail
- * (código único no e-mail novo) e "esqueci minha senha" (dialog de
- * redefinição por OTP logado — sem sair da sessão).
- */
+/** Cada ação é uma linha clicável no padrão de settings/index.tsx: ícone direto
+ * no ItemPrefix, título + descrição e Highlight como último filho. */
 export function ProfileSecuritySection(props: ProfileSecuritySectionProps) {
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [isForgotPasswordDialogOpen, setIsForgotPasswordDialogOpen] =

@@ -14,8 +14,8 @@ describe("buildCrosshairLabels", () => {
   });
 
   it("picks the label by index even when the month label repeats", () => {
-    // 24 meses: o rótulo do mês repete, o VALOR não — a escolha por texto
-    // (o que o IBX-0078 fazia) pegaria sempre a primeira ocorrência.
+    // 24 meses: o rótulo do mês repete, o VALOR não — escolher por texto
+    // pegaria sempre a primeira ocorrência.
     const { byIndex } = buildCrosshairLabels([
       "set. · R$ 7,00",
       "out. · R$ 12,00",

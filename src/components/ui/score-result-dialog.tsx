@@ -48,20 +48,15 @@ type ScoreResultDialogProps = {
   sideBId: string;
   sideBName: string;
   title: string;
-  /** W.O. existe só no torneio (delta deliberado do BUG-0010). */
+  /** W.O. existe só no torneio (delta deliberado em relação à liga). */
   walkoverEnabled?: boolean;
 };
 
-// Molde das transições do rule-card (IBX-0034: famílias FadeIn/FadeOut +
-// AccordionLayoutTransition para linhas e sub-linhas de tie-break).
+// Mesmo molde de transição do rule-card (linhas e sub-linhas de tie-break).
 const LINE_ENTERING = FadeIn.duration(180);
 const LINE_EXITING = FadeOut.duration(120);
 
-/**
- * Teto do corpo scrollável do dialog — mesmo valor do precedente do repo
- * (selects/challenge-proposal: 450), limitado à metade da janela para não
- * estourar a tela em aparelhos pequenos.
- */
+/** Teto do corpo scrollável: metade da janela ou 450, o que for menor. */
 const SCROLL_MAX_HEIGHT = 450;
 
 type SideStepperRowProps = {
@@ -140,13 +135,8 @@ type ScoreLineRowProps = {
   sideBName: string;
 };
 
-/**
- * Uma linha da lista livre: placar (par de steppers) ou tie-break avulso.
- * "Tie-break" dentro da linha anexa o mini-placar daquela linha com o gate
- * contextual do placar (canAttachTieBreak, DEC-0005); linha de tie-break
- * nunca oferece o botão (sem aninhamento). O menu de adicionar linhas segue
- * livre em qualquer estado (RUL-0019).
- */
+/** Uma linha da lista livre: placar (par de steppers) ou tie-break avulso.
+ * Linha de tie-break nunca oferece o botão (sem aninhamento). */
 function ScoreLineRow(props: ScoreLineRowProps) {
   const tieBreak = props.line.tieBreak;
 
@@ -263,23 +253,11 @@ function ScoreLineRow(props: ScoreLineRowProps) {
   );
 }
 
-/**
- * Dialog global de resultado de partida (RUL-0005/RUL-0019) — serve o
- * desafio da liga ("Lançar resultado") e a partida do torneio ("Lançar
- * resultado"/"Editar resultado"). Núcleo em lados A/B, sem nenhuma regra: o
- * resultado é uma lista livre de linhas na ordem em que o jogo aconteceu.
- * O dialog abre vazio com o botão "Adicionar" FIXO no topo (ao lado do X de
- * fechar, sempre visível, desabilitado durante o submit) que abre o menu:
- * "Adicionar set" (par de steppers 0-99), "Adicionar tie-break" (linha
- * avulsa, com 1+ set na lista) e "Registrar W.O.". Dentro da linha de
- * placar, o botão "Tie-break" (centralizado sob os steppers) só aparece
- * com o placar daquela linha empatado e além do 0x0 (DEC-0005) e anexa o
- * mini-placar — um por linha, remoção pelo X da sub-linha. O vencedor sai
- * da contagem crua de linhas vencidas (empate em games é decidido pelo TB
- * anexo); se as linhas empatam, "Quem venceu?" só aparece na hora de
- * salvar. O payload final é montado no onSubmit de cada tela (adaptadores
- * por domínio).
- */
+/** Núcleo em lados A/B, sem regra: o resultado é uma lista livre de linhas na
+ * ordem em que o jogo aconteceu. O "Tie-break" da linha de placar só aparece
+ * com o placar daquela linha empatado e além do 0x0. O vencedor sai da contagem
+ * crua de linhas vencidas (empate em games decide pelo TB anexo) e o payload
+ * final é montado no `onSubmit` de cada tela. */
 export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
   const {
     initialSets,
@@ -346,8 +324,8 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
     scoreboard.winnerSide === null;
 
   function updateLine(lineIndex: number, nextLine: ScoreDraftSet) {
-    // BUG-0035: placar desempatou (ou voltou pro 0x0) com TB anexado, o
-    // anexo sai sozinho; edição só dos pontos do TB preserva o placar.
+    // Placar desempatou (ou voltou pro 0x0) com TB anexado: o anexo sai
+    // sozinho; edição só dos pontos do TB preserva o placar.
     setLines(
       lines.map((line, index) =>
         index === lineIndex ? settleAttachedTieBreak(line, nextLine) : line
