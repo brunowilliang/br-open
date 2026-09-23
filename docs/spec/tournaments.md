@@ -707,8 +707,9 @@
   `pending_partner` / `awaiting_payment`, confirmados = `active`; empty
   state por tab por papel no tom da liga; dica de seeds no fim da lista
   EXTINTA — IBX-0036);
-  CARDS NO COMPONENTE DE INSCRIÇÃO `EntryCard` (`ui/entry-card.tsx`, um só
-  `renderEntryCard` para os três segmentos): chips de categoria e de status no
+  CARDS NO COMPONENTE DE INSCRIÇÃO `EntryCard` (`ui/entry-card.tsx`; as ações de
+  cada segmento são do componente local `EntryRowActions` da própria tela):
+  chips de categoria e de status no
   topo, row com avatar (dupla empilha 2) + um nome por linha
   (`formatEntryPlayerNames`), nota de convite no chip do pé quando
   `pending_partner` e as ações na ponta — aprovação do organizador e
@@ -1911,11 +1912,11 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
   `initialTab=pending` do item de pendência (kind 12) só era honrado quando o
   bucket do torneio JÁ estava carregado (CTA disparado de dentro da casa do
   torneio); na entrada pela HOME o `access` ainda é `undefined` no primeiro
-  render e o estado era inicializado UMA vez (`useState(isOrganizer &&
-  initialTab === "pending" ? …)`, `entries.tsx:146-148`), então o CTA "Ver" do
+  render e o estado era inicializado UMA vez (o par que resolve isso hoje é
+  `entries.tsx:410-415`), então o CTA "Ver" do
   alerta abria Confirmados. Agora a aba é DERIVADA a cada render por
-  `resolveTournamentEntriesTab({ initialTab, isOrganizer, userTab })`
-  (`lib/tournaments/tournament-details-derived.ts:193-226`): o `pending` passa a
+  `resolveTournamentEntriesTab({ initialTab, role, userTab })`
+  (`lib/tournaments/tournament-details-derived.ts:221-240`): o `pending` passa a
   valer no render em que o contexto do organizador chega (mesma chamada, sem
   efeito e sem atraso) e `userTab` guarda só a escolha MANUAL, que tem
   precedência e nunca é sobrescrita quando o contexto carrega. Confirmados segue
@@ -1926,7 +1927,7 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
   (título "Convite recusado" + descrição "Convite recusado."). A descrição passa
   a dizer o PRÓXIMO PASSO — "Convite recusado, as vagas voltaram para a
   categoria." — nas duas telas do torneio que respondem o convite
-  (`entries.tsx:121`, a aba Inscrições) e no caminho do alerta
+  (`entries.tsx:306-313`, a aba Inscrições) e no caminho do alerta
   (`lib/pendings/use-pending-action-runner.ts:68`), sem mudar título, ids nem fluxo. O texto
   descreve o que a recusa faz no servidor: a inscrição vira terminal e as vagas
   da dupla voltam para a categoria (`respondPartnerInvite`,
@@ -1937,7 +1938,7 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
 Decisão do usuário ("pode ser"): vale a opção (a) — segmento do jogador. **O modo
 ORGANIZADOR não mudou nada.**
 
-- **Segmentos por PAPEL RESOLVIDO (`entries.tsx:399-419`, itens de
+- **Segmentos por PAPEL RESOLVIDO (`entries.tsx:436-454`, itens de
   `buildTournamentEntriesTabItems`):** organizador mantém **Confirmados|Pendências**
   (intocado); o jogador tem **Minhas|Confirmados**; **guest e a entrada FRIA ficam SEM
   barra** (a barra só é montada com 2+ itens, precedente das tabs de categoria do
@@ -1984,10 +1985,11 @@ ORGANIZADOR não mudou nada.**
   recusar/aceitar que a spec `dashboard.md` fazia para aquele arquivo passaram a apontar
   para o ramo mine desta tela, com a extinção registrada lá). As AÇÕES ficaram com um dono
   só, e TODA ação do card gateia o próprio pending no toque (`isDisabled=
-  {respondPartnerInvite.isPending}` nos dois botões do convite (`entries.tsx:518-551`; botões
-  em `:520-533` e `:534-549`), e `isDisabled={createCharge.isPending}` no botão Pagar,
-  `:553-566` — o `renderEntry` já
-  gateava as ações dele e o ramo migrado não gateava NENHUMA). O gate do Pagar é UX: o
+  {respondPartnerInvite.isPending}` nos dois botões do convite (`entries.tsx:86-110`; botões
+  em `:88-98` e `:99-108`), e `isDisabled={createCharge.isPending}` no botão Pagar
+  (`:111-121`) — hoje as quatro ações saem do MESMO componente local
+  (`EntryRowActions`, `entries.tsx:49`), que gateia as duas do convite e o
+  Pagar). O gate do Pagar é UX: o
   SERVIDOR já reaproveita a cobrança pendente do mesmo insumo — `createCharge` consulta
   `findPendingChargeForSource` antes de falar com o provedor e devolve a cobrança PENDING
   existente (mesmo `sourceType`+`sourceId`, dona do caller e com PIX não expirado:
@@ -2045,14 +2047,14 @@ de uma superfície para outra é o dado que ela tem.
   (tournament-details-derived.ts:131) lido por `getMatchStatusChip` (:145);
   `null` = estado SEM chip (hoje só a linha `vacant`) e status fora do
   vocabulário cai no rótulo cru. Só o "A definir" (`pending`) leva `text-muted`
-  no rótulo (match-card.tsx:136-140).
+  no rótulo (match-card.tsx:136-142).
 - **Placar:** os números por set saem de `buildBracketScoreTokens`
   (`lib/tournaments/bracket-score-display.ts`) e cada um carrega a cor do SEU
   set (vencedor accent/bold, perdedor muted); os NOMES carregam a cor do PAR
   pela maioria dos sets (vencedor accent/semibold, perdedor muted/normal) e não
   são pintados quando o placar empata ou não existe (match-card.tsx:157-188).
 - **Chip do pé:** só com `matchDate` E `courtName` resolvidos
-  (match-card.tsx:128-136), no formato `data   |   HH:MM   |   quadra` (:480) —
+  (match-card.tsx:128-134), no formato `data   |   HH:MM   |   quadra` (:475) —
   o mesmo teste que a estimativa de altura do nó usa.
 - **Menu do organizador:** o card só DESENHA o kebab quando recebe alguma ação
   (`hasMenuActions`, match-card.tsx:151): "Agendar"/"Reagendar" (o rótulo segue
@@ -2076,8 +2078,10 @@ de uma superfície para outra é o dado que ela tem.
   `leagues/[leagueId]/schedule.tsx:165`), o "Próximo jogo" da casa do jogador
   (`pages/tournaments/player-overview.tsx:114`) e o NÓ do chaveamento (via
   `BracketMatchCard`, bracket-match-card.tsx:91).
-- `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:406`)
-  nos seus segmentos, todos pelo mesmo `renderEntryCard`.
+- `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:495`, o
+  `<EntryCard>` do map) nos seus segmentos; as AÇÕES de cada segmento saem do
+  componente local `EntryRowActions` (`entries.tsx:49`) e a nota do convite de
+  `resolveInviteNote` (`entries.tsx:187`).
 - A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
   entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
   "Partida" e "Inscrições"): `galleryMatchCardCases`
@@ -2110,7 +2114,7 @@ de uma superfície para outra é o dado que ela tem.
   dois lados podem estar em estados diferentes. Ausente = lado definido; o
   chaveamento manda `match.entryA !== null`/`entryB !== null`.
 - **Forma do lado:** a dupla empilha DOIS avatares em `relative h-11 w-11`
-  (44pt, match-card.tsx:320) com `size-7.5`; o lado indefinido é UMA linha — a
+  (44pt, match-card.tsx:314) com `size-7.5`; o lado indefinido é UMA linha — a
   dupla é uma unidade —, com rótulo muted e peso normal (`buildSideLines`,
   match-card.tsx:45) e avatares em `fallback="black"`
   (`UNDEFINED_AVATAR_FALLBACK`, :34). Lado com um jogador definido e parceiro em
@@ -2148,7 +2152,7 @@ de uma superfície para outra é o dado que ela tem.
 - **Plantio de duplas no DEV (backend):** `seed:doublesScenario` (seed.ts:3337)
   cria/atualiza o torneio de duplas (2 categorias, taxa 0, `maxEntries` 16,
   alvo de duplas ativas por categoria + 1 convite pendente) com elenco próprio
-  de perfis com username (`convex/domains/seed/doubles-plan.ts:20`, pares por
+  de perfis com username (`convex/domains/seed/doubles-plan.ts:52`, pares por
   `selectDoublesSeedPairs` :229); `seed:doublesAgendaScenario` (seed.ts:3601)
   fecha os convites, cadastra as quadras e agenda a 1ª rodada por
   `resolveDoublesSeedAgendaSlot` (`convex/domains/seed/doubles-agenda-plan.ts:38`).
