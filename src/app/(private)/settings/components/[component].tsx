@@ -697,6 +697,25 @@ function AlertsVariantsSection() {
         </View>
       </VariantSection>
 
+      <VariantSection
+        note="O GESTO que só as duas homes ligam (opt-in `isSwipeEnabled` + `dismissSurface` na superfície `home`): arraste o cartão para a esquerda — ou toque nele — e a ação revelada Esconder aparece animando; tocar nela aqui não executa nada (a galeria aprova, não executa: o handler é o noop). O sangramento usa o MESMO par das homes (o `px-4` do container desta galeria é o `mx-4` da página delas): container `-mx-4`, childrenContainer `mx-4` e ação `pr-4 -ml-1`. A copy é a do Alerta 1 (real, do servidor) — o que este cartão amostra é o gesto; o resto da seção segue estático de propósito."
+        title="Alerta 18 · GESTO · o swipe com a ação revelada Esconder"
+      >
+        <WidgetAlert
+          action={{ label: "Pagar", onPress: noop }}
+          description={galleryPaymentDueDescription}
+          dismissAction={{ onPress: noop }}
+          isSwipeEnabled
+          status="warning"
+          swipeClassNames={{
+            action: "pr-4 -ml-1",
+            childrenContainer: "mx-4",
+            container: "-mx-4",
+          }}
+          title="Pagamento atrasado"
+        />
+      </VariantSection>
+
       <NoticeMoldsVariants />
     </View>
   );
