@@ -2,7 +2,7 @@
  * Placar do card do chaveamento: a sequência dos sets de UM lado, na ordem
  * em que o jogo aconteceu, com o set vencido destacado e os pontos do
  * tie-break anexo por linha. O render (número e TB no canto, com estilos
- * próprios) mora no bracket-match-card.
+ * próprios) mora no `ui/match-card.tsx`.
  */
 export type BracketScoreSet = {
   aGames: number;

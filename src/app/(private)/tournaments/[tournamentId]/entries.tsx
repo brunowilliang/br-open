@@ -5,7 +5,7 @@ import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Dialog, Tabs, useToast } from "heroui-native";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
@@ -26,6 +26,189 @@ import {
   type TournamentEntriesTab,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
+
+type EntryRowActionsProps = {
+  categoryName: string;
+  entry: TournamentEntryWithPlayers;
+  isActionPending: boolean;
+  isOrganizer: boolean;
+  onApprove: (entryId: string) => void;
+  onCancelPress: (target: { categoryName: string; entryId: string }) => void;
+  onPay: (entryId: string) => void;
+  onReject: (entryId: string) => void;
+  onRespondInvite: (input: { accept: boolean; entryId: string }) => void;
+  payIsPending: boolean;
+  segment: TournamentEntriesTab;
+  tournamentStatus: null | string;
+  viewerProfileId: null | string;
+};
+
+/** Ações da linha por SEGMENTO: o card de inscrição é UM só
+ * (`ui/entry-card.tsx`) e o que muda por aba é este recorte, que sai por early
+ * return — nunca um `actions` montado por branch. */
+function EntryRowActions(props: EntryRowActionsProps) {
+  const { entry } = props;
+  const isResponder =
+    !props.isOrganizer &&
+    entry.status === "pending_partner" &&
+    props.viewerProfileId !== null &&
+    entry.playerBId === props.viewerProfileId;
+
+  if (props.segment === "mine") {
+    const canCancel = props.tournamentStatus
+      ? canCancelTournamentEntry({
+          entryStatus: entry.status,
+          tournamentStatus: props.tournamentStatus,
+        })
+      : false;
+    const canPay =
+      entry.status === "awaiting_payment" &&
+      props.viewerProfileId !== null &&
+      entry.playerAId === props.viewerProfileId;
+
+    return (
+      <View className="flex-row items-center gap-1">
+        {canCancel ? (
+          <Button
+            isIconOnly
+            onPress={() => {
+              props.onCancelPress({
+                categoryName: props.categoryName,
+                entryId: entry.id,
+              });
+            }}
+            size="sm"
+            variant="danger-soft"
+          >
+            <HugeIcons className="text-danger" icon={Cancel01Icon} />
+          </Button>
+        ) : null}
+        {isResponder ? (
+          <>
+            <Button
+              isDisabled={props.isActionPending}
+              isIconOnly
+              onPress={() => {
+                props.onRespondInvite({ accept: false, entryId: entry.id });
+              }}
+              size="sm"
+              variant="outline"
+            >
+              <HugeIcons icon={Cancel01Icon} />
+            </Button>
+            <Button
+              isDisabled={props.isActionPending}
+              isIconOnly
+              onPress={() => {
+                props.onRespondInvite({ accept: true, entryId: entry.id });
+              }}
+              size="sm"
+            >
+              <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+            </Button>
+          </>
+        ) : null}
+        {canPay ? (
+          <Button
+            isDisabled={props.payIsPending}
+            onPress={() => {
+              props.onPay(entry.id);
+            }}
+            size="sm"
+          >
+            <Button.Label>Pagar</Button.Label>
+          </Button>
+        ) : null}
+      </View>
+    );
+  }
+
+  if (props.isOrganizer && entry.status === "pending_approval") {
+    return (
+      <View className="flex-row gap-1">
+        <Button
+          isDisabled={props.isActionPending}
+          isIconOnly
+          onPress={() => {
+            props.onReject(entry.id);
+          }}
+          size="sm"
+          variant="outline"
+        >
+          <HugeIcons icon={Cancel01Icon} />
+        </Button>
+        <Button
+          isDisabled={props.isActionPending}
+          isIconOnly
+          onPress={() => {
+            props.onApprove(entry.id);
+          }}
+          size="sm"
+        >
+          <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+        </Button>
+      </View>
+    );
+  }
+
+  if (isResponder) {
+    return (
+      <View className="flex-row gap-1">
+        <Button
+          isDisabled={props.isActionPending}
+          isIconOnly
+          onPress={() => {
+            props.onRespondInvite({ accept: false, entryId: entry.id });
+          }}
+          size="sm"
+          variant="outline"
+        >
+          <HugeIcons icon={Cancel01Icon} />
+        </Button>
+        <Button
+          isDisabled={props.isActionPending}
+          isIconOnly
+          onPress={() => {
+            props.onRespondInvite({ accept: true, entryId: entry.id });
+          }}
+          size="sm"
+        >
+          <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+        </Button>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+/** Nota do pé do card quando a inscrição é um CONVITE: quem convidou, ou quem
+ * já foi convidado (string pura, sem JSX). */
+function resolveInviteNote(input: {
+  entry: TournamentEntryWithPlayers;
+  isOrganizer: boolean;
+  viewerProfileId: null | string;
+}): null | string {
+  const { entry, viewerProfileId } = input;
+
+  if (input.isOrganizer || entry.status !== "pending_partner") {
+    return null;
+  }
+
+  if (viewerProfileId !== null && entry.playerBId === viewerProfileId) {
+    return entry.playerA?.username
+      ? `@${entry.playerA.username} convidou você para esta dupla.`
+      : "Você foi convidado para esta dupla.";
+  }
+
+  if (viewerProfileId !== null && entry.playerAId === viewerProfileId) {
+    return entry.playerB?.username
+      ? `Aguardando @${entry.playerB.username} aceitar o convite.`
+      : "Aguardando o parceiro aceitar o convite.";
+  }
+
+  return null;
+}
 
 export default function TournamentEntriesRoute() {
   const { initialTab, tournamentId } = useLocalSearchParams<{
@@ -191,6 +374,11 @@ export default function TournamentEntriesRoute() {
   // descoberta hidrata — montar a barra de segmentos antes disso pintaria as
   // abas de jogador para o gestor.
   const isOrganizer = role === "organizer";
+  // Pendência de qualquer ação da linha: os botões do card compartilham o gate.
+  const isActionPending =
+    approveEntry.isPending ||
+    rejectEntry.isPending ||
+    respondPartnerInvite.isPending;
   const entriesTabItems = buildTournamentEntriesTabItems({ role });
 
   const pendingEntries = useMemo(
@@ -231,192 +419,6 @@ export default function TournamentEntriesRoute() {
       : activeTab === "mine"
         ? myEntries
         : confirmedEntries;
-
-  // O card da inscrição é UM só (`ui/entry-card.tsx`), o mesmo aprovado na
-  // galeria: categoria e status nos chips do topo, a ponta com o jogador (ou a
-  // dupla) e a nota do convite no chip do pé. O que muda por aba são as AÇÕES.
-  function renderEntryCard(entry: TournamentEntryWithPlayers) {
-    const category = categoriesById[entry.categoryId];
-    const names = formatEntryPlayerNames(entry);
-    const isInviteForViewer =
-      !isOrganizer &&
-      entry.status === "pending_partner" &&
-      viewerProfileId !== null &&
-      entry.playerBId === viewerProfileId;
-    const isInviteFromViewer =
-      !isOrganizer &&
-      entry.status === "pending_partner" &&
-      viewerProfileId !== null &&
-      entry.playerAId === viewerProfileId;
-    const inviteNote = isInviteForViewer
-      ? entry.playerA?.username
-        ? `@${entry.playerA.username} convidou você para esta dupla.`
-        : "Você foi convidado para esta dupla."
-      : isInviteFromViewer
-        ? entry.playerB?.username
-          ? `Aguardando @${entry.playerB.username} aceitar o convite.`
-          : "Aguardando o parceiro aceitar o convite."
-        : null;
-    const isActionPending =
-      approveEntry.isPending ||
-      rejectEntry.isPending ||
-      respondPartnerInvite.isPending;
-    const canCancel = tournament
-      ? canCancelTournamentEntry({
-          entryStatus: entry.status,
-          tournamentStatus: tournament.status,
-        })
-      : false;
-    const canPay =
-      entry.status === "awaiting_payment" &&
-      viewerProfileId !== null &&
-      entry.playerAId === viewerProfileId;
-
-    let actions: ReactNode = null;
-
-    if (activeTab === "mine") {
-      actions = (
-        <View className="flex-row items-center gap-1">
-          {canCancel ? (
-            <Button
-              isIconOnly
-              onPress={() => {
-                setCancelEntryTarget({
-                  categoryName: category?.displayName ?? "",
-                  entryId: entry.id,
-                });
-              }}
-              size="sm"
-              variant="danger-soft"
-            >
-              <HugeIcons className="text-danger" icon={Cancel01Icon} />
-            </Button>
-          ) : null}
-          {isInviteForViewer ? (
-            <>
-              <Button
-                isDisabled={isActionPending}
-                isIconOnly
-                onPress={() => {
-                  respondPartnerInvite.mutate({
-                    accept: false,
-                    entryId: entry.id,
-                  });
-                }}
-                size="sm"
-                variant="outline"
-              >
-                <HugeIcons icon={Cancel01Icon} />
-              </Button>
-              <Button
-                isDisabled={isActionPending}
-                isIconOnly
-                onPress={() => {
-                  respondPartnerInvite.mutate({
-                    accept: true,
-                    entryId: entry.id,
-                  });
-                }}
-                size="sm"
-              >
-                <HugeIcons
-                  className="text-accent-foreground"
-                  icon={Tick02Icon}
-                />
-              </Button>
-            </>
-          ) : null}
-          {canPay ? (
-            <Button
-              isDisabled={createCharge.isPending}
-              onPress={() => {
-                createCharge.mutate({
-                  sourceId: entry.id,
-                  sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-                });
-              }}
-              size="sm"
-            >
-              <Button.Label>Pagar</Button.Label>
-            </Button>
-          ) : null}
-        </View>
-      );
-    } else if (isOrganizer && entry.status === "pending_approval") {
-      actions = (
-        <View className="flex-row gap-1">
-          <Button
-            isDisabled={isActionPending}
-            isIconOnly
-            onPress={() => {
-              rejectEntry.mutate({ entryId: entry.id });
-            }}
-            size="sm"
-            variant="outline"
-          >
-            <HugeIcons icon={Cancel01Icon} />
-          </Button>
-          <Button
-            isDisabled={isActionPending}
-            isIconOnly
-            onPress={() => {
-              approveEntry.mutate({ entryId: entry.id });
-            }}
-            size="sm"
-          >
-            <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
-          </Button>
-        </View>
-      );
-    } else if (isInviteForViewer) {
-      actions = (
-        <View className="flex-row gap-1">
-          <Button
-            isDisabled={isActionPending}
-            isIconOnly
-            onPress={() => {
-              respondPartnerInvite.mutate({
-                accept: false,
-                entryId: entry.id,
-              });
-            }}
-            size="sm"
-            variant="outline"
-          >
-            <HugeIcons icon={Cancel01Icon} />
-          </Button>
-          <Button
-            isDisabled={isActionPending}
-            isIconOnly
-            onPress={() => {
-              respondPartnerInvite.mutate({
-                accept: true,
-                entryId: entry.id,
-              });
-            }}
-            size="sm"
-          >
-            <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
-          </Button>
-        </View>
-      );
-    }
-
-    return (
-      <EntryCard
-        categoryLabel={category?.displayName ?? null}
-        entryStatus={entry.status}
-        key={entry.id}
-        noteLabel={inviteNote}
-        partnerAvatarUrl={entry.playerB?.avatarUrl ?? null}
-        partnerName={names[1] ?? null}
-        playerAvatarUrl={entry.playerA?.avatarUrl ?? null}
-        playerName={names[0] ?? ""}
-      >
-        {actions}
-      </EntryCard>
-    );
-  }
 
   return (
     <Page>
@@ -485,7 +487,54 @@ export default function TournamentEntriesRoute() {
           contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4"
           showsVerticalScrollIndicator={false}
         >
-          {visibleEntries.map((entry) => renderEntryCard(entry))}
+          {visibleEntries.map((entry) => {
+            const category = categoriesById[entry.categoryId];
+            const names = formatEntryPlayerNames(entry);
+
+            return (
+              <EntryCard
+                categoryLabel={category?.displayName ?? null}
+                entryStatus={entry.status}
+                key={entry.id}
+                noteLabel={resolveInviteNote({
+                  entry,
+                  isOrganizer,
+                  viewerProfileId,
+                })}
+                partnerAvatarUrl={entry.playerB?.avatarUrl ?? null}
+                partnerName={names[1] ?? null}
+                playerAvatarUrl={entry.playerA?.avatarUrl ?? null}
+                playerName={names[0] ?? ""}
+              >
+                <EntryRowActions
+                  categoryName={category?.displayName ?? ""}
+                  entry={entry}
+                  isActionPending={isActionPending}
+                  isOrganizer={isOrganizer}
+                  onApprove={(entryId) => {
+                    approveEntry.mutate({ entryId });
+                  }}
+                  onCancelPress={setCancelEntryTarget}
+                  onPay={(entryId) => {
+                    createCharge.mutate({
+                      sourceId: entryId,
+                      sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+                    });
+                  }}
+                  onReject={(entryId) => {
+                    rejectEntry.mutate({ entryId });
+                  }}
+                  onRespondInvite={(input) => {
+                    respondPartnerInvite.mutate(input);
+                  }}
+                  payIsPending={createCharge.isPending}
+                  segment={activeTab}
+                  tournamentStatus={tournament?.status ?? null}
+                  viewerProfileId={viewerProfileId}
+                />
+              </EntryCard>
+            );
+          })}
         </Page.ScrollView>
       )}
       <Page.Footer className="pb-floating-tab-bar-4" />
