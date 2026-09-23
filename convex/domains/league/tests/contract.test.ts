@@ -5,6 +5,9 @@ import {
   ChallengeRuleConfigSchema,
   LeagueMatchConfigSchema,
   LeagueScoringModeOptions,
+  leagueChallengeScoreSchema,
+  leagueScheduleItemSchema,
+  resolveLeagueScheduleOutcome,
 } from "../contract";
 
 describe("league contract", () => {
@@ -234,5 +237,98 @@ describe("LeagueMatchConfigSchema legado (DEC-0004)", () => {
     if (result.success) {
       expect(result.data.matchConfig).not.toHaveProperty("finalSetMode");
     }
+  });
+});
+
+const scheduleItemFixture = {
+  challenged: { avatarUrl: null, fullName: "Ana" },
+  challenger: { avatarUrl: null, fullName: "Bia" },
+  courtName: "Quadra 1",
+  id: "challenge-1",
+  matchDate: "2026-09-24",
+  matchStatus: "scheduled",
+  scoreSets: null,
+  startMinute: 480,
+};
+
+describe("resolveLeagueScheduleOutcome", () => {
+  it("deixa o desafio confirmado como Agendado e sem placar", () => {
+    expect(
+      resolveLeagueScheduleOutcome({ score: null, status: "confirmed" })
+    ).toEqual({ matchStatus: "scheduled", scoreSets: null });
+  });
+
+  it("leva o resultado liquidado para o vocabulário A/B do card", () => {
+    const score = leagueChallengeScoreSchema.parse({
+      sets: [
+        { challengedGames: 4, challengerGames: 6, kind: "set" },
+        {
+          challengedGames: 6,
+          challengerGames: 7,
+          kind: "set",
+          tieBreak: { challengedPoints: 3, challengerPoints: 7 },
+        },
+      ],
+    });
+
+    expect(resolveLeagueScheduleOutcome({ score, status: "finished" })).toEqual(
+      {
+        matchStatus: "finished",
+        scoreSets: [
+          { aGames: 6, bGames: 4, kind: "set", tieBreak: null },
+          {
+            aGames: 7,
+            bGames: 6,
+            kind: "set",
+            tieBreak: { aPoints: 7, bPoints: 3 },
+          },
+        ],
+      }
+    );
+  });
+
+  it("marca W.O. e mantém o set zerado do resultado", () => {
+    const score = leagueChallengeScoreSchema.parse({
+      sets: [{ challengedGames: 0, challengerGames: 0, kind: "set" }],
+      walkover: true,
+      winnerMembershipId: "membership-1",
+    });
+
+    expect(resolveLeagueScheduleOutcome({ score, status: "finished" })).toEqual(
+      {
+        matchStatus: "walkover",
+        scoreSets: [{ aGames: 0, bGames: 0, kind: "set", tieBreak: null }],
+      }
+    );
+  });
+
+  it("não publica placar enquanto o resultado não está liquidado", () => {
+    const score = leagueChallengeScoreSchema.parse({
+      sets: [{ challengedGames: 4, challengerGames: 6, kind: "set" }],
+    });
+
+    expect(
+      resolveLeagueScheduleOutcome({
+        score,
+        status: "pending_result_confirmation",
+      })
+    ).toEqual({ matchStatus: "pending", scoreSets: null });
+  });
+});
+
+describe("leagueScheduleItemSchema", () => {
+  it("recusa o status cru do domínio no item da agenda", () => {
+    const result = leagueScheduleItemSchema.safeParse({
+      ...scheduleItemFixture,
+      matchStatus: "confirmed",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("aceita o item com o status do card", () => {
+    const result = leagueScheduleItemSchema.safeParse(scheduleItemFixture);
+
+    expect(result.success).toBe(true);
   });
 });

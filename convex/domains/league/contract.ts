@@ -889,6 +889,40 @@ export const leagueChallengeSchema = z.object({
   updatedAt: z.number(),
 });
 
+/**
+ * Vocabulário do chip do card do chaveamento (`getMatchStatusChip`): status cru
+ * do domínio do desafio não pode vazar daqui, senão o card imprime o enum.
+ */
+export const LeagueScheduleMatchStatusOptions = [
+  "scheduled",
+  "finished",
+  "pending",
+  "walkover",
+] as const;
+
+export type LeagueScheduleMatchStatus =
+  (typeof LeagueScheduleMatchStatusOptions)[number];
+
+/**
+ * Sets no vocabulário A/B do card (challenger = lado A, challenged = lado B),
+ * o mesmo que a agenda do torneio entrega.
+ */
+export const leagueScheduleScoreSetSchema = z.object({
+  aGames: z.number().int().min(0),
+  bGames: z.number().int().min(0),
+  kind: z.enum(LeagueChallengeScoreSetKindOptions),
+  tieBreak: z
+    .object({
+      aPoints: z.number().int().min(0),
+      bPoints: z.number().int().min(0),
+    })
+    .nullable(),
+});
+
+export type LeagueScheduleScoreSet = z.infer<
+  typeof leagueScheduleScoreSetSchema
+>;
+
 export const leagueScheduleItemSchema = z.object({
   challenged: z.object({
     avatarUrl: z.string().nullable().optional(),
@@ -901,8 +935,53 @@ export const leagueScheduleItemSchema = z.object({
   courtName: z.string().min(1, "Quadra inválida."),
   id: z.string().min(1, "Desafio inválido."),
   matchDate: z.string().min(1, "Data inválida."),
+  matchStatus: z.enum(LeagueScheduleMatchStatusOptions),
+  scoreSets: z.array(leagueScheduleScoreSetSchema).nullable(),
   startMinute: z.number().int().min(0).max(MINUTES_PER_DAY),
 });
+
+/**
+ * Jogo liquidado vira `finished` (W.O. quando o resultado é walkover), confirmado
+ * vira `scheduled` e o resto cai em `pending`. O placar só acompanha resultado
+ * liquidado: a agenda da liga é pública e resultado em confirmação ainda não é
+ * público (`listForLeague` o esconde de quem não joga).
+ */
+export function resolveLeagueScheduleOutcome(input: {
+  score: LeagueChallengeScore | null;
+  status: (typeof LeagueChallengeStatusOptions)[number];
+}): {
+  matchStatus: LeagueScheduleMatchStatus;
+  scoreSets: LeagueScheduleScoreSet[] | null;
+} {
+  if (input.status !== "finished") {
+    return {
+      matchStatus: input.status === "confirmed" ? "scheduled" : "pending",
+      scoreSets: null,
+    };
+  }
+
+  if (!input.score) {
+    return { matchStatus: "finished", scoreSets: null };
+  }
+
+  return {
+    matchStatus: input.score.walkover ? "walkover" : "finished",
+    scoreSets:
+      input.score.sets.length === 0
+        ? null
+        : input.score.sets.map((set) => ({
+            aGames: set.challengerGames,
+            bGames: set.challengedGames,
+            kind: set.kind,
+            tieBreak: set.tieBreak
+              ? {
+                  aPoints: set.tieBreak.challengerPoints,
+                  bPoints: set.tieBreak.challengedPoints,
+                }
+              : null,
+          })),
+  };
+}
 
 export const leagueDiscoverySchema = leagueSchema.extend({
   activePlayerCount: z.number().int().min(0),

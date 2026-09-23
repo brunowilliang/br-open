@@ -56,6 +56,15 @@ export function rangesOverlap(input: {
 }
 
 /**
+ * A agenda mostra o desafio confirmado e o já liquidado (`finished` é o que ganha
+ * placar no card); resultado em confirmação/correção não entra enquanto o placar
+ * não é público.
+ */
+export function isChallengeVisibleOnSchedule(status: string) {
+  return status === "confirmed" || status === "finished";
+}
+
+/**
  * Effective end of a match's occupied court window, derived from the rules'
  * default duration instead of a client-sent endMinute — a booking can never
  * shrink itself out of a conflict.

@@ -27,6 +27,8 @@ function scheduleItem(input: {
     courtName: "Quadra 1",
     id: input.id,
     matchDate: input.matchDate,
+    matchStatus: "scheduled",
+    scoreSets: null,
     startMinute: input.startMinute,
   };
 }

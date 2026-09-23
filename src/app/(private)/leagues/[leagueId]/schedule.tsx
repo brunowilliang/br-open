@@ -8,7 +8,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { ScheduleCard } from "@/components/ui/schedule-card";
+import { MatchCard } from "@/components/ui/match-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -162,13 +162,16 @@ export default function LeagueScheduleRoute() {
                   </Text>
                   <View className="gap-2">
                     {items.map((item) => (
-                      <ScheduleCard
+                      <MatchCard
                         challengedAvatarUrl={item.challenged.avatarUrl}
-                        challengedFullName={item.challenged.fullName}
+                        challengedName={item.challenged.fullName}
                         challengerAvatarUrl={item.challenger.avatarUrl}
-                        challengerFullName={item.challenger.fullName}
+                        challengerName={item.challenger.fullName}
                         courtName={item.courtName}
                         key={item.id}
+                        matchDate={item.matchDate}
+                        matchStatus={item.matchStatus}
+                        scoreSets={item.scoreSets}
                         startMinute={item.startMinute}
                       />
                     ))}

@@ -24,6 +24,7 @@ import {
   leagueChallengeScoreSchema,
   leagueScheduleItemSchema,
   RequestLeagueChallengeCancellationSchema,
+  resolveLeagueScheduleOutcome,
   RespondLeagueChallengeCancellationSchema,
   ReviewLeagueChallengeResultSchema,
   ReviewLeagueChallengeSchema,
@@ -43,6 +44,7 @@ import {
 } from "../../domains/league/challenge-status";
 import {
   buildScheduledDate,
+  isChallengeVisibleOnSchedule,
   resolveMatchOccupiedEndMinute,
 } from "../../domains/league/challenge-scheduling-rules";
 import {
@@ -185,7 +187,7 @@ export const listScheduled = authQuery
     const todayUtc = buildTodayUtcKey();
     const scheduledItems = await Promise.all(
       challengeRecords.map(async (challenge) => {
-        if (challenge.status !== "confirmed") {
+        if (!isChallengeVisibleOnSchedule(challenge.status)) {
           return null;
         }
 
@@ -195,16 +197,21 @@ export const listScheduled = authQuery
           return null;
         }
 
-        const [challengerMembership, challengedMembership] = await Promise.all([
-          getMembershipRecordByIdOrThrow(
-            ctx,
-            challenge.challengerMembershipId as Id<"leagueMembership">
-          ),
-          getMembershipRecordByIdOrThrow(
-            ctx,
-            challenge.challengedMembershipId as Id<"leagueMembership">
-          ),
-        ]);
+        const [challengerMembership, challengedMembership, resultSubmission] =
+          await Promise.all([
+            getMembershipRecordByIdOrThrow(
+              ctx,
+              challenge.challengerMembershipId as Id<"leagueMembership">
+            ),
+            getMembershipRecordByIdOrThrow(
+              ctx,
+              challenge.challengedMembershipId as Id<"leagueMembership">
+            ),
+            getLatestResultSubmission(
+              ctx,
+              challenge.id as Id<"leagueChallenge">
+            ),
+          ]);
 
         const [challenger, challenged] = await Promise.all([
           getPlayerSummary(
@@ -221,6 +228,12 @@ export const listScheduled = authQuery
           currentLeague,
           currentProposal.courtId
         );
+        const outcome = resolveLeagueScheduleOutcome({
+          score: resultSubmission
+            ? leagueChallengeScoreSchema.parse(resultSubmission.score)
+            : null,
+          status: challenge.status as LeagueChallengeStatus,
+        });
 
         return leagueScheduleItemSchema.parse({
           challenged: {
@@ -234,6 +247,8 @@ export const listScheduled = authQuery
           courtName,
           id: challenge.id,
           matchDate: currentProposal.matchDate,
+          matchStatus: outcome.matchStatus,
+          scoreSets: outcome.scoreSets,
           startMinute: currentProposal.startMinute,
         });
       })

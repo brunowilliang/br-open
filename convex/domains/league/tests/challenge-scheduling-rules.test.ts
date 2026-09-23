@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   buildScheduledDate,
   getDayKeyFromMatchDate,
+  isChallengeVisibleOnSchedule,
   rangesOverlap,
   resolveMatchOccupiedEndMinute,
 } from "../challenge-scheduling-rules";
@@ -95,6 +96,30 @@ describe("league challenge scheduling rules", () => {
           rightStartMinute: 0,
         })
       ).toBe(true);
+    });
+  });
+
+  describe("isChallengeVisibleOnSchedule", () => {
+    it("lista o desafio confirmado e o já liquidado", () => {
+      expect(isChallengeVisibleOnSchedule("confirmed")).toBe(true);
+      expect(isChallengeVisibleOnSchedule("finished")).toBe(true);
+    });
+
+    it("deixa fora os estados com resultado ainda não liquidado", () => {
+      expect(isChallengeVisibleOnSchedule("pending_result_confirmation")).toBe(
+        false
+      );
+      expect(
+        isChallengeVisibleOnSchedule("pending_organizer_result_validation")
+      ).toBe(false);
+      expect(isChallengeVisibleOnSchedule("pending_result_correction")).toBe(
+        false
+      );
+      expect(isChallengeVisibleOnSchedule("pending_result_submission")).toBe(
+        false
+      );
+      expect(isChallengeVisibleOnSchedule("cancelled")).toBe(false);
+      expect(isChallengeVisibleOnSchedule("invalidated")).toBe(false);
     });
   });
 
