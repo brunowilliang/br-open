@@ -7,18 +7,39 @@ import {
   SEED_EMAIL_DOMAIN,
   SEED_EMAIL_PREFIX,
   SEED_LEAGUE_NAME_PREFIX,
+  DoublesAgendaScenarioSchema,
+  DoublesScenarioSchema,
+  doublesAgendaScenarioResultSchema,
+  doublesScenarioResultSchema,
   participantScenarioResultSchema,
   ParticipantScenarioSchema,
   pendencyScenarioResultSchema,
   PendencyScenarioSchema,
   seedPreviewResultSchema,
   SeedPreviewSchema,
+  type DoublesAgendaScenarioResult,
+  type DoublesScenarioResult,
 } from "../domains/seed/contract";
 import {
   defaultSeedRuleConfig,
   seedLeagueTemplates,
   seedPlayers,
 } from "../domains/seed/data";
+import {
+  DOUBLES_SEED_AGENDA_ACTIVE_TARGET,
+  DOUBLES_SEED_COURTS,
+  resolveDoublesSeedAgendaSlot,
+} from "../domains/seed/doubles-agenda-plan";
+import {
+  DOUBLES_SEED_ACTIVE_PAIRS,
+  DOUBLES_SEED_CATEGORIES,
+  DOUBLES_SEED_ENTRY_FEE_CENTS,
+  DOUBLES_SEED_INVITE_PAIRS,
+  DOUBLES_SEED_MAX_ENTRIES,
+  DOUBLES_SEED_PROFILES,
+  DOUBLES_SEED_TOURNAMENT,
+  selectDoublesSeedPairs,
+} from "../domains/seed/doubles-plan";
 import {
   buildPendencyChargeCorrelationId,
   comparePendencyTargetRecency,
@@ -63,6 +84,8 @@ import {
   buildCategoryDisplayName,
   entrySlotFields,
 } from "../domains/tournament/entry-rules";
+import { resolveMatchOccupiedEndMinute } from "../domains/league/challenge-scheduling-rules";
+import { findCourtSlotConflict } from "../domains/tournament/scheduling-rules";
 import type {
   TournamentGender,
   TournamentModality,
@@ -74,6 +97,9 @@ type SeedCtx = MutationCtx;
 type LeagueRecord = InferSelectModel<typeof leagueTables.league>;
 type LeagueMembershipRecord = InferSelectModel<
   typeof leagueTables.leagueMembership
+>;
+type TournamentEntryRecord = InferSelectModel<
+  typeof tournamentTables.tournamentEntry
 >;
 
 /**
@@ -113,6 +139,8 @@ type SeedPlayerInput = {
   gender: "Feminino" | "Masculino";
   image: string;
   nickname: string;
+  /** Opcional: so o elenco de duplas precisa (o convite e por username). */
+  username?: string;
 };
 type SeedLeagueTemplate = {
   categories: readonly string[];
@@ -655,6 +683,7 @@ async function ensureSeedUser(ctx: SeedCtx, input: SeedPlayerInput) {
       image: input.image,
       name: input.fullName,
       updatedAt: now,
+      username: input.username,
     })
     .returning();
 
@@ -2177,12 +2206,17 @@ const PENDENCY_ORGANIZER_CHALLENGES = [
   },
 ] as const;
 
+/** Slug da organizacao do cenario de pendencias (dono = usuario alvo). */
+function buildPendencyOrganizationSlug(userId: Id<"user">) {
+  return `seed-pendencies-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+}
+
 /**
  * Nasce SEM conta de recebimento — e o que faz a liga paga virar pendencia — e
  * com o usuario alvo como owner.
  */
 async function ensurePendencyOrganization(ctx: SeedCtx, userId: Id<"user">) {
-  const slug = `seed-pendencies-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  const slug = buildPendencyOrganizationSlug(userId);
   const existingOrganization = await ctx.orm.query.organization.findFirst({
     where: { slug },
   });
@@ -2435,8 +2469,8 @@ async function ensurePendencyCategory(
   return { category: createdCategory, created: true };
 }
 
-/** Inscricao viva do cenario: idempotente pelo (categoria, lado A). */
-async function ensurePendencyEntry(
+/** Inscricao viva do plantio: idempotente pelo (categoria, lado A). */
+async function ensureSeedEntry(
   ctx: SeedCtx,
   input: {
     categoryId: Id<"tournamentCategory">;
@@ -2495,7 +2529,10 @@ function sortByPendencyRecency<T extends { id: string; recencyMs: number }>(
 /** Organizacoes que o alvo MANDA e que nao sao a do cenario. */
 async function listPrimaryManagedOrganizations(
   ctx: SeedCtx,
-  input: { excludeOrganizationId: Id<"organization">; userId: Id<"user"> }
+  input: {
+    excludeOrganizationId: Id<"organization"> | null;
+    userId: Id<"user">;
+  }
 ) {
   const memberships = await ctx.orm.query.member.findMany({
     limit: 100,
@@ -2507,7 +2544,8 @@ async function listPrimaryManagedOrganizations(
     .map((row) => row.organizationId as string)
     .filter(
       (organizationId) =>
-        organizationId !== (input.excludeOrganizationId as string)
+        input.excludeOrganizationId === null ||
+        organizationId !== input.excludeOrganizationId
     )
     .sort()
     .slice(0, PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT)
@@ -2664,7 +2702,7 @@ async function ensurePrimaryEntryPendencies(
       const seedProfileB = input.seedProfiles.find(
         (seedProfile) => seedProfile.profileId === playerB
       );
-      const result = await ensurePendencyEntry(ctx, {
+      const result = await ensureSeedEntry(ctx, {
         categoryId: category.row.id as Id<"tournamentCategory">,
         createdByUserId: seedProfileA.userId,
         partnerUserId: seedProfileB?.userId ?? null,
@@ -3055,7 +3093,7 @@ export const pendencyScenario = privateMutation
               ? userId
               : (counterpartUserId as Id<"user">);
 
-        const entryResult = await ensurePendencyEntry(ctx, {
+        const entryResult = await ensureSeedEntry(ctx, {
           categoryId: categoryResult.category.id as Id<"tournamentCategory">,
           createdByUserId,
           partnerUserId:
@@ -3108,5 +3146,743 @@ export const pendencyScenario = privateMutation
       tournamentsCreated,
       userId: userId as string,
       usersCreated: seedCoreResult.usersCreated,
+    };
+  });
+
+/** Inscricoes lidas por categoria ao conferir o alvo do plantio de duplas. */
+const DOUBLES_SEED_ENTRY_SCAN_LIMIT = 100;
+
+/** Organizacao do cenario de pendencias do alvo, quando ele ja rodou. */
+async function findPendencyOrganizationId(ctx: SeedCtx, userId: Id<"user">) {
+  const organization = await ctx.orm.query.organization.findFirst({
+    where: { slug: buildPendencyOrganizationSlug(userId) },
+  });
+
+  return (organization?.id ?? null) as Id<"organization"> | null;
+}
+
+/** O torneio do plantio de duplas, quando ele ja existe na organizacao. */
+async function findDoublesSeedTournament(
+  ctx: SeedCtx,
+  organizationId: Id<"organization">
+) {
+  const tournament = await ctx.orm.query.tournament.findFirst({
+    where: {
+      name: DOUBLES_SEED_TOURNAMENT.name,
+      organizationId,
+    },
+  });
+
+  return tournament;
+}
+
+/**
+ * Organizacao-alvo do plantio: onde o torneio de duplas JA existe (ancora de
+ * idempotencia) ou, na primeira execucao, a primeira que o alvo gerencia.
+ */
+async function resolveDoublesTargetOrganization(
+  ctx: SeedCtx,
+  input: {
+    excludeOrganizationId: Id<"organization"> | null;
+    userId: Id<"user">;
+  }
+) {
+  const organizations = await listPrimaryManagedOrganizations(ctx, input);
+
+  for (const organizationId of organizations) {
+    const existing = await findDoublesSeedTournament(ctx, organizationId);
+
+    if (existing) {
+      return organizationId;
+    }
+  }
+
+  return organizations[0] ?? null;
+}
+
+/**
+ * Elenco PROPRIO do plantio. O username e o que faz o convite de dupla existir
+ * de verdade: sem ele o perfil nem aparece na busca do parceiro.
+ */
+async function ensureDoublesSeedPlayers(ctx: SeedCtx) {
+  const profiles: SeedProfileRef[] = [];
+  let playerProfilesCreated = 0;
+  let usersCreated = 0;
+
+  for (const seedProfile of DOUBLES_SEED_PROFILES) {
+    const userResult = await ensureSeedUser(ctx, seedProfile);
+
+    if (userResult.created) {
+      usersCreated += 1;
+    }
+
+    const profileResult = await ensureSeedPlayerProfile(
+      ctx,
+      userResult.user.id as Id<"user">,
+      seedProfile
+    );
+
+    if (profileResult.created) {
+      playerProfilesCreated += 1;
+    }
+
+    profiles.push({
+      gender: profileResult.profile.gender,
+      profileId: profileResult.profile.id as Id<"playerProfile">,
+      userId: userResult.user.id as Id<"user">,
+    });
+  }
+
+  return { playerProfilesCreated, profiles, usersCreated };
+}
+
+/**
+ * Torneio do plantio: PUBLICADO e com inscricao aberta. O prazo e o inicio sao
+ * recalculados a cada execucao (a conferencia seguinte segue valendo), mas o
+ * status so sai de `draft`: depois do sorteio a rodada nao desfaz a chave.
+ */
+async function ensureDoublesSeedTournament(
+  ctx: SeedCtx,
+  input: { organizationId: Id<"organization"> }
+) {
+  const now = new Date();
+  const registrationDeadlineAt = addDays(
+    now,
+    DOUBLES_SEED_TOURNAMENT.registrationDeadlineDays
+  );
+  const startDate = addDays(now, DOUBLES_SEED_TOURNAMENT.startDateDays);
+  const existing = await ctx.orm.query.tournament.findFirst({
+    where: {
+      name: DOUBLES_SEED_TOURNAMENT.name,
+      organizationId: input.organizationId,
+    },
+  });
+
+  if (existing) {
+    await ctx.db.patch(existing.id as Id<"tournament">, {
+      registrationDeadlineAt: registrationDeadlineAt.getTime(),
+      startDate: startDate.getTime(),
+      ...(existing.status === "draft" ? { status: "published" } : {}),
+      updatedAt: now.getTime(),
+    });
+
+    return { created: false, tournament: existing };
+  }
+
+  const [createdTournament] = await ctx.orm
+    .insert(tournamentTables.tournament)
+    .values({
+      approvalMode: "auto",
+      city: DOUBLES_SEED_TOURNAMENT.city,
+      courts: [],
+      createdAt: now,
+      description: "Torneio de duplas do plantio de conferencia (seed).",
+      locationNotes: "",
+      matchConfig: defaultSeedRuleConfig.matchConfig,
+      name: DOUBLES_SEED_TOURNAMENT.name,
+      organizationId: input.organizationId,
+      registrationDeadlineAt,
+      startDate,
+      state: DOUBLES_SEED_TOURNAMENT.state,
+      status: "published",
+      updatedAt: now,
+      visibility: "public",
+    })
+    .returning();
+
+  return { created: true, tournament: createdTournament };
+}
+
+/** Categoria por (modalidade, genero) — a chave do indice unico do schema. */
+async function ensureDoublesSeedCategory(
+  ctx: SeedCtx,
+  input: { gender: TournamentGender; tournamentId: Id<"tournament"> }
+) {
+  const existing = await ctx.orm.query.tournamentCategory.findFirst({
+    where: {
+      gender: input.gender,
+      modality: "doubles",
+      tournamentId: input.tournamentId,
+    },
+  });
+
+  if (existing) {
+    return { category: existing, created: false };
+  }
+
+  const now = new Date();
+  const [createdCategory] = await ctx.orm
+    .insert(tournamentTables.tournamentCategory)
+    .values({
+      createdAt: now,
+      displayName: buildCategoryDisplayName("doubles", input.gender),
+      entryFeeCents: DOUBLES_SEED_ENTRY_FEE_CENTS,
+      gender: input.gender,
+      maxEntries: DOUBLES_SEED_MAX_ENTRIES,
+      modality: "doubles",
+      tournamentId: input.tournamentId,
+      updatedAt: now,
+    })
+    .returning();
+
+  return { category: createdCategory, created: true };
+}
+
+/**
+ * `seed:doublesScenario` — torneio de DUPLAS na organizacao que o email informado
+ * ja gerencia: publicado, gratuito e com duplas masculinas e femininas
+ * inscritas. O alvo e o TOTAL por categoria e status: repetir a execucao nao
+ * acumula dupla nem mexe em dado que ja existia na organizacao.
+ */
+export const doublesScenario = privateMutation
+  .input(DoublesScenarioSchema)
+  .output(doublesScenarioResultSchema)
+  .mutation(async ({ ctx, input }) => {
+    const primaryUser = await requirePrimaryUser(ctx, input.primaryUserEmail);
+    const userId = primaryUser.id as Id<"user">;
+    const targetOrganizationId = await resolveDoublesTargetOrganization(ctx, {
+      excludeOrganizationId: await findPendencyOrganizationId(ctx, userId),
+      userId,
+    });
+
+    if (!targetOrganizationId) {
+      throw new Error(
+        `A conta ${input.primaryUserEmail} não gerencia nenhuma organização.`
+      );
+    }
+
+    const organization = await ctx.orm.query.organization.findFirst({
+      where: { id: targetOrganizationId },
+    });
+    const playerResult = await ensureDoublesSeedPlayers(ctx);
+    const tournamentResult = await ensureDoublesSeedTournament(ctx, {
+      organizationId: targetOrganizationId,
+    });
+    const tournamentId = tournamentResult.tournament.id as Id<"tournament">;
+    // Vagas ocupadas no torneio inteiro: a inscricao viva reserva o perfil pela
+    // coluna espelhada, e o indice unico e por (categoria, lado).
+    const occupied: string[] = [];
+    const categories: DoublesScenarioResult["categories"] = [];
+    let activePairsCreated = 0;
+    let categoriesCreated = 0;
+    let invitePairsCreated = 0;
+
+    for (const template of DOUBLES_SEED_CATEGORIES) {
+      const categoryResult = await ensureDoublesSeedCategory(ctx, {
+        gender: template.gender,
+        tournamentId,
+      });
+      const categoryId = categoryResult.category.id as Id<"tournamentCategory">;
+
+      if (categoryResult.created) {
+        categoriesCreated += 1;
+      }
+
+      const entries = await ctx.orm.query.tournamentEntry.findMany({
+        limit: DOUBLES_SEED_ENTRY_SCAN_LIMIT,
+        where: { categoryId },
+      });
+
+      for (const entry of entries) {
+        for (const profileId of [entry.activeAId, entry.activeBId]) {
+          if (typeof profileId === "string") {
+            occupied.push(profileId);
+          }
+        }
+      }
+
+      const missingActive = Math.max(
+        0,
+        DOUBLES_SEED_ACTIVE_PAIRS -
+          entries.filter((entry) => entry.status === "active").length
+      );
+      const missingInvite = Math.max(
+        0,
+        DOUBLES_SEED_INVITE_PAIRS -
+          entries.filter((entry) => entry.status === "pending_partner").length
+      );
+      const pairs = selectDoublesSeedPairs({
+        candidates: playerResult.profiles.map((profile) => ({
+          gender: profile.gender,
+          profileId: profile.profileId,
+        })),
+        gender: template.gender,
+        occupied,
+        pairCount: missingActive + missingInvite,
+      });
+
+      for (const [index, pair] of pairs.entries()) {
+        const [playerAId, playerBId] = pair;
+        const profileA = playerResult.profiles.find(
+          (profile) => profile.profileId === playerAId
+        );
+        const profileB = playerResult.profiles.find(
+          (profile) => profile.profileId === playerBId
+        );
+
+        if (!(playerAId && playerBId && profileA && profileB)) {
+          continue;
+        }
+
+        const status = index < missingActive ? "active" : "pending_partner";
+        const entryResult = await ensureSeedEntry(ctx, {
+          categoryId,
+          createdByUserId: profileA.userId,
+          partnerUserId: profileB.userId,
+          playerAId,
+          playerBId,
+          status,
+        });
+
+        if (entryResult.created) {
+          if (status === "active") {
+            activePairsCreated += 1;
+          } else {
+            invitePairsCreated += 1;
+          }
+        }
+      }
+
+      // Totais LIDOS depois do plantio: e o que a segunda execucao tem de manter.
+      const plantedEntries = await ctx.orm.query.tournamentEntry.findMany({
+        limit: DOUBLES_SEED_ENTRY_SCAN_LIMIT,
+        where: { categoryId },
+      });
+
+      categories.push({
+        activePairs: plantedEntries.filter((entry) => entry.status === "active")
+          .length,
+        displayName: categoryResult.category.displayName,
+        gender: template.gender,
+        invitePairs: plantedEntries.filter(
+          (entry) => entry.status === "pending_partner"
+        ).length,
+      });
+    }
+
+    return {
+      activePairsCreated,
+      categories,
+      categoriesCreated,
+      invitePairsCreated,
+      organizationId: targetOrganizationId as string,
+      organizationName: organization?.name ?? "",
+      organizationsTouched: 1,
+      playerProfilesCreated: playerResult.playerProfilesCreated,
+      tournamentId: tournamentId as string,
+      tournamentName: DOUBLES_SEED_TOURNAMENT.name,
+      tournamentsCreated: tournamentResult.created ? 1 : 0,
+      usersCreated: playerResult.usersCreated,
+    };
+  });
+
+/** Bounds do plantio de agenda (mesmo molde dos caps das leituras). */
+const DOUBLES_SEED_CATEGORY_SCAN_LIMIT = 10;
+const DOUBLES_SEED_MATCH_SCAN_LIMIT = 200;
+const DOUBLES_SEED_SIDE_PROFILE_LIMIT = 60;
+
+/** Quadras minimas da agenda: sem quadra o card sai sem o local do jogo. */
+function buildDoublesSeedCourts() {
+  return DOUBLES_SEED_COURTS.map((court) => ({
+    availability: buildSeedCourtAvailability(),
+    id: court.id,
+    name: court.name,
+  }));
+}
+
+/**
+ * Confirma os convites pendentes da categoria. O convite JA reserva as duas
+ * vagas, entao aceitar e so virar o status — o mesmo efeito do
+ * `respondPartnerInvite` em torneio gratuito com aprovacao automatica.
+ */
+async function acceptDoublesSeedInvites(
+  ctx: SeedCtx,
+  categoryId: Id<"tournamentCategory">
+) {
+  const pending = await ctx.orm.query.tournamentEntry.findMany({
+    limit: DOUBLES_SEED_ENTRY_SCAN_LIMIT,
+    where: { categoryId, status: "pending_partner" },
+  });
+
+  if (pending.length === 0) {
+    return 0;
+  }
+
+  const now = Date.now();
+
+  for (const entry of pending) {
+    await ctx.db.patch(entry.id as Id<"tournamentEntry">, {
+      status: "active",
+      updatedAt: now,
+    });
+  }
+
+  return pending.length;
+}
+
+/**
+ * Duplas que faltam para o alvo de ativas da categoria: a chave de 4 slots
+ * precisa de 4 duplas por categoria.
+ */
+async function plantDoublesSeedPairsUpToTarget(
+  ctx: SeedCtx,
+  input: {
+    categoryId: Id<"tournamentCategory">;
+    gender: TournamentGender;
+    profiles: readonly SeedProfileRef[];
+    target: number;
+  }
+) {
+  const entries = await ctx.orm.query.tournamentEntry.findMany({
+    limit: DOUBLES_SEED_ENTRY_SCAN_LIMIT,
+    where: { categoryId: input.categoryId, status: "active" },
+  });
+  const missing = input.target - entries.length;
+
+  if (missing < 1) {
+    return 0;
+  }
+
+  const occupied = entries
+    .flatMap((entry) => [entry.activeAId, entry.activeBId])
+    .filter(
+      (profileId): profileId is Id<"playerProfile"> =>
+        typeof profileId === "string"
+    );
+  const pairs = selectDoublesSeedPairs({
+    candidates: input.profiles.map((profile) => ({
+      gender: profile.gender,
+      profileId: profile.profileId,
+    })),
+    gender: input.gender,
+    occupied,
+    pairCount: missing,
+  });
+  let planted = 0;
+
+  for (const pair of pairs) {
+    const [playerAId, playerBId] = pair;
+    const profileA = input.profiles.find(
+      (profile) => profile.profileId === playerAId
+    );
+    const profileB = input.profiles.find(
+      (profile) => profile.profileId === playerBId
+    );
+
+    if (!(playerAId && playerBId && profileA && profileB)) {
+      continue;
+    }
+
+    const entryResult = await ensureSeedEntry(ctx, {
+      categoryId: input.categoryId,
+      createdByUserId: profileA.userId,
+      partnerUserId: profileB.userId,
+      playerAId,
+      playerBId,
+      status: "active",
+    });
+
+    if (entryResult.created) {
+      planted += 1;
+    }
+  }
+
+  return planted;
+}
+
+/**
+ * `seed:doublesAgendaScenario` — fecha as duplas e cadastra as quadras do torneio
+ * do cenario de duplas e, quando a chave ja existe, agenda a PRIMEIRA rodada da
+ * chave nos dias de hoje e amanhã. O sorteio (`tournament/bracket:performDraw`) e
+ * o inicio (`performStart`) sao os cores do produto e rodam como comando proprio:
+ * de dentro daqui a paginacao deles colide com a das leituras desta mutation. A
+ * agenda e escrita por estado desejado: repetir no mesmo dia nao escreve nada.
+ */
+export const doublesAgendaScenario = privateMutation
+  .input(DoublesAgendaScenarioSchema)
+  .output(doublesAgendaScenarioResultSchema)
+  .mutation(async ({ ctx, input }) => {
+    const primaryUser = await requirePrimaryUser(ctx, input.primaryUserEmail);
+    const userId = primaryUser.id as Id<"user">;
+    const targetOrganizationId = await resolveDoublesTargetOrganization(ctx, {
+      excludeOrganizationId: await findPendencyOrganizationId(ctx, userId),
+      userId,
+    });
+
+    if (!targetOrganizationId) {
+      throw new Error(
+        `A conta ${input.primaryUserEmail} não gerencia nenhuma organização.`
+      );
+    }
+
+    const currentTournament = await findDoublesSeedTournament(
+      ctx,
+      targetOrganizationId
+    );
+
+    if (!currentTournament) {
+      throw new Error(
+        `Rode o cenário de duplas antes: o torneio "${DOUBLES_SEED_TOURNAMENT.name}" não existe nessa organização.`
+      );
+    }
+
+    const tournamentId = currentTournament.id as Id<"tournament">;
+    // Entrada so se mexe ANTES do sorteio: depois da chave montada, dupla nova
+    // deixaria o torneio com uma inscricao fora da chave.
+    const beforeDraw = currentTournament.status === "published";
+    let acceptedInvites = 0;
+    let pairsPlanted = 0;
+
+    if (beforeDraw) {
+      const playerResult = await ensureDoublesSeedPlayers(ctx);
+
+      for (const template of DOUBLES_SEED_CATEGORIES) {
+        const categoryResult = await ensureDoublesSeedCategory(ctx, {
+          gender: template.gender,
+          tournamentId,
+        });
+        const categoryId = categoryResult.category
+          .id as Id<"tournamentCategory">;
+
+        acceptedInvites += await acceptDoublesSeedInvites(ctx, categoryId);
+        pairsPlanted += await plantDoublesSeedPairsUpToTarget(ctx, {
+          categoryId,
+          gender: template.gender,
+          profiles: playerResult.profiles,
+          target: DOUBLES_SEED_AGENDA_ACTIVE_TARGET,
+        });
+      }
+    }
+
+    // Quadra cadastrada pelo organizador nunca e sobrescrita.
+    const currentCourts = currentTournament.courts ?? [];
+    let courtsAdded = 0;
+
+    if (currentCourts.length === 0) {
+      const courts = buildDoublesSeedCourts();
+      await ctx.db.patch(tournamentId, {
+        courts,
+        updatedAt: Date.now(),
+      });
+      courtsAdded = courts.length;
+    }
+
+    // Sorteio e inicio ficam FORA daqui: `performDraw`/`performStart` sao os
+    // cores do produto e rodam como comando proprio. Chamados de dentro desta
+    // mutation, o delete/update paginado deles colide com a paginacao das
+    // leituras ja feitas aqui (Convex so aceita uma por transacao).
+
+    const now = new Date();
+    const nowMs = now.getTime();
+    const matchConfig = currentTournament.matchConfig as LeagueMatchConfig;
+    const categories = await ctx.orm.query.tournamentCategory.findMany({
+      limit: DOUBLES_SEED_CATEGORY_SCAN_LIMIT,
+      where: { tournamentId },
+    });
+    const matches = await ctx.orm.query.tournamentMatch.findMany({
+      limit: DOUBLES_SEED_MATCH_SCAN_LIMIT,
+      where: {
+        categoryId: {
+          in: categories.map(
+            (category) => category.id as Id<"tournamentCategory">
+          ),
+        },
+      },
+    });
+
+    // Chave ja montada (ela nasce pelo core de colocacao do produto): o status
+    // vira o que o sorteio deixaria (`drawn`), unico estado de onde o produto
+    // aceita iniciar o torneio. Sem chave, nada muda.
+    if (matches.length > 0 && currentTournament.status === "published") {
+      await ctx.db.patch(tournamentId, { status: "drawn", updatedAt: nowMs });
+    }
+
+    const categoryResults: DoublesAgendaScenarioResult["categories"] = [];
+    const allEntries: TournamentEntryRecord[] = [];
+    const scheduled: Array<{
+      category: string;
+      courtName: string;
+      entryAId: null | string;
+      entryBId: null | string;
+      matchDate: string;
+      round: number;
+      startMinute: number;
+    }> = [];
+    let matchesRescheduled = 0;
+    let matchesScheduled = 0;
+
+    for (const [categoryIndex, template] of DOUBLES_SEED_CATEGORIES.entries()) {
+      const category = categories.find((row) => row.gender === template.gender);
+
+      if (!category) {
+        continue;
+      }
+
+      const categoryId = category.id as Id<"tournamentCategory">;
+      const entries = await ctx.orm.query.tournamentEntry.findMany({
+        limit: DOUBLES_SEED_ENTRY_SCAN_LIMIT,
+        where: { categoryId },
+      });
+      allEntries.push(...entries);
+      const round1 = matches
+        .filter(
+          (match) =>
+            match.categoryId === categoryId &&
+            match.round === 1 &&
+            match.status !== "vacant" &&
+            !match.walkover
+        )
+        .sort((left, right) => left.slotInRound - right.slotInRound);
+      let scheduledInCategory = 0;
+
+      for (const [matchIndex, match] of round1.entries()) {
+        const slot = resolveDoublesSeedAgendaSlot({
+          categoryIndex,
+          matchIndex,
+          nowMs,
+        });
+
+        if (!slot) {
+          continue;
+        }
+
+        scheduledInCategory += 1;
+
+        const endMinute = resolveMatchOccupiedEndMinute({
+          matchConfig,
+          startMinute: slot.startMinute,
+        });
+        const alreadyAsPlanned =
+          match.courtId === slot.courtId &&
+          match.matchDate === slot.matchDate &&
+          match.startMinute === slot.startMinute &&
+          match.endMinute === endMinute;
+        const conflict = alreadyAsPlanned
+          ? null
+          : findCourtSlotConflict({
+              courtId: slot.courtId,
+              endMinute,
+              ignoredMatchId: match.id as string,
+              matchConfig,
+              matchDate: slot.matchDate,
+              scheduledMatches: matches,
+              startMinute: slot.startMinute,
+            });
+
+        if (conflict) {
+          throw new Error(
+            `A quadra ${slot.courtName} ja tem confronto em ${slot.matchDate} ${slot.startMinute}.`
+          );
+        }
+
+        if (!alreadyAsPlanned) {
+          await ctx.db.patch(match.id as Id<"tournamentMatch">, {
+            courtId: slot.courtId,
+            endMinute,
+            matchDate: slot.matchDate,
+            rowVersion: match.rowVersion + 1,
+            scheduledById: userId,
+            startMinute: slot.startMinute,
+            // W.O. do sorteio continua W.O.: so o horario se pendura nele.
+            status: match.status === "walkover" ? "walkover" : "scheduled",
+            updatedAt: now.getTime(),
+          });
+
+          if (typeof match.matchDate === "string") {
+            matchesRescheduled += 1;
+          } else {
+            matchesScheduled += 1;
+          }
+        }
+
+        scheduled.push({
+          category: category.displayName,
+          courtName: slot.courtName,
+          entryAId: match.entryAId ?? null,
+          entryBId: match.entryBId ?? null,
+          matchDate: slot.matchDate,
+          round: match.round,
+          startMinute: slot.startMinute,
+        });
+      }
+
+      categoryResults.push({
+        activeEntries: entries.filter((entry) => entry.status === "active")
+          .length,
+        displayName: category.displayName,
+        gender: template.gender,
+        round1Matches: round1.length,
+        scheduledMatches: scheduledInCategory,
+      });
+    }
+
+    const sideProfileIds = [
+      ...new Set(
+        allEntries
+          .flatMap((entry) => [entry.playerAId, entry.playerBId])
+          .filter(
+            (profileId): profileId is Id<"playerProfile"> =>
+              typeof profileId === "string"
+          )
+      ),
+    ];
+    const sideProfiles = await ctx.orm.query.playerProfile.findMany({
+      limit: DOUBLES_SEED_SIDE_PROFILE_LIMIT,
+      where: { id: { in: sideProfileIds } },
+    });
+    const nameByProfileId = new Map(
+      sideProfiles.map((profile) => [profile.id as string, profile.fullName])
+    );
+    const labelByEntryId = new Map(
+      allEntries.map((entry) => [
+        entry.id as string,
+        [entry.playerAId, entry.playerBId]
+          .filter(
+            (profileId): profileId is Id<"playerProfile"> =>
+              typeof profileId === "string"
+          )
+          .map((profileId) => nameByProfileId.get(profileId) ?? "")
+          .join(" / "),
+      ])
+    );
+    const finalTournament = await ctx.orm.query.tournament.findFirst({
+      where: { id: tournamentId },
+    });
+
+    const finalStatus = finalTournament?.status ?? currentTournament.status;
+
+    return {
+      acceptedInvites,
+      categories: categoryResults,
+      courtsAdded,
+      matchesRescheduled,
+      matchesScheduled,
+      // O que falta do fluxo do produto: sem chave, montar a chave; com a chave
+      // montada e o torneio ainda `drawn`, iniciar (chave e agenda so ficam
+      // publicas para quem NAO tem inscricao a partir de `ongoing`).
+      nextStep:
+        matches.length === 0
+          ? "assemble_bracket"
+          : finalStatus === "drawn"
+            ? "start_tournament"
+            : null,
+      pairsPlanted,
+      scheduled: scheduled.map((row) => ({
+        category: row.category,
+        courtName: row.courtName,
+        matchDate: row.matchDate,
+        round: row.round,
+        sideA: row.entryAId
+          ? (labelByEntryId.get(row.entryAId) ?? "A definir")
+          : "A definir",
+        sideB: row.entryBId
+          ? (labelByEntryId.get(row.entryBId) ?? "A definir")
+          : "A definir",
+        startMinute: row.startMinute,
+      })),
+      status: finalStatus,
+      totalMatches: matches.length,
+      tournamentId: tournamentId as string,
+      tournamentName: DOUBLES_SEED_TOURNAMENT.name,
     };
   });

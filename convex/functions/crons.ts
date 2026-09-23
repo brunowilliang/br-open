@@ -71,8 +71,10 @@ crons.interval(
   {}
 );
 
-// Auto-start tournaments whose startDate has arrived: a `drawn` tournament
-// starts directly, a `published` one DRAWS ITSELF first (it has no bracket yet).
+// Auto-transicoes de torneio (de hora em hora): quando o PRAZO DE INSCRICAO
+// fecha, um torneio publicado SORTEIA SOZINHO e fica `drawn` (a previa do
+// organizador); no DIA DE INICIO ele comeca — se ainda nao sorteou, sorteia e
+// comeca no mesmo tick.
 crons.interval(
   "auto-start-tournaments",
   { hours: 1 },

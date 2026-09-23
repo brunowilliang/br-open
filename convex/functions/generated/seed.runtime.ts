@@ -14,6 +14,8 @@ import type { ActionCtx, MutationCtx, QueryCtx } from './server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "doublesAgendaScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").doublesAgendaScenario>("seed:doublesAgendaScenario"), () => (require("../seed") as Record<string, unknown>)["doublesAgendaScenario"])],
+  "doublesScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").doublesScenario>("seed:doublesScenario"), () => (require("../seed") as Record<string, unknown>)["doublesScenario"])],
   "participantScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").participantScenario>("seed:participantScenario"), () => (require("../seed") as Record<string, unknown>)["participantScenario"])],
   "pendencyScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").pendencyScenario>("seed:pendencyScenario"), () => (require("../seed") as Record<string, unknown>)["pendencyScenario"])],
   "preview": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").preview>("seed:preview"), () => (require("../seed") as Record<string, unknown>)["preview"])],

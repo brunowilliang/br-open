@@ -5,6 +5,11 @@ import {
 } from "../league/challenge-scheduling-rules";
 import type { LeagueMatchConfig } from "../league/contract";
 
+/** Dia do calendario BRASILEIRO de um instante (offset fixo do repo). */
+function brazilDayIndex(ms: number): number {
+  return Math.floor((ms + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY);
+}
+
 /**
  * A data de início chegou (no calendário BRASILEIRO, convenção do repo) e o
  * torneio começa SOZINHO, sem o organizador tocar em Iniciar. Compara o DIA
@@ -21,10 +26,50 @@ export function shouldAutoStartTournament(input: {
   if (input.status !== "drawn" && input.status !== "published") {
     return false;
   }
-  return (
-    Math.floor((input.startDateMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY) <=
-    Math.floor((input.nowMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY)
-  );
+  return brazilDayIndex(input.startDateMs) <= brazilDayIndex(input.nowMs);
+}
+
+/**
+ * O auto-sorteio roda quando o PRAZO DE INSCRICAO fecha: a fase `drawn` (previa
+ * privada do organizador, com ajuste e re-sorteio) passa a existir ANTES do dia
+ * de inicio, em vez de nascer e morrer no mesmo tick do start. Sem prazo, ou com
+ * prazo depois do dia de inicio, quem resolve e o start — o comportamento de
+ * sempre. `drawn` ja tem chave: nunca entra aqui (nao existe re-sorteio
+ * automatico).
+ */
+export function shouldAutoDrawTournament(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  startDateMs: number;
+  status: string;
+}): boolean {
+  if (input.status !== "published") {
+    return false;
+  }
+  if (!Number.isFinite(input.registrationDeadlineMs)) {
+    return false;
+  }
+  if (
+    brazilDayIndex(input.registrationDeadlineMs) >
+    brazilDayIndex(input.startDateMs)
+  ) {
+    return false;
+  }
+  // Mesmo limite do `isRegistrationOpen`: no instante do prazo ja esta fechado.
+  return input.registrationDeadlineMs <= input.nowMs;
+}
+
+/** Ação automática do cron para um torneio elegível (`null` deixa quieto). */
+export function resolveTournamentAutoAction(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  startDateMs: number;
+  status: string;
+}): "draw" | "start" | null {
+  if (shouldAutoStartTournament(input)) {
+    return "start";
+  }
+  return shouldAutoDrawTournament(input) ? "draw" : null;
 }
 
 /**

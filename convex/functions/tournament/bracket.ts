@@ -16,7 +16,7 @@ import {
   validateSwapCategoryOwnership,
 } from "../../domains/tournament/bracket-rules";
 import { tournament, tournamentMatch } from "../../domains/tournament/tables";
-import { shouldAutoStartTournament } from "../../domains/tournament/scheduling-rules";
+import { resolveTournamentAutoAction } from "../../domains/tournament/scheduling-rules";
 import { authMutation, authQuery, privateMutation } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import {
@@ -139,9 +139,16 @@ export const performDraw = privateMutation
         return { error: error ?? "Sorteio inválido.", ok: false };
       }
 
+      // Re-sorteio troca a chave inteira. Este delete vai em modo SYNC de
+      // proposito: no modo async toda remocao com range de indice vira
+      // `.paginate()`, e o Convex recusa mais de uma query paginada na mesma
+      // funcao — com DUAS categorias drawaveis o segundo `delete` era o erro do
+      // "multiple paginated queries". Sync tambem garante que as linhas velhas
+      // saem ANTES dos inserts novos (indice unico de round/slot).
       await ctx.orm
         .delete(tournamentMatch)
-        .where(eq(tournamentMatch.categoryId, category.id as never));
+        .where(eq(tournamentMatch.categoryId, category.id as never))
+        .execute({ mode: "sync" });
 
       for (const match of bracket.matches) {
         await ctx.orm.insert(tournamentMatch).values({
@@ -453,54 +460,69 @@ export const start = authMutation
   });
 
 /**
- * Cron body (hourly): every `published`/`drawn` tournament whose start date has
- * arrived on the Brazilian calendar starts itself — a `drawn` one goes straight
- * to the start core, a `published` one DRAWS ITSELF first through the same core
- * and then starts. If nothing is drawable it stays `published` for the organizer.
- * Idempotent by status transition, so a repeat run (or a manual action) can never
- * draw or start twice.
+ * Cron body (hourly) das transicoes automaticas de torneio. Duas janelas:
+ * o PRAZO DE INSCRICAO fecha e o torneio sorteia sozinho (fica `drawn`, a previa
+ * do organizador com ajuste e re-sorteio de pe) e, no DIA DE INICIO, ele comeca
+ * (um `published` que ainda nao sorteou sorteia e comeca no mesmo tick, como
+ * sempre). Sem prazo, ou com prazo depois do dia de inicio, nada muda em relacao
+ * ao comportamento antigo. Idempotente por status: repetir a rodada (ou uma acao
+ * manual no meio) nunca sorteia nem inicia duas vezes.
  */
 export const autoStartTournaments = privateMutation
   .input(z.object({}))
-  .output(z.object({ started: z.number() }))
+  .output(z.object({ drawn: z.number(), started: z.number() }))
   .mutation(async ({ ctx }) => {
     const eligible = await ctx.orm.query.tournament.findMany({
       limit: 100,
       where: { status: { in: ["published", "drawn"] } },
     });
 
+    let drawn = 0;
     let started = 0;
+    const nowMs = Date.now();
+
     for (const record of eligible) {
-      const shouldStart = shouldAutoStartTournament({
-        nowMs: Date.now(),
+      const tournamentId = record.id as string;
+      const action = resolveTournamentAutoAction({
+        nowMs,
+        registrationDeadlineMs: record.registrationDeadlineAt.getTime(),
         startDateMs: record.startDate.getTime(),
         status: record.status,
       });
-      if (!shouldStart) {
+
+      if (action === null) {
         continue;
       }
+
       if (record.status === "published") {
         const drawResult = await ctx.runMutation(
           internal.tournament.bracket.performDraw,
           {
             expectedStatus: "published" as const,
-            tournamentId: record.id as string,
+            tournamentId,
           }
         );
         // Nothing drawable: stays `published`, organizer decides.
         if (!drawResult.ok) {
           continue;
         }
+        if (action === "draw") {
+          drawn += 1;
+          continue;
+        }
       }
-      const result = await ctx.runMutation(
-        internal.tournament.bracket.performStart,
-        { tournamentId: record.id as string }
-      );
-      if (result.ok) {
-        started += 1;
+
+      if (action === "start") {
+        const result = await ctx.runMutation(
+          internal.tournament.bracket.performStart,
+          { tournamentId }
+        );
+        if (result.ok) {
+          started += 1;
+        }
       }
     }
-    return { started };
+    return { drawn, started };
   });
 
 export const listBracket = authQuery

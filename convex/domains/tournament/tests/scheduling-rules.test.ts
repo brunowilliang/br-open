@@ -5,6 +5,8 @@ import type { LeagueMatchConfig } from "../../league/contract";
 import {
   findCourtSlotConflict,
   isScheduledTournamentMatch,
+  resolveTournamentAutoAction,
+  shouldAutoDrawTournament,
   shouldAutoStartTournament,
   type TournamentScheduledMatch,
 } from "../scheduling-rules";
@@ -202,6 +204,113 @@ describe("shouldAutoStartTournament (IBX-0069)", () => {
         status: "drawn",
       })
     ).toBeFalse();
+  });
+});
+
+describe("shouldAutoDrawTournament (IBX-0098)", () => {
+  // Prazo 20/09/2026 22:00 BRT (21/09 01:00 UTC) e início 25/09 00:00 BRT.
+  const deadlineMs = Date.UTC(2026, 8, 21, 1, 0, 0);
+  const startDayMs = Date.UTC(2026, 8, 25, 3, 0, 0);
+  const brt = (isoUtc: string) => Date.parse(isoUtc);
+
+  it("sorteia quando o prazo fecha e NÃO inicia o torneio", () => {
+    const base = {
+      registrationDeadlineMs: deadlineMs,
+      startDateMs: startDayMs,
+    };
+    // Mesmo limite do isRegistrationOpen: aberto até o instante, fechado nele.
+    expect(
+      shouldAutoDrawTournament({
+        ...base,
+        nowMs: deadlineMs - 1,
+        status: "published",
+      })
+    ).toBeFalse();
+    expect(
+      shouldAutoDrawTournament({
+        ...base,
+        nowMs: deadlineMs,
+        status: "published",
+      })
+    ).toBeTrue();
+    expect(
+      resolveTournamentAutoAction({
+        ...base,
+        nowMs: brt("2026-09-22T12:00:00Z"),
+        status: "published",
+      })
+    ).toBe("draw");
+  });
+
+  it("no dia do início o start ganha: um published sorteia e inicia no mesmo tick", () => {
+    expect(
+      resolveTournamentAutoAction({
+        nowMs: brt("2026-09-25T03:05:00Z"),
+        registrationDeadlineMs: deadlineMs,
+        startDateMs: startDayMs,
+        status: "published",
+      })
+    ).toBe("start");
+  });
+
+  it("drawn já tem chave: não re-sorteia sozinho e não produz ação", () => {
+    const base = {
+      registrationDeadlineMs: deadlineMs,
+      startDateMs: startDayMs,
+    };
+    expect(
+      shouldAutoDrawTournament({
+        ...base,
+        nowMs: brt("2026-09-22T12:00:00Z"),
+        status: "drawn",
+      })
+    ).toBeFalse();
+    expect(
+      resolveTournamentAutoAction({
+        ...base,
+        nowMs: brt("2026-09-22T12:00:00Z"),
+        status: "drawn",
+      })
+    ).toBeNull();
+  });
+
+  it("prazo depois do dia do início mantém o comportamento antigo", () => {
+    // Prazo 28/09 22:00 BRT, início 25/09: o prazo não antecipa nada.
+    const lateDeadlineMs = Date.UTC(2026, 8, 29, 1, 0, 0);
+    expect(
+      shouldAutoDrawTournament({
+        nowMs: brt("2026-09-27T12:00:00Z"),
+        registrationDeadlineMs: lateDeadlineMs,
+        startDateMs: startDayMs,
+        status: "published",
+      })
+    ).toBeFalse();
+    expect(
+      resolveTournamentAutoAction({
+        nowMs: brt("2026-09-25T03:05:00Z"),
+        registrationDeadlineMs: lateDeadlineMs,
+        startDateMs: startDayMs,
+        status: "published",
+      })
+    ).toBe("start");
+  });
+
+  it("prazo no MESMO dia do início: vale o instante do prazo, não o dia", () => {
+    // 25/09 11:00 BRT, mesma janela do início: antes do instante nada acontece,
+    // depois dele o sorteio já pode rodar (o start só entra no dia seguinte... o
+    // start tenta de novo no mesmo tick, mas é o start que decide).
+    const sameDayDeadlineMs = Date.UTC(2026, 8, 25, 14, 0, 0);
+    const base = {
+      registrationDeadlineMs: sameDayDeadlineMs,
+      startDateMs: startDayMs,
+      status: "published",
+    };
+    expect(
+      shouldAutoDrawTournament({ ...base, nowMs: brt("2026-09-25T13:00:00Z") })
+    ).toBeFalse();
+    expect(
+      shouldAutoDrawTournament({ ...base, nowMs: brt("2026-09-25T15:00:00Z") })
+    ).toBeTrue();
   });
 });
 

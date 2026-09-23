@@ -1026,6 +1026,13 @@ export const api: {
           courtName: string;
           id: string;
           matchDate: string;
+          matchStatus: "scheduled" | "finished" | "pending" | "walkover";
+          scoreSets: Array<{
+            aGames: number;
+            bGames: number;
+            kind: "set" | "tiebreak" | "super_tiebreak";
+            tieBreak: { aPoints: number; bPoints: number } | null;
+          }> | null;
           startMinute: number;
         }>
       >;
@@ -5427,6 +5434,63 @@ export const internal: {
     };
   };
   seed: {
+    doublesAgendaScenario: FunctionReference<
+      "mutation",
+      "internal",
+      { primaryUserEmail: string },
+      {
+        acceptedInvites: number;
+        categories: Array<{
+          activeEntries: number;
+          displayName: string;
+          gender: string;
+          round1Matches: number;
+          scheduledMatches: number;
+        }>;
+        courtsAdded: number;
+        matchesRescheduled: number;
+        matchesScheduled: number;
+        nextStep: "assemble_bracket" | "start_tournament" | null;
+        pairsPlanted: number;
+        scheduled: Array<{
+          category: string;
+          courtName: string;
+          matchDate: string;
+          round: number;
+          sideA: string;
+          sideB: string;
+          startMinute: number;
+        }>;
+        status: string;
+        totalMatches: number;
+        tournamentId: string;
+        tournamentName: string;
+      }
+    >;
+    doublesScenario: FunctionReference<
+      "mutation",
+      "internal",
+      { primaryUserEmail: string },
+      {
+        activePairsCreated: number;
+        categories: Array<{
+          activePairs: number;
+          displayName: string;
+          gender: string;
+          invitePairs: number;
+        }>;
+        categoriesCreated: number;
+        invitePairsCreated: number;
+        organizationId: string;
+        organizationName: string;
+        organizationsTouched: number;
+        playerProfilesCreated: number;
+        tournamentId: string;
+        tournamentName: string;
+        tournamentsCreated: number;
+        usersCreated: number;
+      }
+    >;
     participantScenario: FunctionReference<
       "mutation",
       "internal",
@@ -5493,7 +5557,7 @@ export const internal: {
         "mutation",
         "internal",
         {},
-        { started: number }
+        { drawn: number; started: number }
       >;
       performDraw: FunctionReference<
         "mutation",
