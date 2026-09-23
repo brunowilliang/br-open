@@ -38,6 +38,8 @@ function buildMatch(input: {
   score?: TournamentMatch["score"];
   startMinute?: null | number;
   status?: TournamentMatch["status"];
+  walkover?: boolean;
+  winnerEntryId?: null | string;
 }): TournamentMatch {
   return {
     categoryId: input.categoryId ?? "cat-1",
@@ -51,6 +53,8 @@ function buildMatch(input: {
     slotInRound: 0,
     startMinute: input.startMinute === undefined ? 840 : input.startMinute,
     status: input.status ?? "scheduled",
+    walkover: input.walkover ?? false,
+    winnerEntryId: input.winnerEntryId ?? null,
   } as TournamentMatch;
 }
 
@@ -160,5 +164,38 @@ describe("buildScheduledMatchItems", () => {
     expect(items[0]?.scoreSets).toEqual(sets);
     expect(items[1]?.matchStatus).toBe("scheduled");
     expect(items[1]?.scoreSets).toBeNull();
+  });
+
+  test("W.O. jogado diz o lado vencedor; o bye do sorteio não", () => {
+    const items = buildScheduledMatchItems({
+      courts: COURTS,
+      entriesById: {},
+      matches: [
+        buildMatch({
+          entryAId: "e-a",
+          entryBId: "e-b",
+          id: "wo",
+          round: 1,
+          score: { sets: [{ aGames: 0, bGames: 0, kind: "set" }] },
+          status: "finished",
+          walkover: true,
+          winnerEntryId: "e-b",
+        }),
+        buildMatch({
+          entryAId: "e-c",
+          entryBId: null,
+          id: "bye",
+          round: 1,
+          status: "walkover",
+          walkover: true,
+          winnerEntryId: "e-c",
+        }),
+      ],
+    });
+
+    expect(items.map((item) => [item.id, item.walkoverWinner])).toEqual([
+      ["wo", "b"],
+      ["bye", null],
+    ]);
   });
 });

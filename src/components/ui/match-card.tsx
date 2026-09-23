@@ -120,6 +120,10 @@ type MatchCardProps = {
   startMinute: number;
   /** Por LADO, como no chaveamento: liga a seta da troca de oponente. */
   swapPickEnabled?: { a: boolean; b: boolean };
+  /** Lado (`a` = challenger, `b` = challenged) que venceu o W.O. jogado: o W.O.
+   * (esta prop ou o status `walkover`, a agenda da liga) não desenha placar e pinta
+   * o vencedor accent + semibold e o perdedor muted. Sem W.O., decidem os sets. */
+  walkoverWinner?: "a" | "b" | null;
 };
 
 function MatchCardImpl(props: MatchCardProps) {
@@ -133,9 +137,14 @@ function MatchCardImpl(props: MatchCardProps) {
           props.courtName,
         ]
       : null;
-  const statusChip = props.matchStatus
-    ? getMatchStatusChip(props.matchStatus)
-    : null;
+  // W.O.: a prop dá o vencedor; o status `walkover` é o W.O. sem vencedor no wire.
+  // O chip troca o "Encerrado" do wire; status deliberado do caller passa.
+  const walkoverWinner = props.walkoverWinner ?? null;
+  const chipStatus =
+    walkoverWinner && props.matchStatus === "finished"
+      ? "walkover"
+      : props.matchStatus;
+  const statusChip = chipStatus ? getMatchStatusChip(chipStatus) : null;
   // Só o "A definir" leva o text-muted no rótulo do chip; os outros estados
   // (agendado, encerrado, W.O.) ficam como estão.
   const statusLabelClassName =
@@ -154,38 +163,44 @@ function MatchCardImpl(props: MatchCardProps) {
 
   // Challenger é o lado A e challenged o lado B (mesma convenção das agendas);
   // o vencedor de cada set sai do próprio placar, com o tie-break desempatando.
-  const challengerScoreTokens = props.scoreSets
-    ? buildBracketScoreTokens(props.scoreSets, "a")
-    : [];
-  const challengedScoreTokens = props.scoreSets
-    ? buildBracketScoreTokens(props.scoreSets, "b")
-    : [];
+  const isWalkover =
+    walkoverWinner !== null || props.matchStatus === "walkover";
+  const challengerScoreTokens =
+    isWalkover || !props.scoreSets
+      ? []
+      : buildBracketScoreTokens(props.scoreSets, "a");
+  const challengedScoreTokens =
+    isWalkover || !props.scoreSets
+      ? []
+      : buildBracketScoreTokens(props.scoreSets, "b");
 
-  // Os NOMES são do LADO: o par que venceu a partida (maioria dos sets) fica em
-  // accent e semibold, o que perdeu em muted e normal; empate (placar livre,
-  // W.O. sem jogo) ou sem sets não pinta os nomes. Os NÚMEROS seguem o SET.
+  // Os NOMES são do LADO: o par que venceu a partida fica em accent e semibold,
+  // o que perdeu em muted e normal. O vencedor é o do W.O. quando ele vem
+  // explícito e, jogada, sai da maioria dos sets; empate ou sem sets não pinta.
   const challengerSetsWon = challengerScoreTokens.filter(
     (token) => token.isSetWinner
   ).length;
   const challengedSetsWon = challengedScoreTokens.filter(
     (token) => token.isSetWinner
   ).length;
-  const challengerColor =
-    challengerSetsWon === challengedSetsWon
-      ? undefined
-      : challengerSetsWon > challengedSetsWon
-        ? "accent"
-        : "muted";
-  const challengedColor =
-    challengedSetsWon === challengerSetsWon
-      ? undefined
-      : challengedSetsWon > challengerSetsWon
-        ? "accent"
-        : "muted";
-  const challengerWeight =
-    challengerSetsWon > challengedSetsWon ? "semibold" : "normal";
-  const challengedWeight =
-    challengedSetsWon > challengerSetsWon ? "semibold" : "normal";
+  const challengerTakesMatch = walkoverWinner
+    ? walkoverWinner === "a"
+    : challengerSetsWon > challengedSetsWon;
+  const challengedTakesMatch = walkoverWinner
+    ? walkoverWinner === "b"
+    : challengedSetsWon > challengerSetsWon;
+  const challengerColor = challengerTakesMatch
+    ? "accent"
+    : challengedTakesMatch
+      ? "muted"
+      : undefined;
+  const challengedColor = challengedTakesMatch
+    ? "accent"
+    : challengerTakesMatch
+      ? "muted"
+      : undefined;
+  const challengerWeight = challengerTakesMatch ? "semibold" : "normal";
+  const challengedWeight = challengedTakesMatch ? "semibold" : "normal";
 
   // Troca de oponente (chaveamento): a tela habilita por lado e diz qual está
   // armado; aqui só a seta e a pintura do lado selecionado.

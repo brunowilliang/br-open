@@ -150,6 +150,30 @@ export function getMatchStatusChip(
     : { color: "default", label: status };
 }
 
+/** Lado que venceu o W.O. JOGADO (`a` = challenger, `b` = challenged), o sinal
+ * que o card recebe para pintar sem placar. O bye do sorteio também carrega
+ * `walkover: true`, mas não é jogo: só a partida `finished` conta. `null` é o
+ * "não é W.O." — e também o W.O. cujo vencedor não é um dos dois lados. */
+export function walkoverWinnerSide(match: {
+  entryAId: null | string;
+  entryBId: null | string;
+  status: string;
+  walkover: boolean;
+  winnerEntryId: null | string;
+}): "a" | "b" | null {
+  if (!(match.status === "finished" && match.walkover)) {
+    return null;
+  }
+
+  if (match.entryAId !== null && match.winnerEntryId === match.entryAId) {
+    return "a";
+  }
+
+  return match.entryBId !== null && match.winnerEntryId === match.entryBId
+    ? "b"
+    : null;
+}
+
 /** Rótulo do jogador que ainda não existe (lado sem inscrição na chave). É a
  * sentinela que o card lê para não repetir "A definir" nas duas linhas da
  * dupla: o lado vazio é UMA linha, a dupla é uma unidade. */

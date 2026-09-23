@@ -187,6 +187,7 @@ export default function TournamentScheduleRoute() {
                         scoreSets={item.scoreSets}
                         stageLabel={item.stageLabel}
                         startMinute={item.startMinute}
+                        walkoverWinner={item.walkoverWinner}
                       />
                     ))}
                   </View>

@@ -887,6 +887,7 @@ const galleryMatchCardCases: {
   startMinute: number;
   swapPickEnabled?: { a: boolean; b: boolean };
   title: string;
+  walkoverWinner?: "a" | "b" | null;
 }[] = [
   {
     challengedName: "Jose Almeida Prado",
@@ -936,13 +937,30 @@ const galleryMatchCardCases: {
     courtName: "Quadra 2",
     id: "duplas-wo",
     matchDate: "2026-09-12",
-    matchStatus: "walkover",
+    matchStatus: "finished",
     modality: "doubles",
-    note: "W.O.: o placar é o placeholder 0x0, então nenhum set e nenhum par fica em destaque (números muted e nomes sem cor), e o chip do topo avisa o W.O.",
+    note: "W.O. jogado: o vencedor por decisão (lado B) sai em accent e semibold e o perdedor em muted e normal, sem placar — o 0x0 do set placeholder não é resultado. O chip do topo é o W.O. do vocabulário mesmo com o status `finished` do wire.",
     scoreSets: [{ aGames: 0, bGames: 0, kind: "set" }],
     stageLabel: "Quartas de final",
     startMinute: 840,
     title: "Partida 3 · duplas · W.O.",
+    walkoverWinner: "b",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "duplas-wo-sem-vencedor",
+    matchDate: "2026-09-12",
+    matchStatus: "walkover",
+    modality: "doubles",
+    note: "W.O. sem vencedor no wire (o shape da agenda da liga): o status `walkover` já dá o chip W.O. e o card não desenha placar nenhum — nem o 0x0 do placeholder — e não pinta lado, porque o item do `listScheduled` não carrega o vencedor.",
+    scoreSets: [{ aGames: 0, bGames: 0, kind: "set" }],
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 3b · duplas · W.O. sem vencedor no wire",
   },
   {
     challengedName: "Ana Beatriz Cardoso",
@@ -1114,6 +1132,7 @@ function MatchCardVariantsSection() {
               stageLabel={item.stageLabel}
               startMinute={item.startMinute}
               swapPickEnabled={item.swapPickEnabled}
+              walkoverWinner={item.walkoverWinner}
             />
           </View>
         </VariantSection>

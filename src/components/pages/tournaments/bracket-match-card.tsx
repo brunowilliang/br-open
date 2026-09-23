@@ -8,7 +8,10 @@ import {
   type BracketSwapTarget,
   type TournamentMatchWithSides,
 } from "@/lib/tournaments/bracket-view";
-import { formatEntryPlayerNames } from "@/lib/tournaments/tournament-details-derived";
+import {
+  formatEntryPlayerNames,
+  walkoverWinnerSide,
+} from "@/lib/tournaments/tournament-details-derived";
 
 type BracketMatchCardProps = {
   courtName: null | string;
@@ -81,6 +84,7 @@ export function BracketMatchCard({
   const swapEnabled = isOrganizer && !swapDisabled;
   const canAct =
     isOrganizer && match.entryAId !== null && match.entryBId !== null;
+  const walkoverWinner = walkoverWinnerSide(match);
 
   return (
     <View
@@ -135,6 +139,7 @@ export function BracketMatchCard({
           a: swapEnabled && swapPickEnabled.a,
           b: swapEnabled && swapPickEnabled.b,
         }}
+        walkoverWinner={walkoverWinner}
       />
     </View>
   );

@@ -8,6 +8,7 @@ import { buildMatchSides } from "./bracket-view";
 import {
   formatBracketStage,
   formatEntryPlayerNames,
+  walkoverWinnerSide,
 } from "./tournament-details-derived";
 
 /** Item do card da agenda do torneio: os dois lados já resolvidos (nome e avatar
@@ -28,6 +29,8 @@ export type ScheduledMatchItem = {
   sideBPartnerName: null | string;
   stageLabel: string;
   startMinute: number;
+  /** Lado vencedor do W.O. jogado (`null` nas partidas jogadas). */
+  walkoverWinner: "a" | "b" | null;
 };
 
 /** Só entra na agenda a partida com dia, hora e quadra resolvidos; o estágio
@@ -76,6 +79,7 @@ export function buildScheduledMatchItems(input: {
           lastRoundByCategory[match.categoryId] ?? match.round
         ),
         startMinute: match.startMinute ?? 0,
+        walkoverWinner: walkoverWinnerSide(match),
       };
     });
 }

@@ -20,6 +20,7 @@ import {
   getMatchStatusChip,
   isBracketPublic,
   resolveTournamentEntriesTab,
+  walkoverWinnerSide,
 } from "./tournament-details-derived";
 
 describe("buildTournamentDetailsRole", () => {
@@ -802,5 +803,53 @@ describe("formatEntrySideLabel", () => {
     expect(
       formatEntrySideLabel(buildEntryFixture([{ fullName: "Marina Costa" }]))
     ).toBe("Marina Costa");
+  });
+});
+
+describe("walkoverWinnerSide", () => {
+  const playedWalkover = {
+    entryAId: "entry-a",
+    entryBId: "entry-b",
+    status: "finished",
+    walkover: true,
+  };
+
+  test("W.O. jogado: o lado é o do winnerEntryId", () => {
+    expect(
+      walkoverWinnerSide({ ...playedWalkover, winnerEntryId: "entry-a" })
+    ).toBe("a");
+    expect(
+      walkoverWinnerSide({ ...playedWalkover, winnerEntryId: "entry-b" })
+    ).toBe("b");
+  });
+
+  test("bye do sorteio e partida jogada não são W.O. do card", () => {
+    expect(
+      walkoverWinnerSide({
+        entryAId: "entry-a",
+        entryBId: null,
+        status: "walkover",
+        walkover: true,
+        winnerEntryId: "entry-a",
+      })
+    ).toBeNull();
+    expect(
+      walkoverWinnerSide({
+        entryAId: "entry-a",
+        entryBId: "entry-b",
+        status: "finished",
+        walkover: false,
+        winnerEntryId: "entry-b",
+      })
+    ).toBeNull();
+  });
+
+  test("W.O. sem vencedor resolvido (ou fora dos dois lados) não pinta lado", () => {
+    expect(
+      walkoverWinnerSide({ ...playedWalkover, winnerEntryId: null })
+    ).toBeNull();
+    expect(
+      walkoverWinnerSide({ ...playedWalkover, winnerEntryId: "entry-c" })
+    ).toBeNull();
   });
 });
