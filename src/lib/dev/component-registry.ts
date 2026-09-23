@@ -41,6 +41,16 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "notifications",
     title: "Notificações",
   },
+  {
+    description: "Card de partida (agenda e chave) por estado para aprovação",
+    id: "match-card",
+    title: "Partida",
+  },
+  {
+    description: "Card de inscrição por estado para aprovação",
+    id: "entry-card",
+    title: "Inscrições",
+  },
 ];
 
 export function findComponentGalleryEntry(

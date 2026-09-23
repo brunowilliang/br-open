@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
+
 import {
   buildBracketPlaceholder,
   buildTournamentEntriesTabItems,
@@ -13,7 +15,9 @@ import {
   buildStartWarnings,
   canCancelTournamentEntry,
   formatBracketStage,
-  formatMatchScheduleSummary,
+  formatEntryPlayerNames,
+  formatEntrySideLabel,
+  getMatchStatusChip,
   isBracketPublic,
   resolveTournamentEntriesTab,
 } from "./tournament-details-derived";
@@ -92,51 +96,20 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
   });
 });
 
-describe("formatMatchScheduleSummary", () => {
-  test("null while any schedule field is missing", () => {
-    expect(
-      formatMatchScheduleSummary({
-        courtName: null,
-        matchDate: "2026-09-12",
-        startMinute: 840,
-      })
-    ).toBeNull();
-    expect(
-      formatMatchScheduleSummary({
-        courtName: "Quadra 2",
-        matchDate: null,
-        startMinute: 840,
-      })
-    ).toBeNull();
-    expect(
-      formatMatchScheduleSummary({
-        courtName: "Quadra 2",
-        matchDate: "2026-09-12",
-        startMinute: null,
-      })
-    ).toBeNull();
+describe("getMatchStatusChip", () => {
+  test("vaga podada não desenha chip; final decidida vira Campeão", () => {
+    expect(getMatchStatusChip("vacant")).toBeNull();
+    expect(getMatchStatusChip("champion")).toEqual({
+      color: "accent",
+      label: "Campeão",
+    });
   });
 
-  test("scheduled match renders day · time · court", () => {
-    expect(
-      formatMatchScheduleSummary({
-        courtName: "Quadra 2",
-        matchDate: "2026-09-12",
-        startMinute: 840,
-      })
-    ).toBe("12 de set. · 14:00 · Quadra 2");
-  });
-
-  test("date renders in UTC, immune to the local timezone", () => {
-    // 2026-09-01T00:00Z is 31 de ago. 21:00 in America/Sao_Paulo: a local
-    // formatter would render the previous day.
-    expect(
-      formatMatchScheduleSummary({
-        courtName: "Quadra 1",
-        matchDate: "2026-09-01",
-        startMinute: 0,
-      })
-    ).toBe("1 de set. · 00:00 · Quadra 1");
+  test("status fora do vocabulário cai no rótulo cru", () => {
+    expect(getMatchStatusChip("mystery")).toEqual({
+      color: "default",
+      label: "mystery",
+    });
   });
 });
 
@@ -734,5 +707,100 @@ describe("buildTournamentEntriesTabItems", () => {
     // era pintada justamente aqui).
     expect(buildTournamentEntriesTabItems({ role: "guest" })).toEqual([]);
     expect(buildTournamentEntriesTabItems({ role: null })).toEqual([]);
+  });
+});
+
+/** Inscrição no shape do wire: 1 jogador (simples) ou 2 (dupla); `null` no
+ * lugar de um lado cobre o parceiro que ainda não hidratou. */
+function buildEntryFixture(
+  players: (null | { fullName: string; nickname?: null | string })[]
+): TournamentEntryWithPlayers {
+  const cards = players.map((player, index) =>
+    player
+      ? {
+          avatarUrl: null,
+          fullName: player.fullName,
+          nickname: player.nickname ?? null,
+          playerProfileId: `pp-${index}`,
+          username: null,
+        }
+      : null
+  );
+
+  return {
+    categoryId: "cat-1",
+    createdAt: 0,
+    createdByUserId: null,
+    entryRound: null,
+    id: "e-1",
+    partnerUserId: null,
+    playerA: cards[0] ?? null,
+    playerAId: "pa-1",
+    playerB: cards[1] ?? null,
+    playerBId: cards[1] ? "pb-1" : null,
+    seedRank: null,
+    status: "active",
+    updatedAt: 0,
+  };
+}
+
+describe("formatEntryPlayerNames", () => {
+  test("dupla: os dois nomes por inteiro, na ordem do lado", () => {
+    const entry = buildEntryFixture([
+      { fullName: "Bruno William Garcia" },
+      { fullName: "Jose Almeida Prado" },
+    ]);
+
+    expect(formatEntryPlayerNames(entry)).toEqual([
+      "Bruno William Garcia",
+      "Jose Almeida Prado",
+    ]);
+  });
+
+  test("apelido vence o nome completo", () => {
+    expect(
+      formatEntryPlayerNames(
+        buildEntryFixture([
+          { fullName: "Rafael Souza", nickname: "Rafa" },
+          { fullName: "Diego Nakamura", nickname: "Dieguinho" },
+        ])
+      )
+    ).toEqual(["Rafa", "Dieguinho"]);
+  });
+
+  test("simples e dupla com parceiro não resolvido: um nome só", () => {
+    expect(
+      formatEntryPlayerNames(buildEntryFixture([{ fullName: "Marina Costa" }]))
+    ).toEqual(["Marina Costa"]);
+    expect(
+      formatEntryPlayerNames(
+        buildEntryFixture([{ fullName: "Marina Costa" }, null])
+      )
+    ).toEqual(["Marina Costa"]);
+  });
+
+  test("lado vazio e jogador sem hidratação caem no rótulo de fallback", () => {
+    expect(formatEntryPlayerNames(null)).toEqual(["A definir"]);
+    expect(formatEntryPlayerNames(buildEntryFixture([null]))).toEqual([
+      "Jogador",
+    ]);
+  });
+});
+
+describe("formatEntrySideLabel", () => {
+  test("segue o rótulo de UMA linha (agenda, inscrições, próximo jogo)", () => {
+    expect(
+      formatEntrySideLabel(
+        buildEntryFixture([
+          { fullName: "Bruno William Garcia" },
+          { fullName: "Jose Almeida Prado" },
+        ])
+      )
+    ).toBe("Bruno William Garcia / Jose Almeida Prado");
+
+    expect(formatEntrySideLabel(null)).toBe("A definir");
+    expect(
+      formatEntrySideLabel(buildEntryFixture([{ fullName: "Marina Costa" }]))
+    ).toBe("Marina Costa");
   });
 });

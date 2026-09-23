@@ -1,4 +1,9 @@
-import { Clock02Icon, UserGroup02Icon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  Clock02Icon,
+  Tick02Icon,
+  UserGroup02Icon,
+} from "@hugeicons/core-free-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Alert, Button, Surface } from "heroui-native";
 import type { ReactNode } from "react";
@@ -8,6 +13,8 @@ import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { NotificationCard } from "@/components/notifications/notification-card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EntryCard } from "@/components/ui/entry-card";
+import { HugeIcons } from "@/components/ui/huge-icons";
 import {
   JoinFooter,
   type JoinFooterCategory,
@@ -15,6 +22,7 @@ import {
 } from "@/components/ui/join-footer";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
+import { MatchCard } from "@/components/ui/match-card";
 import {
   WidgetAlert,
   type WidgetAlertDescriptionLine,
@@ -34,6 +42,7 @@ import {
   buildNotificationMenuItems,
   type NotificationCardItem,
 } from "@/lib/notifications/notification-view";
+import type { BracketScoreSet } from "@/lib/tournaments/bracket-score-display";
 
 /** Moldura de variante: título, conteúdo e a linha de procedência (`note`). */
 function VariantSection(props: {
@@ -846,6 +855,380 @@ function NotificationVariantsSection() {
   );
 }
 
+/**
+ * O card de partida é UM componente para as três superfícies da agenda (liga,
+ * torneio e o "Próximo jogo" da casa do torneio) e para o chaveamento. A
+ * galeria mostra o card por ESTADO: duplas e simples, com e sem resultado,
+ * W.O., encerrado, agendado, a definir, a troca de oponente e os casos do nó —
+ * menu do organizador, vaga vazia sem chip (em duplas e em simples) e a final
+ * decidida com Campeão.
+ */
+const galleryMatchCardCases: {
+  challengedDefined?: boolean;
+  challengedName: string;
+  challengedPartnerName?: null | string;
+  challengerDefined?: boolean;
+  challengerName: string;
+  challengerPartnerName?: null | string;
+  courtName: string;
+  id: string;
+  matchDate?: null | string;
+  matchStatus?: null | string;
+  menuActions?: boolean;
+  /** Modalidade do caso, como a tela do chaveamento manda: a vaga em aberto não
+   * tem parceiro para denunciar que a partida é de duplas. */
+  modality?: "doubles" | "singles";
+  /** Caso do NÓ: sai na largura da chave (320 pt, `CARD_WIDTH` do bracket). */
+  nodeWidth?: boolean;
+  note: string;
+  scoreSets?: null | BracketScoreSet[];
+  selectedSide?: "a" | "b" | null;
+  stageLabel?: null | string;
+  startMinute: number;
+  swapPickEnabled?: { a: boolean; b: boolean };
+  title: string;
+}[] = [
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "duplas-encerrado",
+    matchDate: "2026-09-12",
+    matchStatus: "finished",
+    modality: "doubles",
+    note: "Cada número carrega a cor do SEU set (vencedor em accent, perdedor em muted, tie-break incluído) e os nomes carregam a cor e o peso do PAR (vencedor em accent e semibold, perdedor em muted e normal).",
+    scoreSets: [
+      { aGames: 6, bGames: 4, kind: "set" },
+      { aGames: 3, bGames: 6, kind: "set" },
+      {
+        aGames: 7,
+        bGames: 6,
+        kind: "set",
+        tieBreak: { aPoints: 7, bPoints: 5 },
+      },
+    ],
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 1 · duplas · encerrado com resultado",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "duplas-agendado",
+    matchDate: "2026-09-12",
+    matchStatus: "scheduled",
+    modality: "doubles",
+    note: "Agendado: cada ponta é uma dupla (dois avatares e um nome por linha) e o ponto do resultado não é desenhado.",
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 2 · duplas · agendado",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "duplas-wo",
+    matchDate: "2026-09-12",
+    matchStatus: "walkover",
+    modality: "doubles",
+    note: "W.O.: o placar é o placeholder 0x0, então nenhum set e nenhum par fica em destaque (números muted e nomes sem cor), e o chip do topo avisa o W.O.",
+    scoreSets: [{ aGames: 0, bGames: 0, kind: "set" }],
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 3 · duplas · W.O.",
+  },
+  {
+    challengedName: "Ana Beatriz Cardoso",
+    challengerName: "Marina Costa",
+    courtName: "Quadra Central",
+    id: "simples-encerrado",
+    matchDate: "2026-09-13",
+    matchStatus: "finished",
+    modality: "singles",
+    note: "Simples: sem parceiro a ponta fica com UM avatar e UM nome, e o resultado segue por set.",
+    scoreSets: [
+      { aGames: 6, bGames: 4, kind: "set" },
+      { aGames: 6, bGames: 3, kind: "set" },
+    ],
+    stageLabel: "Final",
+    startMinute: 1080,
+    title: "Partida 4 · simples · encerrado com resultado",
+  },
+  {
+    challengedName: "Ana Beatriz Cardoso",
+    challengerName: "Marina Costa",
+    courtName: "Quadra Central",
+    id: "simples-agendado",
+    matchDate: "2026-09-13",
+    matchStatus: "scheduled",
+    modality: "singles",
+    note: "Simples agendado: um avatar e um nome por ponta, sem resultado.",
+    stageLabel: "Final",
+    startMinute: 1080,
+    title: "Partida 5 · simples · agendado",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "",
+    id: "a-definir",
+    matchStatus: "pending",
+    modality: "doubles",
+    note: "A definir: sem dia (nem quadra) o chip de agendamento não aparece e o status do topo fica em A definir.",
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 6 · duplas · a definir (sem chip de agendamento)",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "troca-de-oponente",
+    matchDate: "2026-09-12",
+    matchStatus: "scheduled",
+    modality: "doubles",
+    nodeWidth: true,
+    note: "Troca de oponente (chave): a seta aparece no lado habilitado pela tela e o lado armado fica com o fundo accent-soft; o toque no lado sobe pro dono da tela.",
+    selectedSide: "a",
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    swapPickEnabled: { a: true, b: true },
+    title: "Partida 7 · troca de oponente armada (chave)",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "chave-menu-organizador",
+    matchDate: "2026-09-12",
+    matchStatus: "scheduled",
+    menuActions: true,
+    modality: "doubles",
+    nodeWidth: true,
+    note: "Menu do organizador no nó da chave, com os dois lados preenchidos: Agendar e Resultado. O menu é do CARD e só é desenhado onde há ação — nas agendas e no Próximo jogo nenhum card mostra menu.",
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 8 · chave · menu do organizador (Agendar + Resultado)",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "chave-menu-editar",
+    matchDate: "2026-09-12",
+    matchStatus: "finished",
+    menuActions: true,
+    modality: "doubles",
+    nodeWidth: true,
+    note: "Partida encerrada: o menu troca de ação e fica só com Editar resultado — é o placar já publicado que dá para mudar.",
+    scoreSets: [
+      { aGames: 6, bGames: 4, kind: "set" },
+      { aGames: 6, bGames: 3, kind: "set" },
+    ],
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 9 · chave · menu do organizador (Editar resultado)",
+  },
+  {
+    challengedName: "Marina Costa",
+    challengerDefined: false,
+    challengerName: "A definir",
+    courtName: "",
+    id: "chave-vaga-vazia",
+    matchStatus: "vacant",
+    modality: "doubles",
+    nodeWidth: true,
+    note: "Duplas com o adversário A DEFINIR: vaga podada do sorteio (não desenha chip de status, que não é um jogo e sim a moldura da chave) e o lado sem inscrição sai com os DOIS avatares em black e UMA linha A definir em muted, porque a dupla é uma unidade. No nó, a vaga bye é o retângulo vazio do grafo, sem card nenhum.",
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title:
+      "Partida 10 · chave · duplas · adversário a definir (vaga vazia sem chip)",
+  },
+  {
+    challengedName: "Ana Beatriz Cardoso",
+    challengerName: "Marina Costa",
+    courtName: "Quadra Central",
+    id: "chave-campeao",
+    matchDate: "2026-09-13",
+    matchStatus: "champion",
+    modality: "singles",
+    nodeWidth: true,
+    note: "Final decidida: o chip do topo vira Campeão, em accent. Quem sabe que é a final é a tela (o status do wire é 'finished', igual ao de qualquer partida encerrada).",
+    stageLabel: "Final",
+    startMinute: 1080,
+    title: "Partida 11 · chave · final decidida com Campeão",
+  },
+  {
+    challengedDefined: false,
+    challengedName: "A definir",
+    challengerName: "Marina Costa",
+    courtName: "",
+    id: "simples-vaga-vazia",
+    matchStatus: "pending",
+    modality: "singles",
+    note: "Contraprova da Partida 10 em simples: o mesmo adversário em aberto sai com UM avatar black e UMA linha A definir em muted. Quem decide a forma do lado é a modalidade, e o indefinido é sinal do caller, nunca o texto do nome.",
+    stageLabel: "Final",
+    startMinute: 1080,
+    title: "Partida 12 · simples · adversário a definir",
+  },
+];
+
+function MatchCardVariantsSection() {
+  return (
+    <View className="gap-6">
+      {galleryMatchCardCases.map((item) => (
+        <VariantSection key={item.id} note={item.note} title={item.title}>
+          {/* Largura do nó do chaveamento (CARD_WIDTH = 320 no bracket). */}
+          <View className={item.nodeWidth ? "w-80" : undefined}>
+            <MatchCard
+              challengedDefined={item.challengedDefined}
+              challengedName={item.challengedName}
+              challengedPartnerName={item.challengedPartnerName}
+              challengerDefined={item.challengerDefined}
+              challengerName={item.challengerName}
+              challengerPartnerName={item.challengerPartnerName}
+              courtName={item.courtName}
+              matchDate={item.matchDate}
+              matchStatus={item.matchStatus}
+              modality={item.modality}
+              onEditResultPress={item.menuActions ? noop : undefined}
+              onResultPress={item.menuActions ? noop : undefined}
+              onSchedulePress={item.menuActions ? noop : undefined}
+              scoreSets={item.scoreSets}
+              selectedSide={item.selectedSide}
+              stageLabel={item.stageLabel}
+              startMinute={item.startMinute}
+              swapPickEnabled={item.swapPickEnabled}
+            />
+          </View>
+        </VariantSection>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * O card de inscrição reusa a base do card de partida: chips no topo (categoria
+ * e status), a ponta com 1 ou 2 jogadores, as ações na ponta e o chip do pé
+ * para a nota do estado. A galeria mostra os estados reais da inscrição.
+ */
+const galleryEntryCardCases: {
+  actions?: ReactNode;
+  categoryLabel: string;
+  entryStatus: string;
+  id: string;
+  note: string;
+  noteLabel?: null | string;
+  partnerName?: null | string;
+  playerName: string;
+  title: string;
+}[] = [
+  {
+    categoryLabel: "Duplas Mistas",
+    entryStatus: "active",
+    id: "confirmada",
+    note: "Dupla confirmada: cada ponta é uma dupla, sem nota no pé e sem ação.",
+    partnerName: "Rafael de Souza Lima",
+    playerName: "Bruno William Garcia",
+    title: "Inscrição 1 · dupla confirmada",
+  },
+  {
+    actions: (
+      <View className="flex-row gap-1">
+        <Button isIconOnly size="sm" variant="outline">
+          <HugeIcons icon={Cancel01Icon} />
+        </Button>
+        <Button isIconOnly size="sm">
+          <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+        </Button>
+      </View>
+    ),
+    categoryLabel: "Duplas Mistas",
+    entryStatus: "pending_partner",
+    id: "convite",
+    note: "Convite de dupla recebido: a nota do pé diz quem convidou e a resposta vai na ponta.",
+    noteLabel: "@marina.costa convidou você para esta dupla.",
+    partnerName: "Rafael de Souza Lima",
+    playerName: "Bruno William Garcia",
+    title: "Inscrição 2 · convite de dupla recebido",
+  },
+  {
+    actions: (
+      <View className="flex-row gap-1">
+        <Button isIconOnly size="sm" variant="outline">
+          <HugeIcons icon={Cancel01Icon} />
+        </Button>
+        <Button isIconOnly size="sm">
+          <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+        </Button>
+      </View>
+    ),
+    categoryLabel: "Duplas Femininas",
+    entryStatus: "pending_approval",
+    id: "aprovacao",
+    note: "Aprovação do organizador: o par recusar/aprovar fica na ponta e o status no topo.",
+    partnerName: "Marina Costa",
+    playerName: "Ana Beatriz Cardoso",
+    title: "Inscrição 3 · aguardando aprovação",
+  },
+  {
+    actions: (
+      <Button size="sm">
+        <Button.Label>Pagar</Button.Label>
+      </Button>
+    ),
+    categoryLabel: "Simples Masculino",
+    entryStatus: "awaiting_payment",
+    id: "pagamento",
+    note: "Inscrição do jogador aguardando pagamento: a ação fica na ponta.",
+    playerName: "Tiago Moreira",
+    title: "Inscrição 4 · aguardando pagamento",
+  },
+  {
+    categoryLabel: "Simples Masculino",
+    entryStatus: "active",
+    id: "simples",
+    note: "Simples: sem parceiro a ponta fica com UM avatar e UM nome.",
+    playerName: "Tiago Moreira",
+    title: "Inscrição 5 · simples confirmada",
+  },
+];
+
+function EntryCardVariantsSection() {
+  return (
+    <View className="gap-6">
+      {galleryEntryCardCases.map((item) => (
+        <VariantSection key={item.id} note={item.note} title={item.title}>
+          <EntryCard
+            categoryLabel={item.categoryLabel}
+            entryStatus={item.entryStatus}
+            noteLabel={item.noteLabel}
+            partnerName={item.partnerName}
+            playerName={item.playerName}
+          >
+            {item.actions}
+          </EntryCard>
+        </VariantSection>
+      ))}
+    </View>
+  );
+}
+
 /** DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da entrada e do checkout. */
 export default function ComponentVariantsRoute() {
   const { component } = useLocalSearchParams<{ component: string }>();
@@ -887,6 +1270,10 @@ export default function ComponentVariantsRoute() {
             <AlertsVariantsSection />
           ) : entry.id === "notifications" ? (
             <NotificationVariantsSection />
+          ) : entry.id === "match-card" ? (
+            <MatchCardVariantsSection />
+          ) : entry.id === "entry-card" ? (
+            <EntryCardVariantsSection />
           ) : null
         ) : (
           <EmptyState

@@ -8,9 +8,6 @@ import {
   isRegistrationOpen,
 } from "@convex/domains/tournament/entry-rules";
 
-import { formatMatchMonthDay } from "@/lib/format/date";
-import { formatMinuteToHHMM } from "@/lib/format/time";
-
 type CategoryKey = {
   gender: TournamentGender;
   modality: TournamentModality;
@@ -131,53 +128,57 @@ export type TournamentMatchStatusChip = {
   label: string;
 };
 
-const MATCH_STATUS_CHIPS: Record<string, TournamentMatchStatusChip> = {
+const MATCH_STATUS_CHIPS: Record<string, null | TournamentMatchStatusChip> = {
+  // "champion" não existe no wire: é a FINAL decidida, que a chave lê do
+  // `winnerEntryId` e manda pelo mesmo vocabulário do chip.
+  champion: { color: "accent", label: "Campeão" },
   finished: { color: "success", label: "Encerrado" },
   pending: { color: "default", label: "A definir" },
   scheduled: { color: "accent", label: "Agendado" },
+  // Vaga podada do sorteio: é a moldura da chave, não um jogo — sem chip.
+  vacant: null,
   walkover: { color: "warning", label: "W.O." },
 };
 
-export function getMatchStatusChip(status: string): TournamentMatchStatusChip {
-  return MATCH_STATUS_CHIPS[status] ?? { color: "default", label: status };
+/** `null` = estado SEM chip (a vaga vazia da chave); status fora do vocabulário
+ * cai no rótulo cru, com a cor default. */
+export function getMatchStatusChip(
+  status: string
+): null | TournamentMatchStatusChip {
+  return Object.hasOwn(MATCH_STATUS_CHIPS, status)
+    ? MATCH_STATUS_CHIPS[status]
+    : { color: "default", label: status };
 }
 
-/** "12 de set. · 14:00 · Quadra 2": `null` enquanto faltar qualquer um dos três. */
-export function formatMatchScheduleSummary(input: {
-  courtName: null | string;
-  matchDate: null | string;
-  startMinute: null | number;
-}): null | string {
-  if (
-    input.matchDate === null ||
-    input.startMinute === null ||
-    input.courtName === null
-  ) {
-    return null;
+/** Rótulo do jogador que ainda não existe (lado sem inscrição na chave). É a
+ * sentinela que o card lê para não repetir "A definir" nas duas linhas da
+ * dupla: o lado vazio é UMA linha, a dupla é uma unidade. */
+export const UNDEFINED_PLAYER_NAME = "A definir";
+
+/** Nomes do lado na ordem de exibição — um (simples) ou dois (dupla); lado
+ * vazio vira `["A definir"]`. O card da chave desenha um por linha: o rótulo de
+ * uma linha (placar na mesma row) comia o parceiro pelo fim da string. */
+export function formatEntryPlayerNames(
+  entry: null | TournamentEntryWithPlayers
+): string[] {
+  if (!entry) {
+    return [UNDEFINED_PLAYER_NAME];
   }
 
-  return `${formatMatchMonthDay(input.matchDate)} · ${formatMinuteToHHMM(
-    input.startMinute
-  )} · ${input.courtName}`;
+  const players = entry.playerB
+    ? [entry.playerA, entry.playerB]
+    : [entry.playerA];
+
+  return players.map(
+    (player) => player?.nickname ?? player?.fullName ?? "Jogador"
+  );
 }
 
 /** Rótulo do lado: `null` vira "A definir"; dupla junta os dois nomes curtos. */
 export function formatEntrySideLabel(
   entry: null | TournamentEntryWithPlayers
 ): string {
-  if (!entry) {
-    return "A definir";
-  }
-
-  const nameA = entry.playerA?.nickname ?? entry.playerA?.fullName ?? "Jogador";
-
-  if (!entry.playerB) {
-    return nameA;
-  }
-
-  const nameB = entry.playerB.nickname ?? entry.playerB.fullName ?? "Jogador";
-
-  return `${nameA} / ${nameB}`;
+  return formatEntryPlayerNames(entry).join(" / ");
 }
 
 export function isDoublesEntry(entry: TournamentEntryWithPlayers): boolean {

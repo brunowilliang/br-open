@@ -59,6 +59,23 @@ export function bracketFitZoom(input: {
 
 export const PAN_VISIBILITY_BAND = 24;
 
+/** Zoom de ABERTURA do canvas: enquadra UMA coluna (card + cotovelo) em vez do
+ * grafo inteiro — é o que faz o card nascer grande na tela. O piso do gesto
+ * continua sendo `bracketFitZoom` (a chave inteira), então a pinça afasta até
+ * ela; e nunca passa de 1, porque o canvas não upscala. */
+export function bracketOpeningZoom(input: {
+  cardWidth: number;
+  connectorWidth: number;
+  fitZoom: number;
+  viewportWidth: number;
+}): number {
+  const oneColumn =
+    (input.viewportWidth - BRACKET_FIT_VIEW_PADDING * 2) /
+    (input.cardWidth + input.connectorWidth);
+
+  return Math.max(input.fitZoom, Math.min(1, oneColumn));
+}
+
 /** Malha [0..graphWidth]x[0..graphHeight], screen = translate + zoom * graph:
  * no limite do arrasto cada borda para `PAN_VISIBILITY_BAND` dentro da tela. */
 export function clampPanToViewport(input: {
@@ -85,7 +102,9 @@ export function clampPanToViewport(input: {
 
 /** Estado INICIAL do canvas e valor re-aplicado a cada re-enquadramento saem
  * daqui: o PRIMEIRO frame nativo do conteúdo já nasce no fit, em vez de pintar
- * em 1x por um frame e saltar. */
+ * em 1x por um frame e saltar. Com zoom ACIMA do fit (a abertura de uma coluna)
+ * o conteúdo é maior que o viewport: aí a borda de cima/esquerda para na margem
+ * — centrar mostraria o MEIO do grafo e cortaria a primeira coluna. */
 export function bracketFitTransform(input: {
   fitZoom: number;
   graphHeight: number;
@@ -94,8 +113,14 @@ export function bracketFitTransform(input: {
   viewportWidth: number;
 }): { x: number; y: number; zoom: number } {
   return {
-    x: (input.viewportWidth - input.graphWidth * input.fitZoom) / 2,
-    y: (input.viewportHeight - input.graphHeight * input.fitZoom) / 2,
+    x: Math.max(
+      (input.viewportWidth - input.graphWidth * input.fitZoom) / 2,
+      BRACKET_FIT_VIEW_PADDING
+    ),
+    y: Math.max(
+      (input.viewportHeight - input.graphHeight * input.fitZoom) / 2,
+      BRACKET_FIT_VIEW_PADDING
+    ),
     zoom: input.fitZoom,
   };
 }
@@ -121,10 +146,44 @@ export function pinchFollowTransform(input: {
   };
 }
 
-/** Altura MEDIDA no device, usada até o `onLayout` reportar a real: a 1ª rodada
- * mede 120 e as rodadas fundas 112; recalculada fora do módulo, o primeiro
- * layout não fecha a malha e o grafo re-enquadra ao medir. */
-export const BRACKET_CARD_ESTIMATED_HEIGHT = 120;
+/** Peças da altura do card, em pt de GRAFO (p-3 = 12, gap-3 = 12, chip md 28,
+ * divisória 1, `h-11` = 44 e `size-7.5` = 30):
+ * - fixo: padding (24) + 3 gaps (36) + linha do topo (28) + divisória (1);
+ * - pontas: a dupla empilha DOIS avatares (44 por lado) contra um (30);
+ * - pé: gap (12) + chip (28) — só existe com dia E quadra RESOLVIDA. */
+const CARD_CHROME_HEIGHT = 89;
+const CARD_FOOTER_HEIGHT = 40;
+const CARD_ROWS_HEIGHT = { doubles: 88, singles: 60 } as const;
+
+export type BracketCardSchedule = {
+  /** Nome da quadra JÁ resolvido: é o mesmo valor que vai pro card. */
+  courtName: null | string;
+  matchDate: null | string;
+};
+
+/** O chip do pé é o MESMO critério do card (`matchDate && courtName`): sem a
+ * quadra resolvida o card não desenha o chip e a altura não pode contá-lo. */
+export function bracketMatchHasScheduleFooter(
+  schedule: BracketCardSchedule
+): boolean {
+  return schedule.matchDate !== null && schedule.courtName !== null;
+}
+
+/** Estimativa da altura do card de UMA partida, em pt de GRAFO: é o que o
+ * layout usa até a medida do device. A soma é a do card DESENHADO, e a linha do
+ * topo entra com os 28 dela: um filho com flex-basis 0 numa coluna de altura
+ * automática contribui ZERO pra altura intrínseca, e aí o card se mede 28 menor
+ * e o flex zera a própria linha (os chips, com `overflow: hidden`, perdem o
+ * rótulo). */
+export function bracketMatchEstimatedHeight(
+  input: BracketCardSchedule & { modality: string }
+): number {
+  return (
+    CARD_CHROME_HEIGHT +
+    CARD_ROWS_HEIGHT[input.modality === "doubles" ? "doubles" : "singles"] +
+    (bracketMatchHasScheduleFooter(input) ? CARD_FOOTER_HEIGHT : 0)
+  );
+}
 
 /** Altura do card de BYE, card VAZIO fixado nesta mesma altura pelo componente:
  * o retângulo do layout casa com o render por construção e a medida nunca
@@ -136,17 +195,21 @@ export type BracketCardHeights = Record<string, number>;
 
 /** Compara com a altura EFETIVA, nunca com a constante: medida igual não entra
  * no state (chave de 64 monta sem commit), mas um card que volta ao valor
- * estimado PRECISA commitar, senão o conector nasce fora do eixo. */
+ * estimado PRECISA commitar, senão o conector nasce fora do eixo. Medida ABAIXO
+ * da estimativa é card COMPRIMIDO, não card mais baixo: gravar aquele número
+ * fecharia o loop medida -> nó curto -> medida. */
 export function commitCardHeight(input: {
+  estimatedHeight: number;
   heights: BracketCardHeights;
   matchId: string;
   measured: number;
 }): BracketCardHeights {
-  const current = input.heights[input.matchId] ?? BRACKET_CARD_ESTIMATED_HEIGHT;
+  const measured = Math.max(input.measured, input.estimatedHeight);
+  const current = input.heights[input.matchId] ?? input.estimatedHeight;
 
-  return current === input.measured
+  return current === measured
     ? input.heights
-    : { ...input.heights, [input.matchId]: input.measured };
+    : { ...input.heights, [input.matchId]: measured };
 }
 
 type BracketTreeSizing = {

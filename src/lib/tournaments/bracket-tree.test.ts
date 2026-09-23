@@ -3,11 +3,14 @@ import { describe, expect, test } from "bun:test";
 import { isByeMatch, type TournamentMatchWithSides } from "./bracket-view";
 import {
   BRACKET_BYE_CARD_HEIGHT,
-  BRACKET_CARD_ESTIMATED_HEIGHT,
+  bracketMatchEstimatedHeight,
+  bracketMatchHasScheduleFooter,
   commitCardHeight,
   bracketFitTransform,
   bracketFitZoom,
+  bracketOpeningZoom,
   buildBracketCategoryTrees,
+  BRACKET_FIT_VIEW_PADDING,
   clampPanToViewport,
   layoutBracketCategoryTree,
   PAN_VISIBILITY_BAND,
@@ -208,6 +211,58 @@ describe("bracketFitZoom", () => {
   });
 });
 
+describe("bracketOpeningZoom", () => {
+  const COLUMN = { cardWidth: 320, connectorWidth: 32 };
+
+  test("enquadra UMA coluna e nunca upscala", () => {
+    expect(
+      bracketOpeningZoom({ ...COLUMN, fitZoom: 0.51, viewportWidth: 393 })
+    ).toBeCloseTo((393 - 48) / 352);
+    expect(
+      bracketOpeningZoom({ ...COLUMN, fitZoom: 0.2, viewportWidth: 2000 })
+    ).toBe(1);
+  });
+
+  test("nunca fica abaixo do fit do grafo: a pinca continua afastando ate ele", () => {
+    // Grafo de UMA coluna: o fit do grafo é maior que o enquadramento de uma
+    // coluna, e mesmo assim a abertura não pode afastar mais que ele.
+    expect(
+      bracketOpeningZoom({ ...COLUMN, fitZoom: 1, viewportWidth: 393 })
+    ).toBe(1);
+  });
+});
+
+describe("bracketFitTransform", () => {
+  test("no fit do grafo inteiro o conteudo segue centrado", () => {
+    // Grafo alto e estreito: quem limita e a ALTURA, entao sobra margem em x.
+    const zoom = (800 - BRACKET_FIT_VIEW_PADDING * 2) / 2000;
+    const transform = bracketFitTransform({
+      fitZoom: zoom,
+      graphHeight: 2000,
+      graphWidth: 200,
+      viewportHeight: 800,
+      viewportWidth: 400,
+    });
+
+    expect(transform.x).toBeCloseTo((400 - 200 * zoom) / 2);
+    expect(transform.y).toBe(BRACKET_FIT_VIEW_PADDING);
+  });
+
+  test("com o zoom de abertura a borda para na margem, sem mostrar o meio", () => {
+    const transform = bracketFitTransform({
+      fitZoom: 0.98,
+      graphHeight: 252,
+      graphWidth: 672,
+      viewportHeight: 700,
+      viewportWidth: 393,
+    });
+
+    // O eixo que ESTOURA ancora na margem; o que cabe segue centrado.
+    expect(transform.x).toBe(BRACKET_FIT_VIEW_PADDING);
+    expect(transform.y).toBeCloseTo((700 - 252 * 0.98) / 2, 6);
+  });
+});
+
 describe("clampPanToViewport", () => {
   const input = {
     graphHeight: 2000,
@@ -391,19 +446,28 @@ describe("pinchFollowTransform (zoom-around-point invariant)", () => {
 });
 
 describe("commitCardHeight (altura medida do card)", () => {
+  /** Estimativa do card de simples sem agendamento (o piso do card). */
+  const ESTIMATE = bracketMatchEstimatedHeight({
+    courtName: null,
+    matchDate: null,
+    modality: "singles",
+  });
+
   test("medida igual à altura EFETIVA não commita (chave de 64 monta sem cascata)", () => {
     const heights = {};
     expect(
       commitCardHeight({
+        estimatedHeight: ESTIMATE,
         heights,
         matchId: "m1",
-        measured: BRACKET_CARD_ESTIMATED_HEIGHT,
+        measured: ESTIMATE,
       })
     ).toBe(heights);
 
     const measured = { m1: 154 };
     expect(
       commitCardHeight({
+        estimatedHeight: ESTIMATE,
         heights: measured,
         matchId: "m1",
         measured: 154,
@@ -413,56 +477,118 @@ describe("commitCardHeight (altura medida do card)", () => {
 
   test("medida igual à estimativa commita quando a altura efetiva era outra (o guard do IBX-0022 dropava)", () => {
     const next = commitCardHeight({
+      estimatedHeight: ESTIMATE,
       heights: { m1: 154 },
       matchId: "m1",
-      measured: BRACKET_CARD_ESTIMATED_HEIGHT,
+      measured: ESTIMATE,
     });
 
-    expect(next.m1).toBe(BRACKET_CARD_ESTIMATED_HEIGHT);
+    expect(next.m1).toBe(ESTIMATE);
   });
 
-  test("a última medida vence nas duas direções", () => {
+  test("a última medida vence nas duas direções (as duas acima do piso)", () => {
     const shrunk = commitCardHeight({
-      heights: { m1: 154 },
+      estimatedHeight: ESTIMATE,
+      heights: { m1: 200 },
       matchId: "m1",
-      measured: 120,
+      measured: 160,
     });
-    expect(shrunk.m1).toBe(120);
+    expect(shrunk.m1).toBe(160);
 
     const grown = commitCardHeight({
+      estimatedHeight: ESTIMATE,
       heights: shrunk,
       matchId: "m1",
-      measured: 154,
+      measured: 200,
     });
-    expect(grown.m1).toBe(154);
+    expect(grown.m1).toBe(200);
     expect(grown).not.toBe(shrunk);
+  });
+
+  test("medida abaixo da estimativa resolve para a estimativa: card comprimido não rebaixa o nó", () => {
+    const heights = { m1: 200 };
+
+    // Medida menor que a conta do card é o container apertando o card, não um
+    // card mais baixo: o piso resolve para a estimativa e é isso que devolve o
+    // conector ao eixo; gravar o número comprimido fecharia o loop medida ->
+    // nó curto -> medida.
+    expect(
+      commitCardHeight({
+        estimatedHeight: ESTIMATE,
+        heights,
+        matchId: "m1",
+        measured: ESTIMATE - 28,
+      })
+    ).toEqual({ m1: ESTIMATE });
+
+    // E o piso também não é gravado em card ainda sem medida.
+    const fresh = {};
+    expect(
+      commitCardHeight({
+        estimatedHeight: ESTIMATE,
+        heights: fresh,
+        matchId: "m2",
+        measured: 0,
+      })
+    ).toBe(fresh);
   });
 
   test("commita só o card medido, preservando a identidade dos outros", () => {
     const heights = { other: 120 };
-    const next = commitCardHeight({ heights, matchId: "m1", measured: 150 });
+    const next = commitCardHeight({
+      estimatedHeight: ESTIMATE,
+      heights,
+      matchId: "m1",
+      measured: 150,
+    });
 
     expect(next).toEqual({ m1: 150, other: 120 });
     expect(next).not.toBe(heights);
   });
 });
 
-// Estabilidade do PRIMEIRO layout: a malha montada com a ESTIMATIVA precisa
-// fechar o MESMO grafo que a malha assentada, senão o grafo re-layouta e
-// re-enquadra depois de medir => salto visível na entrada.
-describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () => {
-  const BYE_SLOTS = [0, 2, 3, 4, 6];
-  /** Altura MEDIDA no device (onLayout): a 1ª rodada mede 120 e as rodadas
-   * fundas 112 (a leitura do print, ~120,4, é ruído de pixel). */
-  const FIRST_ROUND_MEASURED = 120;
-  const DEEP_ROUND_MEASURED = 112;
-  /** Estimativa antiga (suposição), para a contraprova. */
-  const OLD_ESTIMATE = 136;
+// A altura do card no grafo: a ESTIMATIVA é a conta do card (p-3 + gaps + chip
+// do topo + pontas + divisória + chip do pé) e é ela que o layout do primeiro
+// frame usa. Estimativa que não casa com o card = malha errada, e malha errada
+// é re-layout e re-enquadro depois de medir.
+describe("bracketMatchEstimatedHeight: a altura que o grafo usa", () => {
+  const SCHEDULED = { courtName: "Quadra 2", matchDate: "2026-09-23" };
+  const UNSCHEDULED = { courtName: null, matchDate: null };
 
-  function buildShape() {
-    const sizes = [8, 4, 2, 1];
+  test("duplas: 217 com agendamento e 177 sem (as duas pontas empilham)", () => {
+    expect(
+      bracketMatchEstimatedHeight({ ...SCHEDULED, modality: "doubles" })
+    ).toBe(217);
+    expect(
+      bracketMatchEstimatedHeight({ ...UNSCHEDULED, modality: "doubles" })
+    ).toBe(177);
+  });
 
-    return sizes.map(
+  test("simples: 189 com agendamento e 149 sem (um avatar por ponta)", () => {
+    expect(
+      bracketMatchEstimatedHeight({ ...SCHEDULED, modality: "singles" })
+    ).toBe(189);
+    expect(
+      bracketMatchEstimatedHeight({ ...UNSCHEDULED, modality: "singles" })
+    ).toBe(149);
+  });
+
+  test("o pé só conta com dia E quadra, o mesmo critério do card", () => {
+    expect(bracketMatchHasScheduleFooter(SCHEDULED)).toBeTrue();
+    expect(
+      bracketMatchHasScheduleFooter({
+        courtName: null,
+        matchDate: "2026-09-23",
+      })
+    ).toBeFalse();
+    expect(
+      bracketMatchHasScheduleFooter({ courtName: "Quadra 2", matchDate: null })
+    ).toBeFalse();
+  });
+
+  test("contraprova: estimativa menor que o card re-layouta a malha inteira", () => {
+    const BYE_SLOTS = [0, 2, 3, 4, 6];
+    const SHAPE = [8, 4, 2, 1].map(
       (count, index) =>
         Array.from({ length: count }, (_, slot) => ({
           categoryId: "c1",
@@ -479,63 +605,30 @@ describe("BRACKET_CARD_ESTIMATED_HEIGHT: estabilidade do primeiro layout", () =>
           winnerEntryId: null,
         })) as TournamentMatchWithSides[]
     );
-  }
-
-  const SHAPE = buildShape();
-
-  function buildWith(
-    cardHeightOf: (match: TournamentMatchWithSides) => number
-  ) {
-    return layoutBracketCategoryTree(SHAPE, {
-      cardHeightOf,
-      cardWidth: 256,
-      connectorWidth: 32,
-      gapY: 12,
+    const buildWith = (
+      cardHeightOf: (match: TournamentMatchWithSides) => number
+    ) =>
+      layoutBracketCategoryTree(SHAPE, {
+        cardHeightOf,
+        cardWidth: 256,
+        connectorWidth: 32,
+        gapY: 12,
+      });
+    const estimate = bracketMatchEstimatedHeight({
+      ...UNSCHEDULED,
+      modality: "singles",
     });
-  }
+    const card = (match: TournamentMatchWithSides) =>
+      isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : estimate;
 
-  const estimated = buildWith((match) =>
-    isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : BRACKET_CARD_ESTIMATED_HEIGHT
-  );
-  const settled = buildWith((match) =>
-    isByeMatch(match)
-      ? BRACKET_BYE_CARD_HEIGHT
-      : match.round === 1
-        ? FIRST_ROUND_MEASURED
-        : DEEP_ROUND_MEASURED
-  );
-
-  test("a malha estimada já fecha o grafo assentado (sem re-fit na entrada)", () => {
-    expect(estimated.height).toBe(settled.height);
-    expect(estimated.width).toBe(settled.width);
-  });
-
-  test("o deslocamento por card ao assentar é mínimo (sem re-layout visível)", () => {
-    const settledById = new Map(
-      settled.cards.map((card) => [card.match.id, card.layout])
-    );
-    let maxDrop = 0;
-
-    for (const card of estimated.cards) {
-      const target = settledById.get(card.match.id);
-
-      if (!target) {
-        throw new Error(`card ${card.match.id} missing in the settled layout`);
-      }
-
-      maxDrop = Math.max(maxDrop, Math.abs(card.layout.y - target.y));
-    }
-
-    expect(maxDrop).toBeLessThanOrEqual(8);
-  });
-
-  test("contraprova: com a estimativa antiga (136) a malha não fechava", () => {
-    const withOldEstimate = buildWith((match) =>
-      isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : OLD_ESTIMATE
+    // A conta do card e uma suposição 13 pt menor (a estimativa antiga do nó).
+    const settled = buildWith(card);
+    const guessed = buildWith((match) =>
+      isByeMatch(match) ? BRACKET_BYE_CARD_HEIGHT : estimate - 13
     );
 
-    expect(withOldEstimate.height).not.toBe(settled.height);
-    expect(withOldEstimate.height - settled.height).toBeGreaterThan(24);
+    expect(guessed.height).toBeLessThan(settled.height);
+    expect(settled.height - guessed.height).toBeGreaterThan(24);
   });
 });
 
@@ -578,7 +671,7 @@ describe("bracketFitTransform", () => {
     expect(bottom).toBeLessThanOrEqual(VIEWPORT.viewportHeight + 0.001);
   });
 
-  test("grafo maior que o viewport centra com margem negativa simétrica (pan inicial)", () => {
+  test("grafo maior que o viewport ancora na borda de cima/esquerda (pan inicial)", () => {
     const cramped = { viewportHeight: 400, viewportWidth: 300 };
     const transform = bracketFitTransform({
       fitZoom: 1,
@@ -587,7 +680,9 @@ describe("bracketFitTransform", () => {
       ...cramped,
     });
 
-    expect(transform.x).toBeCloseTo((300 - 1120) / 2, 6);
-    expect(transform.y).toBeCloseTo((400 - 704) / 2, 6);
+    // Com zoom ACIMA do fit o conteúdo é maior que o viewport: centrar (margem
+    // negativa) mostraria o MEIO do grafo, então a borda para na margem.
+    expect(transform.x).toBe(BRACKET_FIT_VIEW_PADDING);
+    expect(transform.y).toBe(BRACKET_FIT_VIEW_PADDING);
   });
 });

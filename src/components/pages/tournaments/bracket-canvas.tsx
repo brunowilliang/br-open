@@ -18,6 +18,7 @@ import {
 import {
   bracketFitTransform,
   bracketFitZoom,
+  bracketOpeningZoom,
   clampPanToViewport,
   pinchFollowTransform,
   type BracketTreeLayout,
@@ -38,6 +39,10 @@ const ZOOM_TIMING = {
 type BracketCanvasCard = BracketTreeLayout["cards"][number];
 
 type BracketCanvasProps = {
+  /** Largura do card e do cotovelo em pt de GRAFO: é o que define quantas
+   * colunas cabem no enquadramento de abertura. */
+  cardWidth: number;
+  connectorWidth: number;
   /** Versão monotônica do foco: mudar (re-entrada na tela) re-enquadra a chave
    * no fit SEM remontar o canvas (o remount por foco piscava a tela). */
   focusSeed: number;
@@ -45,9 +50,15 @@ type BracketCanvasProps = {
   renderCard: (card: BracketCanvasCard) => ReactNode;
 };
 
-type FramedBracketContentProps = BracketCanvasProps & {
+type FramedBracketContentProps = Omit<
+  BracketCanvasProps,
+  "cardWidth" | "connectorWidth"
+> & {
   /** Já não-nulo: o filho só monta depois do viewport medido. */
   fitZoom: number;
+  /** Zoom da ABERTURA (uma coluna): o transform inicial e o re-enquadramento da
+   * re-entrada usam ele; `fitZoom` (a chave inteira) é o piso do gesto. */
+  openingZoom: number;
   viewport: { height: number; width: number };
 };
 
@@ -126,13 +137,14 @@ function FramedBracketContent({
   fitZoom,
   focusSeed,
   layout,
+  openingZoom,
   renderCard,
   viewport,
 }: FramedBracketContentProps) {
   const tint = useThemeColor("muted");
 
   const initialTransform = bracketFitTransform({
-    fitZoom,
+    fitZoom: openingZoom,
     graphHeight: layout.height,
     graphWidth: layout.width,
     viewportHeight: viewport.height,
@@ -156,12 +168,12 @@ function FramedBracketContent({
    * bloqueado (RNGH não expõe timestamp pro worklet). */
   const multiTouchedSinceTap = useSharedValue(false);
 
-  // Re-enquadra no fit antes do paint a cada resize do grafo; `focusSeed` nas
-  // deps é o gatilho INTENCIONAL da re-entrada na aba (inicial == aplicado).
+  // Re-enquadra na abertura antes do paint a cada resize do grafo; `focusSeed`
+  // nas deps é o gatilho INTENCIONAL da re-entrada na aba (inicial == aplicado).
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusSeed é o gatilho INTENCIONAL do re-enquadramento na re-entrada da aba (não é lido no corpo; o remount por foco piscava a tela)
   useLayoutEffect(() => {
     const next = bracketFitTransform({
-      fitZoom,
+      fitZoom: openingZoom,
       graphHeight: layout.height,
       graphWidth: layout.width,
       viewportHeight: viewport.height,
@@ -172,10 +184,10 @@ function FramedBracketContent({
     translateX.value = next.x;
     translateY.value = next.y;
   }, [
-    fitZoom,
     focusSeed,
     layout.height,
     layout.width,
+    openingZoom,
     translateX,
     translateY,
     viewport,
@@ -478,10 +490,12 @@ function FramedBracketContent({
   );
 }
 
-/** Mede o viewport e monta o conteúdo JÁ enquadrado: o filho só monta com
- * `fitZoom` pronto, então o primeiro frame nativo nasce no fit, sem passar por
- * identidade. */
+/** Mede o viewport e monta o conteúdo JÁ enquadrado: o filho só monta com o
+ * zoom de abertura pronto, então o primeiro frame nativo nasce nele, sem passar
+ * por identidade. */
 export function BracketCanvas({
+  cardWidth,
+  connectorWidth,
   focusSeed,
   layout,
   renderCard,
@@ -497,6 +511,7 @@ export function BracketCanvas({
     );
   }, []);
 
+  // Piso do gesto: a chave INTEIRA (a pinça afasta até aqui).
   const fitZoom = useMemo(
     () =>
       bracketFitZoom({
@@ -508,13 +523,28 @@ export function BracketCanvas({
     [layout.height, layout.width, viewport.height, viewport.width]
   );
 
+  // Abertura: UMA coluna enquadrada, nunca abaixo do fit.
+  const openingZoom = useMemo(
+    () =>
+      fitZoom === null
+        ? null
+        : bracketOpeningZoom({
+            cardWidth,
+            connectorWidth,
+            fitZoom,
+            viewportWidth: viewport.width,
+          }),
+    [cardWidth, connectorWidth, fitZoom, viewport.width]
+  );
+
   return (
     <View collapsable={false} onLayout={handleLayout} style={{ flex: 1 }}>
-      {fitZoom === null ? null : (
+      {openingZoom === null || fitZoom === null ? null : (
         <FramedBracketContent
           fitZoom={fitZoom}
           focusSeed={focusSeed}
           layout={layout}
+          openingZoom={openingZoom}
           renderCard={renderCard}
           viewport={viewport}
         />

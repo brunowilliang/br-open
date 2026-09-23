@@ -22,7 +22,7 @@ import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   BRACKET_BYE_CARD_HEIGHT,
-  BRACKET_CARD_ESTIMATED_HEIGHT,
+  bracketMatchEstimatedHeight,
   buildBracketCategoryTrees,
   commitCardHeight,
   layoutBracketCategoryTree,
@@ -43,11 +43,13 @@ import {
   buildBracketPlaceholder,
   formatBracketStage,
   formatEntrySideLabel,
-  formatMatchScheduleSummary,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
-/** w-64 card + elbow space between rounds (uniwind rem = 16). */
-const CARD_WIDTH = 256;
+
+/** Card da chave + espaço do cotovelo entre rodadas (uniwind rem = 16). O card
+ * na tela é governado pelo ZOOM de abertura (uma coluna): em 320 ele nasce
+ * ~1:1, então o desenho aprovado aparece no tamanho dele. */
+const CARD_WIDTH = 320;
 const CONNECTOR_WIDTH = 32;
 const CARD_GAP_Y = 12;
 
@@ -274,6 +276,16 @@ export default function TournamentBracketRoute() {
     [entriesById, matches]
   );
 
+  // O nome da quadra RESOLVIDO é o mesmo valor nos dois lados: a estimativa
+  // conta o chip do pé pelo critério do card (dia E quadra), então os dois têm
+  // de ver o mesmo `null` — um `courtId` sem quadra no torneio não desenha chip.
+  const courtNameOf = useCallback(
+    (match: TournamentMatchWithSides) =>
+      tournament?.courts.find((court) => court.id === match.courtId)?.name ??
+      null,
+    [tournament]
+  );
+
   const trees = useMemo(
     () => buildBracketCategoryTrees(matchesWithSides, categoriesById),
     [matchesWithSides, categoriesById]
@@ -281,22 +293,34 @@ export default function TournamentBracketRoute() {
 
   const treeLayouts = useMemo(
     () =>
-      trees.map((tree) => ({
-        layout: layoutBracketCategoryTree(tree.columns, {
-          // Card de bye tem altura FIXA (o próprio card a fixa na constante):
-          // a linha não entra em cardHeights e a medida nunca commita.
-          cardHeightOf: (match) =>
-            cardHeights[match.id] ??
-            (isByeMatch(match)
-              ? BRACKET_BYE_CARD_HEIGHT
-              : BRACKET_CARD_ESTIMATED_HEIGHT),
-          cardWidth: CARD_WIDTH,
-          connectorWidth: CONNECTOR_WIDTH,
-          gapY: CARD_GAP_Y,
-        }),
-        tree,
-      })),
-    [trees, cardHeights]
+      trees.map((tree) => {
+        // A MODALIDADE é da categoria (a árvore é por categoria, então ela é
+        // homogênea); a altura sai por partida porque o chip do pé depende do
+        // agendamento.
+        const modality = categoriesById[tree.id]?.modality ?? "singles";
+
+        return {
+          layout: layoutBracketCategoryTree(tree.columns, {
+            // Card de bye tem altura FIXA (o próprio card a fixa na constante):
+            // a linha não entra em cardHeights e a medida nunca commita.
+            cardHeightOf: (match) =>
+              cardHeights[match.id] ??
+              (isByeMatch(match)
+                ? BRACKET_BYE_CARD_HEIGHT
+                : bracketMatchEstimatedHeight({
+                    courtName: courtNameOf(match),
+                    matchDate: match.matchDate,
+                    modality,
+                  })),
+            cardWidth: CARD_WIDTH,
+            connectorWidth: CONNECTOR_WIDTH,
+            gapY: CARD_GAP_Y,
+          }),
+          modality,
+          tree,
+        };
+      }),
+    [categoriesById, courtNameOf, trees, cardHeights]
   );
 
   // One category on the canvas at a time; the tab bar picks which.
@@ -332,23 +356,31 @@ export default function TournamentBracketRoute() {
     return bySlot;
   }, [activeTreeLayout]);
 
-  const handleHeightChange = useCallback((matchId: string, height: number) => {
-    // Medir a estimativa (card sem medida) não entra no state: sem cascata de
-    // setState na montagem. Comparar com a constante congelava o retângulo e
-    // jogava o conector fora do eixo — commitCardHeight cobre os dois casos.
-    setCardHeights((previous) =>
-      commitCardHeight({ heights: previous, matchId, measured: height })
-    );
-  }, []);
+  const handleHeightChange = useCallback(
+    (input: { estimatedHeight: number; height: number; matchId: string }) => {
+      // Medir a estimativa (card sem medida) não entra no state: sem cascata de
+      // setState na montagem. Comparar com a estimativa congelava o retângulo e
+      // jogava o conector fora do eixo — commitCardHeight cobre os dois casos.
+      setCardHeights((previous) =>
+        commitCardHeight({
+          estimatedHeight: input.estimatedHeight,
+          heights: previous,
+          matchId: input.matchId,
+          measured: input.height,
+        })
+      );
+    },
+    []
+  );
 
   function handleCategoryChange(categoryId: string) {
     setActiveCategoryId(categoryId);
   }
 
-  // O re-sorteio reconstrói a chave e apaga as partidas: com confronto
-  // agendado (data, horário, quadra) ele morre junto, então a UI confirma
-  // antes de disparar. Sem agendamento, dispara direto.
-  function handleRedrawPress() {
+  // O sorteio/re-sorteio reconstrói a chave e apaga as partidas: com confronto
+  // agendado (data, horário, quadra) ele morre junto, então a UI confirma antes
+  // de disparar. Sem agendamento (o primeiro sorteio nunca tem), vai direto.
+  function handleDrawPress() {
     if (hasScheduledMatch(matches)) {
       setIsRedrawDialogOpen(true);
       return;
@@ -396,63 +428,75 @@ export default function TournamentBracketRoute() {
   // Stable identity across gesture-end canvas re-renders: the canvas only
   // re-renders its edges then, so cards skip reconciliation entirely.
   const renderCard = useCallback(
-    ({ match }: BracketTreeCardEntry) => (
-      <BracketMatchCard
-        isFinal={match.round === activeTreeLayout?.tree.columns.length}
-        isOrganizer={isOrganizer}
-        match={match}
-        onEditResultPress={setEditTarget}
-        onHeightChange={(height) => {
-          // Card de bye: altura FIXA na constante do layout (o próprio card a
-          // fixa), então a medida é sempre a mesma do retângulo e não entra no
-          // state — commitar reintroduziria o churn de re-layout.
-          if (isByeMatch(match)) {
-            return;
+    ({ match }: BracketTreeCardEntry) => {
+      const courtName = courtNameOf(match);
+      // A modalidade da árvore ativa vale para os dois: a altura estimada do nó
+      // e a forma do lado — na dupla a vaga em aberto desenha o par.
+      const modality = activeTreeLayout?.modality ?? "singles";
+      const estimatedHeight = bracketMatchEstimatedHeight({
+        courtName,
+        matchDate: match.matchDate,
+        modality,
+      });
+
+      return (
+        <BracketMatchCard
+          courtName={courtName}
+          isFinal={match.round === activeTreeLayout?.tree.columns.length}
+          isOrganizer={isOrganizer}
+          match={match}
+          modality={modality}
+          onEditResultPress={setEditTarget}
+          onHeightChange={(height) => {
+            // Card de bye: altura FIXA na constante do layout (o próprio card a
+            // fixa), então a medida é sempre a mesma do retângulo e não entra no
+            // state — commitar reintroduziria o churn de re-layout.
+            if (isByeMatch(match)) {
+              return;
+            }
+            handleHeightChange({
+              estimatedHeight,
+              height,
+              matchId: match.id,
+            });
+          }}
+          onResultPress={(target) => {
+            setResultTarget({ match: target });
+          }}
+          onSchedulePress={setScheduleTarget}
+          onSidePress={handleSidePress}
+          selectedSide={
+            swapTarget?.match.id === match.id ? swapTarget.side : null
           }
-          handleHeightChange(match.id, height);
-        }}
-        onResultPress={(target) => {
-          setResultTarget({ match: target });
-        }}
-        onSchedulePress={setScheduleTarget}
-        onSidePress={handleSidePress}
-        scheduleSummary={formatMatchScheduleSummary({
-          courtName:
-            tournament?.courts.find((court) => court.id === match.courtId)
-              ?.name ?? null,
-          matchDate: match.matchDate,
-          startMinute: match.startMinute,
-        })}
-        selectedSide={
-          swapTarget?.match.id === match.id ? swapTarget.side : null
-        }
-        stageLabel={formatBracketStage(
-          match.round,
-          activeTreeLayout?.tree.columns.length ?? match.round
-        )}
-        swapDisabled={isSwapPending}
-        swapPickEnabled={resolveSwapPickSides({
-          current: swapTarget,
-          feedA:
-            feedBySlot.get(`${match.round - 1}:${match.slotInRound * 2}`) ??
-            null,
-          feedB:
-            feedBySlot.get(`${match.round - 1}:${match.slotInRound * 2 + 1}`) ??
-            null,
-          match,
-          tournamentStatus,
-        })}
-      />
-    ),
+          stageLabel={formatBracketStage(
+            match.round,
+            activeTreeLayout?.tree.columns.length ?? match.round
+          )}
+          swapDisabled={isSwapPending}
+          swapPickEnabled={resolveSwapPickSides({
+            current: swapTarget,
+            feedA:
+              feedBySlot.get(`${match.round - 1}:${match.slotInRound * 2}`) ??
+              null,
+            feedB:
+              feedBySlot.get(
+                `${match.round - 1}:${match.slotInRound * 2 + 1}`
+              ) ?? null,
+            match,
+            tournamentStatus,
+          })}
+        />
+      );
+    },
     [
       activeTreeLayout,
+      courtNameOf,
       feedBySlot,
       handleHeightChange,
       handleSidePress,
       isOrganizer,
       isSwapPending,
       swapTarget,
-      tournament,
       tournamentStatus,
     ]
   );
@@ -468,10 +512,11 @@ export default function TournamentBracketRoute() {
       : null;
   const hasBracket = trees.length > 0 && activeTreeLayout !== null;
   const categories = tournament?.categories ?? [];
-  // O "Sortear chave" manual foi EXTINTO: o placement incremental nasce a chave
-  // sozinha com as duas primeiras inscrições confirmadas. `published` fica sem
-  // ação no menu (o menu some); em `drawn` resta o Re-sortear.
-  const hasBracketMenu = isOrganizer && tournament?.status === "drawn";
+  // `published` = primeiro sorteio (a chave nasce aqui); `drawn` = re-sorteio da
+  // prévia já sorteada. Iniciar congela, então `ongoing` e depois ficam sem menu.
+  const isFirstDraw = tournament?.status === "published";
+  const hasBracketMenu =
+    isOrganizer && (isFirstDraw || tournament?.status === "drawn");
   // The draw skips categories with fewer than 2 active entries, so a listed
   // category may have no bracket: only offer tabs that render a tree.
   const categoryTabs = categories.filter((category) =>
@@ -500,10 +545,12 @@ export default function TournamentBracketRoute() {
                     <Menu.Content presentation="popover" width={240}>
                       <Menu.Item
                         onPress={() => {
-                          handleRedrawPress();
+                          handleDrawPress();
                         }}
                       >
-                        <Menu.ItemTitle>Re-sortear</Menu.ItemTitle>
+                        <Menu.ItemTitle>
+                          {isFirstDraw ? "Sortear" : "Re-sortear"}
+                        </Menu.ItemTitle>
                         <HugeIcons icon={ShuffleIcon} />
                       </Menu.Item>
                     </Menu.Content>
@@ -554,6 +601,8 @@ export default function TournamentBracketRoute() {
         // a re-entrada na aba NÃO remonta: o focusSeed re-enquadra a mesma
         // instância (sem piscar).
         <BracketCanvas
+          cardWidth={CARD_WIDTH}
+          connectorWidth={CONNECTOR_WIDTH}
           focusSeed={bracketFocusSeed}
           key={activeTreeLayout.tree.id}
           layout={layout}

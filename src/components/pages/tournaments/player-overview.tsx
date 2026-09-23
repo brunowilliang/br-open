@@ -5,9 +5,12 @@ import { View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
-import { ScheduleCard } from "@/components/ui/schedule-card";
+import { MatchCard } from "@/components/ui/match-card";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
-import { formatEntrySideLabel } from "@/lib/tournaments/tournament-details-derived";
+import {
+  formatBracketStage,
+  formatEntryPlayerNames,
+} from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 type TournamentOverview = ApiOutputs["tournament"]["discovery"]["getById"];
@@ -22,7 +25,7 @@ type PlayerOverviewProps = {
 };
 
 /** Casa do torneio para o jogador: alertas de pendência das PRÓPRIAS inscrições
- * e o "Próximo jogo" (`ScheduleCard`). Derivado do que a página já carrega —
+ * e o "Próximo jogo" (`ui/match-card.tsx`). Derivado do que a página já carrega —
  * nenhuma query nova. As ações da própria inscrição (cancelar, responder convite
  * e pagar) vivem na aba Inscrições, não aqui. */
 export function PlayerOverview(props: PlayerOverviewProps) {
@@ -52,7 +55,7 @@ export function PlayerOverview(props: PlayerOverviewProps) {
         (a.matchDate ?? "").localeCompare(b.matchDate ?? "") ||
         (a.startMinute ?? 0) - (b.startMinute ?? 0)
     )[0];
-  // Lados do próximo jogo no shape do card da agenda (ScheduleCard): o lado do
+  // Lados do próximo jogo no shape do card (ui/match-card.tsx): o lado do
   // viewer vai em "challenger" e o adversário em "challenged", mesmo molde de
   // tournaments/[tournamentId]/schedule.tsx.
   const viewerIsSideA =
@@ -69,10 +72,18 @@ export function PlayerOverview(props: PlayerOverviewProps) {
       ? nextMatch.entryB
       : nextMatch.entryA
     : null;
+  const viewerSideNames = formatEntryPlayerNames(viewerSideEntry);
+  const opponentSideNames = formatEntryPlayerNames(opponentSideEntry);
   const nextMatchCourtName = nextMatch?.courtId
     ? (tournament.courts.find((court) => court.id === nextMatch.courtId)
         ?.name ?? "")
     : "";
+  // A última rodada da categoria dá o nome do estágio (o quadro da chave).
+  const nextMatchLastRound = Math.max(
+    ...matchesWithSides
+      .filter((match) => match.categoryId === nextMatch?.categoryId)
+      .map((match) => match.round)
+  );
 
   if (!nextMatch && pendings.length === 0) {
     return null;
@@ -98,14 +109,25 @@ export function PlayerOverview(props: PlayerOverviewProps) {
           <Text color="muted" variant="description" weight="medium">
             Próximo jogo
           </Text>
-          {/* Card reutilizado das agendas (ui/schedule-card.tsx), mesmo molde
+          {/* Card reutilizado das agendas (ui/match-card.tsx), mesmo molde
               de tournaments/[tournamentId]/schedule.tsx. */}
-          <ScheduleCard
+          <MatchCard
             challengedAvatarUrl={opponentSideEntry.playerA?.avatarUrl ?? null}
-            challengedFullName={formatEntrySideLabel(opponentSideEntry)}
+            challengedName={opponentSideNames[0]}
+            challengedPartnerAvatarUrl={
+              opponentSideEntry.playerB?.avatarUrl ?? null
+            }
+            challengedPartnerName={opponentSideNames[1] ?? null}
             challengerAvatarUrl={viewerSideEntry.playerA?.avatarUrl ?? null}
-            challengerFullName={formatEntrySideLabel(viewerSideEntry)}
+            challengerName={viewerSideNames[0]}
+            challengerPartnerAvatarUrl={
+              viewerSideEntry.playerB?.avatarUrl ?? null
+            }
+            challengerPartnerName={viewerSideNames[1] ?? null}
             courtName={nextMatchCourtName}
+            matchDate={nextMatch.matchDate}
+            matchStatus={nextMatch.status}
+            stageLabel={formatBracketStage(nextMatch.round, nextMatchLastRound)}
             startMinute={nextMatch.startMinute}
           />
         </View>

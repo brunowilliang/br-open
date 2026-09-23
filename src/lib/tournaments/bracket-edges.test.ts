@@ -10,7 +10,7 @@ import {
 } from "./bracket-edges";
 import {
   BRACKET_BYE_CARD_HEIGHT,
-  BRACKET_CARD_ESTIMATED_HEIGHT,
+  bracketMatchEstimatedHeight,
   layoutBracketCategoryTree,
   type BracketTreeLayout,
 } from "./bracket-tree";
@@ -147,7 +147,7 @@ describe("decomposeEdgeRoute", () => {
 // é layout, não geometria pura.
 
 /** Mesmas constantes do canvas (bracket.tsx). */
-const CANVAS_CARD_WIDTH = 256;
+const CANVAS_CARD_WIDTH = 320;
 const CANVAS_CONNECTOR_WIDTH = 32;
 const CANVAS_GAP_Y = 12;
 /** EDGE_STROKE_GRAPH do canvas. */
@@ -210,7 +210,11 @@ function buildDracenaLayout(measuredCardIds: string[] = []): BracketTreeLayout {
 
       return measured.has(match.id)
         ? MEASURED_CARD_HEIGHT
-        : BRACKET_CARD_ESTIMATED_HEIGHT;
+        : bracketMatchEstimatedHeight({
+            courtName: null,
+            matchDate: null,
+            modality: "singles",
+          });
     },
     cardWidth: CANVAS_CARD_WIDTH,
     connectorWidth: CANVAS_CONNECTOR_WIDTH,

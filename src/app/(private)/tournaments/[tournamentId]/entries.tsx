@@ -1,17 +1,18 @@
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "@convex/domains/payment/contract";
+import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, Chip, Dialog, Tabs, useToast } from "heroui-native";
-import { useMemo, useState } from "react";
+import { Button, Dialog, Tabs, useToast } from "heroui-native";
+import { type ReactNode, useMemo, useState } from "react";
 import { View } from "react-native";
 
-import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EntryCard } from "@/components/ui/entry-card";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -20,8 +21,7 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
   buildTournamentEntriesTabItems,
   canCancelTournamentEntry,
-  formatEntrySideLabel,
-  getEntryStatusChip,
+  formatEntryPlayerNames,
   resolveTournamentEntriesTab,
   type TournamentEntriesTab,
 } from "@/lib/tournaments/tournament-details-derived";
@@ -232,15 +232,12 @@ export default function TournamentEntriesRoute() {
         ? myEntries
         : confirmedEntries;
 
-  function renderEntry(entryId: string) {
-    const entry = entries.find((item) => item.id === entryId);
-
-    if (!entry) {
-      return null;
-    }
-
-    const chip = getEntryStatusChip(entry.status);
+  // O card da inscrição é UM só (`ui/entry-card.tsx`), o mesmo aprovado na
+  // galeria: categoria e status nos chips do topo, a ponta com o jogador (ou a
+  // dupla) e a nota do convite no chip do pé. O que muda por aba são as AÇÕES.
+  function renderEntryCard(entry: TournamentEntryWithPlayers) {
     const category = categoriesById[entry.categoryId];
+    const names = formatEntryPlayerNames(entry);
     const isInviteForViewer =
       !isOrganizer &&
       entry.status === "pending_partner" &&
@@ -251,11 +248,6 @@ export default function TournamentEntriesRoute() {
       entry.status === "pending_partner" &&
       viewerProfileId !== null &&
       entry.playerAId === viewerProfileId;
-    const canApprove = isOrganizer && entry.status === "pending_approval";
-    const isActionPending =
-      approveEntry.isPending ||
-      rejectEntry.isPending ||
-      respondPartnerInvite.isPending;
     const inviteNote = isInviteForViewer
       ? entry.playerA?.username
         ? `@${entry.playerA.username} convidou você para esta dupla.`
@@ -265,72 +257,43 @@ export default function TournamentEntriesRoute() {
           ? `Aguardando @${entry.playerB.username} aceitar o convite.`
           : "Aguardando o parceiro aceitar o convite."
         : null;
+    const isActionPending =
+      approveEntry.isPending ||
+      rejectEntry.isPending ||
+      respondPartnerInvite.isPending;
+    const canCancel = tournament
+      ? canCancelTournamentEntry({
+          entryStatus: entry.status,
+          tournamentStatus: tournament.status,
+        })
+      : false;
+    const canPay =
+      entry.status === "awaiting_payment" &&
+      viewerProfileId !== null &&
+      entry.playerAId === viewerProfileId;
 
-    return (
-      <Card className="p-3" key={entry.id}>
-        <View className="flex-row items-center gap-3">
-          {entry.playerB ? (
-            <View className="relative h-13 w-12">
-              <Image
-                className="absolute top-0 left-0 size-8.5 rounded-full border border-separator"
-                fallback="green"
-                source={entry.playerA?.avatarUrl ?? undefined}
-              />
-              <Image
-                className="absolute right-0 bottom-0 size-8.5 rounded-full border border-separator"
-                fallback="blue"
-                source={entry.playerB.avatarUrl ?? undefined}
-              />
-            </View>
-          ) : (
-            <Image
-              className="size-10 rounded-full"
-              fallback="blue"
-              source={entry.playerA?.avatarUrl ?? undefined}
-            />
-          )}
-          <View className="min-w-0 flex-1 gap-0.5">
-            <Text numberOfLines={1} weight="semibold">
-              {formatEntrySideLabel(entry)}
-            </Text>
-            <Text color="muted" numberOfLines={1} variant="description">
-              {category?.displayName ?? ""}
-            </Text>
-            {inviteNote ? (
-              <Text color="muted" numberOfLines={1} variant="description">
-                {inviteNote}
-              </Text>
-            ) : null}
-          </View>
-          {canApprove ? (
-            <View className="flex-row gap-1">
-              <Button
-                isDisabled={isActionPending}
-                isIconOnly
-                onPress={() => {
-                  rejectEntry.mutate({ entryId: entry.id });
-                }}
-                size="sm"
-                variant="outline"
-              >
-                <HugeIcons icon={Cancel01Icon} />
-              </Button>
-              <Button
-                isDisabled={isActionPending}
-                isIconOnly
-                onPress={() => {
-                  approveEntry.mutate({ entryId: entry.id });
-                }}
-                size="sm"
-              >
-                <HugeIcons
-                  className="text-accent-foreground"
-                  icon={Tick02Icon}
-                />
-              </Button>
-            </View>
-          ) : isInviteForViewer ? (
-            <View className="flex-row gap-1">
+    let actions: ReactNode = null;
+
+    if (activeTab === "mine") {
+      actions = (
+        <View className="flex-row items-center gap-1">
+          {canCancel ? (
+            <Button
+              isIconOnly
+              onPress={() => {
+                setCancelEntryTarget({
+                  categoryName: category?.displayName ?? "",
+                  entryId: entry.id,
+                });
+              }}
+              size="sm"
+              variant="danger-soft"
+            >
+              <HugeIcons className="text-danger" icon={Cancel01Icon} />
+            </Button>
+          ) : null}
+          {isInviteForViewer ? (
+            <>
               <Button
                 isDisabled={isActionPending}
                 isIconOnly
@@ -361,14 +324,97 @@ export default function TournamentEntriesRoute() {
                   icon={Tick02Icon}
                 />
               </Button>
-            </View>
-          ) : (
-            <Chip color={chip.color} size="sm" variant="soft">
-              {chip.label}
-            </Chip>
-          )}
+            </>
+          ) : null}
+          {canPay ? (
+            <Button
+              isDisabled={createCharge.isPending}
+              onPress={() => {
+                createCharge.mutate({
+                  sourceId: entry.id,
+                  sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+                });
+              }}
+              size="sm"
+            >
+              <Button.Label>Pagar</Button.Label>
+            </Button>
+          ) : null}
         </View>
-      </Card>
+      );
+    } else if (isOrganizer && entry.status === "pending_approval") {
+      actions = (
+        <View className="flex-row gap-1">
+          <Button
+            isDisabled={isActionPending}
+            isIconOnly
+            onPress={() => {
+              rejectEntry.mutate({ entryId: entry.id });
+            }}
+            size="sm"
+            variant="outline"
+          >
+            <HugeIcons icon={Cancel01Icon} />
+          </Button>
+          <Button
+            isDisabled={isActionPending}
+            isIconOnly
+            onPress={() => {
+              approveEntry.mutate({ entryId: entry.id });
+            }}
+            size="sm"
+          >
+            <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+          </Button>
+        </View>
+      );
+    } else if (isInviteForViewer) {
+      actions = (
+        <View className="flex-row gap-1">
+          <Button
+            isDisabled={isActionPending}
+            isIconOnly
+            onPress={() => {
+              respondPartnerInvite.mutate({
+                accept: false,
+                entryId: entry.id,
+              });
+            }}
+            size="sm"
+            variant="outline"
+          >
+            <HugeIcons icon={Cancel01Icon} />
+          </Button>
+          <Button
+            isDisabled={isActionPending}
+            isIconOnly
+            onPress={() => {
+              respondPartnerInvite.mutate({
+                accept: true,
+                entryId: entry.id,
+              });
+            }}
+            size="sm"
+          >
+            <HugeIcons className="text-accent-foreground" icon={Tick02Icon} />
+          </Button>
+        </View>
+      );
+    }
+
+    return (
+      <EntryCard
+        categoryLabel={category?.displayName ?? null}
+        entryStatus={entry.status}
+        key={entry.id}
+        noteLabel={inviteNote}
+        partnerAvatarUrl={entry.playerB?.avatarUrl ?? null}
+        partnerName={names[1] ?? null}
+        playerAvatarUrl={entry.playerA?.avatarUrl ?? null}
+        playerName={names[0] ?? ""}
+      >
+        {actions}
+      </EntryCard>
     );
   }
 
@@ -439,122 +485,7 @@ export default function TournamentEntriesRoute() {
           contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4"
           showsVerticalScrollIndicator={false}
         >
-          {visibleEntries.map((entry) => {
-            if (activeTab !== "mine") {
-              return renderEntry(entry.id);
-            }
-
-            // Card do jogador: categoria + chip de status e as ações da PRÓPRIA
-            // inscrição — cancelar (dialog desta tela), responder convite ou
-            // pagar.
-            const category = categoriesById[entry.categoryId];
-            const chip = getEntryStatusChip(entry.status);
-            const isViewerPartner =
-              viewerProfileId !== null && entry.playerBId === viewerProfileId;
-            const canRespondInvite =
-              entry.status === "pending_partner" && isViewerPartner;
-            const canPay =
-              entry.status === "awaiting_payment" &&
-              viewerProfileId !== null &&
-              entry.playerAId === viewerProfileId;
-            const canCancel = tournament
-              ? canCancelTournamentEntry({
-                  entryStatus: entry.status,
-                  tournamentStatus: tournament.status,
-                })
-              : false;
-
-            return (
-              <Card className="p-3" key={entry.id}>
-                <View className="flex-row items-center gap-3">
-                  <View className="min-w-0 flex-1 gap-1">
-                    <Text numberOfLines={1} weight="semibold">
-                      {category?.displayName ?? ""}
-                    </Text>
-                    <Chip
-                      className="self-start"
-                      color={chip.color}
-                      size="sm"
-                      variant="soft"
-                    >
-                      {chip.label}
-                    </Chip>
-                  </View>
-
-                  <View className="flex-row items-center gap-1">
-                    {canCancel ? (
-                      <Button
-                        isIconOnly
-                        onPress={() => {
-                          setCancelEntryTarget({
-                            categoryName: category?.displayName ?? "",
-                            entryId: entry.id,
-                          });
-                        }}
-                        size="sm"
-                        variant="danger-soft"
-                      >
-                        <HugeIcons
-                          className="text-danger"
-                          icon={Cancel01Icon}
-                        />
-                      </Button>
-                    ) : null}
-
-                    {canRespondInvite ? (
-                      <>
-                        <Button
-                          isDisabled={respondPartnerInvite.isPending}
-                          isIconOnly
-                          onPress={() => {
-                            respondPartnerInvite.mutate({
-                              accept: false,
-                              entryId: entry.id,
-                            });
-                          }}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <HugeIcons icon={Cancel01Icon} />
-                        </Button>
-                        <Button
-                          isDisabled={respondPartnerInvite.isPending}
-                          isIconOnly
-                          onPress={() => {
-                            respondPartnerInvite.mutate({
-                              accept: true,
-                              entryId: entry.id,
-                            });
-                          }}
-                          size="sm"
-                        >
-                          <HugeIcons
-                            className="text-accent-foreground"
-                            icon={Tick02Icon}
-                          />
-                        </Button>
-                      </>
-                    ) : null}
-
-                    {canPay ? (
-                      <Button
-                        isDisabled={createCharge.isPending}
-                        onPress={() => {
-                          createCharge.mutate({
-                            sourceId: entry.id,
-                            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-                          });
-                        }}
-                        size="sm"
-                      >
-                        <Button.Label>Pagar</Button.Label>
-                      </Button>
-                    ) : null}
-                  </View>
-                </View>
-              </Card>
-            );
-          })}
+          {visibleEntries.map((entry) => renderEntryCard(entry))}
         </Page.ScrollView>
       )}
       <Page.Footer className="pb-floating-tab-bar-4" />

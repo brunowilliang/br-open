@@ -7,7 +7,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { ScheduleCard } from "@/components/ui/schedule-card";
+import { MatchCard } from "@/components/ui/match-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -19,22 +19,13 @@ import {
   type SchedulePeriodKey,
   type ScheduleWindowDays,
 } from "@/lib/leagues/schedule-view";
-import { buildMatchSides } from "@/lib/tournaments/bracket-view";
-import { formatEntrySideLabel } from "@/lib/tournaments/tournament-details-derived";
+import {
+  buildScheduledMatchItems,
+  type ScheduledMatchItem,
+} from "@/lib/tournaments/schedule-items";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 const PERIOD_ORDER: SchedulePeriodKey[] = ["morning", "afternoon", "evening"];
-
-type ScheduledMatchItem = {
-  courtName: string;
-  id: string;
-  matchDate: string;
-  sideAAvatarUrl: null | string;
-  sideAFullName: string;
-  sideBAvatarUrl: null | string;
-  sideBFullName: string;
-  startMinute: number;
-};
 
 export default function TournamentScheduleRoute() {
   const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
@@ -69,29 +60,15 @@ export default function TournamentScheduleRoute() {
     }
   }, [dateTabs]);
 
-  const scheduledItems = useMemo<ScheduledMatchItem[]>(() => {
-    const withSides = buildMatchSides({ entriesById, matches });
-
-    return withSides
-      .filter(
-        (match) =>
-          match.matchDate !== null &&
-          match.startMinute !== null &&
-          match.courtId !== null
-      )
-      .map((match) => ({
-        courtName:
-          tournament?.courts.find((court) => court.id === match.courtId)
-            ?.name ?? "",
-        id: match.id,
-        matchDate: match.matchDate ?? "",
-        sideAAvatarUrl: match.entryA?.playerA?.avatarUrl ?? null,
-        sideAFullName: formatEntrySideLabel(match.entryA),
-        sideBAvatarUrl: match.entryB?.playerA?.avatarUrl ?? null,
-        sideBFullName: formatEntrySideLabel(match.entryB),
-        startMinute: match.startMinute ?? 0,
-      }));
-  }, [entriesById, matches, tournament?.courts]);
+  const scheduledItems = useMemo<ScheduledMatchItem[]>(
+    () =>
+      buildScheduledMatchItems({
+        courts: tournament?.courts ?? [],
+        entriesById,
+        matches,
+      }),
+    [entriesById, matches, tournament?.courts]
+  );
 
   const dayView = useMemo(
     () =>
@@ -194,13 +171,21 @@ export default function TournamentScheduleRoute() {
                   </Text>
                   <View className="gap-2">
                     {items.map((item) => (
-                      <ScheduleCard
+                      <MatchCard
                         challengedAvatarUrl={item.sideBAvatarUrl}
-                        challengedFullName={item.sideBFullName}
+                        challengedName={item.sideBName}
+                        challengedPartnerAvatarUrl={item.sideBPartnerAvatarUrl}
+                        challengedPartnerName={item.sideBPartnerName}
                         challengerAvatarUrl={item.sideAAvatarUrl}
-                        challengerFullName={item.sideAFullName}
+                        challengerName={item.sideAName}
+                        challengerPartnerAvatarUrl={item.sideAPartnerAvatarUrl}
+                        challengerPartnerName={item.sideAPartnerName}
                         courtName={item.courtName}
                         key={item.id}
+                        matchDate={item.matchDate}
+                        matchStatus={item.matchStatus}
+                        scoreSets={item.scoreSets}
+                        stageLabel={item.stageLabel}
                         startMinute={item.startMinute}
                       />
                     ))}
