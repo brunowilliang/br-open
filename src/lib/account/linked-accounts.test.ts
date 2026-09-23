@@ -3,7 +3,12 @@ import { describe, expect, test } from "bun:test";
 import {
   buildLinkedAccountRows,
   hasCredentialAccount,
+  linkAccountVerified,
 } from "./linked-accounts";
+import {
+  getSecurityErrorMessage,
+  isSocialAuthCanceledError,
+} from "./security-errors";
 
 describe("hasCredentialAccount", () => {
   test("sem contas → sem e-mail e senha", () => {
@@ -73,5 +78,71 @@ describe("buildLinkedAccountRows", () => {
       { isLinked: false, provider: "apple" },
       { isLinked: false, provider: "google" },
     ]);
+  });
+});
+
+describe("linkAccountVerified", () => {
+  test("sucesso só com o provider confirmado na lista fresca", async () => {
+    const accounts = [{ accountId: "g1", providerId: "google" }];
+
+    await expect(
+      linkAccountVerified({
+        link: async () => undefined,
+        provider: "google",
+        readAccounts: async () => accounts,
+      })
+    ).resolves.toEqual(accounts);
+  });
+
+  test("link resolvido sem o provider na lista não vira sucesso", async () => {
+    await expect(
+      linkAccountVerified({
+        link: async () => undefined,
+        provider: "google",
+        readAccounts: async () => [{ accountId: "a1", providerId: "apple" }],
+      })
+    ).rejects.toThrow();
+  });
+
+  test("erro do provider sobe pro caller sem virar sucesso", async () => {
+    const providerError = new Error("email_does_not_match");
+
+    await expect(
+      linkAccountVerified({
+        link: () => Promise.reject(providerError),
+        provider: "google",
+        readAccounts: async () => [{ accountId: "g1", providerId: "google" }],
+      })
+    ).rejects.toBe(providerError);
+  });
+
+  test("cancelamento do browser sobe e o app silencia", async () => {
+    const canceled = new Error("Authentication did not complete. Try again.");
+
+    await expect(
+      linkAccountVerified({
+        link: () => Promise.reject(canceled),
+        provider: "google",
+        readAccounts: async () => [],
+      })
+    ).rejects.toBe(canceled);
+    expect(isSocialAuthCanceledError(canceled)).toBe(true);
+  });
+
+  test("recusa do callback sobe com o code e vira a copy neutra", async () => {
+    const refused = Object.assign(new Error("email_does_not_match"), {
+      code: "email_does_not_match",
+    });
+
+    await expect(
+      linkAccountVerified({
+        link: () => Promise.reject(refused),
+        provider: "google",
+        readAccounts: async () => [],
+      })
+    ).rejects.toBe(refused);
+    expect(getSecurityErrorMessage(refused, "fallback")).toBe(
+      "Esse provedor usa um e-mail diferente do e-mail da sua conta. Entre com o mesmo e-mail para conectar."
+    );
   });
 });

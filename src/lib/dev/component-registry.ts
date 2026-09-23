@@ -51,6 +51,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "entry-card",
     title: "Inscrições",
   },
+  {
+    description: "Linha de conta vinculada por estado, com o status em chip",
+    id: "linked-account",
+    title: "Contas vinculadas",
+  },
 ];
 
 export function findComponentGalleryEntry(

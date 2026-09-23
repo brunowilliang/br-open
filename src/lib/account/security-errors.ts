@@ -12,6 +12,8 @@
 
 const CODE_MESSAGES: Record<string, string> = {
   CREDENTIAL_ACCOUNT_NOT_FOUND: "Sua conta não tem senha cadastrada.",
+  email_does_not_match:
+    "Esse provedor usa um e-mail diferente do e-mail da sua conta. Entre com o mesmo e-mail para conectar.",
   FAILED_TO_UNLINK_LAST_ACCOUNT:
     "Essa é sua última forma de login. Conecte outra antes de remover.",
   INVALID_EMAIL: "Informe um e-mail válido.",

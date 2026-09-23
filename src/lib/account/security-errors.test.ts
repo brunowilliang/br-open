@@ -48,6 +48,14 @@ describe("getSecurityErrorMessage", () => {
     );
   });
 
+  test("mapeia email_does_not_match do callback OAuth com copy neutra", () => {
+    expect(
+      getSecurityErrorMessage(authError("email_does_not_match"), FALLBACK)
+    ).toBe(
+      "Esse provedor usa um e-mail diferente do e-mail da sua conta. Entre com o mesmo e-mail para conectar."
+    );
+  });
+
   test("mapeia os erros de OTP do fluxo de troca de e-mail", () => {
     expect(
       getSecurityErrorMessage(authError("OTP_EXPIRED", "OTP expired"), FALLBACK)

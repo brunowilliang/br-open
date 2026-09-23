@@ -1,0 +1,20 @@
+diff --git a/dist/client.js b/dist/client.js
+index 55d7d42b18e7d09debf9c1a53b0d236f769875e0..982f4b4d764d8e5630b96b46d08967023aad277d 100644
+--- a/dist/client.js
++++ b/dist/client.js
+@@ -672,9 +672,13 @@ getCookie: async () => {
+ 					if (oauthStateValue) params.append("oauthState", oauthStateValue);
+ 					const proxyURL = `${context.request.baseURL}/expo-authorization-proxy?${params.toString()}`;
+ 					const result = await Browser.openAuthSessionAsync(proxyURL, to, opts?.webBrowserOptions);
+-					if (result.type !== "success") return;
++					if (result.type !== "success") throw new Error("Authentication did not complete. Try again.");
+ 					const cookie = new URL(result.url).searchParams.get("cookie");
+-					if (!cookie) return;
++					if (!cookie) {
++						const errorCode = new URL(result.url).searchParams.get("error");
++						if (errorCode) throw Object.assign(new Error(errorCode), { code: errorCode });
++						return;
++					}
+ 					if (await storage.updateItemAsync(cookieName, (currentValue) => getSetCookie(cookie, currentValue ?? void 0))) store?.notify("$sessionSignal");
+ 				}
+ 			} },

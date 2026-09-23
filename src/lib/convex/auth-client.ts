@@ -9,6 +9,7 @@ import {
 import { createAuthClient } from "better-auth/react";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
+import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import { useToast } from "heroui-native";
 import { convexClient } from "kitcn/auth/client";
@@ -21,12 +22,26 @@ import {
 import { useState } from "react";
 import { Platform } from "react-native";
 
+import { isSocialAuthCanceledError } from "@/lib/account/security-errors";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 
 const scheme = Constants.expoConfig?.scheme as string;
 
 export const authClient = createAuthClient({
   baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL!,
+  // O plugin expo do better-auth só manda `expo-origin` quando o corpo NÃO tem
+  // idToken; no link da Apple nativa ele manda o cookie de sessão sem o header
+  // e o gate de CSRF do servidor responde 403 MISSING_OR_NULL_ORIGIN. Como o
+  // scheme do app já é trusted origin, completamos o header nós mesmos.
+  fetchOptions: {
+    onRequest: (request) => {
+      if (Platform.OS === "web" || request.headers.has("expo-origin")) {
+        return;
+      }
+
+      request.headers.set("expo-origin", Linking.createURL("", { scheme }));
+    },
+  },
   plugins: [
     convexClient(),
     organizationClient({ ac, roles, teams: { enabled: true } }),
@@ -129,11 +144,7 @@ export function useSocialAuth(mode: SocialAuthMode) {
     try {
       await (Platform.OS === "ios" ? appleNative() : appleOAuth());
     } catch (error) {
-      const isCanceled =
-        error instanceof Error &&
-        error.message === "The user canceled the authorization attempt";
-
-      if (isCanceled) {
+      if (isSocialAuthCanceledError(error)) {
         return;
       }
 
@@ -160,11 +171,7 @@ export function useSocialAuth(mode: SocialAuthMode) {
         provider: "google",
       });
     } catch (error) {
-      const isCanceled =
-        error instanceof Error &&
-        error.message === "Authentication did not complete. Try again.";
-
-      if (isCanceled) {
+      if (isSocialAuthCanceledError(error)) {
         return;
       }
 

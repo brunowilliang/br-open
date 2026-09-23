@@ -1,6 +1,6 @@
 /**
  * Derivação pura do estado das contas vinculadas a partir da resposta de
- * `authClient.listAccounts()`.
+ * `authClient.listAccounts()`, mais a regra do link social verificado.
  */
 
 export type AuthAccount = {
@@ -42,4 +42,36 @@ export function buildLinkedAccountRows(
     isLinked: accounts.some((account) => account.providerId === provider),
     provider,
   }));
+}
+
+type LinkAccountVerifiedParams = {
+  /** Dispara o link no provider (Apple nativa com idToken, ou browser). */
+  link: () => Promise<unknown>;
+  provider: LinkedAccountProvider;
+  /** Lista FRESCA de contas: a mesma leitura que atualiza a tela. */
+  readAccounts: () => Promise<AuthAccount[]>;
+};
+
+/**
+ * O link social só vale como conectado com o provider confirmado na lista
+ * fresca: o plugin expo do better-auth resolve SEM erro quando o callback
+ * recusa, porque só lê o `cookie` do deep link (@better-auth/expo, onSuccess).
+ * Sem confirmação, quem chamou cai no caminho de erro em vez do toast de
+ * sucesso.
+ */
+export async function linkAccountVerified(
+  params: LinkAccountVerifiedParams
+): Promise<AuthAccount[]> {
+  await params.link();
+
+  const accounts = await params.readAccounts();
+  const isLinked = accounts.some(
+    (account) => account.providerId === params.provider
+  );
+
+  if (!isLinked) {
+    throw new Error("Social link not confirmed by the account list");
+  }
+
+  return accounts;
 }

@@ -1,4 +1,5 @@
-import { HugeIcons } from "@/components/ui/huge-icons";
+import type { HugeIcons } from "@/components/ui/huge-icons";
+import { LinkedAccountRow } from "@/components/pages/player/linked-account-row";
 import {
   getSecurityErrorMessage,
   isSessionNotFreshError,
@@ -7,6 +8,7 @@ import {
 import {
   authAccountsQueryKey,
   buildLinkedAccountRows,
+  linkAccountVerified,
   type AuthAccount,
   type LinkedAccountProvider,
 } from "@/lib/account/linked-accounts";
@@ -18,7 +20,7 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { AppleIcon, GoogleIcon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button, ListGroup, Separator, useToast } from "heroui-native";
+import { ListGroup, Separator, useToast } from "heroui-native";
 import { Fragment, useState, type ComponentProps } from "react";
 import { Platform } from "react-native";
 
@@ -43,8 +45,8 @@ type LinkedAccountsSectionProps = {
 
 /**
  * ListGroup "Contas vinculadas" da página "Login e segurança"
- * (/settings/security): e-mail+senha é linha INFORMATIVA (status
- * "Conectado./Não conectado.", sem ação — alterar senha vive na Segurança);
+ * (/settings/security): e-mail+senha é linha INFORMATIVA (chip de status, sem
+ * ação — alterar senha vive na Segurança);
  * Apple e Google conectam (linkSocial — Apple nativa com idToken no iOS,
  * Google via OAuth web) e desconectam (unlinkAccount). Sessão não fresca no
  * unlink → sign-out guiado (freshAge global intocado por decisão de
@@ -75,8 +77,10 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
     })
   );
 
-  async function refreshAccounts() {
+  async function refreshAccounts(): Promise<AuthAccount[]> {
     await queryClient.invalidateQueries({ queryKey: authAccountsQueryKey });
+
+    return queryClient.getQueryData<AuthAccount[]>(authAccountsQueryKey) ?? [];
   }
 
   async function linkAppleNative() {
@@ -112,8 +116,12 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
   }
 
   async function linkAppleOAuth() {
+    // Sem errorCallbackURL a recusa do callback cai na pagina de erro do
+    // backend (/error) e o app nunca sabe do erro; com ele o erro volta pro
+    // deep link do app.
     const { error } = await authClient.linkSocial({
       callbackURL: "/settings/security",
+      errorCallbackURL: "/settings/security",
       provider: "apple",
     });
 
@@ -125,6 +133,7 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
   async function linkGoogle() {
     const { error } = await authClient.linkSocial({
       callbackURL: "/settings/security",
+      errorCallbackURL: "/settings/security",
       provider: "google",
     });
 
@@ -137,15 +146,20 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
     setPendingProvider(provider);
 
     try {
-      if (provider === "apple" && Platform.OS === "ios") {
-        await linkAppleNative();
-      } else if (provider === "apple") {
-        await linkAppleOAuth();
-      } else {
-        await linkGoogle();
-      }
+      await linkAccountVerified({
+        link: async () => {
+          if (provider === "apple" && Platform.OS === "ios") {
+            await linkAppleNative();
+          } else if (provider === "apple") {
+            await linkAppleOAuth();
+          } else {
+            await linkGoogle();
+          }
+        },
+        provider,
+        readAccounts: refreshAccounts,
+      });
 
-      await refreshAccounts();
       toast.show({
         description: `Sua conta ${PROVIDER_LABELS[provider]} foi conectada.`,
         id: "link-account-success",
@@ -228,72 +242,31 @@ export function LinkedAccountsSection(props: LinkedAccountsSectionProps) {
         return (
           <Fragment key={provider}>
             {index > 0 ? <Separator className="mx-4" /> : null}
-            {provider === "credential" ? (
-              <ListGroup.Item
-                className={row.isLinked ? undefined : "opacity-50"}
-                disabled
-              >
-                <ListGroup.ItemPrefix>
-                  <HugeIcons icon={PROVIDER_ICONS[provider]} />
-                </ListGroup.ItemPrefix>
-                <ListGroup.ItemContent>
-                  <ListGroup.ItemTitle>
-                    {PROVIDER_LABELS[provider]}
-                  </ListGroup.ItemTitle>
-                  <ListGroup.ItemDescription>
-                    {row.isLinked ? "Conectado." : "Não conectado."}
-                  </ListGroup.ItemDescription>
-                </ListGroup.ItemContent>
-                <ListGroup.ItemSuffix />
-              </ListGroup.Item>
-            ) : (
-              <ListGroup.Item>
-                <ListGroup.ItemPrefix>
-                  <HugeIcons icon={PROVIDER_ICONS[provider]} />
-                </ListGroup.ItemPrefix>
-                <ListGroup.ItemContent>
-                  <ListGroup.ItemTitle>
-                    {PROVIDER_LABELS[provider]}
-                  </ListGroup.ItemTitle>
-                  <ListGroup.ItemDescription>
-                    {row.isLinked ? "Conectado." : "Não conectado."}
-                  </ListGroup.ItemDescription>
-                </ListGroup.ItemContent>
-                <ListGroup.ItemSuffix className="items-center">
-                  {row.isLinked ? (
-                    <Button
-                      isDisabled={pendingProvider !== null || signOut.isPending}
-                      onPress={() => {
+            <LinkedAccountRow
+              icon={PROVIDER_ICONS[provider]}
+              isActionDisabled={pendingProvider !== null || signOut.isPending}
+              isInformational={provider === "credential"}
+              onActionPress={
+                provider === "credential"
+                  ? undefined
+                  : () => {
+                      if (row.isLinked) {
                         handleUnlinkPress(provider).catch(() => undefined);
-                      }}
-                      size="sm"
-                      variant="danger-soft"
-                    >
-                      <Button.Label>
-                        {pendingProvider === provider
-                          ? "Desconectando..."
-                          : "Desconectar"}
-                      </Button.Label>
-                    </Button>
-                  ) : (
-                    <Button
-                      isDisabled={pendingProvider !== null || signOut.isPending}
-                      onPress={() => {
+                      } else {
                         handleLinkPress(provider).catch(() => undefined);
-                      }}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      <Button.Label>
-                        {pendingProvider === provider
-                          ? "Conectando..."
-                          : "Conectar"}
-                      </Button.Label>
-                    </Button>
-                  )}
-                </ListGroup.ItemSuffix>
-              </ListGroup.Item>
-            )}
+                      }
+                    }
+              }
+              pendingAction={
+                pendingProvider === provider
+                  ? row.isLinked
+                    ? "unlink"
+                    : "link"
+                  : undefined
+              }
+              status={row.isLinked ? "connected" : "disconnected"}
+              title={PROVIDER_LABELS[provider]}
+            />
           </Fragment>
         );
       })}

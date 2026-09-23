@@ -122,6 +122,9 @@
       ]
     }
   },
+  "patchedDependencies": {
+    "@better-auth/expo@1.7.5": "patches/@better-auth%2Fexpo@1.7.5.patch"
+  },
   "trustedDependencies": [
     "heroui-pro",
     "@heroui-pro/react",

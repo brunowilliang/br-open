@@ -101,6 +101,13 @@ export default defineAuth(() => {
       : {};
 
   return {
+    account: {
+      accountLinking: {
+        // allowDifferentEmails decide SO o vinculo: o sign-in continua
+        // resolvendo pelo account row (sub do provider), nunca pelo e-mail.
+        allowDifferentEmails: true,
+      },
+    },
     baseURL: env.BETTER_AUTH_URL ?? env.SITE_URL,
     emailAndPassword: {
       enabled: true,
