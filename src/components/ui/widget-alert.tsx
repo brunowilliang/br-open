@@ -22,7 +22,18 @@ const StyledSwipeable = withUniwind(Swipeable);
 /** Entrada da ação revelada (px): só pintura, não entra na medida do `rightWidth`. */
 const SWIPE_ACTION_ENTER_PX = 16;
 
-const ACTION_WIDTH_PX = 120; // w-30
+/** Largura base da ação revelada, em repouso (px). */
+const ACTION_WIDTH_PX = 120;
+
+/** Largura da ação revelada, em px: `ACTION_WIDTH_PX` até o ponto de abrir e 1:1
+ * com o dedo depois dele (`rightWidth` = `-translation / progress`). */
+export const getSwipeActionWidth = (progress: number, translation: number) => {
+  "worklet";
+  const overflow =
+    progress > 1 ? -translation * ((progress - 1) / progress) : 0;
+
+  return ACTION_WIDTH_PX + overflow;
+};
 
 type WidgetAlertAction = {
   isDisabled?: boolean;
@@ -144,13 +155,9 @@ function WidgetAlertSwipeAction({
     };
   });
 
-  // Passado o ponto de abrir, a caixa cresce 1:1 com o dedo (`rightWidth` = `-translation / progress`).
-  const widthStyle = useAnimatedStyle(() => {
-    const value = progress.value;
-    const overflow = value > 1 ? -translation.value * ((value - 1) / value) : 0;
-
-    return { width: ACTION_WIDTH_PX + overflow };
-  });
+  const widthStyle = useAnimatedStyle(() => ({
+    width: getSwipeActionWidth(progress.value, translation.value),
+  }));
 
   return (
     <Animated.View className={actionClassName} style={animatedStyle}>
