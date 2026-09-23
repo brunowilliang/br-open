@@ -1063,3 +1063,73 @@ repetida aqui). O gesto de esconder existe SÓ na home — a casa continua sem e
 - **Gates:** `git diff --check` limpo; `bun run check` EXIT 0; `bun run test`
   **1306 pass / 0 fail** em 105 arquivos. Sem device, sem Metro e sem OTA
   (RUL-0025/0032) — a prova visual do gesto é do usuário. SEM COMMIT.
+
+## Swipe do alerta na home (IBX-0086 r15 · 23-09-2026, sem commit)
+
+O alerta das pendências pode ser ARRASTADO para revelar a ação **Esconder**, e nas
+superfícies reais o gesto existe SÓ nas duas homes (a galeria dev-only tem UMA
+amostra dele, para aprovação). O dispatcher da dispensa (tabela, mutation e a
+regra do recibo) é de `docs/spec/pendings.md` — aqui fica o lado da tela.
+
+- **Quem liga o gesto é a prop OPT-IN `isSwipeEnabled`**
+  (`ui/widget-alert.tsx:86-91`). SEM ela o componente devolve o cartão puro e
+  para ali (`:252-256`): nenhuma caixa de gesto, nenhum `Pressable` e
+  `swipeClassNames` IGNORADO. `PendingAlerts` só repassa a prop
+  (`ui/pending-alerts.tsx:24`, `:81`).
+- **Contrato das classes** (`WidgetAlertSwipeClassNames`, `:61-68`): `container`
+  → `containerClassName` (a caixa do gesto, é ela que clipa), `childrenContainer`
+  → `childrenContainerClassName` (o nó do conteúdo, que carrega o deslize) e
+  `action` → a `Animated.View` da ação. O par das duas homes é o mesmo
+  (`pages/home/organizer-dashboard.tsx:56-60`,
+  `pages/home/player-dashboard.tsx:70-74`): o container sangra 16px para fora do
+  gutter `mx-4` da página e a ação recolhe o padding — sangramento espelhado do
+  pai, sem estilo novo (RUL-0026). O `Swipeable` entra como
+  `withUniwind(Swipeable)` porque ele sobrescreve `style` e só as props
+  `{nome}ClassName` chegam (`:20`); `enableTrackpadTwoFingerGesture` está ligado
+  (`:262`).
+- **A ação revelada é o `Esconder`** (ícone `EyeOffIcon` + rótulo, `:170-176`;
+  a largura base é `ACTION_WIDTH_PX` = 120 px em repouso, `:26`; a entrada usa
+  `SWIPE_ACTION_ENTER_PX`, `:22-23`). O TOQUE dela só existe com `dismissAction`
+  (`:45-49`, `:78-80`; o handler é o `onPress` do `PressableFeedback`,
+  `:165-169`) — sem a prop a ação é só pintura. `PendingAlerts` monta o
+  `dismissAction` por item quando recebe `dismissSurface`
+  (`ui/pending-alerts.tsx:68-80`): chama `pendings.dismiss { itemId, surface }` e
+  desabilita pela mutation em voo — é o MESMO caminho do IBX-0085, sem segundo.
+- **Abrir/fechar:** o toque no CARD chama `openSwipe` → `openRight()`
+  (`widget-alert.tsx:187-190`; o `PressableFeedback` está em `:273`) e só
+  "garanta ABERTO": fechar é o tap interno do próprio `Swipeable`, o componente
+  não tem caminho de fechar por código. Passado o ponto de abrir, a caixa da ação
+  cresce 1:1 com o dedo (conta no helper puro worklet `getSwipeActionWidth`,
+  `:28-36`, usada em `:158-160`); a entrada anima opacidade/translate/scale
+  (`:137-156`).
+- **Onde está ligado (2 superfícies):** home do organizador
+  (`organizer-dashboard.tsx:54`) e home do jogador (`player-dashboard.tsx:68`),
+  as duas com `dismissSurface="home"`. **Onde NÃO está:** as quatro overviews das
+  casas (`pages/leagues/guest-overview.tsx:27-32`,
+  `pages/leagues/player-overview.tsx:55-60`,
+  `pages/tournaments/organizer-overview.tsx:53-58`,
+  `pages/tournaments/player-overview.tsx:96-101` — nenhuma passa
+  `isSwipeEnabled` nem `dismissSurface`), o cartão da central
+  (`components/notifications/notification-card.tsx:44-60`, o mesmo `WidgetAlert`
+  sem gesto) e a galeria dev-only, onde o gesto só existe na amostra nova
+  "Alerta 18 · GESTO" (1 das 22 instâncias de `WidgetAlert` em
+  `settings/components/[component].tsx`; as outras 21 seguem estáticas). Fora da
+  amostra de aprovação, o gesto só nas duas homes é o pedido literal do r15.
+- **A RUL-0043 no cartão da central:** corpo só com título e descrição e TODA
+  ação no menu ⋮, na ordem principal → secundária → destrutiva, com `danger` só
+  no que é recusa/destrutivo. O cartão cumpre: `buildNotificationMenuItems` monta
+  nessa ordem (`lib/notifications/notification-view.ts:161-198`) e
+  `readActionTone` (`:125-140`) só devolve `danger` nas recusas e no convite
+  recusado (`accept: false`); o corpo é o `WidgetAlert` SEM ação
+  (`notification-card.tsx:44-60`) e as ações são itens do menu (`:80-108`). A
+  galeria aprova os itens REAIS do MESMO derivado (`[component].tsx:729-764`).
+- **A RUL-0052 no mesmo cartão:** componente visual novo ou ALTERADO entra na
+  galeria para ele aprovar, cobrindo os casos reais (inclusive extremos). A
+  entrada existe (`lib/dev/component-registry.ts:34-38`, id `alerts`) e a
+  superfície alterada TEM amostra aprovável: o "Alerta 18 · GESTO" leva
+  `isSwipeEnabled` + `dismissAction` (handler de aprovação, não executa nada) + o
+  par de classes das homes (`settings/components/[component].tsx:700-717`), para
+  ele arrastar e aprovar ali. As 21 instâncias vizinhas e os 3 moldes do aviso
+  seguem ESTÁTICOS de propósito.
+- **Gates:** `git diff --check` limpo; `bun run check` EXIT 0. Sem device, sem
+  Metro e sem OTA — a prova visual do gesto é do usuário. SEM COMMIT.
