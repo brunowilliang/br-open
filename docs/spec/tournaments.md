@@ -581,7 +581,7 @@
   — **CASCA**: o nó desenha o MESMO card das telas (`ui/match-card.tsx`, seção do
   lote de 23-09 no fim do doc) e a casca só mede a altura (`onLayout`, o grafo
   usa a medida), trata a vaga bye e GATEIA as ações do organizador (`canAct` =
-  organizador com os DOIS lados preenchidos, bracket-match-card.tsx:82). O
+  organizador com os DOIS lados preenchidos, bracket-match-card.tsx:85). O
   desenho é o do card compartilhado: primeira linha = **fase da partida escrita
   no card**
   (`formatBracketStage(round, totalRounds)` por draw size: Final, Semifinal,
@@ -686,13 +686,15 @@
   (`lib/tournaments/bracket-view`): o discriminador é o STATUS —
   `walkover: true` sozinho não serve, porque o W.O. JOGADO de verdade
   (organizador declara vencedor sem placar) é gravado como `finished` com
-  `walkover: true` (`publishResult`) e mantém o card normal (fase + chip +
-  lados). O card de bye continua NA GEOMETRIA (âncora, links e
-  `feedStatusBySlot` intactos — nada muda em bracket-tree/bracket-edges/swap),
-  mas o ramo cedo do `BracketMatchCard` devolve o container do card SEM
-  FILHOS: nenhuma fase, nenhum chip (nem "W.O.", nem "A definir"), nenhum
-  lado fantasma, nenhuma seta e nenhuma identidade (o nome/avatar do lado que
-  avançou não aparece no card). Altura FIXA `BRACKET_BYE_CARD_HEIGHT`
+  `walkover: true` (`publishResult`) e cai no card NORMAL (fase + lados) — desde
+  o IBX-0109 ele troca o chip para "W.O." e não desenha placar nenhum (seção do
+  lote de 23-09 no fim deste doc). O card de bye continua NA GEOMETRIA (âncora,
+  links e `feedStatusBySlot` intactos — nada muda em
+  bracket-tree/bracket-edges/swap), mas o ramo cedo do `BracketMatchCard`
+  devolve o container do card SEM FILHOS: nenhuma fase, nenhum chip (nem "W.O.",
+  nem "A definir"), nenhum lado fantasma, nenhuma seta e nenhuma identidade (o
+  nome/avatar do lado que avançou não aparece no card). Altura FIXA
+  `BRACKET_BYE_CARD_HEIGHT`
   (bracket-tree.ts), aplicada pelo próprio card no root: o retângulo do grafo
   casa com o render por construção e a medida nunca commita (a rota sai cedo
   no `onHeightChange` do bye), sem o churn de re-layout que o BUG-0033
@@ -2028,7 +2030,7 @@ casa do jogador não tem `KpiCard`. Nenhum rótulo, valor, layout ou texto mudou
 detalhe e tabela
 completa em `dashboard.md` (seção do IBX-0087).
 
-## Card único da partida e da inscrição + o nó do chaveamento (IBX-0105/0107/0108, BUG-0069/0070/0071 — 23-09-2026, sem commit)
+## Card único da partida e da inscrição + o nó do chaveamento (IBX-0105/0107/0108/0109, BUG-0069/0070/0071 — 23-09-2026, sem commit)
 
 O desenho da partida e o da inscrição deixaram de morar nas telas: são dois
 componentes globais em `src/components/ui/`, um por ENTIDADE, e as superfícies
@@ -2037,7 +2039,7 @@ de uma superfície para outra é o dado que ela tem.
 
 ### `match-card.tsx` (`MatchCard`) — o card da partida
 
-- **Estrutura:** `Card p-3 gap-3` (match-card.tsx:246) com a linha do topo (chip
+- **Estrutura:** `Card p-3 gap-3` (match-card.tsx:261) com a linha do topo (chip
   da fase `stageLabel` à esquerda; chip de status e menu à direita), as DUAS
   pontas separadas por `Separator` e o chip do pé. Cada ponta é um
   `PressableFeedback`, desabilitado a menos que a tela habilite a troca daquele
@@ -2047,17 +2049,36 @@ de uma superfície para outra é o dado que ela tem.
   (tournament-details-derived.ts:131) lido por `getMatchStatusChip` (:145);
   `null` = estado SEM chip (hoje só a linha `vacant`) e status fora do
   vocabulário cai no rótulo cru. Só o "A definir" (`pending`) leva `text-muted`
-  no rótulo (match-card.tsx:136-142).
+  no rótulo (match-card.tsx:148-151).
 - **Placar:** os números por set saem de `buildBracketScoreTokens`
   (`lib/tournaments/bracket-score-display.ts`) e cada um carrega a cor do SEU
   set (vencedor accent/bold, perdedor muted); os NOMES carregam a cor do PAR
   pela maioria dos sets (vencedor accent/semibold, perdedor muted/normal) e não
-  são pintados quando o placar empata ou não existe (match-card.tsx:157-188).
+  são pintados quando o placar empata ou não existe (match-card.tsx:168-203).
+- **W.O. jogado (IBX-0109):** a prop `walkoverWinner?: "a" | "b" | null`
+  (match-card.tsx:123-126) é o sinal do VENCEDOR — nada de heurística sobre o
+  `0x0` do set placeholder. Deriva do wire em `walkoverWinnerSide`
+  (`lib/tournaments/tournament-details-derived.ts:153-175`): só partida
+  `finished` com `walkover` conta (o bye do sorteio é `status === "walkover"` e
+  nem chega ao card) e o lado é o `winnerEntryId` contra `entryAId`/`entryBId`;
+  W.O. sem vencedor resolvido devolve `null` e não pinta ninguém. Com a prop, o
+  lado do vencedor sai accent + semibold e o perdedor muted + normal
+  (match-card.tsx:186-203) e o chip troca `finished` por `walkover`
+  (match-card.tsx:142-147) — "W.O." no lugar de "Encerrado"; um status
+  deliberado do caller passa (a FINAL decidida segue "Campeão", com o teste
+  cobrindo o W.O. na final).
+- **Placar fora em TODO W.O.** (`isWalkover`, match-card.tsx:166-167): o vencedor
+  explícito OU o status `walkover` — o shape da agenda da LIGA, que não tem
+  vencedor no wire — zeram os tokens de set (match-card.tsx:168-175), então
+  nenhum número desenha, nem o `0x0` do placeholder; sem a prop, nenhum lado é
+  pintado e só o chip "W.O." fica. O bloco do resultado não sustenta a altura da
+  linha (o avatar de 44pt e a linha de nome já são mais altos), então a medida do
+  nó do chaveamento não muda com ou sem placar.
 - **Chip do pé:** só com `matchDate` E `courtName` resolvidos
-  (match-card.tsx:128-134), no formato `data   |   HH:MM   |   quadra` (:475) —
+  (match-card.tsx:132-139), no formato `data   |   HH:MM   |   quadra` (:490) —
   o mesmo teste que a estimativa de altura do nó usa.
 - **Menu do organizador:** o card só DESENHA o kebab quando recebe alguma ação
-  (`hasMenuActions`, match-card.tsx:151): "Agendar"/"Reagendar" (o rótulo segue
+  (`hasMenuActions`, match-card.tsx:160): "Agendar"/"Reagendar" (o rótulo segue
   o `matchDate`), "Resultado" e, na partida ENCERRADA, "Editar resultado" no
   lugar do par. Sem handler nenhum — as agendas e o "Próximo jogo" — o menu não
   existe (BUG-0070).
@@ -2077,7 +2098,18 @@ de uma superfície para outra é o dado que ela tem.
   `tournaments/[tournamentId]/schedule.tsx:174`, e liga,
   `leagues/[leagueId]/schedule.tsx:165`), o "Próximo jogo" da casa do jogador
   (`pages/tournaments/player-overview.tsx:114`) e o NÓ do chaveamento (via
-  `BracketMatchCard`, bracket-match-card.tsx:91).
+  `BracketMatchCard`, bracket-match-card.tsx:95). Quem manda o `walkoverWinner`
+  do W.O. é a agenda do torneio, pelo item (`schedule.tsx:190`, derivado em
+  `lib/tournaments/schedule-items.ts:82`), e o nó, pela casca (:87).
+- **Agenda da LIGA sem pintura de W.O. (fato, não pendência de UI):** o item do
+  `league.challenges.listScheduled` não carrega o vencedor — o schema tem
+  `matchStatus` (`walkover` quando o score carrega a flag) e `scoreSets`, e nada
+  mais (`convex/domains/league/contract.ts:926-941`). Nela o card mostra o chip
+  "W.O." que o status já traz, **sem placar (o `isWalkover` do status descarta o
+  `0x0` do placeholder) e sem pintura de lado**; pintar o vencedor depende de o
+  contrato expor o lado vencedor (backend), não do card.
+- O "Próximo jogo" da casa do jogador não tem W.O. a pintar: a lista filtra
+  `status === "scheduled"`.
 - `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:495`, o
   `<EntryCard>` do map) nos seus segmentos; as AÇÕES de cada segmento saem do
   componente local `EntryRowActions` (`entries.tsx:49`) e a nota do convite de
@@ -2085,22 +2117,23 @@ de uma superfície para outra é o dado que ela tem.
 - A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
   entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
   "Partida" e "Inscrições"): `galleryMatchCardCases`
-  (`settings/components/[component].tsx:866`, 12 casos, render :1098) e
-  `galleryEntryCardCases` (:1130, 5 casos, render :1217); os casos do nó saem na
-  largura da chave (`nodeWidth` → `w-80`, :1097).
+  (`settings/components/[component].tsx:866`, 13 casos, render :1116) e
+  `galleryEntryCardCases` (:1149, 5 casos, render :1236); os casos do nó saem na
+  largura da chave (`nodeWidth` → `w-80`, :1115).
 - Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
   bracket.tsx:300); as agendas e o "Próximo jogo" não recebem `modality` (o
   `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
 
 ### O nó do chaveamento é o MESMO card
 
-- `BracketMatchCard` (bracket-match-card.tsx:34) é CASCA: embrulha o `MatchCard`
-  num `View` com `onLayout` (a medida alimenta o grafo), resolve a vaga bye e
-  gateia as ações do organizador (`canAct`, :82).
+- `BracketMatchCard` (bracket-match-card.tsx:37) é CASCA: embrulha o `MatchCard`
+  num `View` com `onLayout` (a medida alimenta o grafo), resolve a vaga bye,
+  gateia as ações do organizador (`canAct`, :85) e deriva o `walkoverWinner` do
+  próprio `match` (:87) — o W.O. jogado não precisa de dado novo da tela.
 - A vaga BYE (bye do sorteio, `isByeMatch`) sai antes do card: container vazio
   na altura fixa `BRACKET_BYE_CARD_HEIGHT` — sem fase, sem chip, sem lado
-  fantasma e sem identidade (:57-70).
-- A FINAL decidida fala "Campeão" pelo chip `champion` (:76-78): quem sabe que é
+  fantasma e sem identidade (:60-72).
+- A FINAL decidida fala "Campeão" pelo chip `champion` (:79-80): quem sabe que é
   a final é a tela (`isFinal`), o wire só diz `finished`.
 
 ### Lado A DEFINIR
@@ -2114,15 +2147,15 @@ de uma superfície para outra é o dado que ela tem.
   dois lados podem estar em estados diferentes. Ausente = lado definido; o
   chaveamento manda `match.entryA !== null`/`entryB !== null`.
 - **Forma do lado:** a dupla empilha DOIS avatares em `relative h-11 w-11`
-  (44pt, match-card.tsx:314) com `size-7.5`; o lado indefinido é UMA linha — a
+  (44pt, match-card.tsx:329) com `size-7.5`; o lado indefinido é UMA linha — a
   dupla é uma unidade —, com rótulo muted e peso normal (`buildSideLines`,
   match-card.tsx:45) e avatares em `fallback="black"`
   (`UNDEFINED_AVATAR_FALLBACK`, :34). Lado com um jogador definido e parceiro em
   aberto desenha os dois avatares (verde + black) e a segunda linha "A definir"
   muted.
 - **O texto da vaga é a sentinela** `UNDEFINED_PLAYER_NAME = "A definir"`
-  (tournament-details-derived.ts:156), a mesma que `formatEntryPlayerNames`
-  (:161) devolve para lado vazio — o card não repete o texto em duas linhas.
+  (tournament-details-derived.ts:180), a mesma que `formatEntryPlayerNames`
+  (:185) devolve para lado vazio — o card não repete o texto em duas linhas.
 
 ### Geometria e abertura
 
