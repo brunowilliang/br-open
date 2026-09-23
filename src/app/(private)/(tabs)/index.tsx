@@ -148,7 +148,7 @@ export default function Home() {
       </Page.Header>
       <ScrollShadow className="flex-1" color="background" size={100}>
         <Page.ScrollView
-          contentContainerClassName="gap-4 px-4 pb-safe-offset-23"
+          contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-4"
           showsVerticalScrollIndicator={false}
         >
           {/* Os QUATRO estados são decididos AQUI: o ator manda primeiro. */}

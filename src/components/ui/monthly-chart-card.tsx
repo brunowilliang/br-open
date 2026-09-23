@@ -18,6 +18,7 @@ import { type ChartBounds, useChartPressState } from "victory-native";
 
 import { Text } from "@/components/core/text";
 
+import { buildMonthlyYAxis } from "./monthly-chart-axis";
 import { buildCrosshairLabels } from "./monthly-chart-labels";
 
 /** Rótulo do mês já formatado; o dado entra PRONTO, o componente não soma nada. */
@@ -32,8 +33,9 @@ export type MonthlyChartPoint = {
  * padding porque o Anchor do crosshair mede no mesmo espaço do canvas Skia, e o
  * eixo X leva os índices de `tickValues` com `tickCount` igual ao número de
  * pontos — sem o `tickCount` o victory-native corta um rótulo
- * (`DEFAULT_TICK_COUNT` = 5). O eixo Y sai cru por default; com `formatAxis` o
- * rótulo formatado entra na conta da margem do plot
+ * (`DEFAULT_TICK_COUNT` = 5). O eixo Y sai de `buildMonthlyYAxis` (0 na primeira
+ * marca, passo inteiro, `domain` explícito); com `formatAxis` o rótulo formatado
+ * entra na conta da margem do plot
  * (`transformInputData.js:206-241`), então o eixo cresce junto e nada é
  * cortado. */
 
@@ -96,17 +98,20 @@ export function MonthlyChartCard(props: {
     () => Array.from({ length: data.length }, (_, index) => index),
     [data.length]
   );
+  const yAxisScale = useMemo(() => buildMonthlyYAxis(data), [data]);
   const yAxis = useMemo(
-    () =>
-      formatAxis
-        ? [
-            {
-              formatYLabel: (value: number | string) =>
-                formatAxis(Number(value)),
-            },
-          ]
-        : undefined,
-    [formatAxis]
+    () => [
+      {
+        domain: yAxisScale.domain,
+        formatYLabel: (value: number | string) =>
+          formatAxis ? formatAxis(Number(value)) : String(value),
+        // `downsampleTicks` (victory-native) devolve `tickValues` intacto
+        // enquanto `tickCount` não for menor que o array.
+        tickCount: yAxisScale.ticks.length,
+        tickValues: yAxisScale.ticks,
+      },
+    ],
+    [formatAxis, yAxisScale]
   );
 
   return (

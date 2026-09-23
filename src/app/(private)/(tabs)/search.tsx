@@ -1,8 +1,8 @@
+import { Page } from "@/components/core/page";
+import { Text } from "@/components/core/text";
 import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Page } from "@/components/core/page";
-import { Text } from "@/components/core/text";
 
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -132,7 +132,7 @@ export default function Search() {
       <ScrollShadow color="background" size={200} visibility="bottom">
         <Page.LegendList
           columnWrapperStyle={{ gap: 8 }}
-          contentContainerClassName="grow px-4 pb-safe-offset-23"
+          contentContainerClassName="grow px-4 pb-floating-tab-bar-4"
           data={items}
           estimatedItemSize={220}
           keyExtractor={(item) => item.key}
