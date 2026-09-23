@@ -487,30 +487,24 @@
   `manualActivation` ancorada no foco; double-tap alterna fit↔nativo. Taps
   dos cards preservados: o tap falha no movimento do pan e o pan precisa de
   12pt — exclusão por limiar, sem veto de composição.
-  Alturas variáveis medidas por `onLayout` do card (fallback
-  `BRACKET_CARD_ESTIMATED_HEIGHT` = **120**). Três grandezas distintas, para não
-  misturar origem: (a) **medição de device** (`onLayout`, é o que o CÓDIGO usa):
-  120 na 1ª rodada e 112 nas rodadas fundas — o 112 é medição de device, não
-  leitura de print: as sondas dev do run do usuário (HEIGHT-MISMATCH,
-  dev/Metro) registraram `measured` = 112, 112,00000762939453 e 120, todos
-  valores de `onLayout`; (b) **leitura da imagem do print**:
-  ~120,4 (estimativa de pixel, não medição); (c) a **estimativa** do layout =
-  120 (o valor de device da 1ª rodada, a que define a altura do grafo). Com 120 a
-  malha estimada fecha a assentada (5x52 + 3x120 + 7x12 = 704, o H medido) e o
-  reflow residual é <= 4pt por card nas rodadas fundas; com 120,4 a caixa NÃO
-  fecha (1120 x 705,2) e o resíduo vai a 4,9pt. **O fit não muda de qualquer
-  forma, porque é limitado pela LARGURA** (largura 365/1696 = 0,215212; altura
-  1016/4212 = 0,241216). Resumo exato:
-  **sem re-fit (fit limitado pela largura) e com reflow residual <= 4pt nas
-  rodadas fundas**. O 136 anterior era suposição (nunca medida) e fazia o grafo
-  inteiro pular ~8pt ao assentar — era a "piscada" da 1ª
-  abertura; o teste de estabilidade do primeiro layout em `bracket-tree.test.ts`
-  fixa a malha estimada == a assentada e traz a contraprova com o 136 antigo.
-  o commit da medida é
-  `commitCardHeight` (bracket-tree.ts), puro/testado: uma medida igual à
-  altura EFETIVA não entra no state (a montagem da 64-key commita ZERO
-  vezes, lição IBX-0022), mas a comparação é com a altura efetiva e NUNCA
-  com a constante. **BUG-0033, defeito (i) — ÂNCORA DO CARD (chave grande):
+  Alturas variáveis medidas por `onLayout` do card. A estimativa do layout é POR
+  PARTIDA (`bracketMatchEstimatedHeight`, bracket-tree.ts:178): chrome fixo (89 —
+  padding, os 3 gaps, a linha do topo e a divisória) + as pontas da modalidade
+  (88 na dupla, 60 no simples) + o pé (40) só quando dia E quadra estão
+  resolvidos (`bracketMatchHasScheduleFooter`, bracket-tree.ts:166, o mesmo
+  critério que o card usa para desenhar o chip do pé). A soma é a do card
+  DESENHADO: um filho com `flex-basis 0` numa coluna de altura automática
+  contribui ZERO para a altura intrínseca, e era isso que devolvia um card medido
+  28pt menor com a linha do topo zerada (os chips, com `overflow: hidden`,
+  perdendo o rótulo). Duplas com agendamento = 217 / sem ele = 177; simples = 189
+  / 149. O commit da medida é `commitCardHeight` (bracket-tree.ts:201),
+  puro/testado: uma medida igual à altura EFETIVA não entra no state (a montagem
+  da 64-key commita ZERO vezes, lição IBX-0022), mas a comparação é com a altura
+  efetiva e NUNCA com a constante; e medida ABAIXO da estimativa é card
+  COMPRIMIDO, não card mais baixo — ela resolve para a estimativa em vez de
+  rebaixar o nó (gravar o número comprimido fecharia o loop medida -> nó curto ->
+  medida).
+  **BUG-0033, defeito (i) — ÂNCORA DO CARD (chave grande):
   causa raiz era o guard do IBX-0022 comparando com a constante** — um card
   commitado em 154 (linha de agendamento no card) que volta a medir 136 tinha a
   medida DESCARTADA: o retângulo do layout ficava
@@ -583,36 +577,35 @@
   `buildBracketCategoryTrees` (agrupa por categoria — conectores NÃO cruzam
   categorias, :53-90) + `layoutBracketCategoryTree` (posições absolutas, pai
   no midpoint dos filhos, clamp anti-overlap, :98-193). Card de confronto:
-  `BracketMatchCard` + `BracketSideRow` em
-  `components/pages/tournaments/bracket-match-card.tsx` — **COMPACTADO
-  ~25% (IBX-0013, visão de mapa)** mantendo os moldes do repo (`Card`;
-  side rows em `Pressable` puro, sem feedback de escala — o único toque
-  com feedback é o `PressableFeedback.Highlight` interno do trigger do
-  menu, IBX-0020): paddings justos (`p-2`/`py-1`), avatares size-6,
-  ações px-2/py-1; **raio do card EXPLÍCITO `rounded-2xl` (16) — QA R20,
-  bracket-match-card.tsx:136, override local do default do Surface
-  (`var(--radius-3xl)` = 24)**; primeira linha = **fase da partida escrita
+  `BracketMatchCard` (`components/pages/tournaments/bracket-match-card.tsx`)
+  — **CASCA**: o nó desenha o MESMO card das telas (`ui/match-card.tsx`, seção do
+  lote de 23-09 no fim do doc) e a casca só mede a altura (`onLayout`, o grafo
+  usa a medida), trata a vaga bye e GATEIA as ações do organizador (`canAct` =
+  organizador com os DOIS lados preenchidos, bracket-match-card.tsx:82). O
+  desenho é o do card compartilhado: primeira linha = **fase da partida escrita
   no card**
   (`formatBracketStage(round, totalRounds)` por draw size: Final, Semifinal,
   Quartas de final, Oitavas de final, fallback "Rodada N" — derivada testada
   em tournament-details-derived.test.ts), chip de status, avatares (dupla
   empilha 2; **lado vazio "A definir": avatar de fallback PRETO
   (`fallback black`, `src/components/core/image.tsx`) e rótulo muted** — o
-  lado com inscrição segue o fallback azul e o rótulo default, vencedor em
-  accent/semibold), placar por set, campeão na final; **linha de agendamento
-  (IBX-0033 A)**: quando `matchDate`+`startMinute`+`courtId` existem, linha
-  xs muted `data · HH:MM · quadra` (ex. "12 de set. · 14:00 · Quadra 2") sob
-  o header do card, via `formatMatchScheduleSummary`
-  (tournament-details-derived, UTC-safe — `formatMatchMonthDay` em
-  lib/format/date.ts) computada no `renderCard` da rota (lookup do nome da
-  quadra em `tournament.courts`); organizador (IBX-0020):
-  Menu ⋮ kebab NO HEADER do card (molde challenge-card.tsx:65-100 —
+  lado com inscrição segue o fallback verde/azul e o rótulo default, vencedor
+  em accent/semibold), placar por set, campeão na final; **chip de agendamento
+  (IBX-0033 A)**: com `matchDate` E a quadra resolvida o card desenha o chip do
+  pé `data   |   HH:MM   |   quadra` (ex. "12 de set.   |   14:00   |   Quadra
+  2"; `formatMatchMonthDay` de lib/format/date.ts, UTC-safe, e
+  `formatMinuteToHHMM` de lib/format/time.ts) — a rota só resolve o nome da
+  quadra (`courtNameOf`, lookup em `tournament.courts`) e o
+  `formatMatchScheduleSummary` foi EXTINTO; organizador (IBX-0020):
+  Menu ⋮ kebab NO HEADER do card (molde challenge-card.tsx:80-113 —
   `Menu.Trigger asChild` > `Button` icon-only `size-7` terciário +
   `Menu.Portal` > `Menu.Overlay bg-backdrop` > `Menu.Content presentation=
   "popover" width={240}`) com os itens Agendar/Reagendar (label dinâmico
   por `match.matchDate`, Calendar03Icon) e Resultado (Edit02Icon), nos
-  confrontos definidos e não encerrados (gating `canAct && status !==
-  "finished"`); e swap de POSIÇÃO (toque no jogador de um confronto →
+  confrontos definidos e não encerrados; a partida ENCERRADA troca o par por
+  "Editar resultado" (quem decide é o card, pela `matchStatus`) e sem nenhum
+  handler o menu nem é desenhado (agendas e "Próximo jogo", BUG-0070); e swap
+  de POSIÇÃO (toque no jogador de um confronto →
   toque no jogador a trocar → `swapSlots` — troca EXATAMENTE as duas
   inscrições clicadas, jogador por jogador, sem mover
   os confrontos) enquanto sem placar e com a chave em `drawn` (**IBX-0068**:
@@ -714,11 +707,11 @@
   `pending_partner` / `awaiting_payment`, confirmados = `active`; empty
   state por tab por papel no tom da liga; dica de seeds no fim da lista
   EXTINTA — IBX-0036);
-  CARDS NO MOLDE DE SOLICITAÇÕES da liga (QA round 9, molde inline
-  `requests.tsx:178-232`, sem componente extraído): `Card p-3` com row
-  avatar (dupla empilha 2 no estilo ScheduleCard) + nome
-  (`formatEntrySideLabel`) + sub (categoria; nota de convite quando
-  `pending_partner`) + trailing por estado — aprovação do organizador e
+  CARDS NO COMPONENTE DE INSCRIÇÃO `EntryCard` (`ui/entry-card.tsx`, um só
+  `renderEntryCard` para os três segmentos): chips de categoria e de status no
+  topo, row com avatar (dupla empilha 2) + um nome por linha
+  (`formatEntryPlayerNames`), nota de convite no chip do pé quando
+  `pending_partner` e as ações na ponta — aprovação do organizador e
   convite do parceiro = par icon-only `outline Cancel01Icon` / `default
   Tick02Icon` idêntico ao da liga; **CONTROLES DE SEED E DE FASE REMOVIDOS
   (cutover IBX-0053, 16-09, decisão do usuário)**: a aba Confirmados não tem
@@ -741,10 +734,12 @@
   molde `leagues/[leagueId]/schedule.tsx`): header com janela 7/15 dias
   (Menu ⋮ terciário) + tabs de data ("Hoje" + próximos dias), corpo por
   período (manhã/tarde/noite via `SCHEDULE_PERIOD_META`), partidas como
-  `ScheduleCard` REUTILIZADO (nomes via `formatEntrySideLabel`, avatar do
-  playerA; dupla junta no label), quadra via `tournament.courts`;
-  agrupamento pelo `buildScheduleDayView` GENERICIZADO na lib da liga
-  (RUL-0005 — uma implementação para liga e torneio); empty state
+  `MatchCard` (`ui/match-card.tsx`, o MESMO card da chave) alimentadas pelos
+  itens do construtor puro `src/lib/tournaments/schedule-items.ts`
+  (`buildScheduledMatchItems`, :35 — só entra a partida com dia, hora E quadra;
+  lado com 1–2 nomes/avatares; estágio pela última rodada da categoria), quadra
+  via `tournament.courts`; agrupamento pelo `buildScheduleDayView` GENERICIZADO
+  na lib da liga (RUL-0005 — uma implementação para liga e torneio); empty state
   "Nenhum jogo neste dia".
 - **`rules.tsx`** (Regras — R10) — tela READ-ONLY no molde `/rules` da liga:
   card **"Partidas"** ("O formato que vale para todos os confrontos do
@@ -1722,8 +1717,11 @@ avanço é revelado no `bracket.published`.
   Query dono do servidor.
 - **Chaveamento (bracket)**: canvas navegável estilo mapa (pinça = zoom
   ancorado com cap na resolução nativa, pan nas 4 direções clampado, duplo
-  toque toggle fit ↔ máximo permitido; abre já mostrando a chave inteira —
-  organizador e jogador); título Chaveamento com tabs de categoria no header
+  toque toggle fit ↔ máximo permitido); **a ABERTURA enquadra UMA coluna** (o
+  card no tamanho aprovado — `bracketOpeningZoom`, bracket-tree.ts:66) e a pinça
+  afasta até a chave INTEIRA, que é o piso do gesto (`bracketFitZoom`,
+  bracket-tree.ts:38, passado como `minZoom`) — organizador e jogador); título
+  Chaveamento com tabs de categoria no header
   quando o torneio tem 2+ categorias com chave (trocar reseta zoom); cada
   card carrega a própria fase (Final,
   Semifinal, Quartas de final, Oitavas de final) + jogadores/avatares (dupla
@@ -1835,6 +1833,14 @@ avanço é revelado no `bracket.published`.
   (regra `canDrawTournament`): organizador ajusta as posições no canvas e
   re-sortea a chave inteira (delete + rebuild); `ongoing` nunca re-sortea
   (10-09, usuário via pedido "ressortear").
+- **Card único por superfície (23-09, usuário)** — partida e inscrição têm UM
+  componente cada (`ui/match-card.tsx` e `ui/entry-card.tsx`), usados por todas
+  as superfícies do domínio; o antigo `schedule-card.tsx` foi apagado e não há
+  prop de variante (o que muda de uma tela para outra é o DADO).
+- **Abertura da chave em UMA coluna (IBX-0107, 23-09, usuário)** — o canvas
+  abre enquadrando uma coluna (o card em `CARD_WIDTH` 320) e a pinça afasta até
+  a chave inteira; acima de ~320 o box do card só cresce com o conteúdo
+  encolhendo.
 
 ## Fora do escopo (v1)
 
@@ -2019,3 +2025,130 @@ dois). Os status são flags novos do bucket (`identity.entriesLoading` /
 casa do jogador não tem `KpiCard`. Nenhum rótulo, valor, layout ou texto mudou —
 detalhe e tabela
 completa em `dashboard.md` (seção do IBX-0087).
+
+## Card único da partida e da inscrição + o nó do chaveamento (IBX-0105/0107/0108, BUG-0069/0070/0071 — 23-09-2026, sem commit)
+
+O desenho da partida e o da inscrição deixaram de morar nas telas: são dois
+componentes globais em `src/components/ui/`, um por ENTIDADE, e as superfícies
+só passam DADO (e, quando existe, a ação). Não há prop de variante — o que muda
+de uma superfície para outra é o dado que ela tem.
+
+### `match-card.tsx` (`MatchCard`) — o card da partida
+
+- **Estrutura:** `Card p-3 gap-3` (match-card.tsx:246) com a linha do topo (chip
+  da fase `stageLabel` à esquerda; chip de status e menu à direita), as DUAS
+  pontas separadas por `Separator` e o chip do pé. Cada ponta é um
+  `PressableFeedback`, desabilitado a menos que a tela habilite a troca daquele
+  lado (`swapPickEnabled`, por lado — o lado armado pinta `bg-accent-soft` e a
+  seta `ExchangeIcon`, `selectedSide`).
+- **Chip de status:** vocabulário único `MATCH_STATUS_CHIPS`
+  (tournament-details-derived.ts:131) lido por `getMatchStatusChip` (:145);
+  `null` = estado SEM chip (hoje só a linha `vacant`) e status fora do
+  vocabulário cai no rótulo cru. Só o "A definir" (`pending`) leva `text-muted`
+  no rótulo (match-card.tsx:136-140).
+- **Placar:** os números por set saem de `buildBracketScoreTokens`
+  (`lib/tournaments/bracket-score-display.ts`) e cada um carrega a cor do SEU
+  set (vencedor accent/bold, perdedor muted); os NOMES carregam a cor do PAR
+  pela maioria dos sets (vencedor accent/semibold, perdedor muted/normal) e não
+  são pintados quando o placar empata ou não existe (match-card.tsx:157-188).
+- **Chip do pé:** só com `matchDate` E `courtName` resolvidos
+  (match-card.tsx:128-136), no formato `data   |   HH:MM   |   quadra` (:480) —
+  o mesmo teste que a estimativa de altura do nó usa.
+- **Menu do organizador:** o card só DESENHA o kebab quando recebe alguma ação
+  (`hasMenuActions`, match-card.tsx:151): "Agendar"/"Reagendar" (o rótulo segue
+  o `matchDate`), "Resultado" e, na partida ENCERRADA, "Editar resultado" no
+  lugar do par. Sem handler nenhum — as agendas e o "Próximo jogo" — o menu não
+  existe (BUG-0070).
+
+### `entry-card.tsx` (`EntryCard`) — o card da inscrição
+
+- **Estrutura:** mesmo esqueleto do card de partida (chips de categoria e de
+  status no topo, row com UM ou DOIS avatares + um nome por linha, as ações do
+  caller na ponta via `children` e o chip do pé para a nota do estado —
+  `EntryCardProps` em entry-card.tsx:9). A dupla sai dos nomes/avatares do
+  parceiro (entry-card.tsx:31); não há prop de modalidade: a inscrição sabe que
+  é dupla pelo parceiro.
+
+### Superfícies
+
+- `MatchCard`: as DUAS agendas (torneio,
+  `tournaments/[tournamentId]/schedule.tsx:174`, e liga,
+  `leagues/[leagueId]/schedule.tsx:165`), o "Próximo jogo" da casa do jogador
+  (`pages/tournaments/player-overview.tsx:114`) e o NÓ do chaveamento (via
+  `BracketMatchCard`, bracket-match-card.tsx:91).
+- `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:406`)
+  nos seus segmentos, todos pelo mesmo `renderEntryCard`.
+- A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
+  entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
+  "Partida" e "Inscrições"): `galleryMatchCardCases`
+  (`settings/components/[component].tsx:866`, 12 casos, render :1098) e
+  `galleryEntryCardCases` (:1130, 5 casos, render :1217); os casos do nó saem na
+  largura da chave (`nodeWidth` → `w-80`, :1097).
+- Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
+  bracket.tsx:300); as agendas e o "Próximo jogo" não recebem `modality` (o
+  `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
+
+### O nó do chaveamento é o MESMO card
+
+- `BracketMatchCard` (bracket-match-card.tsx:34) é CASCA: embrulha o `MatchCard`
+  num `View` com `onLayout` (a medida alimenta o grafo), resolve a vaga bye e
+  gateia as ações do organizador (`canAct`, :82).
+- A vaga BYE (bye do sorteio, `isByeMatch`) sai antes do card: container vazio
+  na altura fixa `BRACKET_BYE_CARD_HEIGHT` — sem fase, sem chip, sem lado
+  fantasma e sem identidade (:57-70).
+- A FINAL decidida fala "Campeão" pelo chip `champion` (:76-78): quem sabe que é
+  a final é a tela (`isFinal`), o wire só diz `finished`.
+
+### Lado A DEFINIR
+
+- **Modalidade é PROP** (`modality?: "doubles" | "singles"`, match-card.tsx:104):
+  sem ela o card mantém a inferência pelo parceiro; com `doubles` TODA ponta
+  desenha o par de avatares e com `singles` um só. Quem informa é o chaveamento
+  (a modalidade desce no `renderCard`, bracket.tsx:435 e :448) e a galeria.
+- **Indefinido é SINAL DO CALLER** (`challengedDefined`/`challengerDefined`,
+  match-card.tsx:84 e :89), um por lado e nunca uma heurística sobre o texto: os
+  dois lados podem estar em estados diferentes. Ausente = lado definido; o
+  chaveamento manda `match.entryA !== null`/`entryB !== null`.
+- **Forma do lado:** a dupla empilha DOIS avatares em `relative h-11 w-11`
+  (44pt, match-card.tsx:320) com `size-7.5`; o lado indefinido é UMA linha — a
+  dupla é uma unidade —, com rótulo muted e peso normal (`buildSideLines`,
+  match-card.tsx:45) e avatares em `fallback="black"`
+  (`UNDEFINED_AVATAR_FALLBACK`, :34). Lado com um jogador definido e parceiro em
+  aberto desenha os dois avatares (verde + black) e a segunda linha "A definir"
+  muted.
+- **O texto da vaga é a sentinela** `UNDEFINED_PLAYER_NAME = "A definir"`
+  (tournament-details-derived.ts:156), a mesma que `formatEntryPlayerNames`
+  (:161) devolve para lado vazio — o card não repete o texto em duas linhas.
+
+### Geometria e abertura
+
+- A altura do nó é estimada POR PARTIDA (`bracketMatchEstimatedHeight`,
+  bracket-tree.ts:178) e o commit da medida nunca rebaixa o nó
+  (`commitCardHeight`, :201) — detalhe no bloco "Alturas variáveis medidas por
+  `onLayout`" acima.
+- A abertura do canvas enquadra UMA coluna (`bracketOpeningZoom`,
+  bracket-tree.ts:66) e o piso do gesto é a chave inteira (`bracketFitZoom`,
+  :38); o estado inicial e cada re-enquadramento saem do mesmo
+  `bracketFitTransform` (:108). A largura do card e o vão do cotovelo são
+  constantes da rota (`CARD_WIDTH = 320` e `CONNECTOR_WIDTH = 32`,
+  bracket.tsx:52-53) — o card na tela nasce ~1:1.
+
+### Fora desta fatia (delta acumulado do domínio)
+
+- **Auto-sorteio pelo PRAZO (backend):** além do início automático no dia
+  (`shouldAutoStartTournament`, scheduling-rules.ts:21), o cron horário
+  (`crons.ts:79`) passou a SORTEAR quando o prazo de inscrição fecha —
+  `shouldAutoDrawTournament` (scheduling-rules.ts:40: só `published`, com prazo
+  finito, prazo não posterior ao dia do início e prazo já vencido) e
+  `resolveTournamentAutoAction` (:63) escolhem `start` antes de `draw` no mesmo
+  tick. Com isso a fase `drawn` (prévia privada, com ajuste e re-sorteio) passa
+  a existir ANTES do dia do início, em vez de nascer e morrer no tick do start.
+  `bracket.autoStartTournaments` (`convex/functions/tournament/bracket.ts:471`)
+  reusa os cores `performDraw` (:78) e `performStart` (:340).
+- **Plantio de duplas no DEV (backend):** `seed:doublesScenario` (seed.ts:3337)
+  cria/atualiza o torneio de duplas (2 categorias, taxa 0, `maxEntries` 16,
+  alvo de duplas ativas por categoria + 1 convite pendente) com elenco próprio
+  de perfis com username (`convex/domains/seed/doubles-plan.ts:20`, pares por
+  `selectDoublesSeedPairs` :229); `seed:doublesAgendaScenario` (seed.ts:3601)
+  fecha os convites, cadastra as quadras e agenda a 1ª rodada por
+  `resolveDoublesSeedAgendaSlot` (`convex/domains/seed/doubles-agenda-plan.ts:38`).
