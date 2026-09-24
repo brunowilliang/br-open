@@ -76,6 +76,16 @@ function walk(target: string, out: string[] = []): string[] {
   return out;
 }
 
+// Texto do comentario de FIM DE LINHA (o "// ..." que nao faz parte de uma URL).
+const TRAILING_COMMENT = /(^|[^:])\/\//;
+const trailingComment = (line: string): string => {
+  const match = TRAILING_COMMENT.exec(line);
+  if (!match) {
+    return "";
+  }
+  return line.slice(match.index + match[0].length - 2);
+};
+
 // Marca cada linha que e comentario, inclusive o CORPO de um comentario JSX multi-linha.
 function commentFlags(lines: string[]): boolean[] {
   let insideJsx = false;
@@ -102,11 +112,12 @@ function checkComments(
   let commentLines = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
-    if (!flags[index]) {
-      continue;
+    const trailing = flags[index] ? "" : trailingComment(line);
+    if (flags[index]) {
+      commentLines += 1;
     }
-    commentLines += 1;
-    if (CARD_REF.test(line)) {
+    const target = flags[index] ? line : trailing;
+    if (target && CARD_REF.test(target)) {
       out.push({
         detail: line.trim().slice(0, 100),
         file,
