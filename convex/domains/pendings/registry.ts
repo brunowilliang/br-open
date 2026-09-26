@@ -1,9 +1,15 @@
 import { isActiveActorManager, type ViewerActor } from "../auth/actor-context";
 import { buildPlayerProfileDisplayName } from "../player/identity";
 import {
+  canConcludeTournament,
+  type TournamentConclusionCategory,
+} from "../tournament/conclusion-rules";
+import {
+  buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
+  type TournamentOrganizerConclusionPendingView,
   type TournamentOrganizerPendingView,
 } from "../tournament/pendings-rules";
 import type { QueryCtx } from "../../functions/generated/server";
@@ -39,6 +45,8 @@ const ORG_TOURNAMENT_SCAN_LIMIT = 50;
 const ORG_TOURNAMENT_ENTRY_LIMIT = 20;
 const ORG_CATEGORY_SCAN_LIMIT = 10;
 const ORG_ENTRY_SCAN_LIMIT = 300;
+/** Partidas lidas por categoria para achar a final (mesmo teto da chave). */
+const ORG_CONCLUSION_MATCH_SCAN_LIMIT = 300;
 /** Recibos de dispensa lidos por ator/superficie (cap do ator, nao da casa). */
 const PENDING_DISMISSAL_SCAN_LIMIT = 200;
 
@@ -104,6 +112,9 @@ const PLAYER_ENTRY_KINDS: readonly PendingKind[] = [
 const ORG_ENTRY_KINDS: readonly PendingKind[] = [
   "organization_tournament_entries_awaiting_approval",
   "organization_tournament_entries_awaiting_payment",
+];
+const ORG_CONCLUSION_KINDS: readonly PendingKind[] = [
+  "organization_tournament_awaiting_conclusion",
 ];
 
 /**
@@ -376,6 +387,88 @@ async function collectOrgEntryPendings(
 }
 
 /**
+ * Torneios EM ANDAMENTO que o organizador precisa encerrar: toda categoria
+ * sorteada ja tem campeao. A decisao sai da regra pura, que tambem exige o
+ * status — por isso so `ongoing` entra na varredura.
+ */
+async function collectOrgConclusionPendings(
+  ctx: PendingsReadCtx,
+  actor: PendingsActor
+): Promise<PendingsDerivation> {
+  const saturation = createSaturationCollector();
+
+  if (actor.kind !== "organization") {
+    return { items: [], saturations: [] };
+  }
+
+  const tournaments = await ctx.orm.query.tournament.findMany({
+    limit: ORG_TOURNAMENT_SCAN_LIMIT,
+    orderBy: { updatedAt: "desc" },
+    where: { organizationId: actor.organizationId },
+  });
+  saturation.markIfFull(
+    ORG_CONCLUSION_KINDS,
+    tournaments,
+    ORG_TOURNAMENT_SCAN_LIMIT
+  );
+
+  const ongoing = tournaments
+    .filter((row) => row.status === "ongoing")
+    .slice(0, ORG_TOURNAMENT_ENTRY_LIMIT);
+  if (ongoing.length >= ORG_TOURNAMENT_ENTRY_LIMIT) {
+    saturation.markIfFull(
+      ORG_CONCLUSION_KINDS,
+      ongoing,
+      ORG_TOURNAMENT_ENTRY_LIMIT
+    );
+  }
+
+  const views: TournamentOrganizerConclusionPendingView[] = [];
+
+  for (const currentTournament of ongoing) {
+    const categories = await ctx.orm.query.tournamentCategory.findMany({
+      limit: ORG_CATEGORY_SCAN_LIMIT,
+      orderBy: { createdAt: "desc" },
+      where: { tournamentId: currentTournament.id as Id<"tournament"> },
+    });
+    saturation.markIfFull(
+      ORG_CONCLUSION_KINDS,
+      categories,
+      ORG_CATEGORY_SCAN_LIMIT
+    );
+
+    const brackets: TournamentConclusionCategory[] = [];
+
+    for (const category of categories) {
+      const matches = await ctx.orm.query.tournamentMatch.findMany({
+        limit: ORG_CONCLUSION_MATCH_SCAN_LIMIT,
+        where: { categoryId: category.id as Id<"tournamentCategory"> },
+      });
+      saturation.markIfFull(
+        ORG_CONCLUSION_KINDS,
+        matches,
+        ORG_CONCLUSION_MATCH_SCAN_LIMIT
+      );
+      brackets.push({ matches });
+    }
+
+    views.push({
+      canConclude: canConcludeTournament({
+        categories: brackets,
+        status: currentTournament.status,
+      }),
+      tournamentId: currentTournament.id as string,
+      tournamentName: currentTournament.name,
+    });
+  }
+
+  return {
+    items: buildOrganizerConclusionPendings({ tournaments: views }),
+    saturations: saturation.saturations,
+  };
+}
+
+/**
  * `kinds` e explicito (nao derivado do contrato): completude e ausencia de
  * duplicata sao auditadas por teste.
  */
@@ -399,6 +492,10 @@ const ORGANIZATION_PENDING_DERIVERS: readonly PendingsDeriver[] = [
       "organization_tournament_entries_awaiting_approval",
       "organization_tournament_entries_awaiting_payment",
     ],
+  },
+  {
+    derive: collectOrgConclusionPendings,
+    kinds: ["organization_tournament_awaiting_conclusion"],
   },
 ];
 

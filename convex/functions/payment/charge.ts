@@ -26,6 +26,7 @@ import {
   CHARGE_CANCEL_CONFIRMED,
   CHARGE_CANCEL_FAILED,
   CHARGE_CANCEL_PENDING,
+  CHARGE_REFUNDED_FIELDS,
   CHARGE_STATUS_CANCELED,
   CHARGE_STATUS_EXPIRED,
   CHARGE_STATUS_FAILED,
@@ -1006,7 +1007,10 @@ export const markChargeRefunded = privateMutation
     await ctx.orm
       .update(paymentCharge)
       .set({
-        status: "REFUNDED",
+        // status e refundStatus fecham JUNTOS: um REFUNDED com refundStatus preso
+        // em pending|failed nao tem mais escritor e a reserva de saque desconta o
+        // organizador para sempre.
+        ...CHARGE_REFUNDED_FIELDS,
         updatedAt: now,
       })
       .where(eq(paymentCharge.id, charge.id));

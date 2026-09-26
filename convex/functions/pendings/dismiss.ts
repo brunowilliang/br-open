@@ -4,6 +4,7 @@ import { CRPCError } from "kitcn/server";
 import { dismissPendingItemSchema } from "../../domains/pendings/contract";
 import {
   buildPendingDismissalSnapshot,
+  isPendingItemDismissible,
   resolvePendingItemScope,
   selectDeadPendingDismissals,
 } from "../../domains/pendings/pendings-rules";
@@ -33,6 +34,14 @@ export const dismiss = authMutation
       throw new CRPCError({
         code: "NOT_FOUND",
         message: "Pendencia nao encontrada.",
+      });
+    }
+
+    // O item e ESTADO: sem dispensa, ele so sai quando o problema acaba.
+    if (!isPendingItemDismissible(input.itemId)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Essa pendência não pode ser dispensada.",
       });
     }
 

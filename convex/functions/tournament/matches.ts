@@ -18,12 +18,12 @@ import {
   validateWalkoverWinner,
 } from "../../domains/tournament/score-rules";
 import { resolveMatchOccupiedEndMinute } from "../../domains/match/scheduling";
+import { isTournamentClosed } from "../../domains/tournament/management-rules";
 import {
   findCourtSlotConflict,
   isScheduledTournamentMatch,
 } from "../../domains/tournament/scheduling-rules";
 import {
-  tournament,
   tournamentMatch,
   tournamentMatchEdit,
 } from "../../domains/tournament/tables";
@@ -35,7 +35,6 @@ import {
   getTournamentRecordOrThrow,
   scheduleTournamentNotification,
   type OrmCtx,
-  type OrmMutationCtx,
 } from "./_shared/guards";
 
 type MatchRecord = InferSelectModel<typeof tournamentMatch>;
@@ -131,72 +130,6 @@ async function listTournamentMatchRecords(
     matches.push(...rows);
   }
   return matches;
-}
-
-/** Every category final has a winner → tournament finished. */
-async function maybeFinishTournament(
-  ctx: OrmMutationCtx,
-  tournamentId: Id<"tournament">
-) {
-  const categories = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
-    where: { tournamentId },
-  });
-  let finishedAll = categories.length > 0;
-  const championRecipients = new Set<string>();
-
-  for (const category of categories) {
-    const matches = await ctx.orm.query.tournamentMatch.findMany({
-      limit: 300,
-      where: { categoryId: category.id as Id<"tournamentCategory"> },
-    });
-    // A category left out of the draw (<2 entries → no bracket) counts as
-    // completed: it must not block `finished` forever.
-    if (matches.length === 0) {
-      continue;
-    }
-    const maxRound = matches.reduce((max, m) => Math.max(max, m.round), 0);
-    const finalMatch = matches.find(
-      (m) => m.round === maxRound && m.slotInRound === 0
-    );
-    if (!finalMatch?.winnerEntryId) {
-      finishedAll = false;
-      continue;
-    }
-    // Collect active entrants of finished categories for the finish notice.
-    const entries = await ctx.orm.query.tournamentEntry.findMany({
-      limit: 300,
-      where: {
-        categoryId: category.id as Id<"tournamentCategory">,
-        status: "active",
-      },
-    });
-    for (const entry of entries) {
-      if (entry.createdByUserId) {
-        championRecipients.add(entry.createdByUserId as string);
-      }
-      if (entry.partnerUserId) {
-        championRecipients.add(entry.partnerUserId as string);
-      }
-    }
-  }
-
-  if (!finishedAll) {
-    return;
-  }
-
-  const now = new Date();
-  await ctx.orm
-    .update(tournament)
-    .set({ status: "finished", updatedAt: now })
-    .where(eq(tournament.id, tournamentId));
-  if (championRecipients.size > 0) {
-    await scheduleTournamentNotification(ctx, {
-      eventType: "tournament.finished",
-      recipientUserIds: [...championRecipients] as Id<"user">[],
-      tournamentId,
-    });
-  }
 }
 
 export const publishResult = authMutation
@@ -323,8 +256,6 @@ export const publishResult = authMutation
       });
     }
 
-    await maybeFinishTournament(ctx, tournamentRecord.id as Id<"tournament">);
-
     return serializeMatch(updated);
   });
 
@@ -352,6 +283,15 @@ export const editResult = authMutation
       tournamentRecord.id as Id<"tournament">
     );
 
+    // Encerrado ou cancelado congela a chave inteira (inclusive o campeao da
+    // final): a revisao acontece antes de concluir, e o cancelado nao reabre.
+    if (isTournamentClosed(tournamentRecord.status)) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Torneio encerrado ou cancelado: os resultados não podem mais ser editados.",
+      });
+    }
     if (!match.publishedAt) {
       throw new CRPCError({
         code: "BAD_REQUEST",
@@ -415,16 +355,6 @@ export const editResult = authMutation
       throw new CRPCError({ code: "CONFLICT", message: reverb.error });
     }
 
-    // Chave fechada: trocar quem avança corromperia o campeão — só edição de
-    // placar com o mesmo vencedor passa.
-    if (tournamentRecord.status === "finished" && reverb.action === "swap") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message:
-          "Torneio encerrado: não é possível trocar quem avança nessa partida.",
-      });
-    }
-
     const now = new Date();
     const before = {
       score: match.score,
@@ -484,8 +414,6 @@ export const editResult = authMutation
         tournamentId: tournamentRecord.id as Id<"tournament">,
       });
     }
-
-    await maybeFinishTournament(ctx, tournamentRecord.id as Id<"tournament">);
 
     return serializeMatch(updated);
   });

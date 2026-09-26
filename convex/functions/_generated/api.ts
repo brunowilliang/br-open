@@ -60,7 +60,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             actionLabel: string | null;
             bodyHighlights: Array<string>;
@@ -72,7 +73,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             secondaryActionLabel: string | null;
           } | null;
@@ -131,7 +133,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             actionLabel: string | null;
             bodyHighlights: Array<string>;
@@ -143,7 +146,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             secondaryActionLabel: string | null;
           } | null;
@@ -578,6 +582,7 @@ export const api: {
           freeFromCents: number;
           minWithdrawCents: number;
           pixKey: string;
+          reservedCents: number;
         }
       >;
       requestWithdraw: FunctionReference<
@@ -621,7 +626,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             actionLabel: string | null;
             count: number | null;
@@ -636,6 +642,7 @@ export const api: {
             kind:
               | "organization_tournament_entries_awaiting_approval"
               | "organization_tournament_entries_awaiting_payment"
+              | "organization_tournament_awaiting_conclusion"
               | "player_tournament_entries_awaiting_payment"
               | "player_tournament_entry_awaiting_approval"
               | "player_tournament_partner_invite_received"
@@ -651,7 +658,8 @@ export const api: {
                 | "accept_partner_invite"
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
-                | "reject_tournament_entry";
+                | "reject_tournament_entry"
+                | "conclude_tournament";
             } | null;
             secondaryActionLabel: string | null;
             severity: "danger" | "info" | "warning";
@@ -665,6 +673,7 @@ export const api: {
             kind:
               | "organization_tournament_entries_awaiting_approval"
               | "organization_tournament_entries_awaiting_payment"
+              | "organization_tournament_awaiting_conclusion"
               | "player_tournament_entries_awaiting_payment"
               | "player_tournament_entry_awaiting_approval"
               | "player_tournament_partner_invite_received"
@@ -1215,6 +1224,59 @@ export const api: {
         "public",
         { tournamentId: string },
         { success: true }
+      >;
+      conclude: FunctionReference<
+        "mutation",
+        "public",
+        { tournamentId: string },
+        {
+          approvalMode: "auto" | "manual";
+          avatarStorageId: string | null;
+          avatarUrl?: string | null;
+          city: string;
+          courts: Array<{
+            availability: {
+              fri: Array<{ endMinute: number; startMinute: number }>;
+              mon: Array<{ endMinute: number; startMinute: number }>;
+              sat: Array<{ endMinute: number; startMinute: number }>;
+              sun: Array<{ endMinute: number; startMinute: number }>;
+              thu: Array<{ endMinute: number; startMinute: number }>;
+              tue: Array<{ endMinute: number; startMinute: number }>;
+              wed: Array<{ endMinute: number; startMinute: number }>;
+            };
+            id: string;
+            name: string;
+          }>;
+          coverStorageId: string | null;
+          coverUrl?: string | null;
+          createdAt: number;
+          description?: string | null;
+          id: string;
+          locationNotes?: string | null;
+          matchConfig: {
+            bestOfSets: number;
+            defaultDurationMinutes: number;
+            gamesPerSet: number;
+            hasTieBreak: boolean;
+            scoringMode: "advantage" | "no_advantage";
+            setMustWinByTwoGames: boolean;
+            tieBreakMustWinByTwo: boolean;
+            tieBreakPoints: number;
+          };
+          name: string;
+          registrationDeadlineAt: number;
+          startDate: number;
+          state: string;
+          status:
+            | "draft"
+            | "published"
+            | "drawn"
+            | "ongoing"
+            | "finished"
+            | "cancelled";
+          updatedAt: number;
+          visibility: "public" | "private";
+        }
       >;
     };
     management: {
@@ -2445,6 +2507,12 @@ export const internal: {
         "internal",
         {},
         any
+      >;
+      reservedCentsForOrganization: FunctionReference<
+        "query",
+        "internal",
+        { organizationId: string },
+        number
       >;
       reserveWithdrawal: FunctionReference<
         "mutation",

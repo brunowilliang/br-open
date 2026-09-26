@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import type { Id } from "../../../functions/_generated/dataModel";
 import {
+  buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
@@ -285,6 +286,15 @@ describe("pendings: acao de cada kind", () => {
           },
         ],
       }),
+      ...buildOrganizerConclusionPendings({
+        tournaments: [
+          {
+            canConclude: true,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
     ];
 
     return collected;
@@ -293,6 +303,7 @@ describe("pendings: acao de cada kind", () => {
   it("todo kind do contrato sai com a acao declarada", () => {
     const items = oneItemPerKind();
     const expected: Record<string, null | PendingActionType> = {
+      organization_tournament_awaiting_conclusion: "conclude_tournament",
       organization_tournament_entries_awaiting_approval: "open_route",
       organization_tournament_entries_awaiting_payment: "open_route",
       player_tournament_entries_awaiting_payment: "pay_tournament_entry",
@@ -339,10 +350,11 @@ describe("pendings: acao de cada kind", () => {
   });
 
   it("acao de MUTACAO traz o ALVO na acao; route/params sao contexto, nunca o alvo", () => {
-    const payloads: Record<string, string[]> = {
-      accept_partner_invite: ["entryId"],
-      decline_partner_invite: ["entryId"],
-      pay_tournament_entry: ["entryId"],
+    const targetKeyByAction: Record<string, string> = {
+      accept_partner_invite: "entryId",
+      conclude_tournament: "tournamentId",
+      decline_partner_invite: "entryId",
+      pay_tournament_entry: "entryId",
     };
 
     for (const item of oneItemPerKind()) {
@@ -352,17 +364,20 @@ describe("pendings: acao de cada kind", () => {
         continue;
       }
 
-      // Alvo = action.params.entryId (nunca o source, nunca o route).
-      expect(Object.keys(item.action?.params ?? {})).toEqual(
-        payloads[type] ?? []
-      );
+      // Toda mutacao do contrato precisa declarar a chave do alvo aqui.
+      const targetKey = targetKeyByAction[type];
+      expect(targetKey).toBeDefined();
+
+      // Alvo = a chave da PROPRIA acao (nunca o source, nunca o route).
+      expect(Object.keys(item.action?.params ?? {})).toEqual([targetKey]);
       if (item.kind === "player_tournament_entries_awaiting_payment") {
         // Agregado de UMA inscricao: o source e o TORNEIO e o alvo e a
         // inscricao a pagar — e por isso o alvo nao pode vir do source.
         expect(item.source.type).toBe("tournament");
+        expect(item.action?.params?.[targetKey]).not.toBe(item.source.id);
       } else {
-        // Item por inscricao: o alvo e a propria entidade do item.
-        expect(item.action?.params?.entryId).toBe(item.source.id);
+        // Item por entidade: o alvo e a propria entidade do item.
+        expect(item.action?.params?.[targetKey]).toBe(item.source.id);
       }
 
       // O que o invariante PROIBE e a mutacao depender de route/params: o

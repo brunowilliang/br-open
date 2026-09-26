@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { TournamentStatus } from "../contract";
 import {
   findRemovedScheduledCourt,
+  isTournamentClosed,
   validateTournamentEditStatus,
 } from "../management-rules";
 import type { TournamentScheduledMatch } from "../scheduling-rules";
@@ -23,6 +24,24 @@ describe("validateTournamentEditStatus", () => {
     expect(validateTournamentEditStatus("finished")).toBe(
       "Torneios encerrados não podem ser editados."
     );
+  });
+});
+
+describe("isTournamentClosed", () => {
+  it("congela finished E cancelled (a chave fica só de leitura)", () => {
+    expect(isTournamentClosed("finished")).toBe(true);
+    expect(isTournamentClosed("cancelled")).toBe(true);
+  });
+
+  it("não congela as fases de ajuste (draft, published, drawn, ongoing)", () => {
+    for (const status of [
+      "draft",
+      "ongoing",
+      "published",
+      "drawn",
+    ] as TournamentStatus[]) {
+      expect(isTournamentClosed(status)).toBe(false);
+    }
   });
 });
 

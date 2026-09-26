@@ -18,6 +18,7 @@ import {
   type WithdrawStatus,
 } from "../../domains/payment/contract";
 import { maskPixKey } from "../../domains/payment/pix-key";
+import { REFUND_OUTSTANDING_STATUSES } from "../../domains/payment/rules";
 import { subaccountBalance, withdrawals } from "../../domains/payment/tables";
 import {
   authAction,
@@ -28,17 +29,21 @@ import {
 } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../generated/server";
 import { requireActiveManager } from "../viewer/context";
 import {
   FREE_WITHDRAW_FROM_CENTS,
   MIN_WITHDRAW_CENTS,
+  RESERVED_REFUND_SCAN_LIMIT,
   WITHDRAW_FEE_STATUS_COLLECTED,
   WITHDRAW_FEE_STATUS_PENDING,
   WITHDRAW_FEE_TIERS,
   WITHDRAW_STATUS_COMPLETED,
   canCompleteWithdrawal,
   canFailWithdrawal,
+  computeAvailableCents,
   computeLiquidAmountCents,
+  computeReservedCents,
   computeWithdrawFee,
   feeStatusAfterFailure,
   generateWithdrawIdempotencyKey,
@@ -49,6 +54,31 @@ import {
 
 function formatBRL(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+/** RESERVADO da organização: soma das cobranças com estorno EM ABERTO, pelo
+ * índice `organizationId_refundStatus` e a regra pura que a receita também usa. */
+async function listReservedCents(
+  ctx: QueryCtx,
+  organizationId: Id<"organization">
+): Promise<number> {
+  const charges = await ctx.orm.query.paymentCharge.findMany({
+    limit: RESERVED_REFUND_SCAN_LIMIT,
+    where: {
+      organizationId,
+      refundStatus: { in: [...REFUND_OUTSTANDING_STATUSES] },
+    },
+  });
+
+  if (charges.length >= RESERVED_REFUND_SCAN_LIMIT) {
+    // Saturacao nao pode ser SILENCIOSA: acima do teto a reserva subestima, o
+    // disponivel sai SUPERestimado (o sweep de estorno e quem drena a fila).
+    console.warn(
+      `[withdraw] reserva de estorno no teto (${RESERVED_REFUND_SCAN_LIMIT}) para a org ${organizationId}: o disponivel pode estar superestimado.`
+    );
+  }
+
+  return computeReservedCents(charges);
 }
 
 /**
@@ -89,8 +119,20 @@ export const getBalance = authQuery
       freeFromCents: FREE_WITHDRAW_FROM_CENTS,
       minWithdrawCents: MIN_WITHDRAW_CENTS,
       pixKey: maskPixKey(account.pixKey),
+      reservedCents: await listReservedCents(ctx, organizationId),
     };
   });
+
+/**
+ * Reserva da organização para a ação de saque, que já está no caminho interno
+ * (o action não enxerga authQuery): o MESMO cálculo do `getBalance`.
+ */
+export const reservedCentsForOrganization = privateQuery
+  .input(z.object({ organizationId: z.string().min(1) }))
+  .output(z.number().int().nonnegative())
+  .query(async ({ ctx, input }) =>
+    listReservedCents(ctx, input.organizationId as Id<"organization">)
+  );
 
 /**
  * Withdraws part of the subaccount to its own PIX key: real provider balance,
@@ -134,11 +176,24 @@ export const requestWithdraw = authAction
           "Saque bloqueado para esta conta: a chave PIX está inválida ou restrita.",
       });
     }
-    if (input.amountCents > balance.balanceCents) {
+    // Sacar o que ainda pode ter que voltar é o que deixa o estorno retentando.
+    const reservedCents = await ctx.runQuery(
+      internal.payment.withdraw.reservedCentsForOrganization,
+      { organizationId }
+    );
+    const availableCents = computeAvailableCents({
+      balanceCents: balance.balanceCents,
+      reservedCents,
+    });
+    if (input.amountCents > availableCents) {
       throw new CRPCError({
         code: "BAD_REQUEST",
         message:
-          "O valor não pode ser maior que o saldo disponível na subconta.",
+          reservedCents > 0
+            ? `O valor não pode ser maior que o disponível para saque. ${formatBRL(
+                reservedCents
+              )} está reservado para estornos em andamento.`
+            : "O valor não pode ser maior que o saldo disponível na subconta.",
       });
     }
 

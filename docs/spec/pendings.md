@@ -12,6 +12,10 @@
 > `20260921_191850_add_pending_dismissal` aplicada); o gesto na tela está no
 > `ui/pending-alerts.tsx` (prop opt-in `dismissSurface`, `:68-79`) e nas duas
 > homes (a casa do torneio lê sem `surface`).
+>
+> **26-09-2026:** entra o sétimo kind, `organization_tournament_awaiting_conclusion`
+> (a conclusão do torneio é ato do organizador) — o primeiro kind de ESTADO, sem
+> dispensa — e o app passa a ter paridade de CONSUMO com o catálogo do servidor.
 
 ## Visão geral
 
@@ -25,8 +29,9 @@ apresentação no app** (PLN-0008).
 
 A Etapa 1 cobre o contrato (uma query por escopo) e é a fonte da verdade do
 shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
-(`AlertsVariantsSection`, 9 cartões, IBX-0076 r1–r6): os kinds abaixo são
-1:1 com os cartões aprovados 4 a 7, 11 e 12, e a copy é literal deles.
+(`AlertsVariantsSection`, 9 cartões, IBX-0076 r1–r6): os kinds com cartão na
+galeria são 1:1 com os Alertas 4 a 7, 11, 12 e 19, e a copy é literal deles (o 19
+usa o BUILDER real do servidor, não texto digitado).
 
 ## Contrato — `pendings.list`
 
@@ -45,13 +50,13 @@ shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
 | Campo | Regra |
 |---|---|
 | `id` | Determinístico: `<kind>:<sourceId>` (`buildPendingItemId`). É a identidade/key do item na lista. |
-| `kind` | Enum FECHADO que cresce por ADIÇÃO (6 kinds na v1). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
+| `kind` | Enum FECHADO que cresce por ADIÇÃO (7 kinds na v1, todos com cartão na galeria: 4 a 7, 11, 12 e 19). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
 | `domain` | Domínio dono da REGRA: `payment`, `tournament` — `player` existe no enum (shape aprovado) e não tem kind na v1. |
 | `severity` | `danger` \| `warning` \| `info`. O componente do app não tem `info`: o cliente mapeia `info` para `accent` do alerta, como na galeria (cartões 5, 6, 7 e 11). |
 | `title` | Sempre presente (regra aprovada: todo alerta tem título E descrição). Frase única, com a contagem no plural quando agrega. |
 | `description` | `string` (quando a copy real do app já é uma frase) OU **LINHAS de PARTES**: `{ parts: { text, isHighlighted? }[] }[]`. Quem decide o destaque e a quebra por linha é o SERVIDOR. Agregado usa UMA LINHA POR TIPO — nunca separador no meio da frase. |
 | `actionLabel` | CTA principal, **UMA palavra**, ou `null` (pendência sem ação). É a COPY do botão. |
-| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
+| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`, `approve_tournament_entry`, `reject_tournament_entry`, `conclude_tournament`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
 | `secondaryActionLabel` | Rótulo da ação de menor hierarquia (rodapé do alerta, antes da principal), também de uma palavra. Só o convite recebido tem duas ações (`Recusar` + `Aceitar`). |
 | `secondaryAction` | Ação executável do CTA secundário (mesmo shape de `action`); `null` quando não há segundo botão. |
 | `route` + `params` | Deep-link no molde dos CTAs vivos dos alertas (`router.navigate({ pathname, params })`): o pathname do expo-router (`/tournaments/[tournamentId]`, `/tournaments/[tournamentId]/entries`) + os params (`{ tournamentId }`, `{ initialTab: "pending", tournamentId }`). Eles são o **destino** quando `action.type = "open_route"` (aí são obrigatórios) e podem ser **contexto da entidade** nos demais casos (o recorte da casa lê o `params`, ex.: `tournamentId`); o **alvo** de uma mutação nunca mora aqui — mora em `action.params` ou no `source`. |
@@ -76,6 +81,9 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 | `pay_tournament_entry` | `createCharge({ sourceType: "tournament_entry", sourceId: action.params.entryId })` e abrir o checkout | 4 com **uma** inscrição (`action.params.entryId`) |
 | `accept_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: true })` | 5 (`Aceitar`) |
 | `decline_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: false })` | 5 (`Recusar`, no `secondaryAction`) |
+| `approve_tournament_entry` | `entries.approve({ entryId: action.params.entryId })` (`convex/functions/tournament/entries.ts:622`; no cliente, `crpcClient.tournament.entries.approve` — `src/lib/pendings/use-pending-action-runner.ts:52`) — decisão da inscrição pelo organizador | NENHUM kind de pendência emite hoje: quem desenha é o cartão de NOTIFICAÇÃO de decisão de inscrição (agrupa "Aprovar" + "Recusar", `convex/domains/notification/presentation.ts:67`), e o app resolve os dois pelo MESMO `resolvePendingAction` (`src/lib/notifications/notification-view.ts:160`) |
+| `reject_tournament_entry` | `entries.reject({ entryId: action.params.entryId })` (`entries.ts:671`; no cliente `:77`) — recusa, e as vagas da categoria voltam | idem (o `secondaryAction` "Recusar" do mesmo cartão) |
+| `conclude_tournament` | `tournament.lifecycle.conclude({ tournamentId: action.params.tournamentId })` — no cliente `crpcClient.tournament.lifecycle.conclude` (`:104`); a conclusão é do DONO e o cliente não navega: o CTA É a mutação | 19 |
 
 Invariantes (cobertas por teste):
 
@@ -175,6 +183,16 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
   então não há dado a backfillar; o registro existe para o journal do DEV/PROD
   acompanhar a mudança de schema (aplicada no DEV em 21-09).
 
+- **Kind de ESTADO não tem dispensa** (`PENDING_NON_DISMISSIBLE_KINDS`,
+  `convex/domains/pendings/contract.ts:86`): o GESTO não existe para ele — a
+  `pendings.dismiss` recusa com `BAD_REQUEST` ("Essa pendência não pode ser
+  dispensada.", `convex/functions/pendings/dismiss.ts:44`) e a leitura nunca
+  esconde (`isPendingItemDismissible` entra na classificação dos recibos,
+  `pendings-rules.ts:139` e `:191`), então um recibo gravado antes da regra morre
+  em vez de sumir com o item. O critério é o mesmo do resto: o item sai quando o
+  PROBLEMA acaba, não quando o ator o esconde. Hoje a lista tem um único kind,
+  `organization_tournament_awaiting_conclusion` (abaixo).
+
 ### Autorização (invariante)
 
 - O ator ativo é resolvido **no servidor** (nunca vem por input), pela porta
@@ -201,6 +219,7 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 | 7 | `player_tournament_entry_awaiting_approval` | player | tournament | info | Inscrição aguardando aprovação | — | `/tournaments/[tournamentId]` + `tournamentId` (contexto) |
 | 11 | `organization_tournament_entries_awaiting_approval` | organization | tournament | info | N inscrição(ões) aguardando aprovação | Ver | `/tournaments/[tournamentId]/entries` + `initialTab: "pending"`, `tournamentId` |
 | 12 | `organization_tournament_entries_awaiting_payment` | organization | tournament | warning | N inscrição(ões) aguardando pagamento | Ver | idem 11 |
+| 19 | `organization_tournament_awaiting_conclusion` | organization | tournament | warning | Concluir torneio | Concluir | — (o CTA não navega: ele conclui) |
 
 **Como cada item agrega (e por quê):**
 
@@ -211,6 +230,51 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 - **5 · 6 · 7 — por INSCRIÇÃO.** A copy nomeia pessoa/categoria/competição, que
   são dados da inscrição — agregar perderia o dado. Exigem o NOME disponível
   (sem ele não há como escrever o destaque e o item não é emitido).
+- **19 — por TORNEIO concluível** (um item por torneio): o item é do TORNEIO, não
+  de uma categoria, e não agrega contagem — a frase diz que ele já tem campeão em
+  todas as categorias.
+
+### Kind 19 · `organization_tournament_awaiting_conclusion` (ESTADO, sem dispensa)
+
+O sétimo kind é um kind de **ESTADO** (existe enquanto o problema existe), não um
+lembrete, e tem cartão na galeria de alertas: "Alerta 19 · REAL · Torneio
+(organizador): concluir torneio" (`src/app/(private)/settings/components/[component].tsx:558`),
+alimentado pelo BUILDER REAL do servidor e não por copy digitada — o cartão monta o
+item chamando `buildOrganizerConclusionPendings` (`:363`, item em `:372`). A nota
+do próprio cartão registra a única diferença dele: é o kind sem gesto de esconder
+(o servidor recusaria).
+
+- **Quando nasce:** quando `canConcludeTournament` é verdadeiro
+  (`convex/domains/tournament/conclusion-rules.ts:39`) — torneio **EM ANDAMENTO**
+  (`status: "ongoing"`) e toda categoria JÁ SORTEADA com campeão. Campeão é o
+  vencedor da FINAL, ou seja a partida de maior `round` no `slotInRound` 0
+  (`resolveCategoryChampion`, `:20`); categoria sem chave (menos de 2 inscrições
+  ativas, logo fora do sorteio) NÃO bloqueia o encerramento. O item é um por
+  torneio, derivado por `collectOrgConclusionPendings`
+  (`convex/domains/pendings/registry.ts:394`, registrado em `:497`) sobre o
+  builder puro `buildOrganizerConclusionPendings`
+  (`convex/domains/tournament/pendings-rules.ts:321`).
+- **Forma:** escopo organização · domínio `tournament` · severidade `warning` ·
+  título "Concluir torneio" · `actionLabel` "Concluir" · `count`, `deadlineAt` e
+  `moneyCents` nulos · `source` = o torneio · `route` **nulo** (o CTA não navega,
+  ele conclui).
+- **CTA:** `action.type: "conclude_tournament"` com `action.params.tournamentId`;
+  quem executa é a procedure do DONO, `api.tournament.lifecycle.conclude`
+  (`convex/functions/tournament/lifecycle.ts:185`, input `{ tournamentId }`), que
+  reusa a MESMA regra para recusar (`resolveTournamentConclusionError`, `:55`):
+  "Só um torneio em andamento pode ser concluído." / "Todas as categorias precisam
+  ter campeão antes de concluir o torneio.". O torneio fica `finished` — e a
+  partir daí nenhuma escrita de partida passa.
+- **Não dispensa:** está em `PENDING_NON_DISMISSIBLE_KINDS` — o item sai quando o
+  organizador conclui, não quando ele o esconde (a regra está em "Dispensa por
+  superfície", acima).
+- **Paridade de consumo:** o app tem um teste que monta os itens de TODOS os
+  kinds pelos builders do SERVIDOR e passa cada um por `resolvePendingAction`
+  (`src/lib/pendings/pendings-action-parity.test.ts`: o array de itens tem um por
+  kind do catálogo em `:99-112` e cada CTA desenhado precisa resolver em `:115`).
+  É CONTRATO de consumo: o catálogo pinado é o `PENDING_KINDS_BY_SCOPE` do
+  backend, então um kind novo quebra o teste até o app saber executá-lo — foi o
+  que este kind exigiu do lado do cliente.
 
 ## Como é derivado
 
@@ -239,16 +303,21 @@ linha fica de fora depende da ordem interna do índice.
 |---|---|---|
 | Inscrições de torneio por lado (jogador) | 100 | 4, 5, 6 e 7 |
 | Categorias/torneios/perfis do jogador (lote `in`) | tamanho da lista de ids | não corta |
-| Torneios da organização lidos / varridos por inscrição | 50 / 20 (mais recentes) | 11 e 12 |
-| Categorias por torneio / inscrições por categoria | 10 / 300 | 11 e 12 |
+| Torneios da organização lidos / varridos por inscrição e por conclusão | 50 / 20 (mais recentes) | 11, 12 e 19 |
+| Categorias por torneio / inscrições por categoria | 10 / 300 | 11, 12 e 19 |
+| Partidas por categoria (leitura da conclusão) | 300 | 19 |
 | Itens devolvidos (`PENDING_ITEM_CAP`) | 20 | `truncated` |
 | Recibos de dispensa por ator/superfície (`PENDING_DISMISSAL_SCAN_LIMIT`) | 200 | não emite `saturation`: é estado do próprio ator (e a casa nem lê). A poda do dismiss compara com a derivação COMPLETA e mantém a tabela só com recibo vivo, então na prática o corte não é alcançável (os vivos são no máximo os itens distintos que aquele ator vê) |
 
 **Leitura da tabela:** o cap da terceira coluna é onde a varredura para; quando
 ela ENCHE, o kind da quarta coluna aparece em `saturation` — ou seja, o número
 daquele item pode ser menor que o real. Um escopo com muitos torneios (acima de
-20 torneios ou 300 inscrições numa categoria) é justamente onde a leitura
-trunca: o dado segue honesto porque o aviso vem junto.
+20 torneios, 300 inscrições numa categoria ou 300 partidas numa categoria) é
+justamente onde a leitura trunca: o dado segue honesto porque o aviso vem junto.
+As varreduras da organização são compartilhadas: a leitura das inscrições (11 e
+12) e a da conclusão (19) usam o MESMO teto de 50 torneios e 20 varridos por
+leitura, mas cada uma marca saturação só nos seus kinds (`ORG_ENTRY_KINDS` e
+`ORG_CONCLUSION_KINDS`, `convex/domains/pendings/registry.ts:113` e `:116`).
 
 **Não há índice de `tournamentEntry` por jogador** (`playerAId`/`playerBId`
 isolados): a leitura é o scan limitado do mesmo padrão pré-existente
@@ -354,7 +423,8 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   do organizador levam as inscrições do cenário — uma aguardando pagamento (com
   o alvo no lado A), um convite enviado, um convite recebido e uma aguardando
   aprovação. O plano puro vive em `convex/domains/seed/pendency-plan.ts` (testes
-  em `domains/seed/tests/`).
+  em `domains/seed/tests/`). O kind 19 NÃO sai deste seed: ele exige um torneio
+  em andamento com campeão em todas as categorias, que o cenário não monta.
 - Os 2 kinds da ORGANIZAÇÃO vêm de uma organização PRÓPRIA do seed ("Arena
   Beira-Rio", alvo como owner), dona dos dois torneios do cenário. No escopo do
   jogador o cenário inteiro aparece na home dele.

@@ -753,6 +753,11 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       cancelStatus: ["cancelStatus", "_creationTime"];
       correlationId: ["correlationId", "_creationTime"];
+      organizationId_refundStatus: [
+        "organizationId",
+        "refundStatus",
+        "_creationTime",
+      ];
       playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
       sourceType_sourceId_status: [
         "sourceType",

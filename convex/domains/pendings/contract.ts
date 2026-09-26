@@ -18,6 +18,7 @@ export const PENDING_KINDS_BY_SCOPE = {
   organization: [
     "organization_tournament_entries_awaiting_approval",
     "organization_tournament_entries_awaiting_payment",
+    "organization_tournament_awaiting_conclusion",
   ],
   player: [
     "player_tournament_entries_awaiting_payment",
@@ -62,6 +63,7 @@ export const PENDING_ACTION_TYPE_OPTIONS = [
   "decline_partner_invite",
   "approve_tournament_entry",
   "reject_tournament_entry",
+  "conclude_tournament",
 ] as const;
 
 export type PendingDomain = (typeof PENDING_DOMAIN_OPTIONS)[number];
@@ -76,6 +78,14 @@ export const PENDING_KIND_SCOPES = Object.fromEntries(
     PENDING_KINDS_BY_SCOPE[scope].map((kind) => [kind, scope])
   )
 ) as Record<PendingKind, PendingScope>;
+
+/**
+ * Kinds SEM dispensa: o item e ESTADO (sai quando o problema acaba), nao
+ * lembrete. A home nunca esconde e `pendings.dismiss` recusa.
+ */
+export const PENDING_NON_DISMISSIBLE_KINDS = {
+  organization_tournament_awaiting_conclusion: true,
+} as const satisfies Partial<Record<PendingKind, true>>;
 
 export const pendingDescriptionPartSchema = z.object({
   isHighlighted: z.boolean().optional(),

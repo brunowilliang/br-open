@@ -6,7 +6,9 @@ import {
   WITHDRAW_FEE_TIERS,
   canCompleteWithdrawal,
   canFailWithdrawal,
+  computeAvailableCents,
   computeLiquidAmountCents,
+  computeReservedCents,
   computeWithdrawFee,
   feeStatusAfterFailure,
   generateWithdrawIdempotencyKey,
@@ -14,6 +16,7 @@ import {
   isFeeCollectionDue,
   isPendingInFlight,
   resolveWithdrawalReservation,
+  type RefundableCharge,
   type WithdrawalReservationRow,
 } from "../withdraw-rules";
 
@@ -213,6 +216,100 @@ describe("withdraw rules (DECISAO-003)", () => {
       expect(feeStatusAfterFailure("collected")).toBeNull();
       expect(feeStatusAfterFailure("not_owed")).toBeNull();
       expect(feeStatusAfterFailure(null)).toBeNull();
+    });
+  });
+
+  describe("reserva de estorno (BUG-0079)", () => {
+    const charge = (overrides: Partial<RefundableCharge>) => ({
+      amountCents: 10_000,
+      refundStatus: null,
+      splitConfig: { organizerCents: 9000 },
+      status: "PAID",
+      ...overrides,
+    });
+
+    describe("computeReservedCents", () => {
+      it("soma só o que está com estorno EM ABERTO", () => {
+        expect(
+          computeReservedCents([
+            charge({ refundStatus: "pending" }),
+            charge({ refundStatus: "failed" }),
+            charge({ refundStatus: null }),
+            charge({ refundStatus: "refunded" }),
+          ])
+        ).toBe(18_000);
+      });
+
+      // Legado: `status: REFUNDED` com o refundStatus preso em pending|failed e
+      // dinheiro que JA voltou — nao pode seguir descontando o organizador.
+      it("uma cobrança REFUNDED com refundStatus preso NÃO conta", () => {
+        expect(
+          computeReservedCents([
+            charge({ refundStatus: "pending", status: "REFUNDED" }),
+            charge({ refundStatus: "failed", status: "REFUNDED" }),
+          ])
+        ).toBe(0);
+        // O irmão PAID da mesma leva continua contando.
+        expect(
+          computeReservedCents([
+            charge({ refundStatus: "pending", status: "REFUNDED" }),
+            charge({ refundStatus: "pending", status: "PAID" }),
+          ])
+        ).toBe(9000);
+      });
+
+      it("sem estorno aberto a reserva é zero (lista vazia inclusive)", () => {
+        expect(computeReservedCents([])).toBe(0);
+        expect(
+          computeReservedCents([
+            charge({ refundStatus: null }),
+            charge({ refundStatus: "refunded" }),
+          ])
+        ).toBe(0);
+      });
+
+      it("usa a PARTE do organizador quando existe split (mesma conta da receita)", () => {
+        expect(
+          computeReservedCents([
+            charge({ amountCents: 10_000, refundStatus: "pending" }),
+          ])
+        ).toBe(9000);
+      });
+
+      it("sem split a linha antiga reserva o valor cheio", () => {
+        expect(
+          computeReservedCents([
+            charge({
+              amountCents: 7500,
+              refundStatus: "pending",
+              splitConfig: null,
+            }),
+          ])
+        ).toBe(7500);
+      });
+    });
+
+    describe("computeAvailableCents", () => {
+      it("desconta a reserva do saldo (o que sobra continua sacável)", () => {
+        expect(
+          computeAvailableCents({ balanceCents: 50_000, reservedCents: 12_000 })
+        ).toBe(38_000);
+      });
+
+      it("sem reserva o disponível é o saldo inteiro", () => {
+        expect(
+          computeAvailableCents({ balanceCents: 50_000, reservedCents: 0 })
+        ).toBe(50_000);
+      });
+
+      it("reserva que come tudo zera o disponível, nunca negativo", () => {
+        expect(
+          computeAvailableCents({ balanceCents: 30_000, reservedCents: 30_000 })
+        ).toBe(0);
+        expect(
+          computeAvailableCents({ balanceCents: 30_000, reservedCents: 95_000 })
+        ).toBe(0);
+      });
     });
   });
 });

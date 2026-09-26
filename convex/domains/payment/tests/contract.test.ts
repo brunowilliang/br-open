@@ -104,9 +104,11 @@ describe("payment contract", () => {
         freeFromCents: 300_000,
         minWithdrawCents: 2000,
         pixKey: "or********om",
+        reservedCents: 12_000,
       });
       expect(result.accountName).toBe("Bruno Garcia");
       expect(result.pixKey).toBe("or********om");
+      expect(result.reservedCents).toBe(12_000);
     });
 
     it("accepts a null account name for legacy keys", () => {
@@ -117,6 +119,7 @@ describe("payment contract", () => {
         freeFromCents: 300_000,
         minWithdrawCents: 2000,
         pixKey: "or********om",
+        reservedCents: 0,
       });
       expect(result.accountName).toBeNull();
     });

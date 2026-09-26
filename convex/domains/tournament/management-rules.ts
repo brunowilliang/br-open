@@ -25,6 +25,14 @@ export function validateTournamentEditStatus(
 }
 
 /**
+ * Status que CONGELAM o torneio: nenhuma escrita de partida passa (`editResult`
+ * inclusive) e a chave fica só de leitura — o mesmo par que o update recusa.
+ */
+export function isTournamentClosed(status: string): boolean {
+  return !EDITABLE_TOURNAMENT_STATUSES[status as TournamentStatus];
+}
+
+/**
  * Segurança de quadra nas edições da chave sorteada (espelha a sincronia de
  * categoria): quadra que SAIU da lista não pode quebrar reserva existente. Se
  * uma partida AGENDADA (data + hora + quadra presentes) ainda aponta para ela,

@@ -101,6 +101,9 @@ export const withdrawBalanceSchema = z.object({
   freeFromCents: z.number().int().positive(),
   minWithdrawCents: z.number().int().positive(),
   pixKey: z.string().min(1),
+  /** Dinheiro da organização preso em cobranças com estorno EM ABERTO
+   * (pending|failed): sai do DISPONÍVEL, nunca do saldo real. */
+  reservedCents: z.number().int().nonnegative(),
 });
 
 export type WithdrawBalance = z.infer<typeof withdrawBalanceSchema>;

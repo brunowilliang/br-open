@@ -4,11 +4,13 @@ import {
   dismissPendingItemSchema,
   type PendingsListResult,
   type PendingItem,
+  type PendingKind,
   type PendingSeverity,
 } from "../contract";
 import {
   buildPendingDismissalSnapshot,
   buildPendingsResult,
+  isPendingItemDismissible,
   PENDING_ITEM_CAP,
   type PendingsActorRef,
   type PendingDismissalReceipt,
@@ -24,6 +26,7 @@ function makeItem(input: {
   count?: null | number;
   deadlineAt?: null | number;
   id: string;
+  kind?: PendingKind;
   severity?: PendingSeverity;
 }): PendingItem {
   return {
@@ -34,7 +37,7 @@ function makeItem(input: {
     description: "Descrição de teste.",
     domain: "tournament",
     id: input.id,
-    kind: "player_tournament_entry_awaiting_approval",
+    kind: input.kind ?? "player_tournament_entry_awaiting_approval",
     moneyCents: null,
     params: null,
     route: null,
@@ -257,6 +260,52 @@ describe("pendings: identidade do recibo de dispensa", () => {
     ]) {
       expect(resolvePendingItemScope(itemId)).toBeNull();
     }
+  });
+});
+
+describe("pendings: kind de ESTADO nao aceita dispensa", () => {
+  const STATE_ITEM_ID =
+    "organization_tournament_awaiting_conclusion:tournament-1";
+
+  it("a regra reconhece o kind sem dispensa pelo id do item", () => {
+    expect(isPendingItemDismissible(STATE_ITEM_ID)).toBe(false);
+    expect(
+      isPendingItemDismissible(
+        "player_tournament_entry_awaiting_approval:entry-1"
+      )
+    ).toBe(true);
+  });
+
+  it("a home nao esconde o item, nem com recibo vivo no mesmo ator", () => {
+    const item = makeItem({
+      id: STATE_ITEM_ID,
+      kind: "organization_tournament_awaiting_conclusion",
+    });
+    const outcome = result({
+      actor: ORGANIZATION,
+      items: [item],
+      receipts: [makeReceipt({ actor: ORGANIZATION, item })],
+    });
+
+    expect(outcome.items.map((candidate) => candidate.id)).toEqual([
+      STATE_ITEM_ID,
+    ]);
+  });
+
+  it("o recibo do kind sem dispensa sai como morto (a poda nao o mantem vivo)", () => {
+    const item = makeItem({
+      id: STATE_ITEM_ID,
+      kind: "organization_tournament_awaiting_conclusion",
+    });
+
+    expect(
+      selectDeadPendingDismissals({
+        actor: ORGANIZATION,
+        items: [item],
+        receipts: [makeReceipt({ actor: ORGANIZATION, item })],
+        surface: "home",
+      }).map((receipt) => receipt.itemId)
+    ).toEqual([STATE_ITEM_ID]);
   });
 });
 

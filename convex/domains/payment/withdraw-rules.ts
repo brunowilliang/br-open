@@ -4,6 +4,9 @@
  * mirrors this logic in `src/lib/withdraw/calculations.ts` (keep both in sync).
  */
 
+import { organizerCentsOf } from "./dashboard-rules";
+import { isRefundOutstanding } from "./rules";
+
 export type WithdrawFeeTier = { upToCents: number; feeCents: number };
 
 /** Ordered by `upToCents` ascending; the fee is that of the first tier whose
@@ -31,6 +34,45 @@ export function computeLiquidAmountCents(
   feeCents: number
 ): number {
   return amountCents - feeCents;
+}
+
+/**
+ * Cobrança vista pela RESERVA de saque: o que entrou e o que ainda pode ter que
+ * voltar. `splitConfig` nulo (linha antiga) cai no valor cheio.
+ */
+export type RefundableCharge = {
+  amountCents: number;
+  refundStatus: null | string;
+  splitConfig: { organizerCents?: number } | null;
+  status: string;
+};
+
+/** Teto da varredura da reserva: com mais estorno aberto que isso, o sweep de
+ * 15 min é quem drena a fila. */
+export const RESERVED_REFUND_SCAN_LIMIT = 300;
+
+/**
+ * RESERVADO = dinheiro do organizador preso em cobranças com estorno EM ABERTO
+ * (o que ele ainda pode ter que devolver). Usa `organizerCentsOf`, a MESMA
+ * conta da receita do painel — reserva e receita nunca divergem.
+ */
+export function computeReservedCents(
+  charges: readonly RefundableCharge[]
+): number {
+  return charges.reduce(
+    (total, charge) =>
+      isRefundOutstanding(charge) ? total + organizerCentsOf(charge) : total,
+    0
+  );
+}
+
+/** DISPONÍVEL para saque = saldo real menos a reserva, nunca negativo: o que
+ * sobra continua sacável (o estorno não trava o saque inteiro). */
+export function computeAvailableCents(input: {
+  balanceCents: number;
+  reservedCents: number;
+}): number {
+  return Math.max(input.balanceCents - input.reservedCents, 0);
 }
 
 /** The withdraw endpoint accepts no correlationID, so idempotency is local: the

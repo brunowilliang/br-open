@@ -27,6 +27,19 @@
   `settings/tournaments/[mode]/courts.tsx` é wrapper que só monta header +
   menu Salvar.
 
+- **`src/components/ui/tournament-status-chip.tsx`** — `TournamentStatusChip`,
+  o chip GLOBAL do ESTADO do torneio (o MESMO componente no card da
+  competição e no banner do torneio). Rótulo e cor saem de
+  `getTournamentStatusChip` (`tournament-details-derived.ts`): `draft`
+  Rascunho (neutro), `published`/`drawn` decididos pela JANELA de inscrição
+  (Inscrições abertas em `success`, Inscrições encerradas em `warning` — a
+  mesma `isRegistrationOpen` do servidor), `ongoing` Em andamento (warning),
+  `finished` Encerrado (neutro) e `cancelled` Cancelado (danger). O prazo de
+  inscrição é relido a cada render (o relógio é o do aparelho, não o do
+  payload). O chip de status de PARTIDA é outro componente: o vocabulário
+  `MATCH_STATUS_CHIPS` (`src/lib/matches/match-display.ts`), desenhado pelo
+  `MatchCard`.
+
 - **`src/components/match-rules/`** e **`src/components/ui/rules-grid.tsx`**
   (R10) — seções de regras de partida parametrizadas por `prefix` e o grid
   2xN read-only, ambos globalizados.
@@ -159,30 +172,28 @@
   (N aguardando aprovação) + `WidgetAlert` warning (N aguardando pagamento)
   + grid 2x2 de `KpiCard` (Inscrições ativas, Pendências, Categorias,
   Partidas concluídas/total — "—" antes do sorteio; **linhas vacant do
-  IBX-0035 NÃO contam no total**); builders PUROS em
+  IBX-0035 NÃO contam no total**)
+  + uma linha `Text` muted com a JANELA do torneio ("Início {dd/mm} ·
+  Inscrições até {dd/mm}"), montada por `buildTournamentDatesSummary`
+  (só os campos preenchidos; DATA LOCAL, `formatShortDate` sem `timeZone` —
+  o epoch é a meia-noite local de quem criou o dado no DatePicker, então o
+  formatador local devolve o MESMO dia: em UTC só quebraria num fuso a
+  leste de Greenwich); builders PUROS em
   `src/lib/tournaments/organizer-overview-derived.ts` (+ teste co-localizado).
 - **`index.tsx`** (overview) — composição da página (QA round 6, RUL-0007):
   `TournamentBanner` (stretch h-90 com
-  gradiente, avatar `size-28 rounded-3xl border-2`, chip "Torneio", título,
+  gradiente, avatar `size-28 rounded-3xl border-2`, chip "Torneio" + o
+  `TournamentStatusChip` na MESMA fileira, título,
   chip de local `formatCompetitionMeta`), header `overlay` com back secondary e
   menu ⋮ (`MoreVerticalIcon`) — Editar primeiro, **Agenda**
   (gated `canOpenSchedule`, → `/schedule` pushed, QA round 9), **Regras**
-  (R10 — item `Regras` com `ClipboardIcon`, `index.tsx:437-442`, → `/rules`
+  (R10 — item `Regras` com `ClipboardIcon`, `index.tsx:380-390`, → `/rules`
   pushed, mesma mecânica)
   + ações de ciclo (Publicar/Cancelar com dialog de estorno; Cancelar
   torneio em `variant="danger"` no menu, ícone `text-danger`, e botão de
-  confirmação `danger-soft` — padrão destrutivo do app, IBX-0068 r3;
-  **Iniciar
-  torneio** em `drawn` com diálogo de confirmação "Iniciar torneio?", corpo
-  "A chave será publicada e não poderá mais ser alterada. O torneio começa."
-  + **avisos quando existirem** (`buildStartWarnings`, Description
-  `text-warning`: "N convite(s) de dupla sem resposta · fica(rão) de fora
-  da chave" e "M vaga(s) em aberto (A definir) · o início só é liberado com
-  a chave completa", critério espelhado do `validateBracketStartable` com
-  board POR categoria) e **fecha sozinho no sucesso** (`setIsStartDialogOpen`
-  no onSuccess, padrão do Cancelar — IBX-0067 Etapa 3)
-  (`bracket.start`, toasts + invalidate) — ação de CICLO, voltou pra home
-  no IBX-0068),
+  confirmação `danger-soft` — padrão destrutivo do app, IBX-0068 r3 —,
+  oferecido SÓ em `published`/`drawn`: a partir do início o app para de
+  oferecer, enquanto o servidor segue aceitando `ongoing` — ver Lifecycle),
   estados de loading/erro CENTRADOS (`cn grow + centered gap-4 px-4`) — o
   conteúdo (banner + overview do papel + rodapé de inscrição) só monta com o
   estado da tela em `ready`, e loading e erro são ramos EXCLUSIVOS, nunca os
@@ -245,9 +256,9 @@
   `invalidateTournamentContext`; menu some
   quando não há ação aplicável (hoje: fora de `drawn`); organizador-only
   (guest não vê nada
-  disso). **"Iniciar torneio" SAIU do menu em 19/09 (IBX-0068)**: iniciar é
-  ação de CICLO do torneio e mora no menu ⋮ da HOME (organizador, `drawn`,
-  mesmo diálogo de confirmação e mesma `bracket.start`); o chaveamento
+  disso). **"Iniciar torneio" SAIU do menu em 19/09 (IBX-0068)** e depois
+  SAIU TAMBÉM do menu ⋮ da HOME: iniciar deixou de ser ação de tela — o
+  torneio começa no dia definido, pelo cron (ver Lifecycle). O chaveamento
   segue PRÉVIA EDITÁVEL até iniciar (Re-sortear + move/swap no canvas
   intocados). **O item
   "Confirmados" (ex-"Cabeças de chave") SAIU em 16-09**: sem os controles de
@@ -510,16 +521,16 @@
   dos cards preservados: o tap falha no movimento do pan e o pan precisa de
   12pt — exclusão por limiar, sem veto de composição.
   Alturas variáveis medidas por `onLayout` do card. A estimativa do layout é POR
-  PARTIDA (`bracketMatchEstimatedHeight`, bracket-tree.ts:178): chrome fixo (89 —
+  PARTIDA (`bracketMatchEstimatedHeight`, bracket-tree.ts:254): chrome fixo (89 —
   padding, os 3 gaps, a linha do topo e a divisória) + as pontas da modalidade
   (88 na dupla, 60 no simples) + o pé (40) só quando dia E quadra estão
-  resolvidos (`bracketMatchHasScheduleFooter`, bracket-tree.ts:166, o mesmo
+  resolvidos (`bracketMatchHasScheduleFooter`, bracket-tree.ts:242, o mesmo
   critério que o card usa para desenhar o chip do pé). A soma é a do card
   DESENHADO: um filho com `flex-basis 0` numa coluna de altura automática
   contribui ZERO para a altura intrínseca, e era isso que devolvia um card medido
   28pt menor com a linha do topo zerada (os chips, com `overflow: hidden`,
   perdendo o rótulo). Duplas com agendamento = 217 / sem ele = 177; simples = 189
-  / 149. O commit da medida é `commitCardHeight` (bracket-tree.ts:201),
+  / 149. O commit da medida é `commitCardHeight` (bracket-tree.ts:277),
   puro/testado: uma medida igual à altura EFETIVA não entra no state (a montagem
   da 64-key commita ZERO vezes, lição IBX-0022), mas a comparação é com a altura
   efetiva e NUNCA com a constante; e medida ABAIXO da estimativa é card
@@ -603,7 +614,7 @@
   — **CASCA**: o nó desenha o MESMO card das telas (`ui/match-card.tsx`, seção do
   lote de 23-09 no fim do doc) e a casca só mede a altura (`onLayout`, o grafo
   usa a medida), trata a vaga bye e GATEIA as ações do organizador (`canAct` =
-  organizador com os DOIS lados preenchidos, bracket-match-card.tsx:85). O
+  organizador com os DOIS lados preenchidos, bracket-match-card.tsx:96). O
   desenho é o do card compartilhado: primeira linha = **fase da partida escrita
   no card**
   (`formatBracketStage(round, totalRounds)` por draw size: Final, Semifinal,
@@ -891,6 +902,10 @@
   `CompetitionCard` com chip visível `chipLabel` (default "Competição") e
   `CreateCompetitionCard` props-driven (label/description/onPress);
   consumidores: `(tabs)/search.tsx` e `(tabs)/competitions.tsx`.
+- **Chip de estado no card**: recebendo `status` E `registrationDeadlineAt`, o
+  card empilha o `TournamentStatusChip` sob o chip do topo (mesmo canto
+  absoluto, coluna) — os dois consumidores passam os dois campos (o card não
+  carrega status nem prazo por conta própria); sem eles o chip não nasce.
 - Altura estável por linha (IBX-0021): CompetitionCard e CreateCompetitionCard reservam título em 2 linhas (min-h-12) e descrição em 2 (min-h-8) — o LegendList posiciona cada célula da grid com position:absolute e não estica colunas como o FlatList, então a altura é intrínseca ao card, qualquer quebra de linha do título.
 - **`(tabs)/competitions.tsx`** — aba organizer-only, gate `href` no
   `(tabs)/_layout.tsx` como em `search`; renomeada p/ inglês no QA round 3
@@ -921,7 +936,12 @@
   removido no R10 — os casos de colunas migraram p/ bracket-tree.)
 - `src/lib/tournaments/bracket-tree.ts` (+ `bracket-tree.test.ts`, 5 testes
   — R10): agrupamento por categoria, layout com midpoint dos filhos,
-  clamp anti-overlap, conectores child→parent `{from, to}`.
+  clamp anti-overlap, conectores child→parent `{from, to}`; desde a abertura
+  por rodada, `bracketOpeningColumn` (a rodada ainda aberta: menos avançada
+  com partida `pending`/`scheduled`, bye e `vacant` fora) e
+  `bracketOpeningTransform` (coluna na margem esquerda, centrada na vertical
+  quando cabe, fit centrado quando a chave inteira já cabe no zoom de
+  abertura).
 - ~~`src/lib/tournaments/match-config-presets.ts` (+ teste, 10 testes —
   R10)~~ — REMOVIDO no R12: presets de formato extintos junto com o seletor
   da aba Regras (organizador personaliza campo a campo).
@@ -929,7 +949,9 @@
   `tournament-details-derived.test.ts`, 11 testes): papéis
   organizer>player>guest, access por status (chave pública só em
   ongoing/finished para não-organizador), tabs filtradas por access,
-  placeholder da chave com a data de início.
+  placeholder da chave com a data de início, `getEntryStatusChip` e
+  `getTournamentStatusChip` (o chip de ESTADO do torneio: `published`/`drawn`
+  decididos pela janela, o resto pelo vocabulário do status).
 
 ### Pendências conhecidas
 - ~~`tournamentPlayerCardSchema` incompleto~~ — ✔ resolvido e deployado
@@ -1120,6 +1142,12 @@
   vencedor trocado + próxima não publicada → `swap`; próxima já publicada →
   `conflict` (edição em cadeia exigida). Testes:
   `tests/score-rules.test.ts` (NOVO).
+- **conclusion-rules.ts** (puro, testado — `tests/conclusion-rules.test.ts`)
+  — `resolveCategoryChampion` (vencedor da final: maior rodada, slot 0),
+  `canConcludeTournament` (só `ongoing` e campeão em toda categoria sorteada;
+  categoria sem chave não bloqueia) e `resolveTournamentConclusionError`
+  (a recusa em pt-BR). É a fonte única das duas pontas do encerramento: a
+  pendência do organizador e a guarda da `lifecycle.conclude`.
 - **tests/** — `bracket-rules.test.ts` + `entry-rules.test.ts` (55 testes:
   potências, seeding, byes p/ seeds, propagação, swap bloqueado por placar,
   gênero misto, placares válidos/inválidos, **H1: 5/6/7/9/12 inscrições
@@ -1173,7 +1201,8 @@
   retirada), `start` (drawn→ongoing; **gate novo: recusa iniciar com vaga "A
   definir" sem alimentação** — fecha o buraco que o move abre ao preencher uma
   linha podada; `tournament.bracket.published` a todos; **IBX-0069: o corpo
-  vive em `performStart` (internal) compartilhado pelo início automático**),
+  vive em `performStart` (internal) compartilhado pelo início automático**;
+  hoje SEM cliente no app — o início é só o cron no dia),
   `autoStartTournaments` (IBX-0069, internal — corpo do cron horário
   `auto-start-tournaments` em `functions/crons.ts`: todo `drawn`/`published`
   com `startDate` chegada **inicia sozinho**; `drawn` vai direto ao MESMO
@@ -1186,18 +1215,24 @@
   (organizador).
 - **matches.ts** — `publishResult` (valida resultado via score-rules ou walkover;
   trava com `publishedAt`; **avança vencedor** na rodada seguinte; notifica os
-  lados; `maybeFinishTournament` → finished automático quando todas as finais
-  têm campeão + notifica; **fix IBX-0026: `walkover` gravava `false` por
+  lados; **fix IBX-0026: `walkover` gravava `false` por
   hardcode — agora `Boolean(input.walkover)`**), `editResult` (**IBX-0028,
   NOVO** — edita resultado JÁ publicado, mesmo payload do publish;
   organizador only; reverb via `resolveResultEditReverb`: mesmo vencedor →
   keep, vencedor trocado + próxima não publicada → swap do slot, próxima já
-  publicada → `CONFLICT`, torneio finished + swap → `BAD_REQUEST` protege o
-  campeão; auditoria em `tournamentMatchEdit` before/after + editor; notifica
-  `tournament.match.result_edited`; `maybeFinishTournament` re-roda),
+  publicada → `CONFLICT`; torneio CONGELADO (`finished` ou `cancelled`,
+  `isTournamentClosed`) recusa a edição INTEIRA com
+  `BAD_REQUEST` ("Torneio encerrado ou cancelado: os resultados não podem mais
+  ser editados."; a revisão de placar acontece antes de concluir); auditoria
+  em `tournamentMatchEdit` before/after + editor; notifica
+  `tournament.match.result_edited`),
   `scheduleMatch` (data/hora/quadra; reschedule distinto),
   `listForTournament`.
-- **lifecycle.ts** — `cancel` (entries canceladas + `tournament.cancelled` +
+- **lifecycle.ts** — `conclude` (o ato do organizador que encerra: guarda a
+  regra pura `resolveTournamentConclusionError` — `ongoing` + campeão em toda
+  categoria sorteada —, vira o status em `finished` e notifica
+  `tournament.finished` aos inscritos ativos; ver Conclusão do torneio),
+  `cancel` (entries canceladas + `tournament.cancelled` +
   charges pagas marcadas refund-pending + handoff à action + cobranças PENDING
   dessas entries mortas no provedor via `cancelPendingChargesForSource`,
   IBX-0137), `processRefunds`
@@ -1479,8 +1514,9 @@ Regras do encaixe (na ordem):
   "A definir", byes/wins propagados do cancelado morrem e a vaga fica
   VAZIA — **sem re-derivação de bye pro sobrevivente (decisão 8)**.
   `validateBracketStartable` continua recusando iniciar com buraco ("A
-  chave tem uma vaga em aberto"): o organizador resolve movendo ou
-  re-sorteando; o diálogo de Iniciar avisa as vagas vazias (UI, Etapa 3).
+  chave tem uma vaga em aberto"): buraco é o lado que nenhum feed pode
+  preencher, não a vaga esperando jogo — o organizador resolve movendo ou
+  re-sorteando, e o início recusado volta a ser tentado no tick seguinte.
 
 ### Estorno individual (decisão 1)
 
@@ -1523,8 +1559,8 @@ Regras do encaixe (na ordem):
 
 ### Aviso de convite sem resposta
 
-- No `performStart` (core compartilhado do início MANUAL e do CRON do
-  auto-start, IBX-0069): toda entry `pending_partner` notifica o criador com
+- No `performStart` (core do início automático, IBX-0069): toda entry
+  `pending_partner` notifica o criador com
   `tournament.partner.awaiting_reply` ("Sua dupla em {torneio} segue sem
   resposta do convite e o torneio está começando.").
 
@@ -1543,8 +1579,9 @@ organizador) + review do Code Reviewer; PROD só após review e ok do usuário.
 
 Torneios de tênis/beach tênis organizados pela organização:
 eliminatória direta (mata-mata) por categoria, presenciais e de duração
-estendida flexível — data de início definida, fim real quando saem os campeões
-(sem prazo por rodada, nada expira por cron). O torneio é um container:
+estendida flexível — data de início definida, fim real quando o organizador
+conclui com os campeões definidos (sem prazo por rodada, nada expira por cron).
+O torneio é um container:
 nome, capa, local, quadras e **categorias estruturadas por modalidade ×
 gênero** (Simples Masculino, Simples Feminino, Duplas Masculinas, Duplas
 Femininas, Duplas Mistas), cada categoria com chave e inscrições próprias.
@@ -1602,7 +1639,7 @@ Vocabulário de produto: **torneio** (nunca "evento").
 ### Lifecycle
 
 ```
-draft ──publicar──► published ──sortear──► drawn ──iniciar──► ongoing ──finais com vencedor──► finished
+draft ──publicar──► published ──sortear──► drawn ──iniciar (cron no dia)──► ongoing ──concluir (organizador)──► finished
 ```
 
 - `published`: entra na descoberta (busca, `listAvailable`);
@@ -1624,13 +1661,16 @@ draft ──publicar──► published ──sortear──► drawn ──inici
   posições no canvas) na
   janela entre o sorteio e o início (ex.: inscrições até 22, torneio
   dia 25 — ajustes de 22 a 25). Jogadores veem placeholder
-  "chave disponível a partir de {startDate}". **Início: manual OU
-  automático (IBX-0069, 19-09)** — o organizador toca **iniciar** (com
-  diálogo de confirmação no menu ⋮ da HOME do torneio, IBX-0068), ou o
-  torneio inicia SOZINHO quando `startDate` chega (cron horário
-  `auto-start-tournaments`; regra `shouldAutoStartTournament`:
-  `drawn`/`published` && dia de `startDate` <= hoje no calendário do
-  Brasil; MESMO caminho do start manual; idempotente por status).
+  "chave disponível a partir de {startDate}". **Início: SÓ no dia definido
+  (IBX-0069)** — o cron horário `auto-start-tournaments` inicia quando o DIA
+  de `startDate` chega (`shouldAutoStartTournament`: `drawn`/`published` &&
+  dia de `startDate` <= hoje no calendário do Brasil; idempotente por status).
+  A ação MANUAL de iniciar saiu: não existe item no menu nem diálogo de
+  confirmação em lugar nenhum do app (a procedure `bracket.start` segue
+  publicada, sem cliente). O início recusa BURACO na chave — lado vazio que
+  nenhum feed pode preencher (`validateBracketStartable`), não vaga esperando
+  jogo: recusado, o torneio fica onde está e o tick tenta de novo na hora
+  seguinte, sem aviso na tela.
   **Round 2 (19-09, decisão do usuário): `published` SEM sorteio no dia
   SORTEIA SOZINHO (aleatório vale, "azar do organizador", mesmo core do
   `draw` manual: byes, categorias com menos de 2 ativas ficam de fora) e
@@ -1651,12 +1691,64 @@ draft ──publicar──► published ──sortear──► drawn ──inici
   recebe inscrição com feed morto. UI: toque no jogador → toque no jogador a
   trocar → move exato (BUG-0010; antes o backend trocava sempre o lado A —
   por isso "trocava o outro"). Sem drag na v1.
-- `ongoing` (a partir de "iniciar"): chave pública; organizador lança
+- `ongoing` (a partir do início automático): chave pública; organizador lança
   placares e a chave avança na hora. **Ajuste de slots EXTINTO (IBX-0068)**:
   iniciar congela a chave (o servidor recusa com "O chaveamento foi
-  congelado no início do torneio.").
-- `finished`: automático quando toda final de categoria tem vencedor.
-- `cancelled`: manual.
+  congelado no início do torneio."). É daqui que o organizador CONCLUI (ver
+  Conclusão do torneio).
+- `finished`: ato do ORGANIZADOR, nunca automático (ver Conclusão do
+  torneio).
+- `cancelled`: manual. O APP oferece o cancelar só em `published`/`drawn`
+  (o item do menu ⋮ some a partir do início); o SERVIDOR aceita também
+  `ongoing` e recusa `draft`, `finished` e `cancelled`.
+
+### Conclusão do torneio (ato do organizador)
+
+- **O torneio NÃO fecha sozinho**: o último placar de uma final não muda o
+  status. Com toda categoria sorteada já com campeão o torneio continua
+  `ongoing` e nasce a PENDÊNCIA do organizador (kind
+  `organization_tournament_awaiting_conclusion`, id
+  `<kind>:<tournamentId>`, domínio `tournament`, fonte `tournament`,
+  severity `warning`, título "Concluir torneio", CTA "Concluir"). É item de
+  ESTADO, sem dispensa (`PENDING_NON_DISMISSIBLE_KINDS`,
+  `convex/domains/pendings/contract.ts`): a home não oferece o gesto (a
+  `PendingAlerts` consulta `isPendingItemDismissible` e nada de swipe nem
+  botão) e `pendings.dismiss` recusa com `BAD_REQUEST` ("Essa pendência não
+  pode ser dispensada."). O item sai da lista quando o
+  organizador conclui, nunca por esconder.
+- **Regra pura única** `canConcludeTournament`
+  (`convex/domains/tournament/conclusion-rules.ts`, + teste): exige
+  `ongoing` e campeão — `winnerEntryId` da final, a partida de MAIOR rodada
+  no slot 0 — em TODA categoria já sorteada; categoria sem chave (menos de 2
+  inscrições ativas, fora do sorteio) não bloqueia. `resolveTournamentConclusionError`
+  devolve a recusa ("Todas as categorias precisam ter campeão antes de
+  concluir o torneio." / "Só um torneio em andamento pode ser concluído.").
+- **`tournament.lifecycle.conclude`** (mutation do organizador, mesmo
+  `getManagedTournamentOrThrow` do resto do ciclo) responde a MESMA regra,
+  vira o status em `finished` e notifica `tournament.finished` aos inscritos
+  ativos das categorias — o aviso pertence ao ATO, é ele que encerra.
+- **Quem deriva o item**: `buildOrganizerConclusionPendings`
+  (`convex/domains/tournament/pendings-rules.ts`) monta o item a partir de
+  `{canConclude, tournamentId, tournamentName}` e o deriver
+  `collectOrgConclusionPendings` (`convex/domains/pendings/registry.ts`) varre
+  os torneios `ongoing` da organização ativa, lendo a chave de cada categoria
+  para aplicar a regra pura.
+- **Dois CTAs, um caminho**: o card da FINAL no chaveamento ganha
+  "Concluir torneio" no menu (primeira ação, Tick02) enquanto a pendência
+  está viva — só o organizador, só o torneio aberto, só a final
+  (`bracket-match-card.tsx`) — e a pendência da home roda a mesma mutation
+  (`usePendingActionRunner`, case `conclude_tournament`). A chave relê as
+  pendências ao fim de qualquer ação (`invalidate` de `pendings.list` no
+  `invalidateTournamentContext`).
+- **`finished` CONGELA o torneio — e `cancelled` também**: `editResult` recusa
+  qualquer edição pelo guard do congelamento, `isTournamentClosed`
+  (`convex/domains/tournament/management-rules.ts:31-32`: só draft, published,
+  drawn e ongoing são editáveis, logo `ongoing` segue editável), com a
+  mensagem "Torneio encerrado ou cancelado: os resultados não podem mais ser
+  editados." (`convex/functions/tournament/matches.ts:288-292`) — a revisão de
+  placar acontece ANTES de concluir. `publishResult` já exigia
+  `ongoing` e o nó do chaveamento nasce SEM menu (mesmo `isTournamentClosed`
+  na casca). A pendência sai da home na releitura.
 
 ### Pagamento
 
@@ -1701,13 +1793,13 @@ notificação é do JOGADOR; pendência do organizador vive no painel
 | `tournament.entry.created` | nova inscrição (approvalMode manual) | organizador |
 | `tournament.entry.confirmed` | inscrição ativa (grátis ou paga confirmada) | criador + parceiro |
 | `tournament.entry.rejected` | organizador recusa | criador |
-| `tournament.bracket.published` | organizador toca **iniciar** ou início automático no `startDate` (IBX-0069) | todos os inscritos ativos |
+| `tournament.bracket.published` | início automático no dia de `startDate` (IBX-0069) | todos os inscritos ativos |
 | `tournament.match.reassigned` | ajuste de slot em partida sem placar | os 2 novos lados |
 | `tournament.match.scheduled` | data/hora/quadra definidas | os 2 lados |
 | `tournament.match.rescheduled` | reagendamento | os 2 lados |
 | `tournament.match.result` | placar publicado | os 2 lados (vencedor vê avanço) |
 | `tournament.match.result_edited` (IBX-0028) | organizador corrige resultado publicado | os 2 lados |
-| `tournament.finished` | todas as finais com campeão | todos os inscritos ativos |
+| `tournament.finished` | organizador CONCLUI o torneio (`lifecycle.conclude`) | todos os inscritos ativos |
 | `tournament.cancelled` | cancelamento | todos os inscritos ativos |
 
 Cada notificação deep-linka à tela certa (chave da categoria, inscrições,
@@ -1726,8 +1818,12 @@ avanço é revelado no `bracket.published`.
   Query dono do servidor.
 - **Chaveamento (bracket)**: canvas navegável estilo mapa (pinça = zoom
   ancorado com cap na resolução nativa, pan nas 4 direções clampado, duplo
-  toque toggle fit ↔ máximo permitido); **a ABERTURA enquadra UMA coluna** (o
-  card no tamanho aprovado — `bracketOpeningZoom`, bracket-tree.ts:66) e a pinça
+  toque toggle fit ↔ máximo permitido — do zoom nativo o double-tap volta
+  para a chave INTEIRA); **a ABERTURA enquadra a rodada AINDA ABERTA** (a
+  menos avançada com partida sem resultado; nada lançado abre na primeira e
+  tudo decidido centra a final — `bracketOpeningColumn` /
+  `bracketOpeningTransform`, bracket-tree.ts) com o card no tamanho aprovado
+  (`bracketOpeningZoom`) e a pinça
   afasta até a chave INTEIRA, que é o piso do gesto (`bracketFitZoom`,
   bracket-tree.ts:38, passado como `minZoom`) — organizador e jogador); título
   Chaveamento com tabs de categoria no header
@@ -1735,7 +1831,8 @@ avanço é revelado no `bracket.published`.
   card carrega a própria fase (Final,
   Semifinal, Quartas de final, Oitavas de final) + jogadores/avatares (dupla
   = 2 avatares), placar, chip de status
-  (`MATCH_STATUS_CHIPS`). Organizador toca no confronto → dialog de
+  (`MATCH_STATUS_CHIPS` — Campeão em `success` e Encerrado em `accent`,
+  ver o card da partida). Organizador toca no confronto → dialog de
   placar (`src/components/ui/score-result-dialog.tsx`, GLOBAL — RUL-0005) ou
   agenda data/hora/quadra (`ScheduleProposalDialog`). Disputa de 3º lugar não
   existe (fora de escopo); final destaca campeão.
@@ -1771,7 +1868,8 @@ avanço é revelado no `bracket.published`.
   calendário do Brasil; mesmo caminho do start manual). Round 2 (19-09,
   decisão do usuário): `published` sem sorteio SORTEIA SOZINHO no dia
   (aleatório vale) e inicia; nada sorteável = fica `published` esperando
-  o organizador.**
+  o organizador.** — e **a ação manual saiu de vez**: o início é só o cron
+  no dia definido (ver Lifecycle).
 - **Duração estendida flexível** — sem deadline por rodada/cron; termina na
   final (22-08, usuário).
 - **Organizador lança o placar** — mesa é a autoridade, sem confirmação do
@@ -1820,7 +1918,9 @@ avanço é revelado no `bracket.published`.
 - **Editor único de resultado publicado (IBX-0028)** — o organizador corrige
   placar/vencedor/W.O. de partida já publicada via `editResult`; trocar quem
   avança só entra enquanto a partida seguinte não foi jogada (`CONFLICT`
-  caso contrário) e torneio finished bloqueia swap (protege o campeão).
+  caso contrário) e torneio CONGELADO (`finished` ou `cancelled`,
+  `isTournamentClosed`) recusa QUALQUER edição (protege o
+  campeão: a revisão acontece antes de concluir — ver Conclusão do torneio).
   Toda edição fica auditada em `tournamentMatchEdit` (before/after) e
   notifica os 2 lados (`tournament.match.result_edited`) (31-08, usuário).
 - **Avanço direto de fase por cabeça de chave (IBX-0035, opção B)** —
@@ -2023,10 +2123,10 @@ ORGANIZADOR não mudou nada.**
 
 O usuário viu KPI sem esqueleto enquanto carregava. A prop `isLoading` do
 `KpiCard` agora está ligada nos três KPIs do painel do organizador: "Receita do
-torneio" (`pages/tournaments/organizer-overview.tsx:66`, `isPending` da
+torneio" (`pages/tournaments/organizer-overview.tsx:70`, `isPending` da
 `getRevenueSeries` do próprio painel **ou** o `entriesLoading` — o valor cruza
-`bySource` com `entryIds`), "Inscrições" (`:71`, status de `entries`)
-e "Partidas" (`:80`, status de `entries` **ou** de `matches` — o valor lê os
+`bySource` com `entryIds`), "Inscrições" (`:75`, status de `entries`)
+e "Partidas" (`:84`, status de `entries` **ou** de `matches` — o valor lê os
 dois). Os status são flags novos do bucket (`identity.entriesLoading` /
 `identity.matchesLoading`), alimentados pelo `_layout` do cluster
 (`_layout.tsx:175-176`, entries, e `:180-183`, matches) e zerados no `reset()`. A
@@ -2043,7 +2143,7 @@ de uma superfície para outra é o dado que ela tem.
 
 ### `match-card.tsx` (`MatchCard`) — o card da partida
 
-- **Estrutura:** `Card p-3 gap-3` (match-card.tsx:261) com a linha do topo (chip
+- **Estrutura:** `Card p-3 gap-3` (match-card.tsx:266) com a linha do topo (chip
   da fase `stageLabel` à esquerda; chip de status e menu à direita), as DUAS
   pontas separadas por `Separator` e o chip do pé. Cada ponta é um
   `PressableFeedback`, desabilitado a menos que a tela habilite a troca daquele
@@ -2053,39 +2153,48 @@ de uma superfície para outra é o dado que ela tem.
   (`src/lib/matches/match-display.ts:11`) lido por `getMatchStatusChip` (`:25`);
   `null` = estado SEM chip (hoje só a linha `vacant`) e status fora do
   vocabulário cai no rótulo cru. Só o "A definir" (`pending`) leva `text-muted`
-  no rótulo (match-card.tsx:148-151).
+  no rótulo (match-card.tsx:150-153).
+  **Cores invertidas entre CAMPEÃO e ENCERRADO** — pedido do usuário, literal:
+  "campeão em success e o encerrado aí sim na cor accent, só vamos inverter"
+  —, então o chip da FINAL decidida (`champion`) é `success` e o do `finished`
+  é `accent` (as duas com o mesmo rótulo de antes, Campeão e Encerrado); o
+  resto do vocabulário segue `pending` `default`, `scheduled` `accent`,
+  `walkover` `warning` e `vacant` sem chip.
 - **Placar:** os números por set saem de `buildBracketScoreTokens`
   (`src/lib/matches/score-display.ts`) e cada um carrega a cor do SEU
   set (vencedor accent/bold, perdedor muted); os NOMES carregam a cor do PAR
   pela maioria dos sets (vencedor accent/semibold, perdedor muted/normal) e não
-  são pintados quando o placar empata ou não existe (match-card.tsx:168-203).
+  são pintados quando o placar empata ou não existe (match-card.tsx:173-208).
 - **W.O. jogado (IBX-0109):** a prop `walkoverWinner?: "a" | "b" | null`
-  (match-card.tsx:123-126) é o sinal do VENCEDOR — nada de heurística sobre o
+  (match-card.tsx:128-131) é o sinal do VENCEDOR — nada de heurística sobre o
   `0x0` do set placeholder. Deriva do wire em `walkoverWinnerSide`
-  (`lib/tournaments/tournament-details-derived.ts:161-179`): só partida
+  (`lib/tournaments/tournament-details-derived.ts:194-212`): só partida
   `finished` com `walkover` conta (o bye do sorteio é `status === "walkover"` e
   nem chega ao card) e o lado é o `winnerEntryId` contra `entryAId`/`entryBId`;
   W.O. sem vencedor resolvido devolve `null` e não pinta ninguém. Com a prop, o
   lado do vencedor sai accent + semibold e o perdedor muted + normal
-  (match-card.tsx:186-203) e o chip troca `finished` por `walkover`
-  (match-card.tsx:142-147) — "W.O." no lugar de "Encerrado"; um status
+  (match-card.tsx:197-208) e o chip troca `finished` por `walkover`
+  (match-card.tsx:145-148) — "W.O." no lugar de "Encerrado"; um status
   deliberado do caller passa (a FINAL decidida segue "Campeão", com o teste
   cobrindo o W.O. na final).
-- **Placar fora em TODO W.O.** (`isWalkover`, match-card.tsx:166-167): o vencedor
+- **Placar fora em TODO W.O.** (`isWalkover`, match-card.tsx:171-172): o vencedor
   explícito OU o status `walkover` zeram os tokens de set
-  (match-card.tsx:168-175), então
+  (match-card.tsx:173-180), então
   nenhum número desenha, nem o `0x0` do placeholder; sem a prop, nenhum lado é
   pintado e só o chip "W.O." fica. O bloco do resultado não sustenta a altura da
   linha (o avatar de 44pt e a linha de nome já são mais altos), então a medida do
   nó do chaveamento não muda com ou sem placar.
 - **Chip do pé:** só com `matchDate` E `courtName` resolvidos
-  (match-card.tsx:132-139), no formato `data   |   HH:MM   |   quadra` (:490) —
+  (match-card.tsx:132-141), no formato `data   |   HH:MM   |   quadra` (:501) —
   o mesmo teste que a estimativa de altura do nó usa.
 - **Menu do organizador:** o card só DESENHA o kebab quando recebe alguma ação
-  (`hasMenuActions`, match-card.tsx:160): "Agendar"/"Reagendar" (o rótulo segue
-  o `matchDate`), "Resultado" e, na partida ENCERRADA, "Editar resultado" no
-  lugar do par. Sem handler nenhum — as agendas e o "Próximo jogo" — o menu não
-  existe (BUG-0070).
+  (`hasMenuActions`, match-card.tsx:165): **"Concluir torneio"** (Tick02, a
+  PRIMEIRA ação) quando a tela manda `onConcludePress` — só a FINAL, com a
+  pendência de conclusão viva e o torneio aberto —, "Agendar"/"Reagendar" (o
+  rótulo segue o `matchDate`), "Resultado" e, na partida ENCERRADA, "Editar
+  resultado" no lugar do par. Sem handler nenhum — as agendas e o "Próximo
+  jogo" — o menu não existe (BUG-0070); a casca do nó também não manda nenhum
+  com o torneio encerrado ou cancelado.
 
 ### `entry-card.tsx` (`EntryCard`) — o card da inscrição
 
@@ -2101,70 +2210,87 @@ de uma superfície para outra é o dado que ela tem.
 - `MatchCard`: a agenda do torneio
   (`tournaments/[tournamentId]/schedule.tsx:174`), o "Próximo jogo" da casa
   do jogador (`pages/tournaments/player-overview.tsx:114`) e o NÓ do
-  chaveamento (via `BracketMatchCard`, bracket-match-card.tsx:95). Quem manda
+  chaveamento (via `BracketMatchCard`, bracket.tsx:488). Quem manda
   o `walkoverWinner` do W.O. é a agenda do torneio, pelo item
   (`schedule.tsx:190`, derivado em `lib/tournaments/schedule-items.ts:82`), e
   o nó, pela casca (:87).
 - O "Próximo jogo" da casa do jogador não tem W.O. a pintar: a lista filtra
   `status === "scheduled"`.
-- `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:495`, o
+- `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:470`, o
   `<EntryCard>` do map) nos seus segmentos; as AÇÕES de cada segmento saem do
   componente local `EntryRowActions` (`entries.tsx:49`) e a nota do convite de
   `resolveInviteNote` (`entries.tsx:187`).
 - A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
   entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
   "Partida" e "Inscrições"): `galleryMatchCardCases`
-  (`settings/components/[component].tsx:699`, 13 casos, render :945) e
-  `galleryEntryCardCases` (`:982`, 5 casos, render :1067); os casos do nó saem
-  na largura da chave (`nodeWidth` → `w-80`, `:948`).
+  (`settings/components/[component].tsx:718`, 13 casos, render :964) e
+  `galleryEntryCardCases` (`:1001`, 5 casos, render :1086); os casos do nó saem
+  na largura da chave (`nodeWidth` → `w-80`, `:967`). O chip de estado tem
+  entrada própria (`component-registry.ts:71`, "Estado do torneio"):
+  `galleryTournamentStatusCases` (`:1519`) cobre os seis estados com data VIVA
+  relativa (prazo de 10 dias e de 3 dias, aberto e encerrado) e o card da
+  competição aparece no bloco do topo.
 - Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
-  bracket.tsx:300); as agendas e o "Próximo jogo" não recebem `modality` (o
+  bracket.tsx:339); as agendas e o "Próximo jogo" não recebem `modality` (o
   `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
 
 ### O nó do chaveamento é o MESMO card
 
-- `BracketMatchCard` (bracket-match-card.tsx:37) é CASCA: embrulha o `MatchCard`
+- `BracketMatchCard` (bracket-match-card.tsx:45) é CASCA: embrulha o `MatchCard`
   num `View` com `onLayout` (a medida alimenta o grafo), resolve a vaga bye,
-  gateia as ações do organizador (`canAct`, :85) e deriva o `walkoverWinner` do
-  próprio `match` (:87) — o W.O. jogado não precisa de dado novo da tela.
+  gateia as ações do organizador (`canAct`, :96 — organizador, torneio NÃO
+  encerrado e os dois lados preenchidos) e deriva o `walkoverWinner` do
+  próprio `match` (:101) — o W.O. jogado não precisa de dado novo da tela. É
+  ela que decide o item "Concluir torneio" da final, com o torneio aberto e a
+  pendência viva.
 - A vaga BYE (bye do sorteio, `isByeMatch`) sai antes do card: container vazio
   na altura fixa `BRACKET_BYE_CARD_HEIGHT` — sem fase, sem chip, sem lado
-  fantasma e sem identidade (:60-72).
-- A FINAL decidida fala "Campeão" pelo chip `champion` (:79-80): quem sabe que é
+  fantasma e sem identidade (:71-83).
+- A FINAL decidida fala "Campeão" pelo chip `champion` (:91): quem sabe que é
   a final é a tela (`isFinal`), o wire só diz `finished`.
 
 ### Lado A DEFINIR
 
-- **Modalidade é PROP** (`modality?: "doubles" | "singles"`, match-card.tsx:104):
+- **Modalidade é PROP** (`modality?: "doubles" | "singles"`, match-card.tsx:105):
   sem ela o card mantém a inferência pelo parceiro; com `doubles` TODA ponta
   desenha o par de avatares e com `singles` um só. Quem informa é o chaveamento
-  (a modalidade desce no `renderCard`, bracket.tsx:435 e :448) e a galeria.
+  (a modalidade desce no `renderCard`, bracket.tsx:480 e :495) e a galeria.
 - **Indefinido é SINAL DO CALLER** (`challengedDefined`/`challengerDefined`,
-  match-card.tsx:84 e :89), um por lado e nunca uma heurística sobre o texto: os
+  match-card.tsx:85 e :90), um por lado e nunca uma heurística sobre o texto: os
   dois lados podem estar em estados diferentes. Ausente = lado definido; o
   chaveamento manda `match.entryA !== null`/`entryB !== null`.
 - **Forma do lado:** a dupla empilha DOIS avatares em `relative h-11 w-11`
-  (44pt, match-card.tsx:329) com `size-7.5`; o lado indefinido é UMA linha — a
+  (44pt, match-card.tsx:340) com `size-7.5`; o lado indefinido é UMA linha — a
   dupla é uma unidade —, com rótulo muted e peso normal (`buildSideLines`,
-  match-card.tsx:45) e avatares em `fallback="black"`
+  match-card.tsx:46) e avatares em `fallback="black"`
   (`UNDEFINED_AVATAR_FALLBACK`, :34). Lado com um jogador definido e parceiro em
   aberto desenha os dois avatares (verde + black) e a segunda linha "A definir"
   muted.
 - **O texto da vaga é a sentinela** `UNDEFINED_PLAYER_NAME = "A definir"`
   (`src/lib/matches/match-display.ts:4`), a mesma que `formatEntryPlayerNames`
-  (`tournament-details-derived.ts:184`) devolve para lado vazio — o card não repete o texto em duas linhas.
+  (`tournament-details-derived.ts:217`) devolve para lado vazio — o card não repete o texto em duas linhas.
 
 ### Geometria e abertura
 
 - A altura do nó é estimada POR PARTIDA (`bracketMatchEstimatedHeight`,
-  bracket-tree.ts:178) e o commit da medida nunca rebaixa o nó
-  (`commitCardHeight`, :201) — detalhe no bloco "Alturas variáveis medidas por
+  bracket-tree.ts:254) e o commit da medida nunca rebaixa o nó
+  (`commitCardHeight`, :277) — detalhe no bloco "Alturas variáveis medidas por
   `onLayout`" acima.
-- A abertura do canvas enquadra UMA coluna (`bracketOpeningZoom`,
-  bracket-tree.ts:66) e o piso do gesto é a chave inteira (`bracketFitZoom`,
-  :38); o estado inicial e cada re-enquadramento saem do mesmo
-  `bracketFitTransform` (:108). A largura do card e o vão do cotovelo são
-  constantes da rota (`CARD_WIDTH = 320` e `CONNECTOR_WIDTH = 32`,
+- A abertura do canvas enquadra a RODADA AINDA ABERTA — a menos avançada com
+  partida `pending`/`scheduled`; bye (`walkover`) e vaga podada (`vacant`) não
+  seguram rodada, então nada lançado abre na PRIMEIRA e tudo decidido centra a
+  ÚLTIMA (a final) — `bracketOpeningColumn` (bracket-tree.ts:135), lida da
+  árvore ATIVA (a categoria remonta o canvas por key). Com o
+  `bracketOpeningZoom` do card aprovado, a coluna encosta na margem esquerda e
+  centra na vertical quando cabe na tela (mais alta que o viewport ancora no
+  topo); com a chave inteira já no zoom de abertura não há o que deslocar e o
+  estado cai no fit centrado (`bracketOpeningTransform`, :171). O piso do gesto
+  continua a chave inteira (`bracketFitZoom`, :38) e o estado inicial e cada
+  re-enquadramento saem do MESMO `bracketOpeningTransform` — a caixa da coluna
+  entra nas deps por VALOR (`top`/`bottom`/`x`), nunca pela identidade do
+  layout, que é recriado a cada medida de card e re-enquadraria à toa (o pan do
+  usuário sendo resetado enquanto a chave se mede). A largura do card e o vão do
+  cotovelo são constantes da rota (`CARD_WIDTH = 320` e `CONNECTOR_WIDTH = 32`,
   bracket.tsx:52-53) — o card na tela nasce ~1:1.
 
 ### Fora desta fatia (delta acumulado do domínio)

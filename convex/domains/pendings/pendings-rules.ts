@@ -1,6 +1,7 @@
 import {
   PENDING_DOMAIN_OPTIONS,
   PENDING_KIND_SCOPES,
+  PENDING_NON_DISMISSIBLE_KINDS,
   PENDING_SEVERITY_OPTIONS,
   type PendingsCounts,
   type PendingsListResult,
@@ -134,6 +135,13 @@ export function buildPendingDismissalSnapshot(item: PendingItem) {
   };
 }
 
+/** `false` = kind de ESTADO (sai quando o problema acaba): a dispensa nao existe. */
+export function isPendingItemDismissible(itemId: string) {
+  const kind = itemId.slice(0, itemId.indexOf(":"));
+
+  return !Object.hasOwn(PENDING_NON_DISMISSIBLE_KINDS, kind);
+}
+
 /**
  * `null` quando o id nao carrega kind registrado: nao ha pendencia a dispensar.
  */
@@ -180,6 +188,7 @@ function classifyPendingDismissals(input: {
     const item = itemById.get(receipt.itemId);
     const isAlive =
       item !== undefined &&
+      isPendingItemDismissible(item.id) &&
       receipt.severity === item.severity &&
       (receipt.count ?? 1) === (item.count ?? 1) &&
       receipt.deadlineAt === item.deadlineAt;

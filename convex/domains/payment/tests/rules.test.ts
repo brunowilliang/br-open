@@ -12,6 +12,7 @@ import {
   canChargeBePaid,
   canChargeBeRefunded,
   canRequestRefund,
+  CHARGE_REFUNDED_FIELDS,
   computeSplit,
   computeWooviFeeCents,
   hasUsablePix,
@@ -161,13 +162,40 @@ describe("payment rules", () => {
 
   describe("isRefundOutstanding", () => {
     it("is true for a request in flight and for a refused one", () => {
-      expect(isRefundOutstanding({ refundStatus: "pending" })).toBe(true);
-      expect(isRefundOutstanding({ refundStatus: "failed" })).toBe(true);
+      expect(
+        isRefundOutstanding({ refundStatus: "pending", status: "PAID" })
+      ).toBe(true);
+      expect(
+        isRefundOutstanding({ refundStatus: "failed", status: "PAID" })
+      ).toBe(true);
     });
 
     it("is false when no refund was ever asked or it is already done", () => {
-      expect(isRefundOutstanding({ refundStatus: null })).toBe(false);
-      expect(isRefundOutstanding({ refundStatus: "refunded" })).toBe(false);
+      expect(isRefundOutstanding({ refundStatus: null, status: "PAID" })).toBe(
+        false
+      );
+      expect(
+        isRefundOutstanding({ refundStatus: "refunded", status: "PAID" })
+      ).toBe(false);
+    });
+
+    // Legado: o webhook de estorno gravava so `status` e o refundStatus ficava
+    // preso em pending|failed — dinheiro devolvido nunca esta em aberto.
+    it("is false for a REFUNDED charge with a stuck refundStatus", () => {
+      expect(
+        isRefundOutstanding({ refundStatus: "pending", status: "REFUNDED" })
+      ).toBe(false);
+      expect(
+        isRefundOutstanding({ refundStatus: "failed", status: "REFUNDED" })
+      ).toBe(false);
+    });
+
+    it("o par do webhook fecha status e refundStatus juntos", () => {
+      expect(CHARGE_REFUNDED_FIELDS).toEqual({
+        refundStatus: "refunded",
+        status: "REFUNDED",
+      });
+      expect(isRefundOutstanding(CHARGE_REFUNDED_FIELDS)).toBe(false);
     });
   });
 

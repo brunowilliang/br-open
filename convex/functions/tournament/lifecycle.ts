@@ -5,7 +5,14 @@ import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import type { QueryCtx } from "../generated/server";
-import { TournamentByIdSchema } from "../../domains/tournament/contract";
+import {
+  TournamentByIdSchema,
+  tournamentSchema,
+} from "../../domains/tournament/contract";
+import {
+  resolveTournamentConclusionError,
+  type TournamentConclusionCategory,
+} from "../../domains/tournament/conclusion-rules";
 import { tournament, tournamentEntry } from "../../domains/tournament/tables";
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
 import {
@@ -23,6 +30,7 @@ import { getEnv } from "../../lib/get-env";
 import {
   getManagedTournamentOrThrow,
   scheduleTournamentNotification,
+  serializeTournament,
   type OrmCtx,
 } from "./_shared/guards";
 
@@ -167,6 +175,78 @@ export const cancel = authMutation
     }
 
     return { success: true };
+  });
+
+/**
+ * `conclude` — o ATO do organizador que encerra o torneio: exige o torneio em
+ * andamento com a final de TODA categoria sorteada ja decidida e vira o status em
+ * `finished`. Como nenhum placar encerra sozinho, este e o unico caminho.
+ */
+export const conclude = authMutation
+  .input(TournamentByIdSchema)
+  .output(tournamentSchema)
+  .mutation(async ({ ctx, input }) => {
+    const record = await getManagedTournamentOrThrow(
+      ctx,
+      input.tournamentId as Id<"tournament">
+    );
+    const categories = await ctx.orm.query.tournamentCategory.findMany({
+      limit: 10,
+      where: { tournamentId: record.id as Id<"tournament"> },
+    });
+
+    const brackets: TournamentConclusionCategory[] = [];
+    for (const category of categories) {
+      const matches = await ctx.orm.query.tournamentMatch.findMany({
+        limit: 300,
+        where: { categoryId: category.id as Id<"tournamentCategory"> },
+      });
+      brackets.push({ matches });
+    }
+
+    const conclusionError = resolveTournamentConclusionError({
+      categories: brackets,
+      status: record.status,
+    });
+    if (conclusionError) {
+      throw new CRPCError({ code: "BAD_REQUEST", message: conclusionError });
+    }
+
+    const now = new Date();
+    const [updated] = await ctx.orm
+      .update(tournament)
+      .set({ status: "finished", updatedAt: now })
+      .where(eq(tournament.id, record.id as Id<"tournament">))
+      .returning();
+
+    // O aviso aos jogadores pertence ao ATO de encerrar: o ultimo placar nao fecha o torneio.
+    const recipients = new Set<Id<"user">>();
+    for (const category of categories) {
+      const entries = await ctx.orm.query.tournamentEntry.findMany({
+        limit: 300,
+        where: {
+          categoryId: category.id as Id<"tournamentCategory">,
+          status: "active",
+        },
+      });
+      for (const entry of entries) {
+        if (entry.createdByUserId) {
+          recipients.add(entry.createdByUserId as Id<"user">);
+        }
+        if (entry.partnerUserId) {
+          recipients.add(entry.partnerUserId as Id<"user">);
+        }
+      }
+    }
+    if (recipients.size > 0) {
+      await scheduleTournamentNotification(ctx, {
+        eventType: "tournament.finished",
+        recipientUserIds: [...recipients],
+        tournamentId: record.id as Id<"tournament">,
+      });
+    }
+
+    return serializeTournament(ctx, updated);
   });
 
 /**

@@ -97,6 +97,7 @@ export const api = {
     },
     lifecycle: {
       cancel: createApiLeaf<"mutation", typeof import("../functions/tournament/lifecycle").cancel>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/lifecycle").cancel>("tournament/lifecycle:cancel"), { auth: "required", type: "mutation" }),
+      conclude: createApiLeaf<"mutation", typeof import("../functions/tournament/lifecycle").conclude>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/lifecycle").conclude>("tournament/lifecycle:conclude"), { auth: "required", type: "mutation" }),
     },
     management: {
       create: createApiLeaf<"mutation", typeof import("../functions/tournament/management").create>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/tournament/management").create>("tournament/management:create"), { auth: "required", type: "mutation" }),

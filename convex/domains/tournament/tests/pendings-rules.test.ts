@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
+  type TournamentOrganizerConclusionPendingView,
   type TournamentOrganizerPendingView,
 } from "../pendings-rules";
 
@@ -360,6 +362,51 @@ describe("pendencia do organizador: inscricoes por torneio (cartoes 11 e 12)", (
   });
 });
 
+describe("pendencia do organizador: concluir torneio", () => {
+  const conclusionView = (
+    overrides: Partial<TournamentOrganizerConclusionPendingView> = {}
+  ): TournamentOrganizerConclusionPendingView => ({
+    canConclude: true,
+    tournamentId: "tournament-1",
+    tournamentName: "Copa Dracena 8",
+    ...overrides,
+  });
+
+  it("torneio com todas as categorias decididas gera o item que SO o organizador encerra", () => {
+    const [item] = buildOrganizerConclusionPendings({
+      tournaments: [conclusionView()],
+    });
+
+    expect(item?.kind).toBe("organization_tournament_awaiting_conclusion");
+    expect(item?.id).toBe(
+      "organization_tournament_awaiting_conclusion:tournament-1"
+    );
+    expect(item?.severity).toBe("warning");
+    expect(item?.title).toBe("Concluir torneio");
+    expect(item?.actionLabel).toBe("Concluir");
+    expect(item?.action).toEqual({
+      params: { tournamentId: "tournament-1" },
+      type: "conclude_tournament",
+    });
+    expect(item?.description).toBe(
+      "Copa Dracena 8 já tem campeão em todas as categorias. Conclua para definir o resultado final."
+    );
+    expect(item?.source).toEqual({ id: "tournament-1", type: "tournament" });
+    // Item de ESTADO: o alvo e o proprio torneio, sem destino de navegacao.
+    expect(item?.route).toBeNull();
+    expect(item?.params).toBeNull();
+  });
+
+  it("final ainda em aberto nao gera item", () => {
+    expect(buildOrganizerConclusionPendings({ tournaments: [] })).toEqual([]);
+    expect(
+      buildOrganizerConclusionPendings({
+        tournaments: [conclusionView({ canConclude: false })],
+      })
+    ).toEqual([]);
+  });
+});
+
 describe("pendencias de torneio: CTA de uma palavra", () => {
   it("todo rótulo de acao sai com uma palavra so", () => {
     const items = [
@@ -376,6 +423,15 @@ describe("pendencias de torneio: CTA de uma palavra", () => {
             awaitingPaymentCount: 1,
             awaitingPaymentFeeCents: 4000,
             registrationDeadlineAtMs: DEADLINE_MS,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
+      ...buildOrganizerConclusionPendings({
+        tournaments: [
+          {
+            canConclude: true,
             tournamentId: "tournament-1",
             tournamentName: "Copa Dracena 8",
           },

@@ -71,11 +71,27 @@ export function canRequestRefund(charge: {
   );
 }
 
-/** Estorno EM ABERTO (pedido em voo ou recusado): e o que o sweep reprocessa. */
+/** Status de `refundStatus` com estorno EM ABERTO (pedido em voo ou recusado):
+ * e o que o sweep reprocessa e o que a reserva de saque precisa enxergar. */
+export const REFUND_OUTSTANDING_STATUSES = ["pending", "failed"] as const;
+
+export const CHARGE_REFUNDED_FIELDS = {
+  refundStatus: "refunded",
+  status: CHARGE_STATUS_REFUNDED,
+} as const;
+
+/** Estorno EM ABERTO (pedido em voo ou recusado): o que o sweep reprocessa e a
+ * reserva enxerga. Dinheiro ja devolvido (status REFUNDED) NUNCA esta em aberto. */
 export function isRefundOutstanding(charge: {
   refundStatus: null | string;
+  status: string;
 }): boolean {
-  return charge.refundStatus === "pending" || charge.refundStatus === "failed";
+  return (
+    charge.status !== CHARGE_STATUS_REFUNDED &&
+    (REFUND_OUTSTANDING_STATUSES as readonly string[]).includes(
+      charge.refundStatus ?? ""
+    )
+  );
 }
 
 /** Status cru do estorno no provedor -> `refundStatus`: so um CONFIRMED fecha o

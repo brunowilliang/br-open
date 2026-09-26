@@ -76,6 +76,10 @@ export const paymentCharge = convexTable(
       paymentCharge.status
     ),
     index("correlationId").on(paymentCharge.correlationId),
+    index("organizationId_refundStatus").on(
+      paymentCharge.organizationId,
+      paymentCharge.refundStatus
+    ),
   ]
 );
 

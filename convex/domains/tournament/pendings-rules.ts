@@ -304,3 +304,47 @@ export function buildOrganizerEntryPendings(input: {
 
   return items;
 }
+
+/** Torneio que a organizacao precisa ENCERRAR: toda categoria ja tem campeao. */
+export type TournamentOrganizerConclusionPendingView = {
+  /** Vem da regra pura `canConcludeTournament` (o item e estado, nao lembrete). */
+  canConclude: boolean;
+  tournamentId: string;
+  tournamentName: string;
+};
+
+/**
+ * Pendencia do ORGANIZADOR de encerrar o torneio: a competicao acabou e o
+ * `finished` e ato dele, entao o item existe enquanto ele nao concluir. O alvo da
+ * acao e o torneio; o item nao navega (o CTA e a propria conclusao).
+ */
+export function buildOrganizerConclusionPendings(input: {
+  tournaments: readonly TournamentOrganizerConclusionPendingView[];
+}): PendingItem[] {
+  return input.tournaments
+    .filter((tournament) => tournament.canConclude)
+    .map((tournament) => ({
+      action: {
+        params: { tournamentId: tournament.tournamentId },
+        type: "conclude_tournament" as const,
+      },
+      actionLabel: "Concluir",
+      count: null,
+      deadlineAt: null,
+      description: `${tournament.tournamentName} já tem campeão em todas as categorias. Conclua para definir o resultado final.`,
+      domain: "tournament" as const,
+      id: buildPendingItemId(
+        "organization_tournament_awaiting_conclusion",
+        tournament.tournamentId
+      ),
+      kind: "organization_tournament_awaiting_conclusion" as const,
+      moneyCents: null,
+      params: null,
+      route: null,
+      secondaryAction: null,
+      secondaryActionLabel: null,
+      severity: "warning" as const,
+      source: { id: tournament.tournamentId, type: "tournament" as const },
+      title: "Concluir torneio",
+    }));
+}
