@@ -8,6 +8,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { authClient } from "@/lib/convex/auth-client";
+import { getViewerMode } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getGreetingLabel } from "@/lib/format/user";
 import { Settings02Icon } from "@hugeicons/core-free-icons";
@@ -36,7 +37,7 @@ export default function Home() {
 
   const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
   const activeActor = viewerContext.data?.activeActor ?? null;
-  const isOrganizationActor = activeActor?.kind === "organization";
+  const isOrganizationActor = getViewerMode(activeActor) === "organization";
 
   const playerProfile = useQuery({
     ...crpc.player.profile.get.staticQueryOptions(),

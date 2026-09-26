@@ -1,4 +1,5 @@
 import { Page } from "@/components/core/page";
+import { HugeIcons } from "@/components/ui/huge-icons";
 import {
   CompetitionCard,
   CreateCompetitionCard,
@@ -7,26 +8,18 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
+import { getViewerMode } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
+import { getCompetitionListSurface } from "@/lib/tournaments/competitions-surface";
 import type { Tournament } from "@convex/domains/tournament/contract";
+import { Search01Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router, type Href } from "expo-router";
-import { Tabs } from "heroui-native";
-import { useMemo, useState } from "react";
+import { Button } from "heroui-native";
+import { useMemo } from "react";
 import { View } from "react-native";
 
-const CREATE_LEAGUE_CARD_ID = "__create_new_league__";
 const CREATE_TOURNAMENT_CARD_ID = "__create_new_tournament__";
-
-type LeagueListItem = {
-  chipLabel: "Liga";
-  city: null | string;
-  coverUrl: null | string;
-  id: null | string;
-  kind: "league";
-  name: null | string;
-  state: null | string;
-};
 
 type TournamentListItem = {
   chipLabel: "Torneio";
@@ -39,30 +32,8 @@ type TournamentListItem = {
 };
 
 type CompetitionListItem =
-  | { id: typeof CREATE_LEAGUE_CARD_ID; kind: "create-league" }
   | { id: typeof CREATE_TOURNAMENT_CARD_ID; kind: "create-tournament" }
-  | LeagueListItem
   | TournamentListItem;
-
-function toLeagueItems(
-  leagues: ReadonlyArray<{
-    city: null | string;
-    coverUrl?: null | string;
-    id: string;
-    name: null | string;
-    state: null | string;
-  }>
-): LeagueListItem[] {
-  return leagues.map((league) => ({
-    chipLabel: "Liga",
-    city: league.city,
-    coverUrl: league.coverUrl ?? null,
-    id: league.id,
-    kind: "league",
-    name: league.name,
-    state: league.state,
-  }));
-}
 
 function toTournamentItems(
   tournaments: readonly Tournament[]
@@ -78,19 +49,6 @@ function toTournamentItems(
   }));
 }
 
-function openLeague(leagueId: string) {
-  router.navigate({
-    params: { leagueId },
-    pathname: "/leagues/[leagueId]",
-  });
-}
-function editLeague(leagueId: string) {
-  router.navigate({
-    params: { leagueId, mode: "edit" },
-    pathname: "/settings/leagues/[mode]",
-  });
-}
-
 function editTournament(tournamentId: string) {
   router.navigate({
     params: { mode: "edit", tournamentId },
@@ -101,55 +59,28 @@ function editTournament(tournamentId: string) {
 export default function CompetitionsTab() {
   const crpc = useCRPC();
   const viewerContext = useQuery(crpc.viewer.context.get.staticQueryOptions());
-  const canManageLeagues =
-    viewerContext.data?.capabilities?.canManageLeagues ?? false;
+  // O modo é o MESMO da tab bar (ator ativo), nunca capability: dono/admin é
+  // permissão, `kind` é superfície.
+  const surface = getCompetitionListSurface(
+    getViewerMode(viewerContext.data?.activeActor)
+  );
+  const isOrganizerMode = surface.list === "mine";
 
-  const myLeagues = useQuery({
-    ...crpc.league.management.listMine.staticQueryOptions(),
-    enabled: canManageLeagues,
-  });
   const myTournaments = useQuery({
     ...crpc.tournament.management.listMine.staticQueryOptions(),
-    enabled: canManageLeagues,
-  });
-  const participatingLeagues = useQuery({
-    ...crpc.league.discovery.listParticipating.staticQueryOptions(),
-    enabled: !canManageLeagues,
+    enabled: isOrganizerMode,
   });
   const participatingTournaments = useQuery({
     ...crpc.tournament.discovery.listParticipating.staticQueryOptions(),
-    enabled: !canManageLeagues,
+    enabled: !isOrganizerMode,
   });
 
-  const [activeTab, setActiveTab] = useState<"leagues" | "tournaments">(
-    "leagues"
-  );
-
-  const myLeagueItems = useMemo(
-    () => toLeagueItems(myLeagues.data ?? []),
-    [myLeagues.data]
-  );
   const myTournamentItems = useMemo(
     () => toTournamentItems(myTournaments.data ?? []),
     [myTournaments.data]
   );
 
   function renderCompetitionItem(item: CompetitionListItem) {
-    if (item.kind === "create-league") {
-      return (
-        <CreateCompetitionCard
-          description="Toque para criar uma nova liga"
-          label="Nova liga"
-          onPress={() => {
-            router.navigate({
-              params: { mode: "new" },
-              pathname: "/settings/leagues/[mode]",
-            });
-          }}
-        />
-      );
-    }
-
     if (item.kind === "create-tournament") {
       return (
         <CreateCompetitionCard
@@ -164,7 +95,7 @@ export default function CompetitionsTab() {
         />
       );
     }
-    const isLeague = item.kind === "league";
+
     const competitionId = item.id;
 
     return (
@@ -173,24 +104,14 @@ export default function CompetitionsTab() {
         city={item.city}
         name={item.name}
         onEditPress={
-          competitionId === null
+          !surface.showsEditAction || competitionId === null
             ? undefined
             : () => {
-                if (isLeague) {
-                  editLeague(competitionId);
-                  return;
-                }
-
                 editTournament(competitionId);
               }
         }
         onPress={() => {
           if (competitionId === null) {
-            return;
-          }
-
-          if (isLeague) {
-            openLeague(competitionId);
             return;
           }
 
@@ -202,45 +123,25 @@ export default function CompetitionsTab() {
   }
 
   const isViewerStatus = viewerContext.isPending || viewerContext.isError;
-  const isListLoading = canManageLeagues
-    ? myLeagues.isPending || myTournaments.isPending
-    : participatingLeagues.isPending || participatingTournaments.isPending;
-  const isListError = canManageLeagues
-    ? myLeagues.isError || myTournaments.isError
-    : participatingLeagues.isError || participatingTournaments.isError;
-  const listError = canManageLeagues
-    ? myLeagues.isError
-      ? myLeagues.error
-      : myTournaments.error
-    : participatingLeagues.isError
-      ? participatingLeagues.error
-      : participatingTournaments.error;
-  const showStatusState = isViewerStatus || isListLoading || isListError;
+  const tournamentsQuery = isOrganizerMode
+    ? myTournaments
+    : participatingTournaments;
+  const showStatusState =
+    isViewerStatus || tournamentsQuery.isPending || tournamentsQuery.isError;
 
   const listItems = useMemo<CompetitionListItem[]>(() => {
-    if (canManageLeagues) {
-      return activeTab === "leagues"
-        ? [
-            ...myLeagueItems,
-            { id: CREATE_LEAGUE_CARD_ID, kind: "create-league" },
-          ]
-        : [
-            ...myTournamentItems,
-            { id: CREATE_TOURNAMENT_CARD_ID, kind: "create-tournament" },
-          ];
+    if (surface.showsCreateCard) {
+      return [
+        ...myTournamentItems,
+        { id: CREATE_TOURNAMENT_CARD_ID, kind: "create-tournament" },
+      ];
     }
 
-    return [
-      ...toLeagueItems(participatingLeagues.data ?? []),
-      ...toTournamentItems(participatingTournaments.data ?? []),
-    ];
+    return toTournamentItems(participatingTournaments.data ?? []);
   }, [
-    activeTab,
-    canManageLeagues,
-    myLeagueItems,
     myTournamentItems,
-    participatingLeagues.data,
     participatingTournaments.data,
+    surface.showsCreateCard,
   ]);
 
   return (
@@ -252,28 +153,22 @@ export default function CompetitionsTab() {
             <Page.Header.Center>
               <Page.Header.Title>Minhas Competições</Page.Header.Title>
             </Page.Header.Center>
-            <Page.Header.Right />
+            <Page.Header.Right>
+              {isOrganizerMode ? null : (
+                <Button
+                  accessibilityLabel="Buscar competições"
+                  isIconOnly
+                  onPress={() => {
+                    router.navigate("/search");
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <HugeIcons icon={Search01Icon} />
+                </Button>
+              )}
+            </Page.Header.Right>
           </View>
-          {canManageLeagues ? (
-            <Tabs
-              onValueChange={(value) => {
-                setActiveTab(value as typeof activeTab);
-              }}
-              value={activeTab}
-            >
-              <Tabs.List>
-                <Tabs.ScrollView>
-                  <Tabs.Indicator />
-                  <Tabs.Trigger value="leagues">
-                    <Tabs.Label>Ligas</Tabs.Label>
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="tournaments">
-                    <Tabs.Label>Torneios</Tabs.Label>
-                  </Tabs.Trigger>
-                </Tabs.ScrollView>
-              </Tabs.List>
-            </Tabs>
-          ) : null}
         </View>
       </Page.Header>
       {showStatusState ? (
@@ -289,11 +184,11 @@ export default function CompetitionsTab() {
                 message="Não foi possível carregar seu modo de acesso."
               />
             )}
-            {!isViewerStatus && isListLoading && <LoadingState />}
-            {!isViewerStatus && isListError && (
+            {!isViewerStatus && tournamentsQuery.isPending && <LoadingState />}
+            {!isViewerStatus && tournamentsQuery.isError && (
               <ErrorState
-                error={listError ?? null}
-                message="Não foi possível carregar suas competições."
+                error={tournamentsQuery.error ?? null}
+                message="Não foi possível carregar seus torneios."
               />
             )}
           </Page.ScrollView>
@@ -307,14 +202,16 @@ export default function CompetitionsTab() {
             estimatedItemSize={220}
             keyExtractor={(item) => item.id ?? ""}
             ListEmptyComponent={
-              <EmptyState
-                buttonLabel="Buscar competições"
-                buttonOnPress={() => {
-                  router.navigate("/search");
-                }}
-                description="Encontre ligas e torneios para participar."
-                title="Nenhuma competição"
-              />
+              surface.showsCreateCard ? undefined : (
+                <EmptyState
+                  buttonLabel="Buscar competições"
+                  buttonOnPress={() => {
+                    router.navigate("/search");
+                  }}
+                  description="Encontre torneios para participar."
+                  title="Nenhum torneio"
+                />
+              )
             }
             numColumns={2}
             recycleItems
