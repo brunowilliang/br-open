@@ -56,6 +56,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "linked-account",
     title: "Contas vinculadas",
   },
+  {
+    description: "Lista reordenável e o card do jogador, com e sem o arrasto",
+    id: "standings-card",
+    title: "Classificação",
+  },
 ];
 
 export function findComponentGalleryEntry(

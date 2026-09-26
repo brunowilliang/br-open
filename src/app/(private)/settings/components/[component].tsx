@@ -2,6 +2,7 @@ import {
   AppleIcon,
   Cancel01Icon,
   Clock02Icon,
+  DragDropVerticalIcon,
   GoogleIcon,
   Mail01Icon,
   ShieldUserIcon,
@@ -17,8 +18,9 @@ import {
   ListGroup,
   Separator,
   Surface,
+  Tabs,
 } from "heroui-native";
-import { Fragment, type ComponentProps, type ReactNode } from "react";
+import { Fragment, type ComponentProps, type ReactNode, useState } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
@@ -40,9 +42,14 @@ import {
 import { KpiCard } from "@/components/ui/kpi-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { MatchCard } from "@/components/ui/match-card";
+import { SortableCardList } from "@/components/ui/sortable-card-list";
+import {
+  StandingsCard,
+  type StandingsCardItem,
+  type StandingsFormSlot,
+} from "@/components/ui/standings-card";
 import {
   WidgetAlert,
-  type WidgetAlertDescriptionLine,
   type WidgetAlertDescriptionPart,
 } from "@/components/ui/widget-alert";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
@@ -51,7 +58,6 @@ import {
   buildGalleryNotificationNote,
   NOTIFICATION_GALLERY_EVENT_TYPES,
   NOTIFICATION_GALLERY_GROUPS,
-  RENEWAL_REMINDER_DAYS_LEFT_VARIANTS,
 } from "@/lib/dev/notification-gallery-fixtures";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
@@ -59,7 +65,7 @@ import {
   buildNotificationMenuItems,
   type NotificationCardItem,
 } from "@/lib/notifications/notification-view";
-import type { BracketScoreSet } from "@/lib/tournaments/bracket-score-display";
+import type { ScoreSet } from "@/lib/matches/score-display";
 
 /** Moldura de variante: título, conteúdo e a linha de procedência (`note`). */
 function VariantSection(props: {
@@ -324,16 +330,6 @@ function LabeledBlock(props: { children: ReactNode; label: string }) {
 }
 
 /**
- * Copy LITERAL do servidor (`convex/domains/payment/pendings-rules.ts`): o app
- * não monta mais essas descrições.
- */
-const galleryPaymentDueDescription =
-  "O pagamento da sua mensalidade venceu. Pague para não ser suspenso.";
-
-const galleryPaymentSuspendedDescription =
-  "Sua inscrição foi suspensa por falta de pagamento. Renove para voltar a jogar.";
-
-/**
  * No máximo UM destaque por descrição, sempre a palavra que identifica a
  * pendência (nome, categoria, valor, prazo) — nunca número solto.
  */
@@ -347,68 +343,6 @@ const galleryInviteSentParts: WidgetAlertDescriptionPart[] = [
   { isHighlighted: true, text: "Gustavo Lima" },
   { text: " aceitar o convite para Duplas Mistas na Copa Dracena 8." },
 ];
-
-/**
- * Descrição do servidor verbatim, em partes só para o prazo ficar em negrito;
- * a data usa o formato de `formatBrazilShortDate`.
- */
-const galleryPaymentDueSoonParts: WidgetAlertDescriptionPart[] = [
-  { text: "Renove até " },
-  { isHighlighted: true, text: "12 de set. de 2026" },
-  { text: " para continuar jogando sem interrupção." },
-];
-
-const galleryInactivityParts: WidgetAlertDescriptionPart[] = [
-  { text: "Faltam " },
-  { isHighlighted: true, text: "3 dias" },
-  { text: " para você cair no ranking." },
-];
-
-/**
- * Cada tipo de pendência vira uma LINHA com o próprio número, com o destaque
- * na expressão número + objeto.
- */
-const galleryPendingActionsLines: WidgetAlertDescriptionLine[] = [
-  {
-    parts: [
-      { isHighlighted: true, text: "2 resultados" },
-      { text: " para registrar" },
-    ],
-  },
-  {
-    parts: [
-      { isHighlighted: true, text: "1 resultado" },
-      { text: " para confirmar" },
-    ],
-  },
-];
-
-const galleryOrganizerValidationLines: WidgetAlertDescriptionLine[] = [
-  {
-    parts: [
-      { isHighlighted: true, text: "2 resultados" },
-      { text: " para validar" },
-    ],
-  },
-  {
-    parts: [
-      { isHighlighted: true, text: "1 proposta" },
-      { text: " para decidir" },
-    ],
-  },
-];
-
-const galleryOrganizerOverdueByLeagueParts: WidgetAlertDescriptionPart[] = [
-  { isHighlighted: true, text: "2 cobranças" },
-  { text: " vencidas na Liga do Parque." },
-];
-
-const galleryOrganizerOverdueByOrganizationParts: WidgetAlertDescriptionPart[] =
-  [
-    { isHighlighted: true, text: "3 cobranças" },
-    { text: " vencidas nas suas ligas." },
-  ];
-
 const galleryPaymentChargeOpenParts: WidgetAlertDescriptionPart[] = [
   { text: "Pague até " },
   { isHighlighted: true, text: "12 de set. de 2026" },
@@ -478,42 +412,6 @@ function AlertsVariantsSection() {
   return (
     <View className="gap-6">
       <VariantSection
-        note="Título, descrição e severidade LITERAIS do servidor (convex/domains/payment/pendings-rules.ts:104, ramo payment_due de buildMembershipPaymentPending), a MESMA copy do alerta da casa da liga (pages/leagues/player-overview.tsx:56-60, agora pelo renderer único). Sem destaque: a frase não tem palavra-chave (o servidor não manda data nem valor neste estado), apontado. O CTA é a versão de uma palavra (Pagar): o rótulo real Pagar agora (lib/leagues/presentation.ts:211-213) tem duas palavras e não é mais renderizado como botão, fica apontado como divergência até o servidor mandar o texto."
-        title="Alerta 1 · REAL · Home do jogador: mensalidade em atraso"
-      >
-        <WidgetAlert
-          action={{ label: "Pagar", onPress: noop }}
-          description={galleryPaymentDueDescription}
-          status="warning"
-          title="Pagamento atrasado"
-        />
-      </VariantSection>
-
-      <VariantSection
-        note="Título e descrição LITERAIS do servidor, ramo do membro ativo dentro da janela de lembrete de renovação (convex/domains/payment/pendings-rules.ts:157-171), com a data do exemplo (12 de set. de 2026, o mesmo formato de formatBrazilShortDate no servidor). A descrição é a copy do servidor, verbatim, em partes só para a data (a palavra-chave que decide a renovação) ficar em negrito. CTA Renovar (o rótulo real Renovar mensalidade, duas palavras, fica apontado). Caso extra ao conjunto pedido, apontado no report."
-        title="Alerta 2 · REAL · Liga (jogador): mensalidade perto do vencimento"
-      >
-        <WidgetAlert
-          action={{ label: "Renovar", onPress: noop }}
-          description={[{ parts: galleryPaymentDueSoonParts }]}
-          status="warning"
-          title="Mensalidade vence em 2 dias"
-        />
-      </VariantSection>
-
-      <VariantSection
-        note="Título, ação e descrição LITERAIS do servidor (convex/domains/payment/pendings-rules.ts:118-140, ramo suspended de buildMembershipPaymentPending: actionLabel Renovar em :129, descrição em :131-133, action pay_league_membership do base em :90) e severidade danger real. Este ramo RENDERIZA desde a correção do BUG-0042: o status suspended cai no papel guest e o GuestOverview monta o alerta (pages/leagues/guest-overview.tsx:35-41). O botão daqui é superfície de APROVAÇÃO VISUAL (a galeria aprova, não executa), mas o rótulo Renovar é o do item REAL: desde o IBX-0084 o CTA do suspenso é o botão do próprio alerta e quem executa é o runner compartilhado (lib/pendings/use-pending-action-runner.ts:323-328, gerar o PIX da membership e abrir o checkout) — o rodapé de entrada NÃO monta para o suspenso (leagues/[leagueId]/index.tsx:545, buildLeagueDetailsShowJoinFooter em lib/leagues/league-details-derived.ts:194-204), então não há dois botões de pagamento da MESMA membership na mesma tela (BUG-0042). Sem destaque: a frase não tem palavra-chave (o servidor não manda o valor nem a data da pendência), apontado. O rótulo de duas palavras Renovar inscrição era o CTA do rodapé do suspenso e SAIU do código junto com ele (o ramo suspended de getMembershipActionLabel foi apagado no IBX-0084): o rótulo do estado é Renovar, do servidor. O botão segue o padrão da doc: alerta danger usa variant danger. As descrições dos cartões 1 a 3 são a copy do servidor, que aqui já devolve string nos atrasados; destacar trechos delas só quando o servidor mandar em partes."
-        title="Alerta 3 · REAL · Liga (jogador suspenso): mensalidade suspensa (em tela desde o BUG-0042)"
-      >
-        <WidgetAlert
-          action={{ label: "Renovar", onPress: noop }}
-          description={galleryPaymentSuspendedDescription}
-          status="danger"
-          title="Inscrição suspensa"
-        />
-      </VariantSection>
-
-      <VariantSection
         note="Título real da casa do torneio (pages/tournaments/player-overview.tsx:108-117, com o singular 1 inscrição aguardando pagamento na mesma linha). Hoje esse alerta só tem título: a descrição e o CTA são PROPOSTA, e o Pagar é o rótulo real do botão do card Suas inscrições (:213-222), já de uma palavra. Sem destaque: a frase não tem palavra-chave (o valor que decide a inscrição é dado que só o contrato manda) — apontado."
         title="Alerta 4 · REAL + descrição e ação propostas · Torneio (jogador): inscrição aguardando pagamento"
       >
@@ -561,41 +459,6 @@ function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="Título e status REAIS e a CONTAGEM real por tipo do item `player_league_challenges_pending_actions` do SERVIDOR (convex/domains/league/pendings-rules.ts:118-190, uma linha por tipo de pendência de resultado; desde o cutover da Etapa 2 do PLN-0008 o agregado do cliente `buildPlayerPendingActionsAlert` + o resumo com · foram extintos). Cada linha tem o destaque na EXPRESSÃO da pendência (2 resultados / 1 resultado, número + objeto, nunca o número solto). Ver é o rótulo real dos alertas do organizador (pages/tournaments/organizer-overview.tsx) e já tem uma palavra."
-        title="Alerta 8 · REAL + ação proposta · Liga (jogador): pendências de desafio (agregado em linhas)"
-      >
-        <WidgetAlert
-          action={{ label: "Ver", onPress: noop }}
-          description={galleryPendingActionsLines}
-          status="warning"
-          title="3 desafios precisando de atenção"
-        />
-      </VariantSection>
-
-      <VariantSection
-        note="Copy real do item `player_league_inactivity_risk` do SERVIDOR (convex/domains/league/pendings-rules.ts:355-384, desde o cutover da Etapa 2 do PLN-0008 — o builder do cliente `buildPlayerInactiveAlertCard` foi extinto), sem CTA. O texto é o mesmo da tela, em partes só para o prazo que decide a queda (Faltam 3 dias) ficar em negrito. A variante do prazo vencido é status danger com Você está inativo e Já se passaram N dias desde sua última partida."
-        title="Alerta 9 · REAL · Liga (jogador): risco de inatividade"
-      >
-        <WidgetAlert
-          description={[{ parts: galleryInactivityParts }]}
-          status="warning"
-          title="Risco de queda por inatividade"
-        />
-      </VariantSection>
-
-      <VariantSection
-        note="Título REAL enxuto, aprovado pelo usuário (o real é Conta de pagamento não conectada: os jogadores não conseguirão pagar., settings/leagues/[mode]/settings.tsx:363-368) e o status REAL é warning (o pedido citava danger); hoje o alerta só tem título. Descrição PROPOSTA e CTA Conectar: o rótulo real Conectar conta (pages/organization/organization-form-fields.tsx:1088) tem duas palavras e fica apontado. Sem destaque: a frase não tem palavra-chave (o valor da mensalidade é dado que só o contrato manda) — apontado."
-        title="Alerta 10 · REAL + descrição e ação propostas · Configurações da liga: conta de pagamento não conectada"
-      >
-        <WidgetAlert
-          action={{ label: "Conectar", onPress: noop }}
-          description="Conecte a conta para os jogadores conseguirem pagar a mensalidade."
-          status="warning"
-          title="Conta de pagamento não conectada"
-        />
-      </VariantSection>
-
-      <VariantSection
         note="Título e CTA reais (pages/tournaments/organizer-overview.tsx:66-78), com o singular 1 inscrição aguardando aprovação na mesma linha e o Ver levando para Inscrições na aba Pendências. O status real é accent, o pedido citava warning. Descrição PROPOSTA: hoje este alerta só tem título. Sem destaque: a frase não tem palavra-chave (a lista de quem espera liberação é dado que só o contrato manda) — apontado."
         title="Alerta 11 · REAL + descrição proposta · Torneio (organizador): inscrições aguardando aprovação"
       >
@@ -620,29 +483,6 @@ function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="Copy nova (hoje a pendência vive nos cards da aba Solicitações, com aprovar e recusar, leagues/[leagueId]/requests.tsx:178-229, e no badge da aba, lib/leagues/league-navigation-tabs.ts:38-50). Revisar é proposta e já tem uma palavra. Sem destaque: a frase não tem palavra-chave (a lista de quem está esperando é dado que só o contrato manda) — apontado."
-        title="Alerta 13 · PROPOSTA · Liga (organizador): solicitações de entrada"
-      >
-        <WidgetAlert
-          action={{ label: "Revisar", onPress: noop }}
-          description="Jogadores esperando aprovação para entrar na liga."
-          status="warning"
-          title="4 solicitações de entrada"
-        />
-      </VariantSection>
-
-      <VariantSection
-        note="Copy nova (hoje o estado só aparece como chip: Validação do organizador e Validar resultado em accent e Decisão do organizador em warning, lib/leagues/challenge-formatters.ts:36-41, :66-71 e :78-83). A descrição agregava dois tipos na mesma frase (resultados e propostas) e virou uma LINHA por tipo, com o destaque na EXPRESSÃO da pendência (2 resultados / 1 proposta, número + objeto — nunca o número solto). Sem CTA: a decisão do organizador acontece na própria tela do desafio, que ainda não tem um destino único a partir daqui (apontado)."
-        title="Alerta 14 · PROPOSTA · Liga (organizador): desafio esperando validação (agregado em linhas)"
-      >
-        <WidgetAlert
-          description={galleryOrganizerValidationLines}
-          status="warning"
-          title="3 desafios esperando sua validação"
-        />
-      </VariantSection>
-
-      <VariantSection
         note="Copy nova, com DOIS apontamentos: sem placar não existe como estado hoje (a partida é A definir, Agendada, Encerrada ou W.O., lib/tournaments/tournament-details-derived.ts:137-148) e o texto real mais próximo é o aviso do diálogo Iniciar torneio, A chave tem N vagas em aberto (A definir) · o início só é liberado com a chave completa. (lib/tournaments/tournament-details-derived.ts:435-441), hoje renderizado como Surface bg-warning-soft (tournaments/[tournamentId]/index.tsx:730-736). Qual confronto conta como pendência ainda não tem regra. Sem destaque: falta a palavra-chave (qual rodada ou quadra está em aberto) — apontado. Sem CTA."
         title="Alerta 15 · PROPOSTA · Torneio (organizador): confronto sem agendamento"
       >
@@ -654,34 +494,7 @@ function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="PROPOSTA (não aprovada). Origem do dado: as memberships com status payment_due ou suspended nas ligas PAGAS da organização, o MESMO dado do KPI Em atraso da home da organização (components/pages/home/organizer-dashboard.tsx:69-72, sobre payment.dashboard.getOverview: convex/functions/payment/dashboard.ts:96-116). O cartão mostra as DUAS agregações possíveis do MESMO dado. O contrato precisa mandar: kind novo organization_league_charges_overdue na opção 1, com source {type: league, id}, params {leagueId}, count e moneyCents da soma das cobranças da liga; kind novo organization_charges_overdue na opção 2, sem params; deadlineAt = vencimento mais antigo das cobranças agregadas; domain payment; severity warning; title e descrição como os das opções; actionLabel Ver. Destino do CTA Ver: sem destino hoje: o item nasceria sem CTA (como o Alerta 14) — não existe tela que liste cobranças ou membros em atraso do organizador (as abas da liga são Overview, Ranking, Desafios e Solicitações, lib/leagues/league-navigation-tabs.ts:15-19, e a aba Solicitações só lista pedidos de entrada, leagues/[leagueId]/requests.tsx:178-229). O CTA Ver fica no cartão como proposto."
-        title="Alerta 16 · PROPOSTA · Organização: cobranças em atraso"
-      >
-        <View className="gap-4">
-          <LabeledBlock label="Opção 1 · uma pendência por liga">
-            <WidgetAlert
-              action={{ label: "Ver", onPress: noop }}
-              description={[{ parts: galleryOrganizerOverdueByLeagueParts }]}
-              status="warning"
-              title="Cobranças em atraso"
-            />
-          </LabeledBlock>
-
-          <LabeledBlock label="Opção 2 · uma pendência pela organização">
-            <WidgetAlert
-              action={{ label: "Ver", onPress: noop }}
-              description={[
-                { parts: galleryOrganizerOverdueByOrganizationParts },
-              ]}
-              status="warning"
-              title="Cobranças em atraso"
-            />
-          </LabeledBlock>
-        </View>
-      </VariantSection>
-
-      <VariantSection
-        note="PROPOSTA (não aprovada). Origem do dado: a membership em awaiting_payment e a cobrança do vínculo, PENDING no pendente e EXPIRED no vencido (payment.charge.getPendingCharge, o mesmo caminho do CTA Pagar da casa da liga, leagues/[leagueId]/index.tsx:227-238 e :286-304). O contrato precisa mandar: kind novo de escopo player (ex.: player_payment_charge_open no pendente e player_payment_charge_expired no vencido), source {type: payment_charge, id} (TIPO NOVO de fonte: PENDING_SOURCE_TYPE_OPTIONS hoje não tem payment_charge, convex/domains/pendings/contract.ts:73-79) + sourceId/sourceType da cobrança para o CTA Pagar reabrir o checkout (destino vivo: /checkout/[chargeId], settings/player/payments.tsx:152-155), deadlineAt = expiração do PIX, moneyCents = valor da cobrança, domain payment, actionLabel Pagar (Renovar quando a vaga foi liberada). REGRA de severidade: warning no PENDING e no EXPIRED com a vaga ainda reservada; danger quando o prazo terminou e a vaga foi liberada. BURACO na v1: o estado awaiting_payment não gera item nenhum hoje (evidência: membership de DEV n97ef6kqw5fsgvc9ng0hrddg7s8b3avs), então o jogador que gerou o PIX e não pagou não tem aviso centralizado."
+        note="PROPOSTA (não aprovada). Origem do dado: a inscrição de torneio com pagamento pendente e a cobrança da entry, PENDING no pendente e EXPIRED no vencido (payment.charge.getPendingCharge, o mesmo caminho do CTA Pagar da casa do torneio, tournaments/[tournamentId]/index.tsx:79-96). O contrato precisa mandar: kind novo de escopo player (ex.: player_payment_charge_open no pendente e player_payment_charge_expired no vencido), source {type: payment_charge, id} (TIPO NOVO de fonte: PENDING_SOURCE_TYPE_OPTIONS hoje não tem payment_charge, convex/domains/pendings/contract.ts:46-50) + sourceId/sourceType da cobrança para o CTA Pagar reabrir o checkout (destino vivo: /checkout/[chargeId], settings/player/payments.tsx:95-100), deadlineAt = expiração do PIX, moneyCents = valor da cobrança, domain payment, actionLabel Pagar (Renovar quando a vaga foi liberada). REGRA de severidade: warning no PENDING e no EXPIRED com a vaga ainda reservada; danger quando o prazo terminou e a vaga foi liberada. BURACO na v1: o estado awaiting_payment não gera item nenhum hoje (evidência: membership de DEV n97ef6kqw5fsgvc9ng0hrddg7s8b3avs), então o jogador que gerou o PIX e não pagou não tem aviso centralizado."
         title="Alerta 17 · PROPOSTA · Jogador: PIX pendente ou vencido"
       >
         <View className="gap-4">
@@ -715,12 +528,12 @@ function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="O GESTO que só as duas homes ligam (opt-in `isSwipeEnabled` + `dismissSurface` na superfície `home`): arraste o cartão para a esquerda — ou toque nele — e a ação revelada Esconder aparece animando; tocar nela aqui não executa nada (a galeria aprova, não executa: o handler é o noop). O sangramento usa o MESMO par das homes (o `px-4` do container desta galeria é o `mx-4` da página delas): container `-mx-4`, childrenContainer `mx-4` e ação `pr-4 -ml-1`. A copy é a do Alerta 1 (real, do servidor) — o que este cartão amostra é o gesto; o resto da seção segue estático de propósito."
+        note="O GESTO que só as duas homes ligam (opt-in `isSwipeEnabled` + `dismissSurface` na superfície `home`): arraste o cartão para a esquerda — ou toque nele — e a ação revelada Esconder aparece animando; tocar nela aqui não executa nada (a galeria aprova, não executa: o handler é o noop). O sangramento usa o MESMO par das homes (o `px-4` do container desta galeria é o `mx-4` da página delas): container `-mx-4`, childrenContainer `mx-4` e ação `pr-4 -ml-1`. A copy é a real do servidor para a inscrição aguardando pagamento — o que este cartão amostra é o gesto; o resto da seção segue estático de propósito."
         title="Alerta 18 · GESTO · o swipe com a ação revelada Esconder"
       >
         <WidgetAlert
           action={{ label: "Pagar", onPress: noop }}
-          description={galleryPaymentDueDescription}
+          description="Confirme o pagamento para garantir sua vaga na chave."
           dismissAction={{ onPress: noop }}
           isSwipeEnabled
           status="warning"
@@ -824,25 +637,6 @@ function NotificationVariantsSection() {
                     <NotificationMenuAnatomy notification={item} />
                   </View>
                 ) : null}
-                {eventType === "league.membership.renewal_reminder" ? (
-                  <View className="mt-3 gap-4">
-                    {RENEWAL_REMINDER_DAYS_LEFT_VARIANTS.map((variant) => (
-                      <LabeledBlock key={variant.label} label={variant.label}>
-                        <NotificationCard
-                          isClamped={false}
-                          notification={buildGalleryNotificationItem(
-                            eventType,
-                            {
-                              metadata: { daysLeft: variant.daysLeft },
-                            }
-                          )}
-                          onOpen={noop}
-                          onRemove={noop}
-                        />
-                      </LabeledBlock>
-                    ))}
-                  </View>
-                ) : null}
               </VariantSection>
             );
           })}
@@ -917,7 +711,7 @@ const galleryMatchCardCases: {
   /** Caso do NÓ: sai na largura da chave (320 pt, `CARD_WIDTH` do bracket). */
   nodeWidth?: boolean;
   note: string;
-  scoreSets?: null | BracketScoreSet[];
+  scoreSets?: null | ScoreSet[];
   selectedSide?: "a" | "b" | null;
   stageLabel?: null | string;
   startMinute: number;
@@ -1498,6 +1292,153 @@ function LinkedAccountRowVariantsSection() {
   );
 }
 
+/**
+ * Uma das pontas é o jogador do viewer: o card sai em accent e é o único com a
+ * fileira de forma preenchida — as outras ficam com as casas neutras do
+ * fallback, que é o que a peça desenha sem dado de forma.
+ */
+const galleryStandingsViewerId = "diego-nakamura-alves";
+
+/**
+ * Mistura de exemplo da fileira: ganha, ganha, perdida, perdida, ganha. A
+ * bolinha tem só as duas cores (verde ganha, vermelha perdida).
+ */
+const galleryStandingsForm: StandingsFormSlot[] = [
+  { outcome: "win" },
+  { outcome: "win" },
+  { outcome: "loss" },
+  { outcome: "loss" },
+  { outcome: "win" },
+];
+
+const galleryStandingsItems: StandingsCardItem[] = [
+  {
+    avatarUrl: null,
+    id: "marina-costa",
+    name: "Marina Costa",
+    nickname: "marina.costa",
+    position: 1,
+  },
+  {
+    avatarUrl: null,
+    id: "diego-nakamura-alves",
+    name: "Diego Nakamura Alves",
+    nickname: "diego.nakamura",
+    position: 2,
+  },
+  {
+    avatarUrl: null,
+    id: "rafael-de-souza-lima",
+    name: "Rafael de Souza Lima",
+    nickname: "rafael.lima",
+    position: 3,
+  },
+  {
+    avatarUrl: null,
+    id: "bruno-william-garcia",
+    name: "Bruno William Garcia",
+    nickname: "bruno.garcia",
+    position: 4,
+  },
+];
+
+/**
+ * O seletor manda: as duas variantes existem para quem está olhando, sem
+ * depender de papel nenhum. Só o arrasto da primeira muda o estado local.
+ */
+function StandingsCardVariantsSection() {
+  const [items, setItems] = useState(galleryStandingsItems);
+  const [variant, setVariant] = useState("drag");
+
+  function handleOrderChange(reorderedItems: StandingsCardItem[]) {
+    setItems(
+      reorderedItems.map((item, index) => ({
+        ...item,
+        position: index + 1,
+      }))
+    );
+  }
+
+  return (
+    <Tabs onValueChange={setVariant} value={variant}>
+      <Tabs.List className="w-full">
+        <Tabs.ScrollView>
+          <Tabs.Indicator />
+          <Tabs.Trigger className="flex-1" value="drag">
+            <Tabs.Label>Com drag</Tabs.Label>
+          </Tabs.Trigger>
+          <Tabs.Trigger className="flex-1" value="static">
+            <Tabs.Label>Sem drag</Tabs.Label>
+          </Tabs.Trigger>
+        </Tabs.ScrollView>
+      </Tabs.List>
+
+      <Tabs.Content className="pt-4" value="drag">
+        <VariantSection
+          note="Segure a alça à esquerda do avatar e arraste: quem reordena é o estado local, sem servidor nem query. No item em accent (o jogador do viewer) a forma traz a mistura de exemplo (ganha, ganha, perdida, perdida, ganha); nas outras pontas saem as casas cinzas do fallback sem dado."
+          title="Lista reordenável · com a alça"
+        >
+          <View className="h-96">
+            <SortableCardList
+              data={items}
+              fillAvailableHeight
+              itemGap={8}
+              onOrderChange={handleOrderChange}
+              renderItem={({ dragHandle, isActive, item }) => (
+                <StandingsCard
+                  dragHandle={dragHandle(
+                    <Button
+                      isDisabled={isActive}
+                      isIconOnly
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <HugeIcons
+                        className="text-muted"
+                        icon={DragDropVerticalIcon}
+                      />
+                    </Button>
+                  )}
+                  form={
+                    item.id === galleryStandingsViewerId
+                      ? galleryStandingsForm
+                      : undefined
+                  }
+                  isDragging={isActive}
+                  isViewer={item.id === galleryStandingsViewerId}
+                  item={item}
+                />
+              )}
+            />
+          </View>
+        </VariantSection>
+      </Tabs.Content>
+
+      <Tabs.Content className="pt-4" value="static">
+        <VariantSection
+          note="A mesma lista sem a alça: posição, avatar, nome e nickname, só leitura. A mistura de exemplo da forma segue no item em accent."
+          title="Lista estática · sem a alça"
+        >
+          <View className="gap-2">
+            {items.map((item) => (
+              <StandingsCard
+                form={
+                  item.id === galleryStandingsViewerId
+                    ? galleryStandingsForm
+                    : undefined
+                }
+                isViewer={item.id === galleryStandingsViewerId}
+                item={item}
+                key={item.id}
+              />
+            ))}
+          </View>
+        </VariantSection>
+      </Tabs.Content>
+    </Tabs>
+  );
+}
+
 /** DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da entrada e do checkout. */
 export default function ComponentVariantsRoute() {
   const { component } = useLocalSearchParams<{ component: string }>();
@@ -1545,6 +1486,8 @@ export default function ComponentVariantsRoute() {
             <EntryCardVariantsSection />
           ) : entry.id === "linked-account" ? (
             <LinkedAccountRowVariantsSection />
+          ) : entry.id === "standings-card" ? (
+            <StandingsCardVariantsSection />
           ) : null
         ) : (
           <EmptyState
