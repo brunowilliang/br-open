@@ -3,12 +3,12 @@ import { cn } from "better-styled";
 import { Button, Card, Chip, PressableFeedback } from "heroui-native";
 import {
   Autocomplete,
-  type AutocompleteOption,
   MorphButton,
+  type AutocompleteOption,
 } from "heroui-native-pro";
 import { useState, type ReactNode } from "react";
 import { View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Page } from "@/components/core/page";
@@ -17,6 +17,8 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { PersonCard } from "@/components/ui/person-card";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
+
+const PageFooter = Animated.createAnimatedComponent(Page.Footer);
 
 export type JoinFooterPrice = {
   amount: string;
@@ -60,7 +62,7 @@ type JoinFooterProps = {
   categories?: JoinFooterCategory[];
   confirmLabel?: string;
   description?: string;
-  /** Padding da base, decisão da TELA (default `pb-safe-offset-3`). */
+  /** Padding da base, decisão da TELA (default `pb-floating-tab-bar-4`). */
   footerClassName?: string;
   isActionDisabled?: boolean;
   /** Ação em andamento: trava os CTAs (a página troca o rótulo por "Enviando..."). */
@@ -126,11 +128,13 @@ export function JoinFooter(props: JoinFooterProps) {
   // Default via ternário e não via `cn`: o `cn` do app NÃO resolve conflito de
   // classes, então um `pb-*` do chamador não venceria o default.
   return (
-    <Page.Footer
+    <PageFooter
       className={cn(
         "flex-col items-center px-8",
-        props.footerClassName ?? "pb-safe-offset-3"
+        props.footerClassName ?? "pb-floating-tab-bar-4"
       )}
+      entering={FadeIn.delay(250)}
+      exiting={FadeOut.delay(250)}
     >
       {props.availabilityLabel ? (
         <Chip className="self-center" color="success" size="md" variant="soft">
@@ -434,6 +438,6 @@ export function JoinFooter(props: JoinFooterProps) {
           </View>
         </MorphButton.ExpandedContent>
       </MorphButton>
-    </Page.Footer>
+    </PageFooter>
   );
 }

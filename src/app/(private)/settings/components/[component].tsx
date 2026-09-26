@@ -234,6 +234,7 @@ function JoinFooterVariantsSection() {
           <JoinFooter
             actionLabel="Solicitar entrada"
             availabilityLabel="3 vagas disponíveis"
+            footerClassName="pb-safe-offset-3"
             price={{
               amount: formatCurrencyCents(4000),
               prefix: "a partir de",
@@ -250,6 +251,7 @@ function JoinFooterVariantsSection() {
             actionLabel="Pagar R$ 40,00"
             categories={tournamentCategories}
             description="Escolha a categoria e confirme sua inscrição."
+            footerClassName="pb-safe-offset-3"
             partnerOptions={galleryPartnerOptions}
             price={{
               amount: formatCurrencyCents(4000),
@@ -264,6 +266,7 @@ function JoinFooterVariantsSection() {
         <View className="h-28">
           <JoinFooter
             actionLabel="Solicitar entrada"
+            footerClassName="pb-safe-offset-3"
             isActionDisabled
             price={{
               amount: formatCurrencyCents(4000),

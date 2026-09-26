@@ -1,12 +1,13 @@
 import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs";
 import { cn, Tabs } from "heroui-native";
 import { Badge } from "heroui-native-pro";
-import { useEffect, useState, type ComponentProps } from "react";
-import { View } from "react-native";
+import { useLayoutEffect, useState, type ComponentProps } from "react";
+import type { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Uniwind } from "uniwind";
 
 import { HugeIcons } from "@/components/ui/huge-icons";
+import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 
 export type FloatingTabBarItem = {
   badgeCount?: number;
@@ -32,6 +33,12 @@ type FloatingTabBarProps = BottomTabBarProps & {
 
 const FLOATING_TAB_BAR_BOTTOM_GAP = 12;
 const FLOATING_TAB_BAR_THEMES = ["light", "dark"] as const;
+
+// Altura da barra APRENDIDA no primeiro layout e lembrada no módulo: a barra tem
+// desenho fixo (muda com a safe area, não com o conteúdo), e sem valor conhecido
+// no primeiro frame o `pb-floating-tab-bar-*` das telas caía no fallback (16px) e
+// só depois subia — o rodapé dava um pulo quando a barra aparecia.
+let knownTabBarHeight = 0;
 
 type FloatingTabBarCSSVariables = {
   "--floating-tab-bar-bottom-offset": number;
@@ -73,9 +80,13 @@ function FloatingTabBarRoot(
   props: ComponentProps<typeof View>
 ): React.ReactElement {
   const insets = useSafeAreaInsets();
-  const [tabBarHeight, setTabBarHeight] = useState(0);
+  const [tabBarHeight, setTabBarHeight] = useState(knownTabBarHeight);
 
-  useEffect(() => {
+  // Layout effect (antes do paint) e já semeado com a altura conhecida: o
+  // `pb-floating-tab-bar-*` das telas vale certo no primeiro frame. SEM cleanup:
+  // as vars são globais e o Stack mantém a barra da tela anterior montada —
+  // zerar na saída derrubava o recuo que a outra barra ainda sustenta.
+  useLayoutEffect(() => {
     updateFloatingTabBarCSSVariables({
       bottomInset: insets.bottom,
       height: tabBarHeight,
@@ -83,20 +94,23 @@ function FloatingTabBarRoot(
   }, [insets.bottom, tabBarHeight]);
 
   return (
-    <View
+    <Animated.View
+      entering={FadeInDown.delay(250)}
+      exiting={FadeOutDown.delay(150)}
       {...props}
       className={cn(
         "absolute right-0 bottom-safe-offset-3 left-0 z-50 items-center",
         props.className
       )}
       onLayout={(event) => {
+        knownTabBarHeight = event.nativeEvent.layout.height;
         setTabBarHeight(event.nativeEvent.layout.height);
         props.onLayout?.(event);
       }}
       pointerEvents={props.pointerEvents ?? "box-none"}
     >
       {props.children}
-    </View>
+    </Animated.View>
   );
 }
 
