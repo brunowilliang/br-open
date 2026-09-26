@@ -62,13 +62,28 @@ export function shouldRefundLatePayment(charge: ChargeLike): boolean {
 }
 
 /** "pending" (pedido em voo) e "refunded" (confirmado) nunca sao sobrescritos;
- * `null` e "failed" podem ser (re)pedidos. */
+ * `null`, "failed" e o campo AUSENTE (linha gravada antes de o campo existir)
+ * podem ser (re)pedidos. */
 export function canRequestRefund(charge: {
-  refundStatus: null | string;
+  refundStatus?: null | string;
 }): boolean {
   return (
     charge.refundStatus !== "pending" && charge.refundStatus !== "refunded"
   );
+}
+
+/** Campos de ciclo de vida de uma cobranca NOVA: `refundStatus` nasce GRAVADO
+ * (`null`) para que "sem pedido de estorno" nunca dependa de o campo estar
+ * ausente na linha. `duplicate` e a linha que nasce morta (PIX descartado). */
+export function newChargeLifecycleFields(input: {
+  duplicate: boolean;
+  status: string;
+}): { cancelStatus: string | null; refundStatus: null; status: string } {
+  return {
+    cancelStatus: input.duplicate ? CHARGE_CANCEL_PENDING : null,
+    refundStatus: null,
+    status: input.duplicate ? CHARGE_STATUS_CANCELED : input.status,
+  };
 }
 
 /** Status de `refundStatus` com estorno EM ABERTO (pedido em voo ou recusado):

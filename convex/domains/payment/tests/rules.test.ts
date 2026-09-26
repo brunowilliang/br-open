@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import type { PaymentChargeStatus } from "../contract";
 import {
+  CHARGE_CANCEL_PENDING,
   CHARGE_EXPIRES_IN_SECONDS,
   CHARGE_STATUS_CANCELED,
   CHARGE_STATUS_EXPIRED,
@@ -17,6 +18,7 @@ import {
   computeWooviFeeCents,
   hasUsablePix,
   isRefundOutstanding,
+  newChargeLifecycleFields,
   normalizeProviderStatus,
   ownsPayableSource,
   resolveRefundOutcome,
@@ -150,6 +152,13 @@ describe("payment rules", () => {
       expect(canRequestRefund({ refundStatus: null })).toBe(true);
     });
 
+    it("allows a refund when the field is ABSENT on the row", () => {
+      // Coluna nunca gravada chega como `undefined`: um `=== null` na guarda
+      // deixava a cobranca PAID fora da fila de estorno para sempre.
+      expect(canRequestRefund({})).toBe(true);
+      expect(canRequestRefund({ refundStatus: undefined })).toBe(true);
+    });
+
     it("retries a failed refund", () => {
       expect(canRequestRefund({ refundStatus: "failed" })).toBe(true);
     });
@@ -157,6 +166,34 @@ describe("payment rules", () => {
     it("never overwrites a request in flight or an already-refunded charge", () => {
       expect(canRequestRefund({ refundStatus: "pending" })).toBe(false);
       expect(canRequestRefund({ refundStatus: "refunded" })).toBe(false);
+    });
+  });
+
+  describe("newChargeLifecycleFields", () => {
+    it("a new charge is born with refundStatus WRITTEN as null", () => {
+      expect(
+        newChargeLifecycleFields({
+          duplicate: false,
+          status: CHARGE_STATUS_PENDING,
+        })
+      ).toEqual({
+        cancelStatus: null,
+        refundStatus: null,
+        status: CHARGE_STATUS_PENDING,
+      });
+    });
+
+    it("a duplicate charge is born dead and queued for the provider DELETE", () => {
+      expect(
+        newChargeLifecycleFields({
+          duplicate: true,
+          status: CHARGE_STATUS_PENDING,
+        })
+      ).toEqual({
+        cancelStatus: CHARGE_CANCEL_PENDING,
+        refundStatus: null,
+        status: CHARGE_STATUS_CANCELED,
+      });
     });
   });
 

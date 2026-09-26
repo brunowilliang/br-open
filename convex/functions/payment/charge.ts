@@ -40,6 +40,7 @@ import {
   computeSplit,
   DEFAULT_PLATFORM_FEE_PERCENT,
   hasUsablePix,
+  newChargeLifecycleFields,
   normalizeProviderStatus,
   ownsPayableSource,
   shouldRefundLatePayment,
@@ -437,13 +438,17 @@ export const saveCharge = privateMutation
 
     // Always INSERT (o historico de "meus pagamentos" e por charge): o reuso
     // devolve a linha viva e esta fica como registro do PIX descartado.
+    const lifecycle = newChargeLifecycleFields({
+      duplicate: Boolean(duplicate),
+      status: input.status,
+    });
     const row = (
       await ctx.orm
         .insert(paymentCharge)
         .values({
           amountCents: input.amountCents,
           brCode: input.brCode,
-          cancelStatus: duplicate ? CHARGE_CANCEL_PENDING : null,
+          cancelStatus: lifecycle.cancelStatus,
           correlationId: input.correlationId,
           createdAt: now,
           expiresAt,
@@ -452,11 +457,12 @@ export const saveCharge = privateMutation
           playerProfileId: input.playerProfileId as Id<"playerProfile">,
           providerChargeId: input.providerChargeId,
           qrCodeImage: input.qrCodeImage,
+          refundStatus: lifecycle.refundStatus,
           sourceId: input.sourceId,
           sourceLabel: input.sourceLabel,
           sourceType: input.sourceType,
           splitConfig: input.splitConfig,
-          status: duplicate ? CHARGE_STATUS_CANCELED : input.status,
+          status: lifecycle.status,
           updatedAt: now,
         })
         .returning()

@@ -16,6 +16,7 @@ import {
 import { tournament, tournamentEntry } from "../../domains/tournament/tables";
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
 import {
+  canRequestRefund,
   isRefundOutstanding,
   resolveRefundOutcome,
 } from "../../domains/payment/rules";
@@ -157,7 +158,7 @@ export const cancel = authMutation
       record.id as Id<"tournament">
     );
     for (const charge of charges) {
-      if (charge.refundStatus === null || charge.refundStatus === "failed") {
+      if (canRequestRefund(charge)) {
         await ctx.orm
           .update(paymentCharge)
           .set({ refundStatus: "pending", updatedAt: now })

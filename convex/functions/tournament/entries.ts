@@ -33,6 +33,7 @@ import {
 } from "../../domains/tournament/tables";
 import { paymentCharge } from "../../domains/payment/tables";
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
+import { canRequestRefund } from "../../domains/payment/rules";
 
 type EntryRecord = InferSelectModel<typeof tournamentEntry>;
 type CategoryRecord = InferSelectModel<typeof tournamentCategory>;
@@ -307,9 +308,7 @@ async function scheduleEntryRefund(
       status: "PAID",
     },
   });
-  const refundable = charges.filter(
-    (charge) => charge.refundStatus === null || charge.refundStatus === "failed"
-  );
+  const refundable = charges.filter((charge) => canRequestRefund(charge));
   if (refundable.length === 0) {
     return;
   }
