@@ -30,7 +30,6 @@
     "update:android:prod": "eas update --channel production --platform android --environment production --non-interactive --message \"Update Android Prod\"",
     "update:ios:dev": "eas update --channel development --platform ios --environment development --non-interactive --message \"Update iOS Dev\"",
     "update:ios:prod": "eas update --channel production --platform ios --environment production --non-interactive --message \"Update iOS Prod\"",
-    "update:ios:prod-dev-env": "eas update --channel production --platform ios --environment development --non-interactive --message \"Update iOS (canal production, env development)\"",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -114,7 +113,7 @@
     "typescript": "~7.0.2",
     "ultracite": "7.12.0"
   },
-  "//ota": "OTA iOS (eas update): o canal decide quem RECEBE o update (production = TestFlight) e a flag --environment decide o que e EMBUTIDO no bundle. A flag --environment VENCE o .env.local: o eas-cli exporta com EXPO_NO_DOTENV=1 e sobrepoe o env do EAS ao do shell, entao o environment errado embute a URL do Convex errada. Estado atual (DEC-0006): device, simulador e agentes rodam no Convex de dev kindred-yak-142 (env development, com EXPO_PUBLIC_IS_DEV=true), logo o script do dia e update:ios:prod-dev-env. production = amiable-albatross-845 (PROD); update:ios:prod volta a ser o certo quando o device voltar pro PROD.",
+  "//ota": "OTA iOS (eas update): o canal decide quem RECEBE o update (production = TestFlight) e a flag --environment decide o que e EMBUTIDO no bundle, VENCENDO o .env.local (o eas-cli exporta com EXPO_NO_DOTENV=1 e sobrepoe o env do EAS ao do shell). production embute o Convex de PROD amiable-albatross-845; development, o de dev kindred-yak-142. O atalho que embutia env de DEV no canal production era so para teste e foi removido.",
   "expo": {
     "install": {
       "exclude": [
