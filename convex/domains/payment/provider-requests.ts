@@ -7,6 +7,8 @@
 
 export const DEBIT_FEE_DESCRIPTION = "Taxa de saque BR-Open";
 
+export const DEBIT_RECOVERY_DESCRIPTION = "Recolhimento de estorno BR-Open";
+
 /**
  * Canonical provider id of a withdrawal movement: `correlationID` falling back
  * to `endToEndId`. Both sides of the match must keep this precedence — storing
@@ -46,10 +48,11 @@ export function buildWithdrawRequest(
  */
 export function buildDebitRequest(
   pixKey: string,
-  valueCents: number
+  valueCents: number,
+  description: string = DEBIT_FEE_DESCRIPTION
 ): ProviderRequest {
   return {
-    body: { description: DEBIT_FEE_DESCRIPTION, value: valueCents },
+    body: { description, value: valueCents },
     path: `/api/v1/subaccount/${encodeURIComponent(pixKey)}/debit`,
   };
 }

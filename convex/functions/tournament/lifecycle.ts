@@ -16,8 +16,10 @@ import {
 import { tournament, tournamentEntry } from "../../domains/tournament/tables";
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
 import {
+  RECOVERY_STATUS_PENDING,
   canRequestRefund,
   isRefundOutstanding,
+  refundedChargeFields,
   resolveRefundOutcome,
 } from "../../domains/payment/rules";
 import { paymentCharge } from "../../domains/payment/tables";
@@ -327,16 +329,37 @@ export const applyRefundOutcome = privateMutation
   )
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
+    if (input.outcome !== "refunded") {
+      await ctx.orm
+        .update(paymentCharge)
+        .set({
+          refundStatus: input.outcome === "failed" ? "failed" : "pending",
+          updatedAt: now,
+        })
+        .where(eq(paymentCharge.id, input.chargeId as Id<"paymentCharge">));
+      return;
+    }
+
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { id: input.chargeId as Id<"paymentCharge"> },
+    });
+    if (!charge) {
+      return;
+    }
+    const fields = refundedChargeFields(charge);
     await ctx.orm
       .update(paymentCharge)
-      .set(
-        input.outcome === "refunded"
-          ? { refundStatus: "refunded", status: "REFUNDED", updatedAt: now }
-          : input.outcome === "failed"
-            ? { refundStatus: "failed", updatedAt: now }
-            : { refundStatus: "pending", updatedAt: now }
-      )
-      .where(eq(paymentCharge.id, input.chargeId as Id<"paymentCharge">));
+      .set({ ...fields, updatedAt: now })
+      .where(eq(paymentCharge.id, charge.id));
+    // O estorno saiu da conta maior: a parte do organizador na subconta volta
+    // pelo debito (kick imediato; o sweep de 15 min cobre a retentativa).
+    if (fields.refundRecoveryStatus === RECOVERY_STATUS_PENDING) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.payment.recovery.collectRefundRecovery,
+        { chargeId: charge.id as string }
+      );
+    }
   });
 
 /**

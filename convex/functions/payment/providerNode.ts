@@ -411,6 +411,7 @@ export const withdrawSubaccountAction = privateAction
 export const debitSubaccountAction = privateAction
   .input(
     z.object({
+      description: z.string().min(1).optional(),
       pixKey: z.string().min(1),
       valueCents: z.number().int().positive(),
     })
@@ -425,7 +426,11 @@ export const debitSubaccountAction = privateAction
       });
     }
     const baseUrl = WOOVI_BASE_URL ?? "https://api.woovi-sandbox.com";
-    const request = buildDebitRequest(input.pixKey, input.valueCents);
+    const request = buildDebitRequest(
+      input.pixKey,
+      input.valueCents,
+      input.description
+    );
     const response = await providerFetch(`${baseUrl}${request.path}`, {
       body: JSON.stringify(request.body),
       headers: {

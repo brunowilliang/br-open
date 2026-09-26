@@ -71,6 +71,16 @@ crons.interval(
   {}
 );
 
+// Retry the refund-recovery debit (subaccount → BR-Open main account) for
+// charges whose refund closed and whose organizer share is still in the
+// subaccount: the balance stays reserved until this confirms.
+crons.interval(
+  "sweep-pending-refund-recoveries",
+  { minutes: 15 },
+  internal.payment.recovery.sweepPendingRefundRecoveries,
+  {}
+);
+
 // Auto-transicoes de torneio (de hora em hora): quando o PRAZO DE INSCRICAO
 // fecha, um torneio publicado SORTEIA SOZINHO e fica `drawn` (a previa do
 // organizador); no DIA DE INICIO ele comeca — se ainda nao sorteou, sorteia e

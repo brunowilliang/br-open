@@ -5,7 +5,7 @@
  */
 
 import { organizerCentsOf } from "./dashboard-rules";
-import { isRefundOutstanding } from "./rules";
+import { isRefundOutstanding, isRefundRecoveryDue } from "./rules";
 
 export type WithdrawFeeTier = { upToCents: number; feeCents: number };
 
@@ -42,6 +42,7 @@ export function computeLiquidAmountCents(
  */
 export type RefundableCharge = {
   amountCents: number;
+  refundRecoveryStatus?: null | string;
   refundStatus: null | string;
   splitConfig: { organizerCents?: number } | null;
   status: string;
@@ -52,16 +53,20 @@ export type RefundableCharge = {
 export const RESERVED_REFUND_SCAN_LIMIT = 300;
 
 /**
- * RESERVADO = dinheiro do organizador preso em cobranças com estorno EM ABERTO
- * (o que ele ainda pode ter que devolver). Usa `organizerCentsOf`, a MESMA
- * conta da receita do painel — reserva e receita nunca divergem.
+ * RESERVADO = dinheiro do organizador preso na cobrança: estorno EM ABERTO (o
+ * que ele ainda pode ter que devolver) OU recolhimento do estorno ainda PENDENTE
+ *. Os dois estados são exclusivos: ao
+ * fechar o estorno a cobrança sai do primeiro e entra no segundo. Usa
+ * `organizerCentsOf`, a MESMA conta da receita do painel.
  */
 export function computeReservedCents(
   charges: readonly RefundableCharge[]
 ): number {
   return charges.reduce(
     (total, charge) =>
-      isRefundOutstanding(charge) ? total + organizerCentsOf(charge) : total,
+      isRefundOutstanding(charge) || isRefundRecoveryDue(charge)
+        ? total + organizerCentsOf(charge)
+        : total,
     0
   );
 }

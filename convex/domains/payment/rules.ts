@@ -90,10 +90,53 @@ export function newChargeLifecycleFields(input: {
  * e o que o sweep reprocessa e o que a reserva de saque precisa enxergar. */
 export const REFUND_OUTSTANDING_STATUSES = ["pending", "failed"] as const;
 
-export const CHARGE_REFUNDED_FIELDS = {
-  refundStatus: "refunded",
-  status: CHARGE_STATUS_REFUNDED,
-} as const;
+export const RECOVERY_STATUS_PENDING = "pending" as const;
+export const RECOVERY_STATUS_COLLECTED = "collected" as const;
+export const RECOVERY_STATUS_NOT_OWED = "not_owed" as const;
+
+/**
+ * Campos do FECHAMENTO do estorno: `refundStatus` e `status` fecham juntos e o
+ * recolhimento da parte do organizador nasce PENDENTE — o estorno
+ * sai da conta maior, entao a subconta precisa devolver o que recebeu no split.
+ * Sem split nao houve credito na subconta: nao ha o que recolher (por isso o
+ * valor cheio da reserva NAO serve de fallback aqui).
+ */
+export function refundedChargeFields(charge: {
+  splitConfig: { organizerCents?: number } | null;
+}): {
+  refundRecoveryStatus: string;
+  refundStatus: "refunded";
+  status: string;
+} {
+  return {
+    refundRecoveryStatus:
+      (charge.splitConfig?.organizerCents ?? 0) > 0
+        ? RECOVERY_STATUS_PENDING
+        : RECOVERY_STATUS_NOT_OWED,
+    refundStatus: "refunded",
+    status: CHARGE_STATUS_REFUNDED,
+  };
+}
+
+/** Recolhimento DEVIDO: estorno fechado e debito da parte do organizador ainda
+ * nao confirmado. E o que o sweep retenta e o que a reserva segura ate confirmar
+ * (enquanto nao cai, o valor nao pode ficar disponivel para saque). */
+export function isRefundRecoveryDue(charge: {
+  refundRecoveryStatus?: null | string;
+  refundStatus: null | string;
+}): boolean {
+  return (
+    charge.refundStatus === "refunded" &&
+    charge.refundRecoveryStatus === RECOVERY_STATUS_PENDING
+  );
+}
+
+/** Chave idempotente local do recolhimento de UMA cobranca: derivada do
+ * `correlationId` (unico) e ESTAVEL entre retentativas — e o nome que o log do
+ * sweep carrega e o que permite deduplicar um debito repetido no extrato. */
+export function refundRecoveryKey(correlationId: string): string {
+  return `bropen:refund-recovery:${correlationId}`;
+}
 
 /** Estorno EM ABERTO (pedido em voo ou recusado): o que o sweep reprocessa e a
  * reserva enxerga. Dinheiro ja devolvido (status REFUNDED) NUNCA esta em aberto. */

@@ -52,8 +52,9 @@ export const paymentCharge = convexTable(
     providerTransactionId: text(),
     // HTTPS URL of the QR PNG (provider returns a URL, not base64).
     qrCodeImage: text(),
-    // Refund lifecycle: "pending" (requested, sweep retries), "failed"
-    // (rejected), "refunded" (confirmed); null = never refunded.
+    // Estorno "pending"/"failed"/"refunded"; o RECOLHIMENTO da parte do
+    // organizador fecha junto: "pending" (devido), "collected", "not_owed".
+    refundRecoveryStatus: text(),
     refundStatus: text(),
     sourceId: text().notNull(),
     // Source name snapshot taken at charge time, so list/history skip a join.
@@ -79,6 +80,11 @@ export const paymentCharge = convexTable(
     index("organizationId_refundStatus").on(
       paymentCharge.organizationId,
       paymentCharge.refundStatus
+    ),
+    index("refundRecoveryStatus").on(paymentCharge.refundRecoveryStatus),
+    index("organizationId_refundRecoveryStatus").on(
+      paymentCharge.organizationId,
+      paymentCharge.refundRecoveryStatus
     ),
   ]
 );

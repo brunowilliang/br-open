@@ -18,7 +18,10 @@ import {
   type WithdrawStatus,
 } from "../../domains/payment/contract";
 import { maskPixKey } from "../../domains/payment/pix-key";
-import { REFUND_OUTSTANDING_STATUSES } from "../../domains/payment/rules";
+import {
+  RECOVERY_STATUS_PENDING,
+  REFUND_OUTSTANDING_STATUSES,
+} from "../../domains/payment/rules";
 import { subaccountBalance, withdrawals } from "../../domains/payment/tables";
 import {
   authAction,
@@ -56,19 +59,31 @@ function formatBRL(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-/** RESERVADO da organização: soma das cobranças com estorno EM ABERTO, pelo
- * índice `organizationId_refundStatus` e a regra pura que a receita também usa. */
+/** RESERVADO da organização: soma das cobranças com estorno EM ABERTO ou com o
+ * recolhimento do estorno ainda pendente, pelos índices
+ * `organizationId_refundStatus` e `organizationId_refundRecoveryStatus` e a
+ * regra pura que a receita também usa. */
 async function listReservedCents(
   ctx: QueryCtx,
   organizationId: Id<"organization">
 ): Promise<number> {
-  const charges = await ctx.orm.query.paymentCharge.findMany({
-    limit: RESERVED_REFUND_SCAN_LIMIT,
-    where: {
-      organizationId,
-      refundStatus: { in: [...REFUND_OUTSTANDING_STATUSES] },
-    },
-  });
+  const [refunding, recovering] = await Promise.all([
+    ctx.orm.query.paymentCharge.findMany({
+      limit: RESERVED_REFUND_SCAN_LIMIT,
+      where: {
+        organizationId,
+        refundStatus: { in: [...REFUND_OUTSTANDING_STATUSES] },
+      },
+    }),
+    ctx.orm.query.paymentCharge.findMany({
+      limit: RESERVED_REFUND_SCAN_LIMIT,
+      where: {
+        organizationId,
+        refundRecoveryStatus: RECOVERY_STATUS_PENDING,
+      },
+    }),
+  ]);
+  const charges = [...refunding, ...recovering];
 
   if (charges.length >= RESERVED_REFUND_SCAN_LIMIT) {
     // Saturacao nao pode ser SILENCIOSA: acima do teto a reserva subestima, o

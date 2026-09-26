@@ -287,6 +287,38 @@ describe("withdraw rules (DECISAO-003)", () => {
           ])
         ).toBe(7500);
       });
+
+      // O estorno fechou e saiu da conta maior, mas a parte que a
+      // subconta recebeu no split so solta quando o debito do recolhimento
+      // confirmar — senao o organizador saca dinheiro de cobranca estornada.
+      it("recolhimento do estorno pendente tambem reserva", () => {
+        expect(
+          computeReservedCents([
+            charge({
+              refundRecoveryStatus: "pending",
+              refundStatus: "refunded",
+              status: "REFUNDED",
+            }),
+          ])
+        ).toBe(9000);
+        // Coletado (dinheiro de volta) ou sem split (nada entrou na subconta):
+        // a cobranca nao reserva mais nada.
+        expect(
+          computeReservedCents([
+            charge({
+              refundRecoveryStatus: "collected",
+              refundStatus: "refunded",
+              status: "REFUNDED",
+            }),
+            charge({
+              refundRecoveryStatus: "not_owed",
+              refundStatus: "refunded",
+              status: "REFUNDED",
+            }),
+            charge({ refundStatus: "refunded", status: "REFUNDED" }),
+          ])
+        ).toBe(0);
+      });
     });
 
     describe("computeAvailableCents", () => {

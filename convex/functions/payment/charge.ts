@@ -26,12 +26,12 @@ import {
   CHARGE_CANCEL_CONFIRMED,
   CHARGE_CANCEL_FAILED,
   CHARGE_CANCEL_PENDING,
-  CHARGE_REFUNDED_FIELDS,
   CHARGE_STATUS_CANCELED,
   CHARGE_STATUS_EXPIRED,
   CHARGE_STATUS_FAILED,
   CHARGE_STATUS_PAID,
   CHARGE_STATUS_PENDING,
+  RECOVERY_STATUS_PENDING,
   canChargeBeCanceled,
   canChargeBeExpired,
   canChargeBePaid,
@@ -43,6 +43,7 @@ import {
   newChargeLifecycleFields,
   normalizeProviderStatus,
   ownsPayableSource,
+  refundedChargeFields,
   shouldRefundLatePayment,
 } from "../../domains/payment/rules";
 import {
@@ -1010,16 +1011,21 @@ export const markChargeRefunded = privateMutation
     }
 
     const now = new Date();
+    const fields = refundedChargeFields(charge);
     await ctx.orm
       .update(paymentCharge)
-      .set({
-        // status e refundStatus fecham JUNTOS: um REFUNDED com refundStatus preso
-        // em pending|failed nao tem mais escritor e a reserva de saque desconta o
-        // organizador para sempre.
-        ...CHARGE_REFUNDED_FIELDS,
-        updatedAt: now,
-      })
+      .set({ ...fields, updatedAt: now })
       .where(eq(paymentCharge.id, charge.id));
+
+    // Mesmo fechamento do caminho do sweep: a parte do organizador na subconta
+    // volta pelo debito assim que o estorno fecha.
+    if (fields.refundRecoveryStatus === RECOVERY_STATUS_PENDING) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.payment.recovery.collectRefundRecovery,
+        { chargeId: charge.id as string }
+      );
+    }
 
     return charge.id;
   });

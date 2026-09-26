@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import {
   DEBIT_FEE_DESCRIPTION,
+  DEBIT_RECOVERY_DESCRIPTION,
   buildChargeDeleteRequest,
   buildDebitRequest,
   buildWithdrawRequest,
@@ -59,6 +60,12 @@ describe("provider requests (Woovi withdraw/debit)", () => {
         description: DEBIT_FEE_DESCRIPTION,
         value: 500,
       });
+    });
+
+    it("leva a descricao do debito: taxa por padrao, recolhimento do estorno quando pedido (BUG-0084)", () => {
+      expect(
+        buildDebitRequest("org@email.com", 350, DEBIT_RECOVERY_DESCRIPTION).body
+      ).toEqual({ description: DEBIT_RECOVERY_DESCRIPTION, value: 350 });
     });
   });
 

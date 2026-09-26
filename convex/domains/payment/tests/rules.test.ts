@@ -13,14 +13,16 @@ import {
   canChargeBePaid,
   canChargeBeRefunded,
   canRequestRefund,
-  CHARGE_REFUNDED_FIELDS,
   computeSplit,
   computeWooviFeeCents,
   hasUsablePix,
   isRefundOutstanding,
+  isRefundRecoveryDue,
   newChargeLifecycleFields,
   normalizeProviderStatus,
   ownsPayableSource,
+  refundRecoveryKey,
+  refundedChargeFields,
   resolveRefundOutcome,
   shouldRefundLatePayment,
 } from "../rules";
@@ -228,11 +230,69 @@ describe("payment rules", () => {
     });
 
     it("o par do webhook fecha status e refundStatus juntos", () => {
-      expect(CHARGE_REFUNDED_FIELDS).toEqual({
+      expect(
+        refundedChargeFields({ splitConfig: { organizerCents: 350 } })
+      ).toEqual({
+        refundRecoveryStatus: "pending",
         refundStatus: "refunded",
         status: "REFUNDED",
       });
-      expect(isRefundOutstanding(CHARGE_REFUNDED_FIELDS)).toBe(false);
+      expect(
+        isRefundOutstanding(
+          refundedChargeFields({ splitConfig: { organizerCents: 350 } })
+        )
+      ).toBe(false);
+    });
+
+    it("sem split nao ha o que recolher da subconta", () => {
+      expect(
+        refundedChargeFields({ splitConfig: null }).refundRecoveryStatus
+      ).toBe("not_owed");
+      expect(
+        refundedChargeFields({ splitConfig: { organizerCents: 0 } })
+          .refundRecoveryStatus
+      ).toBe("not_owed");
+    });
+  });
+
+  describe("isRefundRecoveryDue (BUG-0084)", () => {
+    it("e devido com estorno FECHADO e recolhimento pendente", () => {
+      expect(
+        isRefundRecoveryDue({
+          refundRecoveryStatus: "pending",
+          refundStatus: "refunded",
+        })
+      ).toBe(true);
+    });
+
+    it("nao e devido depois de coletado, sem estorno fechado ou sem o campo", () => {
+      // Coletado nunca volta a ser devido: e o que impede debitar duas vezes.
+      expect(
+        isRefundRecoveryDue({
+          refundRecoveryStatus: "collected",
+          refundStatus: "refunded",
+        })
+      ).toBe(false);
+      expect(
+        isRefundRecoveryDue({
+          refundRecoveryStatus: "not_owed",
+          refundStatus: "refunded",
+        })
+      ).toBe(false);
+      expect(
+        isRefundRecoveryDue({
+          refundRecoveryStatus: "pending",
+          refundStatus: "failed",
+        })
+      ).toBe(false);
+      expect(isRefundRecoveryDue({ refundStatus: "refunded" })).toBe(false);
+    });
+
+    it("a chave do recolhimento e derivada e estavel por cobranca", () => {
+      expect(refundRecoveryKey("bropen:tournament_entry:ps1:123")).toBe(
+        "bropen:refund-recovery:bropen:tournament_entry:ps1:123"
+      );
+      expect(refundRecoveryKey("x")).toBe(refundRecoveryKey("x"));
     });
   });
 

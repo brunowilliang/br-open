@@ -2419,7 +2419,7 @@ export const internal: {
       debitSubaccountAction: FunctionReference<
         "action",
         "internal",
-        { pixKey: string; valueCents: number },
+        { description?: string; pixKey: string; valueCents: number },
         { value: number }
       >;
       deleteChargeAction: FunctionReference<
@@ -2451,6 +2451,48 @@ export const internal: {
         "internal",
         { pixKey: string; valueCents: number },
         { status: string; transactionId: string | null }
+      >;
+    };
+    recovery: {
+      collectRefundRecovery: FunctionReference<
+        "action",
+        "internal",
+        { chargeId: string },
+        { collected: boolean }
+      >;
+      getRefundRecoveryTarget: FunctionReference<
+        "query",
+        "internal",
+        { chargeId: string },
+        {
+          chargeId: string;
+          correlationId: string;
+          pixKey: string;
+          valueCents: number;
+        } | null
+      >;
+      listPendingRefundRecoveries: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          chargeId: string;
+          correlationId: string;
+          pixKey: string;
+          valueCents: number;
+        }>
+      >;
+      markRefundRecoveryCollected: FunctionReference<
+        "mutation",
+        "internal",
+        { chargeId: string },
+        any
+      >;
+      sweepPendingRefundRecoveries: FunctionReference<
+        "action",
+        "internal",
+        {},
+        any
       >;
     };
     withdraw: {

@@ -715,6 +715,7 @@ export type DataModel = {
       providerChargeId?: null | string;
       providerTransactionId?: null | string;
       qrCodeImage?: null | string;
+      refundRecoveryStatus?: null | string;
       refundStatus?: null | string;
       sourceId: string;
       sourceLabel?: null | string;
@@ -741,6 +742,7 @@ export type DataModel = {
       | "providerChargeId"
       | "providerTransactionId"
       | "qrCodeImage"
+      | "refundRecoveryStatus"
       | "refundStatus"
       | "sourceId"
       | "sourceLabel"
@@ -753,12 +755,18 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       cancelStatus: ["cancelStatus", "_creationTime"];
       correlationId: ["correlationId", "_creationTime"];
+      organizationId_refundRecoveryStatus: [
+        "organizationId",
+        "refundRecoveryStatus",
+        "_creationTime",
+      ];
       organizationId_refundStatus: [
         "organizationId",
         "refundStatus",
         "_creationTime",
       ];
       playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
+      refundRecoveryStatus: ["refundRecoveryStatus", "_creationTime"];
       sourceType_sourceId_status: [
         "sourceType",
         "sourceId",
