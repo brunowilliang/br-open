@@ -8,7 +8,10 @@ import {
   type NotificationPresentation,
   RemoveNotificationSchema,
 } from "../../domains/notification/contract";
-import { isNotificationForActiveActor } from "../../domains/notification/feed-rules";
+import {
+  isKnownNotificationEventType,
+  isNotificationForActiveActor,
+} from "../../domains/notification/feed-rules";
 import { authMutation, authQuery, type AuthenticatedCtx } from "../../lib/crpc";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../generated/server";
@@ -101,6 +104,9 @@ export const list = authQuery
     return notifications
       .filter((notification) =>
         isNotificationForActiveActor(notification, viewerContext.activeActor)
+      )
+      .filter((notification) =>
+        isKnownNotificationEventType(notification.eventType)
       )
       .filter((notification) => {
         // Hide retracted rows from the feed. Rows without a status (legacy,

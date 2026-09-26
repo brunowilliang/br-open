@@ -6,6 +6,7 @@
  * so the rules can be tested in isolation from the CRPC procedures.
  */
 
+import { NOTIFICATION_EVENT_TYPES } from "../../shared/notifications/protocol";
 import type { ActorKind } from "../auth/actor-context";
 
 type NotificationActorLike = {
@@ -50,4 +51,13 @@ export function canMarkNotificationReadForUser(input: {
   userId: string;
 }): boolean {
   return input.notification.recipientUserId === input.userId;
+}
+
+/**
+ * Whether this app version still knows the event type. Rows from removed
+ * domains (the old `league.*` events) stay in the database, and serializing one
+ * throws against the strict enum, which would fail the whole feed.
+ */
+export function isKnownNotificationEventType(eventType: string): boolean {
+  return NOTIFICATION_EVENT_TYPES.some((known) => known === eventType);
 }

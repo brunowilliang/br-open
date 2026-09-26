@@ -7,7 +7,10 @@ import {
   SetNotificationPreferenceSchema,
   UpsertNotificationDeviceSchema,
 } from "../../domains/notification/contract";
-import { isNotificationForActiveActor } from "../../domains/notification/feed-rules";
+import {
+  isKnownNotificationEventType,
+  isNotificationForActiveActor,
+} from "../../domains/notification/feed-rules";
 import { resolvePushReadiness } from "../../domains/notification/state";
 import {
   notificationDevice,
@@ -38,9 +41,13 @@ async function getActiveActorUnreadCount(
     )
     .collect();
 
-  return unreadNotifications.filter((notification) =>
-    isNotificationForActiveActor(notification, viewerContext.activeActor)
-  ).length;
+  return unreadNotifications
+    .filter((notification) =>
+      isNotificationForActiveActor(notification, viewerContext.activeActor)
+    )
+    .filter((notification) =>
+      isKnownNotificationEventType(notification.eventType)
+    ).length;
 }
 
 async function upsertPreference(

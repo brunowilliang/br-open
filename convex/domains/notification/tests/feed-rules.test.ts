@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   canMarkNotificationReadForUser,
+  isKnownNotificationEventType,
   isNotificationForActiveActor,
 } from "../feed-rules";
 
@@ -72,6 +73,20 @@ describe("notification feed access", () => {
           kind: "player",
         })
       ).toBe(true);
+    });
+  });
+
+  describe("isKnownNotificationEventType", () => {
+    it("accepts an event type from the current protocol", () => {
+      expect(isKnownNotificationEventType("tournament.entry.confirmed")).toBe(
+        true
+      );
+    });
+
+    it("rejects a row from a removed domain (legacy league feed)", () => {
+      expect(
+        isKnownNotificationEventType("league.membership.payment_confirmed")
+      ).toBe(false);
     });
   });
 });
