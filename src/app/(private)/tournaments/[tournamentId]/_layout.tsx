@@ -8,12 +8,13 @@ import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "heroui-native";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 import {
   FloatingTabBar,
   type FloatingTabBarItem,
 } from "@/components/navigation/floating-tab-bar";
+import { getViewerActorKey } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 import type { TournamentNavigationTabValue } from "@/lib/tournaments/tournament-details-derived";
@@ -67,6 +68,7 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
   const tournamentQuery = useQuery(
     crpc.tournament.discovery.getById.staticQueryOptions({ tournamentId })
   );
+  const modeActorKey = getViewerActorKey(viewerQuery.data?.activeActor);
   const shouldFetchMatches = useValue(bucket$.derived.shouldFetchMatches);
   const matchesQuery = useQuery({
     ...crpc.tournament.matches.listForTournament.staticQueryOptions({
@@ -88,11 +90,24 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     crpc.pendings.list.list.staticQueryOptions({ scope: "organization" })
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // O reset incrementa identity.resetVersion: é dela que a hidratação abaixo
-    // depende.
+    // depende. Em layout effect (antes do paint): em efeito comum o bucket
+    // quente do Map pintava um frame com o payload da visita anterior.
     bucket$.actions.reset();
   }, [bucket$]);
+
+  useLayoutEffect(() => {
+    // O bucket é do ATOR ativo; trocar de modo (ou de organização) sobe o piso
+    // de geração pra nenhum dado do ator anterior liberar a tela. O piso é
+    // interno do bucket de propósito: o carimbo desta query, no switch com a
+    // tela montada, já vem do ator NOVO e travaria o gate.
+    if (modeActorKey === null) {
+      return;
+    }
+
+    bucket$.actions.setActorKey({ actorKey: modeActorKey });
+  }, [bucket$, modeActorKey]);
 
   useEffect(() => {
     if (viewerQuery.data) {
@@ -104,16 +119,38 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     }
   }, [bucket$, viewerQuery.data]);
 
+  // A falha do contexto do ator deixa o papel irresolvível: sem ela o bucket
+  // ficaria em loading eterno.
   useEffect(() => {
-    if (resetVersion === 0) {
+    if (viewerQuery.isError) {
+      bucket$.actions.setBootstrapStatus("error");
+    }
+  }, [bucket$, viewerQuery.isError]);
+
+  useEffect(() => {
+    // O erro do contexto do ator é escrito uma vez; esta guarda é que devolve a
+    // tela quando ele recupera sem push novo da descoberta.
+    if (resetVersion === 0 || viewerQuery.isError) {
       return;
     }
 
     if (tournamentQuery.data) {
-      bucket$.actions.hydrateDiscovery(tournamentQuery.data);
+      // `dataUpdatedAt` entra na dependência de propósito: push igual em
+      // conteúdo (mesma referência, por replaceEqualDeep) só é percebido por
+      // ele — sem isso o piso da troca de ator nunca subiria.
+      bucket$.actions.hydrateDiscovery(
+        tournamentQuery.data,
+        tournamentQuery.dataUpdatedAt
+      );
       bucket$.actions.setBootstrapStatus("ready");
     }
-  }, [bucket$, resetVersion, tournamentQuery.data]);
+  }, [
+    bucket$,
+    resetVersion,
+    tournamentQuery.data,
+    tournamentQuery.dataUpdatedAt,
+    viewerQuery.isError,
+  ]);
 
   useEffect(() => {
     if (tournamentQuery.isError) {

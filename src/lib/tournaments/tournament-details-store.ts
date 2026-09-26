@@ -7,6 +7,7 @@ import { resolvePendingsForTournament } from "@/lib/pendings/pendings-view";
 import {
   buildTournamentDetailsAccess,
   buildTournamentDetailsRole,
+  buildTournamentDetailsScreenState,
   buildTournamentNavigationTabItems,
   isBracketPublic,
   type TournamentDetailsAccess,
@@ -35,8 +36,13 @@ const tournamentDetailsBuckets = new Map<string, TournamentDetailsBucket>();
 function createTournamentDetailsBucket(tournamentId: string) {
   const bucket$ = observable({
     actions: {
-      hydrateDiscovery: (discovery: TournamentDiscovery) => {
+      hydrateDiscovery: (discovery: TournamentDiscovery, updatedAt: number) => {
         bucket$.data.tournament.set(discovery);
+        // Marca d'água monotônica do payload: nunca anda para trás (um push
+        // velho re-hidratado não pode baixar o piso do ator).
+        bucket$.identity.payloadUpdatedAt.set(
+          Math.max(bucket$.identity.payloadUpdatedAt.get(), updatedAt)
+        );
       },
       hydrateEntries: (entries: TournamentEntryWithPlayers[]) => {
         bucket$.data.entries.set(entries);
@@ -56,7 +62,9 @@ function createTournamentDetailsBucket(tournamentId: string) {
         bucket$.viewer.playerProfileId.set(playerProfileId);
       },
       // Incrementa identity.resetVersion: é a dependência dos efeitos que
-      // re-hidratam — um reset com valor fixo deixava o bucket vazio.
+      // re-hidratam — um reset com valor fixo deixava o bucket vazio. A marca
+      // d'água do payload (`payloadUpdatedAt`) NÃO é zerada: é ela que num
+      // re-mount com outro ator denuncia o payload do ator anterior.
       reset: () => {
         bucket$.data.tournament.set(null);
         bucket$.data.entries.set([]);
@@ -74,6 +82,40 @@ function createTournamentDetailsBucket(tournamentId: string) {
       },
       setActiveRoute: (route: TournamentDetailsRoute) => {
         bucket$.identity.activeRoute.set(route);
+      },
+      /**
+       * Amarra o bucket ao ator ATIVO (o MODO decide a superfície). Trocar de
+       * ator invalida o payload: o do cache TanStack é do ator anterior, então o
+       * piso de geração sobe e só um dado hidratado DEPOIS da troca libera a
+       * tela. O piso sai da marca d'água do PRÓPRIO bucket (o carimbo do último
+       * payload hidratado), nunca do carimbo da query: num switch com o detalhe
+       * montado as duas subscriptions voltam na mesma transição e o carimbo da
+       * query já é o do ator novo — usá-lo armava o piso no mesmo valor que a
+       * hidratação seguinte gravaria, e a tela ficava em loading para sempre.
+       * Chave e piso sobrevivem ao `reset` — é assim que um re-mount com outro
+       * ator ainda sabe que trocou.
+       */
+      setActorKey: (input: { actorKey: string }) => {
+        const previousActorKey = bucket$.identity.actorKey.get();
+
+        if (previousActorKey === input.actorKey) {
+          return;
+        }
+
+        bucket$.identity.actorKey.set(input.actorKey);
+
+        if (previousActorKey === null) {
+          return;
+        }
+
+        bucket$.data.tournament.set(null);
+        bucket$.identity.bootstrapStatus.set("loading");
+        bucket$.identity.actorSwitchAt.set(
+          Math.max(
+            bucket$.identity.actorSwitchAt.get(),
+            bucket$.identity.payloadUpdatedAt.get()
+          )
+        );
       },
       setBootstrapStatus: (status: "error" | "loading" | "ready") => {
         bucket$.identity.bootstrapStatus.set(status);
@@ -149,6 +191,15 @@ function createTournamentDetailsBucket(tournamentId: string) {
           ? buildTournamentRulesView(tournament.matchConfig)
           : null;
       },
+      /** Fonte única do gate da tela: papel não resolvido não vira superfície. */
+      screenState: () =>
+        buildTournamentDetailsScreenState({
+          actorKey: bucket$.identity.actorKey.get(),
+          actorSwitchAt: bucket$.identity.actorSwitchAt.get(),
+          bootstrapStatus: bucket$.identity.bootstrapStatus.get(),
+          hasTournament: bucket$.data.tournament.get() !== null,
+          payloadUpdatedAt: bucket$.identity.payloadUpdatedAt.get(),
+        }),
       shouldFetchMatches: () => {
         const access = bucket$.derived.access.get();
         const tournament = bucket$.data.tournament.get();
@@ -167,9 +218,15 @@ function createTournamentDetailsBucket(tournamentId: string) {
     },
     identity: {
       activeRoute: "index" as TournamentDetailsRoute,
+      /** Ator ATIVO (MODO) a que o bucket está amarrado; `null` = ainda não resolveu. */
+      actorKey: null as null | string,
+      /** Piso de geração: marca d'água do payload no momento da troca de ator. */
+      actorSwitchAt: 0,
       bootstrapStatus: "loading" as "error" | "loading" | "ready",
       entriesLoading: false,
       matchesLoading: false,
+      /** Marca d'água do carimbo do payload hidratado; não é zerada no `reset`. */
+      payloadUpdatedAt: 0,
       pendingsStatus: "idle" as TournamentPendingsStatus,
       resetVersion: 0,
       tournamentId,

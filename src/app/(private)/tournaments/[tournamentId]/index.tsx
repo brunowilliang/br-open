@@ -63,7 +63,7 @@ export default function TournamentOverviewRoute() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
-  const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
+  const screenState = useValue(bucket$.derived.screenState);
   const access = useValue(bucket$.derived.access);
   const role = useValue(bucket$.derived.role);
   const tournament = useValue(bucket$.data.tournament);
@@ -240,9 +240,9 @@ export default function TournamentOverviewRoute() {
     },
   });
 
-  const isError = bootstrapStatus === "error";
-  const isLoading = bootstrapStatus !== "ready" || !tournament;
-  const showStatusState = isError || isLoading;
+  // O papel só existe com a tela `ready`: nada de rodapé, menu ou overview do
+  // papel pintado antes do MODO (ator ativo) resolver e o payload ser do ator.
+  const showStatusState = screenState !== "ready";
   const isOrganizer = access?.canManage ?? false;
   const categories = tournament?.categories ?? [];
   const joinOptions = buildTournamentJoinOptions({
@@ -369,7 +369,7 @@ export default function TournamentOverviewRoute() {
         </Page.Header.Left>
         <Page.Header.Center />
         <Page.Header.Right>
-          {tournament && isOrganizer ? (
+          {!showStatusState && tournament && isOrganizer ? (
             <Menu>
               <Menu.Trigger asChild>
                 <Button isIconOnly size="sm" variant="secondary">
@@ -486,29 +486,33 @@ export default function TournamentOverviewRoute() {
           showStatusState && "centered gap-4 px-4"
         )}
       >
-        {isError && (
-          <ErrorState message="Não foi possível carregar o torneio." />
-        )}
-        {!isError && isLoading && <LoadingState />}
-        {!showStatusState && tournament && (
-          <>
-            <TournamentBanner tournament={tournament} />
-            <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
-              {role === "organizer" && (
-                <OrganizerOverview
-                  onPendingActionPerformed={invalidateTournamentContext}
-                  tournamentId={tournamentId}
-                />
-              )}
-              {role === "player" && (
-                <PlayerOverview
-                  onPendingActionPerformed={invalidateTournamentContext}
-                  tournament={tournament}
-                />
-              )}
-              {role === "guest" && <GuestOverview tournament={tournament} />}
-            </View>
-          </>
+        {showStatusState ? (
+          screenState === "error" ? (
+            <ErrorState message="Não foi possível carregar o torneio." />
+          ) : (
+            <LoadingState />
+          )
+        ) : (
+          tournament && (
+            <>
+              <TournamentBanner tournament={tournament} />
+              <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
+                {role === "organizer" && (
+                  <OrganizerOverview
+                    onPendingActionPerformed={invalidateTournamentContext}
+                    tournamentId={tournamentId}
+                  />
+                )}
+                {role === "player" && (
+                  <PlayerOverview
+                    onPendingActionPerformed={invalidateTournamentContext}
+                    tournament={tournament}
+                  />
+                )}
+                {role === "guest" && <GuestOverview tournament={tournament} />}
+              </View>
+            </>
+          )
         )}
       </Page.ScrollView>
 
@@ -648,14 +652,9 @@ function TournamentBanner(props: {
   const { tournament } = props;
   const context = usePageContext();
   const bannerHeight = useSharedValue(0);
-  const [overlayHeight, setOverlayHeight] = useState(0);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     bannerHeight.value = event.nativeEvent.layout.height;
-  };
-
-  const handleOverlayLayout = (event: LayoutChangeEvent) => {
-    setOverlayHeight(event.nativeEvent.layout.height);
   };
 
   const bannerAnimatedStyle = useAnimatedStyle(() => {
@@ -694,12 +693,8 @@ function TournamentBanner(props: {
   });
 
   return (
-    <>
-      <Animated.View
-        className="h-90"
-        onLayout={handleLayout}
-        style={bannerAnimatedStyle}
-      >
+    <View className="h-90" onLayout={handleLayout}>
+      <Animated.View className="absolute inset-0" style={bannerAnimatedStyle}>
         <Image
           className="absolute h-full w-full"
           contentFit="cover"
@@ -710,11 +705,10 @@ function TournamentBanner(props: {
         <View className="absolute h-full w-full bg-linear-to-t from-0 from-background" />
       </Animated.View>
 
-      <View
-        className="flex-row items-center gap-2 px-4"
-        onLayout={handleOverlayLayout}
-        style={{ marginTop: -overlayHeight }}
-      >
+      {/* Bloco do título como filho ABSOLUTO da base da capa: sobe pelo próprio
+          tamanho sem medir altura — o marginTop medido pintava um frame com ele
+          abaixo da capa (e o resto da página deslocado) antes de subir. */}
+      <View className="absolute right-0 bottom-0 left-0 flex-row items-center gap-2 px-4">
         <Image
           className="size-28 rounded-3xl border-2 border-white/80 bg-surface"
           fallback="green"
@@ -735,6 +729,6 @@ function TournamentBanner(props: {
           </Chip>
         </View>
       </View>
-    </>
+    </View>
   );
 }

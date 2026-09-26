@@ -11,6 +11,7 @@ import {
   buildTournamentDetailsAccess,
   buildTournamentNavigationTabItems,
   buildTournamentDetailsRole,
+  buildTournamentDetailsScreenState,
   buildTournamentJoinOptions,
   buildStartWarnings,
   canCancelTournamentEntry,
@@ -45,6 +46,64 @@ describe("buildTournamentDetailsRole", () => {
         viewerEntryIds: [],
       })
     ).toBe("guest");
+  });
+});
+
+describe("buildTournamentDetailsScreenState", () => {
+  const ready = {
+    actorKey: "player:p-1",
+    actorSwitchAt: 0,
+    bootstrapStatus: "ready",
+    hasTournament: true,
+    payloadUpdatedAt: 100,
+  } as const;
+
+  test("payload do ator ativo libera a tela", () => {
+    expect(buildTournamentDetailsScreenState(ready)).toBe("ready");
+  });
+
+  test("contexto do ator ainda não resolvido nunca vira ready", () => {
+    expect(
+      buildTournamentDetailsScreenState({ ...ready, actorKey: null })
+    ).toBe("loading");
+  });
+
+  test("payload de ANTES da troca de ator não libera (papel do ator anterior)", () => {
+    expect(
+      buildTournamentDetailsScreenState({
+        ...ready,
+        actorSwitchAt: 100,
+        payloadUpdatedAt: 100,
+      })
+    ).toBe("loading");
+    expect(
+      buildTournamentDetailsScreenState({
+        ...ready,
+        actorSwitchAt: 100,
+        payloadUpdatedAt: 101,
+      })
+    ).toBe("ready");
+  });
+
+  test("descoberta pendente ou sem torneio fica em loading", () => {
+    expect(
+      buildTournamentDetailsScreenState({
+        ...ready,
+        bootstrapStatus: "loading",
+      })
+    ).toBe("loading");
+    expect(
+      buildTournamentDetailsScreenState({ ...ready, hasTournament: false })
+    ).toBe("loading");
+  });
+
+  test("erro manda no gate: não vira loading", () => {
+    expect(
+      buildTournamentDetailsScreenState({
+        ...ready,
+        bootstrapStatus: "error",
+      })
+    ).toBe("error");
   });
 });
 

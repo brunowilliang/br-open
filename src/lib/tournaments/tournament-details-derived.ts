@@ -39,6 +39,35 @@ export function buildTournamentDetailsRole(input: {
   return input.viewerEntryIds.length > 0 ? "player" : "guest";
 }
 
+export type TournamentDetailsScreenState = "error" | "loading" | "ready";
+
+/**
+ * Gate da tela de detalhe: só `ready` libera superfície de papel. O payload é do
+ * ATOR ativo (o MODO decide a superfície) — enquanto o ator não resolveu, ou o
+ * dado é de antes da troca de ator (`payloadUpdatedAt` não passou do piso
+ * `actorSwitchAt`), o que existe é loading: nunca o papel do ator anterior
+ * pintado na tela.
+ */
+export function buildTournamentDetailsScreenState(input: {
+  actorKey: null | string;
+  actorSwitchAt: number;
+  bootstrapStatus: "error" | "loading" | "ready";
+  hasTournament: boolean;
+  payloadUpdatedAt: number;
+}): TournamentDetailsScreenState {
+  if (input.bootstrapStatus === "error") {
+    return "error";
+  }
+
+  const isResolved =
+    input.bootstrapStatus === "ready" &&
+    input.hasTournament &&
+    input.actorKey !== null &&
+    input.payloadUpdatedAt > input.actorSwitchAt;
+
+  return isResolved ? "ready" : "loading";
+}
+
 export function buildTournamentDetailsAccess(input: {
   role: TournamentDetailsRole;
   status: string;
