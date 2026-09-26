@@ -3,30 +3,30 @@
 > Verificado em 20-09-2026 contra o código do repo (`convex/`) e o DEV
 > (kindred-yak-142, function-spec + sonda read-only). **IBX-0076 (Etapa 1 +
 > Etapa 2 entregues, sem commit):** o contrato de leitura e o wiring nas telas
-> estão no código — as duas homes montam o bloco de pendências e as casas de
-> liga/torneio leem o mesmo servidor pelo bucket.
+> estão no código — as duas homes montam o bloco de pendências e a casa do
+> torneio lê o mesmo servidor pelo bucket.
 >
 > **IBX-0085 (21-09-2026, sem commit):** o sistema ganha a DISPENSA por
 > superfície — tabela `pendingDismissal`, mutation `pendings.dismiss` e o
 > parâmetro `surface` na leitura. Backend/estado estão no DEV (migration
 > `20260921_191850_add_pending_dismissal` aplicada); o gesto na tela está no
 > `ui/pending-alerts.tsx` (prop opt-in `dismissSurface`, `:68-79`) e nas duas
-> homes (as casas leem sem `surface`).
+> homes (a casa do torneio lê sem `surface`).
 
 ## Visão geral
 
 Um sistema único de pendências/alertas para todas as superfícies do app: o item
 nasce no SERVIDOR (kind + copy + destaque + ordem + rota) e a tela só renderiza.
-O desenho substitui o que hoje existe espalhado — builders no cliente
-(`lib/leagues/league-details-derived.ts`, `lib/tournaments/*-derived.ts`), oito
-usos do `WidgetAlert` em cinco telas e a regra de "quem deve a ação" duplicada
-entre backend e cliente — pelo padrão: **fonte de dado única por escopo no
-servidor + um componente único de apresentação no app** (PLN-0008).
+O desenho substitui o que existia espalhado — builders derivados no cliente
+(`lib/tournaments/*-derived.ts`), usos diretos do `WidgetAlert` nas telas e a
+regra de "quem deve a ação" duplicada entre backend e cliente — pelo padrão:
+**fonte de dado única por escopo no servidor + um componente único de
+apresentação no app** (PLN-0008).
 
 A Etapa 1 cobre o contrato (uma query por escopo) e é a fonte da verdade do
 shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
-(`AlertsVariantsSection`, 16 cartões, IBX-0076 r1–r6): os kinds abaixo são
-1:1 com os cartões aprovados 1 a 14, e a copy é literal deles.
+(`AlertsVariantsSection`, 9 cartões, IBX-0076 r1–r6): os kinds abaixo são
+1:1 com os cartões aprovados 4 a 7, 11 e 12, e a copy é literal deles.
 
 ## Contrato — `pendings.list`
 
@@ -45,20 +45,20 @@ shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
 | Campo | Regra |
 |---|---|
 | `id` | Determinístico: `<kind>:<sourceId>` (`buildPendingItemId`). É a identidade/key do item na lista. |
-| `kind` | Enum FECHADO que cresce por ADIÇÃO (14 kinds na v1). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
-| `domain` | Domínio dono da REGRA: `league`, `payment`, `tournament` — `player` existe no enum (shape aprovado) e não tem kind na v1. |
+| `kind` | Enum FECHADO que cresce por ADIÇÃO (6 kinds na v1). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
+| `domain` | Domínio dono da REGRA: `payment`, `tournament` — `player` existe no enum (shape aprovado) e não tem kind na v1. |
 | `severity` | `danger` \| `warning` \| `info`. O componente do app não tem `info`: o cliente mapeia `info` para `accent` do alerta, como na galeria (cartões 5, 6, 7 e 11). |
 | `title` | Sempre presente (regra aprovada: todo alerta tem título E descrição). Frase única, com a contagem no plural quando agrega. |
 | `description` | `string` (quando a copy real do app já é uma frase) OU **LINHAS de PARTES**: `{ parts: { text, isHighlighted? }[] }[]`. Quem decide o destaque e a quebra por linha é o SERVIDOR. Agregado usa UMA LINHA POR TIPO — nunca separador no meio da frase. |
 | `actionLabel` | CTA principal, **UMA palavra**, ou `null` (pendência sem ação). É a COPY do botão. |
-| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_league_membership`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
+| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
 | `secondaryActionLabel` | Rótulo da ação de menor hierarquia (rodapé do alerta, antes da principal), também de uma palavra. Só o convite recebido tem duas ações (`Recusar` + `Aceitar`). |
 | `secondaryAction` | Ação executável do CTA secundário (mesmo shape de `action`); `null` quando não há segundo botão. |
-| `route` + `params` | Deep-link no molde dos CTAs vivos dos alertas (`router.navigate({ pathname, params })`): o pathname do expo-router (`/leagues/[leagueId]/challenges`) + os params (`{ leagueId }`, `{ mode: "edit", leagueId }`, `{ initialTab: "pending", tournamentId }`). Eles são o **destino** quando `action.type = "open_route"` (aí são obrigatórios) e podem ser **contexto da entidade** nos demais casos (o recorte da casa lê o `params`, ex.: `tournamentId`); o **alvo** de uma mutação nunca mora aqui — mora em `action.params` ou no `source`. |
+| `route` + `params` | Deep-link no molde dos CTAs vivos dos alertas (`router.navigate({ pathname, params })`): o pathname do expo-router (`/tournaments/[tournamentId]`, `/tournaments/[tournamentId]/entries`) + os params (`{ tournamentId }`, `{ initialTab: "pending", tournamentId }`). Eles são o **destino** quando `action.type = "open_route"` (aí são obrigatórios) e podem ser **contexto da entidade** nos demais casos (o recorte da casa lê o `params`, ex.: `tournamentId`); o **alvo** de uma mutação nunca mora aqui — mora em `action.params` ou no `source`. |
 | `count` | Quantos casos o item agrega (`null` quando é um caso só). O título usa a MESMA contagem. |
 | `deadlineAt` | Epoch ms do prazo que decide a ação (vencimento, fim de inscrição, instante da penalidade) ou `null`. |
 | `moneyCents` | Dinheiro envolvido em centavos ou `null`. |
-| `source` | Entidade de origem (`{ type, id }`): `league`, `league_membership`, `organization`, `tournament`, `tournament_entry`. `payment_charge` NÃO está no enum hoje: entra quando o kind que aponta para uma cobrança existir (é o caso (b) em "O que NÃO entra na v1"), no mesmo passo tipo → enum → registro. |
+| `source` | Entidade de origem (`{ type, id }`): `organization`, `tournament`, `tournament_entry`. `payment_charge` NÃO está no enum hoje: entra quando o kind que aponta para uma cobrança existir (é o caso do PIX/charge pendente ou expirado do jogador, em "O que NÃO entra na v1"), no mesmo passo tipo → enum → registro. |
 
 **Destaque (regra aprovada):** no máximo UM por linha, sempre a palavra-chave
 que identifica a pendência (nome de pessoa, categoria, competição, valor,
@@ -72,8 +72,7 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 
 | `action.type` | O que o cliente executa | Kinds |
 |---|---|---|
-| `open_route` | `router.navigate({ pathname: route, params })` (destino no item) | 8, 10, 11, 12, 13 e o agregado de 4 com mais de uma inscrição |
-| `pay_league_membership` | `createCharge({ sourceType: "league_membership", sourceId: source.id })` e abrir o checkout | 1, 2 e 3 (`Pagar` e `Renovar` são a MESMA ação; o rótulo é que difere) |
+| `open_route` | `router.navigate({ pathname: route, params })` (destino no item) | 11, 12 e o agregado de 4 com mais de uma inscrição |
 | `pay_tournament_entry` | `createCharge({ sourceType: "tournament_entry", sourceId: action.params.entryId })` e abrir o checkout | 4 com **uma** inscrição (`action.params.entryId`) |
 | `accept_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: true })` | 5 (`Aceitar`) |
 | `decline_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: false })` | 5 (`Recusar`, no `secondaryAction`) |
@@ -81,12 +80,11 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 Invariantes (cobertas por teste):
 
 1. **Todo kind tem ação declarada** — ou uma ação executável, ou `null` com os
-   rótulos nulos (kinds 6, 7, 9 e 14 não têm CTA).
+   rótulos nulos (kinds 6 e 7 não têm CTA).
 2. **`open_route` sempre tem destino** (`route` + `params` do ITEM não nulos) e
    nunca carrega `action.params`: para navegação pura o destino é o par do item.
 3. **Ação de mutação nunca depende de `route`/`params`** — o ALVO vive em
-   `action.params` (o `entryId` da inscrição a pagar/responder) ou no próprio
-   `source` (`pay_league_membership`, cujo alvo é a membership do item). O item
+   `action.params` (o `entryId` da inscrição a pagar/responder). O item
    PODE carregar `route` + `params` como **CONTEXTO da entidade**: é o que o
    recorte da tela lê para decidir em qual casa o item aparece (ex.: o convite
    carrega `/tournaments/[tournamentId]` + `{ tournamentId }` e a mutação
@@ -119,7 +117,7 @@ Invariantes (cobertas por teste):
 ### Dispensa por superfície (IBX-0085)
 
 O item pode ser ESCONDIDO, e a dispensa é **por superfície**: o MESMO item
-aparece na home e na casa da liga/torneio, e o gesto de esconder só existe na
+aparece na home e na casa do torneio, e o gesto de esconder só existe na
 home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde.
 
 - **Tabela `pendingDismissal`** (`domains/pendings/tables.ts`), uma linha por
@@ -197,20 +195,12 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 
 | # | kind | Escopo | Domínio | Severidade | Título (copy aprovada) | CTA | Rota |
 |---|---|---|---|---|---|---|---|
-| 1 | `player_league_membership_payment_due` | player | payment | warning | Pagamento atrasado | Pagar | — (ação: gerar PIX) |
-| 2 | `player_league_membership_payment_due_soon` | player | payment | warning | Mensalidade vence hoje/amanhã/em N dias | Renovar | — (ação: gerar PIX) |
-| 3 | `player_league_membership_suspended` | player | payment | danger | Inscrição suspensa | Renovar | — (ação: gerar PIX) |
 | 4 | `player_tournament_entries_awaiting_payment` | player | tournament | warning | N inscrição(ões) aguardando pagamento | Pagar | uma inscrição: — (o destino é a ação); 2 ou mais: `/tournaments/[tournamentId]` + `tournamentId` |
 | 5 | `player_tournament_partner_invite_received` | player | tournament | info | Convite de dupla aguardando sua resposta | Aceitar (+ Recusar) | `/tournaments/[tournamentId]` + `tournamentId` (contexto; o alvo da resposta é a inscrição) |
 | 6 | `player_tournament_partner_invite_sent` | player | tournament | info | Convite de dupla enviado | — | `/tournaments/[tournamentId]` + `tournamentId` (contexto) |
 | 7 | `player_tournament_entry_awaiting_approval` | player | tournament | info | Inscrição aguardando aprovação | — | `/tournaments/[tournamentId]` + `tournamentId` (contexto) |
-| 8 | `player_league_challenges_pending_actions` | player | league | warning | N desafio(s) precisando de atenção | Ver | `/leagues/[leagueId]/challenges` + `leagueId` |
-| 9 | `player_league_inactivity_risk` | player | league | warning/danger | Risco de queda por inatividade / Você está inativo | — | — |
-| 10 | `organization_league_payment_account_missing` | organization | payment | warning | Conta de pagamento não conectada | Conectar | `/settings/leagues/[mode]/settings` + `mode: "edit"`, `leagueId` |
 | 11 | `organization_tournament_entries_awaiting_approval` | organization | tournament | info | N inscrição(ões) aguardando aprovação | Ver | `/tournaments/[tournamentId]/entries` + `initialTab: "pending"`, `tournamentId` |
 | 12 | `organization_tournament_entries_awaiting_payment` | organization | tournament | warning | N inscrição(ões) aguardando pagamento | Ver | idem 11 |
-| 13 | `organization_league_join_requests` | organization | league | warning | N solicitação(ões) de entrada | Revisar | `/leagues/[leagueId]/requests` + `leagueId` |
-| 14 | `organization_league_challenges_awaiting_validation` | organization | league | warning | N desafio(s) esperando sua validação | — | — |
 
 **Como cada item agrega (e por quê):**
 
@@ -221,27 +211,12 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 - **5 · 6 · 7 — por INSCRIÇÃO.** A copy nomeia pessoa/categoria/competição, que
   são dados da inscrição — agregar perderia o dado. Exigem o NOME disponível
   (sem ele não há como escrever o destaque e o item não é emitido).
-- **8 — por LIGA**, com uma linha por tipo de pendência de resultado
-  (`N resultados para registrar` / `para confirmar` / `para corrigir`).
-- **9 — por MEMBERSHIP** (a penalidade é do membro na liga).
-- **13 — por LIGA** (o CTA precisa do destino da liga).
-- **14 — pela ORGANIZAÇÃO** (soma as ligas): não tem CTA nem rota — um item por
-  liga repetiria a mesma frase sem destino, e a decisão do organizador acontece
-  na tela do desafio, que ainda não tem destino único a partir do alerta.
-- **1 · 2 · 3 — por MEMBERSHIP**; **10 — por LIGA PAGA** (a conta é da
-  organização, mas quem não consegue cobrar é a liga com mensalidade).
 
 ## Como é derivado
 
-- **Regras puras por domínio** (dado → item, sem ctx, testáveis isoladas — molde
-  de `domains/league/challenge-status.ts`):
-  - `convex/domains/payment/pendings-rules.ts` — mensalidade (1, 2, 3) e conta
-    de pagamento (10), com o rótulo pt-BR do vencimento no calendário do Brasil
-    (UTC-3, sem ICU) e a janela de lembrete reusando `shouldSendRenewalReminder`.
+- **Regras puras por domínio** (dado → item, sem ctx, testáveis isoladas):
   - `convex/domains/tournament/pendings-rules.ts` — inscrições do jogador (4, 5,
     6, 7) e do organizador (11, 12).
-  - `convex/domains/league/pendings-rules.ts` — desafios com atenção (8, 14),
-    solicitações de entrada (13) e inatividade (9).
   - `convex/domains/pendings/pendings-rules.ts` — o que é comum: identidade,
     ordem, cap, contagens, concordância de número, partes/linhas.
 - **Registro + leitura:** `convex/domains/pendings/registry.ts` monta os
@@ -251,14 +226,6 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
   kinds do escopo, sem duplicata; cada kind no escopo que o contrato registrou).
   Se um item sair no escopo errado, a query **falha** (erro explícito) em vez de
   mostrar pendência no escopo errado.
-- **Fonte única dos desafios:** o status usado é o EFETIVO
-  (`computeEffectiveChallengeStatus`, `functions/league/_challenges/`), então um
-  jogo cujo fim passou sem placar já conta como pendência de resultado, como na
-  lista que a tela recebe. Os conjuntos de atenção do organizador continuam
-  vindo de `domains/league/challenge-status.ts`: a v1 os PARTE em duas linhas
-  (`ORGANIZER_ATTENTION_VALIDATION_STATUSES` para resultado +
-  `ORGANIZER_ATTENTION_PROPOSAL_STATUSES` para proposta) com **paridade testada**
-  contra o set do servidor.
 
 ## Limites e caps declarados
 
@@ -270,14 +237,8 @@ linha fica de fora depende da ordem interna do índice.
 
 | Leitura | Cap que corta | Sinal de saturação |
 |---|---|---|
-| Memberships do jogador por status (active/payment_due/suspended) | 20 cada | kinds de 1, 2, 3, 8 e 9 |
-| Desafios por lado/membership (atenção + `confirmed`) | 200 | 8 |
-| Desafios `finished` por lado/membership (só ligas com penalidade) | 200 | 9 |
 | Inscrições de torneio por lado (jogador) | 100 | 4, 5, 6 e 7 |
 | Categorias/torneios/perfis do jogador (lote `in`) | tamanho da lista de ids | não corta |
-| **Ligas lidas de uma vez** (organização: as da organização; jogador: as das memberships já lidas) | 50 (organização) / tamanho do lote (jogador) | 10, 13 e 14 (organização) |
-| Solicitações de entrada por liga | 100 | 13 |
-| Desafios por liga (organização) | 300 | 14 |
 | Torneios da organização lidos / varridos por inscrição | 50 / 20 (mais recentes) | 11 e 12 |
 | Categorias por torneio / inscrições por categoria | 10 / 300 | 11 e 12 |
 | Itens devolvidos (`PENDING_ITEM_CAP`) | 20 | `truncated` |
@@ -285,9 +246,9 @@ linha fica de fora depende da ordem interna do índice.
 
 **Leitura da tabela:** o cap da terceira coluna é onde a varredura para; quando
 ela ENCHE, o kind da quarta coluna aparece em `saturation` — ou seja, o número
-daquele item pode ser menor que o real. Um escopo com muitos membros/torneios
-(acima de 20 ligas, 20 torneios ou 300 inscrições numa categoria) é justamente
-onde a leitura trunca: o dado segue honesto porque o aviso vem junto.
+daquele item pode ser menor que o real. Um escopo com muitos torneios (acima de
+20 torneios ou 300 inscrições numa categoria) é justamente onde a leitura
+trunca: o dado segue honesto porque o aviso vem junto.
 
 **Não há índice de `tournamentEntry` por jogador** (`playerAId`/`playerBId`
 isolados): a leitura é o scan limitado do mesmo padrão pré-existente
@@ -299,17 +260,12 @@ próprio é trabalho futuro (exige migration, fora deste corte).
 - **`snooze` (silenciar por tempo) e limpeza automática global de recibos
   mortos**: desde o IBX-0085 a dispensa existe e é POR SUPERFÍCIE, mas o item
   volta por PIORA (severidade, contagem, prazo), nunca por relógio; o recibo
-  morto é substituído na próxima dispensa do MESMO item. A **ação executável
-  dentro do item** entrou no IBX-0084 (o CTA do item executa na tela).
+  morto é substituído na próxima dispensa do MESMO item.
 - **Push nativo, badge fora do app e e-mail**: fora do escopo do PLN-0008.
-- **Cobranças em atraso da ORGANIZAÇÃO** (membros `payment_due`/`suspended` nas
-  ligas pagas, hoje o `metrics.overdueCount` da home da organização) e
-  **PIX/charge pendente ou expirado do JOGADOR** (o estado `awaiting_payment` da
-  membership e a cobrança PENDING/EXPIRED): **não têm cartão aprovado na
-  galeria** e a regra do processo é não inventar frase por analogia — os dois
-  ficam como GAP DE COPY para um round 2 da galeria. Evidência do buraco no DEV:
-  a membership `n97ef6kqw5fsgvc9ng0hrddg7s8b3avs` (`awaiting_payment`) não gera
-  nenhum item hoje.
+- **PIX/charge pendente ou expirado do JOGADOR** (a cobrança PENDING/EXPIRED do
+  checkout): a galeria tem o cartão 17 como PROPOSTA (`PIX aguardando pagamento`
+  / `PIX vencido`) e não existe kind na v1 — a regra do processo é não inventar
+  frase por analogia.
 - **Cartão 15 ("4 confrontos sem agendamento")**: a própria galeria registra
   que "qual confronto conta como pendência ainda não tem regra" — sem regra, sem
   kind.
@@ -324,29 +280,20 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   tipos do contrato) — o cliente mapeia `severity: info` → `status="accent"`,
   renderiza `actionLabel`/`secondaryActionLabel` como os botões e **executa
   `action`/`secondaryAction`** (nada de mapa `kind` → handler na tela). Ou seja:
-  `pay_league_membership` vira `createCharge` na membership do `source`,
   `pay_tournament_entry` vira `createCharge` na inscrição de
   `action.params.entryId`, `accept_partner_invite`/`decline_partner_invite`
   viram `respondPartnerInvite` e `open_route` abre `route` com os `params` DO
   ITEM (o destino é o par do item — o `action` não carrega params nesse caso).
-- Os builders derivados duplicados no cliente (`buildLeaguePaymentAlert`,
-  `buildPlayerPendingActionsAlert`, `buildPlayerInactiveAlertCard`,
-  `buildTournament*Alert` e o `isParticipantAttention` de
-  `challenge-tab-counts.ts`) passam a ser APAGADOS quando as telas consumirem o
-  servidor — é o cutover obrigatório do PLN-0008 (senão vira a terceira cópia
-  da regra).
+- Os builders derivados duplicados no cliente (`buildTournament*Alert`) passam a
+  ser APAGADOS quando as telas consumirem o servidor — é o cutover obrigatório do
+  PLN-0008 (senão vira a terceira cópia da regra).
 
 ## Decisões e apontamentos
 
 - **A ação é EXPLÍCITA no contrato (revisão da Etapa 1).** Antes, o cliente
-  que fizesse o óbvio (`actionLabel` → `router.navigate(route)`) produzia botão
-  morto em 1, 2, 3 (o CTA é mutação de cobrança e vinha com `route` nulo) e
+  que fizesse o óbvio (`actionLabel` → `router.navigate(route)`) produzia
   navegação sem pagamento em 4 (`route` apontava a casa do torneio). O campo
   `action` fecha isso: cada CTA diz o que executa e com quais params.
-- **`Pagar` e `Renovar` são a MESMA ação** (`pay_league_membership`): o que muda
-  entre os cartões 1, 2 e 3 é a copy do rótulo, não o que o app faz (gerar a
-  cobrança da membership e abrir o checkout). Um `renew_*` separado seria
-  vocabulário sem comportamento por trás.
 - **Convite nomeia a pessoa pela cadeia de nomes do app** (revisão da Etapa 1):
   o item nunca mais deixa de nascer por o perfil convidante não ter `fullName` —
   `buildPlayerProfileDisplayName` (`convex/domains/player/identity.ts`) resolve
@@ -355,29 +302,6 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   `username`). O builder mantém a guarda de nome vazio como DEFESA: com nome
   vazio ele não monta a frase (o cartão 5 destaca o nome e uma frase sem ele
   ficaria quebrada) — caminho que o derivador não alcança mais.
-- **O suspenso (kind 3) não tem CTA** (revisão da Etapa 1): no MESMO estado a
-  página mantém o rodapé de entrada habilitado com `Renovar inscrição`, e dois
-  botões de pagamento para a mesma membership na mesma tela é o BUG-0042. O
-  alerta só INFORMA; a ação do estado é o rodapé (decisão de 20-09).
-- **O suspenso (kind 3) PASSOU A TER CTA no próprio item** (21-09-2026,
-  IBX-0084 — vale sobre o bullet acima, que fica como histórico): o MESMO item é
-  renderizado pelas 6 montagens de `PendingAlerts` em `src/` (as duas homes, as
-  duas overviews da casa da liga e as duas do torneio — IBX-0084 r2 corrigiu o
-  número: eram 7) e só a casa da liga
-  tem rodapé de entrada — na home o alerta era beco sem saída, com a copy
-  mandando renovar sem afordância. O item passa a devolver
-  `actionLabel: "Renovar"` + `action: { type: "pay_league_membership", params: null }`
-  (a MESMA ação dos kinds 1 e 2) com o alvo no `source` do item
-  (`league_membership` + o id da membership), que é o que o runner do cliente
-  lê. A ação é executável NESSE estado: `canMembershipBeCharged` aceita
-  `suspended` (`CHARGEABLE_MEMBERSHIP_STATUSES`, `convex/domains/payment/rules.ts`)
-  e o par alerta↔executabilidade fica preso por teste. O motivo do BUG-0042
-  (dois botões de pagamento para a mesma membership na MESMA tela) continua
-  valendo e passa a ser resolvido do lado da TELA: a casa da liga deixa de
-  renderizar o pagamento no rodapé do suspenso (corte do Frontend, mesmo card:
-  fora do `canResumeCheckout` e o rodapé de entrada não monta para o suspenso —
-  `buildLeagueDetailsShowJoinFooter`, ver `docs/spec/leagues.md`, bullet do
-  IBX-0084).
 - **O convite recebido (cartão 5) ficou sem `route`**: responder o convite é
   mutação (`accept_partner_invite` / `decline_partner_invite`) e a tela real
   responde no lugar — route nulo é o contrato, não uma perda.
@@ -386,15 +310,6 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   status real `accent` (a nota do próprio cartão registra "o pedido citava
   warning" e a marcação do usuário decide). Vale o aprovado: `info` para os dois
   lados do convite, com a diferença no CTA (convidado age, criador não).
-- **`player_league_inactivity_risk` tem duas severidades** porque o app já tem
-  as duas cópias reais (warning "Faltam N dias" / danger "Você está inativo");
-  é o único kind com essa variação.
-- **Mensalidade em `awaiting_payment` não gera item** (a v1 só cobre
-  `payment_due`, janela de lembrete do `active` e `suspended`, as três cópias
-  reais). O estado é justamente o GAP de copy acima.
-- **Mensalidade só resolve vencimento em liga paga** (`monthlyPriceCents > 0`):
-  liga gratuita não tem ciclo de cobrança, então nenhuma consulta de charge é
-  feita para ela.
 - **Torneio encerrado ou cancelado não gera pendência de inscrição** no escopo
   da organização (não há mais ação possível); a tela do torneio continua
   mostrando o bucket dela.
@@ -404,14 +319,13 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   sem duplicar a resolução de ator ativo.
 - **Escopo da ORGANIZAÇÃO exige manager ativo** (`resolvePendingsActor`,
   `registry.ts`): um `member` puro (ou ator de organização sem papel) recebe
-  `items: []`, o MESMO gate das leituras equivalentes (`requireActiveManager`, a
-  aba Solicitações e o valor da mensalidade no ajuste da liga) — sem isso o
-  alerta devolveria contagem/ids que as telas escondem dele.
+  `items: []`, o MESMO gate das leituras equivalentes (`requireActiveManager`) —
+  sem isso o alerta devolveria contagem/ids que as telas escondem dele.
 - **Nome do procedimento:** o caminho do arquivo manda (`pendings/list.ts`), então
   o cliente chama `api.pendings.list.list` — convenção `módulo.arquivo.função`
   do repo, não um nome novo.
 - **A dispensa é POR SUPERFÍCIE e o dono é o ATOR (IBX-0085).** O mesmo item é
-  renderizado na home e na casa da liga/torneio: esconder na home não apaga o
+  renderizado na home e na casa do torneio: esconder na home não apaga o
   alerta da casa (`surface: "house"` nunca filtra e nem lê os recibos). O recibo
   pertence ao ator dono da pendência (organização ou perfil de jogador), não à
   sessão que dispensou — os dois gestores da mesma organização veem o mesmo item
@@ -423,8 +337,8 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   deriva o item pelo MESMO caminho da leitura e congela o que ela mostra.
 - **Sem `surface` a leitura vale a CASA.** É a única superfície que nunca
   esconde, então quem esquece o parâmetro recebe a lista completa — o default
-  nunca faz uma pendência SUMIR por engano. As chamadas da casa (layouts de liga
-  e torneio) seguem sem o parâmetro; a home passa `surface: "home"` no corte do
+  nunca faz uma pendência SUMIR por engano. As chamadas da casa (o `_layout.tsx`
+  do torneio) seguem sem o parâmetro; a home passa `surface: "home"` no corte do
   Frontend.
 - **Nenhum dado novo é criado PELA DERIVAÇÃO:** os itens continuam derivados a
   cada leitura (sem tabela de pendência). A ÚNICA escrita do sistema é o recibo
@@ -436,54 +350,33 @@ próprio é trabalho futuro (exige migration, fora deste corte).
 ### Seed de DEV do cenário de pendências (IBX-0090)
 
 - `bunx convex run seed:pendencyScenario '{"primaryUserEmail":"<email>"}'` cria
-  (e repara) o estado que faz a home da conta mostrar os **14 kinds**: 3 ligas
-  pagas com a membership do alvo em `payment_due`, `active` com ciclo pago a
-  vencer em 2 dias e `suspended`; 3 solicitações de entrada; 6 desafios (3 com
-  ação do jogador, 2 esperando a validação da organização e 1 partida antiga
-  para o risco de inatividade); 2 torneios com inscrições (aguardando pagamento,
-  aguardando aprovação, convite enviado e recebido). O plano puro vive em
-  `convex/domains/seed/pendency-plan.ts` (testes em `domains/seed/tests/`).
-- Os 5 kinds da ORGANIZAÇÃO vêm de uma organização PRÓPRIA do seed ("Arena
-  Beira-Rio", alvo como owner), **sem conta de recebimento** (o cenário dele tem
-  conta ativa, e o cartão 10 só existe onde a conta não está ativa). No escopo do
+  (e repara) o estado que faz a home da conta mostrar os **6 kinds**: 2 torneios
+  do organizador levam as inscrições do cenário — uma aguardando pagamento (com
+  o alvo no lado A), um convite enviado, um convite recebido e uma aguardando
+  aprovação. O plano puro vive em `convex/domains/seed/pendency-plan.ts` (testes
+  em `domains/seed/tests/`).
+- Os 2 kinds da ORGANIZAÇÃO vêm de uma organização PRÓPRIA do seed ("Arena
+  Beira-Rio", alvo como owner), dona dos dois torneios do cenário. No escopo do
   jogador o cenário inteiro aparece na home dele.
 - **Cobertura da organização que o alvo JÁ usa (r2, 22-09).** O seletor do app
   ativa a PRIMEIRA organização da lista de membros
   (`availableActors.find(kind === "organization")`, `app/(private)/settings/index.tsx`)
   e não oferece escolher outra: sem isto os kinds da organização só existiriam
   numa organização que ele não consegue abrir. O seed ACRESCENTA — nunca altera —
-  dado de teste nas organizações em que o alvo é `owner`/`admin` (até 3): na liga
-  mais recente, 2 solicitações de entrada pendentes (cartão 13); no torneio mais
-  recente com inscrições abertas, 2 inscrições aguardando pagamento e 1
-  aguardando aprovação (cartões 11 e 12). O alvo do plantio é o TOTAL por status
+  dado de teste nas organizações em que o alvo é `owner`/`admin` (até 3): no
+  torneio mais recente com inscrições abertas, 2 inscrições aguardando pagamento e
+  1 aguardando aprovação (cartões 11 e 12). O alvo do plantio é o TOTAL por status
   no torneio, então rodada repetida não acumula (o "aguardando pagamento" pede 2
-  de propósito: o item já dispensado volta quando a contagem muda). Ficam de
-  fora: o cartão 10 (exigiria desligar a conta de recebimento real da organização
-  dele) e os desafios do cartão 14 (plantariam chave/proposta numa liga real —
-  esse par existe na organização do cenário). O perfil `player-01` do seed (mesmo
-  nome do dono da conta) fica fora das candidatas, e o par de dupla respeita o
-  gênero da categoria (IBX-0074).
-- **Direção do ranking no DEV (22-09).** O alvo entra como CHALLENGER na **pior
-  posição** do grupo e os adversários ACIMA dele — a regra da liga exige
-  `challengerPosition > challengedPosition` (`domains/league/challenge-rules.ts`).
-  `ensureMembership` não regrava linha existente, então a posição CONVERGE pela
-  rodada seguinte (`refreshSeedMembershipRankingPosition`): o plantio antigo
-  (invertido, no DEV) foi convertido em 22-09 — na "SEED · Copa do Vale" o alvo
-  ficou em `pos=4` com os adversários em 1..3 e os 4 desafios dele todos com o
-  challenger abaixo. Desafio criado por plantio antigo com os lados trocados
-  NÃO é removido (o dedup é por challenger+challenged+status, `ensureSeedChallenge`):
-  a rodada acrescenta o par correto ao lado do antigo. No DEV os 2 pares antigos
-  do cenário foram removidos em 22-09 (nada além deles foi tocado) e a rodada
-  seguinte não os recria.
+  de propósito: o item já dispensado volta quando a contagem muda). O perfil
+  `player-01` do seed (mesmo nome do dono da conta) fica fora das candidatas, e o
+  par de dupla respeita o gênero da categoria (IBX-0074).
 - **Idempotente e repetível**: rodar de novo não duplica (`primaryEntriesCreated`
-  e `primaryJoinRequestsCreated` voltam 0) e não faz reset; a charge do "a vencer"
-  e o `finishedAt` da partida do risco de inatividade são REFRESCADOS para o
+  volta 0) e não faz reset; o prazo de inscrição dos torneios é REFRESCADO para o
   cenário seguir válido dias depois. **RESSURREIÇÃO**: o item dispensado volta
   quando `severity`, `count` ou `deadlineAt` mudam
   (`filterDismissedPendingItems`, `domains/pendings/pendings-rules.ts`), então
-  mudar o que o item mostra ressuscita o alerta — no cartão 9, reduzir as "dias
-  sem jogar para penalidade" nos ajustes da liga (warning vira danger); nos
-  cartões 11/12, a entrada nova que muda a contagem do torneio.
+  mudar o que o item mostra ressuscita o alerta — nos cartões 11/12, a entrada
+  nova que muda a contagem do torneio.
 
 ## QA no simulador (20-09, sem commit)
 

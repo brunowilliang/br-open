@@ -9,7 +9,7 @@ Regra de negócio NUNCA dentro de componente — o componente consome derivada p
 Rotas: arquivo = rota, dinâmica com `[param]`; params com `useLocalSearchParams`,
 navegação com `router`/`Link`. A TELA é dona do fluxo de dados — queries, mutations,
 toasts e invalidates vivem nela, no padrão das telas existentes
-(`leagues/[leagueId]/challenges.tsx`, `ranking.tsx`). Views grandes ficam em `pages/` e
+(`tournaments/[tournamentId]/entries.tsx`, `bracket.tsx`). Views grandes ficam em `pages/` e
 são renderizadas pela rota; forms RHF moram na tela ou em componentes dedicados
 (`components/pages/<dominio>/form/`).
 
@@ -30,7 +30,7 @@ Nunca duplique schema que já existe no domínio; campo que o contrato não cobr
 resolve no backend, não local.
 
 Estado local: stores `@legendapp/state` em `src/lib/<feature>/*-store.ts` (padrão
-`league-form-store`, `league-details-store`). Estado compartilhado do fluxo vive na
+`tournament-form-store`, `tournament-details-store`). Estado compartilhado do fluxo vive na
 store — nunca prop drilling nem estado duplicado entre store e query.
 
 UI: HeroUI Native (OSS + Pro) + Uniwind; ícones via `HugeIcons`

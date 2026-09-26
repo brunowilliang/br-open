@@ -1,5 +1,7 @@
 # Leagues — Estado atual
 
+> Arquivo técnico do domínio de ligas, REMOVIDO do app em 25/09/2026. O texto abaixo foi escrito enquanto o código existia: as citações `file:line` apontam para arquivos que não existem mais no repo e não valem contra o disco de hoje. O registro de PRODUTO (sem código) está em `docs/archive/leagues.md`; a spec viva não cobre mais este domínio.
+
 > Verificado em 10-08-2026 contra o código do repo (src/, convex/).
 
 ## Visão geral

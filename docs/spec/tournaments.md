@@ -11,12 +11,10 @@
 ### Infra compartilhada (RUL-0005)
 - **`src/lib/forms/media-form-store.ts`** — factory `createMediaFormDomain` do
   padrão de rascunho de mídia (cover+avatar com crop, upload diferido,
-  callbacks por sessão, activeSessionKey); `league-form-store.ts` agora é um
-  wrapper fino do domínio da liga (API pública idêntica, testes preservados).
+  callbacks por sessão, activeSessionKey).
 - **`src/lib/forms/media-form-controller.tsx`** — controller genérico
   `useMediaFormController` (useForm + resolver injetado + upload de mídia no
-  submit + cropper + toasts); `league-form-controller.tsx` é wrapper que
-  injeta LeagueSchema/validação-de-tab/uploadUrl da liga.
+  submit + cropper + toasts).
 - **`src/components/ui/court-editor.tsx`** — editor de quadras globalizado
   (accordion por quadra, tabs de dia, ranges de 30min; dialog `Adicionar
   Horário` cria o range em MÚLTIPLOS dias de uma vez via chips de dia
@@ -25,20 +23,18 @@
   IBX-0047; edição
   substitui em place e overlap é validado em todos os caminhos via lib pura
   compartilhada `src/lib/courts/court-availability.ts` (`applyCourtRange`),
-  BUG-0032/IBX-0050); as rotas
-  `settings/leagues/[mode]/courts.tsx` e
-  `settings/tournaments/[mode]/courts.tsx` são wrappers que só montam header
-  + menu Salvar.
+  BUG-0032/IBX-0050); a rota
+  `settings/tournaments/[mode]/courts.tsx` é wrapper que só monta header +
+  menu Salvar.
 
 - **`src/components/match-rules/`** e **`src/components/ui/rules-grid.tsx`**
   (R10) — seções de regras de partida parametrizadas por `prefix` e o grid
-  2xN read-only, ambos globalizados a partir da liga (detalhes em
-  leagues.md, "Seções de partida do form como módulo global").
+  2xN read-only, ambos globalizados.
 
 ### Wizard `/settings/tournaments/[mode]` (cluster `[mode]`, 6 tabs + FloatingTabBar)
 - **`src/lib/tournaments/tournament-form-navigation.ts`** — tabs
-  Detalhes·Local·Categorias·Quadras·Regras·Ajustes (molde
-  `league-form-navigation`; **Regras entre Quadras e Ajustes desde o R10**,
+  Detalhes·Local·Categorias·Quadras·Regras·Ajustes (**Regras entre Quadras e
+  Ajustes desde o R10**,
   `TOURNAMENT_FORM_TAB_ITEMS` :66-72).
 - **`src/components/pages/tournaments/form-schema.ts`** — `TournamentSchema`
   (shapes do contrato Convex; datas ISO `YYYY-MM-DD` com conversão
@@ -48,12 +44,12 @@
   formato EXTINTO** — decisão do usuário: o organizador personaliza as
   regras campo a campo) — a aba é a **seção global de match-rules**
   (`MatchRulesSection` com `prefix="matchConfig"` — módulo
-  `src/components/match-rules/`, ver leagues.md) DIRETO no
+  `src/components/match-rules/`) DIRETO no
   `Page.ScrollView`; header com menu ⋮ → Salvar (`onSubmitPress`,
   desabilitado enquanto `isSubmitPending`). Arquivos
   `match-config-presets.{ts,test.ts}` REMOVIDOS no R12.
-- **`form-defaults.ts` / `form-validation.ts`** — defaults (matchConfig da
-  liga) e grupos de erro→tab (molde da liga; **R10**: grupo "Regras
+- **`form-defaults.ts` / `form-validation.ts`** — defaults
+  (`DEFAULT_MATCH_CONFIG`) e grupos de erro→tab (**R10**: grupo "Regras
   incompletas" → tab `rules`, `form-validation.ts:55-59`). `form-schema.ts`
   ganhou o refine `TournamentMatchConfigFormSchema` —
   `CreateTournamentSchema.shape.matchConfig.superRefine` com
@@ -62,9 +58,9 @@
 - **`tournament-form-store.ts` / `tournament-form-controller.tsx`** — domínio
   + controller do torneio sobre a infra genérica.
 - **`[mode]/_layout.tsx`** — resolve create/edit (`?mode=new|edit`), viewer
-  gate `canManageLeagues`, mutations create/update/remove com toasts e
+  gate `canManageOrganization`, mutations create/update/remove com toasts e
   invalidação de `listMine`/`getById`; create → detalhe do rascunho.
-  **Header no loading (IBX-0060):** mesmo comportamento da liga — enquanto
+  **Header no loading (IBX-0060):** enquanto
   `getById`/`viewer.context.get` carregam, o fallback global `FormFallback`
   (`src/components/ui/form-fallback.tsx`) mantém back +
   `Page.Header.SubTitle` ("Criar Torneio"/"Editar Torneio") +
@@ -77,12 +73,12 @@
   barrados no calendário). **Mídia sem overlay (IBX-0064):** banner e avatar
   SEM overlay escuro com texto — o toque abre o dialog de confirmação
   "Quer alterar o banner?"/"Quer alterar o avatar?" (`MediaConfirmDialog`
-  global em `src/components/ui/media-confirm-dialog.tsx`, molde dos dialogs
-  Sair/Deletar liga; 1 dialog por tela com alvo dinâmico) e o CONFIRMAR
+  global em `src/components/ui/media-confirm-dialog.tsx`; 1 dialog por tela
+  com alvo dinâmico) e o CONFIRMAR
   chama o fluxo de troca de hoje (`onMediaPress` → picker/crop/upload);
   `PressableFeedback` desabilitado durante o upload (`isMediaUploading`).
 - **`[mode]/categories.tsx`** — uma categoria por card das 5; card NO MOLDE
-  `RuleCard`/`RuleExpandableContent` (`pages/leagues/rule-card`, QA R13:
+  `RuleCard`/`RuleExpandableContent` (`components/ui/rule-card.tsx`, QA R13:
   accordion igual às seções de Regras). **Gatilho do accordion: TOCAR NO
   CARD** — header inteiro pressable (mecânica `RuleToggleRow`,
   `rule-card.tsx:154-180`; o Switch é só INDICADOR DE ESTADO com
@@ -96,21 +92,19 @@
   `RuleExpandableContent` (`rule-card.tsx:28-29`, `92-103`): aparece/some
   animado com reflow suave; revalidação on-the-fly ao habilitar uma
   categoria preservada. Campos: NumberField BRL de taxa (0 =
-  grátis; `isRequired` como o
-  Valor da cobrança da liga; Input `variant="secondary"` — QA round 8: o
+  grátis; Input `variant="secondary"` — QA round 8: o
   default `--color-field` ≡ `--color-surface` nos dois temas e o input sumia
   no card `bg-surface`; secondary renderiza `--color-default`, que contrasta
   em light e dark) + Switch Limitar vagas + NumberStepper (dica de potências
   de 2); estado = array `categories` do form.
 - **`[mode]/settings.tsx`** — visibilidade (pública/privada), aprovação
-  (auto/manual), delete NO MOLDE DA LIGA (QA rounds 7-8, molde
-  `settings/leagues/[mode]/settings.tsx:515-583`): `Animated.View gap-2` +
+  (auto/manual), delete (QA rounds 7-8): `Animated.View gap-2` +
   `AccordionLayoutTransition` envolvendo `RuleCard`
   `border border-danger-soft bg-danger-soft` + título "Deletar torneio"
   `text-danger` + botão `danger-soft self-start`; dialog Cancelar
   (secondary) + Deletar torneio (`danger-soft`, com guarda `isDisabled`
-  no onOpenChange, Close condicional e confirm `.catch(() => undefined)`
-  como na liga); botão visível SÓ em draft (`showDelete: status ===
+  no onOpenChange, Close condicional e confirm `.catch(() => undefined)`);
+  botão visível SÓ em draft (`showDelete: status ===
   "draft"` no `_layout`; published+ o backend rejeita).
 
 ### Detalhe `/tournaments/[tournamentId]` (cluster + store Legend-State)
@@ -138,21 +132,20 @@
   gated por `shouldFetchMatches`; entries sempre), Tabs+FloatingTabBar com
   ícones e `resolveValueFromRouteName` (index→overview; QA round 6).
 - **Overview do organizador** (QA round 9) — `OrganizerOverview`
-  (`components/pages/tournaments/`) no molde da liga: `WidgetAlert` accent
+  (`components/pages/tournaments/`): `WidgetAlert` accent
   (N aguardando aprovação) + `WidgetAlert` warning (N aguardando pagamento)
   + grid 2x2 de `KpiCard` (Inscrições ativas, Pendências, Categorias,
   Partidas concluídas/total — "—" antes do sorteio; **linhas vacant do
   IBX-0035 NÃO contam no total**); builders PUROS em
   `src/lib/tournaments/organizer-overview-derived.ts` (+ teste co-localizado).
-- **`index.tsx`** (overview) — ESTRUTURA ESPELHADA da página principal da
-  liga (QA round 6, RUL-0007, molde `leagues/[leagueId]/index.tsx`):
-  `TournamentBanner` (molde `LeagueBanner` file:line — stretch h-90 com
+- **`index.tsx`** (overview) — composição da página (QA round 6, RUL-0007):
+  `TournamentBanner` (stretch h-90 com
   gradiente, avatar `size-28 rounded-3xl border-2`, chip "Torneio", título,
-  chip de local `formatLeagueMeta`), header `overlay` com back secondary e
-  menu ⋮ (`MoreVerticalIcon`, moldes da liga) — Editar primeiro, **Agenda**
-  (gated `canOpenSchedule`, → `/schedule` pushed, QA round 9: mesma
-  mecânica do menu da liga), **Regras** (R10 — item `Regras` com
-  `ClipboardIcon`, `index.tsx:275-282`, → `/rules` pushed, mesma mecânica)
+  chip de local `formatCompetitionMeta`), header `overlay` com back secondary e
+  menu ⋮ (`MoreVerticalIcon`) — Editar primeiro, **Agenda**
+  (gated `canOpenSchedule`, → `/schedule` pushed, QA round 9), **Regras**
+  (R10 — item `Regras` com `ClipboardIcon`, `index.tsx:437-442`, → `/rules`
+  pushed, mesma mecânica)
   + ações de ciclo (Publicar/Cancelar com dialog de estorno; Cancelar
   torneio em `variant="danger"` no menu, ícone `text-danger`, e botão de
   confirmação `danger-soft` — padrão destrutivo do app, IBX-0068 r3;
@@ -169,8 +162,8 @@
   no IBX-0068),
   estados de loading/erro CENTRADOS (`cn grow + centered gap-4 px-4`),
   switch de papéis com componentes `OrganizerOverview`/`PlayerOverview`/
-  `GuestOverview` em `components/pages/tournaments/` (molde das irmãs da
-  liga; mutações ficam na tela, callbacks descem como props), chips de
+  `GuestOverview` em `components/pages/tournaments/` (mutações ficam na tela,
+  callbacks descem como props), chips de
   categoria com taxa + datas + contagem como bloco comum antes do switch;
   `TournamentJoinFooter` para **guest e player** em janela ABERTA
   (`published`/`drawn` + prazo futuro, regra `isRegistrationOpen` espelhada
@@ -179,7 +172,7 @@
   (`buildTournamentJoinOptions`, decisão 22/08 multi-categoria; cancelou,
   volta) e cada opção mostra vagas `ativas/max` com cheia desabilitada como
   "Lotada" (`buildTournamentCategoryVacancy`, semântica do servidor: conta
-  só `active`; molde da liga organizer-overview-derived); fora da janela o
+  só `active`); fora da janela o
   rodapé SAI e a linha de datas vira ESTADO — "Inscrições abertas até
   {dd/mm}" / "Inscrições encerradas · chave a partir de {dd/mm}" — para
   todo papel, em todo status (a página nunca muda); "Suas inscrições" com
@@ -234,7 +227,7 @@
   **tabs de CATEGORIA no
   header** (`Tabs` heroui-native no molde entries.tsx) APENAS com 2+
   categorias COM chave (o draw pula
-  categorias com <2 inscritas — bracket.ts:94 — então categorias sem árvore
+  categorias com <2 inscritas — bracket.ts:126 — então categorias sem árvore
   não ganham tab); categoria única renderiza sem barra. **Uma árvore por vez
   no canvas** (faixa de rodadas e rótulo de categoria dentro da chave
   EXTINTOS).
@@ -597,8 +590,8 @@
   `formatMinuteToHHMM` de lib/format/time.ts) — a rota só resolve o nome da
   quadra (`courtNameOf`, lookup em `tournament.courts`) e o
   `formatMatchScheduleSummary` foi EXTINTO; organizador (IBX-0020):
-  Menu ⋮ kebab NO HEADER do card (molde challenge-card.tsx:80-113 —
-  `Menu.Trigger asChild` > `Button` icon-only `size-7` terciário +
+  Menu ⋮ kebab NO HEADER do card (`Menu.Trigger asChild` > `Button` icon-only
+  `size-7` terciário +
   `Menu.Portal` > `Menu.Overlay bg-backdrop` > `Menu.Content presentation=
   "popover" width={240}`) com os itens Agendar/Reagendar (label dinâmico
   por `match.matchDate`, Calendar03Icon) e Resultado (Edit02Icon), nos
@@ -705,9 +698,9 @@
   nela; **SUPERSEDE no IBX-0080, 21-09-2026: a barra é montada por PAPEL
   RESOLVIDO (organizador Confirmados|Pendências, jogador Minhas|Confirmados, guest
   e entrada fria SEM barra) e a entrada do jogador com inscrição viva é Minhas —
-  ver a seção IBX-0080 no fim do doc**), no molde challenges.tsx (QA round 7; pendências = `pending_approval` /
+  ver a seção IBX-0080 no fim do doc**; QA round 7: pendências = `pending_approval` /
   `pending_partner` / `awaiting_payment`, confirmados = `active`; empty
-  state por tab por papel no tom da liga; dica de seeds no fim da lista
+  state por tab por papel; dica de seeds no fim da lista
   EXTINTA — IBX-0036);
   CARDS NO COMPONENTE DE INSCRIÇÃO `EntryCard` (`ui/entry-card.tsx`; as ações de
   cada segmento são do componente local `EntryRowActions` da própria tela):
@@ -716,7 +709,7 @@
   (`formatEntryPlayerNames`), nota de convite no chip do pé quando
   `pending_partner` e as ações na ponta — aprovação do organizador e
   convite do parceiro = par icon-only `outline Cancel01Icon` / `default
-  Tick02Icon` idêntico ao da liga; **CONTROLES DE SEED E DE FASE REMOVIDOS
+  Tick02Icon`; **CONTROLES DE SEED E DE FASE REMOVIDOS
   (cutover IBX-0053, 16-09, decisão do usuário)**: a aba Confirmados não tem
   mais o botão "Marcar seed"/"Seed #N" nem o picker de fase de entrada
   (`setSeed`/`setEntryRound` saíram da tela, junto com as derivadas
@@ -731,20 +724,19 @@
   passa a ser o sorteio/move. Trailing por estado: chip de status. A rota abre
   em Confirmados (o param `?initialTab=pending` abre a outra aba).
   Lista `Page.ScrollView` +
-  map + `Footer pb-floating-tab-bar-4` (molde requests.tsx:161-237).
+  map + `Footer pb-floating-tab-bar-4`.
 - **`schedule.tsx`** (Agenda — **TAB da FloatingTabBar desde IBX-0033 B**,
-  sem BackButton) — ESTRUTURA DA AGENDA DA LIGA (QA round 7,
-  molde `leagues/[leagueId]/schedule.tsx`): header com janela 7/15 dias
-  (Menu ⋮ terciário) + tabs de data ("Hoje" + próximos dias), corpo por
+  sem BackButton) — ESTRUTURA DA AGENDA (QA round 7): header com janela 7/15
+  dias (Menu ⋮ terciário) + tabs de data ("Hoje" + próximos dias), corpo por
   período (manhã/tarde/noite via `SCHEDULE_PERIOD_META`), partidas como
   `MatchCard` (`ui/match-card.tsx`, o MESMO card da chave) alimentadas pelos
   itens do construtor puro `src/lib/tournaments/schedule-items.ts`
-  (`buildScheduledMatchItems`, :35 — só entra a partida com dia, hora E quadra;
+  (`buildScheduledMatchItems`, :38 — só entra a partida com dia, hora E quadra;
   lado com 1–2 nomes/avatares; estágio pela última rodada da categoria), quadra
-  via `tournament.courts`; agrupamento pelo `buildScheduleDayView` GENERICIZADO
-  na lib da liga (RUL-0005 — uma implementação para liga e torneio); empty state
+  via `tournament.courts`; agrupamento pelo `buildScheduleDayView`
+  (`src/lib/scheduling/schedule-view.ts`); empty state
   "Nenhum jogo neste dia".
-- **`rules.tsx`** (Regras — R10) — tela READ-ONLY no molde `/rules` da liga:
+- **`rules.tsx`** (Regras — R10) — tela READ-ONLY:
   card **"Partidas"** ("O formato que vale para todos os confrontos do
   torneio.") com `RulesGrid`/`RulesItemCard` GLOBALIZADOS em
   `src/components/ui/rules-grid.tsx` (5 itens: Formato, Set, Pontuação,
@@ -752,7 +744,7 @@
   DEC-0004); view derivada por
   `buildTournamentRulesView` em
   `src/lib/tournaments/tournament-rules-derived.ts` (formatters reutilizados
-  de `lib/leagues/rule-format.ts`). Espelho da decisão R10: regra ÚNICA por
+  de `src/lib/rules/rule-format.ts`). Espelho da decisão R10: regra ÚNICA por
   torneio, sem seção por categoria.
 
 ### Dialogs e components (`src/components/pages/tournaments/`)
@@ -787,25 +779,24 @@
   min(450, metade da janela)` e `isSwipeable={false}` (o drag-to-dismiss
   brigaria com o scroll; fixos: título, Adicionar + X, rodapé com Salvar);
   o antigo `tournament-result-dialog.tsx` foi EXTINTO
-  (grep 0). Detalhes do fluxo na spec da liga (mesmo componente global).
+  (grep 0).
 - **BUG-0026 (15-09, DEC-0005 opção A) — botão "Tie-break" CONTEXTUAL:** no
   dialog global de resultado, o botão dentro da linha de placar só aparece
   com o placar daquela linha empatado e além do 0x0 (`canAttachTieBreak`
   em `src/lib/matches/score-draft.ts`); entrada/saída do botão com wrapper
   animado no molde rule-card (FadeIn/FadeOut + AccordionLayoutTransition).
   Menu e linha avulsa seguem livres em qualquer estado (RUL-0019 intacta).
-  Detalhes na spec da liga (mesmo componente global).
 - **BUG-0035/IBX-0055 (16-09) — tie-break anexado DISSOLVE quando o set
   desempata:** no dialog global de resultado, o update da linha passa pelo
   `settleAttachedTieBreak` (`src/lib/matches/score-draft.ts`) — o placar
   de games mudou e ficou inelegível (desempatado ou 0x0), o mini-placar
   anexo sai sozinho; mudou e segue empatado (4x4 → 5x5), mantém; edição
-  só dos pontos do próprio TB, mantém. Vale liga e torneio (mesmo
-  componente global, RUL-0005), inclusive editando resultado já
-  publicado. Detalhes na spec da liga.
-- **Agendar/Reagendar confronto (IBX-0030, RUL-0005)** — o torneio REUSA
-  o dialog global da liga `ChallengeProposalDialog`
-  (`components/pages/leagues/challenge-proposal-dialog.tsx`) com
+  só dos pontos do próprio TB, mantém. Vale para o torneio (componente
+  global, RUL-0005), inclusive editando resultado já
+  publicado.
+- **Agendar/Reagendar confronto (IBX-0030, RUL-0005)** — o torneio USA
+  o dialog global `ScheduleProposalDialog`
+  (`src/components/ui/schedule-proposal-dialog.tsx`) com
   description adaptada ("A contra B."), `occupiedSlots` reais do torneio
   (BUG-0027/IBX-0043, bullet abaixo) e payload
   `{matchId, courtId, endMinute, matchDate, startMinute}` — o paralelo
@@ -828,14 +819,13 @@
   `listForTournament` (chave privada até começar). UI ENTREGUE (Frontend):
   o `bracket.tsx` busca `listOccupiedSlots` (query `enabled` só pro
   organizador, mesma audiência do dialog), renomeia `matchId` para o
-  `slotId` NEUTRO e passa ao `ChallengeProposalDialog` com
+  `slotId` NEUTRO e passa ao `ScheduleProposalDialog` com
   `slotIdToIgnore={scheduleTarget.id}` (o confronto em edição não bloqueia
   o próprio horário); o sucesso do agendamento invalida a query em
   `invalidateTournamentContext` e o erro do servidor segue virando toast
-  com a mensagem do backend (`getToastErrorMessage`). O slot virou
-  contrato neutro no par `src/lib/leagues/challenge-schedule.ts` + dialog
-  (RUL-0005: cada domínio adapta na fronteira, liga renomeia
-  `challengeId`, torneio `matchId`; +1 teste do vocabulário do torneio).
+  com a mensagem do backend (`getToastErrorMessage`). O slot é
+  contrato neutro em `src/lib/scheduling/slot-options.ts`, consumido pelo
+  dialog.
   Modelo DAY-SCOPED consciente (decisão registrada no review): a janela
   ocupa só o dia D (23:30 + 90min NÃO conflita com 00:15 do D+1), sem
   conflito na virada do dia. O torneio também NÃO valida a janela de
@@ -863,43 +853,32 @@
   virou o card universal.
 
 ### Descoberta universal (QA rounds 1–2, 22-08)
-- **Card universal** (`src/components/ui/competition-card.tsx`) — um só
-  componente para Liga e Torneio (RUL-0005): `CompetitionCard` com chip
-  visível `chipLabel` ("Liga"/"Torneio") e `CreateCompetitionCard`
-  props-driven (label/description/onPress); substitui LeagueCard/
-  CreateLeagueCard/TournamentCard (arquivos antigos removidos; consumidores:
-  tabs index/search/competitions + settings/leagues).
-- Altura estável por linha (IBX-0021): CompetitionCard e CreateCompetitionCard reservam título em 2 linhas (min-h-12) e descrição em 2 (min-h-8) — o LegendList posiciona cada célula da grid com position:absolute e não estica colunas como o FlatList, então a altura é intrínseca ao card e idêntica nas duas abas, qualquer quebra de linha do título.
-- **`(tabs)/competitions.tsx`** (ex-`ligas.tsx` → `competicoes.tsx`,
-  renomeada p/ inglês no QA round 3 — RUL-0013: identificadores em inglês,
-  texto visível pt-BR; aba organizer-only, gate `href` no `(tabs)/_layout.tsx`
-  como em `search`) = "Minhas Competições" — MODO ORGANIZADOR: abas internas
-  segmentadas Ligas|Torneios no molde exato do challenges.tsx (título +
-  Tabs.List abaixo do header), cada aba com os cards do tipo + card de
-  criação DENTRO da lista ("Nova liga"/"Novo torneio" → wizard respectivo);
-  SEM menu no header — nenhuma ação de criação fora dos cards (QA round 2).
-  MODO JOGADOR (se chegar à rota): SEM abas internas — lista única universal
-  de ligas+torneios em que participa (`discovery.listParticipating` dos dois
-  domínios) com chip por card. Botão de EDITAR com paridade total (QA
-  round 5): liga → `/settings/leagues/[mode]` edit; torneio →
-  `/settings/tournaments/[mode]` edit (mesmo caminho do menu do detalhe);
-  busca não expõe edição (nenhum consumidor passa `onEditPress`); no ramo
-  de participação o `onEditPress` é simétrico para os dois kinds — ramo
-  praticamente morto (só alcançável por ator organization sem role manager,
-  que não participa de competições; comportamento idêntico ao da liga
-  desde o round 1). Corpo no
+- **Card de competição** (`src/components/ui/competition-card.tsx`) —
+  `CompetitionCard` com chip visível `chipLabel` (default "Competição") e
+  `CreateCompetitionCard` props-driven (label/description/onPress);
+  consumidores: `(tabs)/search.tsx` e `(tabs)/competitions.tsx`.
+- Altura estável por linha (IBX-0021): CompetitionCard e CreateCompetitionCard reservam título em 2 linhas (min-h-12) e descrição em 2 (min-h-8) — o LegendList posiciona cada célula da grid com position:absolute e não estica colunas como o FlatList, então a altura é intrínseca ao card, qualquer quebra de linha do título.
+- **`(tabs)/competitions.tsx`** — aba organizer-only, gate `href` no
+  `(tabs)/_layout.tsx` como em `search`; renomeada p/ inglês no QA round 3
+  (RUL-0013: identificadores em inglês, texto visível pt-BR) = "Minhas
+  Competições" — listas por papel, sem abas
+  internas: quem gerencia vê `management.listMine` + o card de criação DENTRO
+  da lista ("Novo torneio" → wizard); quem não gerencia vê
+  `discovery.listParticipating`. SEM menu no header — nenhuma ação de criação
+  fora do card (QA round 2). Botão de EDITAR em todo card
+  (`/settings/tournaments/[mode]` edit, mesmo caminho do menu do detalhe);
+  a busca não expõe edição — nenhum consumidor passa `onEditPress`. Corpo no
   padrão das tabs de lista (moldes `(tabs)/index.tsx` e `(tabs)/search.tsx`):
   `ScrollShadow` como wrapper e
   `Page.LegendList` container único de scroll (never dentro de ScrollView),
   estados de loading/erro no `Page.ScrollView` irmão e pad inferior
   `pb-floating-tab-bar-4` (token da floating tab bar, `global.css`).
-- **`(tabs)/search.tsx`** — resultados UNIFICADOS numa lista só (sem
-  headers de seção): filtro da liga (`filterLeaguesBySearchQuery`) +
-  novo filtro puro de torneios (`convex/domains/tournament/discovery-list.ts`
-  + `tests/discovery-list.test.ts`, padrão discovery-list da liga:
+- **`(tabs)/search.tsx`** — resultados numa lista só (sem
+  headers de seção): filtro puro de torneios
+  (`filterTournamentsBySearchQuery`,
+  `convex/domains/tournament/discovery-list.ts` + `tests/discovery-list.test.ts`:
   normalização NFD/acentos/caixa, match por nome/cidade/estado/descrição).
-  Buscar "Bruno" retorna a Liga e o Torneio do Bruno juntos, cada card com
-  seu chip.
+  Buscar "Bruno" retorna o torneio do Bruno, o card com o chip "Torneio".
 
 ### Regras puras testadas
 - `src/lib/tournaments/bracket-view.ts` (+ `bracket-view.test.ts`, 5 testes
@@ -920,7 +899,7 @@
 
 ### Pendências conhecidas
 - ~~`tournamentPlayerCardSchema` incompleto~~ — ✔ resolvido e deployado
-  22-08 (contract.ts:236-242 declara os 5 campos; view type paliativo
+  22-08 (contract.ts:249-255 declara os 5 campos; view type paliativo
   removido do frontend).
 - Deep-link `/tournaments/:id` das notificações resolve para o cluster
   (rota existe); falta registrar o prefixo no mapa de deep-links do app se
@@ -952,12 +931,14 @@
   das 63 cards, e esse mount é um commit único de ~910ms em dev (React
   Profiler: `View` ×2023, `Pressable` ×480, `ExpoImage` ×252, 63
   BracketMatchCards) + medições — mount+fit medido em 1598-1943ms (dev;
-  ≈÷3 em prod). Piso restante = o próprio mount; próximo passo real
-  (decisão do Maestro, muda comportamento visível): janelar/deferir cards
-  fora da viewport. Flush do estado de rects BATCHEADO ≤1/frame (o
-  imediato por card era O(n²) no context do Flow). Fórmula/clamps
-  (minZoom=fitZoom, maxZoom=1 — lei do R15 sem upscale) e guards do
-  BUG-0008 intactos.
+  ≈÷3 em prod). ✔ FECHADO no rebuild do chaveamento: a abertura enquadra
+  UMA coluna (`bracketOpeningZoom`, bracket-tree.ts:66) e já não depende do
+  mount completo das cards — comportamento vivo em "Geometria e abertura".
+  A decisão que ela aguardava (DEC-0002, janelar os cards fora da viewport
+  ou aceitar o piso do mount) foi SUBSTITUÍDA: não há o que decidir. O
+  flush do estado de rects foi BATCHEADO ≤1/frame (o imediato por card era
+  O(n²) no context do Flow). Fórmula/clamps (minZoom=fitZoom, maxZoom=1 —
+  lei do R15 sem upscale) e guards do BUG-0008 intactos.
 - IBX-0022 [B] (flicker RECORRENTE no meio da pinça — "buga e volta",
   zonas diferentes): perfil nativo (xctrace) + React Profiler provaram a
   corrida — no iOS TUDO corre na main thread (worklets Reanimated = UI
@@ -1000,18 +981,16 @@
   (com `categories`, validação `registrationDeadlineAt < startDate`), status enums
   (`TournamentStatusOptions`, `TournamentEntryStatusOptions`), `CreateCategoryInputSchema`
   (recusa `singles`+`mixed`), schemas de saída (tournament/category/entry/match) e
-  score A/B (`tournamentMatchScoreSetSchema`). Match config e quadras reutilizados
-  da liga (`LeagueMatchConfigSchema`, `LeagueCourtsSchema`). **R10 (22-08):
-  `LeagueMatchConfigSchema` ganhou `superRefine` `bestOfSets` ∈ {1, 3, 5}**
-  (fonte única em `convex/domains/league/contract.ts` —
-  `SUPPORTED_BEST_OF_SET_COUNTS` + `getBestOfSetValidationError` movidos para
-  lá e re-exportados de `challenge-rules.ts`), então create/update de torneio
-  rejeitam `bestOfSets: 2` no backend (antes o refine só existia no form da
-  liga). No input da LIGA o `.catch(DEFAULT_LEAGUE_MATCH_CONFIG)` pré-existente
-  do `ruleConfig.matchConfig` continua engolindo configs inválidas (healing de
-  docs legados); no torneio não há catch — rejeição dura. Testes:
+  score A/B (`tournamentMatchScoreSetSchema`). Match config e quadras vêm do
+  módulo de partida (`MatchConfigSchema`, `CourtsSchema`,
+  `convex/domains/match/contract.ts`). **R10 (22-08):
+  `MatchConfigSchema` ganhou `superRefine` `bestOfSets` ∈ {1, 3, 5}**
+  (fonte única em `convex/domains/match/contract.ts` —
+  `SUPPORTED_BEST_OF_SET_COUNTS` + `getBestOfSetValidationError`), então
+  create/update de torneio rejeitam `bestOfSets: 2` no backend. No torneio
+  não há catch — rejeição dura. Testes:
   `convex/domains/tournament/tests/contract.test.ts` +
-  `league/tests/contract.test.ts`. Deployado dev+prod em 22-08.
+  `convex/domains/match/tests/contract.test.ts`. Deployado dev+prod em 22-08.
   **R11 (22-08): `tieBreakAtGamesAll`/`finalSetTieBreakAtGamesAll`
   REMOVIDOS do schema compartilhado** — o gatilho do tie-break acompanha os
   games do set. E os pontos de TB (`tieBreakPoints` e, então, também os
@@ -1022,20 +1001,20 @@
   `tieBreakPoints`.
   Racional: padrões oficiais do tênis — set TB a 7, super TB a 10, win-by-2
   sempre; nada de mínimo livre. Auditoria dev+prod antes de cada tighten:
-  TODOS os docs (1 liga dev/prod, 31 snapshots, 1 torneio) já 6/7/10 —
+  TODOS os docs (31 snapshots, 1 torneio) já 6/7/10 —
   derivação e refine neutros (super TB vivo = 10 em 100% dos docs). Docs
-  antigos com a chave extra: Zod stripa (testado) e o `.catch` da liga NÃO
-  dispara. Sem migration. Deployado dev+prod em 22-08. UI do form ENTREGUE
-  no mesmo round (campo de placar do TB removido, segmentos 7|10 — ver
-  leagues.md, "Match config compartilhado").
+  antigos com a chave extra: Zod stripa (testado). Sem migration. Deployado
+  dev+prod em 22-08. UI do form ENTREGUE no mesmo round (campo de placar do
+  TB removido, segmentos 7|10).
 - **DEC-0004 (15-09, opção A): grupo do último set REMOVIDO do
-  `LeagueMatchConfigSchema`** — vale liga e torneio (fonte única na liga);
-  último set = formato dos demais sets; super TB segue coberto por
+  `MatchConfigSchema`** — último set = formato dos demais sets; super TB
+  segue coberto por
   `tieBreakPoints` 7|10 e pelo placar LIVRE do resultado (RUL-0019; `kind`
   `super_tiebreak` permanece no schema de set). Zod stripa as chaves
   `finalSet*` de configs salvos na leitura (coluna `json` mantém o blob —
   sem migration; testes "legado (DEC-0004)" em
-  `league/tests/contract.test.ts` e no create do torneio). UI: seção
+  `convex/domains/match/tests/contract.test.ts` e no create do torneio).
+  UI: seção
   `final-set-section.tsx` extinta e item "Decisão" fora da tela /rules.
 - **tables.ts** — `tournament` (organizationId cascade, courts JSON, matchConfig
   JSON, registrationDeadlineAt/startDate, status, platformFeePercent),
@@ -1046,8 +1025,7 @@
   (`ENTRY_LIVE_STATUSES`) e limpos com `unsetToken` nas transições terminais;
   IBX-0074 r19: cancelar/rejeitar libera o slot e permite re-inscrição — o
   índice antigo em playerAId segurava a vaga para sempre porque a coluna é
-  NOT NULL; inscrição única garantida pelo banco para entradas vivas,
-  melhoria sobre a liga),
+  NOT NULL; inscrição única garantida pelo banco para entradas vivas),
   `tournamentMatch` (round/slotInRound com **uniqueIndex**
   `categoryId_round_slotInRound`, entryA/B nullable, winnerEntryId, score JSON,
   agendamento matchDate/startMinute/courtId, `publishedAt` trava swap,
@@ -1099,10 +1077,10 @@
   mixed = 1 "Masculino"+1 "Feminino", ambos definidos; r25: male/female exigem
   parceiro do gênero da categoria),
   `resolveEntryStatusAfterPartnerAccepted`, `isEntryDrawable`.
-- **score-rules.ts** — `validateTournamentMatchScore` adapta para o
-  `validateChallengeScore` da liga (reuso integral das regras de tênis:
-  games/tie-breaks/super tie-break/win-by-two; mensagens pt-BR idênticas) e
-  `validateWalkoverWinner` (M4: vencedor ∈ lados).
+- **score-rules.ts** — `validateTournamentMatchScore` reusa o
+  `resolveMatchScoreOutcome` do módulo de partida
+  (`convex/domains/match/score-rules.ts`) e `validateWalkoverWinner` (M4:
+  vencedor ∈ lados).
   **IBX-0028: `resolveResultEditReverb` (NOVO, puro)** — decisão de edição de
   resultado publicado sobre a chave: mesmo vencedor/sem próxima → `keep`;
   vencedor trocado + próxima não publicada → `swap`; próxima já publicada →
@@ -1236,11 +1214,10 @@
 - `protocol.ts`: 13 eventos `tournament.*` no catálogo (IBX-0028:
   `tournament.match.result_edited`).
 - `definitions.ts`: templates pt-BR + deep-links `/tournaments/:id`; input
-  genérico (`leagueId` OU `tournamentId`).
-- `orchestrator.ts`: **fim do hardcode league** — `resolveNotificationSource`
-  resolve por leagueId|tournamentId; recipientas organizer via mapa
-  `ORGANIZER_RECIPIENT_EVENTS` (`tournament.entry.created` incluído). Ligas
-  inalteradas (`scheduleLeagueNotification` continua válido).
+  com `tournamentId`.
+- `orchestrator.ts`: `resolveNotificationSource` resolve a origem (nome +
+  organização) pelo torneio; recipientas organizer via mapa
+  `ORGANIZER_RECIPIENT_EVENTS` (`tournament.entry.created` incluído).
 
 ### Ambientes
 - Deploy DEV (kindred-yak-142) + PROD (amiable-albatross-845) alinhados
@@ -1251,7 +1228,7 @@
 - **31-08 (IBX-0026/0028): deploy dev+prod alinhados** — tabela nova
   `tournamentMatchEdit` (índice `matchId`) criada nos dois ambientes,
   additive, zero migrations de dados, zero índices deletados. Gates:
-  739 testes pass (+19: walkover da liga, reverb de edição, refine W.O.),
+  739 testes pass (+19: reverb de edição, refine W.O.),
   typecheck, `bun run check`.
 
 ### Avanço direto de fase + placar de tie-break (IBX-0035/PLN-0004 + IBX-0034, 10-09)
@@ -1259,7 +1236,7 @@
 **EntryRound (opção B aprovada pelo usuário em 10-09): cabeças de chave podem
 entrar direto numa fase avançada da chave, pulando múltiplas rodadas**
 (cenário: chave grande de 60-80 jogadores com cabeças começando nas oitavas).
-Só torneio (liga não tem chave).
+Só torneio.
 
 - **`tournamentEntry.entryRound`** (integer nullable, aditivo, sem migration):
 rodada em que a inscrição entra na chave (null/1 = 1ª rodada). Avanço de fase
@@ -1383,7 +1360,7 @@ exato). Decisão e implementação são do Backend.
 ganha `tieBreak: { aPoints, bPoints } | null | undefined` (nullish — drafts do
 cliente carregam null); resultados antigos sem tieBreak seguem válidos; W.O.
 não carrega TB (refine do `PublishMatchResultSchema`). Adaptador do torneio
-mapeia A/B ↔ challenger/challenged (`toLeagueSets`) e `serializeMatchScore`
+mapeia A/B ↔ challenger/challenged (`toMatchSets`) e `serializeMatchScore`
 normaliza null → ausente no JSON armazenado.
 - **Placar manual LIVRE (REWORK-2, 10-09)**: a validação do resultado manual
 (`validateTournamentMatchScore`) deixou de aplicar regras de tênis — aceita
@@ -1396,13 +1373,9 @@ quando as linhas empatam, o payload manda `score.winnerEntryId` EXPLÍCITO
 define o vencedor; informe o vencedor do confronto."), explícito incoerente
 com a derivação = erro. W.O. inalterado (vencedor nulo no payload ganha
 "Informe o vencedor do W.O."). O bracket avança pelo vencedor resolvido;
-`editResult` idem. Ligas espelham o mesmo resolver
-(`resolveChallengeScoreOutcome`); sem migration; leitura de resultados antigos
-intacta. O cluster de validação por forma da liga (`getSetValidationError`,
-`buildChallengeScoreProgress`, `getRequiredSetWins`, `getExpectedSetKind`,
-`isChallengeScoreSetBlank`, `resolveChallengeScoreWinnerMembershipId`,
-`validateChallengeScore`) foi REMOVIDO — zero call sites fora dos testes
-(grep; o draft antigo do client não existe mais).
+`editResult` idem. O resolver é `resolveMatchScoreOutcome`
+(`convex/domains/match/score-rules.ts`); sem migration; leitura de resultados
+antigos intacta.
 - **Gates (10-09)**: codegen (dev), typecheck:convex, `bun test convex`
 (399 pass na entrega, +13 do entryRound/TB; 403 hoje), ultracite nos arquivos
 tocados.
@@ -1532,8 +1505,8 @@ organizador) + review do Code Reviewer; PROD só após review e ok do usuário.
 
 ## Visão geral
 
-Torneios de tênis/beach tênis organizados pela organização (independente de
-liga): eliminatória direta (mata-mata) por categoria, presenciais e de duração
+Torneios de tênis/beach tênis organizados pela organização:
+eliminatória direta (mata-mata) por categoria, presenciais e de duração
 estendida flexível — data de início definida, fim real quando saem os campeões
 (sem prazo por rodada, nada expira por cron). O torneio é um container:
 nome, capa, local, quadras e **categorias estruturadas por modalidade ×
@@ -1549,17 +1522,15 @@ Vocabulário de produto: **torneio** (nunca "evento").
 
 ### Tabelas (convex/domains/tournament/)
 
-- **`tournament`** — `organizationId` (ownership igual `league.organizationId`,
-  acesso por `requireActiveManager`), nome, `coverStorageId`/`avatarStorageId`
-  (mesmo padrão de mídia/limpeza da liga), local (mesmo modelo da aba Local da
-  liga), `registrationDeadlineAt` (inscrições até), `startDate` (início
+- **`tournament`** — `organizationId` (ownership do torneio,
+  acesso por `requireActiveManager`), nome, `coverStorageId`/`avatarStorageId`,
+  local, `registrationDeadlineAt` (inscrições até), `startDate` (início
   divulgado; sem data final — o fim é o campeão), quadras (JSON no
-  padrão `LeagueCourtsSchema`), `approvalMode: auto|manual`,
+  padrão `CourtsSchema`), `approvalMode: auto|manual`,
   `status: draft|published|drawn|ongoing|finished|cancelled`, `matchConfig`
-  (formato de partida da liga reutilizado — `LeagueMatchConfigSchema`, que
-  desde 22-08/R10 exige `bestOfSets` ∈ {1, 3, 5} no próprio schema, agora
-  também no backend e não só no form da liga; default do
-  `DEFAULT_LEAGUE_MATCH_CONFIG`: melhor de 3 sets, 6 games, tie-break a
+  (`MatchConfigSchema`, que desde 22-08/R10 exige `bestOfSets` ∈ {1, 3, 5} no
+  próprio schema; default do
+  `DEFAULT_MATCH_CONFIG`: melhor de 3 sets, 6 games, tie-break a
   6-6 — sem grupo de último set desde o DEC-0004: último set = formato dos
   demais sets).
 - **`tournamentCategory`** — `tournamentId`, `modality: singles|doubles`,
@@ -1582,9 +1553,9 @@ Vocabulário de produto: **torneio** (nunca "evento").
   Femininas convidando uma parceira.
 - **`tournamentMatch`** — `categoryId`, `round`, `slotInRound`,
   `entryAId`/`entryBId` (nullable = a definir/bye), `winnerEntryId`, placar
-  com o schema de score da liga (sets + super tiebreak + mini-placar opcional
+  (sets + super tiebreak + mini-placar opcional
   de tie-break, IBX-0034), agendamento opcional
-  (data + horário + quadra, padrão da liga), `walkover` boolean,
+  (data + horário + quadra), `walkover` boolean,
   `status` inclui **`vacant`** (IBX-0035: linha da subárvore podada por
   entrada direta, sem lados para sempre).
 - **`tournamentMatchEdit`** (IBX-0028) — auditoria de edições de resultado
@@ -1598,7 +1569,7 @@ Vocabulário de produto: **torneio** (nunca "evento").
 draft ──publicar──► published ──sortear──► drawn ──iniciar──► ongoing ──finais com vencedor──► finished
 ```
 
-- `published`: entra na descoberta (busca, padrão `listAvailable` da liga);
+- `published`: entra na descoberta (busca, `listAvailable`);
   inscrições abertas até `registrationDeadlineAt`. **Desde o IBX-0067
   (19-09) o SORTEIO NÃO fecha inscrições — o prazo é o único fechamento;
   em `drawn` elas seguem abertas e cada confirmação entra na chave na hora
@@ -1664,8 +1635,7 @@ draft ──publicar──► published ──sortear──► drawn ──inici
   inscrições pagas dispara, por inscrição paga, o estorno integral via API
   de refund da Woovi (validar endpoint no slice; idempotente por charge,
   com trilha de status `refunded|refund_failed` e retry pelo mesmo padrão
-  de sweep dos withdraws). Fluxo NOVO no app — nasce aqui e depois se
-  aplica às ligas (registrado em BAC-0002). A notificação de cancelamento
+  de sweep dos withdraws). Fluxo NOVO no app. A notificação de cancelamento
   avisa o estorno.
 
 ### Username (pré-requisito de duplas)
@@ -1682,8 +1652,8 @@ draft ──publicar──► published ──sortear──► drawn ──inici
 ### Notificações
 
 Pipeline existente (feed + deliveries + orchestrator com scheduler/lock/retry)
-ganha catálogo `tournament.*`; hoje `createForRecipients` resolve `league`
-hardcoded — vira resolver genérico por `sourceType`. Todas in-app (feed +
+ganha catálogo `tournament.*`; o `createForRecipients` resolve a origem pelo
+`tournamentId`. Todas in-app (feed +
 central de notificações); push nativo segue fora da v1. Princípio de design:
 notificação é do JOGADOR; pendência do organizador vive no painel
 (`WidgetAlert`/`KpiCard`), não no feed.
@@ -1710,13 +1680,13 @@ avanço é revelado no `bracket.published`.
 
 ## Telas aprovadas (padrões do repo)
 
-- **Criação/edição**: wizard `/settings/tournaments/[mode]` no molde da liga
+- **Criação/edição**: wizard `/settings/tournaments/[mode]`
   (cluster `[mode]`, tabs telas + `FloatingTabBar`), tabs **Detalhes · Local
   · Categorias · Quadras · Configurações**. Aba Categorias = checkboxes das
   5 categorias (SM/SF/DM/DF/MX) + taxa + vagas de cada uma.
 - **Detalhe**: cluster `/tournaments/[tournamentId]` — header do torneio +
   chips de categoria; tabs **Chaveamento · Agenda · Inscrições**; access model
-  `guest|player|organizer` da liga; store Legend-State por bucket, React
+  `guest|player|organizer`; store Legend-State por bucket, React
   Query dono do servidor.
 - **Chaveamento (bracket)**: canvas navegável estilo mapa (pinça = zoom
   ancorado com cap na resolução nativa, pan nas 4 direções clampado, duplo
@@ -1729,18 +1699,17 @@ avanço é revelado no `bracket.published`.
   card carrega a própria fase (Final,
   Semifinal, Quartas de final, Oitavas de final) + jogadores/avatares (dupla
   = 2 avatares), placar, chip de status
-  (vocabulário do challenge-card). Organizador toca no confronto → dialog de
-  placar (`src/components/ui/score-result-dialog.tsx`, GLOBAL — RUL-0005; o
-  antigo `challenge-result-dialog` está extinto) ou agenda data/hora/quadra
-  (molde `challenge-proposal-dialog`). Disputa de 3º lugar não existe (fora de
-  escopo); final destaca campeão.
+  (`MATCH_STATUS_CHIPS`). Organizador toca no confronto → dialog de
+  placar (`src/components/ui/score-result-dialog.tsx`, GLOBAL — RUL-0005) ou
+  agenda data/hora/quadra (`ScheduleProposalDialog`). Disputa de 3º lugar não
+  existe (fora de escopo); final destaca campeão.
 - **Agenda**: programação por dia/período (molde `schedule.tsx`), confrontos
   de todas as categorias juntos.
 - **Inscrição do jogador**: escolhe categoria(s); simples confirma; duplas
   convidam parceiro por username; pagamento via checkout quando a categoria
-  tem taxa; join footer no molde da liga.
+  tem taxa; rodapé de inscrição (`JoinFooter`).
 - **Painel do organizador**: alertas de inscrições pendentes
-  (`WidgetAlert`), inscrições com aceitar/recusar (molde `requests.tsx`),
+  (`WidgetAlert`), inscrições com aceitar/recusar,
   fechar inscrições + sortear, lançar placares.
 
 ## Decisões tomadas
@@ -1753,8 +1722,8 @@ avanço é revelado no `bracket.published`.
 - **Misto = dupla 1 homem + 1 mulher** (22-08, usuário).
 - **Par fixo na inscrição** via convite aceito no app; sem jogador solto
   (22-08, usuário).
-- **Torneio independente de liga** — `tournament.organizationId` como a liga
-  (22-08, usuário).
+- **Torneio é um domínio próprio** — `tournament.organizationId` com acesso
+  por `requireActiveManager` (22-08, usuário).
 - **Taxa de inscrição opcional** por categoria; checkout reutilizado
   (22-08, usuário).
 - **Fase de preparação (`drawn`)** — inscrições até `registrationDeadlineAt`;
@@ -1788,7 +1757,7 @@ avanço é revelado no `bracket.published`.
   SÓ em `drawn`, iniciar congela** (ver "Ajuste
   manual da chave (pós-sorteio)" no Lifecycle).
 - **Estorno automático no cancelamento** — fluxo de reembolso (Woovi)
-  nasce no torneio e depois se aplica às ligas (BAC-0002) (22-08, usuário).
+  (22-08, usuário).
 - **Mapa de notificações** — 12 eventos `tournament.*` com destinatário por
   evento; notificação é do jogador, pendência do organizador vive no painel
   (22-08, usuário).
@@ -1799,7 +1768,7 @@ avanço é revelado no `bracket.published`.
   nullable, resolução `resolveMatchConfig = category.matchConfig ??
   tournament.matchConfig` consumida por placar/agenda/diálogos, toggle
   "formato próprio desta categoria" na UI. **DEC-0004 (15-09, opção A): o
-  grupo do último set saiu do formato (liga e torneio)** —
+  grupo do último set saiu do formato** —
   `finalSetMode`/`finalSet*` extintos, último set = formato dos demais
   sets; com isso "2 sets + super tie-break" NÃO é mais expressível via
   config: o super TB continua possível no PLACAR (resultado livre,
@@ -1809,9 +1778,8 @@ avanço é revelado no `bracket.published`.
   regras de partida campo a campo na aba Regras; o seletor "Formato do
   torneio" e `match-config-presets` foram extintos (22-08, usuário).
 - **Torneio não snapshota matchConfig por partida** — `publishResult` valida
-  o placar contra `tournament.matchConfig` ao vivo (diferente da liga, que
-  congela `matchConfigSnapshot` por desafio porque permite editar regras a
-  qualquer momento). Seguro porque `update` é travado fora de
+  o placar contra `tournament.matchConfig` ao vivo. Seguro porque `update` é
+  travado fora de
   draft/published: pós-sorteio o config é imutável na prática.
 - **Editor único de resultado publicado (IBX-0028)** — o organizador corrige
   placar/vencedor/W.O. de partida já publicada via `editResult`; trocar quem
@@ -1879,7 +1847,7 @@ A página do torneio deixa de ter tabs (decisão do usuário no PLN-0007): **pá
 O usuário marcou a lista de dashboards item a item e fechou o conteúdo das telas: TODOS os componentes de dashboard (KPI, chart, TrendChip, card de stat) saem da casa do torneio e cada item vira LINHA DE TEXTO SIMPLES (rótulo + valor, classes tipográficas já usadas no app, valor sem dado = 0). SUPERSEDE os pontos da seção FASE 2 acima conflitantes (página única, chip de ciclo, meta line, charts). Nenhum componente ou estilo novo; nenhuma query nova.
 
 - **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
-- **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (molde `league-join-footer`: card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
+- **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
 - **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
 - **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (primeiro match `scheduled` com data/hora envolvendo entry do viewer; adversário via `formatEntrySideLabel`).
 - **Casa guest:** só a descrição.
@@ -1895,18 +1863,17 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
 - **Confirmação:** MESMA sequência do sheet — `entries.create` → (`awaiting_payment`) `charge.createCharge` → checkout; toasts idênticos por status (convite de parceiro / aprovação / inscrito); em voo `isActionPending` + "Enviando...". Diferença declarada: o painel fecha e reseta JÁ no confirmar (o sheet ficava aberto no erro; agora o toast explica e reabrir é um toque).
 - **CTA do painel (`joinConfirmLabel`):** "Inscrever e pagar" (todas as categorias com taxa) / "Confirmar inscrição" (todas grátis) / "Inscrever-se" (misto).
 - **Gate de montagem inalterado:** janela aberta (`registrationState.open`) + categoria com vaga; organizador sem rodapé; jogador com entrada ativa ganha "Inscrever em outra categoria".
-- **Liga intocada nesta leva:** `LeagueJoinFooter` segue de molde até o componente ser aprovado no torneio.
-- **r16 (20-09, QA ao vivo): JoinFooter acima da floating tab bar via prop.** O usuário viu a tab bar flutuante da tela do torneio cobrindo o rodapé. Decisão final DELE: o padding é da tela — `JoinFooter` ganhou `footerClassName?: string` (default `pb-safe-offset-3`, ex. galeria; o `cn` do app não resolve conflito de classes, default via ternário), e a página do torneio passa `footerClassName="pb-floating-tab-bar-4"` (`index.tsx:579`) para o rodapé sentar acima da barra (utility embute safe area + gap + altura via CSS var global). Liga tem o mesmo overlap (`LeagueJoinFooter` com `pb-safe-offset-3`) — quando o JoinFooter global for adotado lá, passa a prop equivalente; hoje apontado, não estendido sem pedido.
-- **r17 (20-09, QA ao vivo): preço com centavos.** O valor do rodapé renderizava "R$ 5" (0 casas) — o `formatEntryFeeLabel` em `tournament-details-derived.ts` era uma duplicata local de `Intl.NumberFormat` com `maximumFractionDigits: 0`. Extinto (cutover limpo): a pílula (`index.tsx:597`) e o `priceLabel` por categoria (`index.tsx:383`) usam o formatter canônico do app `formatCurrencyCents` (`src/lib/format/currency.ts`, pt-BR default 2 casas → "R$ 5,00"; zero segue "Grátis"). Liga e overview do organizador já usavam o canônico; nenhuma outra superfície de preço cru encontrada na varredura.
+- **r16 (20-09, QA ao vivo): JoinFooter acima da floating tab bar via prop.** O usuário viu a tab bar flutuante da tela do torneio cobrindo o rodapé. Decisão final DELE: o padding é da tela — `JoinFooter` ganhou `footerClassName?: string` (default `pb-safe-offset-3`, ex. galeria; o `cn` do app não resolve conflito de classes, default via ternário), e a página do torneio passa `footerClassName="pb-floating-tab-bar-4"` (`index.tsx:531`) para o rodapé sentar acima da barra (utility embute safe area + gap + altura via CSS var global).
+- **r17 (20-09, QA ao vivo): preço com centavos.** O valor do rodapé renderizava "R$ 5" (0 casas) — o `formatEntryFeeLabel` em `tournament-details-derived.ts` era uma duplicata local de `Intl.NumberFormat` com `maximumFractionDigits: 0`. Extinto (cutover limpo): a pílula (`index.tsx:548-556`) e o `priceLabel` por categoria (`index.tsx:343-346`) usam o formatter canônico do app `formatCurrencyCents` (`src/lib/format/currency.ts`, pt-BR default 2 casas → "R$ 5,00"; zero segue "Grátis"). O overview do organizador já usava o canônico; nenhuma outra superfície de preço cru encontrada na varredura.
 - **r20 (20-09, pedido do usuário): chip de modalidade fora do seletor de categorias.** O `Chip` com `MODALITY_LABEL[category.modality]` no item de categoria era redundante — o `displayName` da categoria já traz a modalidade ("Simples Masculino", "Duplas"...). Chip e const `MODALITY_LABEL` extintos (único uso era o chip; o campo `modality` do tipo fica — alimenta o bloco de duplas via `selectedCategory?.modality`). Item da lista segue com displayName + vagas/Lotada + seleção, no desenho atual do usuário.
 - **r25 (20-09, pedido do usuário): filtro de gênero na busca e no convite de parceiro.** Regra: Duplas Masculinas → parceiro Masculino; Duplas Femininas → parceira Feminina; Mistas → OPOSTO de quem convida. SERVER-SIDE: `searchByUsername` ganhou `categoryId` obrigatório no input e resolve o alvo com `resolvePartnerGenderTarget` (auth user + categoria — o cliente não manda gender); create valida a MESMA regra pela extensão de `validateEntryGenders` (supersede do "v1 não valida não-mistas" — teste antigo removido, novo suite r25 cobre as 3 combinações + nulos + burla via create). Gênero NULL decidido: candidato não aparece na busca E o create recusa com mensagem pt-BR ("...gênero masculino definido no perfil"); caller sem gênero em mista → busca `[]` e create recusa ("mistas exigem o gênero definido nos dois"). Dados DEV: 83 perfis — 69 M, 1 F, 13 NULL. Wiring de transição na página (r25: busca habilitada quando todas as duplas inscríveis compartilham o mesmo gênero) SUPERSEDED pelo r26 — a busca usa a categoria selecionada no painel. APONTADO: regra é do PARCEIRO — caller com gênero divergente da categoria fixa passa no create (fora do pedido; decisão de produto se/quando o usuário quiser). Nota técnica: migrations devem ser SELF-CONTAINED (sem import de domínio) — o checksum cobre o bundle deployado e import de `entry-rules.ts` driftava a cada edição do domínio (corrigido na 20260920_091746: reescrita inline + re-apply; journal 16/16, drift []). FIX da review: pins do gate fixo viram `toBe` com a MENSAGEM EXATA pt-BR (masculina/feminina, parceiro nulo incluso) e a busca ganhou over-fetch — pré-filtro 25, cap 10 DEPOIS do filtro de gênero + exclusão do caller (prefixo popular não devolve `[]` com válido além do corte).
-- **r26 (20-09, continuação do r25): a busca de parceiro usa a CATEGORIA SELECIONADA no painel.** O wiring de transição do r25 na página ("habilita só quando TODAS as duplas inscríveis compartilham o mesmo gênero") saiu — cutover limpo. O `JoinFooter` ganhou `onCategoryChange?: (categoryId: null | string) => void`: dispara a cada mudança do painel (escolha de categoria e reset na confirmação; a seleção segue estado interno dele) e a página guarda `selectedCategoryId` pra alimentar `players.searchByUsername` (`categoryId` obrigatório do contrato r25; gênero continua 100% server-side, o cliente nunca manda). Gate da busca: categoria selecionada E `modality === "doubles"` + termo válido (3-30 chars) — duplas sem categoria escolhida = busca desabilitada. Liga e galeria intocadas (prop opcional; `join-footer.tsx`, `tournaments/[tournamentId]/index.tsx`).
-- **r22 (20-09, contrato r18-A): busca de parceiro em lista + diálogo neutro.** `players.searchByUsername` passou a devolver `TournamentPlayerCard[]` (array alfabético ≤10 por prefixo; `[]` = ninguém). O rodapé do torneio adaptou o consumo: a página (`index.tsx:197-206`) normaliza o `data` do interop e mapeia a lista em `partnerOptions` (types nomeados do contrato); o `Autocomplete` do painel já lista múltiplos itens. Estado inicial do diálogo (apontamento de QA): com campo vazio não grita mais "Nenhum jogador encontrado." — o `Empty` (`join-footer.tsx:420-424`) é neutro ("Busque pelo nome ou @username.") até existir termo válido buscado (mesmo corte de 3 chars do gate da página), e só então vira "Nenhum jogador encontrado.".
+- **r26 (20-09, continuação do r25): a busca de parceiro usa a CATEGORIA SELECIONADA no painel.** O wiring de transição do r25 na página ("habilita só quando TODAS as duplas inscríveis compartilham o mesmo gênero") saiu — cutover limpo. O `JoinFooter` ganhou `onCategoryChange?: (categoryId: null | string) => void`: dispara a cada mudança do painel (escolha de categoria e reset na confirmação; a seleção segue estado interno dele) e a página guarda `selectedCategoryId` pra alimentar `players.searchByUsername` (`categoryId` obrigatório do contrato r25; gênero continua 100% server-side, o cliente nunca manda). Gate da busca: categoria selecionada E `modality === "doubles"` + termo válido (3-30 chars) — duplas sem categoria escolhida = busca desabilitada. Galeria intocada (prop opcional; `join-footer.tsx`, `tournaments/[tournamentId]/index.tsx`).
+- **r22 (20-09, contrato r18-A): busca de parceiro em lista + diálogo neutro.** `players.searchByUsername` passou a devolver `TournamentPlayerCard[]` (array alfabético ≤10 por prefixo; `[]` = ninguém). O rodapé do torneio adaptou o consumo: a página (`index.tsx:324-330`) normaliza o `data` do interop e mapeia a lista em `partnerOptions` (types nomeados do contrato); o `Autocomplete` do painel já lista múltiplos itens. Estado inicial do diálogo (apontamento de QA): com campo vazio não grita mais "Nenhum jogador encontrado." — o `Empty` (`join-footer.tsx:396-400`) é neutro ("Busque pelo nome ou @username.") até existir termo válido buscado (mesmo corte de 3 chars do gate da página), e só então vira "Nenhum jogador encontrado.".
 - **r18-A (20-09, backend, decisão A do orquestrador): busca de parceiro vira PREFIXO.** Veredito do r18 (busca EXATA, dado saudável — 78 users com username no DEV) virou contrato novo: `players.searchByUsername` retorna LISTA (`TournamentPlayerCard[]`, ≤10, alfabética por username) via `startsWith` no índice único de `username` + seleção pura `selectUsernameMatches` (`entry-rules.ts`; testada: prefixo parcial, case-insensitive via normalização, limite, sem-username nunca aparece). MESMO nome e input `{username}` — output muda de `card | null` pra `array` (cutover limpo: único consumidor era o rodapé). O Frontend adapta o autocomplete ao array depois deste pouso.
 - **r19 (20-09, bug ao vivo): re-inscrição explodia com 500 cru de índice único.** Causa provada em sonda: entry TERMINAL (cancelled/rejected) segurava `(categoryId, playerAId)` no unique index PARA SEMPRE — `playerAId` é NOT NULL e `cancel`/`reject` só mudavam status; o guard H3 ignora terminais de propósito (re-inscrição após cancelar é fluxo legítimo), então o INSERT colidia no banco ("Unique index 'categoryId_playerAId' violation"). Fix: espelhos de reserva `activeAId`/`activeBId` (colunas opcionais novas; preenchidas nos inserts via `entrySlotFields`; limpas com `unsetToken` em TODA transição terminal — `cancel`, `reject`, recusa de convite, estouro de pagamento no `charge.ts`, cancelamento do torneio no `lifecycle.ts`), unique indexes trocados pra `categoryId_activeAId`/`categoryId_activeBId` (mesma proteção pra entradas vivas — awaiting_payment/active inclusive; playerB tem o próprio índice), terminais saem do índice e a re-inscrição volta a funcionar. Backfill das entries vivas pré-existentes: migration `20260920_091746_backfill_tournament_entry_slots` (roda no deploy autorizado; sem ela o guard continua protegendo, o índice é rede extra). Testes de slot por status + matches de busca em `domains/tournament/tests/entry-rules.test.ts`.
 - **r27 (20-09, regra de produto nova + ao vivo): gate do CALLER por gênero, contato do rodapé pro Frontend e perfis femininos no DEV.** (a) **Regra:** categoria de gênero FIXO (Simples Masculino/Feminino e Duplas Masculinas/Femininas) só aceita quem se inscreve com o gênero da categoria; **mista segue o r25** (caller qualquer gênero definido, parceiro o OPOSTO); perfil sem gênero é recusado igual ao r25. Isso fecha o furo que o r25 tinha APONTADO (só o parceiro era validado): um perfil masculino entrava em Duplas Femininas convidando uma parceira. Fonte única pura `resolveCallerEligibility(categoria, gênero do caller)` → `{eligible, label, reason}`; `validateEntryGenders` COMPÕE ela com o gate do parceiro; o `create` a roda antes de capacidade/duplicata (mensagem nova pt-BR, mesma família: "Você não pode se inscrever em Duplas Femininas. A categoria aceita apenas o gênero feminino."). (b) **Contrato pro Frontend (tela do torneio):** `tournamentDiscoverySchema.categories` passa a `tournamentDiscoveryCategorySchema` com `viewerEligible: boolean | null` + `viewerIneligibleReason: string | null` POR categoria — `null` = viewer sem ator jogador (organizador/guest, nada a gatear), `false` = categoria incompatível com o motivo pronto pra exibir; o client decide entre desabilitar ou esconder SEM duplicar a regra (e o valor de `viewerIneligibleReason` É O RÓTULO CURTO do chip, ver b3). `management.getById` (organizador) segue com o shape antigo. (b2) **MEDIUM da review (corrigido na sequência):** `players.searchByUsername` não consultava o gate do caller — Camila (F) em Duplas Masculinas recebia 5 homens sugeridos enquanto a leitura marcava `viewerEligible=false` e o create recusaria. Agora a busca chama a fonte única `resolvePartnerSearchGender` (caller + alvo) e devolve `[]` quando o caller é inelegível; pins novos em `entry-rules.test.ts` (camila x duplas masculinas, bruno x duplas femininas, sem gênero, mista sem gênero = `[]`; aceites legítimos inalterados) com prova de mutação (o mutant "caller não consultado" quebra 4 pins). (b3) **Micro-ajuste de copy (20-09, feedback do usuário ao vivo): o chip mostra RÓTULO CURTO, o erro mostra a FRASE.** O `viewerIneligibleReason` do discovery carregava a frase inteira da recusa e estourava o chip do rodapé; agora `resolveCallerEligibility` devolve `{eligible, label, reason}` — `label` (≤2 palavras) é o que a leitura publica e o chip pinta, `reason` (frase completa, INALTERADA byte-a-byte) é o que o `create` recusa. Strings FINAIS (escolha do usuário): gênero definido divergente = **`Mulheres`** na categoria feminina e **`Homens`** na masculina; gênero ausente (categoria fixa ou mista) = **sem chip** (`label: null`, o caso é legado porque a escrita do perfil exige gender — a frase longa continua no erro do create). Shape do contrato intocado (mesmos campos; só o valor do campo mudou, o Frontend exibe o que vier). Pins em `entry-rules.test.ts`: os dois textos convivem (erro exato + rótulo exato) e um pin novo garante ≤2 palavras e ausência de travessão; prova de mutação com o mutant "rótulo = frase longa" quebrando 4 pins. (c) **LOW do r25 fechado:** `players.searchByUsername` corta o loop ao atingir o `SEARCH_LIMIT` (antes serializava até 25 cards e descartava o resto no cap). (d) **DEV (kindred-yak-142, PROD intocado):** 8 contas/perfis FEMININOS com username via o MESMO caminho do seed `scripts/seed-tournament-dev.mjs` (sign-up HTTP + `player.profile.upsert`; usernames agrupados por prefixo ca/ma/pa de propósito); conta de teste **camila.rocha@bropen.local / Dracena2026**; read-back: 9 perfis Feminino (8 com username) contra 69 Masculino/13 nulos no DEV. Categorias pra teste já existiam na **Copa Vila Tênis Clube** (published, prazo 28/09): Duplas Femininas e Duplas Mistas VAZIAS (maxEntries null), Simples Feminino lotada (4/4). Provas ao vivo no DEV: campos novos no `getById`, recusa do caller em duplas E simples (gênero errado vence o "lotada"), gate do parceiro r25 de pé, busca "ca"/"ma" devolvendo as parceiras (self excluído) e "br" devolvendo 4 homens pra mista. Pins r27 com prova de mutação em `entry-rules.test.ts` (**72 testes no arquivo**, contados no estado final) + script de mutação fora da árvore.
-- **r29 (20-09, decisão do usuário): categoria incompatível entra DESABILITADA COM O MOTIVO (nunca escondida).** Decisão dele sobre o contrato r27: o seletor do rodapé exibe a categoria incompatível em vez de sumir com ela. **Vocabulário reusado (sem variante nova):** MESMA linha desabilitada do "Lotada" — `PressableFeedback isDisabled` + `opacity-disabled` no Card (`join-footer.tsx:301-321`); o chip muted (`bg-muted/20` + `text-foreground/80`) que hoje mostra "Lotada" passa a mostrar o MOTIVO quando a categoria é incompatível (`join-footer.tsx:337`), na FRENTE da cadeia (incompatível > lotada > vagas). **Origem do motivo:** `viewerIneligibleReason` do contrato de discovery (`tournamentDiscoverySchema.categories[].viewerEligible/viewerIneligibleReason`, r27) — o cliente NÃO escreve copy própria nem recalcula gênero: a página só repassa os campos (`index.tsx:334-336`, `:400-402`) e o `JoinFooterCategory` ganhou `isIneligible`/`ineligibleReason` (`join-footer.tsx:31-44`). `viewerEligible` null (organizador/guest) e true = comportamento anterior intacto; LOTADA segue no `isFull`/`vacancyLabel` de sempre. **CTA:** o botão de confirmação do painel soma `selectedCategory?.isIneligible` ao próprio `isDisabled` (`join-footer.tsx:530`) — gate DENTRO do CTA pela lição do H1 do r24 (o `isDisabled` da raiz do MorphButton trava só o press da raiz — `morph-button.js:146`), então o toque não chega ao `entries.create`. **Superfícies informativas de categoria APONTADAS (não mexidas nesta leva, não são escolha):** `tournaments/[tournamentId]/entries.tsx:460-569` (o bloco "Suas inscrições" MIGROU da casa para a aba Inscrições no IBX-0080), `tournaments/[tournamentId]/entries.tsx:160,214` (lista de inscritos), `tournaments/[tournamentId]/bracket.tsx:491-541` (tabs de categoria da chave) e a galeria `settings/components/[component].tsx:165-188`. **Path (r28):** o diretório do componente core mudou de nome — caminho novo `src/components/core/page` (`Page`, `BackButton` e `usePageContext` inalterados; os imports foram trocados em 44 arquivos) e este doc usa o caminho novo.
-- **r30 (20-09, bug ao vivo do usuário): a busca de parceiro mostra SPINNER, não "Nenhum jogador encontrado.", enquanto procura.** Ele digitou rápido ("caio") e o painel respondeu "Nenhum jogador encontrado." no meio da busca. **Causa confirmada no pacote** (`heroui-native-pro@1.0.0-beta.10`): `Autocomplete.Empty` monta sempre que `visibleItemCount === 0` (`autocomplete.js:567`), sem NENHUM conhecimento de fetch — e no modo assíncrono oficial o filtro é sempre-true (`filter={() => true}`), então "0 itens" cobre tanto a busca em voo quanto o vazio real; o texto era decidido pelo TERMO cru (`hasSearchedPartnerTerm`, `join-footer.tsx:175`), verdadeiro já a partir de 3 chars. A anatomy do Autocomplete NÃO tem slot de Loading (Trigger/Portal/Content/SearchField/List/Item/Empty — docs do MCP Pro), então o carregando entrou com o `LoadingState` DO APP (Spinner + `accessibilityRole="progressbar"`, `ui/loading-state.tsx`) NO LUGAR do Empty: sem variante visual nova e sem copy nova. **Contrato:** `JoinFooter.isPartnerSearchPending?: boolean` (prop opcional) = busca em andamento (janela do debounce OU fetch); a página liga com `partnerQuery.isFetching || debouncedPartnerSearch !== partnerSearch.trim().toLowerCase()` (`index.tsx:378-384`, passada em `:612`) e o painel só troca o Empty com termo VÁLIDO (`isPartnerSearching`, `join-footer.tsx:180-181`). **Estados:** termo <3 = neutro "Busque pelo nome ou @username." (inalterado); termo ≥3 EM VOO = LoadingState; termo ≥3 RESOLVIDO com 0 resultados = "Nenhum jogador encontrado." (só então). Liga e galeria seguem sem a prop (opcional = comportamento atual). **Chain do chip (steering do mesmo round, escolha do usuário):** o token de categoria incompatível mudou por decisão dele — incompatível COM motivo mostra o motivo (rótulo curto do servidor: femininas = "Mulheres", masculinas = "Homens"); incompatível SEM motivo (perfil SEM gênero/legado, `ineligibleReason` null) fica SEM chip DE PROPÓSITO e NÃO cai para lotada/vagas (senão a linha desabilitada mostraria "Lotada" ou as vagas sem explicar o bloqueio); depois vem "Lotada"; depois as vagas. Ordem codificada em `join-footer.tsx:341-369`; o TEXTO segue vindo do servidor — nenhuma copy nova no client.
+- **r29 (20-09, decisão do usuário): categoria incompatível entra DESABILITADA COM O MOTIVO (nunca escondida).** Decisão dele sobre o contrato r27: o seletor do rodapé exibe a categoria incompatível em vez de sumir com ela. **Vocabulário reusado (sem variante nova):** MESMA linha desabilitada do "Lotada" — `PressableFeedback isDisabled` + `opacity-disabled` no Card (`join-footer.tsx:218-238`); o chip muted (`bg-muted/20` + `text-foreground/80`) que hoje mostra "Lotada" passa a mostrar o MOTIVO quando a categoria é incompatível (`join-footer.tsx:252-258`), na FRENTE da cadeia (incompatível > lotada > vagas). **Origem do motivo:** `viewerIneligibleReason` do contrato de discovery (`tournamentDiscoverySchema.categories[].viewerEligible/viewerIneligibleReason`, r27) — o cliente NÃO escreve copy própria nem recalcula gênero: a página só repassa os campos (`index.tsx:332-347`) e o `JoinFooterCategory` ganhou `isIneligible`/`ineligibleReason` (`join-footer.tsx:28-41`). `viewerEligible` null (organizador/guest) e true = comportamento anterior intacto; LOTADA segue no `isFull`/`vacancyLabel` de sempre. **CTA:** o botão de confirmação do painel soma `selectedCategory?.isIneligible` ao próprio `isDisabled` (`join-footer.tsx:421-431`) — gate DENTRO do CTA pela lição do H1 do r24 (o `isDisabled` da raiz do MorphButton trava só o press da raiz — `morph-button.js:146`), então o toque não chega ao `entries.create`. **Superfícies informativas de categoria APONTADAS (não mexidas nesta leva, não são escolha):** `tournaments/[tournamentId]/entries.tsx:486-538` (a lista por segmento — o bloco "Suas inscrições" MIGROU da casa para o segmento Minhas no IBX-0080), `tournaments/[tournamentId]/bracket.tsx:562-580` (tabs de categoria da chave) e a galeria `settings/components/[component].tsx:205-284`. **Path (r28):** o diretório do componente core mudou de nome — caminho novo `src/components/core/page` (`Page`, `BackButton` e `usePageContext` inalterados; os imports foram trocados em 44 arquivos) e este doc usa o caminho novo.
+- **r30 (20-09, bug ao vivo do usuário): a busca de parceiro mostra SPINNER, não "Nenhum jogador encontrado.", enquanto procura.** Ele digitou rápido ("caio") e o painel respondeu "Nenhum jogador encontrado." no meio da busca. **Causa confirmada no pacote** (`heroui-native-pro@1.0.0-beta.10`): `Autocomplete.Empty` monta sempre que `visibleItemCount === 0` (`autocomplete.js:567`), sem NENHUM conhecimento de fetch — e no modo assíncrono oficial o filtro é sempre-true (`filter={() => true}`), então "0 itens" cobre tanto a busca em voo quanto o vazio real; o texto era decidido pelo TERMO cru (`hasSearchedPartnerTerm`, `join-footer.tsx:102`), verdadeiro já a partir de 3 chars. A anatomy do Autocomplete NÃO tem slot de Loading (Trigger/Portal/Content/SearchField/List/Item/Empty — docs do MCP Pro), então o carregando entrou com o `LoadingState` DO APP (Spinner + `accessibilityRole="progressbar"`, `ui/loading-state.tsx`) NO LUGAR do Empty: sem variante visual nova e sem copy nova. **Contrato:** `JoinFooter.isPartnerSearchPending?: boolean` (prop opcional) = busca em andamento (janela do debounce OU fetch); a página liga com `partnerQuery.isFetching || debouncedPartnerSearch !== partnerSearch.trim().toLowerCase()` (`index.tsx:316-318`, passada em `:533`) e o painel só troca o Empty com termo VÁLIDO (`isPartnerSearching`, `join-footer.tsx:106-107`). **Estados:** termo <3 = neutro "Busque pelo nome ou @username." (inalterado); termo ≥3 EM VOO = LoadingState; termo ≥3 RESOLVIDO com 0 resultados = "Nenhum jogador encontrado." (só então). Galeria segue sem a prop (opcional = comportamento atual). **Chain do chip (steering do mesmo round, escolha do usuário):** o token de categoria incompatível mudou por decisão dele — incompatível COM motivo mostra o motivo (rótulo curto do servidor: femininas = "Mulheres", masculinas = "Homens"); incompatível SEM motivo (perfil SEM gênero/legado, `ineligibleReason` null) fica SEM chip DE PROPÓSITO e NÃO cai para lotada/vagas (senão a linha desabilitada mostraria "Lotada" ou as vagas sem explicar o bloqueio); depois vem "Lotada"; depois as vagas. Ordem codificada em `join-footer.tsx:252-280`; o TEXTO segue vindo do servidor — nenhuma copy nova no client.
 
 ## QA no simulador (20-09, sem commit) — BUG-0045 e a copy do convite
 
@@ -1918,7 +1885,7 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
   `entries.tsx:410-415`), então o CTA "Ver" do
   alerta abria Confirmados. Agora a aba é DERIVADA a cada render por
   `resolveTournamentEntriesTab({ initialTab, role, userTab })`
-  (`lib/tournaments/tournament-details-derived.ts:221-240`): o `pending` passa a
+  (`lib/tournaments/tournament-details-derived.ts:215-234`): o `pending` passa a
   valer no render em que o contexto do organizador chega (mesma chamada, sem
   efeito e sem atraso) e `userTab` guarda só a escolha MANUAL, que tem
   precedência e nunca é sobrescrita quando o contexto carrega. Confirmados segue
@@ -1982,7 +1949,7 @@ ORGANIZADOR não mudou nada.**
 - **Migração do bloco "Suas inscrições" (overview do jogador → segmento Minhas):** o card
   migrou com o MESMO markup (categoria + chip via `getEntryStatusChip` + as ações) e o
   overview deixou de renderizá-lo — lá ficam os alertas do servidor e o "Próximo jogo"
-  (`pages/tournaments/player-overview.tsx:93-98` e `:100-120`; as props `onCancelEntry`/
+  (`pages/tournaments/player-overview.tsx:93-101` e `:103-113`; as props `onCancelEntry`/
   `onPayEntry`/`onRespondInvite` foram extintas, e as citações de molde do par de ícones
   recusar/aceitar que a spec `dashboard.md` fazia para aquele arquivo passaram a apontar
   para o ramo mine desta tela, com a extinção registrada lá). As AÇÕES ficaram com um dono
@@ -1995,8 +1962,8 @@ ORGANIZADOR não mudou nada.**
   SERVIDOR já reaproveita a cobrança pendente do mesmo insumo — `createCharge` consulta
   `findPendingChargeForSource` antes de falar com o provedor e devolve a cobrança PENDING
   existente (mesmo `sourceType`+`sourceId`, dona do caller e com PIX não expirado:
-  `convex/functions/payment/charge.ts:203-215`, `:101-137` + `hasUsablePix`/
-  `ownsPayableSource` em `convex/domains/payment/rules.ts:84-94` e `:474-483`), então um
+  `convex/functions/payment/charge.ts:155-168` + `hasUsablePix`/`ownsPayableSource`
+  em `convex/domains/payment/rules.ts:38` e `:158`), então um
   segundo toque sequencial NÃO cria uma segunda cobrança; o servidor só cria outra quando
   a anterior expirou ou foi consumida:
   - **CANCELAR INSCRIÇÃO** (o único lugar do app): botão danger-soft + dialog de
@@ -2046,19 +2013,19 @@ de uma superfície para outra é o dado que ela tem.
   lado (`swapPickEnabled`, por lado — o lado armado pinta `bg-accent-soft` e a
   seta `ExchangeIcon`, `selectedSide`).
 - **Chip de status:** vocabulário único `MATCH_STATUS_CHIPS`
-  (tournament-details-derived.ts:131) lido por `getMatchStatusChip` (:145);
+  (`src/lib/matches/match-display.ts:11`) lido por `getMatchStatusChip` (`:25`);
   `null` = estado SEM chip (hoje só a linha `vacant`) e status fora do
   vocabulário cai no rótulo cru. Só o "A definir" (`pending`) leva `text-muted`
   no rótulo (match-card.tsx:148-151).
 - **Placar:** os números por set saem de `buildBracketScoreTokens`
-  (`lib/tournaments/bracket-score-display.ts`) e cada um carrega a cor do SEU
+  (`src/lib/matches/score-display.ts`) e cada um carrega a cor do SEU
   set (vencedor accent/bold, perdedor muted); os NOMES carregam a cor do PAR
   pela maioria dos sets (vencedor accent/semibold, perdedor muted/normal) e não
   são pintados quando o placar empata ou não existe (match-card.tsx:168-203).
 - **W.O. jogado (IBX-0109):** a prop `walkoverWinner?: "a" | "b" | null`
   (match-card.tsx:123-126) é o sinal do VENCEDOR — nada de heurística sobre o
   `0x0` do set placeholder. Deriva do wire em `walkoverWinnerSide`
-  (`lib/tournaments/tournament-details-derived.ts:153-175`): só partida
+  (`lib/tournaments/tournament-details-derived.ts:132-150`): só partida
   `finished` com `walkover` conta (o bye do sorteio é `status === "walkover"` e
   nem chega ao card) e o lado é o `winnerEntryId` contra `entryAId`/`entryBId`;
   W.O. sem vencedor resolvido devolve `null` e não pinta ninguém. Com a prop, o
@@ -2068,8 +2035,8 @@ de uma superfície para outra é o dado que ela tem.
   deliberado do caller passa (a FINAL decidida segue "Campeão", com o teste
   cobrindo o W.O. na final).
 - **Placar fora em TODO W.O.** (`isWalkover`, match-card.tsx:166-167): o vencedor
-  explícito OU o status `walkover` — o shape da agenda da LIGA, que não tem
-  vencedor no wire — zeram os tokens de set (match-card.tsx:168-175), então
+  explícito OU o status `walkover` zeram os tokens de set
+  (match-card.tsx:168-175), então
   nenhum número desenha, nem o `0x0` do placeholder; sem a prop, nenhum lado é
   pintado e só o chip "W.O." fica. O bloco do resultado não sustenta a altura da
   linha (o avatar de 44pt e a linha de nome já são mais altos), então a medida do
@@ -2094,20 +2061,13 @@ de uma superfície para outra é o dado que ela tem.
 
 ### Superfícies
 
-- `MatchCard`: as DUAS agendas (torneio,
-  `tournaments/[tournamentId]/schedule.tsx:174`, e liga,
-  `leagues/[leagueId]/schedule.tsx:165`), o "Próximo jogo" da casa do jogador
-  (`pages/tournaments/player-overview.tsx:114`) e o NÓ do chaveamento (via
-  `BracketMatchCard`, bracket-match-card.tsx:95). Quem manda o `walkoverWinner`
-  do W.O. é a agenda do torneio, pelo item (`schedule.tsx:190`, derivado em
-  `lib/tournaments/schedule-items.ts:82`), e o nó, pela casca (:87).
-- **Agenda da LIGA sem pintura de W.O. (fato, não pendência de UI):** o item do
-  `league.challenges.listScheduled` não carrega o vencedor — o schema tem
-  `matchStatus` (`walkover` quando o score carrega a flag) e `scoreSets`, e nada
-  mais (`convex/domains/league/contract.ts:926-941`). Nela o card mostra o chip
-  "W.O." que o status já traz, **sem placar (o `isWalkover` do status descarta o
-  `0x0` do placeholder) e sem pintura de lado**; pintar o vencedor depende de o
-  contrato expor o lado vencedor (backend), não do card.
+- `MatchCard`: a agenda do torneio
+  (`tournaments/[tournamentId]/schedule.tsx:174`), o "Próximo jogo" da casa
+  do jogador (`pages/tournaments/player-overview.tsx:114`) e o NÓ do
+  chaveamento (via `BracketMatchCard`, bracket-match-card.tsx:95). Quem manda
+  o `walkoverWinner` do W.O. é a agenda do torneio, pelo item
+  (`schedule.tsx:190`, derivado em `lib/tournaments/schedule-items.ts:82`), e
+  o nó, pela casca (:87).
 - O "Próximo jogo" da casa do jogador não tem W.O. a pintar: a lista filtra
   `status === "scheduled"`.
 - `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:495`, o
@@ -2117,9 +2077,9 @@ de uma superfície para outra é o dado que ela tem.
 - A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
   entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
   "Partida" e "Inscrições"): `galleryMatchCardCases`
-  (`settings/components/[component].tsx:866`, 13 casos, render :1116) e
-  `galleryEntryCardCases` (:1149, 5 casos, render :1236); os casos do nó saem na
-  largura da chave (`nodeWidth` → `w-80`, :1115).
+  (`settings/components/[component].tsx:696`, 13 casos, render :942) e
+  `galleryEntryCardCases` (`:979`, 5 casos, render :1064); os casos do nó saem
+  na largura da chave (`nodeWidth` → `w-80`, `:945`).
 - Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
   bracket.tsx:300); as agendas e o "Próximo jogo" não recebem `modality` (o
   `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
@@ -2154,8 +2114,8 @@ de uma superfície para outra é o dado que ela tem.
   aberto desenha os dois avatares (verde + black) e a segunda linha "A definir"
   muted.
 - **O texto da vaga é a sentinela** `UNDEFINED_PLAYER_NAME = "A definir"`
-  (tournament-details-derived.ts:180), a mesma que `formatEntryPlayerNames`
-  (:185) devolve para lado vazio — o card não repete o texto em duas linhas.
+  (`src/lib/matches/match-display.ts:4`), a mesma que `formatEntryPlayerNames`
+  (`tournament-details-derived.ts:155`) devolve para lado vazio — o card não repete o texto em duas linhas.
 
 ### Geometria e abertura
 
@@ -2174,7 +2134,7 @@ de uma superfície para outra é o dado que ela tem.
 
 - **Auto-sorteio pelo PRAZO (backend):** além do início automático no dia
   (`shouldAutoStartTournament`, scheduling-rules.ts:21), o cron horário
-  (`crons.ts:79`) passou a SORTEAR quando o prazo de inscrição fecha —
+  (`crons.ts:68-73`) passou a SORTEAR quando o prazo de inscrição fecha —
   `shouldAutoDrawTournament` (scheduling-rules.ts:40: só `published`, com prazo
   finito, prazo não posterior ao dia do início e prazo já vencido) e
   `resolveTournamentAutoAction` (:63) escolhem `start` antes de `draw` no mesmo
@@ -2182,10 +2142,10 @@ de uma superfície para outra é o dado que ela tem.
   a existir ANTES do dia do início, em vez de nascer e morrer no tick do start.
   `bracket.autoStartTournaments` (`convex/functions/tournament/bracket.ts:471`)
   reusa os cores `performDraw` (:78) e `performStart` (:340).
-- **Plantio de duplas no DEV (backend):** `seed:doublesScenario` (seed.ts:3337)
+- **Plantio de duplas no DEV (backend):** `seed:doublesScenario` (seed.ts:1023)
   cria/atualiza o torneio de duplas (2 categorias, taxa 0, `maxEntries` 16,
   alvo de duplas ativas por categoria + 1 convite pendente) com elenco próprio
   de perfis com username (`convex/domains/seed/doubles-plan.ts:52`, pares por
-  `selectDoublesSeedPairs` :229); `seed:doublesAgendaScenario` (seed.ts:3601)
+  `selectDoublesSeedPairs` :229); `seed:doublesAgendaScenario` (seed.ts:1287)
   fecha os convites, cadastra as quadras e agenda a 1ª rodada por
   `resolveDoublesSeedAgendaSlot` (`convex/domains/seed/doubles-agenda-plan.ts:38`).

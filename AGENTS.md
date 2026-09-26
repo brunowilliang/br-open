@@ -35,7 +35,7 @@ CI (`.github/workflows/ci.yml`) runs `typecheck` -> `check` -> `bun run test` on
   `src/app/(public)/` and `src/app/(private)/`, with `src/app/_layout.tsx` as
   the root layout and `src/app/+not-found.tsx`.
 - `src/components/` (UI, incl. HeroUI-based screens), `src/lib/` (domain logic
-  + stores, e.g. `src/lib/leagues/`).
+  + stores, e.g. `src/lib/tournaments/`).
 - TS path aliases (`tsconfig.json`): `@/*` -> `src/*`, `@/assets/*` -> `assets/*`,
   `@convex/*` -> `convex/*` (also `convex/shared/*`). Use these, not relative
   paths, when crossing top-level dirs.

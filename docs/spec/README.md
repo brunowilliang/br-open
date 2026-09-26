@@ -37,11 +37,10 @@ de CLI, de máquina e de agente.
 | Doc | Cobre |
 |-----|-------|
 | [arquitetura.md](arquitetura.md) | Stack, estrutura de pastas, backend (kitcn/CRPC), frontend, nomenclatura, gates de verificação |
-| [leagues.md](leagues.md) | Liga inteira: criação, edição, quadras, regras, desafios, agenda, ranking, detalhe, overviews, mídia, descoberta |
 | [auth.md](auth.md) | Auth/Conta: login (e-mail+senha, Apple, Google), senha, troca de e-mail OTP, contas vinculadas, e-mails Resend |
 | [tournaments.md](tournaments.md) | Torneios (implementado — domínio, CRPC e telas): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, chave navegável, inscrições, agenda, checkout |
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |
-| [payments.md](payments.md) | Payments: mensalidade de liga via PIX com split Woovi, checkout, webhook, renovação com carência, dashboard do organizador, hub do jogador, saque (withdraw) |
-| [dashboard.md](dashboard.md) | Dashboards por persona: dash pessoal do jogador (próximos jogos, V/D, posição por liga, categorias, parceiro) e séries de receita da organização — contratos de leitura do IBX-0071 |
+| [payments.md](payments.md) | Payments: inscrição de torneio via PIX com split Woovi, checkout, webhook, dashboard do organizador, hub do jogador, saque (withdraw) |
+| [dashboard.md](dashboard.md) | Dashboards por persona: dash pessoal do jogador (próximos jogos, V/D, categorias, parceiro) e séries de receita da organização — contratos de leitura do IBX-0071 |
 | [pendings.md](pendings.md) | Pendências/alertas centralizados (`pendings.list`): shape do item, kinds por escopo, ordem, caps e autorização por ator, dispensa por superfície (`pendings.dismiss`, IBX-0085) e o seed de DEV do cenário (IBX-0090) — contrato de leitura do IBX-0076 |
-| [notifications.md](notifications.md) | Notificações: os 44 eventos, pipeline de criação (`createForRecipients`), apresentação acionável (`presentation` + mapa evento → ação + gates de estado), central, deliveries/push, preferências — contrato do IBX-0077 |
+| [notifications.md](notifications.md) | Notificações: os 16 eventos, pipeline de criação (`createForRecipients`), apresentação acionável (`presentation` + mapa evento → ação + gates de estado), central, deliveries/push, preferências — contrato do IBX-0077 |

@@ -16,7 +16,7 @@
 src/
   app/            rotas Expo Router (route groups (public)/ e (private)/)
   components/     ui/ (átomos), pages/ (views complexas), core/, navigation/
-  lib/            lógica de domínio + stores (leagues/, payments/, format/, ...)
+  lib/            lógica de domínio + stores (payments/, tournaments/, format/, ...)
 convex/
   domains/        módulos de domínio (contract.ts zod + tables.ts + rules.ts)
   functions/      procedures CRPC (router de convex/lib/crpc.ts)
@@ -40,14 +40,14 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
   arquivos `"use node"` (ex.: `payment/providerNode.ts`) via `ctx.runAction`;
   actions com `ctx.orm` via `ctx.runMutation` (limitação de tipos TS,
   documentada em `onboarding.ts`).
-- **Módulos:** auth, league, notification, organization, payment, player, seed,
-  viewer (contexto do ator ativo), withdraw.
+- **Módulos:** auth, match, notification, organization, payment, pendings, player, seed,
+  tournament, viewer (contexto do ator ativo), withdraw.
 - **Gate backend:** `bun run codegen` → `typecheck:convex` → `bun run test convex`.
 
 ## Frontend (Expo Router)
 
 - **Rota é dona do fluxo de dados:** queries/mutations/toasts/invalidate vivem
-  nas telas (ex.: `src/app/(private)/leagues/[leagueId]/challenges.tsx`).
+  nas telas (ex.: `src/app/(private)/tournaments/[tournamentId]/entries.tsx`).
 - **Erro de procedure vira toast pela mensagem DO SERVIDOR:** todo `onError`
   passa por `getToastErrorMessage(error, fallback)`
   (`src/lib/errors/toast-message.ts`). O helper tira a mensagem de dentro do
@@ -59,7 +59,7 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
   recurso (erro de transporte, `ArgumentValidationError`, payload sem mensagem
   própria).
 - **`src/components/pages/`** guarda views complexas (overviews por papel,
-  dialogs); lógica derivada em `src/lib/leagues/*-derived.ts`.
+  dialogs); lógica derivada em `src/lib/tournaments/*-derived.ts`.
 - **HeroUI Native + Uniwind** para componentes e estilos; `onPress`, não onClick.
 - **Gate frontend:** `bun run check` (lint + typecheck) + `bun run test src`.
 
@@ -70,12 +70,11 @@ Resultado da padronização executada em 22-07-2026, confirmado no código:
 - **Parte A — Utils (executada):** formatters consolidados em
   `src/lib/format/` (currency, time, date, relative-time, pluralize, user,
   email, phone) + `src/lib/numbers.ts`, `collections.ts`,
-  `router/normalize-param.ts`, `payments/status.ts`, `leagues/rule-format.ts`.
+  `router/normalize-param.ts`, `payments/status.ts`, `rules/rule-format.ts`.
 - **Parte B — Nomenclatura (executada):** papéis canônicos
   `organizer` / `player` / `guest` (EN código; "organizador" / "jogador" /
   "visitante" em UI). `admin-overview-derived.ts` → `organizer-overview-derived.ts`,
-  `participant-*` → `player-*`; status `pending_organizer_*`; mutations
-  `organizerManage*`; tabela `leagueChallengeOrganizerAction`.
+  `participant-*` → `player-*`; status `pending_organizer_*`.
 - **Não mexido (Better Auth org RBAC — conceito separado):**
   `member.role: "owner" | "admin" | "member"` da organização e gates
   `requireActiveManager()` / `MANAGER_ROLES`.
@@ -96,6 +95,6 @@ Resultado da padronização executada em 22-07-2026, confirmado no código:
 ## Próximos passos conhecidos
 
 - Itens de decisão da padronização ainda em aberto (se não resolvidos):
-  renomear `canManageLeague`, `organizerType` → `organizationType`,
+  renomear `organizerType` → `organizationType`,
   `requireActiveManager` → `requireActiveOrganizer` — verificar nos docs de
   domínio se já foram aplicados.
