@@ -425,7 +425,7 @@ export default function TournamentFormLayout() {
 
   if (target.mode === "create") {
     const canManageTournaments =
-      viewerContext.data?.capabilities?.canManageLeagues ?? false;
+      viewerContext.data?.capabilities?.canManageOrganization ?? false;
 
     if (viewerContext.isPending) {
       return (

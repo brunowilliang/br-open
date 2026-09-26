@@ -15,7 +15,6 @@ export const paymentChargeStatusSchema = z.enum([...PAYMENT_CHARGE_STATUSES]);
 // Lives in the contract (not in a function file) so domain modules can read a
 // source without importing a Convex function file.
 
-export const SOURCE_TYPE_LEAGUE_MEMBERSHIP = "league_membership";
 export const SOURCE_TYPE_TOURNAMENT_ENTRY = "tournament_entry";
 
 // The provider creates the subaccount synchronously and it is usable right
@@ -128,13 +127,8 @@ export type CheckoutCharge = z.infer<typeof checkoutChargeSchema>;
 export const checkoutContextSchema = z.object({
   amountCents: z.number().int().nonnegative(),
   brCode: z.string(),
-  // Membership state of the source, so the checkout can tell "renew now" from
-  // "already paid" without trusting the charge's historical status.
-  canRenew: z.boolean(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
-  membershipDueAt: z.number().nullable(),
-  membershipStatus: z.string().nullable(),
   // The caller's own PENDING charge with a usable PIX, so a link carrying a
   // terminal charge still renders the newer open one. Null means nothing beyond
   // the link's charge; reading it never creates a charge.
@@ -150,7 +144,6 @@ export type CheckoutContext = z.infer<typeof checkoutContextSchema>;
 
 export const myPaymentItemSchema = z.object({
   amountCents: z.number().int().nonnegative(),
-  canRegenerate: z.boolean(),
   chargeId: z.string(),
   expiresAt: z.string().nullable(),
   paidAt: z.string().nullable(),
@@ -188,10 +181,7 @@ export const dashboardOverviewSchema = z.object({
     status: paymentAccountStatusSchema.nullable(),
   }),
   metrics: z.object({
-    activeSubscribers: z.number().int().nonnegative(),
-    overdueCount: z.number().int().nonnegative(),
     paymentsThisMonth: z.number().int().nonnegative(),
-    projectedMonthlyCents: z.number().int().nonnegative(),
     receivedLastMonthCents: z.number().int().nonnegative(),
     receivedThisMonthCents: z.number().int().nonnegative(),
   }),

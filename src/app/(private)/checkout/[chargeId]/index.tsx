@@ -12,7 +12,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatMsAsMMSS } from "@/lib/format/time";
-import { formatLeaguePriceParts } from "@/lib/leagues/presentation";
+import { formatPriceParts } from "@/lib/format/competition";
 import {
   type CheckoutChargeView,
   resolveCheckoutDisplay,
@@ -65,12 +65,6 @@ export default function CheckoutScreen() {
 
   const checkoutQuery = useQuery(
     crpc.payment.charge.getCheckoutContext.staticQueryOptions({ chargeId })
-  );
-  // `canRegenerate` de "meus pagamentos" é o sinal de cobrabilidade da
-  // membership (`canMembershipBeCharged` no servidor) — é o mesmo sinal que o
-  // menu "Gerar novo Pix" de settings/player/payments.tsx usa.
-  const paymentsQuery = useQuery(
-    crpc.payment.charge.listMine.staticQueryOptions()
   );
 
   const invalidateCheckout = useCallback(async () => {
@@ -133,12 +127,6 @@ export default function CheckoutScreen() {
   const checkout = checkoutQuery.data ?? null;
   const isLoading = checkoutQuery.isLoading && !checkout;
 
-  // O item de "meus pagamentos" da charge do link dá o `paidAt` do cartão e
-  // cobre o fallback quando a resposta em cache ainda não traz `canRenew`.
-  const chargeItem = paymentsQuery.data?.items.find(
-    (item) => item.chargeId === chargeId
-  );
-
   // A cobrança VIGENTE manda na tela: a notificação antiga carrega o chargeId
   // de uma charge já terminal, e o PIX gerado depois vive em outra charge
   // PENDING do mesmo source. Sem pendente, a charge do link decide.
@@ -146,7 +134,6 @@ export default function CheckoutScreen() {
     ? resolveCheckoutDisplay({
         context: checkout,
         now: Date.now(),
-        paymentItem: chargeItem,
       })
     : null;
 
@@ -177,7 +164,7 @@ export default function CheckoutScreen() {
 
   const priceParts = useMemo(
     () =>
-      formatLeaguePriceParts({
+      formatPriceParts({
         amountCents,
         billingInterval: "month",
       }),
@@ -234,9 +221,8 @@ export default function CheckoutScreen() {
       </Page.Header>
 
       <Page.View className="flex-1 gap-6 px-4">
-        {/* Estado terminal da charge, dirigido pelo estado ATUAL da membership:
-            com cobrança possível (atraso, suspensão ou janela de renovação) a
-            tela pede o PIX novo em vez de afirmar um pagamento. */}
+        {/* Estado terminal da charge: o cartão fala do pagamento da inscrição,
+            nunca promete PIX quando não há cobrança possível. */}
         {card ? (
           <View className="flex-1 items-center justify-center gap-3">
             <View

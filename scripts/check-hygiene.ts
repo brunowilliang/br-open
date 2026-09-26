@@ -41,14 +41,6 @@ const TEST_FILE = /\/tests\/|\.test\.tsx?$/;
 const RENDER_JSX_LEGACY: Record<string, string[]> = {
   "src/app/(private)/(tabs)/competitions.tsx": ["renderCompetitionItem"],
   "src/app/(private)/(tabs)/search.tsx": ["renderListEmptyComponent"],
-  "src/app/(private)/leagues/[leagueId]/challenges.tsx": [
-    "renderChallengeItem",
-  ],
-  "src/app/(private)/leagues/[leagueId]/ranking.tsx": [
-    "renderViewerActions",
-    "renderPlayerMedia",
-  ],
-  "src/app/(private)/settings/leagues/index.tsx": ["renderListEmptyComponent"],
 };
 
 const MIN_COMMENT_LINES = 40;

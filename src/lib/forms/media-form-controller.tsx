@@ -43,12 +43,10 @@ type MediaFormValuesField = MediaFormValues & FieldValues;
 export type MediaFormControllerOptions<TValues extends MediaFormValuesField> = {
   defaultValues: TValues;
   domain: MediaFormDomain;
-  /** Toast copy scope: "A imagem será enviada quando você salvar a liga." */
+  /** Toast copy scope: "A imagem será enviada quando você salvar o torneio." */
   entityLabel: string;
   generateUploadUrl: () => Promise<string>;
   isPending?: boolean;
-  /** Domain-specific lock flag — only the league wizard (rules tab) uses it. */
-  isRulesLocked?: boolean;
   mediaUrls?: {
     avatarUrl?: null | string;
     coverUrl?: null | string;
@@ -104,7 +102,6 @@ export function useMediaFormController<TValues extends MediaFormValuesField>(
     entityLabel,
     generateUploadUrl,
     isPending,
-    isRulesLocked,
     mediaUrls,
     mode,
     onDelete,
@@ -134,7 +131,6 @@ export function useMediaFormController<TValues extends MediaFormValuesField>(
       avatarUrl: mediaUrls?.avatarUrl,
       coverUrl: mediaUrls?.coverUrl,
       externalPending: isPending,
-      isRulesLocked,
       mode,
       showDelete,
       title,
@@ -142,7 +138,6 @@ export function useMediaFormController<TValues extends MediaFormValuesField>(
   }, [
     bucket$,
     isPending,
-    isRulesLocked,
     mediaUrls?.avatarUrl,
     mediaUrls?.coverUrl,
     mode,

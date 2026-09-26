@@ -26,8 +26,7 @@ export const OPENPIX_CHARGE_COMPLETED = "OPENPIX:CHARGE_COMPLETED" as const;
 
 /**
  * Refund issued from the Woovi dashboard; the payload mirrors the expired
- * event. `markChargeRefunded` already owns the membership side effect (leave
- * the league, free the ranking slot) and the notification.
+ * event. `markChargeRefunded` marks the local charge REFUNDED.
  */
 export const OPENPIX_CHARGE_REFUNDED = "OPENPIX:CHARGE_REFUNDED" as const;
 

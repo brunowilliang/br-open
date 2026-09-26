@@ -15,36 +15,20 @@ describe("actor context", () => {
     expect(resolveActorKind("invalid")).toBe("player");
   });
 
-  it("allows player actors to browse and join leagues", () => {
+  it("denies organization management to players and bare members", () => {
     expect(buildViewerCapabilities({ actorKind: "player" })).toEqual({
-      canBrowseLeagues: true,
-      canCreateLeague: false,
-      canJoinLeagues: true,
-      canManageLeagues: false,
+      canManageOrganization: false,
     });
-  });
-
-  it("denies league management to bare organization members", () => {
     expect(
       buildViewerCapabilities({ actorKind: "organization", role: "member" })
-    ).toEqual({
-      canBrowseLeagues: true,
-      canCreateLeague: true,
-      canJoinLeagues: false,
-      canManageLeagues: false,
-    });
+    ).toEqual({ canManageOrganization: false });
   });
 
-  it("allows owners and admins to manage leagues", () => {
+  it("allows owners and admins to manage the organization", () => {
     for (const role of ["owner", "admin"] as const) {
       expect(
         buildViewerCapabilities({ actorKind: "organization", role })
-      ).toEqual({
-        canBrowseLeagues: true,
-        canCreateLeague: true,
-        canJoinLeagues: false,
-        canManageLeagues: true,
-      });
+      ).toEqual({ canManageOrganization: true });
     }
   });
 

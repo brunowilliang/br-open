@@ -350,12 +350,6 @@ export default function SettingsNotificationsRoute() {
       queryClient.invalidateQueries(
         crpc.notification.feed.list.queryFilter({ limit: 50 })
       ),
-      queryClient.invalidateQueries(
-        crpc.league.discovery.listParticipating.queryFilter()
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.management.listMine.queryFilter()
-      ),
     ]);
   }
 

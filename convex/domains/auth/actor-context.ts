@@ -17,10 +17,7 @@ export const MANAGER_ROLES = ["owner", "admin"] as const;
 const MANAGER_ROLES_SET = new Set<string>(MANAGER_ROLES);
 
 export const viewerCapabilitiesSchema = z.object({
-  canBrowseLeagues: z.boolean(),
-  canCreateLeague: z.boolean(),
-  canJoinLeagues: z.boolean(),
-  canManageLeagues: z.boolean(),
+  canManageOrganization: z.boolean(),
 });
 
 export const setActiveActorSchema = z
@@ -61,24 +58,18 @@ export function buildViewerCapabilities(input: {
   actorKind: ActorKind;
   role?: ViewerActor["role"];
 }): ViewerCapabilities {
-  const isOrganization = input.actorKind === "organization";
-  const isManager =
-    isOrganization &&
-    input.role !== undefined &&
-    MANAGER_ROLES_SET.has(input.role);
-
-  return viewerCapabilitiesSchema.parse({
-    canBrowseLeagues: true,
-    canCreateLeague: isOrganization,
-    canJoinLeagues: !isOrganization,
-    canManageLeagues: isManager,
+  const isManager = isActiveActorManager({
+    kind: input.actorKind,
+    role: input.role,
   });
+
+  return viewerCapabilitiesSchema.parse({ canManageOrganization: isManager });
 }
 
 /**
- * Whether a viewer actor is allowed to manage leagues on behalf of an
- * organization. Organization actors must also hold an owner/admin role — a
- * bare `member` is NOT a manager and must not pass league-management gates.
+ * Whether a viewer actor is allowed to manage an organization's data.
+ * Organization actors must also hold an owner/admin role — a bare `member` is
+ * NOT a manager and must not pass the management gates.
  */
 export function isActiveActorManager(
   activeActor: Pick<ViewerActor, "kind" | "role">

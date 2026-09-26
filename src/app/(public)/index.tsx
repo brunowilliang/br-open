@@ -19,7 +19,7 @@ export const Page1 = () => (
         Você joga pra ganhar.
       </Text>
       <Text align="center" className="px-4 opacity-70" color="muted">
-        O BR Open é pra quem leva o jogo a sério. Torneios, copas e ligas num só
+        O BR Open é pra quem leva o jogo a sério. Torneios e chaves num só
         lugar.
       </Text>
     </View>

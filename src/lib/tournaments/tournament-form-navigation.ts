@@ -140,7 +140,7 @@ export function resolveTournamentFormTabValueFromRouteName(
 
 /**
  * Display title for a tournament form tab, resolved from the Expo Router route
- * name (e.g. "categories" -> "Categorias"). Same pattern as the league wizard.
+ * name (e.g. "categories" -> "Categorias").
  */
 export function getTournamentFormTabTitle(routeName: string) {
   const value = resolveTournamentFormTabValueFromRouteName(routeName);

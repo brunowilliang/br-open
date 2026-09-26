@@ -14,9 +14,9 @@ import type { NotificationEventType } from "./definitions";
  * INFORMATIVO, e linha anterior a este campo tambem chega `null` (sem migration).
  *
  * REGRA DE PRODUTO: botao so onde existe mutation viva E gate de estado — evento
- * ja acontecido (resultado confirmado, entrada paga, convite respondido) nao
- * ganha botao, porque mentiria. Sem o id em `data` a funcao devolve `null`:
- * item vira informativo, nunca botao morto.
+ * ja acontecido (entrada paga, convite respondido) nao ganha botao, porque
+ * mentiria. Sem o id em `data` a funcao devolve `null`: item vira informativo,
+ * nunca botao morto.
  */
 
 type NotificationActionSpecInput = {
@@ -61,99 +61,6 @@ function buildDecision(input: {
   };
 }
 
-function buildSingleAction(input: {
-  action: NotificationPresentationAction;
-  actionLabel: string;
-  highlightsActorName?: boolean;
-}): NotificationActionSpec {
-  return {
-    action: input.action,
-    actionLabel: input.actionLabel,
-    highlightsActorName: input.highlightsActorName ?? false,
-    secondaryAction: null,
-    secondaryActionLabel: null,
-  };
-}
-
-/**
- * Desafio recem criado e contraproposta compartilham este construtor: nos dois
- * a decisao pendente e a proposta vigente do mesmo desafio.
- */
-function buildChallengeProposalDecision(
-  input: NotificationActionSpecInput
-): NotificationActionSpec | null {
-  const challengeId = readMetadataId(input.metadata, "challengeId");
-
-  return challengeId
-    ? buildDecision({
-        action: { params: { challengeId }, type: "accept_challenge_proposal" },
-        actionLabel: "Aceitar",
-        highlightsActorName: true,
-        secondaryAction: {
-          params: { challengeId },
-          type: "decline_challenge_proposal",
-        },
-        secondaryActionLabel: "Recusar",
-      })
-    : null;
-}
-
-function buildChallengeCancellationDecision(
-  input: NotificationActionSpecInput
-): NotificationActionSpec | null {
-  const challengeId = readMetadataId(input.metadata, "challengeId");
-
-  return challengeId
-    ? buildDecision({
-        action: {
-          params: { challengeId },
-          type: "accept_challenge_cancellation",
-        },
-        actionLabel: "Aceitar",
-        highlightsActorName: true,
-        secondaryAction: {
-          params: { challengeId },
-          type: "decline_challenge_cancellation",
-        },
-        secondaryActionLabel: "Recusar",
-      })
-    : null;
-}
-
-/** O envio por W.O. pede a mesma decisao, por isso divide este construtor. */
-function buildConfirmResultDecision(
-  input: NotificationActionSpecInput
-): NotificationActionSpec | null {
-  const challengeId = readMetadataId(input.metadata, "challengeId");
-
-  return challengeId
-    ? buildSingleAction({
-        action: { params: { challengeId }, type: "confirm_challenge_result" },
-        actionLabel: "Confirmar",
-        highlightsActorName: true,
-      })
-    : null;
-}
-
-function buildLeagueMembershipDecision(
-  input: NotificationActionSpecInput
-): NotificationActionSpec | null {
-  const membershipId = readMetadataId(input.metadata, "membershipId");
-
-  return membershipId
-    ? buildDecision({
-        action: { params: { membershipId }, type: "approve_league_membership" },
-        actionLabel: "Aprovar",
-        highlightsActorName: true,
-        secondaryAction: {
-          params: { membershipId },
-          type: "reject_league_membership",
-        },
-        secondaryActionLabel: "Recusar",
-      })
-    : null;
-}
-
 function buildTournamentEntryDecision(
   input: NotificationActionSpecInput
 ): NotificationActionSpec | null {
@@ -194,44 +101,13 @@ function buildPartnerInviteDecision(
 }
 
 /**
- * O id viaja em `action.params.membershipId` porque o item do feed nao tem
- * `source` (a pendencia do mesmo caso le `source.id`). `chargeId` NAO entra de
- * proposito: `createCharge` reusa a cobranca PENDING valida do mesmo dono, entao
- * o botao nao gera um segundo PIX nem depende de id que pode ter expirado.
- */
-function buildPayMembershipAction(
-  actionLabel: "Pagar" | "Renovar"
-): NotificationActionSpecBuilder {
-  return (input) => {
-    const membershipId = readMetadataId(input.metadata, "membershipId");
-
-    return membershipId
-      ? buildSingleAction({
-          action: { params: { membershipId }, type: "pay_league_membership" },
-          actionLabel,
-        })
-      : null;
-  };
-}
-
-/**
  * Mapa declarativo evento -> decisao. Tipo ausente = INFORMATIVO (a maioria dos
- * 44 eventos): o item cai no cartao de hoje. Tipo novo com botao entra AQUI e
+ * eventos): o item cai no cartao de hoje. Tipo novo com botao entra AQUI e
  * nada mais muda no servidor.
  */
 const EVENT_PRESENTATION_BUILDERS: Partial<
   Record<NotificationEventType, NotificationActionSpecBuilder>
 > = {
-  "league.challenge.cancellation_requested": buildChallengeCancellationDecision,
-  "league.challenge.counter_proposed": buildChallengeProposalDecision,
-  "league.challenge.created": buildChallengeProposalDecision,
-  "league.challenge.result_submitted": buildConfirmResultDecision,
-  "league.challenge.walkover_submitted": buildConfirmResultDecision,
-  "league.membership.payment_due": buildPayMembershipAction("Pagar"),
-  "league.membership.payment_expired": buildPayMembershipAction("Pagar"),
-  "league.membership.renewal_due": buildPayMembershipAction("Renovar"),
-  "league.membership.renewal_reminder": buildPayMembershipAction("Renovar"),
-  "league.membership.requested": buildLeagueMembershipDecision,
   "tournament.entry.created": buildTournamentEntryDecision,
   "tournament.partner.invited": buildPartnerInviteDecision,
 };

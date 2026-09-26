@@ -96,9 +96,9 @@ export const start = authAction
 
 /**
  * Returns the organization's current payment account status (or null fields if
- * not onboarded yet). Used by the organizer "Pagamentos" card and by the league
- * settings screen to gate the charging toggle. Reads the embedded JSON snapshot
- * from `organization.paymentAccount`.
+ * not onboarded yet). Used by the organizer "Pagamentos" card to gate the
+ * charging toggle. Reads the embedded JSON snapshot from
+ * `organization.paymentAccount`.
  */
 export const getStatus = authQuery
   .output(

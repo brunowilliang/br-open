@@ -5,21 +5,11 @@ const crons = cronJobs();
 
 // Sweep PENDING charges past their `expiresAt` and mark them EXPIRED.
 // Mirrors Woovi's OPENPIX:CHARGE_EXPIRED so local state stays consistent even
-// if a webhook delivery is missed. Notifies the player to generate a new PIX.
+// if a webhook delivery is missed (no notification: the app reads the state).
 crons.interval(
   "expire-stale-charges",
   { hours: 1 },
   internal.payment.charge.expireStaleCharges,
-  {}
-);
-
-// Send renewal reminders for paid leagues (manual renewal Phase 1).
-// Runs daily: for each PAID charge, computes nextDue = paidAt + interval,
-// sends renewal_reminder (≤3 days) or marks membership suspended (past due).
-crons.interval(
-  "send-renewal-reminders",
-  { hours: 24 },
-  internal.payment.charge.sendRenewalReminders,
   {}
 );
 

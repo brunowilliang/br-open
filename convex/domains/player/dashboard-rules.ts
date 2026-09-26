@@ -18,9 +18,9 @@ export function brazilDayKey(ms: number): string {
 }
 
 /**
- * Whether the subject won their side of a decided match/challenge; `null` when
- * the result carries no winner yet (pending rows are never an outcome). One rule
- * for both domains: the league compares membership ids, the tournament entry ids.
+ * Whether the subject won their side of a decided match; `null` when the result
+ * carries no winner yet (pending rows are never an outcome). The tournament
+ * compares entry ids.
  */
 export function classifyResultOutcome(args: {
   subjectId: string;
@@ -32,12 +32,11 @@ export function classifyResultOutcome(args: {
   return args.winnerId === args.subjectId ? "win" : "loss";
 }
 
-/** One consolidated result of the player (league challenge or tournament match). */
+/** One consolidated result of the player (tournament match). */
 export type DashResult = {
   at: number;
   competitionId: string;
   competitionName: string;
-  kind: "league_challenge" | "tournament_match";
   outcome: "loss" | "win";
 };
 
@@ -66,52 +65,6 @@ export function bucketResultsByMonth(input: {
     month,
     wins: buckets.get(month)?.wins ?? 0,
   }));
-}
-
-/** Minimal finished-challenge projection for the position series. */
-export type PositionSnapshotInput = {
-  finishedAtMs: null | number;
-  rankingAppliedAtMs: null | number;
-  rankingSnapshotAfterResult: null | string[];
-};
-
-/** The viewer's position over time in one league, from the league-wide snapshots written after
- * each finished challenge. Points missing the member in the snapshot or any timestamp are skipped;
- * the timestamp falls back to `finishedAt`, and same-instant points keep the last snapshot. */
-export function buildPositionSeries(input: {
-  challenges: PositionSnapshotInput[];
-  membershipId: string;
-}): { points: { at: number; position: number }[]; rankingSize: null | number } {
-  const raw: { at: number; position: number; size: number }[] = [];
-  for (const challenge of input.challenges) {
-    const snapshot = challenge.rankingSnapshotAfterResult;
-    if (!snapshot) {
-      continue;
-    }
-    const index = snapshot.indexOf(input.membershipId);
-    if (index === -1) {
-      continue;
-    }
-    const at = challenge.rankingAppliedAtMs ?? challenge.finishedAtMs ?? null;
-    if (at === null) {
-      continue;
-    }
-    raw.push({ at, position: index + 1, size: snapshot.length });
-  }
-  raw.sort((a, b) => a.at - b.at);
-  const points: { at: number; position: number }[] = [];
-  for (const point of raw) {
-    const last = points.at(-1);
-    if (last && last.at === point.at) {
-      points[points.length - 1] = { at: point.at, position: point.position };
-      continue;
-    }
-    points.push({ at: point.at, position: point.position });
-  }
-  return {
-    points,
-    rankingSize: raw.at(-1)?.size ?? null,
-  };
 }
 
 /** The most frequent doubles partner across the player's entries, either side counted. Cancelled and

@@ -16,18 +16,10 @@ export const PENDING_SCOPE_OPTIONS = ["organization", "player"] as const;
 
 export const PENDING_KINDS_BY_SCOPE = {
   organization: [
-    "organization_league_challenges_awaiting_validation",
-    "organization_league_join_requests",
-    "organization_league_payment_account_missing",
     "organization_tournament_entries_awaiting_approval",
     "organization_tournament_entries_awaiting_payment",
   ],
   player: [
-    "player_league_challenges_pending_actions",
-    "player_league_inactivity_risk",
-    "player_league_membership_payment_due",
-    "player_league_membership_payment_due_soon",
-    "player_league_membership_suspended",
     "player_tournament_entries_awaiting_payment",
     "player_tournament_entry_awaiting_approval",
     "player_tournament_partner_invite_received",
@@ -44,7 +36,6 @@ export const PENDING_KIND_OPTIONS = [
 ] as const;
 
 export const PENDING_DOMAIN_OPTIONS = [
-  "league",
   "payment",
   "player",
   "tournament",
@@ -53,8 +44,6 @@ export const PENDING_DOMAIN_OPTIONS = [
 export const PENDING_SEVERITY_OPTIONS = ["danger", "info", "warning"] as const;
 
 export const PENDING_SOURCE_TYPE_OPTIONS = [
-  "league",
-  "league_membership",
   "organization",
   "tournament",
   "tournament_entry",
@@ -64,25 +53,15 @@ export const PENDING_SOURCE_TYPE_OPTIONS = [
  * TIPO da acao do CTA — enum FECHADO que cresce por ADICAO. O rotulo diz o que a
  * tela MOSTRA; este campo diz o que o cliente EXECUTA, sem adivinhar por kind.
  * Pares de ida e volta sao tipos SEPARADOS, nunca booleano em `params`; so
- * `open_route` navega — acao de mutacao nunca depende de `route`, e
- * `pay_league_membership` cobra o `source` do item (na notificacao o id vem de
- * `action.params.membershipId`, porque o item do feed nao tem `source`).
+ * `open_route` navega — acao de mutacao nunca depende de `route`.
  */
 export const PENDING_ACTION_TYPE_OPTIONS = [
   "open_route",
-  "pay_league_membership",
   "pay_tournament_entry",
   "accept_partner_invite",
   "decline_partner_invite",
-  "approve_league_membership",
-  "reject_league_membership",
   "approve_tournament_entry",
   "reject_tournament_entry",
-  "accept_challenge_proposal",
-  "decline_challenge_proposal",
-  "accept_challenge_cancellation",
-  "decline_challenge_cancellation",
-  "confirm_challenge_result",
 ] as const;
 
 export type PendingDomain = (typeof PENDING_DOMAIN_OPTIONS)[number];
@@ -181,7 +160,7 @@ export const pendingsListResultSchema = z.object({
 
 /**
  * A dispensa vale por superficie: `home` esconde enquanto o item nao piorar;
- * `house` (casa da liga/torneio) mostra sempre — o gesto so existe na home.
+ * `house` (casa do torneio) mostra sempre — o gesto so existe na home.
  */
 export const PENDING_SURFACE_OPTIONS = ["home", "house"] as const;
 

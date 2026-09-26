@@ -10,9 +10,9 @@
  *     the DEV had a single female profile, with no username at all).
  *
  * Accounts go through the real HTTP signUp flow (hashes stay in better-auth's
- * hands); membership/preference follow the data-import pattern of
- * scripts/seed-league-bruno-prod.mjs, and the female profiles are written
- * through the app's own `player.profile.upsert`. NEVER touches PROD: aborts
+ * hands); membership/preference follow the data-import pattern, and the
+ * female profiles are written through the app's own `player.profile.upsert`.
+ * NEVER touches PROD: aborts
  * unless .env.local points to kindred-yak-142.
  */
 import { execFileSync } from "node:child_process";
@@ -318,7 +318,7 @@ if (badFemale.length > 0) {
 }
 
 // ---------------------------------------------------------------------------
-// 2) Organizer membership + active actor (data import, league-seed pattern)
+// 2) Organizer membership + active actor (data import)
 // ---------------------------------------------------------------------------
 console.log("== 2) membership + preferencia do organizador ==");
 const organizerUser = inlineQuery(

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import * as authTables from "../tables";
-import * as leagueTables from "../../league/tables";
 import * as notificationTables from "../../notification/tables";
 import * as playerTables from "../../player/tables";
 
@@ -40,13 +39,7 @@ describe("user delete foreign key actions", () => {
     ).toBe("cascade");
   });
 
-  it("cascades user-owned league data for dev reset deletes", () => {
-    expect(getOnDeleteAction(leagueTables.league.organizationId)).toBe(
-      "cascade"
-    );
-    expect(
-      getOnDeleteAction(leagueTables.leagueMembership.playerProfileId)
-    ).toBe("cascade");
+  it("cascades notification feed rows for dev reset deletes", () => {
     expect(
       getOnDeleteAction(notificationTables.notificationFeed.recipientUserId)
     ).toBe("cascade");
@@ -55,16 +48,6 @@ describe("user delete foreign key actions", () => {
   it("keeps historical records by nulling audit actor references", () => {
     expect(
       getOnDeleteAction(notificationTables.notificationFeed.actorUserId)
-    ).toBe("set null");
-    expect(
-      getOnDeleteAction(
-        leagueTables.leagueChallengeResultSubmission.organizerReviewedByUserId
-      )
-    ).toBe("set null");
-    expect(
-      getOnDeleteAction(
-        leagueTables.leagueChallengeOrganizerAction.performedByUserId
-      )
     ).toBe("set null");
   });
 });

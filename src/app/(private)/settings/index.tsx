@@ -2,6 +2,7 @@ import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { getViewerMode } from "@/lib/actors/viewer-mode";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
@@ -62,9 +63,9 @@ export default function Settings() {
   const organizationActor = viewerContext.data?.availableActors.find(
     (actor) => actor.kind === "organization"
   );
-  const isOrganizationActor = activeActor?.kind === "organization";
+  const isOrganizationActor = getViewerMode(activeActor) === "organization";
   const canShowOrganizerResources =
-    viewerContext.data?.capabilities?.canManageLeagues ?? false;
+    viewerContext.data?.capabilities?.canManageOrganization ?? false;
 
   async function invalidateActorScopedQueries(
     nextViewerContext?: typeof viewerContext.data
@@ -81,12 +82,6 @@ export default function Settings() {
       queryClient.invalidateQueries(crpc.viewer.context.get.queryFilter()),
       queryClient.invalidateQueries(
         crpc.notification.settings.status.queryFilter()
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.discovery.listParticipating.queryFilter()
-      ),
-      queryClient.invalidateQueries(
-        crpc.league.management.listMine.queryFilter()
       ),
     ]);
   }
@@ -259,7 +254,7 @@ export default function Settings() {
               <Card.Body className="flex-1">
                 <Text weight="semibold">Seja um organizador</Text>
                 <Text className="flex-1" color="muted" variant="description">
-                  Crie e administre competições com seu clube, academia ou liga.
+                  Crie e administre competições com seu clube ou academia.
                 </Text>
               </Card.Body>
               <PressableFeedback.Highlight />

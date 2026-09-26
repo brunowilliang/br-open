@@ -8,9 +8,9 @@ describe("getToastErrorMessage", () => {
   it("surfaces the backend message for a CRPC error with a custom message", () => {
     const error = new CRPCClientError({
       code: "NOT_FOUND",
-      functionName: "league/challenges:organizerManage",
+      functionName: "tournament/matches:publishResult",
       message:
-        "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente.",
+        "A partida já foi publicada e não pode ser reaberta automaticamente.",
     });
 
     const result = getToastErrorMessage(
@@ -19,35 +19,35 @@ describe("getToastErrorMessage", () => {
     );
 
     expect(result).toBe(
-      "O ranking atual já mudou depois dessa partida e não pode ser reaberto automaticamente."
+      "A partida já foi publicada e não pode ser reaberta automaticamente."
     );
   });
 
   it("falls back when the CRPC error has no custom message (generic code:fn form)", () => {
     const error = new CRPCClientError({
       code: "BAD_REQUEST",
-      functionName: "league/management:create",
+      functionName: "tournament/management:create",
     });
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível criar a liga."
+      "Não foi possível criar o torneio."
     );
 
-    expect(result).toBe("Não foi possível criar a liga.");
+    expect(result).toBe("Não foi possível criar o torneio.");
   });
 
   it("falls back for non-CRPC errors (Convex internals, transport errors)", () => {
     const error = new Error(
-      "[CONVEX M(league/management:create)] Server Error\nArgumentValidationError: Value does not match validator.\nPath: .ruleConfig.maxActiveChallengesPerPlayer\nValue: {enabled: false, value: 1.0}\nValidator: v.float64()"
+      "[CONVEX M(tournament/management:create)] Server Error\nArgumentValidationError: Value does not match validator.\nPath: .matchConfig.bestOfSets\nValue: {enabled: false, value: 1.0}\nValidator: v.float64()"
     );
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível criar a liga."
+      "Não foi possível criar o torneio."
     );
 
-    expect(result).toBe("Não foi possível criar a liga.");
+    expect(result).toBe("Não foi possível criar o torneio.");
   });
 
   it("surfaces the backend message that rides in the ConvexError payload", () => {
@@ -76,59 +76,59 @@ describe("getToastErrorMessage", () => {
     // mensagem do backend. Antes do fix, o toast mostrava isto cru.
     const error = new CRPCClientError({
       code: "BAD_REQUEST",
-      functionName: "league/membership:approve",
+      functionName: "tournament/entries:approve",
       message:
-        "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa solicitação de entrada já foi resolvida.",
+        "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa inscrição já foi resolvida.",
     });
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível aprovar a solicitação. Tente novamente."
+      "Não foi possível aprovar a inscrição. Tente novamente."
     );
 
-    expect(result).toBe("Essa solicitação de entrada já foi resolvida.");
+    expect(result).toBe("Essa inscrição já foi resolvida.");
   });
 
   it("strips the envelope from an Error that is not the CRPC client error", () => {
     const error = new Error(
-      "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa solicitação de entrada já foi resolvida."
+      "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa inscrição já foi resolvida."
     );
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível aprovar a solicitação. Tente novamente."
+      "Não foi possível aprovar a inscrição. Tente novamente."
     );
 
-    expect(result).toBe("Essa solicitação de entrada já foi resolvida.");
+    expect(result).toBe("Essa inscrição já foi resolvida.");
   });
 
   it("leaves no stack of the enveloped message in the toast", () => {
     const error = new CRPCClientError({
       code: "BAD_REQUEST",
-      functionName: "league/membership:approve",
+      functionName: "tournament/entries:approve",
       message:
-        "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa solicitação de entrada já foi resolvida.\n    at handler (../convex/functions/league/membership.ts:214:11)\n    at async invoke (../convex/functions/generated/server.ts:88:5)\nCalled by client",
+        "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa inscrição já foi resolvida.\n    at handler (../convex/functions/tournament/entries.ts:214:11)\n    at async invoke (../convex/functions/generated/server.ts:88:5)\nCalled by client",
     });
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível aprovar a solicitação. Tente novamente."
+      "Não foi possível aprovar a inscrição. Tente novamente."
     );
 
-    expect(result).toBe("Essa solicitação de entrada já foi resolvida.");
+    expect(result).toBe("Essa inscrição já foi resolvida.");
   });
 
   it("never shows the Convex envelope markers nor the request id", () => {
     const error = new CRPCClientError({
       code: "BAD_REQUEST",
-      functionName: "league/membership:approve",
+      functionName: "tournament/entries:approve",
       message:
-        "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa solicitação de entrada já foi resolvida.",
+        "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa inscrição já foi resolvida.",
     });
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível aprovar a solicitação. Tente novamente."
+      "Não foi possível aprovar a inscrição. Tente novamente."
     );
 
     expect(result).not.toContain("[CONVEX");
@@ -142,17 +142,17 @@ describe("getToastErrorMessage", () => {
     // Convex interno (validação, stack) nunca vira toast.
     const error = new CRPCClientError({
       code: "BAD_REQUEST",
-      functionName: "league/management:create",
+      functionName: "tournament/management:create",
       message:
-        "[CONVEX M(league/management:create)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught ArgumentValidationError: Value does not match validator.",
+        "[CONVEX M(tournament/management:create)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught ArgumentValidationError: Value does not match validator.",
     });
 
     const result = getToastErrorMessage(
       error,
-      "Não foi possível criar a liga."
+      "Não foi possível criar o torneio."
     );
 
-    expect(result).toBe("Não foi possível criar a liga.");
+    expect(result).toBe("Não foi possível criar o torneio.");
   });
 
   it("falls back when the payload has no message of its own (code echo)", () => {
@@ -193,21 +193,21 @@ describe("getToastErrorMessage", () => {
     const error = new ConvexError({
       code: "BAD_REQUEST",
       message:
-        "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa solicitação de entrada já foi resolvida.",
+        "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError: Essa inscrição já foi resolvida.",
     });
 
     expect(
       getToastErrorMessage(
         error,
-        "Não foi possível aprovar a solicitação. Tente novamente."
+        "Não foi possível aprovar a inscrição. Tente novamente."
       )
-    ).toBe("Essa solicitação de entrada já foi resolvida.");
+    ).toBe("Essa inscrição já foi resolvida.");
   });
 
   it("never lets an envelope leak through the payload path", () => {
-    const fallback = "Não foi possível criar a liga.";
+    const fallback = "Não foi possível criar o torneio.";
     const envelope = (label: string) =>
-      `[CONVEX M(league/management:create)] [Request ID: 76269abf707e6ef7] Server Error\n${label}`;
+      `[CONVEX M(tournament/management:create)] [Request ID: 76269abf707e6ef7] Server Error\n${label}`;
 
     // Envelope de erro interno no payload: cai no amigável.
     expect(
@@ -232,7 +232,7 @@ describe("getToastErrorMessage", () => {
   });
 
   it("falls back when the intentional label carries no message of its own", () => {
-    const fallback = "Não foi possível aprovar a solicitação. Tente novamente.";
+    const fallback = "Não foi possível aprovar a inscrição. Tente novamente.";
 
     // Rótulo sozinho na linha: a linha seguinte é o stack do dev, nunca o
     // toast.
@@ -240,9 +240,9 @@ describe("getToastErrorMessage", () => {
       getToastErrorMessage(
         new CRPCClientError({
           code: "BAD_REQUEST",
-          functionName: "league/membership:approve",
+          functionName: "tournament/entries:approve",
           message:
-            "[CONVEX M(league/membership:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError:\nat handler (../convex/functions/league/membership.ts:214:11)\nCalled by client",
+            "[CONVEX M(tournament/entries:approve)] [Request ID: 76269abf707e6ef7] Server Error\nUncaught CRPCError:\nat handler (../convex/functions/tournament/entries.ts:214:11)\nCalled by client",
         }),
         fallback
       )

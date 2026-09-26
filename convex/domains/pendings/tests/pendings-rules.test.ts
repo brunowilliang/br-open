@@ -2,16 +2,6 @@ import { describe, expect, it } from "bun:test";
 
 import type { Id } from "../../../functions/_generated/dataModel";
 import {
-  buildLeagueInactivityPending,
-  buildLeagueJoinRequestsPending,
-  buildOrganizerChallengePendingItem,
-  buildPlayerChallengePendingItem,
-} from "../../league/pendings-rules";
-import {
-  buildLeaguePaymentAccountPending,
-  buildMembershipPaymentPending,
-} from "../../payment/pendings-rules";
-import {
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
@@ -68,16 +58,16 @@ function makeItem(input: {
     count: null,
     deadlineAt: input.deadlineAt ?? null,
     description: "Descrição de teste.",
-    domain: "league",
+    domain: "tournament",
     id: input.id,
-    kind: "player_league_inactivity_risk",
+    kind: "player_tournament_entries_awaiting_payment",
     moneyCents: input.moneyCents ?? null,
-    params: input.actionLabel ? { leagueId: input.id } : null,
-    route: input.actionLabel ? "/leagues/[leagueId]/challenges" : null,
+    params: input.actionLabel ? { tournamentId: input.id } : null,
+    route: input.actionLabel ? "/tournaments/[tournamentId]" : null,
     secondaryAction: null,
     secondaryActionLabel: null,
     severity: input.severity ?? "warning",
-    source: { id: input.id, type: "league" },
+    source: { id: input.id, type: "tournament" },
     title: "Pendência de teste",
   };
 }
@@ -142,7 +132,7 @@ describe("pendings: cap, contagens e saturacao", () => {
     expect(result.truncated).toBe(true);
     expect(result.counts.total).toBe(PENDING_ITEM_CAP);
     expect(result.counts.bySeverity.warning).toBe(PENDING_ITEM_CAP);
-    expect(result.counts.byDomain.league).toBe(PENDING_ITEM_CAP);
+    expect(result.counts.byDomain.tournament).toBe(PENDING_ITEM_CAP);
     expect(result.scope).toBe("player");
   });
 
@@ -166,7 +156,6 @@ describe("pendings: cap, contagens e saturacao", () => {
     expect(result.saturation).toEqual([]);
     expect(result.counts.total).toBe(0);
     expect(result.counts.byDomain).toEqual({
-      league: 0,
       payment: 0,
       player: 0,
       tournament: 0,
@@ -177,30 +166,38 @@ describe("pendings: cap, contagens e saturacao", () => {
     const result = buildPendingsResult({
       items: [],
       saturation: [
-        { kind: "player_league_inactivity_risk", limit: 200 },
-        { kind: "player_league_inactivity_risk", limit: 20 },
-        { kind: "player_league_membership_payment_due", limit: 50 },
+        { kind: "player_tournament_partner_invite_sent", limit: 200 },
+        { kind: "player_tournament_partner_invite_sent", limit: 20 },
+        { kind: "player_tournament_entry_awaiting_approval", limit: 50 },
       ],
       scope: "player",
     });
 
     expect(result.saturation).toEqual([
-      { kind: "player_league_inactivity_risk", limit: 20 },
-      { kind: "player_league_membership_payment_due", limit: 50 },
+      { kind: "player_tournament_entry_awaiting_approval", limit: 50 },
+      { kind: "player_tournament_partner_invite_sent", limit: 20 },
     ]);
   });
 
   it("saturacao: leitura so enche o cap quando o numero de linhas alcanca o limite", () => {
     const collector = createSaturationCollector();
 
-    collector.markIfFull(["player_league_inactivity_risk"], [1, 2, 3], 4);
+    collector.markIfFull(
+      ["player_tournament_partner_invite_sent"],
+      [1, 2, 3],
+      4
+    );
     expect(collector.saturations).toEqual([]);
 
-    collector.markIfFull(["player_league_inactivity_risk"], [1, 2, 3, 4], 4);
-    collector.markIfFull(["player_league_membership_payment_due"], [1], 1);
+    collector.markIfFull(
+      ["player_tournament_partner_invite_sent"],
+      [1, 2, 3, 4],
+      4
+    );
+    collector.markIfFull(["player_tournament_entry_awaiting_approval"], [1], 1);
     expect(collector.saturations).toEqual([
-      { kind: "player_league_inactivity_risk", limit: 4 },
-      { kind: "player_league_membership_payment_due", limit: 1 },
+      { kind: "player_tournament_partner_invite_sent", limit: 4 },
+      { kind: "player_tournament_entry_awaiting_approval", limit: 1 },
     ]);
   });
 });
@@ -208,8 +205,8 @@ describe("pendings: cap, contagens e saturacao", () => {
 describe("pendings: identidade", () => {
   it("id e deterministico no formato kind:sourceId", () => {
     expect(
-      buildPendingItemId("player_league_inactivity_risk", "membership-1")
-    ).toBe("player_league_inactivity_risk:membership-1");
+      buildPendingItemId("player_tournament_partner_invite_received", "entry-1")
+    ).toBe("player_tournament_partner_invite_received:entry-1");
   });
 });
 
@@ -257,50 +254,7 @@ describe("pendings: acao de cada kind", () => {
 
   /** UM item por kind, com o minimo que cada deriver precisa. */
   const oneItemPerKind = (): PendingItem[] => {
-    const membershipStatus = (status: string) =>
-      buildMembershipPaymentPending({
-        dueAtMs: 1_800_000_000_000,
-        membershipId: "membership-1",
-        membershipStatus: status,
-        monthlyPriceCents: 9000,
-        nowMs: 1_799_000_000_000,
-        reminderDaysBefore: 5,
-      });
-
-    const collected: (PendingItem | null)[] = [
-      membershipStatus("payment_due"),
-      membershipStatus("suspended"),
-      buildMembershipPaymentPending({
-        dueAtMs: 1_799_259_200_000,
-        membershipId: "membership-1",
-        membershipStatus: "active",
-        monthlyPriceCents: 9000,
-        nowMs: 1_799_000_000_000,
-        reminderDaysBefore: 5,
-      }),
-      buildLeaguePaymentAccountPending({
-        leagueId: "league-1",
-        monthlyPriceCents: 9000,
-      }),
-      buildLeagueJoinRequestsPending({ count: 2, leagueId: "league-1" }),
-      buildOrganizerChallengePendingItem({
-        organizationId: "org-1",
-        proposals: 1,
-        results: 1,
-      }),
-      buildPlayerChallengePendingItem({
-        counts: { confirmResult: 0, registerResult: 1, requestCorrection: 0 },
-        leagueId: "league-1",
-      }),
-      buildLeagueInactivityPending({
-        membershipId: "membership-1",
-        risk: {
-          daysSinceLastMatch: 27,
-          daysUntilPenalty: 3,
-          penaltyAtMs: 1_800_000_000_000,
-          severity: "warning",
-        },
-      }),
+    const collected: PendingItem[] = [
       ...buildPlayerEntryPendings({
         entries: [
           entryView({ entryId: "entry-1", isCreator: false, isInvited: true }),
@@ -333,22 +287,14 @@ describe("pendings: acao de cada kind", () => {
       }),
     ];
 
-    return collected.filter((item): item is PendingItem => item !== null);
+    return collected;
   };
 
   it("todo kind do contrato sai com a acao declarada", () => {
     const items = oneItemPerKind();
     const expected: Record<string, null | PendingActionType> = {
-      organization_league_challenges_awaiting_validation: null,
-      organization_league_join_requests: "open_route",
-      organization_league_payment_account_missing: "open_route",
       organization_tournament_entries_awaiting_approval: "open_route",
       organization_tournament_entries_awaiting_payment: "open_route",
-      player_league_challenges_pending_actions: "open_route",
-      player_league_inactivity_risk: null,
-      player_league_membership_payment_due: "pay_league_membership",
-      player_league_membership_payment_due_soon: "pay_league_membership",
-      player_league_membership_suspended: "pay_league_membership",
       player_tournament_entries_awaiting_payment: "pay_tournament_entry",
       player_tournament_entry_awaiting_approval: null,
       player_tournament_partner_invite_received: "accept_partner_invite",
@@ -403,13 +349,6 @@ describe("pendings: acao de cada kind", () => {
       const type = item.action?.type;
 
       if (!type || type === "open_route") {
-        continue;
-      }
-
-      if (type === "pay_league_membership") {
-        // Alvo = o proprio source; nenhum params de acao.
-        expect(item.source.type).toBe("league_membership");
-        expect(item.action?.params).toBeNull();
         continue;
       }
 

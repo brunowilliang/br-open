@@ -758,7 +758,7 @@ function PixKeyFields(props: {
               maxLength={80}
               onBlur={field.onBlur}
               onChangeText={field.onChange}
-              placeholder="Ex.: Conta da Liga BR Open"
+              placeholder="Ex.: Conta do Torneio BR Open"
               value={String(field.value ?? "")}
               variant="secondary"
             />
@@ -792,12 +792,12 @@ function OnboardingPaymentSection(props: {
 }) {
   return (
     <ExpandableSection
-      description="Receba pagamentos via PIX nas suas ligas"
+      description="Receba pagamentos via PIX pelas inscrições dos seus torneios"
       sectionKey="pagamentos"
       title="Pagamentos"
     >
       <Text color="muted" variant="description">
-        Quando um jogador paga por uma liga, o valor é dividido e você recebe
+        Quando um jogador paga por um torneio, o valor é dividido e você recebe
         sua parte automaticamente via PIX. Cadastre sua chave agora para
         concluir o cadastro.
       </Text>
@@ -900,7 +900,7 @@ function OnboardingPaymentSection(props: {
               maxLength={80}
               onBlur={field.onBlur}
               onChangeText={field.onChange}
-              placeholder="Ex.: Conta da Liga BR Open"
+              placeholder="Ex.: Conta do Torneio BR Open"
               value={String(field.value ?? "")}
               variant="secondary"
             />
@@ -1021,7 +1021,8 @@ function PaymentSection() {
   } else if (account?.status === "rejected") {
     description = "Conta rejeitada";
   } else {
-    description = "Receba pagamentos via PIX nas suas ligas";
+    description =
+      "Receba pagamentos via PIX pelas inscrições dos seus torneios";
   }
 
   return (
@@ -1052,7 +1053,7 @@ function PaymentSection() {
             </TextField>
           ) : null}
           <Text color="muted" variant="description">
-            Os pagamentos das suas ligas são recebidos automaticamente nesta
+            Os pagamentos dos seus torneios são recebidos automaticamente nesta
             conta via PIX.
           </Text>
           <Button onPress={handleEditPixKey} variant="secondary">
@@ -1090,7 +1091,7 @@ function PaymentSection() {
       ) : (
         <>
           <Text color="muted" variant="description">
-            Quando um jogador paga por uma liga, o valor é dividido e você
+            Quando um jogador paga por um torneio, o valor é dividido e você
             recebe sua parte automaticamente via PIX.
           </Text>
           <PixKeyFields

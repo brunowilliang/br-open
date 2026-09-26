@@ -221,7 +221,7 @@ export default function OrganizationOnboarding() {
           );
           toast.show({
             description:
-              "Você já pode criar e gerenciar ligas como organizador.",
+              "Você já pode criar e gerenciar torneios como organizador.",
             id: "organization-onboarding-success",
             label: "Organização criada",
             variant: "success",
@@ -239,7 +239,8 @@ export default function OrganizationOnboarding() {
         }
       } else {
         toast.show({
-          description: "Você já pode criar e gerenciar ligas como organizador.",
+          description:
+            "Você já pode criar e gerenciar torneios como organizador.",
           id: "organization-onboarding-success",
           label: "Organização criada",
           variant: "success",

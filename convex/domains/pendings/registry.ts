@@ -1,28 +1,5 @@
 import { isActiveActorManager, type ViewerActor } from "../auth/actor-context";
 import { buildPlayerProfileDisplayName } from "../player/identity";
-import { ChallengeRuleConfigSchema } from "../league/contract";
-import { LEAGUE_MEMBERSHIP_STATUSES } from "../league/contract";
-import type { LeagueChallengeStatus } from "../league/challenge-status";
-import {
-  buildLeagueInactivityPending,
-  buildLeagueJoinRequestsPending,
-  buildOrganizerChallengePendingItem,
-  buildPlayerChallengePendingItem,
-  ORGANIZER_ATTENTION_PROPOSAL_STATUSES,
-  ORGANIZER_ATTENTION_SCAN_STATUSES,
-  ORGANIZER_ATTENTION_VALIDATION_STATUSES,
-  PLAYER_CHALLENGE_PENDING_ACTION_DRIFT_STATUSES,
-  PLAYER_CHALLENGE_PENDING_ACTION_STATUSES,
-  resolveLeagueInactivityRisk,
-  resolvePlayerChallengePendingActionKind,
-  type PlayerChallengePendingCounts,
-} from "../league/pendings-rules";
-import { paymentAccountSchema } from "../payment/contract";
-import { resolveMembershipDueMs } from "../payment/membership-billing";
-import {
-  buildLeaguePaymentAccountPending,
-  buildMembershipPaymentPending,
-} from "../payment/pendings-rules";
 import {
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
@@ -31,12 +8,6 @@ import {
 } from "../tournament/pendings-rules";
 import type { QueryCtx } from "../../functions/generated/server";
 import type { Id } from "../../functions/_generated/dataModel";
-import {
-  getChallengeProposals,
-  getLatestResultSubmission,
-} from "../../functions/league/_challenges/proposals";
-import { computeEffectiveChallengeStatus } from "../../functions/league/_challenges/status_helpers";
-import type { LeagueChallengeRecord } from "../../functions/league/_challenges/types";
 import type { AuthenticatedCtx } from "../../lib/crpc";
 import type {
   PendingsListResult,
@@ -62,12 +33,7 @@ import {
 // pelo mesmo fecho (`buildPendingsResult`: ordena, corta no cap, conta). Nenhum
 // scan ilimitado: todo cap e declarado abaixo.
 
-const PLAYER_MEMBERSHIP_SCAN_LIMIT = 20;
-const PLAYER_CHALLENGE_SCAN_LIMIT = 200;
 const PLAYER_ENTRY_SCAN_LIMIT = 100;
-const ORG_LEAGUE_SCAN_LIMIT = 50;
-const ORG_JOIN_REQUEST_SCAN_LIMIT = 100;
-const ORG_CHALLENGE_SCAN_LIMIT = 300;
 const ORG_TOURNAMENT_SCAN_LIMIT = 50;
 /** Torneios cujas inscricoes sao varridas, dos mais recentes para os mais antigos. */
 const ORG_TOURNAMENT_ENTRY_LIMIT = 20;
@@ -129,23 +95,11 @@ export function toPendingActorRef(actor: PendingsActor): PendingsActorRef {
     : { id: actor.organizationId as string, kind: "organization" };
 }
 
-const PLAYER_MEMBERSHIP_KINDS: readonly PendingKind[] = [
-  "player_league_challenges_pending_actions",
-  "player_league_inactivity_risk",
-  "player_league_membership_payment_due",
-  "player_league_membership_payment_due_soon",
-  "player_league_membership_suspended",
-];
 const PLAYER_ENTRY_KINDS: readonly PendingKind[] = [
   "player_tournament_entries_awaiting_payment",
   "player_tournament_entry_awaiting_approval",
   "player_tournament_partner_invite_received",
   "player_tournament_partner_invite_sent",
-];
-const ORG_LEAGUE_KINDS: readonly PendingKind[] = [
-  "organization_league_challenges_awaiting_validation",
-  "organization_league_join_requests",
-  "organization_league_payment_account_missing",
 ];
 const ORG_ENTRY_KINDS: readonly PendingKind[] = [
   "organization_tournament_entries_awaiting_approval",
@@ -171,254 +125,8 @@ export function createSaturationCollector() {
   };
 }
 
-/** Status de desafio que o jogador pode precisar agir + origem que deriva por tempo. */
-const PLAYER_CHALLENGE_SCAN_STATUSES = [
-  ...PLAYER_CHALLENGE_PENDING_ACTION_STATUSES,
-  ...PLAYER_CHALLENGE_PENDING_ACTION_DRIFT_STATUSES,
-];
-
 /** Torneios em que uma inscricao ainda pode virar ativa (registro/andamento). */
 const ORG_ENTRY_TOURNAMENT_STATUSES = ["published", "drawn", "ongoing"];
-
-/**
- * Status EFETIVO do desafio: so `confirmed` deriva por tempo para uma pendencia
- * (jogo cujo fim passou sem placar) e so ele paga carregar proposta + placar.
- */
-async function resolveEffectiveChallengeStatus(
-  ctx: PendingsReadCtx,
-  challenge: LeagueChallengeRecord,
-  nowMs: number
-): Promise<string> {
-  if (challenge.status !== "confirmed") {
-    return challenge.status;
-  }
-
-  const challengeId = challenge.id as Id<"leagueChallenge">;
-  const proposals = await getChallengeProposals(ctx, challengeId);
-  const currentProposal =
-    proposals.find((proposal) => proposal.id === challenge.currentProposalId) ??
-    proposals.at(-1);
-
-  if (!currentProposal) {
-    return challenge.status;
-  }
-
-  const latestResultSubmission = await getLatestResultSubmission(
-    ctx,
-    challengeId
-  );
-
-  return computeEffectiveChallengeStatus({
-    challenge,
-    currentProposal,
-    latestResultSubmission,
-    now: new Date(nowMs),
-  });
-}
-
-/**
- * Escopo do jogador: um passe pelas memberships dele que podem gerar pendencia
- * (os status que o app trata como jogador) e, por liga, as pendencias de
- * mensalidade, o alerta agregado de desafios e o risco de inatividade. Cada
- * membership e uma liga.
- */
-async function collectPlayerLeaguePendings(
-  ctx: PendingsReadCtx,
-  actor: PendingsActor,
-  nowMs: number
-): Promise<PendingsDerivation> {
-  const saturation = createSaturationCollector();
-
-  if (actor.kind !== "player") {
-    return { items: [], saturations: [] };
-  }
-
-  const membershipStatuses = [
-    LEAGUE_MEMBERSHIP_STATUSES.ACTIVE,
-    LEAGUE_MEMBERSHIP_STATUSES.PAYMENT_DUE,
-    LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED,
-  ];
-  const membershipRows = await Promise.all(
-    membershipStatuses.map((status) =>
-      ctx.orm.query.leagueMembership.findMany({
-        limit: PLAYER_MEMBERSHIP_SCAN_LIMIT,
-        orderBy: { createdAt: "desc" },
-        where: { playerProfileId: actor.playerProfileId, status },
-      })
-    )
-  );
-  for (const rows of membershipRows) {
-    saturation.markIfFull(
-      PLAYER_MEMBERSHIP_KINDS,
-      rows,
-      PLAYER_MEMBERSHIP_SCAN_LIMIT
-    );
-  }
-  const memberships = membershipRows.flat();
-
-  if (memberships.length === 0) {
-    return { items: [], saturations: saturation.saturations };
-  }
-
-  const leagueIds = [
-    ...new Set(memberships.map((membership) => membership.leagueId as string)),
-  ] as Id<"league">[];
-  // Lote dimensionado pela PROPRIA lista de ids: nunca corta uma liga que veio
-  // de uma membership ja lida (o cap do lote nao pode ser menor que o lote).
-  const leagueRows = await ctx.orm.query.league.findMany({
-    limit: leagueIds.length,
-    where: { id: { in: leagueIds } },
-  });
-  const leagueById = new Map(leagueRows.map((row) => [row.id as string, row]));
-
-  const items: PendingItem[] = [];
-
-  for (const membership of memberships) {
-    const membershipId = membership.id as Id<"leagueMembership">;
-    const currentLeague = leagueById.get(membership.leagueId as string);
-
-    if (!currentLeague) {
-      continue;
-    }
-
-    const monthlyPriceCents = currentLeague.monthlyPriceCents ?? null;
-    // Liga gratis nao tem ciclo de cobranca: sem preco nao ha vencimento a
-    // resolver (e nao ha pendencia de mensalidade a montar).
-    const dueAtMs =
-      monthlyPriceCents && monthlyPriceCents > 0
-        ? await resolveMembershipDueMs(ctx, {
-            membershipId,
-            priceBillingInterval: currentLeague.priceBillingInterval,
-          })
-        : null;
-
-    const paymentItem = buildMembershipPaymentPending({
-      dueAtMs,
-      membershipId: membershipId as string,
-      membershipStatus: membership.status,
-      monthlyPriceCents,
-      nowMs,
-      reminderDaysBefore: currentLeague.reminderDaysBefore ?? 0,
-    });
-    if (paymentItem) {
-      items.push(paymentItem);
-    }
-
-    const [asChallenger, asChallenged] = await Promise.all([
-      ctx.orm.query.leagueChallenge.findMany({
-        limit: PLAYER_CHALLENGE_SCAN_LIMIT,
-        orderBy: { createdAt: "desc" },
-        where: {
-          challengerMembershipId: membershipId,
-          status: { in: PLAYER_CHALLENGE_SCAN_STATUSES },
-        },
-      }),
-      ctx.orm.query.leagueChallenge.findMany({
-        limit: PLAYER_CHALLENGE_SCAN_LIMIT,
-        orderBy: { createdAt: "desc" },
-        where: {
-          challengedMembershipId: membershipId,
-          status: { in: PLAYER_CHALLENGE_SCAN_STATUSES },
-        },
-      }),
-    ]);
-    saturation.markIfFull(
-      ["player_league_challenges_pending_actions"],
-      [...asChallenger, ...asChallenged],
-      PLAYER_CHALLENGE_SCAN_LIMIT
-    );
-
-    const counts: PlayerChallengePendingCounts = {
-      confirmResult: 0,
-      registerResult: 0,
-      requestCorrection: 0,
-    };
-
-    for (const challenge of [...asChallenger, ...asChallenged]) {
-      const effectiveStatus = await resolveEffectiveChallengeStatus(
-        ctx,
-        challenge as LeagueChallengeRecord,
-        nowMs
-      );
-      const submittedByMembershipId =
-        effectiveStatus === "pending_result_confirmation"
-          ? ((
-              await getLatestResultSubmission(
-                ctx,
-                challenge.id as Id<"leagueChallenge">
-              )
-            )?.submittedByMembershipId ?? null)
-          : null;
-      const actionKind = resolvePlayerChallengePendingActionKind({
-        status: effectiveStatus,
-        submittedByMembershipId: submittedByMembershipId as null | string,
-        viewerMembershipId: membershipId as string,
-      });
-
-      if (actionKind === "register_result") {
-        counts.registerResult += 1;
-      } else if (actionKind === "confirm_result") {
-        counts.confirmResult += 1;
-      } else if (actionKind === "request_correction") {
-        counts.requestCorrection += 1;
-      }
-    }
-
-    const challengeItem = buildPlayerChallengePendingItem({
-      counts,
-      leagueId: currentLeague.id as string,
-    });
-    if (challengeItem) {
-      items.push(challengeItem);
-    }
-
-    const ruleConfig = ChallengeRuleConfigSchema.safeParse(
-      currentLeague.ruleConfig ?? {}
-    ).data;
-
-    if (ruleConfig?.hasInactivityPenalty) {
-      const [finishedAsChallenger, finishedAsChallenged] = await Promise.all([
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: PLAYER_CHALLENGE_SCAN_LIMIT,
-          orderBy: { finishedAt: "desc" },
-          where: { challengerMembershipId: membershipId, status: "finished" },
-        }),
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: PLAYER_CHALLENGE_SCAN_LIMIT,
-          orderBy: { finishedAt: "desc" },
-          where: { challengedMembershipId: membershipId, status: "finished" },
-        }),
-      ]);
-      saturation.markIfFull(
-        ["player_league_inactivity_risk"],
-        [...finishedAsChallenger, ...finishedAsChallenged],
-        PLAYER_CHALLENGE_SCAN_LIMIT
-      );
-      const lastMatchAtMs =
-        [...finishedAsChallenger, ...finishedAsChallenged]
-          .map((challenge) => challenge.finishedAt?.getTime() ?? null)
-          .filter((finishedAt): finishedAt is number => finishedAt !== null)
-          .sort((left, right) => right - left)[0] ?? null;
-      const risk = resolveLeagueInactivityRisk({
-        hasInactivityPenalty: true,
-        inactivityPenaltyDays: ruleConfig.inactivityPenaltyDays ?? null,
-        lastMatchAtMs,
-        nowMs,
-      });
-
-      if (risk) {
-        items.push(
-          buildLeagueInactivityPending({
-            membershipId: membershipId as string,
-            risk,
-          })
-        );
-      }
-    }
-  }
-
-  return { items, saturations: saturation.saturations };
-}
 
 /**
  * Escopo do jogador: as PROPRIAS inscricoes de torneio (convite recebido e
@@ -574,166 +282,6 @@ async function collectPlayerEntryPendings(
 }
 
 /**
- * O `orderBy` e o que torna o cap DETERMINISTICO (sem ele, qual liga fica de fora
- * depende da ordem interna do indice). `markIfFull` sinaliza o cap em quem usa.
- */
-function orgLeagues(ctx: PendingsReadCtx, organizationId: Id<"organization">) {
-  return ctx.orm.query.league.findMany({
-    limit: ORG_LEAGUE_SCAN_LIMIT,
-    orderBy: { createdAt: "desc" },
-    where: { organizationId },
-  });
-}
-
-/**
- * Ligas PAGAS que nao conseguem cobrar porque a conta Woovi da organizacao nao
- * esta ativa: a regra e "liga com mensalidade + conta fora de `active`".
- */
-async function collectOrgPaymentAccountPendings(
-  ctx: PendingsReadCtx,
-  actor: PendingsActor
-): Promise<PendingsDerivation> {
-  const saturation = createSaturationCollector();
-
-  if (actor.kind !== "organization") {
-    return { items: [], saturations: [] };
-  }
-
-  const org = await ctx.orm.query.organization.findFirst({
-    where: { id: actor.organizationId },
-  });
-  const account = org?.paymentAccount
-    ? paymentAccountSchema.safeParse(org.paymentAccount).data
-    : null;
-
-  if (account?.status === "active") {
-    return { items: [], saturations: [] };
-  }
-
-  const leagues = await orgLeagues(ctx, actor.organizationId);
-  saturation.markIfFull(ORG_LEAGUE_KINDS, leagues, ORG_LEAGUE_SCAN_LIMIT);
-
-  return {
-    items: leagues
-      .filter((row) => (row.monthlyPriceCents ?? 0) > 0)
-      .map((row) =>
-        buildLeaguePaymentAccountPending({
-          leagueId: row.id as string,
-          monthlyPriceCents: row.monthlyPriceCents ?? null,
-        })
-      ),
-    saturations: saturation.saturations,
-  };
-}
-
-async function collectOrgJoinRequestPendings(
-  ctx: PendingsReadCtx,
-  actor: PendingsActor
-): Promise<PendingsDerivation> {
-  const saturation = createSaturationCollector();
-
-  if (actor.kind !== "organization") {
-    return { items: [], saturations: [] };
-  }
-
-  const leagues = await orgLeagues(ctx, actor.organizationId);
-  saturation.markIfFull(ORG_LEAGUE_KINDS, leagues, ORG_LEAGUE_SCAN_LIMIT);
-
-  const items: PendingItem[] = [];
-
-  for (const row of leagues) {
-    const pending = await ctx.orm.query.leagueMembership.findMany({
-      limit: ORG_JOIN_REQUEST_SCAN_LIMIT,
-      orderBy: { createdAt: "desc" },
-      where: {
-        leagueId: row.id as Id<"league">,
-        status: LEAGUE_MEMBERSHIP_STATUSES.PENDING,
-      },
-    });
-    // Contagem do titulo: cap cheio = a liga pode ter mais solicitacoes.
-    saturation.markIfFull(
-      ["organization_league_join_requests"],
-      pending,
-      ORG_JOIN_REQUEST_SCAN_LIMIT
-    );
-    const item = buildLeagueJoinRequestsPending({
-      count: pending.length,
-      leagueId: row.id as string,
-    });
-
-    if (item) {
-      items.push(item);
-    }
-  }
-
-  return { items, saturations: saturation.saturations };
-}
-
-/**
- * Desafios esperando a validacao DELE, somados nas ligas da organizacao
- * (agregado, sem rota). Vale o status EFETIVO: um pedido sem resposta ja virou
- * decisao do organizador, o mesmo set de atencao do servidor.
- */
-async function collectOrgChallengePendings(
-  ctx: PendingsReadCtx,
-  actor: PendingsActor,
-  nowMs: number
-): Promise<PendingsDerivation> {
-  const saturation = createSaturationCollector();
-
-  if (actor.kind !== "organization") {
-    return { items: [], saturations: [] };
-  }
-
-  const leagues = await orgLeagues(ctx, actor.organizationId);
-  saturation.markIfFull(ORG_LEAGUE_KINDS, leagues, ORG_LEAGUE_SCAN_LIMIT);
-
-  let proposals = 0;
-  let results = 0;
-
-  for (const row of leagues) {
-    const challenges = await ctx.orm.query.leagueChallenge.findMany({
-      limit: ORG_CHALLENGE_SCAN_LIMIT,
-      orderBy: { createdAt: "desc" },
-      where: {
-        leagueId: row.id as Id<"league">,
-        status: { in: [...ORGANIZER_ATTENTION_SCAN_STATUSES] },
-      },
-    });
-    saturation.markIfFull(
-      ["organization_league_challenges_awaiting_validation"],
-      challenges,
-      ORG_CHALLENGE_SCAN_LIMIT
-    );
-
-    for (const challenge of challenges) {
-      const effectiveStatus = (await resolveEffectiveChallengeStatus(
-        ctx,
-        challenge as LeagueChallengeRecord,
-        nowMs
-      )) as LeagueChallengeStatus;
-
-      if (ORGANIZER_ATTENTION_VALIDATION_STATUSES.has(effectiveStatus)) {
-        results += 1;
-      } else if (ORGANIZER_ATTENTION_PROPOSAL_STATUSES.has(effectiveStatus)) {
-        proposals += 1;
-      }
-    }
-  }
-
-  const item = buildOrganizerChallengePendingItem({
-    organizationId: actor.organizationId as string,
-    proposals,
-    results,
-  });
-
-  return {
-    items: item ? [item] : [],
-    saturations: saturation.saturations,
-  };
-}
-
-/**
  * Inscricoes aguardando aprovacao e aguardando pagamento por torneio. So
  * torneios em que a inscricao ainda pode virar ativa entram (publicado, sorteado
  * ou em andamento): encerrado ou cancelado nao tem mais acao possivel.
@@ -833,16 +381,6 @@ async function collectOrgEntryPendings(
  */
 const PLAYER_PENDING_DERIVERS: readonly PendingsDeriver[] = [
   {
-    derive: collectPlayerLeaguePendings,
-    kinds: [
-      "player_league_challenges_pending_actions",
-      "player_league_inactivity_risk",
-      "player_league_membership_payment_due",
-      "player_league_membership_payment_due_soon",
-      "player_league_membership_suspended",
-    ],
-  },
-  {
     derive: collectPlayerEntryPendings,
     kinds: [
       "player_tournament_entries_awaiting_payment",
@@ -855,18 +393,6 @@ const PLAYER_PENDING_DERIVERS: readonly PendingsDeriver[] = [
 
 /** Derivadores do escopo da ORGANIZACAO. */
 const ORGANIZATION_PENDING_DERIVERS: readonly PendingsDeriver[] = [
-  {
-    derive: collectOrgPaymentAccountPendings,
-    kinds: ["organization_league_payment_account_missing"],
-  },
-  {
-    derive: collectOrgJoinRequestPendings,
-    kinds: ["organization_league_join_requests"],
-  },
-  {
-    derive: collectOrgChallengePendings,
-    kinds: ["organization_league_challenges_awaiting_validation"],
-  },
   {
     derive: collectOrgEntryPendings,
     kinds: [

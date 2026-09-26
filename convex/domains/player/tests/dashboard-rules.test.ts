@@ -3,7 +3,6 @@ import { describe, expect, it } from "bun:test";
 import {
   brazilDayKey,
   bucketResultsByMonth,
-  buildPositionSeries,
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
@@ -13,9 +12,8 @@ import {
 
 const result = (overrides: Partial<DashResult>): DashResult => ({
   at: Date.UTC(2026, 8, 10, 12),
-  competitionId: "league-1",
-  competitionName: "Liga Teste",
-  kind: "league_challenge",
+  competitionId: "tournament-1",
+  competitionName: "Torneio Teste",
   outcome: "win",
   ...overrides,
 });
@@ -56,7 +54,6 @@ describe("bucketResultsByMonth", () => {
         result({ at: Date.UTC(2026, 8, 2), outcome: "win" }),
         result({
           at: Date.UTC(2026, 8, 9),
-          kind: "tournament_match",
           outcome: "win",
         }),
         result({ at: Date.UTC(2026, 8, 15), outcome: "loss" }),
@@ -71,79 +68,6 @@ describe("bucketResultsByMonth", () => {
       { losses: 0, month: "2026-08", wins: 1 },
       { losses: 1, month: "2026-09", wins: 2 },
     ]);
-  });
-});
-
-describe("buildPositionSeries", () => {
-  it("reconstructs the member position from league snapshots", () => {
-    const series = buildPositionSeries({
-      challenges: [
-        {
-          finishedAtMs: Date.UTC(2026, 8, 1),
-          rankingAppliedAtMs: Date.UTC(2026, 8, 1, 5),
-          rankingSnapshotAfterResult: ["a", "m1", "b"],
-        },
-        {
-          finishedAtMs: Date.UTC(2026, 8, 10),
-          rankingAppliedAtMs: null,
-          rankingSnapshotAfterResult: ["a", "b", "m1"],
-        },
-      ],
-      membershipId: "m1",
-    });
-
-    expect(series.points).toEqual([
-      { at: Date.UTC(2026, 8, 1, 5), position: 2 },
-      { at: Date.UTC(2026, 8, 10), position: 3 },
-    ]);
-    expect(series.rankingSize).toBe(3);
-  });
-
-  it("skips snapshots without the member, without a timestamp or missing", () => {
-    const series = buildPositionSeries({
-      challenges: [
-        {
-          finishedAtMs: Date.UTC(2026, 8, 1),
-          rankingAppliedAtMs: null,
-          rankingSnapshotAfterResult: ["a", "b"],
-        },
-        {
-          finishedAtMs: null,
-          rankingAppliedAtMs: null,
-          rankingSnapshotAfterResult: ["a", "m1"],
-        },
-        {
-          finishedAtMs: Date.UTC(2026, 8, 3),
-          rankingAppliedAtMs: Date.UTC(2026, 8, 3),
-          rankingSnapshotAfterResult: null,
-        },
-      ],
-      membershipId: "m1",
-    });
-
-    expect(series.points).toEqual([]);
-    expect(series.rankingSize).toBeNull();
-  });
-
-  it("keeps the latest snapshot when two results land on the same instant", () => {
-    const sameInstant = Date.UTC(2026, 8, 5, 12);
-    const series = buildPositionSeries({
-      challenges: [
-        {
-          finishedAtMs: sameInstant,
-          rankingAppliedAtMs: sameInstant,
-          rankingSnapshotAfterResult: ["m1", "a"],
-        },
-        {
-          finishedAtMs: sameInstant,
-          rankingAppliedAtMs: sameInstant,
-          rankingSnapshotAfterResult: ["a", "m1"],
-        },
-      ],
-      membershipId: "m1",
-    });
-
-    expect(series.points).toEqual([{ at: sameInstant, position: 2 }]);
   });
 });
 
@@ -219,20 +143,19 @@ describe("selectUpcomingMatches", () => {
     startMinute,
   });
 
-  it("keeps the nearer tournament match of a league-loaded player", () => {
-    const leagueMatches = Array.from({ length: 20 }, (_, index) =>
+  it("keeps the nearest match when the list is over the limit", () => {
+    const farMatches = Array.from({ length: 20 }, (_, index) =>
       candidate(`2026-10-${String(index + 1).padStart(2, "0")}`, 600)
     );
     const tournamentMatch = {
       id: "tournament-tomorrow",
-      kind: "tournament_match",
       matchDate: "2026-09-20",
       startMinute: 900,
     };
 
     const selected = selectUpcomingMatches({
       limit: 20,
-      matches: [...leagueMatches, tournamentMatch],
+      matches: [...farMatches, tournamentMatch],
     });
 
     expect(selected).toHaveLength(20);

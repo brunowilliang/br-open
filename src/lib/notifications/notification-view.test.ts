@@ -126,17 +126,14 @@ describe("buildNotificationDescription", () => {
 });
 
 describe("getNotificationActionTarget", () => {
-  it("reads the action, the league and the url the server put in the item", () => {
+  it("reads the action and the url the server put in the item", () => {
     const target = getNotificationActionTarget(
       buildItem({
-        data: {
-          leagueId: "league-1",
-          url: "/leagues/league-1/requests",
-        },
+        data: { url: "/tournaments/tournament-1/entries" },
         presentation: buildPresentation({
           action: {
-            params: { membershipId: "membership-1" },
-            type: "approve_league_membership",
+            params: { entryId: "entry-1" },
+            type: "approve_tournament_entry",
           },
           actionLabel: "Aprovar",
         }),
@@ -145,25 +142,12 @@ describe("getNotificationActionTarget", () => {
 
     expect(target).toEqual({
       action: {
-        params: { membershipId: "membership-1" },
-        type: "approve_league_membership",
+        params: { entryId: "entry-1" },
+        type: "approve_tournament_entry",
       },
-      leagueId: "league-1",
       params: null,
-      route: "/leagues/league-1/requests",
-      source: null,
+      route: "/tournaments/tournament-1/entries",
     });
-  });
-
-  it("falls back to the membership of the source when it is the origin", () => {
-    expect(
-      getNotificationActionTarget(
-        buildItem({
-          sourceEntityId: "membership-1",
-          sourceEntityType: "leagueMembership",
-        })
-      ).source
-    ).toEqual({ id: "membership-1" });
   });
 
   it("has no action for an informative item (legacy row included)", () => {

@@ -60,13 +60,13 @@ describe("payment contract", () => {
   describe("paymentAccountSchema", () => {
     it("accepts a snapshot with an account name (IBX-0002)", () => {
       const result = paymentAccountSchema.parse({
-        accountName: "Liga do Bruno",
+        accountName: "Bruno Garcia",
         name: "Bola na Rede LTDA",
         onboardedAt: "2026-08-11T12:00:00Z",
         pixKey: "org@example.com",
         status: "active",
       });
-      expect(result.accountName).toBe("Liga do Bruno");
+      expect(result.accountName).toBe("Bruno Garcia");
       expect(result.name).toBe("Bola na Rede LTDA");
     });
 
@@ -96,14 +96,14 @@ describe("payment contract", () => {
   describe("withdrawBalanceSchema", () => {
     it("accepts a balance with withdraw destination (IBX-0002)", () => {
       const result = withdrawBalanceSchema.parse({
-        accountName: "Liga do Bruno",
+        accountName: "Bruno Garcia",
         balanceCents: 15_000,
         feeTiers: [{ feeCents: 500, upToCents: 100_000 }],
         freeFromCents: 300_000,
         minWithdrawCents: 2000,
         pixKey: "or********om",
       });
-      expect(result.accountName).toBe("Liga do Bruno");
+      expect(result.accountName).toBe("Bruno Garcia");
       expect(result.pixKey).toBe("or********om");
     });
 
@@ -199,48 +199,25 @@ describe("payment contract", () => {
       expiresAt: "2026-07-01T12:00:00Z",
       pendingCharge: null,
       qrCodeUrl: "https://api.woovi.com/charge/image/abc.png",
-      sourceId: "membership-1",
-      sourceLabel: "Liga do Bruno",
-      sourceType: "league_membership",
+      sourceId: "entry-1",
+      sourceLabel: "Copa Vila",
+      sourceType: "tournament_entry",
       status: "PAID" as const,
     };
 
-    it("carries the live membership state of the source", () => {
-      const parsed = checkoutContextSchema.parse({
-        ...base,
-        canRenew: true,
-        membershipDueAt: 1_700_000_000_000,
-        membershipStatus: "payment_due",
-      });
+    it("accepts a charge whose source has nothing pending", () => {
+      const parsed = checkoutContextSchema.parse(base);
 
-      expect(parsed.canRenew).toBe(true);
-      expect(parsed.membershipDueAt).toBe(1_700_000_000_000);
-      expect(parsed.membershipStatus).toBe("payment_due");
       // The charge's own status is still reported as stored.
       expect(parsed.status).toBe("PAID");
       // Nothing pending for the source: the screen keeps its previous behaviour.
       expect(parsed.pendingCharge).toBeNull();
-    });
-
-    it("accepts a source without a membership (nulls)", () => {
-      const parsed = checkoutContextSchema.parse({
-        ...base,
-        canRenew: false,
-        membershipDueAt: null,
-        membershipStatus: null,
-        sourceType: "tournament_entry",
-      });
-
-      expect(parsed.membershipStatus).toBeNull();
-      expect(parsed.canRenew).toBe(false);
+      expect(parsed.sourceType).toBe("tournament_entry");
     });
 
     it("reports a live pending charge next to a terminal link charge (BUG-0025)", () => {
       const parsed = checkoutContextSchema.parse({
         ...base,
-        canRenew: true,
-        membershipDueAt: 1_700_000_000_000,
-        membershipStatus: "payment_due",
         pendingCharge: {
           amountCents: 2500,
           brCode: "pix-br-code-new",
@@ -252,8 +229,8 @@ describe("payment contract", () => {
         status: "EXPIRED" as const,
       });
 
-      // The link's charge stays historical (the screen's header decides on the
-      // membership); the pending charge is the PIX actually being shown.
+      // The link's charge stays historical; the pending charge is the PIX
+      // actually being shown.
       expect(parsed.status).toBe("EXPIRED");
       expect(parsed.pendingCharge?.chargeId).toBe("charge-456");
       expect(parsed.pendingCharge?.status).toBe("PENDING");
@@ -264,9 +241,6 @@ describe("payment contract", () => {
       expect(() =>
         checkoutContextSchema.parse({
           ...base,
-          canRenew: false,
-          membershipDueAt: null,
-          membershipStatus: null,
           pendingCharge: {
             amountCents: 1000,
             brCode: "pix-br-code",

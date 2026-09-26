@@ -51,7 +51,7 @@ export const paymentCharge = convexTable(
     // (rejected), "refunded" (confirmed); null = never refunded.
     refundStatus: text(),
     sourceId: text().notNull(),
-    // League name snapshot taken at charge time, so list/history skip a join.
+    // Source name snapshot taken at charge time, so list/history skip a join.
     sourceLabel: text(),
     sourceType: text().notNull(),
     splitConfig: json<SplitConfig>(),

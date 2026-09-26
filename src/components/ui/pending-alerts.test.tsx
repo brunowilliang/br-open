@@ -10,7 +10,6 @@ import type {
   PendingSurface,
 } from "@convex/domains/pendings/contract";
 import { buildPlayerEntryPendings } from "@convex/domains/tournament/pendings-rules";
-import { buildPlayerChallengePendingItem } from "@convex/domains/league/pendings-rules";
 
 // O repo não tem harness de render (nem `react-test-renderer`) e `react-native`
 // não parseia sob bun (Flow): o componente é CHAMADO como função e a árvore
@@ -64,20 +63,6 @@ mock.module("@/components/ui/error-state", () => ({
 }));
 mock.module("@/lib/convex/crpc", () => ({
   useCRPC: () => ({
-    league: {
-      challenges: {
-        acceptProposal: { mutationKey: () => ["accept-proposal"] },
-        confirmResult: { mutationKey: () => ["confirm-result"] },
-        declineProposal: { mutationKey: () => ["decline-proposal"] },
-        respondCancellationRequest: {
-          mutationKey: () => ["respond-cancellation"],
-        },
-      },
-      membership: {
-        approve: { mutationKey: () => ["approve-membership"] },
-        reject: { mutationKey: () => ["reject-membership"] },
-      },
-    },
     payment: { charge: { createCharge: { mutationKey: () => ["charge"] } } },
     pendings: {
       dismiss: { dismiss: { mutationKey: () => ["dismiss-pending"] } },
@@ -99,18 +84,6 @@ mock.module("@/lib/convex/crpc", () => ({
     });
 
     return {
-      league: {
-        challenges: {
-          acceptProposal: notUsed(),
-          confirmResult: notUsed(),
-          declineProposal: notUsed(),
-          respondCancellationRequest: notUsed(),
-        },
-        membership: {
-          approve: notUsed(),
-          reject: notUsed(),
-        },
-      },
       payment: {
         charge: {
           createCharge: {
@@ -213,11 +186,23 @@ function buildInviteItem(): PendingItem {
   return item as PendingItem;
 }
 
-function buildChallengeItem(): PendingItem {
-  return buildPlayerChallengePendingItem({
-    counts: { confirmResult: 1, registerResult: 2, requestCorrection: 0 },
-    leagueId: "league-1",
-  }) as PendingItem;
+/** Inscrição aguardando pagamento: item com CTA de cobrança do torneio. */
+function buildPaymentItem(): PendingItem {
+  const [item] = buildPlayerEntryPendings({
+    entries: [
+      {
+        ...ENTRY_VIEW,
+        entryId: "entry-awaiting-payment",
+        invitedName: "",
+        inviterName: "",
+        isCreator: true,
+        isInvited: false,
+        status: "awaiting_payment",
+      },
+    ],
+  });
+
+  return item as PendingItem;
 }
 
 beforeEach(() => {
@@ -253,19 +238,15 @@ describe("PendingAlerts wiring", () => {
     ]);
   });
 
-  it("navigates with the entity params of the item", () => {
-    const alert = renderAlert(buildChallengeItem());
+  it("creates the charge with the entry of the item", () => {
+    const alert = renderAlert(buildPaymentItem());
 
     alert.action?.onPress();
 
-    expect(navigateCalls).toEqual([
-      {
-        params: { leagueId: "league-1" },
-        pathname: "/leagues/[leagueId]/challenges",
-      },
+    expect(chargeCalls).toEqual([
+      { sourceId: "entry-awaiting-payment", sourceType: "tournament_entry" },
     ]);
-    // Nenhuma cobrança é criada por um CTA de navegação.
-    expect(chargeCalls).toEqual([]);
+    expect(navigateCalls).toEqual([]);
   });
 
   it("disables BOTH buttons while the invite mutation is in flight", () => {
@@ -287,13 +268,13 @@ describe("PendingAlerts wiring", () => {
   });
 
   it("draws no secondary button when the item has no secondary action", () => {
-    const alert = renderAlert(buildChallengeItem());
+    const alert = renderAlert(buildPaymentItem());
 
     expect(alert.secondaryAction).toBeUndefined();
   });
 
   it("dismisses THAT item on the surface the renderer declares", () => {
-    const item = buildChallengeItem();
+    const item = buildPaymentItem();
     const alert = renderAlert(item, "home");
 
     alert.dismissAction?.onPress();
@@ -302,7 +283,7 @@ describe("PendingAlerts wiring", () => {
   });
 
   it("leaves the revealed action without a handler when no surface opts in", () => {
-    const alert = renderAlert(buildChallengeItem());
+    const alert = renderAlert(buildPaymentItem());
 
     expect(alert.dismissAction).toBeUndefined();
   });
@@ -310,7 +291,7 @@ describe("PendingAlerts wiring", () => {
 
 describe("PendingAlerts dismissal animation", () => {
   it("animates the item only on the surface that opts in", () => {
-    const item = buildChallengeItem();
+    const item = buildPaymentItem();
 
     const [house] = renderItems({ items: [item] });
     expect(house.wrapper.exiting).toBeUndefined();
@@ -323,7 +304,7 @@ describe("PendingAlerts dismissal animation", () => {
   });
 
   it("dispatches the dismiss without hiding the card locally", () => {
-    const item = buildChallengeItem();
+    const item = buildPaymentItem();
     const props = { dismissSurface: "home" as const, items: [item] };
 
     renderItems(props)[0].card.dismissAction?.onPress();
@@ -338,7 +319,7 @@ describe("PendingAlerts dismissal animation", () => {
   it("disables the dismiss while its own mutation is in flight", () => {
     pendingMutations.add(JSON.stringify(["dismiss-pending"]));
 
-    const alert = renderAlert(buildChallengeItem(), "home");
+    const alert = renderAlert(buildPaymentItem(), "home");
 
     expect(alert.dismissAction?.isDisabled).toBe(true);
   });

@@ -281,22 +281,9 @@ export async function requireActivePlayerProfile(ctx: ViewerCtx) {
   return viewerContext.activeActor.id as Id<"playerProfile">;
 }
 
-export async function requireActiveOrganization(ctx: ViewerCtx) {
-  const viewerContext = await getViewerContext(ctx, ctx.userId);
-
-  if (viewerContext.activeActor.kind !== "organization") {
-    throw new CRPCError({
-      code: "FORBIDDEN",
-      message: "Ative uma organizacao para gerenciar ligas.",
-    });
-  }
-
-  return viewerContext.activeActor.id as Id<"organization">;
-}
-
 /**
  * Requires the viewer to be acting as an organization owner/admin. Bare
- * `member` actors are rejected — they must not mutate league data.
+ * `member` actors are rejected — they must not mutate organization data.
  */
 export async function requireActiveManager(ctx: ViewerCtx) {
   const viewerContext = await getViewerContext(ctx, ctx.userId);

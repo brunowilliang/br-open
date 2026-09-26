@@ -32,16 +32,16 @@ function makeItem(input: {
     count: input.count ?? null,
     deadlineAt: input.deadlineAt ?? null,
     description: "Descrição de teste.",
-    domain: "payment",
+    domain: "tournament",
     id: input.id,
-    kind: "player_league_membership_suspended",
+    kind: "player_tournament_entry_awaiting_approval",
     moneyCents: null,
     params: null,
     route: null,
     secondaryAction: null,
     secondaryActionLabel: null,
     severity: input.severity ?? "warning",
-    source: { id: input.id, type: "league_membership" },
+    source: { id: input.id, type: "tournament_entry" },
     title: "Pendência de teste",
   };
 }
@@ -238,18 +238,22 @@ describe("pendings: identidade do recibo de dispensa", () => {
 
   it("o escopo do item sai do id; id sem kind registrado nao e dispensavel", () => {
     expect(
-      resolvePendingItemScope("player_league_membership_suspended:membership-1")
+      resolvePendingItemScope(
+        "player_tournament_entry_awaiting_approval:entry-1"
+      )
     ).toBe("player");
     expect(
-      resolvePendingItemScope("organization_league_join_requests:league-1")
+      resolvePendingItemScope(
+        "organization_tournament_entries_awaiting_approval:tournament-1"
+      )
     ).toBe("organization");
 
     for (const itemId of [
       "",
       "sem-kind",
-      ":membership-1",
-      "kind_inexistente:membership-1",
-      "toString:membership-1",
+      ":entry-1",
+      "kind_inexistente:entry-1",
+      "toString:entry-1",
     ]) {
       expect(resolvePendingItemScope(itemId)).toBeNull();
     }

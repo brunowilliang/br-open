@@ -6,83 +6,6 @@ import type {
 // Dado puro do cenario de pendencias que faz a home mostrar os dois escopos:
 // `functions/seed.ts` escreve no banco, as regras de leitura vivem no registry.
 
-export type PendencySeedMembershipStatus =
-  | "active"
-  | "payment_due"
-  | "pending"
-  | "suspended";
-
-export type PendencySeedLeague = {
-  city: string;
-  /** Liga com penalidade por inatividade (o caso warning que vira danger). */
-  hasInactivityPenalty: boolean;
-  inactivityPenaltyDays: number | null;
-  /** O schema da liga exige o TIPO junto dos dias, quando a penalidade liga. */
-  inactivityPenaltyType: "drop_one_position" | "move_to_ranking_end" | null;
-  key: string;
-  monthlyPriceCents: number;
-  name: string;
-  /** Dias ate o vencimento ja pago; so a liga do "a vencer" tem ciclo. */
-  paidDaysUntilDue: number | null;
-  pendingRequests: number;
-  reminderDaysBefore: number;
-  state: string;
-  /** Status da membership DO USUARIO ALVO — decide a pendencia de mensalidade. */
-  viewerMembershipStatus: PendencySeedMembershipStatus;
-};
-
-/** Dias desde a ultima partida da liga com penalidade (warning, nao danger). */
-export const PENDENCY_SEED_LAST_MATCH_DAYS_AGO = 13;
-
-/**
- * Status DIFERENTES por variante e status e por (liga, jogador): cada variante
- * tem a sua liga. Todas pagas — liga gratuita nao tem ciclo de cobranca.
- */
-export const PENDENCY_SEED_LEAGUES: readonly PendencySeedLeague[] = [
-  {
-    city: "Águas de São Pedro",
-    hasInactivityPenalty: false,
-    inactivityPenaltyDays: null,
-    inactivityPenaltyType: null,
-    key: "payment-due",
-    monthlyPriceCents: 4500,
-    name: "Circuito das Águas",
-    paidDaysUntilDue: null,
-    pendingRequests: 3,
-    reminderDaysBefore: 5,
-    state: "SP",
-    viewerMembershipStatus: "payment_due",
-  },
-  {
-    city: "São José dos Campos",
-    hasInactivityPenalty: true,
-    inactivityPenaltyDays: 15,
-    inactivityPenaltyType: "drop_one_position",
-    key: "due-soon",
-    monthlyPriceCents: 3900,
-    name: "Copa do Vale",
-    paidDaysUntilDue: 2,
-    pendingRequests: 0,
-    reminderDaysBefore: 5,
-    state: "SP",
-    viewerMembershipStatus: "active",
-  },
-  {
-    city: "Campos do Jordão",
-    hasInactivityPenalty: false,
-    inactivityPenaltyDays: null,
-    inactivityPenaltyType: null,
-    key: "suspended",
-    monthlyPriceCents: 2900,
-    name: "Liga Serrana",
-    paidDaysUntilDue: null,
-    pendingRequests: 0,
-    reminderDaysBefore: 7,
-    state: "SP",
-    viewerMembershipStatus: "suspended",
-  },
-];
-
 export const PENDENCY_SEED_ORGANIZATION_NAME = "Arena Beira-Rio";
 
 export type PendencySeedEntry = {
@@ -189,20 +112,11 @@ export const PENDENCY_SEED_TOURNAMENTS: readonly PendencySeedTournament[] = [
   },
 ];
 
-export function buildPendencyChargeCorrelationId(input: {
-  key: string;
-  membershipId: string;
-}) {
-  return `seed-pendency-${input.key}-${input.membershipId}`;
-}
-
 // O seletor do app ativa a PRIMEIRA organizacao da lista, e o cenario acima vive
 // numa organizacao PROPRIA: esta cobertura ACRESCENTA dado de teste na
 // organizacao que o alvo ja gerencia, sem alterar nada dela.
 
 export const PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT = 3;
-
-export const PENDENCY_SEED_PRIMARY_JOIN_REQUEST_LIMIT = 2;
 
 /**
  * O alvo e o TOTAL no torneio (nao um flag): repetir o plantio nao acumula e alvo

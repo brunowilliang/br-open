@@ -53,6 +53,7 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
     (total, category) => total + category.entryCount,
     0
   );
+  const upcomingMatches = overview.upcomingMatches;
 
   return (
     <Animated.View
@@ -102,13 +103,12 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
           value={formatCount(entriesTotal, "inscrição", "inscrições")}
         />
 
-        {overview.upcomingMatches.length > 0 ? (
+        {upcomingMatches.length > 0 ? (
           <View className="gap-2">
             <Text color="muted" variant="description" weight="medium">
               Próximos jogos
             </Text>
-            {overview.upcomingMatches.map((match) => {
-              const isLeague = match.kind === "league_challenge";
+            {upcomingMatches.map((match) => {
               const sides = [
                 match.partner ? `Parceiro: ${match.partner.fullName}` : null,
                 ...match.opponents.map((opponent) => opponent.fullName),
@@ -119,14 +119,6 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
                   className="h-auto justify-start bg-surface-secondary py-3"
                   key={match.id}
                   onPress={() => {
-                    if (isLeague) {
-                      router.navigate({
-                        params: { leagueId: match.competitionId },
-                        pathname: "/leagues/[leagueId]",
-                      });
-                      return;
-                    }
-
                     router.navigate({
                       params: { tournamentId: match.competitionId },
                       pathname: "/tournaments/[tournamentId]",

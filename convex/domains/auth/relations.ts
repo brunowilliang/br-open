@@ -37,10 +37,6 @@ export const defineAuthRelations = (r: RelationsBuilder<typeof tables>) => ({
       from: r.organization.id,
       to: r.invitation.organizationId,
     }),
-    managedLeagues: r.many.league({
-      from: r.organization.id,
-      to: r.league.organizationId,
-    }),
     members: r.many.member({
       from: r.organization.id,
       to: r.member.organizationId,

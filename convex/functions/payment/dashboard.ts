@@ -3,6 +3,7 @@ import {
   dashboardOverviewSchema,
   dashboardRevenueSeriesSchema,
   paymentAccountSchema,
+  SOURCE_TYPE_TOURNAMENT_ENTRY,
   type DashboardOverview,
   type DashboardRecentCharge,
   type DashboardRevenueSeries,
@@ -16,7 +17,11 @@ import { authQuery } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
 import type { Id } from "../_generated/dataModel";
 
-/** Read bound for the charge history behind the series (same order as getOverview). */
+/**
+ * Read bound for the charge history behind the series: the window reaches 24
+ * months, so it reads deeper than `getOverview`'s (month + last month + 5 most
+ * recent). Same filter and order as `getOverview`.
+ */
 const REVENUE_CHARGE_LIMIT = 1000;
 const DEFAULT_REVENUE_MONTHS = 6;
 
@@ -44,10 +49,7 @@ export const getOverview = authQuery
       return {
         account: accountInfo,
         metrics: {
-          activeSubscribers: 0,
-          overdueCount: 0,
           paymentsThisMonth: 0,
-          projectedMonthlyCents: 0,
           receivedLastMonthCents: 0,
           receivedThisMonthCents: 0,
         },
@@ -62,11 +64,12 @@ export const getOverview = authQuery
 
     // --- Charges for this org (most recent first) ---
     // Filter by sourceType to avoid mixing in future source types
-    // (event_registration, tournament_entry, etc.).
+    // (event_registration, etc.). Cap to the 500 most recent charges: the KPI
+    // only needs this month, last month and the 5 recent ones.
     const charges = await ctx.orm.query.paymentCharge.findMany({
       limit: 500,
       orderBy: { createdAt: "desc" },
-      where: { organizationId, sourceType: "league_membership" },
+      where: { organizationId, sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY },
     });
 
     const paidThisMonth = charges.filter(
@@ -88,53 +91,6 @@ export const getOverview = authQuery
       (sum, c) => sum + organizerCentsOf(c),
       0
     );
-
-    // --- Paid leagues for this org ---
-    const leagues = await ctx.orm.query.league.findMany({
-      limit: 100,
-      where: { organizationId },
-    });
-    const paidLeagueIds = leagues
-      .filter((l) => (l.monthlyPriceCents ?? 0) > 0)
-      .map((l) => l.id as Id<"league">);
-
-    // --- Membership counts in paid leagues ---
-    let activeSubscribers = 0;
-    let overdueCount = 0;
-    let projectedMonthlyCents = 0;
-
-    for (const leagueId of paidLeagueIds) {
-      const memberships = await ctx.orm.query.leagueMembership.findMany({
-        limit: 500,
-        where: { leagueId },
-      });
-      const active = memberships.filter((m) => m.status === "active");
-      const overdue = memberships.filter(
-        (m) => m.status === "payment_due" || m.status === "suspended"
-      );
-      activeSubscribers += active.length;
-      overdueCount += overdue.length;
-
-      const leagueData = leagues.find((l) => l.id === leagueId);
-      if (leagueData) {
-        const interval = leagueData.priceBillingInterval ?? "month";
-        const monthlyMultiplier =
-          interval === "year"
-            ? 1 / 12
-            : interval === "quarter"
-              ? 1 / 3
-              : interval === "week"
-                ? 4.33
-                : interval === "once"
-                  ? 0
-                  : 1;
-        projectedMonthlyCents += Math.round(
-          (leagueData.monthlyPriceCents ?? 0) *
-            monthlyMultiplier *
-            active.length
-        );
-      }
-    }
 
     // --- Recent charges (last 5, any status) ---
     const recentRaw = charges.slice(0, 5);
@@ -161,10 +117,7 @@ export const getOverview = authQuery
     return {
       account: accountInfo,
       metrics: {
-        activeSubscribers,
-        overdueCount,
         paymentsThisMonth: paidThisMonth.length,
-        projectedMonthlyCents,
         receivedLastMonthCents,
         receivedThisMonthCents,
       },
@@ -173,12 +126,12 @@ export const getOverview = authQuery
   });
 
 /**
- * Série mensal de receita da home da organização: charges PAID de TODOS os
- * tipos de origem (mensalidade de liga e inscrição de torneio), agrupadas pelo
- * mês brasileiro de `paidAt` e valoradas no split do organizador — o mesmo
- * dinheiro que `getOverview` reporta. Todo mês da janela aparece (vazio = zero)
- * e `bySource` abre a mesma janela por competição. Mesmo gate de conta:
- * organização sem conta Woovi ativa recebe série vazia.
+ * Série mensal de receita da home da organização: charges PAID das inscrições
+ * de torneio (o MESMO filtro de `getOverview`), agrupadas pelo mês brasileiro de
+ * `paidAt` e valoradas no split do organizador — o mesmo dinheiro que
+ * `getOverview` reporta. Todo mês da
+ * janela aparece (vazio = zero) e `bySource` abre a mesma janela por competição.
+ * Mesmo gate de conta: organização sem conta Woovi ativa recebe série vazia.
  */
 export const getRevenueSeries = authQuery
   .input(z.object({ months: z.number().int().min(1).max(24).optional() }))
@@ -203,7 +156,10 @@ export const getRevenueSeries = authQuery
     const charges = await ctx.orm.query.paymentCharge.findMany({
       limit: REVENUE_CHARGE_LIMIT,
       orderBy: { createdAt: "desc" },
-      where: { organizationId },
+      where: {
+        organizationId,
+        sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+      },
     });
     const revenueCharges: RevenueCharge[] = charges.map((charge) => ({
       amountCents: charge.amountCents,

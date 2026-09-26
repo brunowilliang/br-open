@@ -1,10 +1,7 @@
 import { z } from "zod";
 import type { InferSelectModel } from "kitcn/orm";
-import { LEAGUE_MEMBERSHIP_STATUSES } from "../../domains/league/contract";
-import type { leagueChallenge } from "../../domains/league/tables";
 import {
   playerDashboardOverviewSchema,
-  type PlayerDashboardLeaguePosition,
   type PlayerDashboardOverview,
   type PlayerDashboardPlayerCard,
   type PlayerDashboardUpcomingMatch,
@@ -12,7 +9,6 @@ import {
 import {
   brazilDayKey,
   bucketResultsByMonth,
-  buildPositionSeries,
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
@@ -34,7 +30,6 @@ import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
 import { requireActivePlayerProfile } from "../viewer/context";
 
-type LeagueChallengeRecord = InferSelectModel<typeof leagueChallenge>;
 type TournamentEntryRecord = InferSelectModel<typeof tournamentEntry>;
 type TournamentCategoryRecord = InferSelectModel<typeof tournamentCategory>;
 type TournamentRecord = InferSelectModel<typeof tournament>;
@@ -43,10 +38,6 @@ type TournamentRecord = InferSelectModel<typeof tournament>;
 // must stay cheap even for a player with many competitions.
 const DEFAULT_MONTHS = 6;
 const UPCOMING_LIMIT = 20;
-const POSITION_SERIES_LIMIT = 24;
-const LEAGUE_LIMIT = 20;
-const CHALLENGE_SCAN_LIMIT = 200;
-const PROPOSAL_SCAN_LIMIT = 10;
 const ENTRY_LIMIT = 100;
 const ENTRY_MATCH_LIMIT = 50;
 const MATCH_SCAN_LIMIT = 50;
@@ -116,10 +107,10 @@ function createPlayerCardLoader(ctx: QueryCtx) {
 }
 
 /**
- * Player-mode home dash: one read-only aggregate over the league + tournament
+ * Player-mode home dash: one read-only aggregate over the tournament
  * buckets of the active player profile — upcoming matches, consolidated W/L with
- * the monthly series, current league positions with their ranking-snapshot
- * series, active entries per category and the most frequent doubles partner.
+ * the monthly series, active entries per category and the most frequent doubles
+ * partner.
  */
 export const getOverview = authQuery
   .input(z.object({ months: z.number().int().min(1).max(24).optional() }))
@@ -135,162 +126,6 @@ export const getOverview = authQuery
     const getPlayerCard = createPlayerCardLoader(ctx);
     const results: DashResult[] = [];
     const upcoming: PlayerDashboardUpcomingMatch[] = [];
-    const leagues: PlayerDashboardLeaguePosition[] = [];
-
-    // --- Leagues: active memberships only (the same set listParticipating
-    // shows; payment_due/suspended members are treated as guests).
-    const memberships = await ctx.orm.query.leagueMembership.findMany({
-      limit: LEAGUE_LIMIT,
-      where: {
-        playerProfileId: playerProfileId as Id<"playerProfile">,
-        status: LEAGUE_MEMBERSHIP_STATUSES.ACTIVE,
-      },
-    });
-
-    for (const membership of memberships) {
-      const league = await ctx.orm.query.league.findFirst({
-        where: { id: membership.leagueId },
-      });
-      if (!league) {
-        continue;
-      }
-
-      const [asChallenger, asChallenged] = await Promise.all([
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: CHALLENGE_SCAN_LIMIT,
-          where: {
-            challengerMembershipId: membership.id as Id<"leagueMembership">,
-            status: "finished",
-          },
-        }),
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: CHALLENGE_SCAN_LIMIT,
-          where: {
-            challengedMembershipId: membership.id as Id<"leagueMembership">,
-            status: "finished",
-          },
-        }),
-      ]);
-      const finishedById = new Map<string, LeagueChallengeRecord>();
-      for (const challenge of [...asChallenger, ...asChallenged]) {
-        finishedById.set(challenge.id, challenge);
-      }
-      const finished = [...finishedById.values()];
-
-      // Position series from the league-wide ranking snapshots.
-      const series = buildPositionSeries({
-        challenges: finished.map((challenge) => ({
-          finishedAtMs: challenge.finishedAt?.getTime() ?? null,
-          rankingAppliedAtMs: challenge.rankingAppliedAt?.getTime() ?? null,
-          rankingSnapshotAfterResult:
-            challenge.rankingSnapshotAfterResult ?? null,
-        })),
-        membershipId: membership.id,
-      });
-      leagues.push({
-        leagueId: league.id,
-        leagueName: league.name,
-        membershipId: membership.id,
-        position: membership.rankingPosition ?? null,
-        rankingSize: series.rankingSize,
-        series: series.points.slice(-POSITION_SERIES_LIMIT),
-      });
-
-      // W/L: decided challenges inside the window; the winner comes from the
-      // latest result submission (the challenge row itself carries none).
-      for (const challenge of finished) {
-        if (
-          !challenge.finishedAt ||
-          challenge.finishedAt.getTime() < windowStartMs
-        ) {
-          continue;
-        }
-        const submission =
-          await ctx.orm.query.leagueChallengeResultSubmission.findFirst({
-            orderBy: { submittedAt: "desc" },
-            where: { challengeId: challenge.id as Id<"leagueChallenge"> },
-          });
-        const outcome = classifyResultOutcome({
-          subjectId: membership.id,
-          winnerId: submission?.winnerMembershipId ?? null,
-        });
-        if (!outcome) {
-          continue;
-        }
-        results.push({
-          at: challenge.finishedAt.getTime(),
-          competitionId: league.id,
-          competitionName: league.name,
-          kind: "league_challenge",
-          outcome,
-        });
-      }
-
-      // Upcoming: confirmed challenges (accepted proposal) from today on —
-      // same semantics as league.challenges.listScheduled.
-      const [confirmedAsChallenger, confirmedAsChallenged] = await Promise.all([
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: CHALLENGE_SCAN_LIMIT,
-          where: {
-            challengerMembershipId: membership.id as Id<"leagueMembership">,
-            status: "confirmed",
-          },
-        }),
-        ctx.orm.query.leagueChallenge.findMany({
-          limit: CHALLENGE_SCAN_LIMIT,
-          where: {
-            challengedMembershipId: membership.id as Id<"leagueMembership">,
-            status: "confirmed",
-          },
-        }),
-      ]);
-      const confirmedById = new Map<string, LeagueChallengeRecord>();
-      for (const challenge of [
-        ...confirmedAsChallenger,
-        ...confirmedAsChallenged,
-      ]) {
-        confirmedById.set(challenge.id, challenge);
-      }
-
-      for (const challenge of confirmedById.values()) {
-        const proposals = await ctx.orm.query.leagueChallengeProposal.findMany({
-          limit: PROPOSAL_SCAN_LIMIT,
-          orderBy: { revisionNumber: "desc" },
-          where: { challengeId: challenge.id as Id<"leagueChallenge"> },
-        });
-        const proposal =
-          proposals.find((item) => item.id === challenge.currentProposalId) ??
-          proposals[0];
-        if (!proposal || proposal.matchDate < todayKey) {
-          continue;
-        }
-        const rivalMembershipId =
-          challenge.challengerMembershipId === membership.id
-            ? challenge.challengedMembershipId
-            : challenge.challengerMembershipId;
-        const rivalMembership = await ctx.orm.query.leagueMembership.findFirst({
-          where: { id: rivalMembershipId as Id<"leagueMembership"> },
-        });
-        if (!rivalMembership) {
-          continue;
-        }
-        upcoming.push({
-          categoryDisplayName: null,
-          categoryId: null,
-          competitionId: league.id,
-          competitionName: league.name,
-          courtName: resolveCourtName(league.courts, proposal.courtId),
-          endMinute: proposal.endMinute,
-          id: challenge.id,
-          kind: "league_challenge",
-          matchDate: proposal.matchDate,
-          opponents: [await getPlayerCard(rivalMembership.playerProfileId)],
-          partner: null,
-          startMinute: proposal.startMinute,
-        });
-      }
-    }
-
     // --- Tournaments: every non-cancelled entry (playerA or invited
     // playerB), same pattern as tournament.discovery.listParticipating.
     const [asA, asB] = await Promise.all([
@@ -421,7 +256,6 @@ export const getOverview = authQuery
             at,
             competitionId: tournament.id,
             competitionName: tournament.name,
-            kind: "tournament_match",
             outcome,
           });
           continue;
@@ -468,7 +302,6 @@ export const getOverview = authQuery
           courtName: resolveCourtName(tournament.courts, match.courtId),
           endMinute: match.endMinute ?? null,
           id: match.id,
-          kind: "tournament_match",
           matchDate: match.matchDate,
           opponents: await Promise.all(opponentIds.map(getPlayerCard)),
           partner: partnerId ? await getPlayerCard(partnerId) : null,
@@ -490,7 +323,6 @@ export const getOverview = authQuery
     return playerDashboardOverviewSchema.parse({
       entryCategories,
       frequentPartner,
-      leagues,
       performance: {
         byMonth,
         losses,

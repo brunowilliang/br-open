@@ -6,20 +6,12 @@ import { defineMigrationSet } from 'kitcn/orm';
 import { migration as migration_0 } from './20260504_181921_remove_player_profile_display_name';
 import { migration as migration_1 } from './20260505_000001_remove_player_profile_category_and_photo_url';
 import { migration as migration_2 } from './20260509_000001_remove_player_profile_legacy_fields';
-import { migration as migration_3 } from './20260520_204606_remove_league_regulation';
-import { migration as migration_4 } from './20260615_083000_backfill_active_actor_league_fields';
-import { migration as migration_5 } from './20260615_083100_backfill_league_membership_player_profiles';
-import { migration as migration_6 } from './20260615_083200_backfill_notification_actor_recipients';
-import { migration as migration_7 } from './20260619_000001_purge_player_profile_pii';
-import { migration as migration_8 } from './20260623_000001_toggleable_rule_config';
-import { migration as migration_9 } from './20260623_000002_challenge_scoring_snapshot';
-import { migration as migration_10 } from './20260711_000001_rename_admin_reviewed_field';
-import { migration as migration_11 } from './20260711_000002_rename_admin_status_values';
-import { migration as migration_12 } from './20260814_163103_backfill_withdrawals_fee_status';
-import { migration as migration_13 } from './20260916_103007_clear_entry_seed_phase';
-import { migration as migration_14 } from './20260917_221648_backfill_team_member_count';
-import { migration as migration_15 } from './20260920_091746_backfill_tournament_entry_slots';
-import { migration as migration_16 } from './20260921_191850_add_pending_dismissal';
+import { migration as migration_3 } from './20260619_000001_purge_player_profile_pii';
+import { migration as migration_4 } from './20260814_163103_backfill_withdrawals_fee_status';
+import { migration as migration_5 } from './20260916_103007_clear_entry_seed_phase';
+import { migration as migration_6 } from './20260917_221648_backfill_team_member_count';
+import { migration as migration_7 } from './20260920_091746_backfill_tournament_entry_slots';
+import { migration as migration_8 } from './20260921_191850_add_pending_dismissal';
 
 export const migrations = defineMigrationSet([
   migration_0,
@@ -31,12 +23,4 @@ export const migrations = defineMigrationSet([
   migration_6,
   migration_7,
   migration_8,
-  migration_9,
-  migration_10,
-  migration_11,
-  migration_12,
-  migration_13,
-  migration_14,
-  migration_15,
-  migration_16,
 ]);

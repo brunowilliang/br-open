@@ -1,28 +1,18 @@
-import {
-  NOTIFICATION_EVENT_CATEGORY_IDS,
-  type NotificationEventType,
-  type NotificationPushCategoryId,
-} from "../../shared/notifications/protocol";
+import type { NotificationEventType } from "../../shared/notifications/protocol";
 
-export type {
-  NotificationEventType,
-  NotificationPushCategoryId,
-} from "../../shared/notifications/protocol";
+export type { NotificationEventType } from "../../shared/notifications/protocol";
 
 export type NotificationRecipientRole = "organizer" | "player";
 
 /**
- * Generic notification content input. Exactly one source pair must be
- * present — (`leagueId` + `leagueName`) or (`tournamentId` +
- * `tournamentName`). Both pairs are optional at the type level so legacy
- * league call sites keep compiling; `buildNotificationContent` falls back
- * to the league root URL when neither is set (old rows resolve fine).
+ * Generic notification content input. The (`tournamentId` + `tournamentName`)
+ * pair identifies the source record the notification is about; both stay
+ * optional at the type level so rows written without a source resolve fine
+ * (`buildNotificationContent` falls back to the root URL).
  */
 export type NotificationContentInput = {
   actorName?: string | null;
   eventType: NotificationEventType;
-  leagueId?: string;
-  leagueName?: string;
   metadata?: Record<string, unknown>;
   recipientRole: NotificationRecipientRole;
   tournamentId?: string;
@@ -31,7 +21,6 @@ export type NotificationContentInput = {
 
 export type NotificationContent = {
   body: string;
-  categoryId?: NotificationPushCategoryId;
   data: Record<string, unknown>;
   title: string;
 };
@@ -39,7 +28,6 @@ export type NotificationContent = {
 type NotificationTemplate = Pick<NotificationContent, "body" | "title">;
 
 type NotificationDefinition = {
-  categoryId?: NotificationPushCategoryId;
   getUrl?: (input: NotificationContentInput) => string;
   template: (input: NotificationContentInput) => NotificationTemplate;
 };
@@ -47,299 +35,10 @@ type NotificationDefinition = {
 const getActorName = (actorName?: string | null) =>
   actorName?.trim() || "Um jogador";
 
-const getLeagueUrl = (input: NotificationContentInput) =>
-  `/leagues/${input.leagueId}`;
-
-const getLeagueRequestsUrl = (input: NotificationContentInput) =>
-  `/leagues/${input.leagueId}/requests`;
-
-const getLeagueChallengesUrl = (input: NotificationContentInput) =>
-  `/leagues/${input.leagueId}/challenges`;
-
 const getTournamentUrl = (input: NotificationContentInput) =>
   `/tournaments/${input.tournamentId}`;
 
-// `getCheckoutUrl` so devolve `/checkout/<chargeId>` quando o emissor mandou um
-// `chargeId` de cobranca ainda PENDING da membership: cobranca PAID/EXPIRED nao
-// tem QR e o checkout renderizaria "pagamento confirmado". Sem `chargeId` util o
-// link cai na liga (onde o jogador gera novo PIX) ou no torneio.
-const getCheckoutUrl = (input: NotificationContentInput) => {
-  const chargeId =
-    input.metadata && "chargeId" in input.metadata
-      ? (input.metadata.chargeId as string | undefined)
-      : undefined;
-  if (!chargeId) {
-    return input.tournamentId ? getTournamentUrl(input) : getLeagueUrl(input);
-  }
-  return `/checkout/${chargeId}`;
-};
-
-/**
- * Dias restantes ate a renovacao da membership, enviados pelo cron de renovacao
- * no metadata. Null quando nao ha contagem a mostrar (linha anterior ao campo).
- */
-function readDaysLeft(metadata?: Record<string, unknown>): number | null {
-  const daysLeft = metadata?.daysLeft;
-  return typeof daysLeft === "number" ? daysLeft : null;
-}
-
-/**
- * Reminder wording with the real countdown. `daysLeft` counts UTC calendar days
- * until the due date: 0 = still due today, 1 = due tomorrow, more = N days
- * ahead (so the text never claims a number of days it doesn't have).
- *
- * The day the reminder is written stays the same row and is rewritten daily, so
- * the wording must follow the days left rather than a fixed phrase.
- */
-function buildRenewalReminderText(
-  leagueName: string | undefined,
-  daysLeft: number | null
-): NotificationTemplate {
-  if (daysLeft === null) {
-    return {
-      body: `Sua inscrição na liga ${leagueName} vence em breve. Renove para continuar participando.`,
-      title: "Renovação próxima",
-    };
-  }
-
-  if (daysLeft <= 0) {
-    return {
-      body: `Sua inscrição na liga ${leagueName} vence hoje. Renove para continuar participando.`,
-      title: "Renovação hoje",
-    };
-  }
-
-  if (daysLeft === 1) {
-    return {
-      body: `Sua inscrição na liga ${leagueName} vence amanhã. Renove para continuar participando.`,
-      title: "Renovação amanhã",
-    };
-  }
-
-  return {
-    body: `Sua inscrição na liga ${leagueName} vence em ${daysLeft} dias. Renove para continuar participando.`,
-    title: `Renovação em ${daysLeft} dias`,
-  };
-}
-
 const definitions: Record<NotificationEventType, NotificationDefinition> = {
-  "league.challenge.cancellation_accepted": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} aceitou o cancelamento em ${
-        input.leagueName
-      }.`,
-      title: "Cancelamento aceito",
-    }),
-  },
-  "league.challenge.cancellation_rejected": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} recusou o cancelamento em ${
-        input.leagueName
-      }.`,
-      title: "Cancelamento recusado",
-    }),
-  },
-  "league.challenge.cancellation_requested": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} pediu para cancelar o desafio em ${
-        input.leagueName
-      }.`,
-      title: "Pedido de cancelamento",
-    }),
-  },
-  "league.challenge.cancelled": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `Um desafio da liga ${input.leagueName} foi cancelado.`,
-      title: "Desafio cancelado",
-    }),
-  },
-  "league.challenge.counter_proposed": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} sugeriu outro horário em ${
-        input.leagueName
-      }.`,
-      title: "Contraproposta recebida",
-    }),
-  },
-  "league.challenge.created": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} desafiou você na liga ${
-        input.leagueName
-      }.`,
-      title: "Novo desafio recebido",
-    }),
-  },
-  "league.challenge.organizer_approved": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O organizador aprovou o desafio em ${input.leagueName}.`,
-      title: "Desafio aprovado",
-    }),
-  },
-  "league.challenge.organizer_rejected": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O organizador recusou o desafio em ${input.leagueName}.`,
-      title: "Desafio recusado",
-    }),
-  },
-  "league.challenge.proposal_accepted": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} aceitou o desafio em ${
-        input.leagueName
-      }.`,
-      title: "Desafio aceito",
-    }),
-  },
-  "league.challenge.proposal_declined": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} recusou o desafio em ${
-        input.leagueName
-      }.`,
-      title: "Desafio recusado",
-    }),
-  },
-  "league.challenge.result_confirmed": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} confirmou o resultado em ${
-        input.leagueName
-      }.`,
-      title: "Resultado confirmado",
-    }),
-  },
-  "league.challenge.result_correction_requested": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O organizador pediu correção no resultado da liga ${input.leagueName}.`,
-      title: "Correção de resultado",
-    }),
-  },
-  "league.challenge.result_edited": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O organizador corrigiu o resultado de um desafio na liga ${input.leagueName}.`,
-      title: "Resultado corrigido",
-    }),
-  },
-  "league.challenge.result_invalidated": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O resultado do desafio em ${input.leagueName} foi invalidado.`,
-      title: "Resultado invalidado",
-    }),
-  },
-  "league.challenge.result_reminder_requested": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `O organizador da liga ${input.leagueName} está aguardando o resultado do seu desafio.`,
-      title: "Lembrete do organizador",
-    }),
-  },
-  "league.challenge.result_submitted": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} enviou o resultado do desafio em ${
-        input.leagueName
-      }.`,
-      title: "Resultado enviado",
-    }),
-  },
-  "league.challenge.walkover_confirmed": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} aceitou o W.O. na liga ${
-        input.leagueName
-      }.`,
-      title: "W.O. confirmado",
-    }),
-  },
-  "league.challenge.walkover_submitted": {
-    getUrl: getLeagueChallengesUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} declarou vitória por W.O. na liga ${
-        input.leagueName
-      }.`,
-      title: "W.O. declarado",
-    }),
-  },
-  "league.membership.approved": {
-    template: (input) => ({
-      body: `Sua entrada na liga ${input.leagueName} foi aprovada.`,
-      title: "Solicitação aprovada",
-    }),
-  },
-  "league.membership.payment_confirmed": {
-    getUrl: getLeagueUrl,
-    template: (input) => ({
-      body: `O pagamento da sua inscrição na liga ${input.leagueName} foi confirmado. Boa sorte!`,
-      title: "Pagamento confirmado",
-    }),
-  },
-  "league.membership.payment_due": {
-    getUrl: getCheckoutUrl,
-    template: (input) => ({
-      body: `O pagamento da sua inscrição na liga ${input.leagueName} venceu. Pague para não ser suspenso.`,
-      title: "Pagamento atrasado",
-    }),
-  },
-  "league.membership.payment_expired": {
-    getUrl: getCheckoutUrl,
-    template: (input) => ({
-      body: `O PIX da sua inscrição na liga ${input.leagueName} expirou. Gere um novo para concluir.`,
-      title: "PIX expirado",
-    }),
-  },
-  "league.membership.payment_refunded": {
-    template: (input) => ({
-      body: `A liga ${input.leagueName} atingiu o limite de jogadores enquanto você pagava. O reembolso será processado.`,
-      title: "Inscrição não concluída",
-    }),
-  },
-  "league.membership.rejected": {
-    template: (input) => ({
-      body: `Sua entrada na liga ${input.leagueName} foi recusada.`,
-      title: "Solicitação recusada",
-    }),
-  },
-  "league.membership.removed": {
-    template: (input) => ({
-      body: `Seu acesso à liga ${input.leagueName} foi removido.`,
-      title: "Você saiu do ranking",
-    }),
-  },
-  "league.membership.renewal_due": {
-    getUrl: getCheckoutUrl,
-    template: (input) => ({
-      body: `Sua inscrição na liga ${input.leagueName} venceu. Renove para voltar a participar.`,
-      title: "Inscrição vencida",
-    }),
-  },
-  "league.membership.renewal_reminder": {
-    getUrl: getCheckoutUrl,
-    // O cron reescreve esta mesma linha do feed todo dia com os dias reais
-    // restantes; linha anterior a isso nao tem contagem e mantem o texto generico.
-    template: (input) =>
-      buildRenewalReminderText(input.leagueName, readDaysLeft(input.metadata)),
-  },
-  "league.membership.requested": {
-    categoryId: NOTIFICATION_EVENT_CATEGORY_IDS["league.membership.requested"],
-    getUrl: getLeagueRequestsUrl,
-    template: (input) => ({
-      body: `${getActorName(input.actorName)} pediu para entrar na liga ${
-        input.leagueName
-      }.`,
-      title: "Nova solicitação de entrada",
-    }),
-  },
   "tournament.bracket.placement_failed": {
     getUrl: getTournamentUrl,
     template: (input) => ({
@@ -459,20 +158,6 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
   },
 };
 
-function isNotificationEventType(
-  eventType: string
-): eventType is NotificationEventType {
-  return eventType in definitions;
-}
-
-export function getNotificationPushCategoryId(eventType: string) {
-  if (!isNotificationEventType(eventType)) {
-    return;
-  }
-
-  return definitions[eventType].categoryId;
-}
-
 export function buildNotificationContent(
   input: NotificationContentInput
 ): NotificationContent {
@@ -480,19 +165,13 @@ export function buildNotificationContent(
   const template = definition.template(input);
   const url =
     definition.getUrl?.(input) ??
-    (input.leagueId
-      ? getLeagueUrl(input)
-      : input.tournamentId
-        ? getTournamentUrl(input)
-        : "/");
+    (input.tournamentId ? getTournamentUrl(input) : "/");
 
   return {
     ...template,
-    ...(definition.categoryId ? { categoryId: definition.categoryId } : {}),
     data: {
       ...input.metadata,
       eventType: input.eventType,
-      ...(input.leagueId ? { leagueId: input.leagueId } : {}),
       ...(input.tournamentId ? { tournamentId: input.tournamentId } : {}),
       url,
     },

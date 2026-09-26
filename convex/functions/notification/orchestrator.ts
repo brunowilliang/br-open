@@ -12,7 +12,6 @@ import {
 import { eq } from "kitcn/orm";
 import {
   buildNotificationContent,
-  getNotificationPushCategoryId,
   type NotificationContentInput,
 } from "../../domains/notification/definitions";
 import { buildNotificationPresentation } from "../../domains/notification/presentation";
@@ -35,7 +34,6 @@ type ClaimedDelivery = {
   message: {
     body: string;
     channelId: string;
-    categoryId?: string;
     data: Record<string, unknown>;
     sound: "default";
     title: string;
@@ -43,35 +41,17 @@ type ClaimedDelivery = {
   };
 };
 
-const createForRecipientsSchema = z
-  .object({
-    actorUserId: z.string().nullable(),
-    eventType: NotificationEventTypeSchema,
-    // Generic source pair: exactly one of leagueId/tournamentId. The
-    // orchestrator resolves the source record (name + organizationId) from
-    // whichever id is present — no more hardcoded league lookup.
-    leagueId: z.string().min(1).optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    recipientUserIds: z.array(z.string().min(1)).min(1),
-    sourceEntityId: z.string().min(1).optional(),
-    sourceEntityType: z.string().min(1).optional(),
-    tournamentId: z.string().min(1).optional(),
-  })
-  .superRefine((value, refinementCtx) => {
-    if (!(value.leagueId || value.tournamentId)) {
-      refinementCtx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "leagueId ou tournamentId é obrigatório.",
-      });
-    }
-
-    if (value.leagueId && value.tournamentId) {
-      refinementCtx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "leagueId e tournamentId são mutuamente exclusivos.",
-      });
-    }
-  });
+const createForRecipientsSchema = z.object({
+  actorUserId: z.string().nullable(),
+  eventType: NotificationEventTypeSchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  recipientUserIds: z.array(z.string().min(1)).min(1),
+  sourceEntityId: z.string().min(1).optional(),
+  sourceEntityType: z.string().min(1).optional(),
+  // The orchestrator resolves the source record (name + organizationId) from
+  // the tournament the notification is about.
+  tournamentId: z.string().min(1),
+});
 
 type RecipientActor =
   | {
@@ -89,7 +69,6 @@ type RecipientActor =
 
 type NotificationSourceRecord = {
   id: string;
-  kind: "league" | "tournament";
   name: string;
   organizationId: Id<"organization">;
 };
@@ -120,7 +99,6 @@ async function getActorName(ctx: MutationCtx, actorUserId: Id<"user"> | null) {
  * organization). Everyone else resolves a player actor.
  */
 const ORGANIZER_RECIPIENT_EVENTS: Record<string, true> = {
-  "league.membership.requested": true,
   "tournament.entry.created": true,
 };
 
@@ -132,36 +110,20 @@ function eventTypeAppliesToOrganizer(
 
 /**
  * Resolves the notification source record (name + owning organization) from
- * whichever source id is present. Replaces the former hardcoded league
- * lookup — leagues and tournaments share the same pipeline.
+ * the tournament the notification is about.
  */
 async function resolveNotificationSource(
   ctx: MutationCtx,
-  input: { leagueId?: string; tournamentId?: string }
+  input: { tournamentId: string }
 ): Promise<NotificationSourceRecord | null> {
-  if (input.tournamentId) {
-    const tournament = await ctx.orm.query.tournament.findFirst({
-      where: { id: input.tournamentId as Id<"tournament"> },
-    });
-    return (
-      tournament && {
-        id: tournament.id as string,
-        kind: "tournament",
-        name: tournament.name,
-        organizationId: tournament.organizationId as Id<"organization">,
-      }
-    );
-  }
-
-  const league = await ctx.orm.query.league.findFirst({
-    where: { id: input.leagueId as Id<"league"> },
+  const tournament = await ctx.orm.query.tournament.findFirst({
+    where: { id: input.tournamentId as Id<"tournament"> },
   });
   return (
-    league && {
-      id: league.id as string,
-      kind: "league",
-      name: league.name,
-      organizationId: league.organizationId as Id<"organization">,
+    tournament && {
+      id: tournament.id as string,
+      name: tournament.name,
+      organizationId: tournament.organizationId as Id<"organization">,
     }
   );
 }
@@ -301,9 +263,8 @@ export const createForRecipients = privateMutation
           recipientActor.kind === "organization"
             ? ("organizer" as const)
             : ("player" as const),
-        ...(source.kind === "league"
-          ? { leagueId: source.id, leagueName: source.name }
-          : { tournamentId: source.id, tournamentName: source.name }),
+        tournamentId: source.id,
+        tournamentName: source.name,
       } satisfies NotificationContentInput;
       const content = buildNotificationContent(contentInput);
       // A decisao do item (acao, rotulos e destaques) e tomada UMA vez, aqui,
@@ -374,7 +335,6 @@ export const claimPendingDeliveries = privateMutation
         deliveryId: z.string(),
         message: z.object({
           body: z.string(),
-          categoryId: z.string().optional(),
           channelId: z.string(),
           data: z.record(z.string(), z.unknown()),
           sound: z.literal("default"),
@@ -435,14 +395,11 @@ export const claimPendingDeliveries = privateMutation
         state: "in_progress",
       });
 
-      const categoryId = getNotificationPushCategoryId(feed.eventType);
-
       claimed.push({
         deliveryId: delivery._id,
         message: {
           body: feed.body,
           channelId: "default",
-          ...(categoryId ? { categoryId } : {}),
           data: {
             ...(feed.data as Record<string, unknown>),
             notificationId: feed._id,
@@ -612,15 +569,10 @@ const retractNotificationsSchema = z.object({
 });
 
 /**
- * Retracts feed rows tied to a source entity (e.g. a challenge that was
- * cancelled/rescheduled, or a superseded renewal reminder). Sets their `status`
- * to "retracted" and aborts any pending deliveries by flipping them to
- * "failed". `eventTypes` limits the retraction to those event types;
- * `exceptEventTypes` excludes them.
- *
- * Typical caller: `challenges.ts` cancel/counterPropose/admin branches,
- * invoked via `internal.notification.orchestrator.retractNotifications`
- * BEFORE emitting the new superseding event.
+ * Retracts feed rows tied to a source entity. Sets their `status` to
+ * "retracted" and aborts any pending deliveries by flipping them to "failed".
+ * `eventTypes` limits the retraction to those event types; `exceptEventTypes`
+ * excludes them.
  */
 export const retractNotifications = privateMutation
   .input(retractNotificationsSchema)

@@ -1,5 +1,4 @@
 import { formatCurrencyCents } from "@/lib/format/currency";
-import { formatCount } from "@/lib/format/pluralize";
 import { formatDashboardMonthLabel } from "@/lib/home/player-dashboard-view";
 import { useWithdrawApi } from "@/lib/withdraw/api";
 import { buildWithdrawBalanceCard } from "@/lib/withdraw/balance-card";
@@ -85,20 +84,9 @@ export function OrganizerDashboard(props: { data: DashboardOverview }) {
           value={balanceCard.value ?? "0,00"}
         />
 
-        <View className="flex-row gap-3">
-          <KpiCard
-            label="Recebido este mês"
-            value={formatCurrencyCents(metrics.receivedThisMonthCents)}
-          />
-          <KpiCard
-            label="Previsto/mês"
-            value={formatCurrencyCents(metrics.projectedMonthlyCents)}
-          />
-        </View>
-
         <KpiCard
-          label="Em atraso"
-          value={formatCount(metrics.overdueCount, "cobrança", "cobranças")}
+          label="Recebido este mês"
+          value={formatCurrencyCents(metrics.receivedThisMonthCents)}
         />
 
         {/* A MESMA série de `getRevenueSeries` que o texto mostrava

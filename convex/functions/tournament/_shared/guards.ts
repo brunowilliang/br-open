@@ -57,7 +57,7 @@ export async function getTournamentRecordOrThrow(
   return record;
 }
 
-/** Ownership guard — same pattern as `getManagedLeagueOrThrow`. */
+/** Ownership guard for organizer-owned tournaments. */
 export async function getManagedTournamentOrThrow(
   ctx: OrmCtx,
   tournamentId: Id<"tournament">
@@ -143,8 +143,8 @@ export function serializeCategory(record: TournamentCategoryRecord) {
 }
 
 /**
- * Tournament notifications go through the SAME orchestrator pipeline as
- * leagues (generic source resolution by tournamentId).
+ * Tournament notifications go through the orchestrator pipeline via the
+ * generic source resolution by tournamentId.
  */
 export async function scheduleTournamentNotification(
   ctx: MutationCtx,

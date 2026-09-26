@@ -7,10 +7,6 @@ import {
   clearActorScopedClientState,
   isActorScopedQueryKey,
 } from "./actor-scoped-cache";
-import {
-  getLeagueDetailsBucket$,
-  resetLeagueDetailsStore,
-} from "@/lib/leagues/league-details-store";
 
 type ViewerContext = ApiOutputs["viewer"]["context"]["get"];
 
@@ -36,10 +32,7 @@ function makeViewerContext(): ViewerContext {
       },
     ],
     capabilities: {
-      canBrowseLeagues: true,
-      canCreateLeague: true,
-      canJoinLeagues: false,
-      canManageLeagues: true,
+      canManageOrganization: true,
     },
   };
 }
@@ -49,35 +42,28 @@ describe("actor-scoped cache", () => {
     expect(
       isActorScopedQueryKey([
         "convexQuery",
-        "league/discovery:getById",
-        { leagueId: "league-1" },
+        "notification/feed:list",
+        { limit: 20 },
       ])
     ).toBe(true);
     expect(isActorScopedQueryKey(["convexQuery", "viewer/context:get"])).toBe(
       false
     );
     expect(
-      isActorScopedQueryKey([
-        "other",
-        "league/discovery:getById",
-        { leagueId: "league-1" },
-      ])
+      isActorScopedQueryKey(["other", "notification/feed:list", { limit: 20 }])
     ).toBe(false);
   });
 
-  it("clears stale league query data and league buckets", () => {
+  it("clears stale actor-scoped query data", () => {
     const queryClient = new QueryClient();
-    const leagueDetailKey = [
+    const actorScopedKey = [
       "convexQuery",
-      "league/discovery:getById",
-      { leagueId: "league-1" },
+      "notification/feed:list",
+      { limit: 20 },
     ] as const;
     const viewerContextKey = ["convexQuery", "viewer/context:get"] as const;
-    const leagueBucketId = "actor-cache-league";
-    const bucket$ = getLeagueDetailsBucket$(leagueBucketId);
 
-    bucket$.actions.setActiveRoute("rules");
-    queryClient.setQueryData(leagueDetailKey, { isLeagueOrganizer: false });
+    queryClient.setQueryData(actorScopedKey, { items: [] });
     queryClient.setQueryData<ViewerContext>(
       viewerContextKey,
       makeViewerContext()
@@ -85,15 +71,10 @@ describe("actor-scoped cache", () => {
 
     clearActorScopedClientState(queryClient);
 
-    expect(queryClient.getQueryData(leagueDetailKey)).toBeUndefined();
+    expect(queryClient.getQueryData(actorScopedKey)).toBeUndefined();
     expect(queryClient.getQueryData<ViewerContext>(viewerContextKey)).toEqual(
       makeViewerContext()
     );
-    expect(
-      String(getLeagueDetailsBucket$(leagueBucketId).identity.activeRoute)
-    ).toBe("overview");
-
-    resetLeagueDetailsStore();
   });
 
   it("applies the fresh viewer context before clearing actor-scoped data", () => {

@@ -3,28 +3,18 @@ import { Text } from "@/components/core/text";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
-import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { useCRPC } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { formatShortDate } from "@/lib/format/date";
 import {
   formatPaymentStatus,
   getPaymentStatusColor,
 } from "@/lib/payments/status";
-import { MoreVerticalIcon, Wallet01Icon } from "@hugeicons/core-free-icons";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Wallet01Icon } from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import {
-  Button,
-  Card,
-  Chip,
-  Menu,
-  PressableFeedback,
-  useToast,
-} from "heroui-native";
-import { useState } from "react";
+import { Card, Chip, PressableFeedback } from "heroui-native";
 import { View } from "react-native";
 
 import type { PaymentChargeStatus } from "@convex/domains/payment/contract";
@@ -38,59 +28,27 @@ function formatPaymentDate(iso: null | string) {
 
 type PaymentItem = {
   amountCents: number;
-  canRegenerate: boolean;
   chargeId: string;
   expiresAt: null | string;
   paidAt: null | string;
   sourceId: string;
   sourceLabel: null | string;
-  sourceType: string;
   status: PaymentChargeStatus;
 };
 
 function PaymentCard(props: {
   item: PaymentItem;
   onPress?: (item: PaymentItem) => void;
-  onGenerateNew?: (item: PaymentItem) => void;
-  isGenerating?: boolean;
 }) {
   const { item } = props;
   const dateLabel =
     formatPaymentDate(item.paidAt) ?? formatPaymentDate(item.expiresAt);
-  const showGenerateNew =
-    item.status === "EXPIRED" && item.canRegenerate && props.onGenerateNew;
-
   return (
     <PressableFeedback
       animation={false}
       onPress={props.onPress ? () => props.onPress?.(item) : undefined}
     >
       <Card className="relative gap-2">
-        {showGenerateNew ? (
-          <View className="absolute top-2.5 right-2.5 z-10">
-            <Menu>
-              <Menu.Trigger asChild>
-                <Button
-                  className="size-7"
-                  isDisabled={props.isGenerating}
-                  isIconOnly
-                  size="sm"
-                  variant="tertiary"
-                >
-                  <HugeIcons className="size-4.5" icon={MoreVerticalIcon} />
-                </Button>
-              </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Overlay className="bg-backdrop" />
-                <Menu.Content presentation="popover" width={240}>
-                  <Menu.Item onPress={() => props.onGenerateNew?.(item)}>
-                    <Menu.ItemTitle>Gerar novo Pix</Menu.ItemTitle>
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Portal>
-            </Menu>
-          </View>
-        ) : null}
         <View className="flex-row items-end justify-between gap-3">
           <View className="flex-1 gap-1.5">
             <Text weight="medium">{item.sourceLabel ?? "Pagamento"}</Text>
@@ -121,40 +79,9 @@ function PaymentCard(props: {
 
 export default function PlayerPaymentsSettings() {
   const crpc = useCRPC();
-  const crpcClient = useCRPCClient();
-  const { toast } = useToast();
   const paymentsQuery = useQuery(
     crpc.payment.charge.listMine.staticQueryOptions()
   );
-
-  const [generatingSourceId, setGeneratingSourceId] = useState<null | string>(
-    null
-  );
-
-  const createCharge = useMutation({
-    mutationFn: crpcClient.payment.charge.createCharge.mutate,
-    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
-    onError: (error) => {
-      setGeneratingSourceId(null);
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível gerar um novo código PIX. Tente novamente."
-        ),
-        id: "generate-new-charge-error",
-        label: "Falha ao gerar PIX",
-        variant: "danger",
-      });
-    },
-    onSuccess: async (data) => {
-      setGeneratingSourceId(null);
-      await paymentsQuery.refetch();
-      router.navigate({
-        params: { chargeId: data.chargeId },
-        pathname: "/checkout/[chargeId]",
-      });
-    },
-  });
 
   const items = paymentsQuery.data?.items ?? [];
   const pending = items.filter((item) => item.status === "PENDING");
@@ -173,13 +100,6 @@ export default function PlayerPaymentsSettings() {
     });
   }
 
-  function handleGenerateNew(item: PaymentItem) {
-    setGeneratingSourceId(item.sourceId);
-    createCharge.mutate({
-      sourceId: item.sourceId,
-      sourceType: item.sourceType,
-    });
-  }
   return (
     <Page>
       <Page.Header>
@@ -203,7 +123,7 @@ export default function PlayerPaymentsSettings() {
           )}
           {isEmpty && (
             <EmptyState
-              description="Quando você entrar em uma liga paga, suas cobranças aparecem aqui."
+              description="Quando você se inscrever em um torneio pago, as cobranças aparecem aqui."
               icon={Wallet01Icon}
               title="Nenhum pagamento"
             />
@@ -235,15 +155,7 @@ export default function PlayerPaymentsSettings() {
                 Histórico
               </Text>
               {history.map((item) => (
-                <PaymentCard
-                  isGenerating={
-                    createCharge.isPending &&
-                    generatingSourceId === item.sourceId
-                  }
-                  item={item}
-                  key={item.chargeId}
-                  onGenerateNew={handleGenerateNew}
-                />
+                <PaymentCard item={item} key={item.chargeId} />
               ))}
             </View>
           ) : null}

@@ -6,10 +6,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { ApiOutputs } from "@convex/shared/api";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
-import {
-  registerForPushNotificationsAsync,
-  registerNotificationCategoriesAsync,
-} from "@/lib/notifications/expo-notifications";
+import { registerForPushNotificationsAsync } from "@/lib/notifications/expo-notifications";
 import { shouldRequestPushPermission } from "@/lib/notifications/notification-permission-rules";
 import {
   type NotificationResponseActor,
@@ -60,14 +57,6 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
     mutationFn: crpcClient.viewer.context.setActiveActor.mutate,
     mutationKey: crpc.viewer.context.setActiveActor.mutationKey(),
   });
-  const approveMembership = useMutation({
-    mutationFn: crpcClient.league.membership.approve.mutate,
-    mutationKey: crpc.league.membership.approve.mutationKey(),
-  });
-  const rejectMembership = useMutation({
-    mutationFn: crpcClient.league.membership.reject.mutate,
-    mutationKey: crpc.league.membership.reject.mutationKey(),
-  });
 
   const invalidateNotifications = useCallback(async () => {
     await Promise.all([
@@ -98,12 +87,6 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
         queryClient.invalidateQueries(
           crpc.notification.feed.list.queryFilter({ limit: 50 })
         ),
-        queryClient.invalidateQueries(
-          crpc.league.discovery.listParticipating.queryFilter()
-        ),
-        queryClient.invalidateQueries(
-          crpc.league.management.listMine.queryFilter()
-        ),
       ]);
     },
     [crpc, queryClient]
@@ -128,26 +111,6 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
     [invalidateActorContext, setActiveActor]
   );
 
-  const invalidateLeagueContext = useCallback(
-    async (leagueId: string) => {
-      await Promise.all([
-        queryClient.invalidateQueries(
-          crpc.league.discovery.getById.queryFilter({ leagueId })
-        ),
-        queryClient.invalidateQueries(
-          crpc.league.membership.getOverview.queryFilter({ leagueId })
-        ),
-        queryClient.invalidateQueries(
-          crpc.league.challenges.listForLeague.queryFilter({ leagueId })
-        ),
-        queryClient.invalidateQueries(
-          crpc.league.challenges.listOccupiedSlots.queryFilter({ leagueId })
-        ),
-      ]);
-    },
-    [crpc, queryClient]
-  );
-
   const markNotificationRead = useCallback(
     async (notificationId?: string) => {
       if (!notificationId) {
@@ -170,41 +133,11 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
 
   const handleIntent = useCallback(
     async (intent: NotificationResponseIntent) => {
-      if (intent.kind === "open") {
-        await activateNotificationActor(intent.recipientActor);
-        await markNotificationRead(intent.notificationId);
-        openNotificationUrl(intent.url);
-        return;
-      }
-
-      if (intent.kind === "approveLeagueMembership") {
-        await activateNotificationActor(intent.recipientActor);
-        await approveMembership.mutateAsync({
-          leagueId: intent.leagueId,
-          membershipId: intent.membershipId,
-        });
-        await markNotificationRead(intent.notificationId);
-        await invalidateLeagueContext(intent.leagueId);
-        openNotificationUrl(intent.url);
-        return;
-      }
-
       await activateNotificationActor(intent.recipientActor);
-      await rejectMembership.mutateAsync({
-        leagueId: intent.leagueId,
-        membershipId: intent.membershipId,
-      });
       await markNotificationRead(intent.notificationId);
-      await invalidateLeagueContext(intent.leagueId);
+      openNotificationUrl(intent.url);
     },
-    [
-      activateNotificationActor,
-      approveMembership,
-      invalidateLeagueContext,
-      markNotificationRead,
-      openNotificationUrl,
-      rejectMembership,
-    ]
+    [activateNotificationActor, markNotificationRead, openNotificationUrl]
   );
 
   const handleNotificationResponse = useCallback(
@@ -225,10 +158,6 @@ export function NotificationBootstrap(props: NotificationBootstrapProps) {
     },
     [handleIntent]
   );
-
-  useEffect(() => {
-    registerNotificationCategoriesAsync().catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (!props.isEnabled) {

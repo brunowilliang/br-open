@@ -183,38 +183,3 @@ export const seedPlayers = [
     nickname: "Ju",
   },
 ] as const;
-
-export const seedLeagueTemplates = [
-  {
-    categories: ["Todas", "A", "B"],
-    city: "São Paulo",
-    description: "Liga pública com ranking pronto e solicitações pendentes.",
-    name: "Liga Paulistana",
-    state: "SP",
-    visibility: "public" as const,
-  },
-  {
-    categories: ["Feminino", "Misto"],
-    city: "Campinas",
-    description: "Liga pública para testar entrada aprovada e pendente.",
-    name: "Liga Campineira",
-    state: "SP",
-    visibility: "public" as const,
-  },
-  {
-    categories: ["35+", "40+"],
-    city: "Rio de Janeiro",
-    description: "Liga pública com cenário de solicitação rejeitada.",
-    name: "Liga Noturna",
-    state: "RJ",
-    visibility: "public" as const,
-  },
-  {
-    categories: ["Iniciante", "Intermediário", "Avançado"],
-    city: "Belo Horizonte",
-    description: "Liga aberta para testar descoberta e novos pedidos.",
-    name: "Ranking de Sábado",
-    state: "MG",
-    visibility: "public" as const,
-  },
-] as const;

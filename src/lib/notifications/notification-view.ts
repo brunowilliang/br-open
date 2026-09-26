@@ -104,13 +104,8 @@ export function getNotificationActionTarget(
 ): PendingActionTarget {
   return {
     action: item.presentation?.action ?? null,
-    leagueId: readString(item.data.leagueId),
     params: null,
     route: readString(item.data.url),
-    source:
-      item.sourceEntityType === "leagueMembership" && item.sourceEntityId
-        ? { id: item.sourceEntityId }
-        : null,
   };
 }
 
@@ -126,10 +121,7 @@ function readActionTone(
   resolution: PendingActionResolution
 ): NotificationMenuItemTone {
   switch (resolution.kind) {
-    case "decline_challenge_cancellation":
-    case "decline_challenge_proposal":
     case "reject_entry":
-    case "reject_membership":
       return "danger";
     // O convite de dupla é o mesmo caminho nos dois sentidos: o `accept` manda.
     case "respond_invite":

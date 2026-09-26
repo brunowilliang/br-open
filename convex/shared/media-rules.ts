@@ -1,7 +1,7 @@
 /**
  * Shared media-storage helpers — consolidates 3 sets of duplicated helpers
- * that lived in `player/contract.ts`, `organization/contract.ts`,
- * `league/contract.ts`, and the per-domain `functions` profile modules.
+ * that lived in `player/contract.ts`, `organization/contract.ts` and the
+ * per-domain `functions` profile modules.
  *
  * Pure module — no Convex runtime imports, safe to import from anywhere.
  */
@@ -13,7 +13,7 @@ import type { MutationCtx, QueryCtx } from "../functions/generated/server";
  * Computes which storage ids are no longer referenced and should be deleted.
  *
  * Generic over the field name so it works for single-field (player avatar,
- * organization logo) and multi-field (league avatar + cover) cases.
+ * organization logo) and multi-field (avatar + cover) cases.
  *
  * For multi-field: pass an array of field names; the helper collects all
  * previous values across fields, removes any that still appear in `next`,

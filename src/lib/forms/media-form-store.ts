@@ -17,8 +17,6 @@ type MediaFormBucketConfig = {
   avatarUrl?: string | null;
   coverUrl?: string | null;
   externalPending?: boolean;
-  /** Domain-specific lock flag — only the league wizard (rules tab) uses it. */
-  isRulesLocked?: boolean;
   mode: MediaFormMode;
   showDelete?: boolean;
   title: string;
@@ -62,7 +60,6 @@ function createMediaFormBucket(input: {
       configure: (config: MediaFormBucketConfig) => {
         context.store$.activeSessionKey.set(sessionKey);
         bucket$.identity.assign({
-          isRulesLocked: Boolean(config.isRulesLocked),
           mode: config.mode,
           showDelete: config.mode === "edit" && (config.showDelete ?? true),
           title: config.title,
@@ -91,7 +88,6 @@ function createMediaFormBucket(input: {
       reset: () => {
         bucket$.actions.clearMedia();
         bucket$.identity.assign({
-          isRulesLocked: false,
           mode: "create",
           showDelete: false,
           title: context.defaultTitle,
@@ -159,7 +155,6 @@ function createMediaFormBucket(input: {
         bucket$.derived.isMediaBusy.get(),
     },
     identity: {
-      isRulesLocked: false,
       mode: "create" as MediaFormMode,
       sessionKey,
       showDelete: false,
@@ -192,7 +187,6 @@ export type MediaFormRoute = {
   avatarUrl: null | string;
   coverUrl: null | string;
   isMediaBusy: boolean;
-  isRulesLocked: boolean;
   isSubmitPending: boolean;
   mode: MediaFormMode;
   onDelete: () => Promise<void>;
@@ -263,7 +257,6 @@ export function createMediaFormDomain(input: {
       avatarUrl: useValue(bucket$.derived.avatarUrl),
       coverUrl: useValue(bucket$.derived.coverUrl),
       isMediaBusy: useValue(bucket$.derived.isMediaBusy),
-      isRulesLocked: useValue(bucket$.identity.isRulesLocked),
       isSubmitPending: useValue(bucket$.derived.isSubmitPending),
       mode: useValue(bucket$.identity.mode),
       onDelete: bucket$.actions.deleteEntity,

@@ -20,7 +20,7 @@ import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
  * MESMO `onPress`, em que a secundária dispara a ação da principal: aqui a
  * asserção é a resolução que CADA item entrega ao runner, a ordem e a cor.
  *
- * O último caso prova a COPY: para os 44 tipos do catálogo, o que o cartão
+ * O último caso prova a COPY: para os 16 tipos do catálogo, o que o cartão
  * desenha é o texto do servidor VERBATIM, sem reformulação.
  *
  * O repo não tem harness de render e `react-native` não parseia sob bun (Flow),
@@ -119,7 +119,7 @@ function buildItem(input: {
 }): NotificationCardItem {
   return {
     body: "Marina Costa pediu para entrar na liga Liga do Parque.",
-    data: input.data ?? { leagueId: "league-1" },
+    data: input.data ?? { url: "/tournaments/tournament-1/entries" },
     id: "notification-1",
     isRead: input.isRead ?? false,
     occurredAt: Date.UTC(2026, 8, 21, 14, 32),
@@ -199,13 +199,13 @@ function renderCard(input: {
 
 const approvePresentation = {
   action: {
-    params: { membershipId: "membership-1" },
-    type: "approve_league_membership",
+    params: { entryId: "entry-1" },
+    type: "approve_tournament_entry",
   } as NotificationPresentation["action"],
   actionLabel: "Aprovar",
   secondaryAction: {
-    params: { membershipId: "membership-1" },
-    type: "reject_league_membership",
+    params: { entryId: "entry-1" },
+    type: "reject_tournament_entry",
   } as NotificationPresentation["action"],
   secondaryActionLabel: "Recusar",
 };
@@ -284,8 +284,8 @@ describe("NotificationCard", () => {
     const pay = renderCard({
       item: buildItem({
         action: {
-          params: { membershipId: "membership-1" },
-          type: "pay_league_membership",
+          params: { entryId: "entry-1" },
+          type: "pay_tournament_entry",
         },
         actionLabel: "Pagar",
       }),
@@ -318,16 +318,8 @@ describe("NotificationCard", () => {
     menu.items[2].onPress?.();
 
     expect(actionCalls).toEqual([
-      {
-        kind: "approve_membership",
-        leagueId: "league-1",
-        membershipId: "membership-1",
-      },
-      {
-        kind: "reject_membership",
-        leagueId: "league-1",
-        membershipId: "membership-1",
-      },
+      { entryId: "entry-1", kind: "approve_entry" },
+      { entryId: "entry-1", kind: "reject_entry" },
     ]);
     // O último item é o destrutivo: ele remove, não resolve ação.
     expect(removeCalls).toEqual(["remove"]);
@@ -354,8 +346,7 @@ describe("NotificationCard", () => {
 
   it("disables only the item whose action is in flight", () => {
     const { menu } = renderCard({
-      isActionPending: (resolution) =>
-        resolution?.kind === "approve_membership",
+      isActionPending: (resolution) => resolution?.kind === "approve_entry",
       item: buildItem(approvePresentation),
     });
 
@@ -388,7 +379,7 @@ describe("NotificationCard", () => {
     expect(openCalls).toEqual(["open"]);
   });
 
-  it("renders the server copy VERBATIM for all 44 event types", () => {
+  it("renders the server copy VERBATIM for all catalog event types", () => {
     // O que o cartão desenha é o `title`/`body` do `buildNotificationContent`
     // para a MESMA entrada que gerou o item. O corte do feed é ellipsis de
     // RENDER (`numberOfLines`), não perda de caractere.
@@ -422,7 +413,7 @@ describe("NotificationCard", () => {
       }
     }
 
-    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(44);
+    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(16);
     expect(mismatches).toEqual([]);
   });
 });

@@ -16,9 +16,9 @@ const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
 const charge = (overrides: Partial<RevenueCharge>): RevenueCharge => ({
   amountCents: 10_000,
   paidAtMs: null,
-  sourceId: "league-1",
+  sourceId: "entry-1",
   sourceLabel: null,
-  sourceType: "league_membership",
+  sourceType: "tournament_entry",
   splitConfig: null,
   status: "PAID",
   ...overrides,
@@ -82,9 +82,9 @@ describe("buildRevenueSeries", () => {
           splitConfig: { organizerCents: 9000 },
         }),
         // 20:00 BRT de 31/08 -> agosto.
-        charge({ paidAtMs: Date.UTC(2026, 7, 31, 23), sourceId: "league-2" }),
+        charge({ paidAtMs: Date.UTC(2026, 7, 31, 23), sourceId: "entry-2" }),
         // 00:30 UTC de 01/09 = 21:30 BRT de 31/08 -> AINDA agosto.
-        charge({ paidAtMs: Date.UTC(2026, 8, 1, 0, 30), sourceId: "league-2" }),
+        charge({ paidAtMs: Date.UTC(2026, 8, 1, 0, 30), sourceId: "entry-2" }),
         // Fora da janela (maio).
         charge({ paidAtMs: Date.UTC(2026, 4, 10) }),
         // Ignorados: não pago / estornado / sem paidAt.
@@ -119,7 +119,11 @@ describe("buildRevenueSeries", () => {
           sourceLabel: "Copa Vila",
           sourceType: "tournament_entry",
         }),
-        charge({ paidAtMs: Date.UTC(2026, 8, 7), sourceLabel: "Liga Teste" }),
+        charge({
+          paidAtMs: Date.UTC(2026, 8, 7),
+          sourceId: "entry-2",
+          sourceLabel: "Copa Norte",
+        }),
       ],
       months: 2,
       nowMs,
@@ -133,9 +137,9 @@ describe("buildRevenueSeries", () => {
         totalCents: 20_000,
       },
       {
-        sourceId: "league-1",
-        sourceLabel: "Liga Teste",
-        sourceType: "league_membership",
+        sourceId: "entry-2",
+        sourceLabel: "Copa Norte",
+        sourceType: "tournament_entry",
         totalCents: 10_000,
       },
     ]);

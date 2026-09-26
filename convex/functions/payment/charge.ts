@@ -2,7 +2,6 @@ import { eq, unsetToken } from "kitcn/orm";
 import type { InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
-import { isLeaguePaid } from "../../domains/league/membership-rules";
 import type { MutationCtx, QueryCtx } from "../generated/server";
 import { tournamentEntry } from "../../domains/tournament/tables";
 import {
@@ -10,9 +9,7 @@ import {
   registrationClosedMessage,
   resolvePaidActivation,
 } from "../../domains/tournament/entry-rules";
-import { leagueMembership } from "../../domains/league/tables";
 import {
-  SOURCE_TYPE_LEAGUE_MEMBERSHIP,
   SOURCE_TYPE_TOURNAMENT_ENTRY,
   checkoutContextSchema,
   createChargeOutputSchema,
@@ -24,35 +21,17 @@ import {
   type SplitConfig,
 } from "../../domains/payment/contract";
 import {
-  DEFAULT_LEAGUE_APPROVAL_MODE,
-  DEFAULT_LEAGUE_GRACE_PERIOD_DAYS,
-  DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
-  DEFAULT_PLATFORM_FEE_PERCENT,
-  LEAGUE_MEMBERSHIP_STATUSES,
-} from "../../domains/league/contract";
-import {
   CHARGE_EXPIRES_IN_SECONDS,
   canChargeBeExpired,
   canChargeBePaid,
   canChargeBeRefunded,
-  canMembershipBeCharged,
   computeSplit,
-  computeStackedPeriodEndMs,
+  DEFAULT_PLATFORM_FEE_PERCENT,
   hasUsablePix,
   normalizeProviderStatus,
   ownsPayableSource,
-  renewalDaysLeft,
-  resolveBillingIntervalMs,
-  shouldMarkPaymentDue,
-  shouldSendRenewalReminder,
-  shouldSuspend,
-  wouldExceedLeagueCapacity,
 } from "../../domains/payment/rules";
 import { paymentCharge } from "../../domains/payment/tables";
-import {
-  membershipDueMsFromCharge,
-  resolveMembershipDueMs,
-} from "../../domains/payment/membership-billing";
 import { getEnv } from "../../lib/get-env";
 import {
   authAction,
@@ -63,20 +42,12 @@ import {
 } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { scheduleLeagueNotification } from "../notification/events";
-import { buildNotificationContent } from "../../domains/notification/definitions";
-import { buildNotificationPresentation } from "../../domains/notification/presentation";
-import { notificationFeed } from "../../domains/notification/tables";
 import { getViewerContext } from "../viewer/context";
 import { isActiveActorManager } from "../../domains/auth/actor-context";
-import type { NotificationEventType } from "../../shared/notifications/protocol";
 
 // Source type discriminators: the (sourceType + sourceId) pair says what was
 // paid for and drives the webhook dispatch; the constants live in
 // `domains/payment/contract.ts` so domain modules don't import this file.
-const LEAGUE_MEMBERSHIP_SOURCE_ENTITY_TYPE = "leagueMembership";
-const RENEWAL_REMINDER_EVENT_TYPE =
-  "league.membership.renewal_reminder" as const satisfies NotificationEventType;
 
 // Charge creation (authAction — calls the provider SDK via a Node action)
 
@@ -139,8 +110,8 @@ export const findPendingChargeForSource = privateMutation
   });
 
 /**
- * Just the chargeId of a still-valid PENDING charge, or null: the league footer
- * pre-fetches it so "pay" navigates straight to /checkout/[chargeId].
+ * Just the chargeId of a still-valid PENDING charge, or null, so a "pay" CTA
+ * navigates straight to /checkout/[chargeId] without creating a charge.
  */
 export const getPendingCharge = authQuery
   .input(
@@ -306,13 +277,9 @@ export const getCheckoutContext = authQuery
         message: "Cobranca nao encontrada.",
       });
     }
-    // Never read the billing situation from the charge's historical status: an
-    // old link can point at a PAID charge while the membership is back to
-    // `payment_due`/`suspended`. Non-membership sources report nulls.
-    const membershipState =
-      charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP
-        ? await resolveMembershipCheckoutState(ctx, charge.sourceId)
-        : null;
+    // Never read any obligation state from the charge's historical status: a
+    // notification link can point at a terminal charge while a newer PIX is
+    // open for the same source.
 
     // The caller may already have a newer PENDING PIX for this source while the
     // link still points at a terminal charge. Read-only, for every source type.
@@ -326,11 +293,8 @@ export const getCheckoutContext = authQuery
     return {
       amountCents: charge.amountCents,
       brCode: charge.brCode ?? "",
-      canRenew: membershipState?.canRenew ?? false,
       chargeId: charge.id as Id<"paymentCharge">,
       expiresAt: charge.expiresAt?.toISOString() ?? null,
-      membershipDueAt: membershipState?.membershipDueAt ?? null,
-      membershipStatus: membershipState?.membershipStatus ?? null,
       pendingCharge,
       qrCodeUrl: charge.qrCodeImage ?? "",
       sourceId: charge.sourceId,
@@ -361,108 +325,17 @@ export const listMine = authQuery
       },
     });
 
-    // sourceLabel is snapshotted on each charge (no league join needed), and
-    // chargeability is resolved so the UI can hide "Gerar novo Pix" for sources
-    // that can no longer be charged (e.g. a cancelled join request).
-    const membershipIds = [
-      ...new Set(
-        charges
-          .filter((c) => c.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP)
-          .map((c) => c.sourceId as Id<"leagueMembership">)
-      ),
-    ];
-    const memberships = await Promise.all(
-      membershipIds.map((id) =>
-        ctx.orm.query.leagueMembership.findFirst({ where: { id } })
-      )
-    );
-    const membershipById = new Map(
-      memberships
-        .filter((m): m is NonNullable<typeof m> => m !== null)
-        .map((m) => [m.id, m])
-    );
-
-    // An `active` membership is only chargeable once the renewal window opens,
-    // so each due date is resolved the same way the checkout does; the cycle end
-    // comes from the charges already loaded (no extra read), leagues in one query.
-    const leagueIds = [
-      ...new Set(
-        memberships
-          .filter((m): m is NonNullable<typeof m> => m !== null)
-          .map((m) => m.leagueId as Id<"league">)
-      ),
-    ];
-    const leagues = leagueIds.length
-      ? await ctx.orm.query.league.findMany({
-          limit: 100,
-          where: { id: { in: leagueIds } },
-        })
-      : [];
-    const leagueById = new Map(leagues.map((record) => [record.id, record]));
-    const latestPaidChargeByMembership = new Map<
-      string,
-      (typeof charges)[number]
-    >();
-    for (const charge of charges) {
-      if (
-        charge.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP ||
-        charge.status !== "PAID"
-      ) {
-        continue;
-      }
-      const current = latestPaidChargeByMembership.get(charge.sourceId);
-      if (
-        !current ||
-        (charge.paidAt?.getTime() ?? 0) > (current.paidAt?.getTime() ?? 0)
-      ) {
-        latestPaidChargeByMembership.set(charge.sourceId, charge);
-      }
-    }
-    const nowMs = Date.now();
-
-    const items = charges.map((charge) => {
-      const membership =
-        charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP
-          ? membershipById.get(charge.sourceId as Id<"leagueMembership">)
-          : undefined;
-      const league = membership
-        ? leagueById.get(membership.leagueId as Id<"league">)
-        : undefined;
-      const nextDueMs =
-        membership?.status === LEAGUE_MEMBERSHIP_STATUSES.ACTIVE
-          ? membershipDueMsFromCharge({
-              charge: latestPaidChargeByMembership.get(membership.id),
-              intervalMs: resolveBillingIntervalMs(
-                league?.priceBillingInterval
-              ),
-            })
-          : null;
-      const renewal =
-        nextDueMs === null
-          ? null
-          : {
-              nextDueMs,
-              nowMs,
-              reminderDaysBefore:
-                league?.reminderDaysBefore ??
-                DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
-            };
-      const canRegenerate = Boolean(
-        membership && canMembershipBeCharged(membership, renewal)
-      );
-
-      return {
-        amountCents: charge.amountCents,
-        canRegenerate,
-        chargeId: charge.id as Id<"paymentCharge">,
-        expiresAt: charge.expiresAt?.toISOString() ?? null,
-        paidAt: charge.paidAt?.toISOString() ?? null,
-        sourceId: charge.sourceId,
-        sourceLabel: charge.sourceLabel ?? null,
-        sourceType: charge.sourceType,
-        status: (charge.status as PaymentChargeStatus) ?? "PENDING",
-      };
-    });
+    // sourceLabel is snapshotted on each charge, so list/history skip a join.
+    const items = charges.map((charge) => ({
+      amountCents: charge.amountCents,
+      chargeId: charge.id as Id<"paymentCharge">,
+      expiresAt: charge.expiresAt?.toISOString() ?? null,
+      paidAt: charge.paidAt?.toISOString() ?? null,
+      sourceId: charge.sourceId,
+      sourceLabel: charge.sourceLabel ?? null,
+      sourceType: charge.sourceType,
+      status: (charge.status as PaymentChargeStatus) ?? "PENDING",
+    }));
 
     return { items };
   });
@@ -540,7 +413,7 @@ export const resolvePaymentAccount = privateMutation
       throw new CRPCError({
         code: "PRECONDITION_FAILED",
         message:
-          "Esta liga ainda nao esta recebendo pagamentos. O organizador precisa conectar a conta.",
+          "Esta organização ainda nao esta recebendo pagamentos. O organizador precisa conectar a conta.",
       });
     }
 
@@ -553,9 +426,9 @@ export const resolvePaymentAccount = privateMutation
 
 /**
  * Payable source -> what a charge needs (amount, label, org, player profile),
- * polymorphic over `sourceType`: `league_membership` and `tournament_entry`;
- * other types throw NOT_FOUND. Ownership is per branch — only the player who
- * owns the source can be charged.
+ * polymorphic over `sourceType`: `tournament_entry` today; other types throw
+ * NOT_FOUND. Ownership is per branch — only the player who owns the source can
+ * be charged.
  */
 export const resolveSourceForCharge = privateMutation
   .input(
@@ -566,8 +439,8 @@ export const resolveSourceForCharge = privateMutation
     })
   )
   .mutation(async ({ ctx, input }) => {
-    // Ownership: one lookup serves both branches — a caller without a player
-    // profile owns nothing (`userId` is a plain string; the column is an Id).
+    // Ownership: a caller without a player profile owns nothing (`userId` is a
+    // plain string; the column is an Id).
     const callerProfile = await ctx.orm.query.playerProfile.findFirst({
       where: { userId: input.userId as Id<"user"> },
     });
@@ -580,92 +453,10 @@ export const resolveSourceForCharge = privateMutation
       );
     }
 
-    if (input.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
-      throw new CRPCError({
-        code: "NOT_FOUND",
-        message: "Tipo de cobranca nao suportado.",
-      });
-    }
-
-    const membershipId = input.sourceId as Id<"leagueMembership">;
-
-    const membership = await ctx.orm.query.leagueMembership.findFirst({
-      where: { id: membershipId },
+    throw new CRPCError({
+      code: "NOT_FOUND",
+      message: "Tipo de cobranca nao suportado.",
     });
-
-    if (!membership) {
-      throw new CRPCError({
-        code: "NOT_FOUND",
-        message: "Solicitacao nao encontrada.",
-      });
-    }
-
-    if (
-      !ownsPayableSource({
-        callerProfileId: callerProfile?.id,
-        ownerProfileId: membership.playerProfileId,
-      })
-    ) {
-      throw new CRPCError({
-        code: "FORBIDDEN",
-        message: "Essa cobranca nao pertence a voce.",
-      });
-    }
-
-    const currentLeague = await ctx.orm.query.league.findFirst({
-      where: { id: membership.leagueId as Id<"league"> },
-    });
-
-    if (!currentLeague) {
-      throw new CRPCError({
-        code: "NOT_FOUND",
-        message: "Liga nao encontrada.",
-      });
-    }
-
-    // Early renewal: an `active` membership becomes chargeable once the window
-    // opens, so the next period can be paid before the current one lapses — it
-    // stacks on the current due date.
-    const nextDueMs = await resolveMembershipDueMs(ctx, {
-      membershipId,
-      priceBillingInterval: currentLeague.priceBillingInterval,
-    });
-    const renewal =
-      nextDueMs === null
-        ? null
-        : {
-            nextDueMs,
-            nowMs: Date.now(),
-            reminderDaysBefore:
-              currentLeague.reminderDaysBefore ??
-              DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
-          };
-
-    if (!canMembershipBeCharged(membership, renewal)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message:
-          membership.status === LEAGUE_MEMBERSHIP_STATUSES.ACTIVE
-            ? "A renovacao desta liga ainda nao esta aberta."
-            : "Esta solicitacao nao esta aguardando pagamento.",
-      });
-    }
-
-    if (!isLeaguePaid(currentLeague)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esta liga nao e paga.",
-      });
-    }
-
-    return {
-      amountCents: currentLeague.monthlyPriceCents ?? 0,
-      organizationId: currentLeague.organizationId as string,
-      platformFeePercent:
-        currentLeague.platformFeePercent ?? DEFAULT_PLATFORM_FEE_PERCENT,
-      playerProfileId: membership.playerProfileId as string,
-      sourceLabel: currentLeague.name,
-    };
   });
 
 /**
@@ -793,96 +584,11 @@ async function resolvePendingCheckoutCharge(
 }
 
 /**
- * Billing state of a membership, resolved fresh from the membership and its
- * league — never from a charge's historical status. `membershipDueAt` comes from
- * `resolveMembershipDueMs` (the same source the renewal cron uses) and `canRenew`
- * from the league renewal window, exactly the signal `listMine.canRegenerate`
- * publishes. Null when the membership or its league is gone.
- */
-async function resolveMembershipCheckoutState(
-  ctx: Pick<QueryCtx, "orm">,
-  membershipId: string
-): Promise<{
-  canRenew: boolean;
-  membershipDueAt: null | number;
-  membershipStatus: string;
-} | null> {
-  const membership = await ctx.orm.query.leagueMembership.findFirst({
-    where: { id: membershipId as Id<"leagueMembership"> },
-  });
-  if (!membership) {
-    return null;
-  }
-
-  const league = await ctx.orm.query.league.findFirst({
-    where: { id: membership.leagueId as Id<"league"> },
-  });
-  if (!league) {
-    return null;
-  }
-
-  const dueMs = await resolveMembershipDueMs(ctx, {
-    membershipId,
-    priceBillingInterval: league.priceBillingInterval,
-  });
-
-  return {
-    canRenew: canMembershipBeCharged(
-      membership,
-      dueMs === null
-        ? null
-        : {
-            nextDueMs: dueMs,
-            nowMs: Date.now(),
-            reminderDaysBefore:
-              league.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
-          }
-    ),
-    membershipDueAt: dueMs,
-    membershipStatus: membership.status,
-  };
-}
-
-/**
- * Membership, its league and the due date of the cycle it currently pays for,
- * resolved while a new charge is still PENDING: that due date is the base the
- * next period stacks on and the key of the notification cycle. Null if gone.
- */
-async function resolveMembershipCycle(
-  ctx: MutationCtx,
-  membershipId: Id<"leagueMembership">
-) {
-  const membership = await ctx.orm.query.leagueMembership.findFirst({
-    where: { id: membershipId },
-  });
-  if (!membership) {
-    return null;
-  }
-
-  const currentLeague = await ctx.orm.query.league.findFirst({
-    where: { id: membership.leagueId as Id<"league"> },
-  });
-  if (!currentLeague) {
-    return null;
-  }
-
-  return {
-    dueMs: await resolveMembershipDueMs(ctx, {
-      membershipId,
-      priceBillingInterval: currentLeague.priceBillingInterval,
-    }),
-    league: currentLeague,
-    membership,
-  };
-}
-
-/**
  * Atomic "charge paid → apply source side effect" pipeline: the webhook calls
  * this ONE mutation because the previous two transactions (`markChargePaid` →
- * `activateMembership`) could leave a charge PAID with the membership still
- * `awaiting_payment`. The side effect (capacity re-check, activation, refund on
- * overflow, notifications) runs per source type; other sources stay PAID for a
- * reconciler. `providerTransactionId` is the PIX e2e id
+ * activation) could leave a charge PAID with the source still pending. The side
+ * effect runs per source type; other sources stay PAID for a reconciler.
+ * `providerTransactionId` is the PIX e2e id
  * (`payload.transaction.transactionID` / `e2eId`), distinct from the charge id.
  */
 export const applyPaidCharge = privateMutation
@@ -895,7 +601,6 @@ export const applyPaidCharge = privateMutation
   .output(
     z.object({
       activated: z.boolean(),
-      membershipId: z.string().nullable(),
     })
   )
   .mutation(async ({ ctx, input }) => {
@@ -904,25 +609,12 @@ export const applyPaidCharge = privateMutation
     });
 
     if (!(charge && canChargeBePaid(charge))) {
-      return { activated: false, membershipId: null };
+      return { activated: false };
     }
 
     const now = new Date();
-    const isMembershipCharge =
-      charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP;
-    const membershipId = isMembershipCharge
-      ? (charge.sourceId as Id<"leagueMembership">)
-      : null;
 
-    // Resolve the cycle BEFORE marking PAID: the due date comes from the latest
-    // PAID charge, readable only while this one is still PENDING (which also
-    // makes the computation idempotent).
-    const previousCycle =
-      membershipId === null
-        ? null
-        : await resolveMembershipCycle(ctx, membershipId);
-
-    // Step 1: mark PAID, keeping the `providerChargeId` captured at creation.
+    // Mark PAID, keeping the `providerChargeId` captured at creation.
     await ctx.orm
       .update(paymentCharge)
       .set({
@@ -939,153 +631,7 @@ export const applyPaidCharge = privateMutation
       return applyPaidTournamentEntryCharge(ctx, charge);
     }
 
-    if (!(membershipId && previousCycle)) {
-      return { activated: false, membershipId };
-    }
-
-    const {
-      dueMs: currentDueMs,
-      league: currentLeague,
-      membership,
-    } = previousCycle;
-
-    // Step 2: `active` is accepted while the league renewal window is open.
-    const renewal =
-      currentDueMs === null
-        ? null
-        : {
-            nextDueMs: currentDueMs,
-            nowMs: now.getTime(),
-            reminderDaysBefore:
-              currentLeague.reminderDaysBefore ??
-              DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE,
-          };
-
-    if (!canMembershipBeCharged(membership, renewal)) {
-      // PAID but not chargeable — leave it; a reconciler can recover.
-      return { activated: false, membershipId };
-    }
-
-    // Step 2b: a renewal of a member who already holds a slot — decided before
-    // the capacity check, which must not treat it as a new occupant.
-    const isEarlyRenewal =
-      membership.status === LEAGUE_MEMBERSHIP_STATUSES.ACTIVE;
-
-    // Step 3: capacity re-check (over-enrollment guard). The member being charged
-    // is never a new occupant (`wouldExceedLeagueCapacity`) — skipping this once
-    // refunded a renewal and dropped it to `left`, losing the member's own slot.
-    const { maxPlayers } = currentLeague;
-    if (maxPlayers !== null && maxPlayers !== undefined) {
-      const activeMemberships = await ctx.orm.query.leagueMembership.findMany({
-        limit: 500,
-        where: {
-          leagueId: membership.leagueId as Id<"league">,
-          status: "active",
-        },
-      });
-      const otherActiveMembers = activeMemberships.filter(
-        (candidate) => candidate.id !== membershipId
-      ).length;
-      if (
-        wouldExceedLeagueCapacity({
-          isRenewal: isEarlyRenewal,
-          maxPlayers,
-          otherActiveMembers,
-        })
-      ) {
-        // League filled up between charge creation and webhook: refund and drop
-        // to `left`. markChargeRefunded commits separately, so a failure leaves
-        // the charge PAID and the membership awaiting — an accepted window.
-        await ctx.runMutation(internal.payment.charge.markChargeRefunded, {
-          correlationId: charge.correlationId,
-        });
-        return { activated: false, membershipId };
-      }
-    }
-
-    // Step 4: `auto` -> `active` (PIX was the only gate); `manual` -> `pending`
-    // (the manager must still approve, though the payment is already confirmed).
-    const approvalMode =
-      currentLeague.approvalMode ?? DEFAULT_LEAGUE_APPROVAL_MODE;
-    // Early renewal: an already `active` member keeps that status — the manual
-    // gate is for the initial join, and demoting a payer cuts access mid-cycle.
-    const requiresManualApproval = approvalMode === "manual" && !isEarlyRenewal;
-
-    await ctx.orm
-      .update(leagueMembership)
-      .set({
-        reviewedAt: requiresManualApproval ? null : now,
-        status: requiresManualApproval ? "pending" : "active",
-        updatedAt: now,
-      })
-      .where(eq(leagueMembership.id, membershipId));
-
-    // Step 4b: renewing inside the window stacks on the due date already paid
-    // for instead of restarting from `paidAt`; `once` leagues get no cycle end.
-    const intervalMs = resolveBillingIntervalMs(
-      currentLeague.priceBillingInterval
-    );
-    if (Number.isFinite(intervalMs)) {
-      await ctx.orm
-        .update(paymentCharge)
-        .set({
-          periodEndAt: new Date(
-            computeStackedPeriodEndMs({
-              currentDueMs,
-              intervalMs,
-              paidAtMs: now.getTime(),
-            })
-          ),
-          updatedAt: now,
-        })
-        .where(eq(paymentCharge.id, charge.id));
-    }
-
-    // The reminded cycle is over (paid or renewed early): retire the reminder.
-    await retractMembershipRenewalReminders(ctx, membershipId);
-
-    // Step 5: notify — payment_confirmed for auto, requested-style for manual.
-    const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-      where: { id: membership.playerProfileId as Id<"playerProfile"> },
-    });
-    if (playerProfile?.userId) {
-      if (requiresManualApproval) {
-        await scheduleLeagueNotification(ctx, {
-          eventType: "league.membership.payment_confirmed",
-          leagueId: membership.leagueId as Id<"league">,
-          metadata: { chargeId: charge.id, membershipId },
-          recipientUserIds: [playerProfile.userId as Id<"user">],
-        });
-        // Managers (org admins/owners) are the ones who approve join requests.
-        const orgMembers = await ctx.orm.query.member.findMany({
-          limit: 100,
-          where: {
-            organizationId: currentLeague.organizationId as Id<"organization">,
-          },
-        });
-        const managerUserIds = orgMembers
-          .filter((m) => m.role === "owner" || m.role === "admin")
-          .map((m) => m.userId as Id<"user">);
-        if (managerUserIds.length > 0) {
-          await scheduleLeagueNotification(ctx, {
-            actorUserId: playerProfile.userId,
-            eventType: "league.membership.requested",
-            leagueId: membership.leagueId as Id<"league">,
-            metadata: { chargeId: charge.id, membershipId },
-            recipientUserIds: managerUserIds,
-          });
-        }
-      } else {
-        await scheduleLeagueNotification(ctx, {
-          eventType: "league.membership.payment_confirmed",
-          leagueId: membership.leagueId as Id<"league">,
-          metadata: { chargeId: charge.id, membershipId },
-          recipientUserIds: [playerProfile.userId as Id<"user">],
-        });
-      }
-    }
-
-    return { activated: !requiresManualApproval, membershipId };
+    return { activated: false };
   });
 
 /**
@@ -1102,7 +648,7 @@ async function applyPaidTournamentEntryCharge(
   });
   if (!(entry && entry.status === "awaiting_payment")) {
     // Charge PAID but entry no longer awaiting — reconciler territory.
-    return { activated: false, membershipId: null };
+    return { activated: false };
   }
 
   const category = await ctx.orm.query.tournamentCategory.findFirst({
@@ -1114,7 +660,7 @@ async function applyPaidTournamentEntryCharge(
       })
     : null;
   if (!(category && tournamentRecord)) {
-    return { activated: false, membershipId: null };
+    return { activated: false };
   }
 
   // The charge only activates an entry while REGISTRATIONS ARE OPEN. If the
@@ -1137,7 +683,7 @@ async function applyPaidTournamentEntryCharge(
       internal.tournament.lifecycle.processRefunds,
       { tournamentId: tournamentRecord.id as string }
     );
-    return { activated: false, membershipId: null };
+    return { activated: false };
   }
 
   const now = new Date();
@@ -1192,7 +738,7 @@ async function applyPaidTournamentEntryCharge(
         }
       );
     }
-    return { activated: false, membershipId: null };
+    return { activated: false };
   }
   await ctx.orm
     .update(tournamentEntry)
@@ -1225,7 +771,7 @@ async function applyPaidTournamentEntryCharge(
     );
   }
 
-  return { activated: true, membershipId: null };
+  return { activated: true };
 }
 
 export const markChargeExpired = privateMutation
@@ -1283,64 +829,6 @@ export const markChargeRefunded = privateMutation
       })
       .where(eq(paymentCharge.id, charge.id));
 
-    // Source-specific refund side effects.
-    if (charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
-      const membershipId = charge.sourceId as Id<"leagueMembership">;
-      const membership = await ctx.orm.query.leagueMembership.findFirst({
-        where: { id: membershipId },
-      });
-      await ctx.orm
-        .update(leagueMembership)
-        .set({
-          rankingPosition: null,
-          status: "left",
-          updatedAt: now,
-        })
-        .where(eq(leagueMembership.id, membershipId));
-
-      const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-        where: { id: charge.playerProfileId as Id<"playerProfile"> },
-      });
-      if (playerProfile?.userId) {
-        await scheduleLeagueNotification(ctx, {
-          eventType: "league.membership.payment_refunded",
-          leagueId: membership?.leagueId as Id<"league">,
-          metadata: { chargeId: charge.id },
-          recipientUserIds: [playerProfile.userId as Id<"user">],
-        });
-      }
-    }
-
-    return charge.id;
-  });
-
-export const expireChargeForMembership = privateMutation
-  .input(z.object({ sourceId: z.string() }))
-  .mutation(async ({ ctx, input }) => {
-    // Today only called for league_membership sources; `sourceId` is the
-    // leagueMembership id. Expire the most recent PENDING charge for it.
-    const charge = await ctx.orm.query.paymentCharge.findFirst({
-      orderBy: { createdAt: "desc" },
-      where: {
-        sourceId: input.sourceId,
-        sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
-        status: "PENDING",
-      },
-    });
-
-    if (!charge) {
-      return null;
-    }
-
-    const now = new Date();
-    await ctx.orm
-      .update(paymentCharge)
-      .set({
-        status: "EXPIRED",
-        updatedAt: now,
-      })
-      .where(eq(paymentCharge.id, charge.id));
-
     return charge.id;
   });
 
@@ -1365,28 +853,6 @@ export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
         updatedAt: now,
       })
       .where(eq(paymentCharge.id, charge.id));
-
-    // Source-specific notification.
-    if (charge.sourceType === SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
-      const membership = await ctx.orm.query.leagueMembership.findFirst({
-        where: { id: charge.sourceId as Id<"leagueMembership"> },
-      });
-      if (membership) {
-        const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-          where: { id: charge.playerProfileId as Id<"playerProfile"> },
-        });
-        if (playerProfile?.userId) {
-          await scheduleLeagueNotification(ctx, {
-            eventType: "league.membership.payment_expired",
-            leagueId: membership.leagueId as Id<"league">,
-            // No `chargeId`: the expired charge is gone and no PENDING one exists
-            // yet, so the deep link falls back to the league.
-            metadata: { membershipId: charge.sourceId },
-            recipientUserIds: [playerProfile.userId as Id<"user">],
-          });
-        }
-      }
-    }
   }
 
   return { expiredCount: expired.length };
@@ -1428,310 +894,6 @@ export const resolveActiveManagerOrg = privateMutation
       organizationId: activeActor.id as Id<"organization">,
     };
   });
-
-// Renewal reminder lifecycle: exactly ONE live feed row per (membership, billing
-// cycle) — the daily cron REWRITES it instead of pushing a new notification, so
-// the unread counter never grows; it is retracted when the cycle closes.
-
-type RenewalReminderRow = InferSelectModel<typeof notificationFeed>;
-
-/** Billing cycle a reminder row belongs to (`cycleEndMs` in its metadata). */
-function readReminderCycleEndMs(row: RenewalReminderRow): number | null {
-  const { cycleEndMs } = row.data;
-  return typeof cycleEndMs === "number" ? cycleEndMs : null;
-}
-
-/** Live (non-retracted) renewal reminders of a membership. */
-async function findLiveRenewalReminders(
-  ctx: MutationCtx,
-  membershipId: string
-): Promise<RenewalReminderRow[]> {
-  // The `sourceEntity` index keeps the window on this membership; retracted
-  // cycles are filtered out below.
-  const rows = await ctx.orm.query.notificationFeed.findMany({
-    limit: 100,
-    where: {
-      sourceEntityId: membershipId,
-      sourceEntityType: LEAGUE_MEMBERSHIP_SOURCE_ENTITY_TYPE,
-    },
-  });
-  return rows.filter(
-    (row) =>
-      row.eventType === RENEWAL_REMINDER_EVENT_TYPE &&
-      row.status !== "retracted"
-  );
-}
-
-/** Retires every live renewal reminder of a membership. */
-async function retractMembershipRenewalReminders(
-  ctx: MutationCtx,
-  membershipId: string
-): Promise<void> {
-  await ctx.runMutation(
-    internal.notification.orchestrator.retractNotifications,
-    {
-      eventTypes: [RENEWAL_REMINDER_EVENT_TYPE],
-      sourceEntityId: membershipId,
-      sourceEntityType: LEAGUE_MEMBERSHIP_SOURCE_ENTITY_TYPE,
-    }
-  );
-}
-
-/**
- * Creates or refreshes the cycle's single reminder. Refreshing rewrites
- * title/body/data (the days left) and `occurredAt` but deliberately leaves
- * `isRead` alone — an update is not a new unread notification and sends no push.
- */
-async function upsertRenewalReminder(
-  ctx: MutationCtx,
-  args: {
-    cycleEndMs: number;
-    daysLeft: number;
-    leagueId: Id<"league">;
-    leagueName: string;
-    membershipId: string;
-    pendingChargeId: null | string;
-    recipientUserId: Id<"user">;
-  }
-): Promise<void> {
-  const metadata = {
-    cycleEndMs: args.cycleEndMs,
-    daysLeft: args.daysLeft,
-    membershipId: args.membershipId,
-    ...(args.pendingChargeId ? { chargeId: args.pendingChargeId } : {}),
-  };
-  const contentInput = {
-    eventType: RENEWAL_REMINDER_EVENT_TYPE,
-    leagueId: args.leagueId,
-    leagueName: args.leagueName,
-    metadata,
-    recipientRole: "player" as const,
-  };
-  const content = buildNotificationContent(contentInput);
-  // A linha e REESCRITA no lugar a cada dia do ciclo, entao a apresentacao e
-  // recalculada junto: o botao nunca aponta para um estado que o corpo ja nao descreve.
-  const presentation = buildNotificationPresentation(contentInput);
-
-  const cycleReminder = (
-    await findLiveRenewalReminders(ctx, args.membershipId)
-  ).find((row) => readReminderCycleEndMs(row) === args.cycleEndMs);
-
-  if (cycleReminder) {
-    await ctx.orm
-      .update(notificationFeed)
-      .set({
-        body: content.body,
-        data: content.data,
-        occurredAt: new Date(),
-        presentation: presentation ?? undefined,
-        title: content.title,
-      })
-      .where(eq(notificationFeed.id, cycleReminder.id));
-    return;
-  }
-
-  // First reminder of this cycle: drop previous cycles' leftovers first (only
-  // one stays live), then create it — the only run that delivers a push.
-  await retractMembershipRenewalReminders(ctx, args.membershipId);
-  await scheduleLeagueNotification(ctx, {
-    eventType: RENEWAL_REMINDER_EVENT_TYPE,
-    leagueId: args.leagueId,
-    metadata,
-    recipientUserIds: [args.recipientUserId],
-    sourceEntityId: args.membershipId,
-    sourceEntityType: LEAGUE_MEMBERSHIP_SOURCE_ENTITY_TYPE,
-  });
-}
-
-// Cron entry: renewal timeline — D-reminderDaysBefore sends one live
-// renewal_reminder per cycle (rewritten daily, no daily push), D-0 marks the
-// membership payment_due (still playable), D+gracePeriodDays suspends it. The
-// due date is the cycle end snapshotted on the latest PAID charge `periodEndAt`
-// (older charges fall back to paidAt + interval) and both windows are read from
-// the league at RUNTIME, not snapshotted, so organizers can still adjust them.
-
-const REMINDER_DEDUPE_MS = 24 * 60 * 60 * 1000; // 24h
-
-export const sendRenewalReminders = privateMutation.mutation(
-  async ({ ctx }) => {
-    if (getEnv().DEPLOY_ENV !== "production") {
-      return { processed: 0 };
-    }
-    const now = Date.now();
-    const nowDate = new Date(now);
-
-    const paid = await ctx.orm.query.paymentCharge.findMany({
-      limit: 100,
-      where: { status: "PAID" },
-    });
-
-    for (const charge of paid) {
-      if (!charge.paidAt) {
-        continue;
-      }
-      if (charge.sourceType !== SOURCE_TYPE_LEAGUE_MEMBERSHIP) {
-        continue;
-      }
-
-      const membership = await ctx.orm.query.leagueMembership.findFirst({
-        where: { id: charge.sourceId as Id<"leagueMembership"> },
-      });
-      if (!membership) {
-        continue;
-      }
-
-      const league = await ctx.orm.query.league.findFirst({
-        where: { id: membership.leagueId as Id<"league"> },
-      });
-      if (!league) {
-        continue;
-      }
-
-      const intervalMs = resolveBillingIntervalMs(league.priceBillingInterval);
-      if (!Number.isFinite(intervalMs)) {
-        continue;
-      }
-
-      // Due date of the cycle this charge bought; charges predating `periodEndAt`
-      // keep the paidAt + interval estimate.
-      const nextDueMs =
-        charge.periodEndAt?.getTime() ?? charge.paidAt.getTime() + intervalMs;
-
-      // Not the latest PAID charge means the player already renewed — skip.
-      const newer = await ctx.orm.query.paymentCharge.findFirst({
-        orderBy: { paidAt: "desc" },
-        where: {
-          sourceId: charge.sourceId,
-          sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
-          status: "PAID",
-        },
-      });
-      if (newer && newer.id !== charge.id) {
-        continue;
-      }
-
-      const gracePeriodDays =
-        league.gracePeriodDays ?? DEFAULT_LEAGUE_GRACE_PERIOD_DAYS;
-      const reminderDaysBefore =
-        league.reminderDaysBefore ?? DEFAULT_LEAGUE_REMINDER_DAYS_BEFORE;
-
-      const playerProfile = await ctx.orm.query.playerProfile.findFirst({
-        where: { id: membership.playerProfileId as Id<"playerProfile"> },
-      });
-
-      // --- Phase 3: grace period elapsed → suspend ---
-      if (shouldSuspend({ gracePeriodDays, nextDueMs, nowMs: now })) {
-        // Only on active/payment_due → suspended transition (avoid re-spam).
-        if (
-          membership.status === "active" ||
-          membership.status === "payment_due"
-        ) {
-          await ctx.orm
-            .update(leagueMembership)
-            .set({
-              status: "suspended",
-              updatedAt: nowDate,
-            })
-            .where(eq(leagueMembership.id, membership.id));
-
-          // The overdue notice supersedes the reminder: retire it so the player
-          // keeps a single live billing notice.
-          await retractMembershipRenewalReminders(ctx, membership.id);
-
-          if (playerProfile?.userId) {
-            await scheduleLeagueNotification(ctx, {
-              eventType: "league.membership.renewal_due",
-              leagueId: membership.leagueId as Id<"league">,
-              // No `chargeId`: no PENDING charge exists, so the deep link
-              // points to the league.
-              metadata: { membershipId: membership.id },
-              recipientUserIds: [playerProfile.userId as Id<"user">],
-            });
-          }
-        }
-        continue;
-      }
-
-      // --- Phase 2: due date passed → mark payment_due ---
-      if (shouldMarkPaymentDue({ nextDueMs, nowMs: now })) {
-        if (membership.status === "active") {
-          await ctx.orm
-            .update(leagueMembership)
-            .set({
-              status: "payment_due",
-              updatedAt: nowDate,
-            })
-            .where(eq(leagueMembership.id, membership.id));
-
-          // The overdue notice supersedes the reminder: retire it so the player
-          // keeps a single live billing notice.
-          await retractMembershipRenewalReminders(ctx, membership.id);
-
-          if (playerProfile?.userId) {
-            await scheduleLeagueNotification(ctx, {
-              eventType: "league.membership.payment_due",
-              leagueId: membership.leagueId as Id<"league">,
-              // No `chargeId`: renewing opens a fresh checkout on the league
-              // and no PENDING charge exists right now.
-              metadata: { membershipId: membership.id },
-              recipientUserIds: [playerProfile.userId as Id<"user">],
-            });
-          }
-        }
-        continue;
-      }
-
-      // --- Phase 1: approaching due date → one live reminder per cycle ---
-      if (
-        shouldSendRenewalReminder({
-          nextDueMs,
-          nowMs: now,
-          reminderDaysBefore,
-        })
-      ) {
-        // Re-run guard: the per-cycle dedupe is the reminder row itself (it is
-        // rewritten, never duplicated), so this only avoids double work when the
-        // cron fires twice within a day.
-        const lastSentMs = membership.lastRenewalReminderSentAt?.getTime() ?? 0;
-        if (now - lastSentMs >= REMINDER_DEDUPE_MS) {
-          if (playerProfile?.userId) {
-            // Deep link: a PENDING charge when one exists, else the league page —
-            // never the PAID charge that opened this cycle.
-            const pendingCharge = await ctx.runMutation(
-              internal.payment.charge.findPendingChargeForSource,
-              {
-                sourceId: membership.id,
-                sourceType: SOURCE_TYPE_LEAGUE_MEMBERSHIP,
-                // The lookup enforces ownership, so it runs as the membership's
-                // own player.
-                userId: playerProfile.userId,
-              }
-            );
-
-            await upsertRenewalReminder(ctx, {
-              cycleEndMs: nextDueMs,
-              daysLeft: renewalDaysLeft({ nextDueMs, nowMs: now }),
-              leagueId: membership.leagueId as Id<"league">,
-              leagueName: league.name,
-              membershipId: membership.id,
-              pendingChargeId: pendingCharge?.chargeId ?? null,
-              recipientUserId: playerProfile.userId as Id<"user">,
-            });
-          }
-          await ctx.orm
-            .update(leagueMembership)
-            .set({
-              lastRenewalReminderSentAt: nowDate,
-              updatedAt: nowDate,
-            })
-            .where(eq(leagueMembership.id, membership.id));
-        }
-      }
-    }
-
-    return { processed: paid.length };
-  }
-);
 
 /**
  * Catches missed webhooks by polling the provider for PENDING charges older than
@@ -1818,9 +980,7 @@ function asciiSafe(value: string): string {
 
 export const simulatePayment = authMutation
   .input(z.object({ chargeId: z.string().min(1) }))
-  .output(
-    z.object({ activated: z.boolean(), membershipId: z.string().nullable() })
-  )
+  .output(z.object({ activated: z.boolean() }))
   .mutation(async ({ ctx, input }) => {
     if (getEnv().DEPLOY_ENV === "production") {
       throw new CRPCError({

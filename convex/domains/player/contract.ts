@@ -56,10 +56,8 @@ export const playerProfileSchema = z.object({
 // ---------------------------------------------------------------------------
 //
 // One aggregate for the player-mode home: upcoming matches, consolidated W/L
-// across leagues and tournaments, current league positions with their position
-// series (ranking snapshots), active tournament entries per category and the
-// most frequent doubles partner. Read-only over the existing buckets — no new
-// table.
+// across tournaments, active tournament entries per category and the most
+// frequent doubles partner. Read-only over the existing buckets — no new table.
 
 export const playerDashboardPlayerCardSchema = z.object({
   avatarUrl: z.string().nullable(),
@@ -80,7 +78,6 @@ export const playerDashboardUpcomingMatchSchema = z.object({
     .max(24 * 60)
     .nullable(),
   id: z.string(),
-  kind: z.enum(["league_challenge", "tournament_match"]),
   matchDate: z.string(),
   opponents: z.array(playerDashboardPlayerCardSchema),
   partner: playerDashboardPlayerCardSchema.nullable(),
@@ -97,20 +94,6 @@ export const playerDashboardResultMonthSchema = z.object({
   wins: z.number().int().nonnegative(),
 });
 
-export const playerDashboardPositionPointSchema = z.object({
-  at: z.number(),
-  position: z.number().int().min(1),
-});
-
-export const playerDashboardLeaguePositionSchema = z.object({
-  leagueId: z.string(),
-  leagueName: z.string(),
-  membershipId: z.string(),
-  position: z.number().int().min(1).nullable(),
-  rankingSize: z.number().int().min(1).nullable(),
-  series: z.array(playerDashboardPositionPointSchema),
-});
-
 export const playerDashboardEntryCategorySchema = z.object({
   categoryId: z.string(),
   displayName: z.string(),
@@ -125,7 +108,6 @@ export const playerDashboardPartnerSchema = z.object({
 export const playerDashboardOverviewSchema = z.object({
   entryCategories: z.array(playerDashboardEntryCategorySchema),
   frequentPartner: playerDashboardPartnerSchema.nullable(),
-  leagues: z.array(playerDashboardLeaguePositionSchema),
   performance: z.object({
     byMonth: z.array(playerDashboardResultMonthSchema),
     losses: z.number().int().nonnegative(),
@@ -140,9 +122,6 @@ export type PlayerDashboardPlayerCard = z.infer<
 >;
 export type PlayerDashboardUpcomingMatch = z.infer<
   typeof playerDashboardUpcomingMatchSchema
->;
-export type PlayerDashboardLeaguePosition = z.infer<
-  typeof playerDashboardLeaguePositionSchema
 >;
 export type PlayerDashboardOverview = z.infer<
   typeof playerDashboardOverviewSchema

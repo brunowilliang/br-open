@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { seedPlayers } from "../data";
 import {
-  buildPendencyChargeCorrelationId,
   comparePendencyTargetRecency,
-  PENDENCY_SEED_LAST_MATCH_DAYS_AGO,
-  PENDENCY_SEED_LEAGUES,
   PENDENCY_SEED_PRIMARY_ENTRY_TARGETS,
   PENDENCY_SEED_TOURNAMENTS,
   PENDENCY_SEED_VIEWER_GENDER,
@@ -57,55 +54,6 @@ const EXPECTED_OCCUPANT_GENDERS: Record<
 const PROFILE_GENDER_BY_INDEX = seedPlayers.map((player) => player.gender);
 
 describe("seed: cenario de pendencias", () => {
-  it("cobre as tres variantes de mensalidade em ligas pagas e distintas", () => {
-    const statuses = PENDENCY_SEED_LEAGUES.map(
-      (league) => league.viewerMembershipStatus
-    );
-
-    // Status e por (liga, jogador): status repetido nao cobriria as tres.
-    expect(statuses).toEqual(["payment_due", "active", "suspended"]);
-    expect(
-      PENDENCY_SEED_LEAGUES.every((league) => league.monthlyPriceCents > 0)
-    ).toBe(true);
-  });
-
-  it("so a liga do ciclo tem vencimento pago, dentro da janela de lembrete", () => {
-    const withCycle = PENDENCY_SEED_LEAGUES.filter(
-      (league) => league.paidDaysUntilDue !== null
-    );
-
-    expect(withCycle).toHaveLength(1);
-    expect(withCycle[0]!.viewerMembershipStatus).toBe("active");
-    expect(withCycle[0]!.paidDaysUntilDue!).toBeLessThanOrEqual(
-      withCycle[0]!.reminderDaysBefore
-    );
-  });
-
-  it("a liga com penalidade cai na janela WARNING do risco de inatividade", () => {
-    const withPenalty = PENDENCY_SEED_LEAGUES.filter(
-      (league) => league.hasInactivityPenalty
-    );
-
-    expect(withPenalty).toHaveLength(1);
-    expect(withPenalty[0]!.inactivityPenaltyType).not.toBeNull();
-    expect(
-      PENDENCY_SEED_LEAGUES.filter(
-        (league) => !league.hasInactivityPenalty
-      ).every(
-        (league) =>
-          league.inactivityPenaltyDays === null &&
-          league.inactivityPenaltyType === null
-      )
-    ).toBe(true);
-    const daysUntilPenalty =
-      (withPenalty[0]!.inactivityPenaltyDays ?? 0) -
-      PENDENCY_SEED_LAST_MATCH_DAYS_AGO;
-
-    // 0 ou menos ja seria danger (o warning e o estado que o usuario faz piorar).
-    expect(daysUntilPenalty).toBeGreaterThan(0);
-    expect(daysUntilPenalty).toBeLessThanOrEqual(7);
-  });
-
   it("cada torneio tem as categorias do cenario e nenhum perfil em duas", () => {
     for (const tournament of PENDENCY_SEED_TOURNAMENTS) {
       const occupantsByCategory: Record<string, string[]> = {};
@@ -164,26 +112,6 @@ describe("seed: cenario de pendencias", () => {
         }
       }
     }
-  });
-
-  it("a chave da charge e deterministica e distinta por liga", () => {
-    const first = buildPendencyChargeCorrelationId({
-      key: "due-soon",
-      membershipId: "membership-1",
-    });
-
-    expect(
-      buildPendencyChargeCorrelationId({
-        key: "due-soon",
-        membershipId: "membership-1",
-      })
-    ).toBe(first);
-    expect(
-      buildPendencyChargeCorrelationId({
-        key: "payment-due",
-        membershipId: "membership-1",
-      })
-    ).not.toBe(first);
   });
 });
 

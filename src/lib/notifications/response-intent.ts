@@ -1,37 +1,3 @@
-import {
-  NOTIFICATION_ACTION_IDS,
-  NOTIFICATION_PUSH_CATEGORY_IDS,
-  type NotificationActionId,
-} from "@convex/shared/notifications/protocol";
-
-export const NOTIFICATION_CATEGORY_IDENTIFIERS = NOTIFICATION_PUSH_CATEGORY_IDS;
-export const NOTIFICATION_ACTION_IDENTIFIERS = NOTIFICATION_ACTION_IDS;
-
-type NotificationActionDefinition = {
-  buttonTitle: string;
-  identifier: NotificationActionId;
-  options?: {
-    isDestructive?: boolean;
-    opensAppToForeground?: boolean;
-  };
-};
-
-export const LEAGUE_MEMBERSHIP_REQUEST_NOTIFICATION_ACTIONS = [
-  {
-    buttonTitle: "Aprovar",
-    identifier: NOTIFICATION_ACTION_IDENTIFIERS.leagueMembershipRequestApprove,
-    options: { opensAppToForeground: true },
-  },
-  {
-    buttonTitle: "Recusar",
-    identifier: NOTIFICATION_ACTION_IDENTIFIERS.leagueMembershipRequestReject,
-    options: {
-      isDestructive: true,
-      opensAppToForeground: true,
-    },
-  },
-] as const satisfies readonly NotificationActionDefinition[];
-
 type NotificationResponseData = Record<string, unknown>;
 
 type NotificationFeedResponseItem = {
@@ -57,28 +23,12 @@ export type NotificationResponseActor =
       playerProfileId?: string;
     };
 
-export type NotificationResponseIntent =
-  | {
-      kind: "open";
-      notificationId?: string;
-      recipientActor?: NotificationResponseActor;
-      url: string | null;
-    }
-  | {
-      kind: "approveLeagueMembership";
-      leagueId: string;
-      membershipId: string;
-      notificationId?: string;
-      recipientActor?: NotificationResponseActor;
-      url: string;
-    }
-  | {
-      kind: "rejectLeagueMembership";
-      leagueId: string;
-      membershipId: string;
-      notificationId?: string;
-      recipientActor?: NotificationResponseActor;
-    };
+export type NotificationResponseIntent = {
+  kind: "open";
+  notificationId?: string;
+  recipientActor?: NotificationResponseActor;
+  url: string | null;
+};
 
 type ResolveNotificationResponseIntentInput = {
   actionIdentifier: string;
@@ -87,9 +37,6 @@ type ResolveNotificationResponseIntentInput = {
 
 const readString = (value: unknown) =>
   typeof value === "string" && value.length > 0 ? value : null;
-
-const getLeagueRankingUrl = (leagueId: string) =>
-  `/leagues/${leagueId}/ranking`;
 
 function getRecipientActor(
   data: NotificationResponseData
@@ -176,39 +123,5 @@ function getOpenIntent(
 export function resolveNotificationResponseIntent(
   input: ResolveNotificationResponseIntentInput
 ): NotificationResponseIntent {
-  const eventType = readString(input.data.eventType);
-  const leagueId = readString(input.data.leagueId);
-  const membershipId = readString(input.data.membershipId);
-  const notificationId = readString(input.data.notificationId);
-
-  if (eventType === "league.membership.requested" && leagueId && membershipId) {
-    if (
-      input.actionIdentifier ===
-      NOTIFICATION_ACTION_IDENTIFIERS.leagueMembershipRequestApprove
-    ) {
-      return {
-        kind: "approveLeagueMembership",
-        leagueId,
-        membershipId,
-        ...(notificationId ? { notificationId } : {}),
-        ...getRecipientActorPayload(input.data),
-        url: getLeagueRankingUrl(leagueId),
-      };
-    }
-
-    if (
-      input.actionIdentifier ===
-      NOTIFICATION_ACTION_IDENTIFIERS.leagueMembershipRequestReject
-    ) {
-      return {
-        kind: "rejectLeagueMembership",
-        leagueId,
-        membershipId,
-        ...(notificationId ? { notificationId } : {}),
-        ...getRecipientActorPayload(input.data),
-      };
-    }
-  }
-
   return getOpenIntent(input.data);
 }

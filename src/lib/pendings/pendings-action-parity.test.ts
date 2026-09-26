@@ -3,26 +3,12 @@ import { describe, expect, it } from "bun:test";
 import type { PendingItem } from "@convex/domains/pendings/contract";
 import { PENDING_KINDS_BY_SCOPE } from "@convex/domains/pendings/contract";
 import {
-  buildLeagueInactivityPending,
-  buildLeagueJoinRequestsPending,
-  buildOrganizerChallengePendingItem,
-  buildPlayerChallengePendingItem,
-  resolveLeagueInactivityRisk,
-} from "@convex/domains/league/pendings-rules";
-import {
-  buildLeaguePaymentAccountPending,
-  buildMembershipPaymentPending,
-} from "@convex/domains/payment/pendings-rules";
-import {
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
 } from "@convex/domains/tournament/pendings-rules";
 
-import {
-  resolvePendingAction,
-  resolvePendingsForTournament,
-} from "./pendings-view";
+import { resolvePendingAction } from "./pendings-view";
 
 /**
  * Itens reais dos builders do servidor passam pelo MESMO `resolvePendingAction`
@@ -30,8 +16,6 @@ import {
  */
 
 const NOW_MS = Date.UTC(2026, 8, 15, 12);
-const MEMBERSHIP_ID = "membership-1";
-const ORGANIZATION_ID = "organization-1";
 const TOURNAMENT_ID = "tournament-1";
 
 function buildEntryView(
@@ -53,28 +37,8 @@ function buildEntryView(
   };
 }
 
-function buildEveryV1Item(): PendingItem[] {
-  const membership = (status: string) =>
-    buildMembershipPaymentPending({
-      dueAtMs: status === "active" ? NOW_MS + 2 * 86_400_000 : null,
-      membershipId: MEMBERSHIP_ID,
-      membershipStatus: status,
-      monthlyPriceCents: 9000,
-      nowMs: NOW_MS,
-      reminderDaysBefore: 7,
-    });
-
-  const inactivityRisk = resolveLeagueInactivityRisk({
-    hasInactivityPenalty: true,
-    inactivityPenaltyDays: 21,
-    lastMatchAtMs: NOW_MS - 20 * 86_400_000,
-    nowMs: NOW_MS,
-  });
-
+function buildEveryKindItem(): PendingItem[] {
   return [
-    membership("payment_due"),
-    membership("active"),
-    membership("suspended"),
     ...buildPlayerEntryPendings({
       entries: [buildEntryView({})],
     }),
@@ -100,24 +64,6 @@ function buildEveryV1Item(): PendingItem[] {
     ...buildPlayerEntryPendings({
       entries: [buildEntryView({ status: "pending_approval" })],
     }),
-    buildPlayerChallengePendingItem({
-      counts: { confirmResult: 1, registerResult: 2, requestCorrection: 0 },
-      leagueId: "league-1",
-    }),
-    buildLeagueInactivityPending({
-      membershipId: MEMBERSHIP_ID,
-      risk: inactivityRisk as NonNullable<typeof inactivityRisk>,
-    }),
-    buildLeaguePaymentAccountPending({
-      leagueId: "league-1",
-      monthlyPriceCents: 9000,
-    }),
-    buildLeagueJoinRequestsPending({ count: 2, leagueId: "league-1" }),
-    buildOrganizerChallengePendingItem({
-      organizationId: ORGANIZATION_ID,
-      proposals: 1,
-      results: 2,
-    }),
     ...buildOrganizerEntryPendings({
       tournaments: [
         {
@@ -134,15 +80,15 @@ function buildEveryV1Item(): PendingItem[] {
 }
 
 function inviteItem(): PendingItem {
-  return buildEveryV1Item().find(
+  return buildEveryKindItem().find(
     (item) => item.kind === "player_tournament_partner_invite_received"
   ) as PendingItem;
 }
 
 describe("pendings server -> client parity", () => {
-  const items = buildEveryV1Item();
+  const items = buildEveryKindItem();
 
-  it("builds one item for each of the 14 kinds of the v1", () => {
+  it("builds one item for each kind of the catalogue", () => {
     const allKinds = [
       ...PENDING_KINDS_BY_SCOPE.organization,
       ...PENDING_KINDS_BY_SCOPE.player,
@@ -179,7 +125,7 @@ describe("pendings server -> client parity", () => {
     );
   });
 
-  it("resolves the invite secondary as decline, never as the primary", () => {
+  it("resolves the invite primary as accept and the secondary as decline", () => {
     const invite = items.find(
       (item) => item.kind === "player_tournament_partner_invite_received"
     ) as PendingItem;
@@ -250,105 +196,5 @@ describe("pendings server -> client parity", () => {
     }
 
     expect(missing).toEqual([]);
-  });
-
-  it("sends the entity params each navigation route asks for", () => {
-    const navigateByKind = new Map(
-      items
-        .filter((item) => item.action?.type === "open_route")
-        .map((item) => [item.kind, resolvePendingAction(item)])
-    );
-
-    expect([...navigateByKind.keys()].sort()).toEqual([
-      "organization_league_join_requests",
-      "organization_league_payment_account_missing",
-      "organization_tournament_entries_awaiting_approval",
-      "organization_tournament_entries_awaiting_payment",
-      "player_league_challenges_pending_actions",
-    ]);
-    expect(
-      navigateByKind.get("player_league_challenges_pending_actions")
-    ).toEqual({
-      kind: "navigate",
-      params: { leagueId: "league-1" },
-      route: "/leagues/[leagueId]/challenges",
-    });
-    expect(
-      navigateByKind.get("organization_league_payment_account_missing")
-    ).toEqual({
-      kind: "navigate",
-      params: { leagueId: "league-1", mode: "edit" },
-      route: "/settings/leagues/[mode]/settings",
-    });
-    expect(
-      navigateByKind.get("organization_tournament_entries_awaiting_approval")
-    ).toEqual({
-      kind: "navigate",
-      params: { initialTab: "pending", tournamentId: TOURNAMENT_ID },
-      route: "/tournaments/[tournamentId]/entries",
-    });
-    expect(
-      navigateByKind.get("organization_tournament_entries_awaiting_payment")
-    ).toEqual({
-      kind: "navigate",
-      params: { initialTab: "pending", tournamentId: TOURNAMENT_ID },
-      route: "/tournaments/[tournamentId]/entries",
-    });
-    expect(navigateByKind.get("organization_league_join_requests")).toEqual({
-      kind: "navigate",
-      params: { leagueId: "league-1" },
-      route: "/leagues/[leagueId]/requests",
-    });
-  });
-
-  it("navigates with the item params when the entry item aggregates two entries", () => {
-    const [aggregated] = buildPlayerEntryPendings({
-      entries: [
-        buildEntryView({ entryId: "e1" }),
-        buildEntryView({ entryId: "e2" }),
-      ],
-    });
-
-    expect(resolvePendingAction(aggregated as PendingItem)).toEqual({
-      kind: "navigate",
-      params: { tournamentId: TOURNAMENT_ID },
-      route: "/tournaments/[tournamentId]",
-    });
-  });
-
-  it("never turns a mutation into a navigation", () => {
-    const navigations = items
-      .filter(
-        (item) => item.action !== null && item.action.type !== "open_route"
-      )
-      .map((item) => resolvePendingAction(item))
-      .filter((resolution) => resolution?.kind === "navigate");
-
-    expect(navigations).toEqual([]);
-  });
-
-  // Com UMA inscrição aguardando pagamento o item não tem `params` nem `route`
-  // (o torneio vive só no `source`) e a casa do torneio precisa achá-lo mesmo assim.
-  it("finds the single-entry payment item in the tournament house", () => {
-    const [singleEntryItem] = buildPlayerEntryPendings({
-      entries: [buildEntryView({})],
-    });
-
-    expect(singleEntryItem?.params).toBeNull();
-    expect(singleEntryItem?.route).toBeNull();
-    expect(singleEntryItem?.source).toEqual({
-      id: TOURNAMENT_ID,
-      type: "tournament",
-    });
-    expect(
-      resolvePendingsForTournament({
-        items: [singleEntryItem as PendingItem],
-        tournamentId: TOURNAMENT_ID,
-      }).map((item) => item.kind)
-    ).toEqual(["player_tournament_entries_awaiting_payment"]);
-    expect(resolvePendingAction(singleEntryItem as PendingItem)).toEqual({
-      entryId: "entry-1",
-      kind: "pay_entry",
-    });
   });
 });

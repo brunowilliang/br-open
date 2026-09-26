@@ -1,4 +1,3 @@
-import { LEAGUE_MEMBERSHIP_STATUSES } from "../league/contract";
 import type { PaymentChargeStatus, SplitConfig } from "./contract";
 
 /** PIX validity, in seconds: the same value goes to Woovi as `expiresIn`. */
@@ -48,36 +47,6 @@ export function hasUsablePix(args: {
   );
 }
 
-type MembershipLike = { status: string };
-
-const CHARGEABLE_MEMBERSHIP_STATUSES: ReadonlySet<string> = new Set([
-  LEAGUE_MEMBERSHIP_STATUSES.AWAITING_PAYMENT,
-  LEAGUE_MEMBERSHIP_STATUSES.PAYMENT_DUE,
-  LEAGUE_MEMBERSHIP_STATUSES.SUSPENDED,
-]);
-
-/** `awaiting_payment`, `payment_due` and `suspended` are chargeable; `active`
- * only with `renewal` (the current due date) inside the league window —
- * callers that don't resolve the billing cycle keep it non-chargeable. */
-export function canMembershipBeCharged(
-  membership: MembershipLike,
-  renewal?: null | {
-    nextDueMs: number;
-    nowMs: number;
-    reminderDaysBefore: number;
-  }
-): boolean {
-  if (CHARGEABLE_MEMBERSHIP_STATUSES.has(membership.status)) {
-    return true;
-  }
-
-  if (membership.status !== LEAGUE_MEMBERSHIP_STATUSES.ACTIVE || !renewal) {
-    return false;
-  }
-
-  return isWithinRenewalWindow(renewal);
-}
-
 /** Unknown provider statuses fall back to PENDING, never to PAID. */
 export function normalizeProviderStatus(
   raw?: null | string
@@ -93,6 +62,12 @@ export function normalizeProviderStatus(
       return CHARGE_STATUS_PENDING;
   }
 }
+
+/** BR-Open platform fee percent (0-100) applied when the payable source has no
+ * explicit override: the organizer receives `(100 - fee)%`, BR-Open keeps
+ * `fee%`. The final per-charge fee is
+ * `max(feePercent · ticket, Woovi fee + margin)` — see `computeSplit`. */
+export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
 
 /** Floor of the BR-Open fee AFTER the Woovi fee: on cheap tickets the
  * organizer pays the difference when the percentage cut would net less. */
@@ -141,85 +116,9 @@ export function computeSplit(args: {
 
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-export function shouldSendRenewalReminder(args: {
-  nextDueMs: number;
-  nowMs: number;
-  reminderDaysBefore: number;
-}): boolean {
-  const msUntilDue = args.nextDueMs - args.nowMs;
-  return msUntilDue > 0 && msUntilDue <= args.reminderDaysBefore * MS_PER_DAY;
-}
-
-export function shouldMarkPaymentDue(args: {
-  nextDueMs: number;
-  nowMs: number;
-}): boolean {
-  return args.nextDueMs <= args.nowMs;
-}
-
-export function shouldSuspend(args: {
-  nextDueMs: number;
-  nowMs: number;
-  gracePeriodDays: number;
-}): boolean {
-  const suspensionMs = args.nextDueMs + args.gracePeriodDays * MS_PER_DAY;
-  return args.nowMs >= suspensionMs;
-}
-
-export const BILLING_INTERVAL_MS: Record<string, number> = {
-  month: 30 * MS_PER_DAY,
-  once: Number.POSITIVE_INFINITY,
-  quarter: 90 * MS_PER_DAY,
-  week: 7 * MS_PER_DAY,
-  year: 365 * MS_PER_DAY,
-};
-
-export function resolveBillingIntervalMs(
-  priceBillingInterval?: null | string
-): number {
-  return (
-    BILLING_INTERVAL_MS[priceBillingInterval ?? "month"] ??
-    (BILLING_INTERVAL_MS.month as number)
-  );
-}
-
-/** Wider than `shouldSendRenewalReminder` and with no lower bound: also true
- * past the due date, while the cron hasn't flipped `active` yet. */
-export function isWithinRenewalWindow(args: {
-  nextDueMs: number;
-  nowMs: number;
-  reminderDaysBefore: number;
-}): boolean {
-  return args.nextDueMs - args.nowMs <= args.reminderDaysBefore * MS_PER_DAY;
-}
-
-/** Stacks on the due date already paid for (or `paidAt` on the first payment),
- * never on today: renewing early must not shrink the paid period. */
-export function computeStackedPeriodEndMs(args: {
-  currentDueMs: null | number | undefined;
-  intervalMs: number;
-  paidAtMs: number;
-}): number {
-  const baseMs = Math.max(args.paidAtMs, args.currentDueMs ?? 0);
-  return baseMs + args.intervalMs;
-}
-
 /** Brazil dropped DST, so a fixed UTC-3 is exact; the app must label dates with
  * this same offset or they disagree near midnight. */
 export const BRAZIL_UTC_OFFSET_MS = -3 * 60 * 60 * 1000;
-
-/** Calendar days, not a 24h window: a due date later today reads "vence
- * hoje". Both terms shift by BRT — counted in UTC, a 21:00-23:59 BRT due
- * instant lands a day ahead. */
-export function renewalDaysLeft(args: {
-  nextDueMs: number;
-  nowMs: number;
-}): number {
-  return (
-    Math.floor((args.nextDueMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY) -
-    Math.floor((args.nowMs + BRAZIL_UTC_OFFSET_MS) / MS_PER_DAY)
-  );
-}
 
 /** Month bucket on the Brazilian calendar: a charge paid 23:59 BRT on the
  * month's last day belongs to that month, not the next. */
@@ -254,26 +153,8 @@ export function monthKeyWindowStartMs(monthKey: string): number {
   return Date.UTC(year, month - 1, 1) - BRAZIL_UTC_OFFSET_MS;
 }
 
-/** `otherActiveMembers` excludes the membership being charged, and a renewal
- * holds the slot it owns — refunding it would evict a paying member. */
-export function wouldExceedLeagueCapacity(args: {
-  isRenewal: boolean;
-  maxPlayers: null | number | undefined;
-  otherActiveMembers: number;
-}): boolean {
-  if (args.isRenewal) {
-    return false;
-  }
-
-  if (args.maxPlayers === null || args.maxPlayers === undefined) {
-    return false;
-  }
-
-  return args.otherActiveMembers >= args.maxPlayers;
-}
-
-/** Only the owner of the source (membership player / entry payer) may create
- * or reuse its charge; a caller with no player profile never owns one. */
+/** Only the owner of the source (the entry payer) may create or reuse its
+ * charge; a caller with no player profile never owns one. */
 export function ownsPayableSource(args: {
   callerProfileId: null | string | undefined;
   ownerProfileId: null | string | undefined;

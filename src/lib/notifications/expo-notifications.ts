@@ -4,10 +4,6 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import type { NotificationPermissionStatus } from "./notification-permission-rules";
-import {
-  LEAGUE_MEMBERSHIP_REQUEST_NOTIFICATION_ACTIONS,
-  NOTIFICATION_CATEGORY_IDENTIFIERS,
-} from "./response-intent";
 
 // Pure permission predicates live in ./notification-permission-rules so they
 // can be unit-tested without importing react-native. The status type is
@@ -86,21 +82,6 @@ async function ensureAndroidNotificationChannel() {
     name: "Notificacoes",
     vibrationPattern: [0, 250, 250, 250],
   });
-}
-
-export async function registerNotificationCategoriesAsync() {
-  if (Platform.OS === "web") {
-    return;
-  }
-
-  await Notifications.setNotificationCategoryAsync(
-    NOTIFICATION_CATEGORY_IDENTIFIERS.leagueMembershipRequest,
-    LEAGUE_MEMBERSHIP_REQUEST_NOTIFICATION_ACTIONS.map((action) => ({
-      buttonTitle: action.buttonTitle,
-      identifier: action.identifier,
-      options: { ...action.options },
-    }))
-  );
 }
 
 export async function registerForPushNotificationsAsync(input: {
