@@ -20,10 +20,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
-import {
-  RuleCard,
-  RuleExpandableContent,
-} from "@/components/pages/leagues/rule-card";
+import { RuleCard, RuleExpandableContent } from "@/components/ui/rule-card";
 import {
   TOURNAMENT_CATEGORY_PRESETS,
   type TournamentScreenValues,

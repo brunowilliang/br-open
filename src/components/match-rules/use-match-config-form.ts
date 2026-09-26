@@ -18,8 +18,8 @@ type MatchConfigPaths = Record<MatchConfigField, string>;
 /**
  * Full RHF field paths for a matchConfig nested under `prefix` — e.g.
  * buildMatchConfigPaths("matchConfig").bestOfSets === "matchConfig.bestOfSets".
- * Lets the shared rule sections work for both the league form
- * ("ruleConfig.matchConfig") and the tournament form ("matchConfig").
+ * Lets the shared rule sections work with any prefix the form mounts the
+ * matchConfig under (the tournament form uses "matchConfig").
  */
 export function buildMatchConfigPaths(prefix: string): MatchConfigPaths {
   return Object.fromEntries(

@@ -45,7 +45,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { formatLeagueMeta } from "@/lib/leagues/presentation";
+import { formatCompetitionMeta } from "@/lib/format/competition";
 import {
   buildRegistrationWindowState,
   buildStartWarnings,
@@ -639,7 +639,8 @@ export default function TournamentOverviewRoute() {
 
 /**
  * Stretch banner: reage ao scroll da página (SharedValue da UI thread) com o
- * efeito "stretch to zoom" no overscroll. Molde de leagues/[leagueId]/index.tsx.
+ * efeito "stretch to zoom" no overscroll: a posição do scroll dirigindo a
+ * escala do banner.
  */
 function TournamentBanner(props: {
   tournament: ApiOutputs["tournament"]["discovery"]["getById"];
@@ -729,7 +730,7 @@ function TournamentBanner(props: {
           <Chip color="accent" size="sm" variant="soft">
             <HugeIcons className="size-3 text-accent" icon={Location06Icon} />
             <Chip.Label>
-              {formatLeagueMeta(tournament.city, tournament.state)}
+              {formatCompetitionMeta(tournament.city, tournament.state)}
             </Chip.Label>
           </Chip>
         </View>

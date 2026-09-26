@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "../../league/contract";
+import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
 import { CreateTournamentSchema, UpdateTournamentSchema } from "../contract";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,7 +22,7 @@ function buildTournamentInput(bestOfSets: number) {
     city: "Dracena",
     courts: [],
     coverStorageId: null,
-    matchConfig: { ...DEFAULT_LEAGUE_MATCH_CONFIG, bestOfSets },
+    matchConfig: { ...DEFAULT_MATCH_CONFIG, bestOfSets },
     name: "Circuito Dracena Open",
     registrationDeadlineAt: now + DAY_MS,
     startDate: now + 2 * DAY_MS,
@@ -77,7 +77,7 @@ describe("CreateTournamentSchema tie-break points (R11)", () => {
     const result = CreateTournamentSchema.safeParse({
       ...buildTournamentInput(3),
       matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        ...DEFAULT_MATCH_CONFIG,
         bestOfSets: 3,
         tieBreakPoints: 5,
       },
@@ -96,7 +96,7 @@ describe("CreateTournamentSchema tie-break points (R11)", () => {
     const result = CreateTournamentSchema.safeParse({
       ...buildTournamentInput(3),
       matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        ...DEFAULT_MATCH_CONFIG,
         bestOfSets: 3,
         finalSetMode: "super_tiebreak",
         finalSetSuperTieBreakPoints: 10,

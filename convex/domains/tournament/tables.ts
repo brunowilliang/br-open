@@ -24,16 +24,16 @@ export const tournament = convexTable(
     createdAt: timestamp().notNull(),
     description: text(),
     locationNotes: text(),
-    // Format of the matches (reuse of the league's match config).
+    // Format of the matches (same shape as the `domains/match` config).
     matchConfig: json<Record<string, unknown>>().notNull(),
     maxEntriesHint: integer(),
     name: text().notNull(),
     organizationId: id("organization")
       .notNull()
       .references(() => authTables.organization.id, { onDelete: "cascade" }),
-    // BR-Open platform fee override for this tournament (0-100), same
-    // pattern as `league.platformFeePercent` (DECISAO-004). Null falls back
-    // to DEFAULT_PLATFORM_FEE_PERCENT; set via Convex dashboard.
+    // BR-Open platform fee override for this tournament (0-100), the same
+    // override DECISAO-004 defines for every paid surface. Null falls back to
+    // DEFAULT_PLATFORM_FEE_PERCENT; set via Convex dashboard.
     platformFeePercent: integer(),
     // Inscriptions open until this instant (draw closes them earlier).
     registrationDeadlineAt: timestamp().notNull(),
@@ -149,7 +149,7 @@ export const tournamentMatch = convexTable(
     entryBId: id("tournamentEntry").references(() => tournamentEntry.id, {
       onDelete: "set null",
     }),
-    // Optional scheduling (date + time window + court), league pattern.
+    // Optional scheduling (date + time window + court).
     matchDate: text(),
     // When set, the result was PUBLISHED by the organizer and the slot is
     // locked for swaps. Draw-time byes set winnerEntryId WITHOUT publishedAt

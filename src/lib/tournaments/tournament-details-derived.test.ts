@@ -17,7 +17,6 @@ import {
   formatBracketStage,
   formatEntryPlayerNames,
   formatEntrySideLabel,
-  getMatchStatusChip,
   isBracketPublic,
   resolveTournamentEntriesTab,
   walkoverWinnerSide,
@@ -94,23 +93,6 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
         canOpenSchedule: true,
       });
     }
-  });
-});
-
-describe("getMatchStatusChip", () => {
-  test("vaga podada não desenha chip; final decidida vira Campeão", () => {
-    expect(getMatchStatusChip("vacant")).toBeNull();
-    expect(getMatchStatusChip("champion")).toEqual({
-      color: "accent",
-      label: "Campeão",
-    });
-  });
-
-  test("status fora do vocabulário cai no rótulo cru", () => {
-    expect(getMatchStatusChip("mystery")).toEqual({
-      color: "default",
-      label: "mystery",
-    });
   });
 });
 

@@ -3,7 +3,7 @@ import type {
   TournamentMatch,
 } from "@convex/domains/tournament/contract";
 
-import type { BracketScoreSet } from "./bracket-score-display";
+import type { ScoreSet } from "@/lib/matches/score-display";
 import { buildMatchSides } from "./bracket-view";
 import {
   formatBracketStage,
@@ -18,7 +18,7 @@ export type ScheduledMatchItem = {
   id: string;
   matchDate: string;
   matchStatus: string;
-  scoreSets: null | BracketScoreSet[];
+  scoreSets: null | ScoreSet[];
   sideAAvatarUrl: null | string;
   sideAName: string;
   sideAPartnerAvatarUrl: null | string;

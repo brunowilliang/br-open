@@ -4,7 +4,7 @@
  * tie-break anexo por linha. O render (número e TB no canto, com estilos
  * próprios) mora no `ui/match-card.tsx`.
  */
-export type BracketScoreSet = {
+export type ScoreSet = {
   aGames: number;
   bGames: number;
   kind: "set" | "super_tiebreak" | "tiebreak";
@@ -25,7 +25,7 @@ export type BracketScoreToken = {
  * o placeholder de W.O. (0x0) apagado.
  */
 function buildBracketScoreToken(
-  set: BracketScoreSet,
+  set: ScoreSet,
   side: "a" | "b"
 ): BracketScoreToken {
   const games = side === "a" ? set.aGames : set.bGames;
@@ -55,7 +55,7 @@ function buildBracketScoreToken(
 
 /** Tokens de UM lado, na ordem do jogo (render do card). */
 export function buildBracketScoreTokens(
-  sets: BracketScoreSet[],
+  sets: ScoreSet[],
   side: "a" | "b"
 ): BracketScoreToken[] {
   return sets.map((set) => buildBracketScoreToken(set, side));

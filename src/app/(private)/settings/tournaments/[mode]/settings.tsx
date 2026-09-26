@@ -21,7 +21,7 @@ import Animated from "react-native-reanimated";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { RuleCard } from "@/components/pages/leagues/rule-card";
+import { RuleCard } from "@/components/ui/rule-card";
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";

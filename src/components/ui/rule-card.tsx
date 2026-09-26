@@ -15,7 +15,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Text } from "@/components/core/text";
 
 /**
- * Shared form update options used by every league form field. Keeping a single
+ * Shared form update options used by every rule field. Keeping a single
  * constant avoids drift between the rules and settings screens.
  */
 export const fieldUpdateOptions = {

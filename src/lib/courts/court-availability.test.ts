@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type {
-  LeagueCourt,
-  LeagueCourtDay,
-} from "@convex/domains/league/contract";
+import type { Court, CourtDay } from "@convex/domains/match/contract";
 
 import { formatMinuteToHHMM } from "../format/time";
 import {
@@ -15,8 +12,8 @@ import {
 } from "./court-availability";
 
 function buildAvailability(
-  partial: Partial<Record<LeagueCourtDay, CourtTimeRange[]>>
-): LeagueCourt["availability"] {
+  partial: Partial<Record<CourtDay, CourtTimeRange[]>>
+): Court["availability"] {
   return {
     fri: partial.fri ?? [],
     mon: partial.mon ?? [],
@@ -28,7 +25,7 @@ function buildAvailability(
   };
 }
 
-function buildCourt(availability: LeagueCourt["availability"]): LeagueCourt {
+function buildCourt(availability: Court["availability"]): Court {
   return { availability, id: "court-1", name: "Quadra 1" };
 }
 

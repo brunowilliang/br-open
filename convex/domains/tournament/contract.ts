@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  LeagueCourtsSchema,
-  LeagueMatchConfigSchema,
-  type LeagueCourt,
-  type LeagueMatchConfig,
-} from "../league/contract";
+import { CourtsSchema, MatchConfigSchema } from "../match/contract";
 import { enumField, requiredString } from "../../utils/contract.zod";
 
 // ---------------------------------------------------------------------------
@@ -79,11 +74,11 @@ export const TournamentSchemaBase = {
   ),
   avatarStorageId: tournamentMediaStorageIdSchema,
   city: requiredString("Informe a cidade.").pipe(z.string().min(1)),
-  courts: LeagueCourtsSchema,
+  courts: CourtsSchema,
   coverStorageId: tournamentMediaStorageIdSchema,
   description: z.string().trim().optional(),
   locationNotes: z.string().trim().optional(),
-  matchConfig: LeagueMatchConfigSchema,
+  matchConfig: MatchConfigSchema,
   name: tournamentNameSchema,
   registrationDeadlineAt: tournamentRegistrationDeadlineSchema,
   startDate: tournamentStartDateSchema,
@@ -183,14 +178,14 @@ export const tournamentSchema = z.object({
   avatarStorageId: z.string().nullable(),
   avatarUrl: z.string().nullable().optional(),
   city: z.string(),
-  courts: LeagueCourtsSchema.default([]).catch([]),
+  courts: CourtsSchema.default([]).catch([]),
   coverStorageId: z.string().nullable(),
   coverUrl: z.string().nullable().optional(),
   createdAt: z.number(),
   description: z.string().nullable().optional(),
   id: z.string(),
   locationNotes: z.string().nullable().optional(),
-  matchConfig: LeagueMatchConfigSchema,
+  matchConfig: MatchConfigSchema,
   name: z.string(),
   registrationDeadlineAt: z.number(),
   startDate: z.number(),
@@ -390,5 +385,3 @@ export type TournamentMatchScoreSet = z.infer<
 >;
 export type CreateTournamentInput = z.infer<typeof CreateTournamentSchema>;
 export type UpdateTournamentInput = z.infer<typeof UpdateTournamentSchema>;
-export type TournamentCourt = LeagueCourt;
-export type TournamentMatchConfig = LeagueMatchConfig;

@@ -14,13 +14,13 @@ import { Text } from "@/components/core/text";
 import { formatMatchMonthDay } from "@/lib/format/date";
 import { formatMinuteToHHMM } from "@/lib/format/time";
 import {
-  buildBracketScoreTokens,
-  type BracketScoreSet,
-} from "@/lib/tournaments/bracket-score-display";
-import {
   getMatchStatusChip,
   UNDEFINED_PLAYER_NAME,
-} from "@/lib/tournaments/tournament-details-derived";
+} from "@/lib/matches/match-display";
+import {
+  buildBracketScoreTokens,
+  type ScoreSet,
+} from "@/lib/matches/score-display";
 import {
   Calendar03Icon,
   Edit02Icon,
@@ -112,7 +112,7 @@ type MatchCardProps = {
   onSidePress?: (side: "a" | "b") => void;
   /** Sets do confronto (challenger = lado A, challenged = lado B); ausente ou
    * vazio não desenha o ponto do resultado. */
-  scoreSets?: null | BracketScoreSet[];
+  scoreSets?: null | ScoreSet[];
   /** Lado armado na troca de oponente (a tela decide; aqui é só a pintura). */
   selectedSide?: "a" | "b" | null;
   /** Fase da partida (chip do topo, à esquerda); ausente não desenha o chip. */

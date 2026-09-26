@@ -1,12 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  buildBracketScoreTokens,
-  type BracketScoreSet,
-} from "./bracket-score-display";
+import { buildBracketScoreTokens, type ScoreSet } from "./score-display";
 
 describe("buildBracketScoreTokens", () => {
-  const sets: BracketScoreSet[] = [
+  const sets: ScoreSet[] = [
     { aGames: 6, bGames: 3, kind: "set" },
     {
       aGames: 7,
@@ -34,7 +31,7 @@ describe("buildBracketScoreTokens", () => {
   });
 
   test("decides a tied line by the attached tie-break", () => {
-    const tied: BracketScoreSet[] = [
+    const tied: ScoreSet[] = [
       {
         aGames: 6,
         bGames: 6,
@@ -52,7 +49,7 @@ describe("buildBracketScoreTokens", () => {
   });
 
   test("highlights neither side on a tie without a deciding tie-break", () => {
-    const walkover: BracketScoreSet[] = [{ aGames: 0, bGames: 0, kind: "set" }];
+    const walkover: ScoreSet[] = [{ aGames: 0, bGames: 0, kind: "set" }];
 
     expect(buildBracketScoreTokens(walkover, "a")).toEqual([
       { games: 0, isSetWinner: false, tieBreakPoints: null },
@@ -61,7 +58,7 @@ describe("buildBracketScoreTokens", () => {
       { games: 0, isSetWinner: false, tieBreakPoints: null },
     ]);
 
-    const tiedTieBreak: BracketScoreSet[] = [
+    const tiedTieBreak: ScoreSet[] = [
       {
         aGames: 6,
         bGames: 6,
@@ -79,7 +76,7 @@ describe("buildBracketScoreTokens", () => {
   });
 
   test("applies the same rule to super tie-break and standalone lines", () => {
-    const lines: BracketScoreSet[] = [
+    const lines: ScoreSet[] = [
       { aGames: 10, bGames: 8, kind: "super_tiebreak" },
       { aGames: 3, bGames: 3, kind: "tiebreak" },
     ];

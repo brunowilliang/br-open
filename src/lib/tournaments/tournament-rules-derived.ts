@@ -1,5 +1,5 @@
-import type { TournamentMatchConfig } from "@convex/domains/tournament/contract";
-import { formatScoringMode, formatTieBreak } from "@/lib/leagues/rule-format";
+import type { MatchConfig } from "@convex/domains/match/contract";
+import { formatScoringMode, formatTieBreak } from "@/lib/rules/rule-format";
 
 export type TournamentRulesView = {
   duration: string;
@@ -10,7 +10,7 @@ export type TournamentRulesView = {
 };
 
 export function buildTournamentRulesView(
-  matchConfig: TournamentMatchConfig
+  matchConfig: MatchConfig
 ): TournamentRulesView {
   return {
     duration: `${matchConfig.defaultDurationMinutes} min`,

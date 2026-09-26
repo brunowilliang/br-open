@@ -13,10 +13,7 @@ import {
   type CourtTimeRange,
 } from "@/lib/courts/court-availability";
 import { formatMinuteToHHMM } from "@/lib/format/time";
-import type {
-  LeagueCourt,
-  LeagueCourtDay,
-} from "@convex/domains/league/contract";
+import type { Court, CourtDay } from "@convex/domains/match/contract";
 import {
   Add01Icon,
   Cancel01Icon,
@@ -44,7 +41,7 @@ import { KeyboardAvoidingView, ScrollView, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { Text } from "@/components/core/text";
 
-const DAY_LABELS: Record<LeagueCourtDay, string> = {
+const DAY_LABELS: Record<CourtDay, string> = {
   fri: "Sex",
   mon: "Seg",
   sat: "Sab",
@@ -74,7 +71,7 @@ function buildEmptyAvailability() {
     thu: [],
     tue: [],
     wed: [],
-  } satisfies LeagueCourt["availability"];
+  } satisfies Court["availability"];
 }
 
 let courtIdCounter = 0;
@@ -89,11 +86,11 @@ function buildCourtId(): string {
     .slice(2, 8)}`;
 }
 
-function getDayLabel(day: LeagueCourtDay) {
+function getDayLabel(day: CourtDay) {
   return DAY_OPTIONS.find((option) => option.key === day)?.label ?? "";
 }
 
-function getCourtAvailabilityDescription(court: LeagueCourt) {
+function getCourtAvailabilityDescription(court: Court) {
   const rangeCount = DAY_OPTIONS.reduce(
     (total, day) => total + court.availability[day.key].length,
     0
@@ -111,7 +108,7 @@ function getCourtAvailabilityDescription(court: LeagueCourt) {
 }
 
 type CourtsFormValues = {
-  courts: LeagueCourt[];
+  courts: Court[];
 };
 
 /** Escreve no campo `courts` do RHF context do form hospedeiro: header, menu
@@ -133,7 +130,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       ? formStateErrors.courts.message
       : undefined;
   const [activeDayByCourt, setActiveDayByCourt] = useState<
-    Partial<Record<string, LeagueCourtDay>>
+    Partial<Record<string, CourtDay>>
   >({});
   const [draftName, setDraftName] = useState("");
   const [editingCourtId, setEditingCourtId] = useState<string | null>(null);
@@ -141,8 +138,8 @@ export function CourtEditor(props: { isDisabled: boolean }) {
   const [isRangeDialogOpen, setIsRangeDialogOpen] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [rangeCourtId, setRangeCourtId] = useState<string | null>(null);
-  const [rangeDay, setRangeDay] = useState<LeagueCourtDay | null>(null);
-  const [rangeDays, setRangeDays] = useState<LeagueCourtDay[]>([]);
+  const [rangeDay, setRangeDay] = useState<CourtDay | null>(null);
+  const [rangeDays, setRangeDays] = useState<CourtDay[]>([]);
   const [rangeEndMinute, setRangeEndMinute] = useState<string | undefined>();
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [editingRange, setEditingRange] = useState<{
@@ -176,7 +173,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       ? `${rangeActionLabel} Horário · ${getDayLabel(rangeDay)}`
       : `${rangeActionLabel} Horário`;
 
-  function onChange(nextValue: LeagueCourt[]) {
+  function onChange(nextValue: Court[]) {
     setValue("courts", nextValue, {
       shouldDirty: true,
       shouldTouch: true,
@@ -204,7 +201,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
     setIsCourtDialogOpen(true);
   }
 
-  function openEditCourtDialog(court: LeagueCourt) {
+  function openEditCourtDialog(court: Court) {
     setDraftName(court.name);
     setEditingCourtId(court.id);
     setNameError(null);
@@ -282,7 +279,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
 
   function openRangeDialog(
     courtId: string,
-    day: LeagueCourtDay,
+    day: CourtDay,
     range?: {
       endMinute: number;
       startMinute: number;
@@ -298,7 +295,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
     setIsRangeDialogOpen(true);
   }
 
-  function applyDayPreset(days: readonly LeagueCourtDay[]) {
+  function applyDayPreset(days: readonly CourtDay[]) {
     setRangeError(null);
     setRangeDays(
       DAY_OPTIONS.map((option) => option.key).filter((day) =>
@@ -307,7 +304,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
     );
   }
 
-  function toggleRangeDay(day: LeagueCourtDay) {
+  function toggleRangeDay(day: CourtDay) {
     setRangeError(null);
     setRangeDays((currentDays) => {
       const nextDays = currentDays.includes(day)
@@ -380,7 +377,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
 
   function handleRemoveRange(
     courtId: string,
-    day: LeagueCourtDay,
+    day: CourtDay,
     startMinute: number,
     endMinute: number
   ) {
@@ -466,7 +463,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
 
                         setActiveDayByCourt((currentValue) => ({
                           ...currentValue,
-                          [court.id]: nextValue as LeagueCourtDay,
+                          [court.id]: nextValue as CourtDay,
                         }));
                       }}
                       value={getActiveDay(court.id)}

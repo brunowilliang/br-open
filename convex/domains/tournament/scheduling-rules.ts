@@ -1,9 +1,9 @@
 import { BRAZIL_UTC_OFFSET_MS, MS_PER_DAY } from "../payment/rules";
+import type { MatchConfig } from "../match/contract";
 import {
   rangesOverlap,
   resolveMatchOccupiedEndMinute,
-} from "../league/challenge-scheduling-rules";
-import type { LeagueMatchConfig } from "../league/contract";
+} from "../match/scheduling";
 
 /** Dia do calendario BRASILEIRO de um instante (offset fixo do repo). */
 function brazilDayIndex(ms: number): number {
@@ -109,7 +109,7 @@ export function findCourtSlotConflict(input: {
   courtId: string;
   endMinute: number;
   ignoredMatchId?: string;
-  matchConfig: LeagueMatchConfig;
+  matchConfig: MatchConfig;
   matchDate: string;
   scheduledMatches: TournamentScheduledMatch[];
   startMinute: number;

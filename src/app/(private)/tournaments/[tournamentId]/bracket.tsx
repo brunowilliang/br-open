@@ -9,7 +9,7 @@ import { View } from "react-native";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
-import { ChallengeProposalDialog } from "@/components/pages/leagues/challenge-proposal-dialog";
+import { ScheduleProposalDialog } from "@/components/ui/schedule-proposal-dialog";
 import { BracketCanvas } from "@/components/pages/tournaments/bracket-canvas";
 import { BracketMatchCard } from "@/components/pages/tournaments/bracket-match-card";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
@@ -676,7 +676,7 @@ export default function TournamentBracketRoute() {
       ) : null}
 
       {scheduleTarget && tournament ? (
-        <ChallengeProposalDialog
+        <ScheduleProposalDialog
           actionLabel="Salvar agendamento"
           courts={tournament.courts}
           defaultDurationMinutes={tournament.matchConfig.defaultDurationMinutes}

@@ -1,12 +1,13 @@
 /**
- * Validação de placar do torneio — reusa as regras de resultado MANUAL da
- * liga por um mapeamento A/B: a liga fala challenger/challenged e o adapter
- * traduz os lados do torneio, então o chamador nunca vê o vocabulário dela.
- * O placar manual é LIVRE (sem padrões de tênis): o vencedor sai das linhas
- * vencidas, ou do `score.winnerEntryId` explícito quando elas empatam.
+ * Validação de placar do torneio — reusa as regras de resultado MANUAL do
+ * módulo de partida (`domains/match`) por um mapeamento A/B: o placar de
+ * partida fala challenger/challenged e o adapter traduz os lados do torneio,
+ * então o chamador nunca vê esse vocabulário. O placar manual é LIVRE (sem
+ * padrões de tênis): o vencedor sai das linhas vencidas, ou do
+ * `score.winnerEntryId` explícito quando elas empatam.
  */
-import { resolveChallengeScoreOutcome } from "../league/challenge-rules";
-import type { LeagueMatchConfig } from "../league/contract";
+import type { MatchConfig } from "../match/contract";
+import { resolveMatchScoreOutcome } from "../match/score-rules";
 import type { TournamentMatchScore } from "./contract";
 
 type SideScores = {
@@ -16,7 +17,7 @@ type SideScores = {
   tieBreak?: null | { aPoints: number; bPoints: number };
 };
 
-function toLeagueSets(sets: SideScores[]) {
+function toMatchSets(sets: SideScores[]) {
   return sets.map((set) => ({
     challengedGames: set.bGames,
     challengerGames: set.aGames,
@@ -38,16 +39,16 @@ function toLeagueSets(sets: SideScores[]) {
 export function validateTournamentMatchScore(input: {
   entryAId: string;
   entryBId: string;
-  matchConfig: LeagueMatchConfig;
+  matchConfig: MatchConfig;
   score: TournamentMatchScore;
 }):
   | { winnerEntryId: string; error: null }
   | { winnerEntryId: null; error: string } {
-  const outcome = resolveChallengeScoreOutcome({
+  const outcome = resolveMatchScoreOutcome({
     challengedMembershipId: input.entryBId,
     challengerMembershipId: input.entryAId,
     score: {
-      sets: toLeagueSets(input.score.sets),
+      sets: toMatchSets(input.score.sets),
       winnerMembershipId: input.score.winnerEntryId,
     },
   });

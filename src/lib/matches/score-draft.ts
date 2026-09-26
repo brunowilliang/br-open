@@ -1,6 +1,4 @@
-import type { LeagueChallengeScore } from "@convex/domains/league/contract";
-
-type LeagueScoreSet = LeagueChallengeScore["sets"][number];
+import type { MatchScoreSet } from "@convex/domains/match/contract";
 
 /** Mini-placar do tie-break anexo a uma linha, no vocabulário neutro A/B. */
 export type ScoreDraftTieBreak = { aPoints: number; bPoints: number };
@@ -9,7 +7,7 @@ export type ScoreDraftTieBreak = { aPoints: number; bPoints: number };
 export type ScoreDraftSet = {
   aGames: number;
   bGames: number;
-  kind: LeagueScoreSet["kind"];
+  kind: MatchScoreSet["kind"];
   tieBreak?: null | ScoreDraftTieBreak;
 };
 
@@ -22,44 +20,8 @@ export type ScoreDraftScoreboard = {
 };
 
 /** Linha nova em branco — o tipo da linha é escolhido no menu (+). */
-export function buildEmptyDraftSet(
-  kind: LeagueScoreSet["kind"]
-): ScoreDraftSet {
+export function buildEmptyDraftSet(kind: MatchScoreSet["kind"]): ScoreDraftSet {
   return { aGames: 0, bGames: 0, kind };
-}
-
-/** Converte o draft A/B para o vocabulário challenger/challenged da liga. */
-export function toLeagueScoreSets(sets: ScoreDraftSet[]): LeagueScoreSet[] {
-  return sets.map((set) => ({
-    challengedGames: set.bGames,
-    challengerGames: set.aGames,
-    kind: set.kind,
-    ...(set.tieBreak
-      ? {
-          tieBreak: {
-            challengedPoints: set.tieBreak.bPoints,
-            challengerPoints: set.tieBreak.aPoints,
-          },
-        }
-      : {}),
-  }));
-}
-
-/** Converte linhas da liga para o draft A/B (hydrate do dialog). */
-export function toScoreDraftSets(sets: LeagueScoreSet[]): ScoreDraftSet[] {
-  return sets.map((set) => ({
-    aGames: set.challengerGames,
-    bGames: set.challengedGames,
-    kind: set.kind,
-    ...(set.tieBreak
-      ? {
-          tieBreak: {
-            aPoints: set.tieBreak.challengerPoints,
-            bPoints: set.tieBreak.challengedPoints,
-          },
-        }
-      : {}),
-  }));
 }
 
 export function isDraftSetBlank(set: ScoreDraftSet) {

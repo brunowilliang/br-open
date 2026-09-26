@@ -3,7 +3,7 @@ import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../_generated/dataModel";
-import type { LeagueMatchConfig } from "../../domains/league/contract";
+import type { MatchConfig } from "../../domains/match/contract";
 import {
   EditMatchResultSchema,
   PublishMatchResultSchema,
@@ -17,7 +17,7 @@ import {
   validateTournamentMatchScore,
   validateWalkoverWinner,
 } from "../../domains/tournament/score-rules";
-import { resolveMatchOccupiedEndMinute } from "../../domains/league/challenge-scheduling-rules";
+import { resolveMatchOccupiedEndMinute } from "../../domains/match/scheduling";
 import {
   findCourtSlotConflict,
   isScheduledTournamentMatch,
@@ -239,7 +239,7 @@ export const publishResult = authMutation
         message: "Esse confronto ainda não tem os dois lados definidos.",
       });
     }
-    const matchConfig = tournamentRecord.matchConfig as LeagueMatchConfig;
+    const matchConfig = tournamentRecord.matchConfig as MatchConfig;
     let winnerEntryId: string;
     const isWalkover = Boolean(input.walkover);
     if (input.walkover) {
@@ -366,7 +366,7 @@ export const editResult = authMutation
       });
     }
 
-    const matchConfig = tournamentRecord.matchConfig as LeagueMatchConfig;
+    const matchConfig = tournamentRecord.matchConfig as MatchConfig;
     let newWinnerEntryId: string;
     if (input.walkover) {
       const walkoverCheck = validateWalkoverWinner({
@@ -540,7 +540,7 @@ export const scheduleMatch = authMutation
 
     // One match per court at a time: occupancy comes from the rules' default
     // duration, never from the client-sent endMinute.
-    const matchConfig = tournamentRecord.matchConfig as LeagueMatchConfig;
+    const matchConfig = tournamentRecord.matchConfig as MatchConfig;
     const occupiedEndMinute = resolveMatchOccupiedEndMinute({
       matchConfig,
       startMinute: input.startMinute,
@@ -663,7 +663,7 @@ export const listOccupiedSlots = authQuery
       });
     }
 
-    const matchConfig = record.matchConfig as LeagueMatchConfig;
+    const matchConfig = record.matchConfig as MatchConfig;
     const matches = await listTournamentMatchRecords(
       ctx,
       record.id as Id<"tournament">

@@ -7,7 +7,7 @@ import {
   TextField,
 } from "heroui-native";
 import { Calendar, DatePicker } from "heroui-native-pro";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/core/text";
@@ -17,12 +17,12 @@ import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
-import { buildChallengeTimeOptions } from "@/lib/leagues/challenge-schedule";
-import type { LeagueCourt } from "@convex/domains/league/contract";
+import { buildSlotTimeOptions } from "@/lib/scheduling/slot-options";
+import type { Court } from "@convex/domains/match/contract";
 import type { CalendarDate } from "@internationalized/date";
 import { getLocalTimeZone, today } from "@internationalized/date";
 
-type ChallengeProposalDialogValue = {
+type ScheduleProposalDialogValue = {
   courtId: string;
   endMinute: number;
   matchDate: string;
@@ -34,8 +34,8 @@ type DatePickerOption = {
   value: string;
 };
 
-/** Slot ocupado NEUTRO: liga manda `challengeId` e torneio `matchId` — o
- * adapter de cada domínio renomeia para `slotId` na fronteira. */
+/** Slot ocupado NEUTRO: cada domínio manda o id dele (`challengeId`,
+ * `matchId`) e o adapter renomeia para `slotId` na fronteira. */
 type OccupiedSlot = {
   courtId: string;
   endMinute: number;
@@ -44,20 +44,19 @@ type OccupiedSlot = {
   startMinute: number;
 };
 
-type ChallengeProposalDialogProps = {
+type ScheduleProposalDialogProps = {
   actionLabel: string;
   slotIdToIgnore?: string;
-  courts: LeagueCourt[];
+  courts: Court[];
   defaultDurationMinutes: number;
-  /** Sobrescreve a descrição league-phrased (adaptação por domínio). */
-  description?: string;
-  initialValue?: ChallengeProposalDialogValue;
+  /** Copy do domínio que usa o diálogo (a peça não traz texto de liga). */
+  description: ReactNode;
+  initialValue?: ScheduleProposalDialogValue;
   isOpen: boolean;
   isPending?: boolean;
   onOpenChange: (nextOpen: boolean) => void;
   occupiedSlots: OccupiedSlot[];
-  onSubmit: (value: ChallengeProposalDialogValue) => Promise<void> | void;
-  opponentName?: string;
+  onSubmit: (value: ScheduleProposalDialogValue) => Promise<void> | void;
   title: string;
 };
 
@@ -125,9 +124,7 @@ function getDayKeyFromMatchDate(matchDate?: string) {
   }
 }
 
-export const ChallengeProposalDialog = (
-  props: ChallengeProposalDialogProps
-) => {
+export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
   const {
     actionLabel,
     slotIdToIgnore,
@@ -140,7 +137,6 @@ export const ChallengeProposalDialog = (
     onOpenChange,
     occupiedSlots,
     onSubmit,
-    opponentName,
     title,
   } = props;
   const [matchDate, setMatchDate] = useState<DatePickerOption | undefined>(
@@ -191,7 +187,7 @@ export const ChallengeProposalDialog = (
       return [];
     }
 
-    return buildChallengeTimeOptions({
+    return buildSlotTimeOptions({
       courtId: selectedCourt.id,
       durationMinutes: defaultDurationMinutes,
       matchDate: matchDate.value,
@@ -248,7 +244,7 @@ export const ChallengeProposalDialog = (
     );
 
     if (selectedStartTimeOption?.isDisabled) {
-      setErrorMessage("Esse horário já está reservado para outro desafio.");
+      setErrorMessage("Esse horário já está reservado.");
       return;
     }
 
@@ -282,43 +278,7 @@ export const ChallengeProposalDialog = (
           )}
           <Dialog.Title>{title}</Dialog.Title>
           <Text color="muted" variant="description">
-            {description ?? (
-              <>
-                Preencha{" "}
-                <Text
-                  color="foreground"
-                  variant="description"
-                  weight="semibold"
-                >
-                  data
-                </Text>
-                ,{" "}
-                <Text
-                  color="foreground"
-                  variant="description"
-                  weight="semibold"
-                >
-                  horário
-                </Text>{" "}
-                e{" "}
-                <Text
-                  color="foreground"
-                  variant="description"
-                  weight="semibold"
-                >
-                  quadra
-                </Text>{" "}
-                para combinar o desafio com{" "}
-                <Text
-                  color="foreground"
-                  variant="description"
-                  weight="semibold"
-                >
-                  {opponentName}
-                </Text>
-                .
-              </>
-            )}
+            {description}
           </Text>
 
           <DatePicker
@@ -410,7 +370,7 @@ export const ChallengeProposalDialog = (
                 <SelectScrollContent width="trigger">
                   {availableCourts.length === 0 ? (
                     <EmptyState
-                      description="Escolha outra data ou cadastre disponibilidade nas quadras da liga."
+                      description="Escolha outra data ou cadastre a disponibilidade das quadras."
                       icon={null}
                       title="Nenhuma quadra disponível nesse dia"
                     />

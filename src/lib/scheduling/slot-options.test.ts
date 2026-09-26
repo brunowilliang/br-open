@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildChallengeTimeOptions } from "./challenge-schedule";
+import { buildSlotTimeOptions } from "./slot-options";
 
-describe("buildChallengeTimeOptions", () => {
+describe("buildSlotTimeOptions", () => {
   it("marks overlapping slots as disabled", () => {
-    const options = buildChallengeTimeOptions({
+    const options = buildSlotTimeOptions({
       courtId: "court-1",
       durationMinutes: 90,
       matchDate: "2026-05-26",
@@ -61,7 +61,7 @@ describe("buildChallengeTimeOptions", () => {
   });
 
   it("ignores the current slot id when rescheduling the same row", () => {
-    const options = buildChallengeTimeOptions({
+    const options = buildSlotTimeOptions({
       courtId: "court-1",
       durationMinutes: 90,
       matchDate: "2026-05-26",
@@ -82,7 +82,7 @@ describe("buildChallengeTimeOptions", () => {
   });
 
   it("ignores the rescheduled match slot in the tournament vocabulary", () => {
-    const options = buildChallengeTimeOptions({
+    const options = buildSlotTimeOptions({
       courtId: "court-2",
       durationMinutes: 90,
       matchDate: "2026-05-27",

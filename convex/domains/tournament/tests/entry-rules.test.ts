@@ -22,7 +22,7 @@ import {
   validateWalkoverWinner,
 } from "../score-rules";
 import { CreateTournamentSchema, PublishMatchResultSchema } from "../contract";
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "../../league/contract";
+import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
 
 describe("buildCategoryDisplayName", () => {
   it("nomeia as 5 categorias do produto", () => {
@@ -222,7 +222,7 @@ describe("selectViewerTournamentEntryIds (BUG-0017)", () => {
 });
 
 describe("validateTournamentMatchScore", () => {
-  const config = DEFAULT_LEAGUE_MATCH_CONFIG; // melhor de 3, sets até 6, tie-break
+  const config = DEFAULT_MATCH_CONFIG; // melhor de 3, sets até 6, tie-break
 
   it("placar válido 6x3 6x4 retorna o vencedor", () => {
     const result = validateTournamentMatchScore({
@@ -424,7 +424,7 @@ describe("refineTournamentWindow — prazo vs início (strict)", () => {
       city: "São Paulo",
       courts: [],
       coverStorageId: null,
-      matchConfig: DEFAULT_LEAGUE_MATCH_CONFIG,
+      matchConfig: DEFAULT_MATCH_CONFIG,
       name: "Aberto de Verão",
       registrationDeadlineAt,
       startDate,

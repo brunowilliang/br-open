@@ -1,11 +1,10 @@
-import type { ApiOutputs } from "@convex/shared/api";
-
 import { formatDateToUtcKey, formatDayLabel } from "@/lib/format/date";
 import { formatMinuteToHHMM as formatScheduleMinute } from "@/lib/format/time";
 
 export { formatDateToUtcKey, formatScheduleMinute };
 
-type ScheduleItem = ApiOutputs["league"]["challenges"]["listScheduled"][number];
+/** O que a agenda precisa de UM item: o dia e o minuto de início. */
+export type ScheduleDayItem = { matchDate: string; startMinute: number };
 
 const MINUTES_PER_HOUR = 60;
 const AFTERNOON_START_MINUTE = 12 * MINUTES_PER_HOUR; // 720
@@ -20,10 +19,10 @@ export type ScheduleDateTab = {
   isTomorrow: boolean;
 };
 
-export type ScheduleDayView = {
-  morning: ScheduleItem[];
-  afternoon: ScheduleItem[];
-  evening: ScheduleItem[];
+export type ScheduleDayView<TItem extends ScheduleDayItem = ScheduleDayItem> = {
+  morning: TItem[];
+  afternoon: TItem[];
+  evening: TItem[];
 };
 
 export type SchedulePeriodKey = keyof ScheduleDayView;
@@ -98,7 +97,7 @@ function buildDateTabLabel(input: {
 export function buildScheduleDayView<T extends ScheduleDayItem>(input: {
   challenges: readonly T[];
   matchDate: string;
-}): { afternoon: T[]; evening: T[]; morning: T[] } {
+}): ScheduleDayView<T> {
   const dayChallenges = input.challenges.filter(
     (challenge) => challenge.matchDate === input.matchDate
   );
@@ -125,5 +124,3 @@ export function buildScheduleDayView<T extends ScheduleDayItem>(input: {
 
   return { afternoon, evening, morning };
 }
-
-type ScheduleDayItem = { matchDate: string; startMinute: number };

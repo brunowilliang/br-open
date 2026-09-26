@@ -1,6 +1,6 @@
 import { formatMinuteToHHMM } from "@/lib/format/time";
 
-type OccupiedSlot = {
+type ScheduleSlot = {
   courtId: string;
   endMinute: number;
   matchDate: string;
@@ -13,7 +13,7 @@ type TimeRange = {
   startMinute: number;
 };
 
-export type ChallengeTimeOption = {
+export type SlotTimeOption = {
   description?: string;
   isDisabled: boolean;
   label: string;
@@ -32,16 +32,16 @@ function rangesOverlap(input: {
   );
 }
 
-export function buildChallengeTimeOptions(input: {
+export function buildSlotTimeOptions(input: {
   courtId: string;
   durationMinutes: number;
   matchDate: string;
-  occupiedSlots: OccupiedSlot[];
+  occupiedSlots: ScheduleSlot[];
   ranges: TimeRange[];
   /** Slot da própria linha em edição — não pode bloquear o próprio horário. */
   slotIdToIgnore?: string | null;
-}): ChallengeTimeOption[] {
-  const options: ChallengeTimeOption[] = [];
+}): SlotTimeOption[] {
+  const options: SlotTimeOption[] = [];
   const relevantSlots = input.occupiedSlots.filter(
     (slot) =>
       slot.courtId === input.courtId &&

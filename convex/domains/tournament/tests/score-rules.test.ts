@@ -11,7 +11,7 @@ import {
   PublishMatchResultSchema,
   type TournamentMatchScore,
 } from "../contract";
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "../../league/contract";
+import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
 
 describe("resolveResultEditReverb (IBX-0028)", () => {
   it("mesmo vencedor: edição só de placar não mexe na chave", () => {
@@ -129,7 +129,7 @@ describe("tieBreak livre do torneio (REWORK-2)", () => {
     validateTournamentMatchScore({
       entryAId: "entry-a",
       entryBId: "entry-b",
-      matchConfig: { ...DEFAULT_LEAGUE_MATCH_CONFIG, bestOfSets: 1 },
+      matchConfig: { ...DEFAULT_MATCH_CONFIG, bestOfSets: 1 },
       score,
     });
 

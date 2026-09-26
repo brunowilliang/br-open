@@ -1,4 +1,4 @@
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "@convex/domains/league/contract";
+import { DEFAULT_MATCH_CONFIG } from "@convex/domains/match/contract";
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -25,7 +25,7 @@ function buildValidValues() {
     description: undefined,
     locationNotes: undefined,
     matchConfig: {
-      ...DEFAULT_LEAGUE_MATCH_CONFIG,
+      ...DEFAULT_MATCH_CONFIG,
     },
     name: "Circuito Paulista",
     registrationDeadlineAt: "2026-09-14",
@@ -73,7 +73,7 @@ describe("TournamentSchema matchConfig bestOfSets", () => {
     const result = TournamentSchema.safeParse({
       ...buildValidValues(),
       matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        ...DEFAULT_MATCH_CONFIG,
         bestOfSets: 2,
       },
     });
@@ -93,7 +93,7 @@ describe("TournamentSchema matchConfig bestOfSets", () => {
     const result = TournamentSchema.safeParse({
       ...buildValidValues(),
       matchConfig: {
-        ...DEFAULT_LEAGUE_MATCH_CONFIG,
+        ...DEFAULT_MATCH_CONFIG,
         bestOfSets,
       },
     });

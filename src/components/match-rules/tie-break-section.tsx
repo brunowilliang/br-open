@@ -6,7 +6,7 @@ import {
   RuleToggleRow,
   ToggleableRuleCard,
   fieldUpdateOptions,
-} from "@/components/pages/leagues/rule-card";
+} from "@/components/ui/rule-card";
 import {
   buildMatchConfigPaths,
   resolveMatchConfigFieldError,

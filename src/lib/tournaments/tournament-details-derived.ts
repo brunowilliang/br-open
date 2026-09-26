@@ -8,6 +8,8 @@ import {
   isRegistrationOpen,
 } from "@convex/domains/tournament/entry-rules";
 
+import { UNDEFINED_PLAYER_NAME } from "@/lib/matches/match-display";
+
 type CategoryKey = {
   gender: TournamentGender;
   modality: TournamentModality;
@@ -123,33 +125,6 @@ export function getEntryStatusChip(status: string): TournamentEntryStatusChip {
   return ENTRY_STATUS_CHIPS[status] ?? { color: "default", label: status };
 }
 
-export type TournamentMatchStatusChip = {
-  color: "accent" | "danger" | "default" | "success" | "warning";
-  label: string;
-};
-
-const MATCH_STATUS_CHIPS: Record<string, null | TournamentMatchStatusChip> = {
-  // "champion" não existe no wire: é a FINAL decidida, que a chave lê do
-  // `winnerEntryId` e manda pelo mesmo vocabulário do chip.
-  champion: { color: "accent", label: "Campeão" },
-  finished: { color: "success", label: "Encerrado" },
-  pending: { color: "default", label: "A definir" },
-  scheduled: { color: "accent", label: "Agendado" },
-  // Vaga podada do sorteio: é a moldura da chave, não um jogo — sem chip.
-  vacant: null,
-  walkover: { color: "warning", label: "W.O." },
-};
-
-/** `null` = estado SEM chip (a vaga vazia da chave); status fora do vocabulário
- * cai no rótulo cru, com a cor default. */
-export function getMatchStatusChip(
-  status: string
-): null | TournamentMatchStatusChip {
-  return Object.hasOwn(MATCH_STATUS_CHIPS, status)
-    ? MATCH_STATUS_CHIPS[status]
-    : { color: "default", label: status };
-}
-
 /** Lado que venceu o W.O. JOGADO (`a` = challenger, `b` = challenged), o sinal
  * que o card recebe para pintar sem placar. O bye do sorteio também carrega
  * `walkover: true`, mas não é jogo: só a partida `finished` conta. `null` é o
@@ -173,11 +148,6 @@ export function walkoverWinnerSide(match: {
     ? "b"
     : null;
 }
-
-/** Rótulo do jogador que ainda não existe (lado sem inscrição na chave). É a
- * sentinela que o card lê para não repetir "A definir" nas duas linhas da
- * dupla: o lado vazio é UMA linha, a dupla é uma unidade. */
-export const UNDEFINED_PLAYER_NAME = "A definir";
 
 /** Nomes do lado na ordem de exibição — um (simples) ou dois (dupla); lado
  * vazio vira `["A definir"]`. O card da chave desenha um por linha: o rótulo de

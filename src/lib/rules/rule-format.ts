@@ -1,8 +1,19 @@
-import type { ApiOutputs } from "@convex/shared/api";
-import type { LeagueMatchConfig } from "@convex/domains/league/contract";
+import type { MatchConfig } from "@convex/domains/match/contract";
 
-type LeagueOverview = ApiOutputs["league"]["discovery"]["getById"];
-type RuleConfig = LeagueOverview["ruleConfig"];
+/**
+ * Campos do rule config que estes formatadores leem: o tipo é estrutural para
+ * liga e torneio passarem o seu próprio config sem depender de um contrato.
+ */
+export type RuleConfig = {
+  hasInactivityPenalty: boolean;
+  inactivityPenaltyDays?: number;
+  inactivityPenaltyType?: string;
+  lossBehavior: string;
+  matchConfig: { scoringMode: string };
+  newPlayerPlacement: string;
+  walkoverBehavior: string;
+  winBehavior: string;
+};
 
 export function formatResponseDeadlineHours(hours: number): string {
   switch (hours) {
@@ -95,7 +106,7 @@ export function formatScoringMode(
       return "Com vantagem";
   }
 }
-export function formatTieBreak(matchConfig: LeagueMatchConfig): string {
+export function formatTieBreak(matchConfig: MatchConfig): string {
   if (!matchConfig.hasTieBreak) {
     return "Sets sem tie-break";
   }

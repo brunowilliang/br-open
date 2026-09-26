@@ -1,10 +1,7 @@
-import type {
-  LeagueCourt,
-  LeagueCourtDay,
-} from "@convex/domains/league/contract";
-import { LeagueCourtDayKeys } from "@convex/domains/league/contract";
+import type { Court, CourtDay } from "@convex/domains/match/contract";
+import { CourtDayKeys } from "@convex/domains/match/contract";
 
-export const COURT_DAYS = LeagueCourtDayKeys;
+export const COURT_DAYS = CourtDayKeys;
 
 export type CourtTimeRange = {
   endMinute: number;
@@ -12,20 +9,20 @@ export type CourtTimeRange = {
 };
 
 export type ApplyCourtRangeInput = {
-  court: LeagueCourt;
-  days: readonly LeagueCourtDay[];
+  court: Court;
+  days: readonly CourtDay[];
   endMinute: number;
   startMinute: number;
   /** Edit path: day + exact range being replaced in place. */
   replacing?: {
-    day: LeagueCourtDay;
+    day: CourtDay;
     range: CourtTimeRange;
   };
 };
 
 export type ApplyCourtRangeResult =
-  | { conflictDays: LeagueCourtDay[]; status: "conflict" }
-  | { court: LeagueCourt; status: "ok" };
+  | { conflictDays: CourtDay[]; status: "conflict" }
+  | { court: Court; status: "ok" };
 
 export function hasRangeOverlap(ranges: readonly CourtTimeRange[]): boolean {
   const sortedRanges = [...ranges].sort(
@@ -45,8 +42,8 @@ export function hasRangeOverlap(ranges: readonly CourtTimeRange[]): boolean {
 }
 
 function buildNextRanges(
-  court: LeagueCourt,
-  day: LeagueCourtDay,
+  court: Court,
+  day: CourtDay,
   replacing: ApplyCourtRangeInput["replacing"],
   addedRange: CourtTimeRange
 ): CourtTimeRange[] {

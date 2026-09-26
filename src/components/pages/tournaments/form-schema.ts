@@ -1,14 +1,14 @@
 import { getLocalTimeZone, parseDate } from "@internationalized/date";
 import { z } from "zod";
 
-import { getBestOfSetValidationError } from "@convex/domains/league/challenge-rules";
+import { getBestOfSetValidationError } from "@convex/domains/match/contract";
 import {
   CreateCategoryInputSchema,
   CreateTournamentSchema,
 } from "@convex/domains/tournament/contract";
 import { buildCategoryDisplayName } from "@convex/domains/tournament/entry-rules";
 
-/** Melhor de 1, 3 ou 5 — mesmo refine do form da liga (challenge-rules). */
+/** Melhor de 1, 3 ou 5 — o refine vem do contrato de partida (`getBestOfSetValidationError`). */
 const TournamentMatchConfigFormSchema =
   CreateTournamentSchema.shape.matchConfig.superRefine((value, ctx) => {
     const bestOfSetValidationError = getBestOfSetValidationError(

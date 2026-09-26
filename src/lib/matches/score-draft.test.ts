@@ -7,8 +7,6 @@ import {
   getLineLabel,
   isDraftSetBlank,
   settleAttachedTieBreak,
-  toLeagueScoreSets,
-  toScoreDraftSets,
   trimTrailingBlankSets,
 } from "./score-draft";
 
@@ -248,54 +246,6 @@ describe("score-draft", () => {
       ] satisfies ScoreDraftFixture[];
 
       expect(trimTrailingBlankSets(sets)).toEqual(sets);
-    });
-  });
-
-  describe("side conversions", () => {
-    it("maps A/B onto the league challenger/challenged vocabulary and back", () => {
-      const draftSets = [
-        { aGames: 7, bGames: 5, kind: "set" },
-        { aGames: 2, bGames: 7, kind: "set" },
-      ] satisfies ScoreDraftFixture[];
-
-      const leagueSets = toLeagueScoreSets(draftSets);
-
-      expect(leagueSets).toEqual([
-        { challengedGames: 5, challengerGames: 7, kind: "set" },
-        { challengedGames: 7, challengerGames: 2, kind: "set" },
-      ]);
-      expect(toScoreDraftSets(leagueSets)).toEqual(draftSets);
-    });
-
-    it("carries the attached tie-break mini-score across both vocabularies", () => {
-      const draftSets = [
-        {
-          aGames: 7,
-          bGames: 6,
-          kind: "set",
-          tieBreak: { aPoints: 8, bPoints: 6 },
-        },
-      ] satisfies ScoreDraftFixture[];
-
-      const leagueSets = toLeagueScoreSets(draftSets);
-
-      expect(leagueSets).toEqual([
-        {
-          challengedGames: 6,
-          challengerGames: 7,
-          kind: "set",
-          tieBreak: { challengedPoints: 6, challengerPoints: 8 },
-        },
-      ]);
-      expect(toScoreDraftSets(leagueSets)).toEqual(draftSets);
-    });
-
-    it("round-trips a standalone tie-break line", () => {
-      const draftSets = [
-        { aGames: 10, bGames: 8, kind: "tiebreak" },
-      ] satisfies ScoreDraftFixture[];
-
-      expect(toScoreDraftSets(toLeagueScoreSets(draftSets))).toEqual(draftSets);
     });
   });
 

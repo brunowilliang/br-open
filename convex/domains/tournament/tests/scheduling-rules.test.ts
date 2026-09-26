@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { resolveMatchOccupiedEndMinute } from "../../league/challenge-scheduling-rules";
-import type { LeagueMatchConfig } from "../../league/contract";
+import type { MatchConfig } from "../../match/contract";
+import { resolveMatchOccupiedEndMinute } from "../../match/scheduling";
 import {
   findCourtSlotConflict,
   isScheduledTournamentMatch,
@@ -11,7 +11,7 @@ import {
   type TournamentScheduledMatch,
 } from "../scheduling-rules";
 
-const matchConfig = { defaultDurationMinutes: 90 } as LeagueMatchConfig;
+const matchConfig = { defaultDurationMinutes: 90 } as MatchConfig;
 
 const scheduled: TournamentScheduledMatch[] = [
   {

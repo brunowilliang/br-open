@@ -1,6 +1,6 @@
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
 import { DEFAULT_TOURNAMENT_APPROVAL_MODE } from "@convex/domains/tournament/contract";
-import { DEFAULT_LEAGUE_MATCH_CONFIG } from "@convex/domains/league/contract";
+import { DEFAULT_MATCH_CONFIG } from "@convex/domains/match/contract";
 
 export function buildCreateTournamentDefaultValues(): TournamentScreenValues {
   return {
@@ -13,7 +13,7 @@ export function buildCreateTournamentDefaultValues(): TournamentScreenValues {
     description: "",
     locationNotes: "",
     matchConfig: {
-      ...DEFAULT_LEAGUE_MATCH_CONFIG,
+      ...DEFAULT_MATCH_CONFIG,
     },
     name: "",
     registrationDeadlineAt: "",

@@ -1,8 +1,6 @@
-import type { LeagueMatchConfig } from "@convex/domains/league/contract";
+import type { MatchConfig } from "@convex/domains/match/contract";
 import { getSelectedOption } from "@/lib/collections";
 import type { InfoContent } from "@/components/ui/info-dialog";
-
-type MatchConfig = LeagueMatchConfig;
 
 type RuleSectionProps = {
   isDisabled?: boolean;

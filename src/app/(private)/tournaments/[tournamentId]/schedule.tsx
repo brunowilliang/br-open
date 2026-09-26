@@ -18,7 +18,7 @@ import {
   SCHEDULE_WINDOW_OPTIONS,
   type SchedulePeriodKey,
   type ScheduleWindowDays,
-} from "@/lib/leagues/schedule-view";
+} from "@/lib/scheduling/schedule-view";
 import {
   buildScheduledMatchItems,
   type ScheduledMatchItem,
@@ -53,7 +53,7 @@ export default function TournamentScheduleRoute() {
 
   // A janela muda → tabs mudam: volta para "Hoje" de forma síncrona antes dos
   // Triggers novos — senão o Tabs controlado recebe uma lista de triggers com
-  // um value possivelmente inconsistente (leagues/[leagueId]/schedule.tsx).
+  // um value possivelmente inconsistente.
   useEffect(() => {
     if (dateTabs.length > 0) {
       setActiveDate(dateTabs[0].matchDate);
