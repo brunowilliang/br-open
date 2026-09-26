@@ -49,8 +49,8 @@ export const procedureNames = {
     { column: 3, line: 984, name: "payment/charge:simulatePayment" },
   ],
   "payment/dashboard.ts": [
-    { column: 3, line: 26, name: "payment/dashboard:getOverview" },
-    { column: 3, line: 134, name: "payment/dashboard:getRevenueSeries" },
+    { column: 3, line: 30, name: "payment/dashboard:getOverview" },
+    { column: 3, line: 139, name: "payment/dashboard:getRevenueSeries" },
   ],
   "payment/onboarding.ts": [
     { column: 3, line: 112, name: "payment/onboarding:getStatus" },
