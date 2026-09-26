@@ -8,7 +8,10 @@ import {
   isRegistrationOpen,
 } from "@convex/domains/tournament/entry-rules";
 
-import { UNDEFINED_PLAYER_NAME } from "@/lib/matches/match-display";
+import {
+  formatPlayerCardName,
+  UNDEFINED_PLAYER_NAME,
+} from "@/lib/matches/match-display";
 
 type CategoryKey = {
   gender: TournamentGender;
@@ -225,9 +228,7 @@ export function formatEntryPlayerNames(
     ? [entry.playerA, entry.playerB]
     : [entry.playerA];
 
-  return players.map(
-    (player) => player?.nickname ?? player?.fullName ?? "Jogador"
-  );
+  return players.map((player) => formatPlayerCardName(player));
 }
 
 /** Rótulo do lado: `null` vira "A definir"; dupla junta os dois nomes curtos. */

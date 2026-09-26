@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button } from "heroui-native";
+import { PressableFeedback } from "heroui-native";
 import { View } from "react-native";
 import Animated, {
   FadeIn,
@@ -9,18 +9,19 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Text } from "@/components/core/text";
-import { HugeIcons } from "@/components/ui/huge-icons";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { MatchCard } from "@/components/ui/match-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
-import { formatMatchMonthDay } from "@/lib/format/date";
 import { formatRateAsPercent } from "@/lib/format/percent";
 import { formatCount } from "@/lib/format/pluralize";
-import { formatMinuteToHHMM } from "@/lib/format/time";
-import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
+import {
+  buildPlayerResultsChart,
+  buildUpcomingMatchItems,
+  type PlayerDashboardViewer,
+} from "@/lib/home/player-dashboard-view";
 import type { ApiOutputs } from "@convex/shared/api";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 type PlayerDashboardOverview = ApiOutputs["player"]["dashboard"]["getOverview"];
 
@@ -30,7 +31,10 @@ type PlayerDashboardOverview = ApiOutputs["player"]["dashboard"]["getOverview"];
  *
  * É só APRESENTAÇÃO do `data` que a HOME carrega: aqui moram as queries de BLOCO
  * (as pendências do `PendingAlerts`). */
-export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
+export function PlayerDashboard(props: {
+  data: PlayerDashboardOverview;
+  viewer: PlayerDashboardViewer;
+}) {
   const crpc = useCRPC();
   const router = useRouter();
   const pendingsQuery = useQuery(
@@ -53,7 +57,10 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
     (total, category) => total + category.entryCount,
     0
   );
-  const upcomingMatches = overview.upcomingMatches;
+  const upcomingMatchItems = buildUpcomingMatchItems({
+    matches: overview.upcomingMatches,
+    viewer: props.viewer,
+  });
 
   return (
     <Animated.View
@@ -103,43 +110,42 @@ export function PlayerDashboard(props: { data: PlayerDashboardOverview }) {
           value={formatCount(entriesTotal, "inscrição", "inscrições")}
         />
 
-        {upcomingMatches.length > 0 ? (
+        {upcomingMatchItems.length > 0 ? (
           <View className="gap-2">
             <Text color="muted" variant="description" weight="medium">
               Próximos jogos
             </Text>
-            {upcomingMatches.map((match) => {
-              const sides = [
-                match.partner ? `Parceiro: ${match.partner.fullName}` : null,
-                ...match.opponents.map((opponent) => opponent.fullName),
-              ].filter(Boolean);
-
-              return (
-                <Button
-                  className="h-auto justify-start bg-surface-secondary py-3"
-                  key={match.id}
+            <View className="gap-2">
+              {upcomingMatchItems.map((item) => (
+                <PressableFeedback
+                  key={item.id}
                   onPress={() => {
                     router.navigate({
-                      params: { tournamentId: match.competitionId },
+                      params: { tournamentId: item.competitionId },
                       pathname: "/tournaments/[tournamentId]",
                     });
                   }}
-                  variant="secondary"
                 >
-                  <View className="min-w-0 flex-1 gap-0.5">
-                    <Text numberOfLines={1} weight="medium">
-                      {`${formatMatchMonthDay(match.matchDate)} · ${formatMinuteToHHMM(match.startMinute)} · ${match.competitionName}`}
-                    </Text>
-                    <Text color="muted" numberOfLines={1} variant="description">
-                      {[match.categoryDisplayName, ...sides]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </Text>
-                  </View>
-                  <HugeIcons icon={ArrowRight01Icon} />
-                </Button>
-              );
-            })}
+                  {/* Card e ordem de props do "Próximo jogo" da casa do torneio
+                      (`pages/tournaments/player-overview.tsx`). */}
+                  <MatchCard
+                    challengedAvatarUrl={item.sideBAvatarUrl}
+                    challengedName={item.sideBName}
+                    challengedPartnerAvatarUrl={item.sideBPartnerAvatarUrl}
+                    challengedPartnerName={item.sideBPartnerName}
+                    challengerAvatarUrl={item.sideAAvatarUrl}
+                    challengerName={item.sideAName}
+                    challengerPartnerAvatarUrl={item.sideAPartnerAvatarUrl}
+                    challengerPartnerName={item.sideAPartnerName}
+                    courtName={item.courtName}
+                    matchDate={item.matchDate}
+                    matchStatus={item.matchStatus}
+                    stageLabel={item.stageLabel}
+                    startMinute={item.startMinute}
+                  />
+                </PressableFeedback>
+              ))}
+            </View>
           </View>
         ) : null}
       </Animated.View>

@@ -3,6 +3,18 @@
  * dupla: o lado vazio é UMA linha, a dupla é uma unidade. */
 export const UNDEFINED_PLAYER_NAME = "A definir";
 
+/** Nome curto do jogador no card: apelido, depois o nome completo e, sem os
+ * dois, "Jogador". É a regra dos lados na chave, nas agendas e no "Próximo
+ * jogo" (a home inclusive) — uma só, para os nomes não divergirem entre telas. */
+export function formatPlayerCardName(
+  player:
+    | { fullName: null | string; nickname: null | string }
+    | null
+    | undefined
+): string {
+  return player?.nickname ?? player?.fullName ?? "Jogador";
+}
+
 export type MatchStatusChip = {
   color: "accent" | "danger" | "default" | "success" | "warning";
   label: string;

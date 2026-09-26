@@ -177,7 +177,14 @@ export default function Home() {
               message={PLAYER_DASHBOARD_ERROR_MESSAGE}
             />
           ) : playerOverviewQuery.data ? (
-            <PlayerDashboard data={playerOverviewQuery.data} />
+            <PlayerDashboard
+              data={playerOverviewQuery.data}
+              viewer={{
+                avatarUrl: userAvatarSource ?? null,
+                fullName: userName,
+                nickname: playerProfile.data?.nickname ?? null,
+              }}
+            />
           ) : (
             <LoadingState />
           )}
