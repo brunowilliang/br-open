@@ -105,7 +105,7 @@ export const procedureNames = {
     { column: 3, line: 36, name: "pendings/list:list" },
   ],
   "player/dashboard.ts": [
-    { column: 3, line: 118, name: "player/dashboard:getOverview" },
+    { column: 3, line: 150, name: "player/dashboard:getOverview" },
   ],
   "player/profile.ts": [
     { column: 3, line: 55, name: "player/profile:generateUploadUrl" },

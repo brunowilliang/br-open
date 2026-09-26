@@ -138,6 +138,21 @@ export type UpcomingMatchCandidate = {
   startMinute: number;
 };
 
+/** Rounds of the category's draw: the furthest among its bracket rows is the
+ * last one (a built bracket materializes every round). Floor of 1 keeps the
+ * stage label helper (draw size 2^(totalRounds-round+1)) sane without a board. */
+export function resolveCategoryTotalRounds(
+  matches: readonly { round: number }[]
+): number {
+  let lastRound = 1;
+  for (const match of matches) {
+    if (match.round > lastRound) {
+      lastRound = match.round;
+    }
+  }
+  return lastRound;
+}
+
 /** Order + cut of the upcoming list: by date, then start minute, capped. Both domains push freely
  * and the NEAREST matches win regardless of origin. */
 export function selectUpcomingMatches<T extends UpcomingMatchCandidate>(input: {

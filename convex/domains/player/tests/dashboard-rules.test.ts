@@ -6,6 +6,7 @@ import {
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
+  resolveCategoryTotalRounds,
   selectUpcomingMatches,
   type DashResult,
 } from "../dashboard-rules";
@@ -173,6 +174,19 @@ describe("selectUpcomingMatches", () => {
     });
 
     expect(selected.map((item) => item.startMinute)).toEqual([480, 900]);
+  });
+});
+
+describe("resolveCategoryTotalRounds", () => {
+  it("uses the furthest round of the category board", () => {
+    expect(
+      resolveCategoryTotalRounds([{ round: 1 }, { round: 3 }, { round: 2 }])
+    ).toBe(3);
+  });
+
+  it("keeps 1 for a board with no match (or none drawn yet)", () => {
+    expect(resolveCategoryTotalRounds([])).toBe(1);
+    expect(resolveCategoryTotalRounds([{ round: 1 }])).toBe(1);
   });
 });
 

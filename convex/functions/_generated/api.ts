@@ -703,6 +703,7 @@ export const api: {
             player: {
               avatarUrl: string | null;
               fullName: string;
+              nickname: string | null;
               playerProfileId: string;
             };
           } | null;
@@ -724,14 +725,18 @@ export const api: {
             opponents: Array<{
               avatarUrl: string | null;
               fullName: string;
+              nickname: string | null;
               playerProfileId: string;
             }>;
             partner: {
               avatarUrl: string | null;
               fullName: string;
+              nickname: string | null;
               playerProfileId: string;
             } | null;
+            round: number;
             startMinute: number;
+            totalRounds: number;
           }>;
         }
       >;

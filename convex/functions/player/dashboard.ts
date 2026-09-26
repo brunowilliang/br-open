@@ -12,6 +12,7 @@ import {
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
+  resolveCategoryTotalRounds,
   selectUpcomingMatches,
   type DashResult,
 } from "../../domains/player/dashboard-rules";
@@ -28,6 +29,8 @@ import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../generated/server";
 import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
+import type { AuthenticatedCtx } from "../../lib/crpc";
+import { getCategoryMatches } from "../tournament/_shared/board";
 import { requireActivePlayerProfile } from "../viewer/context";
 
 type TournamentEntryRecord = InferSelectModel<typeof tournamentEntry>;
@@ -78,6 +81,7 @@ function createPlayerCardLoader(ctx: QueryCtx) {
         return {
           avatarUrl: null,
           fullName: "Jogador",
+          nickname: null,
           playerProfileId: "",
         } satisfies PlayerDashboardPlayerCard;
       }
@@ -88,6 +92,7 @@ function createPlayerCardLoader(ctx: QueryCtx) {
         return {
           avatarUrl: null,
           fullName: "Jogador",
+          nickname: null,
           playerProfileId,
         } satisfies PlayerDashboardPlayerCard;
       }
@@ -98,11 +103,35 @@ function createPlayerCardLoader(ctx: QueryCtx) {
       return {
         avatarUrl: avatarUrl ?? user?.image ?? null,
         fullName: profile.fullName?.trim() || user?.name || "Jogador",
+        // O apelido viaja CRU: o fallback para o nome e do cliente, igual ao
+        // `formatEntryPlayerNames` das superficies do torneio.
+        nickname: profile.nickname?.trim() || null,
         playerProfileId,
       } satisfies PlayerDashboardPlayerCard;
     })();
     cache.set(playerProfileId, card);
     return card;
+  };
+}
+
+/**
+ * Rounds of a draw cache — one bounded board read per category that actually
+ * has an upcoming match, so the home pays for the categories it shows, not for
+ * every entry of the viewer.
+ */
+function createCategoryTotalRoundsLoader(ctx: AuthenticatedCtx<QueryCtx>) {
+  const cache = new Map<string, Promise<number>>();
+  return (categoryId: string): Promise<number> => {
+    const cached = cache.get(categoryId);
+    if (cached) {
+      return cached;
+    }
+    const total = (async () =>
+      resolveCategoryTotalRounds(
+        await getCategoryMatches(ctx, categoryId as Id<"tournamentCategory">)
+      ))();
+    cache.set(categoryId, total);
+    return total;
   };
 }
 
@@ -124,6 +153,7 @@ export const getOverview = authQuery
     const todayKey = brazilDayKey(nowMs);
 
     const getPlayerCard = createPlayerCardLoader(ctx);
+    const getCategoryTotalRounds = createCategoryTotalRoundsLoader(ctx);
     const results: DashResult[] = [];
     const upcoming: PlayerDashboardUpcomingMatch[] = [];
     // --- Tournaments: every non-cancelled entry (playerA or invited
@@ -305,7 +335,9 @@ export const getOverview = authQuery
           matchDate: match.matchDate,
           opponents: await Promise.all(opponentIds.map(getPlayerCard)),
           partner: partnerId ? await getPlayerCard(partnerId) : null,
+          round: match.round,
           startMinute: match.startMinute ?? 0,
+          totalRounds: await getCategoryTotalRounds(entry.categoryId),
         });
       }
     }

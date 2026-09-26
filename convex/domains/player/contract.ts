@@ -62,6 +62,7 @@ export const playerProfileSchema = z.object({
 export const playerDashboardPlayerCardSchema = z.object({
   avatarUrl: z.string().nullable(),
   fullName: z.string(),
+  nickname: z.string().nullable(),
   playerProfileId: z.string(),
 });
 
@@ -81,11 +82,13 @@ export const playerDashboardUpcomingMatchSchema = z.object({
   matchDate: z.string(),
   opponents: z.array(playerDashboardPlayerCardSchema),
   partner: playerDashboardPlayerCardSchema.nullable(),
+  round: z.number().int().min(1),
   startMinute: z
     .number()
     .int()
     .min(0)
     .max(24 * 60),
+  totalRounds: z.number().int().min(1),
 });
 
 export const playerDashboardResultMonthSchema = z.object({
