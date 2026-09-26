@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
+import type { PaymentChargeStatus } from "@convex/domains/payment/contract";
+
 import {
   buildCheckoutChargeView,
   resolveCheckoutDisplay,
   resolveCountdownRevalidation,
 } from "./checkout-view";
+import { PAYMENT_STATUS_META } from "./status";
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.UTC(2026, 8, 15, 12);
@@ -17,28 +20,71 @@ describe("buildCheckoutChargeView", () => {
   it("asks for a new PIX instead of claiming a payment", () => {
     const view = buildCheckoutChargeView({ chargeStatus: "EXPIRED" });
 
-    expect(view?.actionLabel).toBeNull();
+    expect(view?.action).toEqual({
+      kind: "new-charge",
+      label: "Gerar novo PIX",
+      variant: "primary",
+    });
     expect(view?.title).toBe("PIX expirado");
-    expect(view?.severity).toBe("warning");
+    expect(view?.severity).toBe("danger");
   });
 
   it("confirms the payment of the entry", () => {
     const view = buildCheckoutChargeView({ chargeStatus: "PAID" });
 
-    expect(view?.actionLabel).toBeNull();
+    expect(view?.action).toEqual({
+      kind: "back",
+      label: "Voltar",
+      variant: "secondary",
+    });
     expect(view?.title).toBe("Pagamento confirmado!");
     expect(view?.severity).toBe("success");
   });
 
-  it("names the failed and refunded charges without promising action", () => {
+  it("names the failed and refunded charges without a new PIX", () => {
     const failed = buildCheckoutChargeView({ chargeStatus: "FAILED" });
     const refunded = buildCheckoutChargeView({ chargeStatus: "REFUNDED" });
 
     expect(failed?.title).toBe("Pagamento não concluído");
-    expect(failed?.severity).toBe("warning");
+    expect(failed?.severity).toBe("danger");
+    // Falha não leva botão.
+    expect(failed?.action).toBeNull();
     expect(refunded?.title).toBe("Pagamento reembolsado");
-    expect(refunded?.actionLabel).toBeNull();
-    expect(refunded?.severity).toBe("warning");
+    expect(refunded?.action).toEqual({
+      kind: "back",
+      label: "Voltar",
+      variant: "secondary",
+    });
+    expect(refunded?.severity).toBe("default");
+  });
+
+  it("nunca mostra o PIX de uma cobrança cancelada", () => {
+    const canceled = buildCheckoutChargeView({ chargeStatus: "CANCELED" });
+
+    expect(canceled?.title).toBe("PIX cancelado");
+    expect(canceled?.action).toEqual({
+      kind: "back",
+      label: "Voltar",
+      variant: "secondary",
+    });
+    expect(canceled?.severity).toBe("default");
+  });
+
+  it("tira a severidade do cartão da tabela do chip", () => {
+    const terminalStatuses = Object.keys(PAYMENT_STATUS_META).filter(
+      (status) => status !== "PENDING"
+    );
+
+    for (const status of terminalStatuses) {
+      const meta =
+        PAYMENT_STATUS_META[status as keyof typeof PAYMENT_STATUS_META];
+
+      expect(
+        buildCheckoutChargeView({
+          chargeStatus: status as PaymentChargeStatus,
+        })?.severity
+      ).toBe(meta.severity);
+    }
   });
 });
 
@@ -89,7 +135,11 @@ describe("resolveCheckoutDisplay", () => {
         now,
       });
 
-      expect(display.card?.actionLabel).toBeNull();
+      expect(display.card?.action).toEqual({
+        kind: "back",
+        label: "Voltar",
+        variant: "secondary",
+      });
       expect(display.card?.title).toBe("Pagamento confirmado!");
     }
   });
@@ -154,7 +204,11 @@ describe("resolveCheckoutDisplay", () => {
 
     expect(expiredLink.card?.title).toBe("PIX expirado");
     expect(expiredLink.charge.chargeId).toBe("charge_from_link");
+    // O estado EFETIVO é o que a tela usa para decidir o que existe nela
+    // (o cancelar só aparece em PENDING/EXPIRED, nunca no pago).
+    expect(expiredLink.status).toBe("EXPIRED");
     expect(failed.card?.title).toBe("Pagamento não concluído");
+    expect(failed.status).toBe("FAILED");
   });
 });
 

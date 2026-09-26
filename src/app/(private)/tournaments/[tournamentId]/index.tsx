@@ -45,6 +45,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
 import { formatCompetitionMeta } from "@/lib/format/competition";
 import {
   buildRegistrationWindowState,
@@ -76,29 +77,9 @@ export default function TournamentOverviewRoute() {
     );
   }
 
-  const createCharge = useMutation({
-    mutationFn: crpcClient.payment.charge.createCharge.mutate,
-    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível gerar o PIX. Tente novamente."
-        ),
-        id: "tournament-charge-error",
-        label: "Falha ao gerar PIX",
-        variant: "danger",
-      });
-    },
-    onSuccess: (result) => {
-      router.navigate({
-        params: { chargeId: result.chargeId },
-        pathname: "/checkout/[chargeId]",
-      });
-    },
-  });
-
-  // Inscrição pelo rodapé: create → (awaiting_payment) charge → checkout.
+  // Inscrição pelo rodapé: create → (awaiting_payment) abre o checkout sem
+  // cobrança, que cria/reusa a cobrança já na tela. O POST à Woovi não entra
+  // no caminho do toque.
   const createEntry = useMutation({
     mutationFn: crpcClient.tournament.entries.create.mutate,
     mutationKey: crpc.tournament.entries.create.mutationKey(),
@@ -113,13 +94,14 @@ export default function TournamentOverviewRoute() {
         variant: "danger",
       });
     },
-    onSuccess: async (entry, variables) => {
+    onSuccess: (entry, variables) => {
       if (entry.status === "awaiting_payment") {
-        // A navegação pro checkout é o onSuccess do createCharge.
-        await createCharge.mutateAsync({
-          sourceId: entry.id,
-          sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-        });
+        router.navigate(
+          buildNewChargeCheckoutHref({
+            sourceId: entry.id,
+            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+          })
+        );
         return;
       }
 

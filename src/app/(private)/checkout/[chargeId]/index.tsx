@@ -1,4 +1,10 @@
-import { Cancel01Icon, CopyIcon } from "@hugeicons/core-free-icons";
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "@convex/domains/payment/contract";
+import {
+  Alert02Icon,
+  Cancel01Icon,
+  CopyIcon,
+  Unlink01Icon,
+} from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,25 +14,41 @@ import { View } from "react-native";
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import { CheckoutStatusCard } from "@/components/ui/checkout-status-card";
+import { CancelEntryDialog } from "@/components/ui/cancel-entry-dialog";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { formatMsAsMMSS } from "@/lib/format/time";
 import { formatPriceParts } from "@/lib/format/competition";
+import { formatMsAsMMSS } from "@/lib/format/time";
+import { createChargeOnce } from "@/lib/payments/charge-flight";
+import { parseCheckoutRoute } from "@/lib/payments/checkout-route";
 import {
   type CheckoutChargeView,
   resolveCheckoutDisplay,
   resolveCountdownRevalidation,
 } from "@/lib/payments/checkout-view";
-import { Button, Card, Skeleton, useToast } from "heroui-native";
+import { Button, Card, Chip, Skeleton, useToast } from "heroui-native";
 
 const DANGER_THRESHOLD_MS = 300_000;
 
-/** Fundo do cartão de estado, por severidade. */
-const CARD_BACKGROUND: Record<CheckoutChargeView["severity"], string> = {
-  danger: "bg-danger-soft",
-  success: "bg-success-soft",
-  warning: "bg-warning-soft",
+/** A criação falhou (não a cobrança): o cartão oferece tentar de novo. */
+const CHARGE_CREATION_FAILED_CARD: CheckoutChargeView = {
+  action: { kind: "new-charge", label: "Tentar novamente", variant: "primary" },
+  description: "Nenhum código foi gerado e nada saiu da conta.",
+  icon: Alert02Icon,
+  severity: "danger",
+  title: "Falha ao gerar PIX",
+};
+
+/** `/checkout/new` sem o source: link à mão, sem cobrança a resolver. */
+const MISSING_SOURCE_CARD: CheckoutChargeView = {
+  action: null,
+  description:
+    "Este link chegou incompleto. Abra o pagamento pelo torneio ou por Meus pagamentos.",
+  icon: Unlink01Icon,
+  severity: "danger",
+  title: "Cobrança não encontrada",
 };
 
 function useCountdown(expiresAt: string | null) {
@@ -59,13 +81,33 @@ export default function CheckoutScreen() {
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
-  const { chargeId } = useLocalSearchParams<{
-    chargeId: string;
+  const {
+    chargeId: rawChargeId,
+    sourceId,
+    sourceType,
+  } = useLocalSearchParams<{
+    chargeId?: string;
+    sourceId?: string;
+    sourceType?: string;
   }>();
+  const route = parseCheckoutRoute({
+    chargeId: rawChargeId,
+    sourceId,
+    sourceType,
+  });
+  // A cobrança resolvida vive em ESTADO da tela: trocar o param da rota aqui
+  // (`replace`) re-montava o modal fullScreenModal — a tela saía e entrava de
+  // novo antes do QR. O endereço real na URL não é preciso: quem depende de
+  // deep link usa /checkout/<chargeId> (hub), que segue igual.
+  const [resolvedChargeId, setResolvedChargeId] = useState<null | string>(null);
+  const chargeId =
+    route.kind === "charge" ? route.chargeId : (resolvedChargeId ?? "");
+  const [createChargeFailed, setCreateChargeFailed] = useState(false);
 
-  const checkoutQuery = useQuery(
-    crpc.payment.charge.getCheckoutContext.staticQueryOptions({ chargeId })
-  );
+  const checkoutQuery = useQuery({
+    ...crpc.payment.charge.getCheckoutContext.staticQueryOptions({ chargeId }),
+    enabled: chargeId !== "",
+  });
 
   const invalidateCheckout = useCallback(async () => {
     await queryClient.invalidateQueries(
@@ -77,9 +119,15 @@ export default function CheckoutScreen() {
   }, [chargeId, crpc, queryClient]);
 
   const createCharge = useMutation({
-    mutationFn: crpcClient.payment.charge.createCharge.mutate,
+    // `createChargeOnce`: uma cobrança por inscrição mesmo com dois toques
+    // durante o voo (o reuso do servidor só vê a PENDING após o saveCharge).
+    mutationFn: (source: { sourceId: string; sourceType: string }) =>
+      createChargeOnce(source, (input) =>
+        crpcClient.payment.charge.createCharge.mutate(input)
+      ),
     mutationKey: crpc.payment.charge.createCharge.mutationKey(),
     onError: (error) => {
+      setCreateChargeFailed(true);
       toast.show({
         description: getToastErrorMessage(
           error,
@@ -91,17 +139,13 @@ export default function CheckoutScreen() {
       });
     },
     onSuccess: async (result) => {
-      await invalidateCheckout();
+      setCreateChargeFailed(false);
 
-      // Sem cobrança pendente reaproveitável o servidor cria outra, e a tela
-      // segue para ela; quando ele devolve a mesma charge, o invalidate
-      // acima já atualiza o contexto em tela.
-      if (result.chargeId !== chargeId) {
-        router.replace({
-          params: { chargeId: result.chargeId },
-          pathname: "/checkout/[chargeId]",
-        });
-      }
+      // Sem cobrança pendente reaproveitável o servidor cria outra e a MESMA
+      // tela passa a pintá-la; quando ele devolve a mesma charge, o invalidate
+      // abaixo já atualiza o contexto em tela.
+      setResolvedChargeId(result.chargeId);
+      await invalidateCheckout();
     },
   });
 
@@ -124,8 +168,46 @@ export default function CheckoutScreen() {
     },
   });
 
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  // Cancelar pelo PIX usa a porta que já existe (`tournament.entries.cancel`),
+  // que encerra a inscrição e mata a cobrança no mesmo ato.
+  const cancelEntry = useMutation({
+    mutationFn: crpcClient.tournament.entries.cancel.mutate,
+    mutationKey: crpc.tournament.entries.cancel.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível cancelar a inscrição. Tente novamente."
+        ),
+        id: "checkout-cancel-entry-error",
+        label: "Falha ao cancelar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      setIsCancelDialogOpen(false);
+      toast.show({
+        description:
+          "Inscrição cancelada. O PIX deixou de valer e a vaga voltou para a categoria.",
+        id: "checkout-cancel-entry-success",
+        label: "Inscrição cancelada",
+        variant: "success",
+      });
+      // As listas da casa do torneio e das abas são assinaturas vivas; o hub e
+      // as pendências entram por invalidação explícita.
+      await queryClient.invalidateQueries(
+        crpc.payment.charge.listMine.queryFilter()
+      );
+      await queryClient.invalidateQueries(
+        crpc.pendings.list.list.queryFilter()
+      );
+      router.back();
+    },
+  });
+
   const checkout = checkoutQuery.data ?? null;
-  const isLoading = checkoutQuery.isLoading && !checkout;
 
   // A cobrança VIGENTE manda na tela: a notificação antiga carrega o chargeId
   // de uma charge já terminal, e o PIX gerado depois vive em outra charge
@@ -137,10 +219,32 @@ export default function CheckoutScreen() {
       })
     : null;
 
+  // A rota de criação não tem cobrança: ou está criando (skeleton), ou falhou
+  // (cartão com retry), ou o link veio sem source. O cartão de falha fica só
+  // aqui: no checkout de uma charge existente a falha continua só no toast.
+  const missingSource = route.kind === "invalid";
+  const creatingCard = missingSource
+    ? MISSING_SOURCE_CARD
+    : route.kind === "create" && createChargeFailed
+      ? CHARGE_CREATION_FAILED_CARD
+      : null;
+  const isLoading =
+    chargeId === ""
+      ? creatingCard === null
+      : checkoutQuery.isLoading && !checkout;
+
   const remainingMs = useCountdown(display?.charge.expiresAt ?? null);
-  const card = display?.card ?? null;
+  const card = creatingCard ?? display?.card ?? null;
   const charge = display?.charge ?? null;
   const amountCents = display?.charge.amountCents ?? 0;
+
+  // Cancelar só existe com o PIX ATIVO de uma inscrição: no expirado a tela já
+  // mostra o cartão terminal, cuja ação é gerar um PIX novo.
+  const cancelEntryId =
+    checkout?.sourceType === SOURCE_TYPE_TOURNAMENT_ENTRY &&
+    display?.status === "PENDING"
+      ? checkout.sourceId
+      : null;
 
   // Countdown zerado com o PIX na tela: o aparelho pode estar adiantado e ter
   // zerado um PIX que o servidor considera vivo, então quem decide o próximo
@@ -162,14 +266,44 @@ export default function CheckoutScreen() {
     invalidateCheckout();
   }, [card, charge?.chargeId, invalidateCheckout, remainingMs]);
 
+  // Toque em "inscrever e pagar"/Pagar: a navegação chega AQUI sem cobrança e
+  // quem cria é esta tela, em paralelo com a transição (o POST à Woovi não
+  // pode segurar o toque). O guard por source evita criar de novo no re-render.
+  const requestedSourceRef = useRef<null | string>(null);
+  const createChargeMutate = createCharge.mutate;
+  const createSourceId = route.kind === "create" ? route.sourceId : null;
+  const createSourceType = route.kind === "create" ? route.sourceType : null;
+
+  useEffect(() => {
+    if (!(createSourceId && createSourceType)) {
+      return;
+    }
+
+    const key = `${createSourceType}:${createSourceId}`;
+    if (requestedSourceRef.current === key) {
+      return;
+    }
+
+    requestedSourceRef.current = key;
+    createChargeMutate({
+      sourceId: createSourceId,
+      sourceType: createSourceType,
+    });
+  }, [createSourceId, createSourceType, createChargeMutate]);
+
   const priceParts = useMemo(
     () =>
       formatPriceParts({
         amountCents,
-        billingInterval: "month",
+        billingInterval: "once",
       }),
     [amountCents]
   );
+
+  // O resumo (valor + chip) existe também no loading: sem isso o bloco inteiro
+  // nasce depois do QR e empurra a tela. No estado pronto o "Grátis" continua
+  // escondendo o resumo.
+  const showPriceSummary = isLoading || priceParts.amount !== "Grátis";
 
   async function copyBrCode() {
     const brCode = display?.charge.brCode;
@@ -185,16 +319,37 @@ export default function CheckoutScreen() {
     });
   }
 
-  function handleGenerateNewCharge() {
-    if (!checkout) {
+  function handleCreateCharge() {
+    setCreateChargeFailed(false);
+
+    if (createSourceId && createSourceType) {
+      createChargeMutate({
+        sourceId: createSourceId,
+        sourceType: createSourceType,
+      });
       return;
     }
 
-    createCharge.mutate({
-      sourceId: checkout.sourceId,
-      sourceType: checkout.sourceType,
-    });
+    if (checkout) {
+      createChargeMutate({
+        sourceId: checkout.sourceId,
+        sourceType: checkout.sourceType,
+      });
+    }
   }
+
+  // Cancelar pelo próprio PIX: a inscrição é encerrada junto (a vaga volta),
+  // então o aviso vem antes no diálogo. No layout de PIX ele entra NO FLUXO,
+  // logo abaixo do aviso do banco (sem âncora de rodapé).
+  // const cancelAction = cancelEntryId ? (
+  //   <Button
+  //     isDisabled={cancelEntry.isPending}
+  //     onPress={() => setIsCancelDialogOpen(true)}
+  //     variant="danger-soft"
+  //   >
+  //     <Button.Label>Cancelar inscrição</Button.Label>
+  //   </Button>
+  // ) : null;
 
   return (
     <Page>
@@ -225,31 +380,17 @@ export default function CheckoutScreen() {
             nunca promete PIX quando não há cobrança possível. */}
         {card ? (
           <View className="flex-1 items-center justify-center gap-3">
-            <View
-              className={`w-full gap-3 rounded-2xl p-8 ${
-                CARD_BACKGROUND[card.severity]
-              }`}
-            >
-              <Text
-                align="center"
-                color={card.severity}
-                size="lg"
-                weight="semibold"
-              >
-                {card.title}
-              </Text>
-              <Text align="center" color="muted">
-                {card.description}
-              </Text>
-            </View>
-            {card.actionLabel ? (
-              <Button
-                isDisabled={createCharge.isPending}
-                onPress={handleGenerateNewCharge}
-              >
-                <Button.Label>{card.actionLabel}</Button.Label>
-              </Button>
-            ) : null}
+            <CheckoutStatusCard
+              isActionDisabled={
+                card.action?.kind === "new-charge" && createCharge.isPending
+              }
+              onAction={
+                card.action?.kind === "back"
+                  ? () => router.back()
+                  : handleCreateCharge
+              }
+              view={card}
+            />
           </View>
         ) : null}
 
@@ -259,55 +400,48 @@ export default function CheckoutScreen() {
         {card ? null : (
           <>
             {/* Price summary */}
-            {priceParts.amount === "Grátis" ? null : (
+            {showPriceSummary ? (
               <View className="w-full items-center gap-1 pt-2">
-                <Text color="muted" size="sm">
-                  Valor da inscrição
-                </Text>
+                <Text color="muted">Valor da inscrição</Text>
                 <Skeleton
                   className="h-10 w-40 rounded-xl"
                   isLoading={isLoading}
                 >
                   <View className="h-10 flex-row items-baseline gap-1">
-                    <Text size="3xl" weight="semibold">
+                    <Text size="2xl" weight="semibold">
                       {priceParts.amount}
                     </Text>
-                    {priceParts.suffix ? (
-                      <Text color="muted" size="sm">
-                        {priceParts.suffix}
-                      </Text>
-                    ) : null}
                   </View>
                 </Skeleton>
+                {/* Categoria da inscrição: mesmo molde de chip dos cards de
+                    inscrição. O chip vem com `self-center` porque o root dele na
+                    lib é `align-self: flex-start` (vence o `items-center` do pai)
+                    e ele sairia do eixo central. Placeholder do tamanho real do
+                    chip md (28 de altura) para o loading não empurrar a coluna. */}
+                {isLoading ? (
+                  <Skeleton className="h-7 w-24 rounded-2xl" />
+                ) : checkout?.sourceCategory ? (
+                  <Chip
+                    className="self-center"
+                    color="default"
+                    size="md"
+                    variant="soft"
+                  >
+                    <Chip.Label>{checkout.sourceCategory}</Chip.Label>
+                  </Chip>
+                ) : null}
               </View>
-            )}
-
-            {/* Countdown */}
-            <View className="w-full items-center gap-1">
-              <Text color="muted" size="sm">
-                Expira em
-              </Text>
-              <Skeleton className="h-6 w-20 rounded-xl" isLoading={isLoading}>
-                <Text
-                  color={
-                    remainingMs < DANGER_THRESHOLD_MS ? "danger" : undefined
-                  }
-                  weight="semibold"
-                >
-                  {formatMsAsMMSS(remainingMs)}
-                </Text>
-              </Skeleton>
-            </View>
+            ) : null}
 
             {/* QR Code */}
             <Skeleton
-              className="size-64 self-center rounded-3xl"
+              className="size-56 self-center rounded-3xl"
               isLoading={isLoading}
             >
-              <View className="size-64 items-center justify-center self-center rounded-3xl">
+              <View className="size-56 items-center justify-center self-center rounded-3xl">
                 {charge?.qrCodeUrl ? (
                   <Image
-                    className="size-64 rounded-3xl"
+                    className="size-56 rounded-3xl"
                     fallback="none"
                     source={{
                       uri: charge.qrCodeUrl,
@@ -316,6 +450,25 @@ export default function CheckoutScreen() {
                 ) : null}
               </View>
             </Skeleton>
+
+            {/* Countdown */}
+            <View className="centered flex-row items-center gap-1">
+              {isLoading ? (
+                <Skeleton className="h-6 w-32 rounded-xl" />
+              ) : (
+                <>
+                  <Text color="muted">Expira em</Text>
+                  <Text
+                    color={
+                      remainingMs < DANGER_THRESHOLD_MS ? "danger" : undefined
+                    }
+                    weight="semibold"
+                  >
+                    {formatMsAsMMSS(remainingMs)}
+                  </Text>
+                </>
+              )}
+            </View>
 
             {/* Copia e cola */}
             <View className="w-full gap-3">
@@ -368,18 +521,46 @@ export default function CheckoutScreen() {
                   ) : null}
                 </View>
               </Skeleton>
+              <Skeleton
+                className="h-12 w-full rounded-2xl"
+                isLoading={isLoading}
+              >
+                <Button
+                  isDisabled={cancelEntry.isPending}
+                  onPress={() => setIsCancelDialogOpen(true)}
+                  variant="danger-soft"
+                >
+                  <Button.Label>Cancelar inscrição</Button.Label>
+                </Button>
+              </Skeleton>
             </View>
-
-            {/* Help text */}
-            <Skeleton className="mx-6 h-10 rounded-md" isLoading={isLoading}>
-              <Text align="center" className="px-2" color="muted" size="sm">
-                Abra o app do seu banco e escaneie o QR code ou cole o código
-                acima para pagar.
-              </Text>
-            </Skeleton>
           </>
         )}
       </Page.View>
+
+      <Page.Footer className="px-4 pb-safe-offset-4">
+        {/* Help text */}
+        <Skeleton className="h-10 flex-1 rounded-2xl" isLoading={isLoading}>
+          <Text align="center" className="px-2" color="muted" size="sm">
+            Abra o app do seu banco e escaneie o QR code ou cole o código acima
+            para pagar.
+          </Text>
+        </Skeleton>
+      </Page.Footer>
+
+      <CancelEntryDialog
+        categoryLabel={checkout?.sourceCategory}
+        isOpen={isCancelDialogOpen}
+        isPending={cancelEntry.isPending}
+        onClose={() => {
+          setIsCancelDialogOpen(false);
+        }}
+        onConfirm={() => {
+          if (cancelEntryId) {
+            cancelEntry.mutate({ entryId: cancelEntryId });
+          }
+        }}
+      />
     </Page>
   );
 }

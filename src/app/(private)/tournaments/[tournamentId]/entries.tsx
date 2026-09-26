@@ -4,13 +4,12 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Dialog, Tabs, useToast } from "heroui-native";
+import { Button, Tabs, useToast } from "heroui-native";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
-import { Text } from "@/components/core/text";
-import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+import { CancelEntryDialog } from "@/components/ui/cancel-entry-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EntryCard } from "@/components/ui/entry-card";
 import { ErrorState } from "@/components/ui/error-state";
@@ -18,6 +17,7 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
 import {
   buildTournamentEntriesTabItems,
   canCancelTournamentEntry,
@@ -37,7 +37,6 @@ type EntryRowActionsProps = {
   onPay: (entryId: string) => void;
   onReject: (entryId: string) => void;
   onRespondInvite: (input: { accept: boolean; entryId: string }) => void;
-  payIsPending: boolean;
   segment: TournamentEntriesTab;
   tournamentStatus: null | string;
   viewerProfileId: null | string;
@@ -110,7 +109,6 @@ function EntryRowActions(props: EntryRowActionsProps) {
         ) : null}
         {canPay ? (
           <Button
-            isDisabled={props.payIsPending}
             onPress={() => {
               props.onPay(entry.id);
             }}
@@ -347,29 +345,6 @@ export default function TournamentEntriesRoute() {
     },
   });
 
-  // "Pagar": createCharge e a navegação pro checkout — mesmo fluxo do JoinFooter.
-  const createCharge = useMutation({
-    mutationFn: crpcClient.payment.charge.createCharge.mutate,
-    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível gerar o PIX. Tente novamente."
-        ),
-        id: "tournament-charge-error",
-        label: "Falha ao gerar PIX",
-        variant: "danger",
-      });
-    },
-    onSuccess: (result) => {
-      router.navigate({
-        params: { chargeId: result.chargeId },
-        pathname: "/checkout/[chargeId]",
-      });
-    },
-  });
-
   // O papel resolvido manda na tela: `access`/`role` só existem depois que a
   // descoberta hidrata — montar a barra de segmentos antes disso pintaria as
   // abas de jogador para o gestor.
@@ -516,10 +491,12 @@ export default function TournamentEntriesRoute() {
                   }}
                   onCancelPress={setCancelEntryTarget}
                   onPay={(entryId) => {
-                    createCharge.mutate({
-                      sourceId: entryId,
-                      sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-                    });
+                    router.navigate(
+                      buildNewChargeCheckoutHref({
+                        sourceId: entryId,
+                        sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+                      })
+                    );
                   }}
                   onReject={(entryId) => {
                     rejectEntry.mutate({ entryId });
@@ -527,7 +504,6 @@ export default function TournamentEntriesRoute() {
                   onRespondInvite={(input) => {
                     respondPartnerInvite.mutate(input);
                   }}
-                  payIsPending={createCharge.isPending}
                   segment={activeTab}
                   tournamentStatus={tournament?.status ?? null}
                   viewerProfileId={viewerProfileId}
@@ -539,50 +515,19 @@ export default function TournamentEntriesRoute() {
       )}
       <Page.Footer className="pb-floating-tab-bar-4" />
 
-      <Dialog
+      <CancelEntryDialog
+        categoryLabel={cancelEntryTarget?.categoryName}
         isOpen={cancelEntryTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelEntryTarget(null);
+        isPending={cancelEntry.isPending}
+        onClose={() => {
+          setCancelEntryTarget(null);
+        }}
+        onConfirm={() => {
+          if (cancelEntryTarget) {
+            cancelEntry.mutate({ entryId: cancelEntryTarget.entryId });
           }
         }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <DialogCloseButton className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>Cancelar inscrição</Dialog.Title>
-            <Text color="muted" variant="description">
-              {`Sua inscrição em ${cancelEntryTarget?.categoryName ?? ""} será cancelada. Em duplas, a saída vale para os dois jogadores. Inscrição paga recebe estorno integral.`}
-            </Text>
-            <View className="flex-row gap-2 self-end">
-              <Button
-                onPress={() => {
-                  setCancelEntryTarget(null);
-                }}
-                size="sm"
-                variant="secondary"
-              >
-                <Button.Label>Voltar</Button.Label>
-              </Button>
-              <Button
-                isDisabled={cancelEntry.isPending}
-                onPress={() => {
-                  if (cancelEntryTarget) {
-                    cancelEntry.mutate({
-                      entryId: cancelEntryTarget.entryId,
-                    });
-                  }
-                }}
-                size="sm"
-                variant="danger-soft"
-              >
-                <Button.Label>Cancelar inscrição</Button.Label>
-              </Button>
-            </View>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
+      />
     </Page>
   );
 }

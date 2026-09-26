@@ -63,7 +63,6 @@ mock.module("@/components/ui/error-state", () => ({
 }));
 mock.module("@/lib/convex/crpc", () => ({
   useCRPC: () => ({
-    payment: { charge: { createCharge: { mutationKey: () => ["charge"] } } },
     pendings: {
       dismiss: { dismiss: { mutationKey: () => ["dismiss-pending"] } },
       list: { list: { queryFilter: () => ({ queryKey: [] }) } },
@@ -78,7 +77,8 @@ mock.module("@/lib/convex/crpc", () => ({
   }),
   useCRPCClient: () => {
     // O runner monta TODAS as mutations: sem a superfície inteira um
-    // `mutationFn` ausente estoura no mount.
+    // `mutationFn` ausente estoura no mount. `createCharge` fica só como
+    // armadilha: o CTA Pagar NÃO pode chamá-lo (quem cria é o checkout).
     const notUsed = () => ({
       mutate: () => undefined,
     });
@@ -238,15 +238,24 @@ describe("PendingAlerts wiring", () => {
     ]);
   });
 
-  it("creates the charge with the entry of the item", () => {
+  it("opens the checkout for the entry without waiting for the charge", () => {
     const alert = renderAlert(buildPaymentItem());
 
     alert.action?.onPress();
 
-    expect(chargeCalls).toEqual([
-      { sourceId: "entry-awaiting-payment", sourceType: "tournament_entry" },
+    // A cobrança nasce no checkout: o toque só navega (o POST à Woovi não
+    // pode segurar a transição).
+    expect(navigateCalls).toEqual([
+      {
+        params: {
+          chargeId: "new",
+          sourceId: "entry-awaiting-payment",
+          sourceType: "tournament_entry",
+        },
+        pathname: "/checkout/[chargeId]",
+      },
     ]);
-    expect(navigateCalls).toEqual([]);
+    expect(chargeCalls).toEqual([]);
   });
 
   it("disables BOTH buttons while the invite mutation is in flight", () => {
@@ -259,7 +268,7 @@ describe("PendingAlerts wiring", () => {
   });
 
   it("keeps the buttons enabled when another mutation is in flight", () => {
-    pendingMutations.add(JSON.stringify(["charge"]));
+    pendingMutations.add(JSON.stringify(["approve-entry"]));
 
     const alert = renderAlert(buildInviteItem());
 

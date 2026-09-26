@@ -2,8 +2,20 @@ import type {
   CheckoutCharge,
   PaymentChargeStatus,
 } from "@convex/domains/payment/contract";
+import {
+  Alert02Icon,
+  ArrowTurnBackwardIcon,
+  BanIcon,
+  CheckmarkCircle02Icon,
+  Timer01Icon,
+} from "@hugeicons/core-free-icons";
+import type { HugeiconsProps } from "@hugeicons/react-native";
+import type { ButtonVariant } from "heroui-native";
+
+import { getPaymentStatusMeta } from "./status";
 
 const TERMINAL_CHARGE_STATUS: Record<PaymentChargeStatus, boolean> = {
+  CANCELED: true,
   EXPIRED: true,
   FAILED: true,
   PAID: true,
@@ -12,10 +24,17 @@ const TERMINAL_CHARGE_STATUS: Record<PaymentChargeStatus, boolean> = {
 };
 
 export type CheckoutChargeView = {
-  actionLabel: null | string;
-  /** Texto sem travessão no estilo dos cartões de checkout existentes. */
+  /** Ação do estado: rótulo, variante do botão e o kind que a tela mapeia. */
+  action: {
+    kind: "back" | "new-charge";
+    label: string;
+    variant: ButtonVariant;
+  } | null;
+  /** Texto que ACRESCENTA ao título (o que houve com o dinheiro ou com a vaga). */
   description: string;
-  severity: "danger" | "success" | "warning";
+  /** Ícone do estado, acima do título (composição do empty state). */
+  icon: HugeiconsProps["icon"];
+  severity: "danger" | "default" | "success" | "warning";
   title: string;
 };
 
@@ -39,38 +58,68 @@ export function buildCheckoutChargeView(input: {
     return null;
   }
 
+  // A cor do cartão vem da MESMA tabela do chip; `FAILED` (sem linha na tabela)
+  // fica na severidade de erro.
+  const severity =
+    getPaymentStatusMeta(input.chargeStatus)?.severity ?? "danger";
+
   if (input.chargeStatus === "PAID") {
     return {
-      actionLabel: null,
-      description: "Confirmamos o seu pagamento.",
-      severity: "success",
+      action: { kind: "back", label: "Voltar", variant: "secondary" },
+      description:
+        "Sua inscrição está confirmada e a vaga é sua. Não precisa fazer mais nada.",
+      icon: CheckmarkCircle02Icon,
+      severity,
       title: "Pagamento confirmado!",
     };
   }
 
   if (input.chargeStatus === "EXPIRED") {
     return {
-      actionLabel: null,
-      description: "O tempo para pagamento esgotou.",
-      severity: "warning",
+      action: {
+        kind: "new-charge",
+        label: "Gerar novo PIX",
+        variant: "primary",
+      },
+      description:
+        "O prazo terminou e a vaga não ficou reservada. Gere um novo código para concluir a inscrição.",
+      icon: Timer01Icon,
+      severity,
       title: "PIX expirado",
     };
   }
 
-  // FAILED/REFUNDED: cartão sem ação, nunca o layout de PIX.
+  // FAILED/REFUNDED/CANCELED: nunca o layout de PIX.
   if (input.chargeStatus === "FAILED") {
     return {
-      actionLabel: null,
-      description: "O PIX não foi aprovado.",
-      severity: "warning",
+      action: null,
+      description:
+        "O PIX não foi aprovado e a vaga não ficou reservada. Você pode pagar de novo pela sua inscrição.",
+      icon: Alert02Icon,
+      severity,
       title: "Pagamento não concluído",
     };
   }
 
+  // Cobrança cancelada não tem PIX vivo: aqui resta sair, sem prometer
+  // pagamento.
+  if (input.chargeStatus === "CANCELED") {
+    return {
+      action: { kind: "back", label: "Voltar", variant: "secondary" },
+      description:
+        "A inscrição foi encerrada e a vaga voltou para a categoria. Nenhum valor foi cobrado.",
+      icon: BanIcon,
+      severity,
+      title: "PIX cancelado",
+    };
+  }
+
   return {
-    actionLabel: null,
-    description: "O valor foi devolvido.",
-    severity: "warning",
+    action: { kind: "back", label: "Voltar", variant: "secondary" },
+    description:
+      "O valor voltou para a conta que fez o pagamento e a inscrição foi desfeita.",
+    icon: ArrowTurnBackwardIcon,
+    severity,
     title: "Pagamento reembolsado",
   };
 }
@@ -80,6 +129,8 @@ export type CheckoutDisplay = {
   /** Cartão terminal; `null` = layout de PIX/countdown da `charge`. */
   card: CheckoutChargeView | null;
   charge: CheckoutCharge;
+  /** Estado EFETIVO da cobrança exibida (já resolve a vigente e o relógio local). */
+  status: PaymentChargeStatus;
 };
 
 /**
@@ -107,6 +158,7 @@ export function resolveCheckoutDisplay(input: {
   return {
     card: buildCheckoutChargeView({ chargeStatus }),
     charge,
+    status: chargeStatus,
   };
 }
 

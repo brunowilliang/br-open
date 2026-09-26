@@ -61,6 +61,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "standings-card",
     title: "Classificação",
   },
+  {
+    description: "Cartões de estado do checkout por variante, para aprovação",
+    id: "payment-status",
+    title: "Status de pagamento",
+  },
 ];
 
 export function findComponentGalleryEntry(

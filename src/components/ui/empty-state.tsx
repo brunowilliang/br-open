@@ -17,8 +17,13 @@ type EmptyStateProps = {
   buttonVariant?: ComponentProps<typeof Button>["variant"];
   children?: ReactNode;
   description: string;
+  descriptionClassName?: string;
   icon?: HugeiconsProps["icon"] | null;
+  iconClassName?: string;
+  /** Classes da bolha do ícone (cor de fundo por estado, ex.: `bg-success-soft`). */
+  mediaClassName?: string;
   title: string;
+  titleClassName?: string;
 };
 
 export const EmptyState = (props: EmptyStateProps) => {
@@ -31,20 +36,28 @@ export const EmptyState = (props: EmptyStateProps) => {
     buttonVariant,
     children,
     description,
+    descriptionClassName,
     icon = ListChevronsDownUpIcon,
+    iconClassName,
+    mediaClassName,
     title,
+    titleClassName,
   } = props;
 
   return (
     <HEmptyState className={cn("gap-3.5 p-2", props.className)}>
       {icon ? (
-        <HEmptyState.Media variant="icon">
-          <HugeIcons icon={icon} />
+        <HEmptyState.Media className={mediaClassName} variant="icon">
+          <HugeIcons className={iconClassName} icon={icon} />
         </HEmptyState.Media>
       ) : null}
       <View>
-        <HEmptyState.Title>{title}</HEmptyState.Title>
-        <HEmptyState.Description>{description}</HEmptyState.Description>
+        <HEmptyState.Title className={titleClassName}>
+          {title}
+        </HEmptyState.Title>
+        <HEmptyState.Description className={descriptionClassName}>
+          {description}
+        </HEmptyState.Description>
       </View>
       {children}
       {buttonLabel ? (

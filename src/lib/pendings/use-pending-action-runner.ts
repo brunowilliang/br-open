@@ -4,6 +4,7 @@ import { useToast } from "heroui-native";
 
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
 import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
 
 type UsePendingActionRunnerInput = {
@@ -17,31 +18,6 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { toast } = useToast();
-
-  const createCharge = useMutation({
-    mutationFn: crpcClient.payment.charge.createCharge.mutate,
-    mutationKey: crpc.payment.charge.createCharge.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível gerar o código de pagamento. Tente novamente."
-        ),
-        id: "pending-create-charge-error",
-        label: "Falha ao gerar PIX",
-        variant: "danger",
-      });
-    },
-    onSuccess: async (result) => {
-      // O callback da superfície é AGUARDADO antes de seguir (a navegação para
-      // o checkout vem depois da invalidação de quem passou o callback).
-      await input?.onPerformed?.();
-      router.navigate({
-        params: { chargeId: result.chargeId },
-        pathname: "/checkout/[chargeId]",
-      });
-    },
-  });
 
   const respondPartnerInvite = useMutation({
     mutationFn: crpcClient.tournament.entries.respondPartnerInvite.mutate,
@@ -159,10 +135,14 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
         } as unknown as Href);
         return;
       case "pay_entry":
-        createCharge.mutate({
-          sourceId: resolution.entryId,
-          sourceType: "tournament_entry",
-        });
+        // Navega na hora: quem cria a cobrança é o checkout (o POST à Woovi não
+        // pode segurar a transição nem passar por invalidate).
+        router.navigate(
+          buildNewChargeCheckoutHref({
+            sourceId: resolution.entryId,
+            sourceType: "tournament_entry",
+          })
+        );
         return;
       case "respond_invite":
         respondPartnerInvite.mutate({
@@ -185,8 +165,6 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     resolution: PendingActionResolution | null
   ): boolean => {
     switch (resolution?.kind) {
-      case "pay_entry":
-        return createCharge.isPending;
       case "respond_invite":
         return respondPartnerInvite.isPending;
       case "approve_entry":
