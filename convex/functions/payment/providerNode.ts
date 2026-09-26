@@ -19,6 +19,7 @@ import {
   isProviderMissingMessage,
   providerErrorMessage,
   providerFetch,
+  resolveRefundResponseOutcome,
   resolveWithdrawalProviderId,
 } from "../../domains/payment/provider-requests";
 import { getEnv } from "../../lib/get-env";
@@ -497,14 +498,23 @@ export const refundChargeAction = privateAction
         method: "POST",
       }
     );
-    if (!response.ok) {
+    // Retry idempotente: "ja reembolsou" e CONFIRMACAO do estorno, nao falha.
+    const errorMessage = response.ok
+      ? null
+      : await toLegibleProviderError(response);
+    const body = response.ok
+      ? ((await response.json()) as { refund?: { status?: string } })
+      : null;
+    const outcome = resolveRefundResponseOutcome({
+      errorMessage,
+      ok: response.ok,
+      providerStatus: body?.refund?.status ?? null,
+    });
+    if ("error" in outcome) {
       throw new CRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: await toLegibleProviderError(response),
+        message: outcome.error,
       });
     }
-    const data = (await response.json()) as {
-      refund?: { status?: string };
-    };
-    return { status: data.refund?.status ?? "IN_PROCESSING" };
+    return { status: outcome.status };
   });

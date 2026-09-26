@@ -5,11 +5,14 @@ import {
   buildChargeDeleteRequest,
   buildDebitRequest,
   buildWithdrawRequest,
+  isAlreadyRefundedMessage,
   isProviderMissingMessage,
   providerErrorMessage,
   providerFetch,
+  resolveRefundResponseOutcome,
   resolveWithdrawalProviderId,
 } from "../provider-requests";
+import { resolveRefundOutcome } from "../rules";
 
 describe("provider requests (Woovi withdraw/debit)", () => {
   describe("resolveWithdrawalProviderId", () => {
@@ -109,6 +112,83 @@ describe("provider requests (Woovi withdraw/debit)", () => {
         false
       );
       expect(isProviderMissingMessage(null)).toBe(false);
+    });
+  });
+
+  describe("isAlreadyRefundedMessage (BUG-0082)", () => {
+    it("recognizes the provider's already-refunded message in any spelling", () => {
+      expect(
+        isAlreadyRefundedMessage(
+          "Você já reembolsou todo o valor desta cobrança"
+        )
+      ).toBe(true);
+      expect(
+        isAlreadyRefundedMessage(
+          "Voce ja reembolsou todo o valor desta cobranca"
+        )
+      ).toBe(true);
+      expect(
+        isAlreadyRefundedMessage(
+          "VOCÊ JÁ REEMBOLSOU TODO O VALOR DESTA COBRANÇA!"
+        )
+      ).toBe(true);
+      expect(
+        isAlreadyRefundedMessage(
+          "Erro: você já reembolsou todo o valor desta cobrança."
+        )
+      ).toBe(true);
+    });
+
+    it("never mistakes a refusal or another error for a done refund", () => {
+      expect(isAlreadyRefundedMessage("O valor não foi reembolsado")).toBe(
+        false
+      );
+      expect(
+        isAlreadyRefundedMessage(
+          "Não foi possível reembolsar todo o valor desta cobrança."
+        )
+      ).toBe(false);
+      expect(isAlreadyRefundedMessage("Cobrança não encontrada")).toBe(false);
+      expect(isAlreadyRefundedMessage("Saldo insuficiente na subconta.")).toBe(
+        false
+      );
+      expect(isAlreadyRefundedMessage(null)).toBe(false);
+      expect(isAlreadyRefundedMessage("")).toBe(false);
+    });
+  });
+
+  describe("resolveRefundResponseOutcome (BUG-0082)", () => {
+    it("relays the provider refund status on a 2xx", () => {
+      expect(
+        resolveRefundResponseOutcome({ ok: true, providerStatus: "CONFIRMED" })
+      ).toEqual({ status: "CONFIRMED" });
+      expect(
+        resolveRefundResponseOutcome({ ok: true, providerStatus: null })
+      ).toEqual({ status: "IN_PROCESSING" });
+    });
+
+    it("reads the retry rejection as a DONE refund, not as a failure", () => {
+      const outcome = resolveRefundResponseOutcome({
+        errorMessage: "Você já reembolsou todo o valor desta cobrança",
+        ok: false,
+      });
+      expect(outcome).toEqual({ status: "CONFIRMED" });
+      expect("status" in outcome && resolveRefundOutcome(outcome.status)).toBe(
+        "refunded"
+      );
+    });
+
+    it("keeps every other provider error for the caller to log", () => {
+      expect(
+        resolveRefundResponseOutcome({
+          errorMessage: "Cobrança não encontrada",
+          ok: false,
+        })
+      ).toEqual({ error: "Cobrança não encontrada" });
+      expect(resolveRefundResponseOutcome({ ok: false })).toEqual({
+        error: "Estorno recusado pelo provedor.",
+      });
+      expect(resolveRefundOutcome("REJECTED")).toBe("failed");
     });
   });
 

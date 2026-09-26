@@ -99,6 +99,32 @@ export function isProviderMissingMessage(message: null | string): boolean {
   return message !== null && /n[ãa]o\s+encontrad/i.test(message);
 }
 
+/** O 400 "ja reembolsou todo o valor" e CONFIRMACAO do estorno, nao falha. */
+const ALREADY_REFUNDED_CORE = "reembolsou todo o valor";
+
+export function isAlreadyRefundedMessage(message: null | string): boolean {
+  return (
+    message
+      ?.normalize("NFD")
+      .replace(/[\u0300-\u036f]/gu, "")
+      .toLowerCase()
+      .includes(ALREADY_REFUNDED_CORE) ?? false
+  );
+}
+
+export function resolveRefundResponseOutcome(input: {
+  errorMessage?: null | string;
+  ok: boolean;
+  providerStatus?: null | string;
+}): { error: string } | { status: string } {
+  if (input.ok) {
+    return { status: input.providerStatus ?? "IN_PROCESSING" };
+  }
+  return isAlreadyRefundedMessage(input.errorMessage ?? null)
+    ? { status: "CONFIRMED" }
+    : { error: input.errorMessage ?? "Estorno recusado pelo provedor." };
+}
+
 /**
  * 20s covers the provider's usual ~1-2s while a hung call can't pin a Convex
  * action for minutes — the org stays gated behind its reservation until then.
