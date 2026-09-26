@@ -1,5 +1,6 @@
 import { formatCurrencyCents } from "@/lib/format/currency";
 
+import { computeAvailableForWithdrawCents } from "./calculations";
 import type { WithdrawBalance } from "./contract";
 import { buildWithdrawInfoContent } from "./info";
 
@@ -31,13 +32,23 @@ export function buildWithdrawBalanceCard(input: {
   }
 
   // A taxa depende do VALOR sacado (grátis só a partir de freeFromCents) —
-  // o card mostra o saldo, não um saque em si, então a copy informa o piso
-  // sem afirmar que o saldo atual é grátis (saldo alto + saque pequeno =
-  // taxa normal).
+  // o card mostra o DISPONÍVEL (saldo menos a reserva de estorno em aberto),
+  // não um saque em si, então a copy informa o piso sem afirmar que o saldo
+  // atual é grátis (saldo alto + saque pequeno = taxa normal).
+  const availableCents = computeAvailableForWithdrawCents({
+    balanceCents: input.balance.balanceCents,
+    reservedCents: input.balance.reservedCents,
+  });
+
   return {
-    description: `Saques grátis a partir de ${formatCurrencyCents(input.balance.freeFromCents)}.`,
+    description:
+      input.balance.reservedCents > 0
+        ? `${formatCurrencyCents(
+            input.balance.reservedCents
+          )} reservado para estornos em andamento.`
+        : `Saques grátis a partir de ${formatCurrencyCents(input.balance.freeFromCents)}.`,
     info: buildWithdrawInfoContent(input.balance),
     isLoading: false,
-    value: formatCurrencyCents(input.balance.balanceCents),
+    value: formatCurrencyCents(availableCents),
   };
 }

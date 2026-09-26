@@ -6,7 +6,7 @@ describe("getMatchStatusChip", () => {
   test("vaga podada não desenha chip; final decidida vira Campeão", () => {
     expect(getMatchStatusChip("vacant")).toBeNull();
     expect(getMatchStatusChip("champion")).toEqual({
-      color: "accent",
+      color: "success",
       label: "Campeão",
     });
   });

@@ -18,6 +18,7 @@ import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { useWithdrawApi } from "@/lib/withdraw/api";
 import {
+  computeAvailableForWithdrawCents,
   computeLiquidAmountCents,
   computeWithdrawFeeCents,
   validateWithdrawAmountCents,
@@ -56,12 +57,21 @@ export default function WithdrawScreen() {
           freeFromCents: balance.freeFromCents,
         });
   const liquidCents = computeLiquidAmountCents(amountInCents, feeCents);
+  // O teto do saque é o DISPONÍVEL (saldo menos a reserva de estorno em aberto).
+  const availableCents =
+    balance === undefined
+      ? 0
+      : computeAvailableForWithdrawCents({
+          balanceCents: balance.balanceCents,
+          reservedCents: balance.reservedCents,
+        });
   const validation =
     isEmpty || balance === undefined
       ? null
       : validateWithdrawAmountCents(amountInCents, {
           balanceCents: balance.balanceCents,
           minWithdrawCents: balance.minWithdrawCents,
+          reservedCents: balance.reservedCents,
         });
   const isFree = feeCents === 0;
   // Destino do saque vem do getBalance: pixKey já mascarada pelo backend e
@@ -160,9 +170,9 @@ export default function WithdrawScreen() {
               {/* Sacar tudo + info */}
               <View className="flex-row items-center gap-1">
                 <Button
-                  isDisabled={!balance || balance.balanceCents <= 0}
+                  isDisabled={availableCents <= 0}
                   onPress={() => {
-                    setAmountCents(balance?.balanceCents ?? 0);
+                    setAmountCents(availableCents);
                   }}
                   size="sm"
                   variant="secondary"

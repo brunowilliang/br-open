@@ -1,5 +1,6 @@
 import { Image } from "@/components/core/image";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { TournamentStatusChip } from "@/components/ui/tournament-status-chip";
 import { formatCompetitionMeta } from "@/lib/format/competition";
 import { Add01Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import { Button, Card, Chip, PressableFeedback } from "heroui-native";
@@ -12,7 +13,11 @@ type CompetitionCardProps = {
   name?: null | string;
   onEditPress?: () => void;
   onPress?: () => void;
+  /** Prazo de inscrição (`TournamentStatusChip`); ausente não desenha o chip. */
+  registrationDeadlineAt?: number;
   state?: string | null;
+  /** Status do torneio (`TournamentStatusChip`); ausente não desenha o chip. */
+  status?: null | string;
 };
 
 /** O chip identifica a competição. A altura por linha é ESTÁVEL (corpo de
@@ -27,9 +32,15 @@ export const CompetitionCard = (props: CompetitionCardProps) => (
         fallback="blue"
         source={props.coverUrl ?? undefined}
       />
-      <Chip className="absolute top-3.5 left-3.5" size="sm">
-        {props.chipLabel ?? "Competição"}
-      </Chip>
+      <View className="absolute top-3.5 left-3.5 items-start gap-1">
+        <Chip size="sm">{props.chipLabel ?? "Competição"}</Chip>
+        {props.status && props.registrationDeadlineAt !== undefined ? (
+          <TournamentStatusChip
+            registrationDeadlineAt={props.registrationDeadlineAt}
+            status={props.status}
+          />
+        ) : null}
+      </View>
       {props.onEditPress ? (
         <Button
           className="absolute top-3.5 right-3.5"

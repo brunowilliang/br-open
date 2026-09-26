@@ -38,6 +38,7 @@ mock.module("@hugeicons/core-free-icons", () => ({
   Edit02Icon: "edit",
   ExchangeIcon: "exchange",
   MoreVerticalIcon: "more",
+  Tick02Icon: "tick",
 }));
 
 const { MatchCard } = await import("@/components/ui/match-card");
@@ -231,5 +232,63 @@ describe("MatchCard na partida jogada", () => {
     expect(lines.every((line) => line.color === undefined)).toBeTrue();
     expect(lines.every((line) => line.weight === "normal")).toBeTrue();
     expect(numbers).toEqual([0, 0]);
+  });
+});
+
+/** O item do menu cujo `onPress` é ESTE handler, com o rótulo que ele desenha: as
+ * peças do Menu são a MESMA função no mock, então quem distingue o item é a
+ * identidade do handler, não o tipo. */
+function menuEntry(nodes: Node[], handler: () => void) {
+  const index = nodes.findIndex((node) => node.props?.onPress === handler);
+  const node = nodes[index];
+
+  return {
+    index,
+    label: walk(node).find((child) => typeof child.props?.children === "string")
+      ?.props?.children as string | undefined,
+    press: () => {
+      if (typeof node?.props?.onPress === "function") {
+        node.props.onPress();
+      }
+    },
+  };
+}
+
+describe("MatchCard no menu do organizador", () => {
+  it("põe Concluir torneio ANTES de Editar resultado e chama o handler", () => {
+    const onConcludePress = mock(() => undefined);
+    const onEditResultPress = mock(() => undefined);
+    const nodes = walk(
+      MatchCardImpl(
+        buildProps({
+          matchStatus: "finished",
+          onConcludePress,
+          onEditResultPress,
+        })
+      )
+    );
+    const conclusion = menuEntry(nodes, onConcludePress);
+
+    expect(conclusion.label).toBe("Concluir torneio");
+    expect(menuEntry(nodes, onEditResultPress).label).toBe("Editar resultado");
+    // A ordem da árvore é a ordem do menu: a pendência vem primeiro.
+    expect(conclusion.index).toBeLessThan(
+      menuEntry(nodes, onEditResultPress).index
+    );
+
+    conclusion.press();
+
+    expect(onConcludePress).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem a pendência o menu não oferece concluir", () => {
+    const nodes = walk(MatchCardImpl(buildProps({ matchStatus: "finished" })));
+    const labels = nodes.flatMap((node) =>
+      walk(node)
+        .filter((child) => typeof child.props?.children === "string")
+        .map((child) => child.props?.children)
+    );
+
+    expect(labels).not.toContain("Concluir torneio");
   });
 });

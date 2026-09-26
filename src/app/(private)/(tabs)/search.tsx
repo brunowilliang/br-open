@@ -20,7 +20,9 @@ type SearchItem = {
   city: null | string;
   coverUrl: null | string;
   name: null | string;
+  registrationDeadlineAt: number;
   state: null | string;
+  status: string;
   kind: "tournament";
 };
 
@@ -55,7 +57,9 @@ export default function Search() {
           key: `tournament-${tournament.id}`,
           kind: "tournament",
           name: tournament.name,
+          registrationDeadlineAt: tournament.registrationDeadlineAt,
           state: tournament.state,
+          status: tournament.status,
           tournamentId: tournament.id,
         })
       ),
@@ -123,7 +127,9 @@ export default function Search() {
               onPress={() => {
                 router.push(`/tournaments/${item.tournamentId}` as Href);
               }}
+              registrationDeadlineAt={item.registrationDeadlineAt}
               state={item.state}
+              status={item.status}
             />
           )}
           showsVerticalScrollIndicator={false}

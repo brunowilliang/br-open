@@ -125,6 +125,82 @@ export function bracketFitTransform(input: {
   };
 }
 
+/** Caixa da coluna (rodada) em coordenadas de grafo. */
+export type BracketOpeningColumn = { bottom: number; top: number; x: number };
+
+/** Coluna onde a abertura enquadra: a rodada MENOS avançada que ainda tem
+ * partida sem resultado — sem nada lançado é a primeira, tudo decidido é a
+ * última (a final). Bye (`walkover`) já nasceu decidido e a vaga morta
+ * (`vacant`) não é partida: nenhuma das duas segura a rodada aberta. */
+export function bracketOpeningColumn(
+  layout: BracketTreeLayout
+): BracketOpeningColumn | null {
+  let lastRound: number | null = null;
+  let openRound: number | null = null;
+
+  for (const { match } of layout.cards) {
+    if (lastRound === null || match.round > lastRound) {
+      lastRound = match.round;
+    }
+    if (
+      (match.status === "pending" || match.status === "scheduled") &&
+      (openRound === null || match.round < openRound)
+    ) {
+      openRound = match.round;
+    }
+  }
+
+  const round = openRound ?? lastRound;
+  if (round === null) {
+    return null;
+  }
+
+  const cards = layout.cards.filter(({ match }) => match.round === round);
+
+  return {
+    bottom: Math.max(...cards.map(({ layout: box }) => box.y + box.height)),
+    top: Math.min(...cards.map(({ layout: box }) => box.y)),
+    x: Math.min(...cards.map(({ layout: box }) => box.x)),
+  };
+}
+
+/** Transform de ABERTURA: a coluna do foco encosta na margem à esquerda e, na
+ * vertical, centra quando cabe na tela — coluna mais alta que o viewport ancora
+ * no topo, que é o que a 1ª coluna sempre fez. Com o grafo inteiro já no zoom de
+ * abertura não há o que deslocar: cai no fit centrado. */
+export function bracketOpeningTransform(input: {
+  column: BracketOpeningColumn | null;
+  fitZoom: number;
+  graphHeight: number;
+  graphWidth: number;
+  openingZoom: number;
+  viewportHeight: number;
+  viewportWidth: number;
+}): { x: number; y: number; zoom: number } {
+  if (!input.column || input.fitZoom >= input.openingZoom) {
+    return bracketFitTransform({
+      fitZoom: input.openingZoom,
+      graphHeight: input.graphHeight,
+      graphWidth: input.graphWidth,
+      viewportHeight: input.viewportHeight,
+      viewportWidth: input.viewportWidth,
+    });
+  }
+
+  const { bottom, top, x } = input.column;
+  const columnHeight = input.openingZoom * (bottom - top);
+  const fitsVertically =
+    columnHeight < input.viewportHeight - BRACKET_FIT_VIEW_PADDING * 2;
+
+  return {
+    x: BRACKET_FIT_VIEW_PADDING - input.openingZoom * x,
+    y: fitsVertically
+      ? (input.viewportHeight - input.openingZoom * (top + bottom)) / 2
+      : BRACKET_FIT_VIEW_PADDING - input.openingZoom * top,
+    zoom: input.openingZoom,
+  };
+}
+
 /** O ponto do grafo pego no início do gesto fica sob os dedos enquanto o zoom
  * vai de `fromScale` a `toScale` (t1 = f1 - (f0 - t0)*k1/k0); ancorar no focal
  * ATUAL congelaria o arrasto de dois dedos. */

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  computeAvailableForWithdrawCents,
   computeLiquidAmountCents,
   computeWithdrawFeeCents,
   validateWithdrawAmountCents,
@@ -103,6 +104,7 @@ describe("withdraw calculations", () => {
       const result = validateWithdrawAmountCents(1500, {
         balanceCents: 50_000,
         minWithdrawCents: 2000,
+        reservedCents: 0,
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -115,6 +117,7 @@ describe("withdraw calculations", () => {
         validateWithdrawAmountCents(2000, {
           balanceCents: 50_000,
           minWithdrawCents: 2000,
+          reservedCents: 0,
         })
       ).toEqual({ ok: true });
     });
@@ -123,6 +126,7 @@ describe("withdraw calculations", () => {
       const result = validateWithdrawAmountCents(50_001, {
         balanceCents: 50_000,
         minWithdrawCents: 2000,
+        reservedCents: 0,
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -135,6 +139,7 @@ describe("withdraw calculations", () => {
         validateWithdrawAmountCents(50_000, {
           balanceCents: 50_000,
           minWithdrawCents: 2000,
+          reservedCents: 0,
         })
       ).toEqual({ ok: true });
     });
@@ -144,8 +149,84 @@ describe("withdraw calculations", () => {
         validateWithdrawAmountCents(4500, {
           balanceCents: 50_000,
           minWithdrawCents: 2000,
+          reservedCents: 0,
         })
       ).toEqual({ ok: true });
+    });
+
+    it("o teto é o DISPONÍVEL: a reserva de estorno sai do que pode ser sacado", () => {
+      // R$ 500,00 de saldo com R$ 120,00 reservado: R$ 380,00 é o teto.
+      expect(
+        validateWithdrawAmountCents(38_000, {
+          balanceCents: 50_000,
+          minWithdrawCents: 2000,
+          reservedCents: 12_000,
+        })
+      ).toEqual({ ok: true });
+      // O que sobra continua sacável; acima do disponível recusa.
+      const result = validateWithdrawAmountCents(40_000, {
+        balanceCents: 50_000,
+        minWithdrawCents: 2000,
+        reservedCents: 15_000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toContain("disponível");
+        expect(result.message).toContain("R$ 150,00");
+        expect(result.message).toContain(
+          "reservado para estornos em andamento"
+        );
+      }
+    });
+
+    it("reserva que come tudo bloqueia o saque inteiro", () => {
+      const result = validateWithdrawAmountCents(2000, {
+        balanceCents: 50_000,
+        minWithdrawCents: 2000,
+        reservedCents: 50_000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toContain("R$ 500,00");
+        expect(result.message).toContain(
+          "reservado para estornos em andamento"
+        );
+      }
+    });
+
+    it("sem reserva a copy não fala de estorno", () => {
+      const result = validateWithdrawAmountCents(50_001, {
+        balanceCents: 50_000,
+        minWithdrawCents: 2000,
+        reservedCents: 0,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).not.toContain("reservado");
+      }
+    });
+  });
+
+  describe("computeAvailableForWithdrawCents", () => {
+    it("desconta a reserva e nunca fica negativo", () => {
+      expect(
+        computeAvailableForWithdrawCents({
+          balanceCents: 50_000,
+          reservedCents: 12_000,
+        })
+      ).toBe(38_000);
+      expect(
+        computeAvailableForWithdrawCents({
+          balanceCents: 50_000,
+          reservedCents: 0,
+        })
+      ).toBe(50_000);
+      expect(
+        computeAvailableForWithdrawCents({
+          balanceCents: 30_000,
+          reservedCents: 95_000,
+        })
+      ).toBe(0);
     });
   });
 });

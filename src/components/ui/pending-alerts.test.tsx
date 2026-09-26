@@ -9,13 +9,17 @@ import type {
   PendingItem,
   PendingSurface,
 } from "@convex/domains/pendings/contract";
-import { buildPlayerEntryPendings } from "@convex/domains/tournament/pendings-rules";
+import {
+  buildOrganizerConclusionPendings,
+  buildPlayerEntryPendings,
+} from "@convex/domains/tournament/pendings-rules";
 
 // O repo não tem harness de render (nem `react-test-renderer`) e `react-native`
 // não parseia sob bun (Flow): o componente é CHAMADO como função e a árvore
 // devolvida é inspecionada, com os módulos de boundary mockados antes do import.
 
 const chargeCalls: unknown[] = [];
+const concludeCalls: unknown[] = [];
 const dismissCalls: unknown[] = [];
 const inviteCalls: unknown[] = [];
 const navigateCalls: unknown[] = [];
@@ -73,6 +77,9 @@ mock.module("@/lib/convex/crpc", () => ({
         reject: { mutationKey: () => ["reject-entry"] },
         respondPartnerInvite: { mutationKey: () => ["invite"] },
       },
+      lifecycle: {
+        conclude: { mutationKey: () => ["conclude-tournament"] },
+      },
     },
   }),
   useCRPCClient: () => {
@@ -109,6 +116,13 @@ mock.module("@/lib/convex/crpc", () => ({
           respondPartnerInvite: {
             mutate: (variables: unknown) => {
               inviteCalls.push(variables);
+            },
+          },
+        },
+        lifecycle: {
+          conclude: {
+            mutate: (variables: unknown) => {
+              concludeCalls.push(variables);
             },
           },
         },
@@ -205,8 +219,24 @@ function buildPaymentItem(): PendingItem {
   return item as PendingItem;
 }
 
+/** Conclusão do torneio: item de ESTADO, sem dispensa (o CTA conclui). */
+function buildConclusionItem(): PendingItem {
+  const [item] = buildOrganizerConclusionPendings({
+    tournaments: [
+      {
+        canConclude: true,
+        tournamentId: "tournament-1",
+        tournamentName: "Copa Dracena 8",
+      },
+    ],
+  });
+
+  return item as PendingItem;
+}
+
 beforeEach(() => {
   chargeCalls.length = 0;
+  concludeCalls.length = 0;
   dismissCalls.length = 0;
   inviteCalls.length = 0;
   navigateCalls.length = 0;
@@ -280,6 +310,32 @@ describe("PendingAlerts wiring", () => {
     const alert = renderAlert(buildPaymentItem());
 
     expect(alert.secondaryAction).toBeUndefined();
+  });
+
+  it("runs the conclusion CTA on the tournament it belongs to", () => {
+    const alert = renderAlert(buildConclusionItem());
+
+    expect(alert.action?.label).toBe("Concluir");
+
+    alert.action?.onPress();
+
+    expect(concludeCalls).toEqual([{ tournamentId: "tournament-1" }]);
+  });
+
+  it("disables the conclusion CTA while its own mutation is in flight", () => {
+    pendingMutations.add(JSON.stringify(["conclude-tournament"]));
+
+    const alert = renderAlert(buildConclusionItem());
+
+    expect(alert.action?.isDisabled).toBe(true);
+  });
+
+  it("offers no dismiss for the state item, not even on the home", () => {
+    const alert = renderAlert(buildConclusionItem(), "home");
+
+    // O kind vive em PENDING_NON_DISMISSIBLE_KINDS: sem ação revelada, o item
+    // não sai da casa e o servidor recusaria a dispensa de qualquer forma.
+    expect(alert.dismissAction).toBeUndefined();
   });
 
   it("dismisses THAT item on the surface the renderer declares", () => {

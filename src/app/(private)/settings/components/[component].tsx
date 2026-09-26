@@ -1,4 +1,6 @@
 import type { PaymentChargeStatus } from "@convex/domains/payment/contract";
+import type { TournamentStatus } from "@convex/domains/tournament/contract";
+import { buildOrganizerConclusionPendings } from "@convex/domains/tournament/pendings-rules";
 import {
   AppleIcon,
   Cancel01Icon,
@@ -12,15 +14,7 @@ import {
   UserGroup02Icon,
 } from "@hugeicons/core-free-icons";
 import { useLocalSearchParams } from "expo-router";
-import {
-  Alert,
-  Button,
-  Chip,
-  ListGroup,
-  Separator,
-  Surface,
-  Tabs,
-} from "heroui-native";
+import { Alert, Button, Chip, ListGroup, Separator, Tabs } from "heroui-native";
 import { Fragment, type ComponentProps, type ReactNode, useState } from "react";
 import { View } from "react-native";
 
@@ -32,6 +26,7 @@ import {
   LINKED_ACCOUNT_STATUS_CHIPS,
   type LinkedAccountStatus,
 } from "@/components/pages/player/linked-account-row";
+import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EntryCard } from "@/components/ui/entry-card";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -50,6 +45,7 @@ import {
   type StandingsCardItem,
   type StandingsFormSlot,
 } from "@/components/ui/standings-card";
+import { TournamentStatusChip } from "@/components/ui/tournament-status-chip";
 import {
   WidgetAlert,
   type WidgetAlertDescriptionPart,
@@ -63,6 +59,7 @@ import {
 } from "@/lib/dev/notification-gallery-fixtures";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
+import { PENDING_ALERT_STATUS } from "@/lib/pendings/pendings-view";
 import { buildCheckoutChargeView } from "@/lib/payments/checkout-view";
 import {
   buildNotificationMenuItems,
@@ -361,15 +358,28 @@ const galleryPaymentChargeExpiredParts: WidgetAlertDescriptionPart[] = [
   { text: " venceu sem pagamento." },
 ];
 
+// Título, CTA e descrição da pendência de concluir vêm do builder REAL do
+// servidor: a galeria não digita copy nenhuma deste cartão.
+const galleryConclusionPendings = buildOrganizerConclusionPendings({
+  tournaments: [
+    {
+      canConclude: true,
+      tournamentId: "tournament-1",
+      tournamentName: "Copa Dracena 8",
+    },
+  ],
+});
+const galleryConclusionPending = galleryConclusionPendings[0];
+
 /**
- * O mesmo aviso de push nos três moldes que o app desenha; o quarto
+ * O aviso de push nos dois moldes que o app desenha; o terceiro
  * (`RNAlert.alert`) não dá para mostrar aqui.
  */
 function NoticeMoldsVariants() {
   return (
     <VariantSection
-      note="Os três fazem o mesmo trabalho no app. Os blocos a e b mostram o aviso com o CTA de uma palavra (Ajustes): o rótulo real de hoje é Abrir ajustes, com duas palavras, e fica apontado como divergência. A descrição dos dois é a copy real do aviso, mantida como estava — sem destaque: a frase não tem palavra-chave (apontado). Existe ainda um quarto molde fora da tela, o RNAlert.alert nativo com o mesmo aviso (settings/notifications.tsx:381-395), que não dá para mostrar aqui. O `WidgetAlert` ganhou nesta rodada o `isIndicatorHidden` (o cartão de notificação usa), sem mudança de desenho para os chamadores que não passam a prop."
-      title="Estilos divergentes hoje: o mesmo aviso em três moldes"
+      note="Os dois fazem o mesmo trabalho no app. Os blocos a e b mostram o aviso com o CTA de uma palavra (Ajustes): o rótulo real de hoje é Abrir ajustes, com duas palavras, e fica apontado como divergência. A descrição dos dois é a copy real do aviso, mantida como estava — sem destaque: a frase não tem palavra-chave (apontado). Existe ainda um terceiro molde fora da tela, o RNAlert.alert nativo com o mesmo aviso (settings/notifications.tsx:381-395), que não dá para mostrar aqui. O `WidgetAlert` ganhou nesta rodada o `isIndicatorHidden` (o cartão de notificação usa), sem mudança de desenho para os chamadores que não passam a prop."
+      title="Estilos divergentes hoje: o mesmo aviso em dois moldes"
     >
       <View className="gap-4">
         <LabeledBlock label="a) WidgetAlert, o alerta do app (ui/widget-alert.tsx)">
@@ -394,15 +404,6 @@ function NoticeMoldsVariants() {
               <Button.Label>Ajustes</Button.Label>
             </Button>
           </Alert>
-        </LabeledBlock>
-
-        <LabeledBlock label="c) Surface bg-warning-soft, como está hoje no diálogo Iniciar">
-          <Surface className="bg-warning-soft px-4 py-2">
-            <Text color="warning" variant="description">
-              Há 1 convite de dupla sem resposta · essa inscrição ficará de fora
-              da chave.
-            </Text>
-          </Surface>
         </LabeledBlock>
       </View>
     </VariantSection>
@@ -489,7 +490,7 @@ function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="Copy nova, com DOIS apontamentos: sem placar não existe como estado hoje (a partida é A definir, Agendada, Encerrada ou W.O., lib/tournaments/tournament-details-derived.ts:137-148) e o texto real mais próximo é o aviso do diálogo Iniciar torneio, A chave tem N vagas em aberto (A definir) · o início só é liberado com a chave completa. (lib/tournaments/tournament-details-derived.ts:435-441), hoje renderizado como Surface bg-warning-soft (tournaments/[tournamentId]/index.tsx:730-736). Qual confronto conta como pendência ainda não tem regra. Sem destaque: falta a palavra-chave (qual rodada ou quadra está em aberto) — apontado. Sem CTA."
+        note="Copy nova, com DOIS apontamentos: sem placar não existe como estado hoje (a partida é A definir, Agendada, Encerrada ou W.O., lib/matches/match-display.ts:14-21) e nenhum aviso do app fala de confronto sem agendamento — não há texto real equivalente. Qual confronto conta como pendência ainda não tem regra. Sem destaque: falta a palavra-chave (qual rodada ou quadra está em aberto) — apontado. Sem CTA."
         title="Alerta 15 · PROPOSTA · Torneio (organizador): confronto sem agendamento"
       >
         <WidgetAlert
@@ -549,6 +550,21 @@ function AlertsVariantsSection() {
             container: "-mx-4",
           }}
           title="Pagamento atrasado"
+        />
+      </VariantSection>
+
+      <VariantSection
+        note="Item REAL do servidor (buildOrganizerConclusionPendings, convex/domains/tournament/pendings-rules.ts:337: nome, CTA e frase vêm da regra, nada digitado aqui). É o kind organization_tournament_awaiting_conclusion, o único SEM dispensa (PENDING_NON_DISMISSIBLE_KINDS): este cartão não tem gesto de esconder nem na home (o servidor recusaria) e sai da tela só quando o organizador conclui. O CTA roda tournament.lifecycle.conclude."
+        title="Alerta 19 · REAL · Torneio (organizador): concluir torneio"
+      >
+        <WidgetAlert
+          action={{
+            label: galleryConclusionPending.actionLabel ?? "Concluir",
+            onPress: noop,
+          }}
+          description={galleryConclusionPending.description}
+          status={PENDING_ALERT_STATUS[galleryConclusionPending.severity]}
+          title={galleryConclusionPending.title}
         />
       </VariantSection>
 
@@ -922,7 +938,7 @@ const galleryMatchCardCases: {
     matchStatus: "champion",
     modality: "singles",
     nodeWidth: true,
-    note: "Final decidida: o chip do topo vira Campeão, em accent. Quem sabe que é a final é a tela (o status do wire é 'finished', igual ao de qualquer partida encerrada).",
+    note: "Final decidida: o chip do topo vira Campeão, em success. Quem sabe que é a final é a tela (o status do wire é 'finished', igual ao de qualquer partida encerrada).",
     stageLabel: "Final",
     startMinute: 1080,
     title: "Partida 11 · chave · final decidida com Campeão",
@@ -1495,6 +1511,105 @@ function StandingsCardVariantsSection() {
   );
 }
 
+// Data viva: com data fixa o rótulo viraria "encerradas" sozinho quando o dia
+// chegasse.
+const galleryTournamentNowMs = Date.now();
+const GALLERY_DAY_MS = 24 * 60 * 60 * 1000;
+
+const galleryTournamentStatusCases: {
+  note: string;
+  registrationDeadlineAt: number;
+  status: TournamentStatus;
+  title: string;
+}[] = [
+  {
+    note: "Torneio criado e ainda não publicado: sem inscrição aberta e sem chave.",
+    registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 10,
+    status: "draft",
+    title: "Estado 1 · rascunho",
+  },
+  {
+    note: "Publicado dentro do prazo: é o estado em que a inscrição está aberta.",
+    registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 3,
+    status: "published",
+    title: "Estado 2 · inscrições abertas",
+  },
+  {
+    note: "Prazo vencido e torneio ainda não começou (sorteio feito ou não): quem fecha a inscrição é o prazo, nunca o sorteio.",
+    registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS,
+    status: "drawn",
+    title: "Estado 3 · inscrições encerradas",
+  },
+  {
+    note: "Chave em disputa. Fica com a mesma cor de inscrições encerradas, como o vocabulário aprovado.",
+    registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS * 5,
+    status: "ongoing",
+    title: "Estado 4 · em andamento",
+  },
+  {
+    note: "Todas as categorias com campeão.",
+    registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS * 30,
+    status: "finished",
+    title: "Estado 5 · encerrado",
+  },
+  {
+    note: "Cancelado pelo organizador antes do início.",
+    registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 2,
+    status: "cancelled",
+    title: "Estado 6 · cancelado",
+  },
+];
+
+function TournamentStatusVariantsSection() {
+  return (
+    <View className="gap-6">
+      {galleryTournamentStatusCases.map((item) => (
+        <VariantSection key={item.status} note={item.note} title={item.title}>
+          <View className="flex-row items-center">
+            <TournamentStatusChip
+              registrationDeadlineAt={item.registrationDeadlineAt}
+              status={item.status}
+            />
+          </View>
+        </VariantSection>
+      ))}
+
+      <VariantSection
+        note="O estado entra ao lado do chip de Torneio, lendo primeiro a identidade e depois a situação."
+        title="No header do torneio"
+      >
+        <View className="flex-row items-center gap-1.5">
+          <Chip color="accent" size="sm" variant="soft">
+            <Chip.Label>Torneio</Chip.Label>
+          </Chip>
+          <TournamentStatusChip
+            registrationDeadlineAt={galleryTournamentNowMs + GALLERY_DAY_MS * 3}
+            status="published"
+          />
+        </View>
+      </VariantSection>
+
+      <VariantSection
+        note="No card os dois chips ficam empilhados no canto: a coluna do card (metade da tela) não cabe os dois na mesma linha."
+        title="No card da competição"
+      >
+        {/* O card é `flex-1`: em coluna de altura automática ele mediria zero,
+            a linha é o que dá altura. */}
+        <View className="w-1/2 flex-row">
+          <CompetitionCard
+            chipLabel="Torneio"
+            city="Campinas"
+            name="Torneio de Verão do Círculo"
+            registrationDeadlineAt={galleryTournamentNowMs + GALLERY_DAY_MS * 3}
+            state="SP"
+            status="published"
+          />
+        </View>
+      </VariantSection>
+    </View>
+  );
+}
+
 /** DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da entrada e do checkout. */
 export default function ComponentVariantsRoute() {
   const { component } = useLocalSearchParams<{ component: string }>();
@@ -1546,6 +1661,8 @@ export default function ComponentVariantsRoute() {
             <LinkedAccountRowVariantsSection />
           ) : entry.id === "standings-card" ? (
             <StandingsCardVariantsSection />
+          ) : entry.id === "tournament-status" ? (
+            <TournamentStatusVariantsSection />
           ) : null
         ) : (
           <EmptyState

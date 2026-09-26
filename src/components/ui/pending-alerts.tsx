@@ -2,6 +2,7 @@ import type {
   PendingItem,
   PendingSurface,
 } from "@convex/domains/pendings/contract";
+import { isPendingItemDismissible } from "@convex/domains/pendings/pendings-rules";
 import { Fragment } from "react";
 import { View } from "react-native";
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
@@ -51,6 +52,9 @@ export function PendingAlerts(props: PendingAlertsProps) {
         const secondary = item.secondaryAction
           ? resolvePendingAction({ ...item, action: item.secondaryAction })
           : null;
+        // Item de ESTADO (kind sem dispensa) não oferece o gesto: sem Swipeable
+        // não há ação revelada nem toque que abra uma, e o servidor recusaria.
+        const isDismissible = isPendingItemDismissible(item.id);
         // Cada botão resolve a SUA ação: o Recusar já mandou `accept: true`.
         const button = (label?: string | null, resolution?: typeof primary) =>
           label && resolution
@@ -66,7 +70,7 @@ export function PendingAlerts(props: PendingAlertsProps) {
             action={button(item.actionLabel, primary)}
             description={item.description}
             dismissAction={
-              dismissSurface
+              dismissSurface && isDismissible
                 ? {
                     isDisabled: dismissPendingItem.isPending,
                     onPress: () => {
@@ -78,7 +82,7 @@ export function PendingAlerts(props: PendingAlertsProps) {
                   }
                 : undefined
             }
-            isSwipeEnabled={props.isSwipeEnabled}
+            isSwipeEnabled={props.isSwipeEnabled && isDismissible}
             secondaryAction={button(item.secondaryActionLabel, secondary)}
             status={PENDING_ALERT_STATUS[item.severity]}
             swipeClassNames={props.swipeClassNames}

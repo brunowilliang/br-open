@@ -14,6 +14,7 @@ const BALANCE = {
   freeFromCents: 300_000,
   minWithdrawCents: 2000,
   pixKey: "or********om",
+  reservedCents: 0,
 };
 
 describe("buildWithdrawBalanceCard", () => {
@@ -42,6 +43,34 @@ describe("buildWithdrawBalanceCard", () => {
 
     expect(card.value).toBe("R$ 1.500,00");
     expect(card.description).toBe("Saques grátis a partir de R$ 3.000,00.");
+  });
+
+  it("com estorno em aberto mostra o DISPONÍVEL e explica a reserva", () => {
+    const card = buildWithdrawBalanceCard({
+      balance: { ...BALANCE, reservedCents: 120_000 },
+      isError: false,
+      isPending: false,
+    });
+
+    // R$ 5.000,00 de saldo menos R$ 1.200,00 reservado = R$ 3.800,00 sacáveis.
+    expect(card.value).toBe("R$ 3.800,00");
+    expect(card.description).toBe(
+      "R$ 1.200,00 reservado para estornos em andamento."
+    );
+    expect(card.info?.description).toContain("R$ 1.200,00 está reservado");
+  });
+
+  it("reserva que come tudo zera o disponível sem esconder o card", () => {
+    const card = buildWithdrawBalanceCard({
+      balance: { ...BALANCE, reservedCents: 500_000 },
+      isError: false,
+      isPending: false,
+    });
+
+    expect(card.value).toBe("R$ 0,00");
+    expect(card.description).toBe(
+      "R$ 5.000,00 reservado para estornos em andamento."
+    );
   });
 
   it("entra em loading enquanto a query não resolveu", () => {

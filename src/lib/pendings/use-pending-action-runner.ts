@@ -99,6 +99,36 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     },
   });
 
+  // O ato do organizador que ENCERRA o torneio: a pendência só existe enquanto
+  // ele não concluir, e quem tira o item da tela é a releitura (nada otimista).
+  const concludeTournament = useMutation({
+    mutationFn: crpcClient.tournament.lifecycle.conclude.mutate,
+    mutationKey: crpc.tournament.lifecycle.conclude.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível concluir o torneio. Tente novamente."
+        ),
+        id: "conclude-tournament-error",
+        label: "Falha ao concluir",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.pendings.list.list.queryFilter()
+      );
+      await input?.onPerformed?.();
+      toast.show({
+        description: "Torneio encerrado.",
+        id: "conclude-tournament-success",
+        label: "Torneio concluído",
+        variant: "success",
+      });
+    },
+  });
+
   // Não é otimista: quem tira o item da tela é a releitura (falha não esconde nada).
   const dismissPendingItem = useMutation({
     mutationFn: crpcClient.pendings.dismiss.dismiss.mutate,
@@ -156,6 +186,9 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
       case "reject_entry":
         rejectEntry.mutate({ entryId: resolution.entryId });
         return;
+      case "conclude_tournament":
+        concludeTournament.mutate({ tournamentId: resolution.tournamentId });
+        return;
       default:
         return;
     }
@@ -171,6 +204,8 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
         return approveEntry.isPending;
       case "reject_entry":
         return rejectEntry.isPending;
+      case "conclude_tournament":
+        return concludeTournament.isPending;
       default:
         return false;
     }

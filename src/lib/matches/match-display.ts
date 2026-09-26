@@ -11,8 +11,8 @@ export type MatchStatusChip = {
 const MATCH_STATUS_CHIPS: Record<string, null | MatchStatusChip> = {
   // "champion" não existe no wire: é a FINAL decidida, que a chave lê do
   // `winnerEntryId` e manda pelo mesmo vocabulário do chip.
-  champion: { color: "accent", label: "Campeão" },
-  finished: { color: "success", label: "Encerrado" },
+  champion: { color: "success", label: "Campeão" },
+  finished: { color: "accent", label: "Encerrado" },
   pending: { color: "default", label: "A definir" },
   scheduled: { color: "accent", label: "Agendado" },
   // Vaga podada do sorteio: é a moldura da chave, não um jogo — sem chip.

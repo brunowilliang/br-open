@@ -21,6 +21,12 @@ export type WithdrawBalance = {
   freeFromCents: number;
   /** Chave PIX de destino, mascarada (mesmo tratamento do onboarding). */
   pixKey: string;
+  /**
+   * Dinheiro da organização preso em cobranças com estorno EM ABERTO
+   * (pending|failed): sai do DISPONÍVEL, nunca do saldo real. O card mostra este
+   * valor e o disponível (`balanceCents - reservedCents`).
+   */
+  reservedCents: number;
 };
 
 /** payment/withdraw:requestWithdraw — input. */

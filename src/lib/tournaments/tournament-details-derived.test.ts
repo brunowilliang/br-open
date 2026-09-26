@@ -13,11 +13,11 @@ import {
   buildTournamentDetailsRole,
   buildTournamentDetailsScreenState,
   buildTournamentJoinOptions,
-  buildStartWarnings,
   canCancelTournamentEntry,
   formatBracketStage,
   formatEntryPlayerNames,
   formatEntrySideLabel,
+  getTournamentStatusChip,
   isBracketPublic,
   resolveTournamentEntriesTab,
   walkoverWinnerSide,
@@ -247,6 +247,66 @@ describe("buildRegistrationWindowState", () => {
   });
 });
 
+describe("getTournamentStatusChip", () => {
+  const deadlineMs = new Date(2026, 8, 19, 12).getTime();
+  const beforeDeadlineMs = new Date(2026, 8, 10).getTime();
+
+  test("o par published/drawn sai da janela, nao do status", () => {
+    expect(
+      getTournamentStatusChip({
+        nowMs: beforeDeadlineMs,
+        registrationDeadlineMs: deadlineMs,
+        status: "published",
+      })
+    ).toEqual({ color: "success", label: "Inscrições abertas" });
+
+    expect(
+      getTournamentStatusChip({
+        nowMs: beforeDeadlineMs,
+        registrationDeadlineMs: deadlineMs,
+        status: "drawn",
+      })
+    ).toEqual({ color: "success", label: "Inscrições abertas" });
+
+    expect(
+      getTournamentStatusChip({
+        nowMs: deadlineMs + 1,
+        registrationDeadlineMs: deadlineMs,
+        status: "drawn",
+      })
+    ).toEqual({ color: "warning", label: "Inscrições encerradas" });
+  });
+
+  test("cada status do vocabulario tem o seu chip", () => {
+    const cases = [
+      { color: "default", label: "Rascunho", status: "draft" },
+      { color: "warning", label: "Em andamento", status: "ongoing" },
+      { color: "default", label: "Encerrado", status: "finished" },
+      { color: "danger", label: "Cancelado", status: "cancelled" },
+    ] as const;
+
+    for (const item of cases) {
+      expect(
+        getTournamentStatusChip({
+          nowMs: beforeDeadlineMs,
+          registrationDeadlineMs: deadlineMs,
+          status: item.status,
+        })
+      ).toEqual({ color: item.color, label: item.label });
+    }
+  });
+
+  test("status fora do vocabulario cai no rotulo cru", () => {
+    expect(
+      getTournamentStatusChip({
+        nowMs: beforeDeadlineMs,
+        registrationDeadlineMs: deadlineMs,
+        status: "archived",
+      })
+    ).toEqual({ color: "default", label: "archived" });
+  });
+});
+
 describe("buildTournamentNavigationTabItems", () => {
   test("guest em published ve Overview e Entries (chave e agenda fechadas pre-ongoing)", () => {
     const access = buildTournamentDetailsAccess({
@@ -415,141 +475,6 @@ describe("canCancelTournamentEntry", () => {
         })
       ).toBeFalse();
     }
-  });
-});
-
-describe("buildStartWarnings", () => {
-  const baseMatch = {
-    categoryId: "cat-a",
-    entryAId: "e-1",
-    entryBId: "e-2",
-    round: 1,
-    slotInRound: 0,
-    status: "pending",
-    walkover: false,
-  };
-
-  test("no pending invites and no holes: empty warnings", () => {
-    expect(
-      buildStartWarnings({
-        entries: [{ status: "active" }, { status: "pending_approval" }],
-        matches: [baseMatch],
-      })
-    ).toEqual([]);
-  });
-
-  test("pending invite warns (singular and plural)", () => {
-    expect(
-      buildStartWarnings({
-        entries: [{ status: "pending_partner" }],
-        matches: [],
-      })
-    ).toEqual([
-      "Há 1 convite de dupla sem resposta · essa inscrição ficará de fora da chave.",
-    ]);
-
-    expect(
-      buildStartWarnings({
-        entries: [{ status: "pending_partner" }, { status: "pending_partner" }],
-        matches: [],
-      })
-    ).toEqual([
-      "Há 2 convites de dupla sem resposta · essas inscrições ficarão de fora da chave.",
-    ]);
-  });
-
-  test("round-1 empty side is a hole", () => {
-    const warnings = buildStartWarnings({
-      entries: [],
-      matches: [
-        { ...baseMatch, entryAId: null },
-        { ...baseMatch, slotInRound: 1 },
-      ],
-    });
-
-    expect(warnings).toEqual([
-      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
-    ]);
-  });
-
-  test("empty side fed by a live match below is the normal shape, not a hole", () => {
-    expect(
-      buildStartWarnings({
-        entries: [],
-        matches: [
-          { ...baseMatch, entryAId: null, round: 2, slotInRound: 0 },
-          { ...baseMatch, slotInRound: 0 },
-          { ...baseMatch, slotInRound: 1 },
-        ],
-      })
-    ).toEqual([]);
-  });
-
-  test("empty side over a pruned (vacant) child is a hole", () => {
-    const warnings = buildStartWarnings({
-      entries: [],
-      matches: [
-        { ...baseMatch, entryAId: null, round: 2, slotInRound: 0 },
-        { ...baseMatch, slotInRound: 0, status: "vacant" },
-        { ...baseMatch, slotInRound: 1 },
-      ],
-    });
-
-    expect(warnings).toEqual([
-      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
-    ]);
-  });
-
-  test("vacant and walkover rows never count as holes", () => {
-    expect(
-      buildStartWarnings({
-        entries: [],
-        matches: [
-          { ...baseMatch, entryAId: null, status: "vacant" },
-          { ...baseMatch, entryBId: null, slotInRound: 1, walkover: true },
-        ],
-      })
-    ).toEqual([]);
-  });
-
-  test("round/slot collide across categories — boards stay separate", () => {
-    const warnings = buildStartWarnings({
-      entries: [],
-      matches: [
-        // cat-a: lado B vazio alimentado por um filho vacant abaixo — buraco.
-        { ...baseMatch, entryBId: null, round: 2, slotInRound: 0 },
-        { ...baseMatch, slotInRound: 0 },
-        { ...baseMatch, slotInRound: 1, status: "vacant" },
-        // cat-b: same round/slot coordinates, but the feed is live (no hole).
-        {
-          ...baseMatch,
-          categoryId: "cat-b",
-          entryBId: null,
-          round: 2,
-          slotInRound: 0,
-        },
-        { ...baseMatch, categoryId: "cat-b", slotInRound: 0 },
-        { ...baseMatch, categoryId: "cat-b", slotInRound: 1 },
-      ],
-    });
-
-    expect(warnings).toEqual([
-      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa.",
-    ]);
-  });
-
-  test("plural holes", () => {
-    const warnings = buildStartWarnings({
-      entries: [],
-      matches: [
-        { ...baseMatch, entryAId: null, slotInRound: 0 },
-        { ...baseMatch, entryBId: null, slotInRound: 1 },
-      ],
-    });
-
-    expect(warnings).toEqual([
-      "A chave tem 2 vagas em aberto (A definir) · o início só é liberado com a chave completa.",
-    ]);
   });
 });
 

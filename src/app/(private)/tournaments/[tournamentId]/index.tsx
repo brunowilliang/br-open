@@ -16,7 +16,7 @@ import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Chip, Dialog, Menu, Surface, useToast } from "heroui-native";
+import { Button, Chip, Dialog, Menu, useToast } from "heroui-native";
 import { useEffect, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import Animated, {
@@ -42,6 +42,7 @@ import {
   type JoinFooterPartnerOption,
 } from "@/components/ui/join-footer";
 import { LoadingState } from "@/components/ui/loading-state";
+import { TournamentStatusChip } from "@/components/ui/tournament-status-chip";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
@@ -49,7 +50,6 @@ import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
 import { formatCompetitionMeta } from "@/lib/format/competition";
 import {
   buildRegistrationWindowState,
-  buildStartWarnings,
   buildTournamentActiveEntriesCountByCategory,
   buildTournamentCategoryVacancy,
   buildTournamentJoinOptions,
@@ -69,7 +69,6 @@ export default function TournamentOverviewRoute() {
   const role = useValue(bucket$.derived.role);
   const tournament = useValue(bucket$.data.tournament);
   const entries = useValue(bucket$.data.entries);
-  const matches = useValue(bucket$.data.matches);
 
   async function invalidateTournamentContext() {
     await queryClient.invalidateQueries(
@@ -142,7 +141,6 @@ export default function TournamentOverviewRoute() {
   }, [partnerSearch]);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
 
   const publishTournament = useMutation({
     mutationFn: crpcClient.tournament.management.publish.mutate,
@@ -191,32 +189,6 @@ export default function TournamentOverviewRoute() {
           "Torneio cancelado. Inscrições pagas serão estornadas automaticamente.",
         id: "cancel-tournament-success",
         label: "Torneio cancelado",
-        variant: "success",
-      });
-    },
-  });
-
-  const startTournament = useMutation({
-    mutationFn: crpcClient.tournament.bracket.start.mutate,
-    mutationKey: crpc.tournament.bracket.start.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível iniciar o torneio. Tente novamente."
-        ),
-        id: "start-tournament-error",
-        label: "Falha ao iniciar",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      setIsStartDialogOpen(false);
-      toast.show({
-        description: "A chave está pública e o torneio em andamento.",
-        id: "start-tournament-success",
-        label: "Torneio iniciado",
         variant: "success",
       });
     },
@@ -336,12 +308,6 @@ export default function TournamentOverviewRoute() {
     : joinableCategories.every((category) => category.entryFeeCents > 0)
       ? "Inscrever e pagar"
       : "Inscrever-se";
-  // Avisos do diálogo de Iniciar: convites sem resposta e vagas em aberto que
-  // o servidor recusa no início.
-  const startWarnings =
-    tournament && access?.canManage && tournament.status === "drawn"
-      ? buildStartWarnings({ entries, matches })
-      : [];
 
   return (
     <Page>
@@ -432,19 +398,10 @@ export default function TournamentOverviewRoute() {
                       <HugeIcons icon={PlayIcon} />
                     </Menu.Item>
                   ) : null}
-                  {tournament.status === "drawn" ? (
-                    <Menu.Item
-                      onPress={() => {
-                        setIsStartDialogOpen(true);
-                      }}
-                    >
-                      <Menu.ItemTitle>Iniciar torneio</Menu.ItemTitle>
-                      <HugeIcons icon={PlayIcon} />
-                    </Menu.Item>
-                  ) : null}
-                  {tournament.status !== "draft" &&
-                  tournament.status !== "finished" &&
-                  tournament.status !== "cancelled" ? (
+                  {/* Cancelar só antes do início: o servidor ainda aceita
+                      depois, e é isso que o app deixa de oferecer. */}
+                  {tournament.status === "published" ||
+                  tournament.status === "drawn" ? (
                     <Menu.Item
                       onPress={() => {
                         setIsCancelDialogOpen(true);
@@ -578,47 +535,6 @@ export default function TournamentOverviewRoute() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog>
-
-      <Dialog isOpen={isStartDialogOpen} onOpenChange={setIsStartDialogOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <DialogCloseButton className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>Iniciar torneio?</Dialog.Title>
-            <Text color="muted" variant="description">
-              A chave será publicada e não poderá mais ser alterada. O torneio
-              começa.
-            </Text>
-            {startWarnings.map((warning) => (
-              <Surface className="bg-warning-soft px-4 py-2" key={warning}>
-                <Text color="warning" variant="description">
-                  {warning}
-                </Text>
-              </Surface>
-            ))}
-            <View className="flex-row gap-2 self-end">
-              <Button
-                onPress={() => {
-                  setIsStartDialogOpen(false);
-                }}
-                size="sm"
-                variant="secondary"
-              >
-                <Button.Label>Cancelar</Button.Label>
-              </Button>
-              <Button
-                isDisabled={startTournament.isPending}
-                onPress={() => {
-                  startTournament.mutate({ tournamentId });
-                }}
-                size="sm"
-              >
-                <Button.Label>Iniciar torneio</Button.Label>
-              </Button>
-            </View>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
     </Page>
   );
 }
@@ -697,9 +613,15 @@ function TournamentBanner(props: {
           source={tournament.avatarUrl ?? undefined}
         />
         <View className="flex-1 gap-1.5">
-          <Chip color="accent" size="sm" variant="soft">
-            <Chip.Label>Torneio</Chip.Label>
-          </Chip>
+          <View className="flex-row items-center gap-1.5">
+            <Chip color="accent" size="sm" variant="soft">
+              <Chip.Label>Torneio</Chip.Label>
+            </Chip>
+            <TournamentStatusChip
+              registrationDeadlineAt={tournament.registrationDeadlineAt}
+              status={tournament.status}
+            />
+          </View>
           <Text numberOfLines={2} variant="title">
             {tournament.name}
           </Text>

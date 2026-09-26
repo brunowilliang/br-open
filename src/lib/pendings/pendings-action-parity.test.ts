@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { PendingItem } from "@convex/domains/pendings/contract";
 import { PENDING_KINDS_BY_SCOPE } from "@convex/domains/pendings/contract";
 import {
+  buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
   type TournamentEntryPendingView,
@@ -71,6 +72,15 @@ function buildEveryKindItem(): PendingItem[] {
           awaitingPaymentCount: 2,
           awaitingPaymentFeeCents: 1000,
           registrationDeadlineAtMs: NOW_MS + 86_400_000,
+          tournamentId: TOURNAMENT_ID,
+          tournamentName: "Copa Vila Tênis Clube",
+        },
+      ],
+    }),
+    ...buildOrganizerConclusionPendings({
+      tournaments: [
+        {
+          canConclude: true,
           tournamentId: TOURNAMENT_ID,
           tournamentName: "Copa Vila Tênis Clube",
         },

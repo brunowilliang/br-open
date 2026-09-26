@@ -48,6 +48,14 @@ export function buildWithdrawInfoContent(
   return {
     description: [
       "O saldo é o dinheiro das inscrições da sua organização, guardado na sua subconta Woovi.",
+      // Com reserva, o card mostra o DISPONÍVEL: o dialog diz de onde sai a diferença.
+      ...(balance.reservedCents > 0
+        ? [
+            `${formatCurrencyCents(
+              balance.reservedCents
+            )} está reservado para estornos em andamento e volta a ficar disponível quando eles fecharem.`,
+          ]
+        : []),
       `Mínimo de saque: ${formatCurrencyCents(balance.minWithdrawCents)}.`,
       "Taxas por faixa:",
       ...feeLines,

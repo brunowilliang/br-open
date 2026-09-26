@@ -8,6 +8,8 @@ import {
   commitCardHeight,
   bracketFitTransform,
   bracketFitZoom,
+  bracketOpeningColumn,
+  bracketOpeningTransform,
   bracketOpeningZoom,
   buildBracketCategoryTrees,
   BRACKET_FIT_VIEW_PADDING,
@@ -15,13 +17,15 @@ import {
   layoutBracketCategoryTree,
   PAN_VISIBILITY_BAND,
   pinchFollowTransform,
+  type BracketTreeLayout,
 } from "./bracket-tree";
 
 function buildMatch(
   id: string,
   categoryId: string,
   round: number,
-  slotInRound: number
+  slotInRound: number,
+  status = "scheduled"
 ): TournamentMatchWithSides {
   return {
     categoryId,
@@ -33,7 +37,7 @@ function buildMatch(
     round,
     score: null,
     slotInRound,
-    status: "scheduled",
+    status,
     winnerEntryId: null,
   } as TournamentMatchWithSides;
 }
@@ -684,5 +688,232 @@ describe("bracketFitTransform", () => {
     // negativa) mostraria o MEIO do grafo, então a borda para na margem.
     expect(transform.x).toBe(BRACKET_FIT_VIEW_PADDING);
     expect(transform.y).toBe(BRACKET_FIT_VIEW_PADDING);
+  });
+});
+
+// bracketOpeningColumn: a rodada do enquadramento de abertura é a MENOS
+// avançada que ainda tem partida sem resultado.
+describe("bracketOpeningColumn", () => {
+  const buildLayout = (rounds: string[][]) =>
+    layoutBracketCategoryTree(
+      rounds.map((round, index) =>
+        round.map((status, slot) =>
+          buildMatch(`r${index + 1}-${slot}`, "c", index + 1, slot, status)
+        )
+      ),
+      SIZING
+    );
+
+  test("sem nada lançado enquadra a primeira rodada", () => {
+    expect(
+      bracketOpeningColumn(
+        buildLayout([["scheduled", "scheduled"], ["scheduled"]])
+      )
+    ).toEqual({ bottom: 212, top: 0, x: 0 });
+  });
+
+  test("com a rodada 1 decidida enquadra a rodada aberta seguinte", () => {
+    expect(
+      bracketOpeningColumn(buildLayout([["finished", "finished"], ["pending"]]))
+    ).toEqual({ bottom: 156, top: 56, x: 288 });
+  });
+
+  test("bye e vaga morta não seguram a rodada aberta", () => {
+    expect(
+      bracketOpeningColumn(buildLayout([["walkover", "vacant"], ["scheduled"]]))
+    ).toEqual({ bottom: 156, top: 56, x: 288 });
+  });
+
+  test("tudo decidido cai na última rodada (a final)", () => {
+    expect(
+      bracketOpeningColumn(
+        buildLayout([
+          ["finished", "finished", "finished", "finished"],
+          ["finished", "finished"],
+          ["finished"],
+        ])
+      )
+    ).toEqual({ bottom: 268, top: 168, x: 576 });
+  });
+
+  test("layout vazio não tem coluna", () => {
+    expect(
+      bracketOpeningColumn(layoutBracketCategoryTree([], SIZING))
+    ).toBeNull();
+  });
+});
+
+describe("bracketOpeningTransform", () => {
+  const VIEWPORT = { viewportHeight: 956, viewportWidth: 440 };
+
+  const buildLayout = (rounds: string[][]) =>
+    layoutBracketCategoryTree(
+      rounds.map((round, index) =>
+        round.map((status, slot) =>
+          buildMatch(`r${index + 1}-${slot}`, "c", index + 1, slot, status)
+        )
+      ),
+      SIZING
+    );
+
+  const zoomFor = (layout: BracketTreeLayout) => {
+    const fitZoom =
+      bracketFitZoom({
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        ...VIEWPORT,
+      }) ?? 1;
+
+    return {
+      fitZoom,
+      openingZoom: bracketOpeningZoom({
+        cardWidth: SIZING.cardWidth,
+        connectorWidth: SIZING.connectorWidth,
+        fitZoom,
+        viewportWidth: VIEWPORT.viewportWidth,
+      }),
+    };
+  };
+
+  test("enquadra a rodada aberta na margem e tira a rodada 1 da tela", () => {
+    const layout = buildLayout([
+      Array.from({ length: 16 }, () => "finished"),
+      Array.from({ length: 8 }, () => "scheduled"),
+      Array.from({ length: 4 }, () => "scheduled"),
+      Array.from({ length: 2 }, () => "scheduled"),
+      ["scheduled"],
+    ]);
+    const column = bracketOpeningColumn(layout) ?? { bottom: 0, top: 0, x: 0 };
+    const transform = bracketOpeningTransform({
+      column,
+      ...zoomFor(layout),
+      graphHeight: layout.height,
+      graphWidth: layout.width,
+      ...VIEWPORT,
+    });
+
+    // Zoom de UMA coluna: a rodada aberta encosta na margem de cima e da
+    // esquerda, o card inteiro cabe na largura e a coluna da esquerda sai da
+    // tela.
+    expect(transform.zoom).toBe(1);
+    expect(transform.x).toBe(-264);
+    expect(transform.y).toBe(-32);
+    expect(transform.x + transform.zoom * column.x).toBe(
+      BRACKET_FIT_VIEW_PADDING
+    );
+    expect(
+      transform.x + transform.zoom * (column.x + SIZING.cardWidth)
+    ).toBeLessThanOrEqual(VIEWPORT.viewportWidth);
+    expect(transform.x + transform.zoom * 0).toBeLessThan(0);
+  });
+
+  test("com tudo decidido centra a final na tela", () => {
+    const layout = buildLayout([
+      Array.from({ length: 4 }, () => "finished"),
+      Array.from({ length: 2 }, () => "finished"),
+      ["finished"],
+    ]);
+    const column = bracketOpeningColumn(layout) ?? { bottom: 0, top: 0, x: 0 };
+    const transform = bracketOpeningTransform({
+      column,
+      ...zoomFor(layout),
+      graphHeight: layout.height,
+      graphWidth: layout.width,
+      ...VIEWPORT,
+    });
+
+    expect(transform.x).toBe(-552);
+    expect(transform.zoom).toBe(1);
+    // Coluna mais baixa que a tela: o centro dela cai no centro do viewport.
+    expect(
+      transform.y + transform.zoom * ((column.top + column.bottom) / 2)
+    ).toBeCloseTo(VIEWPORT.viewportHeight / 2, 6);
+  });
+
+  test("na 1ª rodada o enquadramento é o mesmo de antes", () => {
+    const layout = buildLayout([
+      Array.from({ length: 16 }, () => "scheduled"),
+      Array.from({ length: 8 }, () => "scheduled"),
+      Array.from({ length: 4 }, () => "scheduled"),
+      Array.from({ length: 2 }, () => "scheduled"),
+      ["scheduled"],
+    ]);
+    const { fitZoom, openingZoom } = zoomFor(layout);
+
+    expect(
+      bracketOpeningTransform({
+        column: bracketOpeningColumn(layout),
+        fitZoom,
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        openingZoom,
+        ...VIEWPORT,
+      })
+    ).toEqual(
+      bracketFitTransform({
+        fitZoom: openingZoom,
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        ...VIEWPORT,
+      })
+    );
+  });
+
+  test("grafo inteiro já no zoom de abertura: nada de deslocar", () => {
+    const layout = buildLayout([["finished", "finished"], ["scheduled"]]);
+    const wideViewport = { viewportHeight: 2000, viewportWidth: 2000 };
+    const fitZoom =
+      bracketFitZoom({
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        ...wideViewport,
+      }) ?? 1;
+    const openingZoom = bracketOpeningZoom({
+      cardWidth: SIZING.cardWidth,
+      connectorWidth: SIZING.connectorWidth,
+      fitZoom,
+      viewportWidth: wideViewport.viewportWidth,
+    });
+
+    expect(
+      bracketOpeningTransform({
+        column: bracketOpeningColumn(layout),
+        fitZoom,
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        openingZoom,
+        ...wideViewport,
+      })
+    ).toEqual(
+      bracketFitTransform({
+        fitZoom: openingZoom,
+        graphHeight: layout.height,
+        graphWidth: layout.width,
+        ...wideViewport,
+      })
+    );
+  });
+
+  test("sem coluna cai no fit do grafo", () => {
+    const layout = layoutBracketCategoryTree([], SIZING);
+
+    expect(
+      bracketOpeningTransform({
+        column: null,
+        fitZoom: 0.5,
+        graphHeight: 0,
+        graphWidth: 0,
+        openingZoom: 1,
+        ...VIEWPORT,
+      })
+    ).toEqual(
+      bracketFitTransform({
+        fitZoom: 1,
+        graphHeight: 0,
+        graphWidth: 0,
+        ...VIEWPORT,
+      })
+    );
+    expect(layout.cards).toHaveLength(0);
   });
 });

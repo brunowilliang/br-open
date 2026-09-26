@@ -27,7 +27,8 @@ export type PendingActionResolution =
   | { kind: "pay_entry"; entryId: string }
   | { accept: boolean; entryId: string; kind: "respond_invite" }
   | { entryId: string; kind: "approve_entry" }
-  | { entryId: string; kind: "reject_entry" };
+  | { entryId: string; kind: "reject_entry" }
+  | { kind: "conclude_tournament"; tournamentId: string };
 
 /**
  * O recorte comum entre o item de pendência e o da central de notificações:
@@ -94,6 +95,13 @@ export function resolvePendingAction(
       return action.type === "approve_tournament_entry"
         ? { entryId, kind: "approve_entry" }
         : { entryId, kind: "reject_entry" };
+    }
+    case "conclude_tournament": {
+      const tournamentId = action.params?.tournamentId;
+
+      return tournamentId
+        ? { kind: "conclude_tournament", tournamentId }
+        : null;
     }
     default:
       return null;

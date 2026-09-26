@@ -2,6 +2,7 @@ import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
 import { View } from "react-native";
 
+import { Text } from "@/components/core/text";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -9,6 +10,7 @@ import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 import {
+  buildTournamentDatesSummary,
   buildTournamentEntriesKpi,
   buildTournamentMatchesKpi,
 } from "@/lib/tournaments/organizer-overview-derived";
@@ -19,6 +21,7 @@ export function OrganizerOverview(props: {
 }) {
   const crpc = useCRPC();
   const bucket$ = getTournamentDetailsBucket$(props.tournamentId);
+  const tournament = useValue(bucket$.data.tournament);
   const entries = useValue(bucket$.data.entries);
   const entriesById = useValue(bucket$.derived.entriesById);
   const entriesLoading = useValue(bucket$.identity.entriesLoading);
@@ -28,6 +31,12 @@ export function OrganizerOverview(props: {
   const pendingsStatus = useValue(bucket$.identity.pendingsStatus);
 
   const confirmed = buildTournamentEntriesKpi({ entries });
+  const datesSummary = tournament
+    ? buildTournamentDatesSummary({
+        registrationDeadlineAt: tournament.registrationDeadlineAt,
+        startDate: tournament.startDate,
+      })
+    : null;
   const matchesWithSides = buildMatchSides({ entriesById, matches });
   const matchesKpi = buildTournamentMatchesKpi({ matches: matchesWithSides });
 
@@ -80,6 +89,12 @@ export function OrganizerOverview(props: {
           }
         />
       </View>
+
+      {datesSummary ? (
+        <Text color="muted" variant="description">
+          {datesSummary}
+        </Text>
+      ) : null}
     </View>
   );
 }

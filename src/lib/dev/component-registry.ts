@@ -66,6 +66,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "payment-status",
     title: "Status de pagamento",
   },
+  {
+    description: "Chip de estado do torneio por caso, para aprovação",
+    id: "tournament-status",
+    title: "Estado do torneio",
+  },
 ];
 
 export function findComponentGalleryEntry(

@@ -16,11 +16,13 @@ import {
   type BracketEdgePart,
 } from "@/lib/tournaments/bracket-edges";
 import {
-  bracketFitTransform,
   bracketFitZoom,
+  bracketOpeningColumn,
+  bracketOpeningTransform,
   bracketOpeningZoom,
   clampPanToViewport,
   pinchFollowTransform,
+  type BracketOpeningColumn,
   type BracketTreeLayout,
 } from "@/lib/tournaments/bracket-tree";
 import { useThemeColor } from "heroui-native";
@@ -56,6 +58,8 @@ type FramedBracketContentProps = Omit<
 > & {
   /** Já não-nulo: o filho só monta depois do viewport medido. */
   fitZoom: number;
+  /** Coluna do enquadramento de abertura (a rodada ainda aberta). */
+  openingColumn: BracketOpeningColumn | null;
   /** Zoom da ABERTURA (uma coluna): o transform inicial e o re-enquadramento da
    * re-entrada usam ele; `fitZoom` (a chave inteira) é o piso do gesto. */
   openingZoom: number;
@@ -137,16 +141,19 @@ function FramedBracketContent({
   fitZoom,
   focusSeed,
   layout,
+  openingColumn,
   openingZoom,
   renderCard,
   viewport,
 }: FramedBracketContentProps) {
   const tint = useThemeColor("muted");
 
-  const initialTransform = bracketFitTransform({
-    fitZoom: openingZoom,
+  const initialTransform = bracketOpeningTransform({
+    column: openingColumn,
+    fitZoom,
     graphHeight: layout.height,
     graphWidth: layout.width,
+    openingZoom,
     viewportHeight: viewport.height,
     viewportWidth: viewport.width,
   });
@@ -172,10 +179,12 @@ function FramedBracketContent({
   // nas deps é o gatilho INTENCIONAL da re-entrada na aba (inicial == aplicado).
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusSeed é o gatilho INTENCIONAL do re-enquadramento na re-entrada da aba (não é lido no corpo; o remount por foco piscava a tela)
   useLayoutEffect(() => {
-    const next = bracketFitTransform({
-      fitZoom: openingZoom,
+    const next = bracketOpeningTransform({
+      column: openingColumn,
+      fitZoom,
       graphHeight: layout.height,
       graphWidth: layout.width,
+      openingZoom,
       viewportHeight: viewport.height,
       viewportWidth: viewport.width,
     });
@@ -184,9 +193,16 @@ function FramedBracketContent({
     translateX.value = next.x;
     translateY.value = next.y;
   }, [
+    fitZoom,
     focusSeed,
     layout.height,
     layout.width,
+    // A caixa da coluna entra por VALOR: o layout é recriado a cada medida de
+    // card e a identidade do objeto dispararia re-enquadramento à toa (o pan do
+    // usuário sendo resetado enquanto a chave se mede).
+    openingColumn?.bottom,
+    openingColumn?.top,
+    openingColumn?.x,
     openingZoom,
     translateX,
     translateY,
@@ -537,6 +553,10 @@ export function BracketCanvas({
     [cardWidth, connectorWidth, fitZoom, viewport.width]
   );
 
+  // A coluna da abertura é a rodada ainda aberta da ÁRVORE ATIVA (a categoria
+  // remonta o canvas por key, então o enquadramento é dela mesma).
+  const openingColumn = useMemo(() => bracketOpeningColumn(layout), [layout]);
+
   return (
     <View collapsable={false} onLayout={handleLayout} style={{ flex: 1 }}>
       {openingZoom === null || fitZoom === null ? null : (
@@ -544,6 +564,7 @@ export function BracketCanvas({
           fitZoom={fitZoom}
           focusSeed={focusSeed}
           layout={layout}
+          openingColumn={openingColumn}
           openingZoom={openingZoom}
           renderCard={renderCard}
           viewport={viewport}

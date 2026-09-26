@@ -28,7 +28,9 @@ type TournamentListItem = {
   id: null | string;
   kind: "tournament";
   name: null | string;
+  registrationDeadlineAt: number;
   state: null | string;
+  status: string;
 };
 
 type CompetitionListItem =
@@ -45,7 +47,9 @@ function toTournamentItems(
     id: tournament.id,
     kind: "tournament",
     name: tournament.name,
+    registrationDeadlineAt: tournament.registrationDeadlineAt,
     state: tournament.state,
+    status: tournament.status,
   }));
 }
 
@@ -117,7 +121,9 @@ export default function CompetitionsTab() {
 
           router.push(`/tournaments/${competitionId}` as Href);
         }}
+        registrationDeadlineAt={item.registrationDeadlineAt}
         state={item.state}
+        status={item.status}
       />
     );
   }

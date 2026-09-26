@@ -26,6 +26,7 @@ import {
   Edit02Icon,
   ExchangeIcon,
   MoreVerticalIcon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeIcons } from "./huge-icons";
 
@@ -105,6 +106,7 @@ type MatchCardProps = {
   /** Menu do organizador: ele só é DESENHADO onde há ação — sem nenhum destes
    * handlers (agendas e "Próximo jogo") o menu não aparece, e a partida
    * encerrada troca Agendar/Resultado por "Editar resultado". */
+  onConcludePress?: () => void;
   onEditResultPress?: () => void;
   onResultPress?: () => void;
   onSchedulePress?: () => void;
@@ -152,13 +154,16 @@ function MatchCardImpl(props: MatchCardProps) {
 
   // O menu é do CARD e só é DESENHADO onde há ação: sem handler nenhum (agendas
   // e "Próximo jogo") ele não aparece. Encerrada, a ação é editar o resultado
-  // já publicado; antes disso são agendar (ou reagendar) e publicar.
-  const isFinished = props.matchStatus === "finished";
-  const editResultAction = isFinished ? props.onEditResultPress : undefined;
-  const resultAction = isFinished ? undefined : props.onResultPress;
-  const scheduleAction = isFinished ? undefined : props.onSchedulePress;
+  // já publicado; antes disso são agendar (ou reagendar) e publicar. O
+  // `champion` da final decidida conta como encerrada: o wire só diz `finished`.
+  const isDecided =
+    props.matchStatus === "finished" || props.matchStatus === "champion";
+  const editResultAction = isDecided ? props.onEditResultPress : undefined;
+  const resultAction = isDecided ? undefined : props.onResultPress;
+  const scheduleAction = isDecided ? undefined : props.onSchedulePress;
+  const concludeAction = props.onConcludePress;
   const hasMenuActions = Boolean(
-    editResultAction || resultAction || scheduleAction
+    concludeAction || editResultAction || resultAction || scheduleAction
   );
 
   // Challenger é o lado A e challenged o lado B (mesma convenção das agendas);
@@ -289,6 +294,12 @@ function MatchCardImpl(props: MatchCardProps) {
               <Menu.Portal>
                 <Menu.Overlay className="bg-backdrop" />
                 <Menu.Content presentation="popover" width={240}>
+                  {concludeAction ? (
+                    <Menu.Item onPress={concludeAction}>
+                      <Menu.ItemTitle>Concluir torneio</Menu.ItemTitle>
+                      <HugeIcons className="size-4.5" icon={Tick02Icon} />
+                    </Menu.Item>
+                  ) : null}
                   {scheduleAction ? (
                     <Menu.Item onPress={scheduleAction}>
                       <Menu.ItemTitle>

@@ -154,6 +154,39 @@ export function getEntryStatusChip(status: string): TournamentEntryStatusChip {
   return ENTRY_STATUS_CHIPS[status] ?? { color: "default", label: status };
 }
 
+export type TournamentStatusChip = {
+  color: "accent" | "danger" | "default" | "success" | "warning";
+  label: string;
+};
+
+const TOURNAMENT_STATUS_CHIPS: Record<string, TournamentStatusChip> = {
+  cancelled: { color: "danger", label: "Cancelado" },
+  draft: { color: "default", label: "Rascunho" },
+  finished: { color: "default", label: "Encerrado" },
+  ongoing: { color: "warning", label: "Em andamento" },
+};
+
+/** O par `published`/`drawn` não tem rótulo próprio: quem diz se as inscrições
+ *  estão abertas é a JANELA (`isRegistrationOpen`, a mesma regra do servidor). */
+export function getTournamentStatusChip(input: {
+  nowMs: number;
+  registrationDeadlineMs: number;
+  status: string;
+}): TournamentStatusChip {
+  if (input.status === "published" || input.status === "drawn") {
+    return isRegistrationOpen(input)
+      ? { color: "success", label: "Inscrições abertas" }
+      : { color: "warning", label: "Inscrições encerradas" };
+  }
+
+  return (
+    TOURNAMENT_STATUS_CHIPS[input.status] ?? {
+      color: "default",
+      label: input.status,
+    }
+  );
+}
+
 /** Lado que venceu o W.O. JOGADO (`a` = challenger, `b` = challenged), o sinal
  * que o card recebe para pintar sem placar. O bye do sorteio também carrega
  * `walkover: true`, mas não é jogo: só a partida `finished` conta. `null` é o
@@ -380,98 +413,4 @@ export function canCancelTournamentEntry(input: {
   return (
     input.tournamentStatus === "published" || input.tournamentStatus === "drawn"
   );
-}
-
-type StartWarningMatch = {
-  categoryId: string;
-  entryAId: null | string;
-  entryBId: null | string;
-  round: number;
-  slotInRound: number;
-  status: string;
-  walkover: boolean;
-};
-
-/** Lado vazio na primeira rodada ou alimentado por subtree podada (`vacant`) é
- * buraco; lado esperando feed vivo é o desenho normal. A busca do filho é POR
- * CATEGORIA (round/slot colidem entre categorias na lista global de matches). */
-function countBracketStartHoles(matches: readonly StartWarningMatch[]) {
-  const boardByCategory = new Map<string, Map<string, StartWarningMatch>>();
-
-  for (const match of matches) {
-    let board = boardByCategory.get(match.categoryId);
-
-    if (!board) {
-      board = new Map();
-      boardByCategory.set(match.categoryId, board);
-    }
-
-    board.set(`${match.round}:${match.slotInRound}`, match);
-  }
-
-  let holes = 0;
-
-  for (const board of boardByCategory.values()) {
-    for (const match of board.values()) {
-      if (match.status === "vacant" || match.walkover) {
-        continue;
-      }
-
-      for (const side of ["a", "b"] as const) {
-        const entryId = side === "a" ? match.entryAId : match.entryBId;
-
-        if (entryId !== null) {
-          continue;
-        }
-
-        const child =
-          match.round > 1
-            ? board.get(
-                `${match.round - 1}:${match.slotInRound * 2 + (side === "a" ? 0 : 1)}`
-              )
-            : undefined;
-
-        if (match.round <= 1 || child?.status === "vacant") {
-          holes += 1;
-        }
-      }
-    }
-  }
-
-  return holes;
-}
-
-export function buildStartWarnings(input: {
-  entries: ReadonlyArray<{ status: string }>;
-  matches: readonly StartWarningMatch[];
-}): string[] {
-  const warnings: string[] = [];
-
-  const pendingInvites = input.entries.filter(
-    (entry) => entry.status === "pending_partner"
-  ).length;
-
-  if (pendingInvites === 1) {
-    warnings.push(
-      "Há 1 convite de dupla sem resposta · essa inscrição ficará de fora da chave."
-    );
-  } else if (pendingInvites > 1) {
-    warnings.push(
-      `Há ${pendingInvites} convites de dupla sem resposta · essas inscrições ficarão de fora da chave.`
-    );
-  }
-
-  const holes = countBracketStartHoles(input.matches);
-
-  if (holes === 1) {
-    warnings.push(
-      "A chave tem 1 vaga em aberto (A definir) · o início só é liberado com a chave completa."
-    );
-  } else if (holes > 1) {
-    warnings.push(
-      `A chave tem ${holes} vagas em aberto (A definir) · o início só é liberado com a chave completa.`
-    );
-  }
-
-  return warnings;
 }

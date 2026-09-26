@@ -16,9 +16,16 @@ import {
 type BracketMatchCardProps = {
   courtName: null | string;
   isFinal: boolean;
+  /** A pendência do organizador de concluir o torneio está viva (toda categoria
+   * com campeão): só a FINAL oferece o item, e o menu dela é do torneio. */
+  isConclusionPending: boolean;
   isOrganizer: boolean;
+  /** Torneio encerrado ou cancelado: o servidor recusa toda ação de partida, e
+   * o nó nasce sem menu nenhum. */
+  isTournamentClosed: boolean;
   match: TournamentMatchWithSides;
   modality?: "doubles" | "singles";
+  onConcludePress: () => void;
   onEditResultPress: (match: TournamentMatchWithSides) => void;
   onHeightChange: (height: number) => void;
   onResultPress: (match: TournamentMatchWithSides) => void;
@@ -33,13 +40,17 @@ type BracketMatchCardProps = {
 
 /** Casca do NÓ do chaveamento: mede a altura (o grafo usa a medida) e trata a
  * vaga bye; o jogo em si é o MESMO card das telas (`ui/match-card.tsx`), com o
- * menu do organizador só onde há ação e com os dois lados preenchidos. */
+ * menu do organizador só onde há ação (torneio aberto e os dois lados
+ * preenchidos). */
 export function BracketMatchCard({
   courtName,
+  isConclusionPending,
   isFinal,
   isOrganizer,
+  isTournamentClosed,
   match,
   modality,
+  onConcludePress,
   onEditResultPress,
   onHeightChange,
   onResultPress,
@@ -83,7 +94,10 @@ export function BracketMatchCard({
   // LADO a LADO. Lado bloqueado não mostra a seta de troca.
   const swapEnabled = isOrganizer && !swapDisabled;
   const canAct =
-    isOrganizer && match.entryAId !== null && match.entryBId !== null;
+    isOrganizer &&
+    !isTournamentClosed &&
+    match.entryAId !== null &&
+    match.entryBId !== null;
   const walkoverWinner = walkoverWinnerSide(match);
 
   return (
@@ -107,6 +121,13 @@ export function BracketMatchCard({
         matchDate={match.matchDate}
         matchStatus={matchStatus}
         modality={modality}
+        onConcludePress={
+          isOrganizer && !isTournamentClosed && isFinal && isConclusionPending
+            ? () => {
+                onConcludePress();
+              }
+            : undefined
+        }
         onEditResultPress={
           canAct
             ? () => {

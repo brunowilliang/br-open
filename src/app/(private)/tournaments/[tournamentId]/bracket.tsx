@@ -106,6 +106,16 @@ export default function TournamentBracketRoute() {
   // sorteada — iniciar congela a chave; a regra vive no modelo puro de
   // bracket-view.
   const tournamentStatus = tournament?.status ?? "";
+  // Encerrado ou cancelado não aceita mais ação de partida no servidor
+  // (publishResult exige ongoing): o nó nasce sem menu.
+  const isTournamentClosed =
+    tournamentStatus === "finished" || tournamentStatus === "cancelled";
+  // A pendência de CONCLUIR (toda categoria com campeão) sai do bucket, já
+  // recortada para este torneio: é dela que nasce o item do menu da final.
+  const tournamentPendings = useValue(bucket$.derived.pendings);
+  const isConclusionPending = tournamentPendings.some(
+    (item) => item.kind === "organization_tournament_awaiting_conclusion"
+  );
   useEffect(() => {
     bucket$.actions.setActiveRoute("bracket");
   }, [bucket$]);
@@ -138,6 +148,9 @@ export default function TournamentBracketRoute() {
           tournamentId,
         })
       ),
+      // A chave mexe no que o servidor deriva de pendência: o último resultado de
+      // categoria faz nascer a de concluir, e concluir a apaga.
+      queryClient.invalidateQueries(crpc.pendings.list.list.queryFilter()),
     ]);
   }
 
@@ -189,6 +202,32 @@ export default function TournamentBracketRoute() {
         description: "O resultado foi atualizado na chave.",
         id: "tournament-edit-result-success",
         label: "Resultado atualizado",
+        variant: "success",
+      });
+    },
+  });
+  // O ato do organizador que ENCERRA o torneio (a pendência só existe enquanto
+  // ele não concluir; quem tira o item da tela é a releitura, nada otimista).
+  const concludeTournament = useMutation({
+    mutationFn: crpcClient.tournament.lifecycle.conclude.mutate,
+    mutationKey: crpc.tournament.lifecycle.conclude.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível concluir o torneio. Tente novamente."
+        ),
+        id: "conclude-tournament-error",
+        label: "Falha ao concluir",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTournamentContext();
+      toast.show({
+        description: "Torneio encerrado.",
+        id: "conclude-tournament-success",
+        label: "Torneio concluído",
         variant: "success",
       });
     },
@@ -425,6 +464,12 @@ export default function TournamentBracketRoute() {
     [swapSlotsMutate, swapTarget, tournamentId, tournamentStatus]
   );
 
+  // `mutate` é estável no TanStack: o handler entra na lista do `renderCard` sem
+  // trocar a identidade dele a cada render (o canvas depende disso).
+  const handleConcludePress = useCallback(() => {
+    concludeTournament.mutate({ tournamentId });
+  }, [concludeTournament.mutate, tournamentId]);
+
   // Stable identity across gesture-end canvas re-renders: the canvas only
   // re-renders its edges then, so cards skip reconciliation entirely.
   const renderCard = useCallback(
@@ -442,10 +487,13 @@ export default function TournamentBracketRoute() {
       return (
         <BracketMatchCard
           courtName={courtName}
+          isConclusionPending={isConclusionPending}
           isFinal={match.round === activeTreeLayout?.tree.columns.length}
           isOrganizer={isOrganizer}
+          isTournamentClosed={isTournamentClosed}
           match={match}
           modality={modality}
+          onConcludePress={handleConcludePress}
           onEditResultPress={setEditTarget}
           onHeightChange={(height) => {
             // Card de bye: altura FIXA na constante do layout (o próprio card a
@@ -492,10 +540,13 @@ export default function TournamentBracketRoute() {
       activeTreeLayout,
       courtNameOf,
       feedBySlot,
+      handleConcludePress,
       handleHeightChange,
       handleSidePress,
+      isConclusionPending,
       isOrganizer,
       isSwapPending,
+      isTournamentClosed,
       swapTarget,
       tournamentStatus,
     ]

@@ -14,6 +14,7 @@ const BALANCE = {
   freeFromCents: 300_000,
   minWithdrawCents: 2000,
   pixKey: "or********om",
+  reservedCents: 0,
 };
 
 describe("buildWithdrawInfoContent", () => {
@@ -55,6 +56,25 @@ describe("buildWithdrawInfoContent", () => {
     expect(content.description).toContain("Mínimo de saque: R$ 10,00.");
     expect(content.description).toContain("· até R$ 500,00 → R$ 1,00");
     expect(content.description).toContain("· a partir de R$ 1.000,00 → Grátis");
+  });
+
+  it("explica a reserva de estorno em aberto quando existe", () => {
+    const content = buildWithdrawInfoContent({
+      ...BALANCE,
+      reservedCents: 120_000,
+    });
+
+    expect(content.description).toContain(
+      "R$ 1.200,00 está reservado para estornos em andamento"
+    );
+    // A tabela de taxas continua no dialog mesmo com a reserva.
+    expect(content.description).toContain("· a partir de R$ 3.000,00 → Grátis");
+  });
+
+  it("sem reserva o dialog não fala de estorno", () => {
+    const content = buildWithdrawInfoContent(BALANCE);
+
+    expect(content.description).not.toContain("reservado");
   });
 
   describe("buildWithdrawFeeLines", () => {
