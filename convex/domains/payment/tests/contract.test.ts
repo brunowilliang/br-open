@@ -20,6 +20,7 @@ describe("payment contract", () => {
         "PAID",
         "EXPIRED",
         "REFUNDED",
+        "CANCELED",
         "FAILED",
       ]);
     });
@@ -29,6 +30,7 @@ describe("payment contract", () => {
     it("accepts valid statuses", () => {
       expect(paymentChargeStatusSchema.parse("PENDING")).toBe("PENDING");
       expect(paymentChargeStatusSchema.parse("PAID")).toBe("PAID");
+      expect(paymentChargeStatusSchema.parse("CANCELED")).toBe("CANCELED");
     });
 
     it("rejects invalid statuses", () => {
@@ -199,11 +201,23 @@ describe("payment contract", () => {
       expiresAt: "2026-07-01T12:00:00Z",
       pendingCharge: null,
       qrCodeUrl: "https://api.woovi.com/charge/image/abc.png",
+      sourceCategory: "Simples Masculino",
       sourceId: "entry-1",
       sourceLabel: "Copa Vila",
       sourceType: "tournament_entry",
       status: "PAID" as const,
     };
+
+    it("carries the category apart from the tournament name", () => {
+      const parsed = checkoutContextSchema.parse(base);
+
+      expect(parsed.sourceLabel).toBe("Copa Vila");
+      expect(parsed.sourceCategory).toBe("Simples Masculino");
+      expect(
+        checkoutContextSchema.parse({ ...base, sourceCategory: null })
+          .sourceCategory
+      ).toBeNull();
+    });
 
     it("accepts a charge whose source has nothing pending", () => {
       const parsed = checkoutContextSchema.parse(base);

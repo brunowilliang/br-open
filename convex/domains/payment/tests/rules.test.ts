@@ -3,17 +3,23 @@ import { describe, expect, it } from "bun:test";
 import type { PaymentChargeStatus } from "../contract";
 import {
   CHARGE_EXPIRES_IN_SECONDS,
+  CHARGE_STATUS_CANCELED,
   CHARGE_STATUS_EXPIRED,
   CHARGE_STATUS_PAID,
   CHARGE_STATUS_PENDING,
+  canChargeBeCanceled,
   canChargeBeExpired,
   canChargeBePaid,
   canChargeBeRefunded,
+  canRequestRefund,
   computeSplit,
   computeWooviFeeCents,
   hasUsablePix,
+  isRefundOutstanding,
   normalizeProviderStatus,
   ownsPayableSource,
+  resolveRefundOutcome,
+  shouldRefundLatePayment,
 } from "../rules";
 
 describe("payment rules", () => {
@@ -78,6 +84,109 @@ describe("payment rules", () => {
   });
 
   // -------------------------------------------------------------------------
+  // canChargeBeCanceled — guard PROPRIA do cancelamento (nao e expiracao)
+  // -------------------------------------------------------------------------
+
+  describe("canChargeBeCanceled", () => {
+    it("allows cancelling only a PENDING charge", () => {
+      expect(canChargeBeCanceled({ status: CHARGE_STATUS_PENDING })).toBe(true);
+    });
+
+    it("is idempotent: a CANCELED charge has nothing left to cancel", () => {
+      // O segundo cancelamento do mesmo source nao acha nada PENDING e nao
+      // mexe em nada.
+      expect(canChargeBeCanceled({ status: CHARGE_STATUS_CANCELED })).toBe(
+        false
+      );
+    });
+
+    it("never cancels PAID/EXPIRED/REFUNDED/FAILED", () => {
+      for (const status of [
+        CHARGE_STATUS_PAID,
+        CHARGE_STATUS_EXPIRED,
+        "REFUNDED",
+        "FAILED",
+      ]) {
+        expect(canChargeBeCanceled({ status })).toBe(false);
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Pagamento tardio — dinheiro que entra numa cobranca ja considerada morta
+  // -------------------------------------------------------------------------
+
+  describe("shouldRefundLatePayment", () => {
+    it("refunds a payment that arrived on a CANCELED charge", () => {
+      expect(shouldRefundLatePayment({ status: CHARGE_STATUS_CANCELED })).toBe(
+        true
+      );
+    });
+
+    it("refunds a payment on an EXPIRED/FAILED charge", () => {
+      expect(shouldRefundLatePayment({ status: CHARGE_STATUS_EXPIRED })).toBe(
+        true
+      );
+      expect(shouldRefundLatePayment({ status: "FAILED" })).toBe(true);
+    });
+
+    it("ignores PAID and REFUNDED (duplicate webhook / refund already done)", () => {
+      expect(shouldRefundLatePayment({ status: CHARGE_STATUS_PAID })).toBe(
+        false
+      );
+      expect(shouldRefundLatePayment({ status: "REFUNDED" })).toBe(false);
+    });
+
+    it("ignores a PENDING charge (the normal payment path owns it)", () => {
+      expect(shouldRefundLatePayment({ status: CHARGE_STATUS_PENDING })).toBe(
+        false
+      );
+    });
+  });
+
+  describe("canRequestRefund", () => {
+    it("allows a refund that was never requested", () => {
+      expect(canRequestRefund({ refundStatus: null })).toBe(true);
+    });
+
+    it("retries a failed refund", () => {
+      expect(canRequestRefund({ refundStatus: "failed" })).toBe(true);
+    });
+
+    it("never overwrites a request in flight or an already-refunded charge", () => {
+      expect(canRequestRefund({ refundStatus: "pending" })).toBe(false);
+      expect(canRequestRefund({ refundStatus: "refunded" })).toBe(false);
+    });
+  });
+
+  describe("isRefundOutstanding", () => {
+    it("is true for a request in flight and for a refused one", () => {
+      expect(isRefundOutstanding({ refundStatus: "pending" })).toBe(true);
+      expect(isRefundOutstanding({ refundStatus: "failed" })).toBe(true);
+    });
+
+    it("is false when no refund was ever asked or it is already done", () => {
+      expect(isRefundOutstanding({ refundStatus: null })).toBe(false);
+      expect(isRefundOutstanding({ refundStatus: "refunded" })).toBe(false);
+    });
+  });
+
+  describe("resolveRefundOutcome", () => {
+    it("closes the refund only on CONFIRMED", () => {
+      expect(resolveRefundOutcome("CONFIRMED")).toBe("refunded");
+    });
+
+    it("frees the retry on REJECTED", () => {
+      expect(resolveRefundOutcome("REJECTED")).toBe("failed");
+    });
+
+    it("keeps IN_PROCESSING (and unknown statuses) pending", () => {
+      expect(resolveRefundOutcome("IN_PROCESSING")).toBe("pending");
+      expect(resolveRefundOutcome("ALGO_NOVO")).toBe("pending");
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // hasUsablePix — the reuse rule shared by createCharge and the checkout's
   // pendingCharge: the screen may only show a PIX this returns true for.
   // -------------------------------------------------------------------------
@@ -127,6 +236,7 @@ describe("payment rules", () => {
       for (const status of [
         CHARGE_STATUS_PAID,
         CHARGE_STATUS_EXPIRED,
+        CHARGE_STATUS_CANCELED,
         "FAILED",
         "REFUNDED",
       ]) {
@@ -134,6 +244,17 @@ describe("payment rules", () => {
           hasUsablePix({ charge: { expiresAt: future, status }, nowMs })
         ).toBe(false);
       }
+    });
+
+    it("never reuses a CANCELED charge (inscricao cancelada nao tem PIX)", () => {
+      // Uma cobranca cancelada com `expiresAt` no futuro nao pode voltar para o
+      // checkout nem ser reusada por createCharge.
+      expect(
+        hasUsablePix({
+          charge: { expiresAt: future, status: CHARGE_STATUS_CANCELED },
+          nowMs,
+        })
+      ).toBe(false);
     });
 
     it("rejects a missing charge", () => {

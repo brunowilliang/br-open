@@ -204,11 +204,14 @@
   todo papel, em todo status (a página nunca muda); "Suas inscrições" com
   chip via `getEntryStatusChip`, aceite/recusa de convite para o parceiro
   (`respondPartnerInvite`), botão "Pagar inscrição" para o criador em
-  `awaiting_payment` (`createCharge` → checkout — fecha o fluxo de duplas
-  pagas após o aceite) e **"Cancelar inscrição"** (entry viva em
-  `published`/`drawn`, `canCancelTournamentEntry`; dialog de confirmação
-  molde do cancelar torneio avisando que em dupla a saída vale pros dois e
-  que entry paga recebe estorno integral; `entries.cancel` + invalidate);
+  `awaiting_payment` (navega para `/checkout/new?sourceId&sourceType`, com a
+  cobrança nascendo na tela — IBX-0138; fecha o fluxo de duplas pagas após o
+  aceite) e **"Cancelar inscrição"** (entry viva em `published`/`drawn`,
+  `canCancelTournamentEntry`; dialog de confirmação molde do cancelar torneio
+  avisando que em dupla a saída vale pros dois e que entry paga recebe estorno
+  integral — e que a entry não paga tem o PIX PENDENTE MORTO no provedor
+  (`DELETE` por `correlationId`, não só a cobrança rejeitada aqui; IBX-0137);
+  `entries.cancel` + invalidate);
   **SUPERSEDE no IBX-0080 (21-09-2026): o bloco inteiro — cartões e as três
   ações — MIGROU para o segmento "Minhas" da aba Inscrições (ver a seção
   IBX-0080 no fim do doc); o overview do jogador não mostra mais este bloco**;
@@ -868,13 +871,18 @@
   publicado, `vacant` e bye (`walkover`). Testes atualizados em
   `bracket-rules.test.ts` (`deriveSwapMatchStatus`,
   `buildSwapPersistPlan`).
-- **`tournament-join-footer.tsx`** — select de categoria (taxa no label),
-  duplas: input de username com debounce 500ms + `players.searchByUsername`
-  ao vivo — precheck é HINT de UX, nunca gate do submit (erro de rede fica
-  neutro; decisão do slice 1: o servidor valida o convite); submit
-  `entries.create` com o username normalizado digitado;
-  `awaiting_payment` → `payment.charge.createCharge`
-  (`tournament_entry`) → `/checkout/[chargeId]`.
+- **`join-footer.tsx`** (`src/components/ui/join-footer.tsx`, `JoinFooter`;
+  antes `tournament-join-footer.tsx`) — select de categoria (taxa no label),
+  duplas: input de username com debounce 500ms +
+  `players.searchByUsername` ao vivo — precheck é HINT de UX, nunca gate do
+  submit (erro de rede fica neutro; decisão do slice 1: o servidor valida o
+  convite); submit `entries.create` com o username normalizado digitado;
+  `awaiting_payment` → navega para `/checkout/new?sourceId&sourceType` e a
+  cobrança nasce na PRÓPRIA tela, criada/reusada com single-flight por
+  inscrição (`createChargeOnce`; href de `buildNewChargeCheckoutHref` em
+  `src/lib/payments/checkout-route.ts`) — o POST à Woovi não segura a
+  transição (IBX-0138). O mesmo caminho vale no "Pagar inscrição" do segmento
+  "Minhas" da aba Inscrições (`entries.tsx:493-500`).
 - **`tournament-card.tsx`** — removido (QA round 1): o card de torneio
   virou o card universal.
 
@@ -1190,7 +1198,9 @@
   `scheduleMatch` (data/hora/quadra; reschedule distinto),
   `listForTournament`.
 - **lifecycle.ts** — `cancel` (entries canceladas + `tournament.cancelled` +
-  charges pagas marcadas refund-pending + handoff à action), `processRefunds`
+  charges pagas marcadas refund-pending + handoff à action + cobranças PENDING
+  dessas entries mortas no provedor via `cancelPendingChargesForSource`,
+  IBX-0137), `processRefunds`
   (action: chama provider por charge, idempotente), `listRefundableCharges`,
   `applyRefundOutcome` (`refunded|failed`), `sweepPendingRefunds` (cron 15min,
   padrão sweep dos withdraws).
@@ -1988,8 +1998,9 @@ ORGANIZADOR não mudou nada.**
   SERVIDOR já reaproveita a cobrança pendente do mesmo insumo — `createCharge` consulta
   `findPendingChargeForSource` antes de falar com o provedor e devolve a cobrança PENDING
   existente (mesmo `sourceType`+`sourceId`, dona do caller e com PIX não expirado:
-  `convex/functions/payment/charge.ts:155-168` + `hasUsablePix`/`ownsPayableSource`
-  em `convex/domains/payment/rules.ts:38` e `:158`), então um
+  `convex/functions/payment/charge.ts:86-112` (a regra) e `:211` (a consulta no
+  `createCharge`) + `hasUsablePix`/`ownsPayableSource` em `convex/domains/payment/rules.ts:97`
+  e `:217`), então um
   segundo toque sequencial NÃO cria uma segunda cobrança; o servidor só cria outra quando
   a anterior expirou ou foi consumida:
   - **CANCELAR INSCRIÇÃO** (o único lugar do app): botão danger-soft + dialog de
@@ -2160,7 +2171,7 @@ de uma superfície para outra é o dado que ela tem.
 
 - **Auto-sorteio pelo PRAZO (backend):** além do início automático no dia
   (`shouldAutoStartTournament`, scheduling-rules.ts:21), o cron horário
-  (`crons.ts:68-73`) passou a SORTEAR quando o prazo de inscrição fecha —
+  (`crons.ts:78-83`) passou a SORTEAR quando o prazo de inscrição fecha —
   `shouldAutoDrawTournament` (scheduling-rules.ts:40: só `published`, com prazo
   finito, prazo não posterior ao dia do início e prazo já vencido) e
   `resolveTournamentAutoAction` (:63) escolhem `start` antes de `draw` no mesmo

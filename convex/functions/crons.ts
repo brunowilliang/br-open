@@ -61,6 +61,16 @@ crons.interval(
   {}
 );
 
+// Retry the PIX deletion of cancelled charges whose provider command was never
+// confirmed (`cancelStatus` pending/failed): the charge is already CANCELED and
+// unusable here, but only the provider can confirm the PIX is dead.
+crons.interval(
+  "sweep-pending-charge-cancellations",
+  { minutes: 15 },
+  internal.payment.charge.sweepPendingChargeCancellations,
+  {}
+);
+
 // Auto-transicoes de torneio (de hora em hora): quando o PRAZO DE INSCRICAO
 // fecha, um torneio publicado SORTEIA SOZINHO e fica `drawn` (a previa do
 // organizador); no DIA DE INICIO ele comeca — se ainda nao sorteou, sorteia e

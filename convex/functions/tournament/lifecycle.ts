@@ -7,6 +7,11 @@ import { internal } from "../_generated/api";
 import type { QueryCtx } from "../generated/server";
 import { TournamentByIdSchema } from "../../domains/tournament/contract";
 import { tournament, tournamentEntry } from "../../domains/tournament/tables";
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
+import {
+  isRefundOutstanding,
+  resolveRefundOutcome,
+} from "../../domains/payment/rules";
 import { paymentCharge } from "../../domains/payment/tables";
 import {
   authMutation,
@@ -85,6 +90,7 @@ export const cancel = authMutation
         limit: 300,
         where: { categoryId: category.id as Id<"tournamentCategory"> },
       });
+      const entryIds = entries.map((entry) => entry.id as string);
       for (const entry of entries) {
         // Only ACTIVE entrants get the cancellation notice; pending, rejected
         // and cancelled entries were never in the tournament.
@@ -108,6 +114,18 @@ export const cancel = authMutation
             })
             .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">));
         }
+      }
+
+      // O torneio cancelado nao pode deixar PIX vivo: toda cobranca PENDING das
+      // inscricoes morre junto (a PAID segue no estorno logo abaixo).
+      if (entryIds.length > 0) {
+        await ctx.runMutation(
+          internal.payment.charge.cancelPendingChargesForSource,
+          {
+            sourceIds: entryIds,
+            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+          }
+        );
       }
     }
 
@@ -181,12 +199,7 @@ export const processRefunds = privateAction
           internal.tournament.lifecycle.applyRefundOutcome,
           {
             chargeId: charge.chargeId,
-            outcome:
-              result.status === "CONFIRMED"
-                ? "refunded"
-                : result.status === "REJECTED"
-                  ? "failed"
-                  : "pending",
+            outcome: resolveRefundOutcome(result.status),
           }
         );
       } catch {
@@ -216,10 +229,7 @@ export const listRefundableCharges = privateQuery
       input.tournamentId as Id<"tournament">
     );
     return charges
-      .filter(
-        (charge) =>
-          charge.refundStatus === "pending" || charge.refundStatus === "failed"
-      )
+      .filter((charge) => isRefundOutstanding(charge))
       .map((charge) => ({
         amountCents: charge.amountCents,
         chargeId: charge.id as string,
@@ -246,6 +256,80 @@ export const applyRefundOutcome = privateMutation
             : { refundStatus: "pending", updatedAt: now }
       )
       .where(eq(paymentCharge.id, input.chargeId as Id<"paymentCharge">));
+  });
+
+/**
+ * Estorno pontual de UMA cobranca: dinheiro que entrou numa cobranca sem o que
+ * ativar (inscricao cancelada depois do PIX, expirada, categoria cheia).
+ * `applyPaidCharge` ja marcou PAID + refundStatus pending; aqui se chama o
+ * provedor e se grava o desfecho. O sweep de 15 min cobre a retentativa.
+ */
+export const refundLatePaymentForCharge = privateAction
+  .input(z.object({ chargeId: z.string().min(1) }))
+  .action(async ({ ctx, input }) => {
+    const charge = await ctx.runQuery(
+      internal.tournament.lifecycle.findRefundableCharge,
+      { chargeId: input.chargeId }
+    );
+    if (!charge) {
+      return { outcome: "skipped" as const };
+    }
+
+    try {
+      const result = await ctx.runAction(
+        internal.payment.providerNode.refundChargeAction,
+        {
+          chargeCorrelationId: charge.correlationId,
+          valueCents: charge.amountCents,
+        }
+      );
+      const outcome = resolveRefundOutcome(result.status);
+      await ctx.runMutation(internal.tournament.lifecycle.applyRefundOutcome, {
+        chargeId: charge.chargeId,
+        outcome,
+      });
+      return { outcome };
+    } catch {
+      await ctx.runMutation(internal.tournament.lifecycle.applyRefundOutcome, {
+        chargeId: charge.chargeId,
+        outcome: "failed" as const,
+      });
+      return { outcome: "failed" as const };
+    }
+  });
+
+/** Cobranca PAID com estorno ainda por fazer (pedido em voo ou recusado). */
+export const findRefundableCharge = privateQuery
+  .input(z.object({ chargeId: z.string().min(1) }))
+  .output(
+    z
+      .object({
+        amountCents: z.number().int(),
+        chargeId: z.string(),
+        correlationId: z.string(),
+      })
+      .nullable()
+  )
+  .query(async ({ ctx, input }) => {
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { id: input.chargeId as Id<"paymentCharge"> },
+    });
+
+    if (!charge) {
+      return null;
+    }
+
+    // So uma cobranca PAID com estorno EM ABERTO entra: `null` nunca pediu
+    // estorno e "refunded" ja foi.
+    if (charge.status !== "PAID" || !isRefundOutstanding(charge)) {
+      return null;
+    }
+
+    return {
+      amountCents: charge.amountCents,
+      chargeId: charge.id as string,
+      correlationId: charge.correlationId,
+    };
   });
 
 /**

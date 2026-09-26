@@ -17,20 +17,40 @@ import {
   paymentAccountSchema,
   type CheckoutCharge,
   type CheckoutContext,
+  type CreateChargeOutput,
   type PaymentChargeStatus,
   type SplitConfig,
 } from "../../domains/payment/contract";
 import {
   CHARGE_EXPIRES_IN_SECONDS,
+  CHARGE_CANCEL_CONFIRMED,
+  CHARGE_CANCEL_FAILED,
+  CHARGE_CANCEL_PENDING,
+  CHARGE_STATUS_CANCELED,
+  CHARGE_STATUS_EXPIRED,
+  CHARGE_STATUS_FAILED,
+  CHARGE_STATUS_PAID,
+  CHARGE_STATUS_PENDING,
+  canChargeBeCanceled,
   canChargeBeExpired,
   canChargeBePaid,
   canChargeBeRefunded,
+  canRequestRefund,
   computeSplit,
   DEFAULT_PLATFORM_FEE_PERCENT,
   hasUsablePix,
   normalizeProviderStatus,
   ownsPayableSource,
+  shouldRefundLatePayment,
 } from "../../domains/payment/rules";
+import {
+  PROVIDER_PROBE_UNREACHABLE,
+  resolveChargeCancellationOutcome,
+  toProviderCancelProbe,
+  type CancelProbeStatus,
+} from "../../domains/payment/cancel-rules";
+import { shouldReconcileCharge } from "../../domains/payment/reconcile-rules";
+import { resolveCheckoutSourceIdentity } from "../../domains/payment/checkout-source";
 import { paymentCharge } from "../../domains/payment/tables";
 import { getEnv } from "../../lib/get-env";
 import {
@@ -39,6 +59,7 @@ import {
   authQuery,
   privateAction,
   privateMutation,
+  privateQuery,
 } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -57,6 +78,57 @@ const createChargeInput = z.object({
 });
 
 /**
+ * PENDING utilizavel do par (sourceType, sourceId) para o MESMO dono. Chamada
+ * antes de falar com o provedor e de novo na mutation do insert: dois runtimes
+ * (2o device, app restaurado) nao podem deixar duas cobrancas vivas para a
+ * mesma inscricao.
+ */
+async function findReusablePendingCharge(
+  ctx: Pick<MutationCtx, "orm">,
+  args: {
+    nowMs: number;
+    playerProfileId: string;
+    sourceId: string;
+    sourceType: string;
+  }
+) {
+  const charge = await ctx.orm.query.paymentCharge.findFirst({
+    orderBy: { createdAt: "desc" },
+    where: {
+      sourceId: args.sourceId,
+      sourceType: args.sourceType,
+      status: CHARGE_STATUS_PENDING,
+    },
+  });
+
+  return charge &&
+    ownsPayableSource({
+      callerProfileId: args.playerProfileId,
+      ownerProfileId: charge.playerProfileId,
+    }) &&
+    hasUsablePix({ charge, nowMs: args.nowMs })
+    ? charge
+    : null;
+}
+
+/** Projecao do PIX que o app consome (criacao e reuso falam a mesma lingua). */
+function toChargeOutput(charge: {
+  brCode: null | string;
+  expiresAt: null | Date;
+  id: string;
+  qrCodeImage: null | string;
+  status: string;
+}): CreateChargeOutput {
+  return {
+    brCode: charge.brCode ?? "",
+    chargeId: charge.id,
+    expiresAt: charge.expiresAt?.toISOString() ?? null,
+    qrCodeUrl: charge.qrCodeImage ?? "",
+    status: charge.status as PaymentChargeStatus,
+  };
+}
+
+/**
  * Newest still-valid PENDING charge of a (sourceType, sourceId) pair, scoped to
  * the caller's own player profile: reuse must never hand out somebody else's PIX.
  */
@@ -70,7 +142,6 @@ export const findPendingChargeForSource = privateMutation
   )
   .output(createChargeOutputSchema.nullable())
   .mutation(async ({ ctx, input }) => {
-    const now = new Date();
     const profile = await ctx.orm.query.playerProfile.findFirst({
       where: { userId: input.userId as Id<"user"> },
     });
@@ -78,35 +149,14 @@ export const findPendingChargeForSource = privateMutation
       return null;
     }
 
-    const charge = await ctx.orm.query.paymentCharge.findFirst({
-      orderBy: { createdAt: "desc" },
-      where: {
-        sourceId: input.sourceId,
-        sourceType: input.sourceType,
-        status: "PENDING",
-      },
+    const charge = await findReusablePendingCharge(ctx, {
+      nowMs: Date.now(),
+      playerProfileId: profile.id,
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
     });
 
-    if (
-      !(
-        charge &&
-        ownsPayableSource({
-          callerProfileId: profile.id,
-          ownerProfileId: charge.playerProfileId,
-        }) &&
-        hasUsablePix({ charge, nowMs: now.getTime() })
-      )
-    ) {
-      return null;
-    }
-
-    return {
-      brCode: charge.brCode ?? "",
-      chargeId: charge.id as Id<"paymentCharge">,
-      expiresAt: charge.expiresAt?.toISOString() ?? null,
-      qrCodeUrl: charge.qrCodeImage ?? "",
-      status: "PENDING",
-    };
+    return charge ? toChargeOutput(charge) : null;
   });
 
 /**
@@ -242,14 +292,15 @@ export const createCharge = authAction
       }
     );
 
-    return {
-      brCode: chargeResult.brCode,
-      chargeId: savedCharge.id as Id<"paymentCharge">,
-      expiresAt: chargeResult.expiresDate,
-      // Provider returns an HTTPS URL for the QR PNG (not a base64 string).
-      qrCodeUrl: chargeResult.qrCodeImage,
-      status: normalizeProviderStatus(chargeResult.status),
-    };
+    if (savedCharge.reused) {
+      // Outro runtime (2o device) venceu a corrida entre o reuso e o POST: a
+      // copia nasceu CANCELED e ja esta no DELETE agendado.
+      console.warn(
+        `[createCharge] PIX orfao cancelado em ${sourceType}:${sourceId} (reusando ${savedCharge.charge.chargeId})`
+      );
+    }
+
+    return savedCharge.charge;
   });
 
 // Checkout context (re-display a charge's QR code by chargeId)
@@ -290,6 +341,8 @@ export const getCheckoutContext = authQuery
       sourceType: charge.sourceType,
     });
 
+    const source = await loadCheckoutSourceIdentity(ctx, charge);
+
     return {
       amountCents: charge.amountCents,
       brCode: charge.brCode ?? "",
@@ -297,8 +350,9 @@ export const getCheckoutContext = authQuery
       expiresAt: charge.expiresAt?.toISOString() ?? null,
       pendingCharge,
       qrCodeUrl: charge.qrCodeImage ?? "",
+      sourceCategory: source.category,
       sourceId: charge.sourceId,
-      sourceLabel: charge.sourceLabel ?? null,
+      sourceLabel: source.label,
       sourceType: charge.sourceType,
       status: (charge.status as PaymentChargeStatus) ?? "PENDING",
     } satisfies CheckoutContext;
@@ -362,20 +416,33 @@ const saveChargeInput = z.object({
 
 export const saveCharge = privateMutation
   .input(saveChargeInput)
+  .output(z.object({ charge: createChargeOutputSchema, reused: z.boolean() }))
   .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const expiresAt = input.expiresAt
       ? new Date(input.expiresAt)
       : new Date(Date.now() + CHARGE_EXPIRES_IN_SECONDS * 1000);
 
-    // Always INSERT: the previous upsert collapsed retries onto one row and hid
-    // the per-charge history of "my payments".
+    // Decide-e-insere na MESMA transacao: se outro runtime ja deixou um PIX vivo
+    // para este source, esta cobranca nasce MORTA (nunca reusavel nem pagavel) e
+    // o DELETE agendado mata o PIX recem-criado — o POST ao provedor nao cabe na
+    // transacao, entao esta copia precisa ser cancelada como qualquer outra.
+    const duplicate = await findReusablePendingCharge(ctx, {
+      nowMs: now.getTime(),
+      playerProfileId: input.playerProfileId,
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+    });
+
+    // Always INSERT (o historico de "meus pagamentos" e por charge): o reuso
+    // devolve a linha viva e esta fica como registro do PIX descartado.
     const row = (
       await ctx.orm
         .insert(paymentCharge)
         .values({
           amountCents: input.amountCents,
           brCode: input.brCode,
+          cancelStatus: duplicate ? CHARGE_CANCEL_PENDING : null,
           correlationId: input.correlationId,
           createdAt: now,
           expiresAt,
@@ -388,13 +455,24 @@ export const saveCharge = privateMutation
           sourceLabel: input.sourceLabel,
           sourceType: input.sourceType,
           splitConfig: input.splitConfig,
-          status: input.status,
+          status: duplicate ? CHARGE_STATUS_CANCELED : input.status,
           updatedAt: now,
         })
         .returning()
     )[0];
 
-    return row;
+    if (duplicate) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.payment.charge.processChargeCancellation,
+        { chargeId: row.id as string }
+      );
+    }
+
+    return {
+      charge: toChargeOutput(duplicate ?? row),
+      reused: Boolean(duplicate),
+    };
   });
 
 export const resolvePaymentAccount = privateMutation
@@ -583,6 +661,43 @@ async function resolvePendingCheckoutCharge(
   } satisfies CheckoutCharge;
 }
 
+/** Tres leituras pontuais (entry -> categoria -> torneio) para o titulo vivo do
+ * checkout; salto faltando devolve o par nulo. */
+async function loadCheckoutSourceIdentity(
+  ctx: Pick<QueryCtx, "orm">,
+  charge: { sourceId: string; sourceLabel: null | string; sourceType: string }
+) {
+  if (charge.sourceType !== SOURCE_TYPE_TOURNAMENT_ENTRY) {
+    return resolveCheckoutSourceIdentity({
+      category: null,
+      snapshotLabel: charge.sourceLabel,
+      sourceType: charge.sourceType,
+      tournament: null,
+    });
+  }
+
+  const entry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { id: charge.sourceId as Id<"tournamentEntry"> },
+  });
+  const category = entry
+    ? await ctx.orm.query.tournamentCategory.findFirst({
+        where: { id: entry.categoryId as Id<"tournamentCategory"> },
+      })
+    : undefined;
+  const tournament = category
+    ? await ctx.orm.query.tournament.findFirst({
+        where: { id: category.tournamentId as Id<"tournament"> },
+      })
+    : undefined;
+
+  return resolveCheckoutSourceIdentity({
+    category: category ?? null,
+    snapshotLabel: charge.sourceLabel,
+    sourceType: charge.sourceType,
+    tournament: tournament ?? null,
+  });
+}
+
 /**
  * Atomic "charge paid → apply source side effect" pipeline: the webhook calls
  * this ONE mutation because the previous two transactions (`markChargePaid` →
@@ -608,7 +723,37 @@ export const applyPaidCharge = privateMutation
       where: { correlationId: input.correlationId },
     });
 
-    if (!(charge && canChargeBePaid(charge))) {
+    if (!charge) {
+      return { activated: false };
+    }
+
+    // Cobranca que o app ja considerava morta (cancelada pelo jogador, expirada
+    // ou falhada) recebeu dinheiro: NUNCA engolir — vira PAID com estorno
+    // pendente, e o estorno pontual roda fora da transacao. PAID/REFUNDED nao
+    // entram aqui (webhook duplicado e estorno ja feito).
+    if (!canChargeBePaid(charge)) {
+      if (shouldRefundLatePayment(charge) && canRequestRefund(charge)) {
+        const paidAt = new Date();
+        await ctx.orm
+          .update(paymentCharge)
+          .set({
+            paidAt,
+            refundStatus: "pending",
+            status: CHARGE_STATUS_PAID,
+            updatedAt: paidAt,
+            ...(input.providerTransactionId
+              ? { providerTransactionId: input.providerTransactionId }
+              : {}),
+          })
+          .where(eq(paymentCharge.id, charge.id));
+
+        await ctx.scheduler.runAfter(
+          0,
+          internal.tournament.lifecycle.refundLatePaymentForCharge,
+          { chargeId: charge.id as string }
+        );
+      }
+
       return { activated: false };
     }
 
@@ -635,6 +780,31 @@ export const applyPaidCharge = privateMutation
   });
 
 /**
+ * Cobranca PAID sem o que ativar: marca estorno pendente e dispara o estorno
+ * pontual (fora da transacao). "pending"/"refunded" nunca sao sobrescritos.
+ */
+async function handOffPaidChargeToRefund(
+  ctx: MutationCtx,
+  charge: InferSelectModel<typeof paymentCharge>
+) {
+  if (!canRequestRefund(charge)) {
+    return;
+  }
+
+  const now = new Date();
+  await ctx.orm
+    .update(paymentCharge)
+    .set({ refundStatus: "pending", updatedAt: now })
+    .where(eq(paymentCharge.id, charge.id as Id<"paymentCharge">));
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.tournament.lifecycle.refundLatePaymentForCharge,
+    { chargeId: charge.id as string }
+  );
+}
+
+/**
  * Paid entry charge -> entry active (payment is the only gate in `auto`; in
  * `manual` the entry already passed approval). Notifies creator + partner.
  */
@@ -647,7 +817,10 @@ async function applyPaidTournamentEntryCharge(
     where: { id: entryId },
   });
   if (!(entry && entry.status === "awaiting_payment")) {
-    // Charge PAID but entry no longer awaiting — reconciler territory.
+    // Charge PAID but entry no longer awaiting (cancelada, aprovada, rejeitada
+    // ou ja ativada por outra cobranca) — o dinheiro entrou e nao tem o que
+    // ativar: vai para estorno, nunca fica parado.
+    await handOffPaidChargeToRefund(ctx, charge);
     return { activated: false };
   }
 
@@ -660,6 +833,7 @@ async function applyPaidTournamentEntryCharge(
       })
     : null;
   if (!(category && tournamentRecord)) {
+    await handOffPaidChargeToRefund(ctx, charge);
     return { activated: false };
   }
 
@@ -714,6 +888,14 @@ async function applyPaidTournamentEntryCharge(
         updatedAt: now,
       })
       .where(eq(tournamentEntry.id, entryId));
+
+    // A inscricao morreu: nenhuma OUTRA cobranca ainda PENDING do mesmo source
+    // pode continuar pagavel (a paga acima ja esta no estorno).
+    await cancelPendingChargesForSourceCore(ctx, {
+      sourceIds: [entryId as string],
+      sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+    });
+
     await ctx.orm
       .update(paymentCharge)
       .set({ refundStatus: "pending", updatedAt: now })
@@ -832,6 +1014,269 @@ export const markChargeRefunded = privateMutation
     return charge.id;
   });
 
+// Cancelamento da cobranca: `status: CANCELED` entra na MESMA mutation que
+// cancela a inscricao (a cobranca sai do reuso na hora, sem esperar o provedor) e
+// `cancelStatus` registra depois se o PIX realmente morreu no provedor.
+
+/** Cap do lote: as cobrancas PENDING de um source sao poucas (o reuso segura a
+ * maioria), mas o torneio cancela ate 300 inscricoes por categoria de uma vez. */
+const MAX_CHARGES_PER_CANCEL_BATCH = 300;
+
+/** Cobrancas com cancelamento ainda sem confirmacao do provedor no sweep. */
+const MAX_PENDING_CANCELLATIONS_PER_SWEEP = 100;
+
+/** Backoff entre tentativas do MESMO cancelamento (abaixo do intervalo do cron,
+ * para todo tick ter trabalho). Sem ele as 100 mais antigas ocupariam a fila
+ * para sempre e uma cobranca nova nunca seria retentada. */
+const CANCEL_RETRY_BACKOFF_MS = 10 * 60 * 1000;
+
+export const getChargeForProviderCommand = privateQuery
+  .input(z.object({ chargeId: z.string().min(1) }))
+  .output(
+    z
+      .object({
+        amountCents: z.number().int(),
+        correlationId: z.string(),
+        refundStatus: z.string().nullable(),
+        status: z.string(),
+      })
+      .nullable()
+  )
+  .query(async ({ ctx, input }) => {
+    const charge = await ctx.orm.query.paymentCharge.findFirst({
+      where: { id: input.chargeId as Id<"paymentCharge"> },
+    });
+
+    return charge
+      ? {
+          amountCents: charge.amountCents,
+          correlationId: charge.correlationId,
+          // Coluna opcional: o ORM devolve `undefined` quando nunca houve estorno
+          // e o output declara `nullable()` — normalize antes de devolver.
+          refundStatus: charge.refundStatus ?? null,
+          status: charge.status,
+        }
+      : null;
+  });
+
+/**
+ * Nucleo do cancelamento: mata as cobrancas PENDING do lote (CANCELED +
+ * `cancelStatus: pending`) e agenda o DELETE no provedor. SO PENDING entra —
+ * PAID segue o caminho de estorno que ja existe, e uma cobranca ja CANCELED nao
+ * tem nada a fazer (idempotente por status). Funcao do modulo (nao procedure)
+ * para o caminho de ativacao paga cancelar na MESMA transacao.
+ */
+async function cancelPendingChargesForSourceCore(
+  ctx: MutationCtx,
+  args: { sourceIds: string[]; sourceType: string }
+) {
+  const charges = await ctx.orm.query.paymentCharge.findMany({
+    limit: MAX_CHARGES_PER_CANCEL_BATCH,
+    where: {
+      sourceId: { in: args.sourceIds },
+      sourceType: args.sourceType,
+      status: CHARGE_STATUS_PENDING,
+    },
+  });
+
+  const now = new Date();
+  let canceledCount = 0;
+
+  for (const charge of charges) {
+    if (!canChargeBeCanceled(charge)) {
+      continue;
+    }
+
+    await ctx.orm
+      .update(paymentCharge)
+      .set({
+        cancelStatus: CHARGE_CANCEL_PENDING,
+        status: CHARGE_STATUS_CANCELED,
+        updatedAt: now,
+      })
+      .where(eq(paymentCharge.id, charge.id));
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.payment.charge.processChargeCancellation,
+      { chargeId: charge.id as string }
+    );
+    canceledCount += 1;
+  }
+
+  return { canceledCount };
+}
+
+/** Porta do nucleo para os outros modulos (o torneio cancela inscricoes e
+ * chama via `ctx.runMutation`). */
+export const cancelPendingChargesForSource = privateMutation
+  .input(
+    z.object({
+      sourceIds: z
+        .array(z.string().min(1))
+        .min(1)
+        .max(MAX_CHARGES_PER_CANCEL_BATCH),
+      sourceType: z.string().min(1),
+    })
+  )
+  .output(z.object({ canceledCount: z.number().int().nonnegative() }))
+  .mutation(async ({ ctx, input }) =>
+    cancelPendingChargesForSourceCore(ctx, {
+      sourceIds: input.sourceIds,
+      sourceType: input.sourceType,
+    })
+  );
+
+/** Grava o desfecho do comando no provedor; o `status` ja e CANCELED desde a
+ * mutation e nao volta atras — so o pedido muda de `pending` para confirmado. */
+export const applyChargeCancelOutcome = privateMutation
+  .input(
+    z.object({
+      chargeId: z.string().min(1),
+      outcome: z.enum(["canceled", "failed"]),
+    })
+  )
+  .output(z.object({ cancelStatus: z.string() }))
+  .mutation(async ({ ctx, input }) => {
+    const cancelStatus =
+      input.outcome === "canceled"
+        ? CHARGE_CANCEL_CONFIRMED
+        : CHARGE_CANCEL_FAILED;
+    const now = new Date();
+
+    await ctx.orm
+      .update(paymentCharge)
+      .set({ cancelStatus, updatedAt: now })
+      .where(eq(paymentCharge.id, input.chargeId as Id<"paymentCharge">));
+
+    return { cancelStatus };
+  });
+
+/**
+ * DELETE da cobranca no provedor + desfecho. So `deleted`/`not_found` confirmam
+ * o cancelamento; PAID vai para estorno e o resto fica `failed` para o sweep.
+ */
+export const processChargeCancellation = privateAction
+  .input(z.object({ chargeId: z.string().min(1) }))
+  .output(
+    z.object({
+      outcome: z.enum(["canceled", "failed", "late_payment", "skipped"]),
+    })
+  )
+  .action(async ({ ctx, input }) => {
+    const charge = await ctx.runQuery(
+      internal.payment.charge.getChargeForProviderCommand,
+      { chargeId: input.chargeId }
+    );
+
+    // Idempotente: so age na cobranca que ESTE pipeline marcou como cancelada.
+    if (!charge || charge.status !== CHARGE_STATUS_CANCELED) {
+      return { outcome: "skipped" as const };
+    }
+
+    let deleted = false;
+    try {
+      const result = await ctx.runAction(
+        internal.payment.providerNode.deleteChargeAction,
+        { correlationId: charge.correlationId }
+      );
+      deleted = result.deleted;
+    } catch {
+      // Timeout/rede: cai no probe abaixo, que decide sem inventar desfecho.
+    }
+
+    let providerStatus: CancelProbeStatus = "not_found";
+    if (!deleted) {
+      try {
+        const probe = await ctx.runAction(
+          internal.payment.providerNode.getChargeStatusAction,
+          { correlationId: charge.correlationId }
+        );
+        providerStatus =
+          probe.status === null
+            ? "not_found"
+            : normalizeProviderStatus(probe.status);
+      } catch {
+        // Provedor mudo: NAO da para confirmar nada — `unreachable` mantem o
+        // pedido sem confirmacao (e grava `failed` + `updatedAt`, para o sweep
+        // devolver a vez as outras cobrancas).
+        providerStatus = PROVIDER_PROBE_UNREACHABLE;
+      }
+    }
+
+    const outcome = resolveChargeCancellationOutcome(
+      toProviderCancelProbe({ deleted, providerStatus })
+    );
+
+    if (outcome === "late_payment") {
+      // O dinheiro entrou: o cancelamento fecha aqui (senao o sweep ficaria
+      // retentando uma cobranca que ja saiu de CANCELED) e o estorno assume.
+      await ctx.runMutation(internal.payment.charge.applyChargeCancelOutcome, {
+        chargeId: input.chargeId,
+        outcome: "canceled",
+      });
+      await ctx.runMutation(internal.payment.charge.applyPaidCharge, {
+        correlationId: charge.correlationId,
+      });
+      return { outcome };
+    }
+
+    await ctx.runMutation(internal.payment.charge.applyChargeCancelOutcome, {
+      chargeId: input.chargeId,
+      outcome,
+    });
+
+    return { outcome };
+  });
+
+/**
+ * Cron (15 min): re-tenta o DELETE das CANCELED ainda sem confirmacao do
+ * provedor, das mais antigas para as mais novas e so depois do backoff. PIX
+ * pago antes disso cai no estorno de `applyPaidCharge`.
+ */
+export const sweepPendingChargeCancellations = privateMutation.mutation(
+  async ({ ctx }) => {
+    if (getEnv().DEPLOY_ENV !== "production") {
+      return { processed: 0 };
+    }
+
+    const retryBefore = new Date(Date.now() - CANCEL_RETRY_BACKOFF_MS);
+    const chargeLists = await Promise.all([
+      ctx.orm.query.paymentCharge.findMany({
+        limit: MAX_PENDING_CANCELLATIONS_PER_SWEEP,
+        orderBy: { updatedAt: "asc" },
+        where: {
+          cancelStatus: CHARGE_CANCEL_PENDING,
+          status: CHARGE_STATUS_CANCELED,
+        },
+      }),
+      ctx.orm.query.paymentCharge.findMany({
+        limit: MAX_PENDING_CANCELLATIONS_PER_SWEEP,
+        orderBy: { updatedAt: "asc" },
+        where: {
+          cancelStatus: CHARGE_CANCEL_FAILED,
+          status: CHARGE_STATUS_CANCELED,
+        },
+      }),
+    ]);
+
+    let processed = 0;
+    for (const charge of chargeLists.flat()) {
+      if (!(charge.updatedAt && charge.updatedAt < retryBefore)) {
+        continue;
+      }
+      await ctx.scheduler.runAfter(
+        0,
+        internal.payment.charge.processChargeCancellation,
+        { chargeId: charge.id as string }
+      );
+      processed += 1;
+    }
+
+    return { processed };
+  }
+);
+
 export const expireStaleCharges = privateMutation.mutation(async ({ ctx }) => {
   if (getEnv().DEPLOY_ENV !== "production") {
     return { expiredCount: 0 };
@@ -895,22 +1340,52 @@ export const resolveActiveManagerOrg = privateMutation
     };
   });
 
+/** Cap por bucket de status: o cron roda a cada 30 min e o que sobrar entra na
+ * proxima volta (a ordem por `createdAt` garante que nada fica preso fora). */
+const MAX_RECONCILED_CHARGES_PER_SWEEP = 50;
+
 /**
- * Catches missed webhooks by polling the provider for PENDING charges older than
- * 10 minutes and applying the transition the webhook would have (idempotent via
- * the status guards in `canChargeBePaid` etc.). A privateAction because it needs
- * the Node runtime to reach the provider's REST API; the query that finds stale
- * charges is split into `findStaleChargesForReconciliation` so it can use `ctx.orm`.
+ * Cobrancas que o provedor precisa reconferir (webhook perdido): PENDING velha e
+ * o terminal que AINDA pode receber dinheiro (EXPIRED/CANCELED-sem-confirmacao/
+ * FAILED recentes) — ver `shouldReconcileCharge`. Query separada da action
+ * porque so aqui existe `ctx.orm`.
  */
 export const findStaleChargesForReconciliation = privateMutation.mutation(
   async ({ ctx }) => {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const pending = await ctx.orm.query.paymentCharge.findMany({
-      limit: 50,
-      where: { status: "PENDING" },
-    });
-    return pending
-      .filter((charge) => charge.createdAt < tenMinutesAgo)
+    const now = new Date();
+    // PENDING mais ANTIGAS primeiro (a divida mais velha); terminais mais
+    // RECENTES primeiro (a janela do pagamento tardio) — cada bucket com cap
+    // proprio para o cron nunca ficar sem olhar o outro.
+    const [pending, terminal] = await Promise.all([
+      ctx.orm.query.paymentCharge.findMany({
+        limit: MAX_RECONCILED_CHARGES_PER_SWEEP,
+        orderBy: { createdAt: "asc" },
+        where: { status: CHARGE_STATUS_PENDING },
+      }),
+      ctx.orm.query.paymentCharge.findMany({
+        limit: MAX_RECONCILED_CHARGES_PER_SWEEP,
+        orderBy: { createdAt: "desc" },
+        where: {
+          status: {
+            in: [
+              CHARGE_STATUS_EXPIRED,
+              CHARGE_STATUS_CANCELED,
+              CHARGE_STATUS_FAILED,
+            ],
+          },
+        },
+      }),
+    ]);
+
+    return [...pending, ...terminal]
+      .filter((charge) =>
+        shouldReconcileCharge({
+          cancelStatus: charge.cancelStatus ?? null,
+          createdAtMs: charge.createdAt.getTime(),
+          nowMs: now.getTime(),
+          status: charge.status as PaymentChargeStatus,
+        })
+      )
       .map((charge) => ({
         correlationId: charge.correlationId,
         status: charge.status,

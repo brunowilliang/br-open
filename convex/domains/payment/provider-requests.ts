@@ -54,6 +54,51 @@ export function buildDebitRequest(
   };
 }
 
+/** `DELETE /api/v1/charge/{id}` com o NOSSO `correlationID` (o `transactionID`
+ * responde "não encontrada"). O 2xx ja prova o cancelamento; quando ele nao vem,
+ * o desfecho e decidido pelo probe de status (cancel-rules.ts). */
+export function buildChargeDeleteRequest(
+  correlationId: string
+): ProviderRequest {
+  return {
+    body: null,
+    path: `/api/v1/charge/${encodeURIComponent(correlationId)}`,
+  };
+}
+
+/** Mensagem de erro da Woovi nos formatos conhecidos: `error` string,
+ * `error.description`/`error.message` (o do DELETE) ou `message`. */
+export function providerErrorMessage(body: unknown): null | string {
+  if (typeof body === "string") {
+    return body;
+  }
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const { error, message } = body as { error?: unknown; message?: unknown };
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error === "object") {
+    const nested = error as { description?: unknown; message?: unknown };
+    if (typeof nested.description === "string") {
+      return nested.description;
+    }
+    if (typeof nested.message === "string") {
+      return nested.message;
+    }
+  }
+
+  return typeof message === "string" ? message : null;
+}
+
+/** "Cobrança não encontrada" e o unico sinal de que a cobranca nao existe mais
+ * no provedor — 400 de DELETE, 400 de GET e 404 de outros recursos. */
+export function isProviderMissingMessage(message: null | string): boolean {
+  return message !== null && /n[ãa]o\s+encontrad/i.test(message);
+}
+
 /**
  * 20s covers the provider's usual ~1-2s while a hung call can't pin a Convex
  * action for minutes — the org stays gated behind its reservation until then.

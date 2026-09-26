@@ -24,6 +24,11 @@ export const paymentCharge = convexTable(
   {
     amountCents: integer().notNull(),
     brCode: text(),
+    // Cancelamento no provedor: "pending" (comando pedido, sweep retenta),
+    // "failed" (recusado ou sem resposta), "canceled" (confirmado: a cobranca
+    // nao existe mais la); null = nunca cancelada. `status: CANCELED` e
+    // imediato, este campo diz se o PIX realmente morreu.
+    cancelStatus: text(),
     correlationId: text().notNull(),
     createdAt: timestamp().notNull(),
     expiresAt: timestamp(),
@@ -64,6 +69,8 @@ export const paymentCharge = convexTable(
       paymentCharge.sourceId,
       paymentCharge.status
     ),
+    // Sweep de cancelamentos ainda nao confirmados pelo provedor.
+    index("cancelStatus").on(paymentCharge.cancelStatus),
     index("playerProfileId_status").on(
       paymentCharge.playerProfileId,
       paymentCharge.status

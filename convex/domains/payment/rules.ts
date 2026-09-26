@@ -1,4 +1,8 @@
-import type { PaymentChargeStatus, SplitConfig } from "./contract";
+import type {
+  ChargeCancelStatus,
+  PaymentChargeStatus,
+  SplitConfig,
+} from "./contract";
 
 /** PIX validity, in seconds: the same value goes to Woovi as `expiresIn`. */
 export const CHARGE_EXPIRES_IN_SECONDS = 3600; // 1 hour
@@ -10,8 +14,17 @@ export const CHARGE_STATUS_EXPIRED =
   "EXPIRED" as const satisfies PaymentChargeStatus;
 export const CHARGE_STATUS_REFUNDED =
   "REFUNDED" as const satisfies PaymentChargeStatus;
+export const CHARGE_STATUS_CANCELED =
+  "CANCELED" as const satisfies PaymentChargeStatus;
 export const CHARGE_STATUS_FAILED =
   "FAILED" as const satisfies PaymentChargeStatus;
+
+export const CHARGE_CANCEL_PENDING =
+  "pending" as const satisfies ChargeCancelStatus;
+export const CHARGE_CANCEL_FAILED =
+  "failed" as const satisfies ChargeCancelStatus;
+export const CHARGE_CANCEL_CONFIRMED =
+  "canceled" as const satisfies ChargeCancelStatus;
 
 type ChargeLike = { status: string };
 
@@ -30,6 +43,52 @@ export function canChargeBeRefunded(charge: ChargeLike): boolean {
     charge.status === CHARGE_STATUS_PAID ||
     charge.status === CHARGE_STATUS_EXPIRED
   );
+}
+
+/** Guarda PROPRIA do cancelamento: so PENDING vira CANCELED. Nao usa
+ * `canChargeBeExpired` porque cancelar e uma decisao do jogador, nao um prazo. */
+export function canChargeBeCanceled(charge: ChargeLike): boolean {
+  return charge.status === CHARGE_STATUS_PENDING;
+}
+
+/** Dinheiro que chegou numa cobranca que o app ja considerava morta (cancelada,
+ * expirada ou falhada); PAID/REFUNDED ficam FORA. */
+export function shouldRefundLatePayment(charge: ChargeLike): boolean {
+  return (
+    charge.status === CHARGE_STATUS_CANCELED ||
+    charge.status === CHARGE_STATUS_EXPIRED ||
+    charge.status === CHARGE_STATUS_FAILED
+  );
+}
+
+/** "pending" (pedido em voo) e "refunded" (confirmado) nunca sao sobrescritos;
+ * `null` e "failed" podem ser (re)pedidos. */
+export function canRequestRefund(charge: {
+  refundStatus: null | string;
+}): boolean {
+  return (
+    charge.refundStatus !== "pending" && charge.refundStatus !== "refunded"
+  );
+}
+
+/** Estorno EM ABERTO (pedido em voo ou recusado): e o que o sweep reprocessa. */
+export function isRefundOutstanding(charge: {
+  refundStatus: null | string;
+}): boolean {
+  return charge.refundStatus === "pending" || charge.refundStatus === "failed";
+}
+
+/** Status cru do estorno no provedor -> `refundStatus`: so um CONFIRMED fecha o
+ * estorno, um REJECTED libera a retentativa e IN_PROCESSING (ou desconhecido)
+ * segue pendente para o sweep reconferir. */
+export function resolveRefundOutcome(
+  providerStatus: string
+): "failed" | "pending" | "refunded" {
+  if (providerStatus === "CONFIRMED") {
+    return "refunded";
+  }
+
+  return providerStatus === "REJECTED" ? "failed" : "pending";
 }
 
 /** Single predicate behind both checkout ends (the charge `createCharge`

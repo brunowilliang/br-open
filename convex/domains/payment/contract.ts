@@ -5,12 +5,26 @@ export const PAYMENT_CHARGE_STATUSES = [
   "PAID",
   "EXPIRED",
   "REFUNDED",
+  "CANCELED",
   "FAILED",
 ] as const;
 
 export type PaymentChargeStatus = (typeof PAYMENT_CHARGE_STATUSES)[number];
 
 export const paymentChargeStatusSchema = z.enum([...PAYMENT_CHARGE_STATUSES]);
+
+// Segunda dimensao da cobranca cancelada: `status` vira CANCELED no mesmo
+// instante em que o jogador cancela (a cobranca nunca mais e reusavel) e o
+// `cancelStatus` guarda o desfecho do comando no provedor — cancelamento NAO
+// confirmado nunca se passa por confirmado.
+
+export const CHARGE_CANCEL_STATUSES = [
+  "pending",
+  "failed",
+  "canceled",
+] as const;
+
+export type ChargeCancelStatus = (typeof CHARGE_CANCEL_STATUSES)[number];
 
 // Lives in the contract (not in a function file) so domain modules can read a
 // source without importing a Convex function file.
@@ -134,6 +148,9 @@ export const checkoutContextSchema = z.object({
   // the link's charge; reading it never creates a charge.
   pendingCharge: checkoutChargeSchema.nullable(),
   qrCodeUrl: z.string(),
+  // Nome do torneio lido do source vivo (o snapshot da charge segue com o
+  // formato antigo) e a categoria separada; nula quando nao ha categoria.
+  sourceCategory: z.string().nullable(),
   sourceId: z.string(),
   sourceLabel: z.string().nullable(),
   sourceType: z.string(),

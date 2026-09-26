@@ -13,8 +13,11 @@ import WooviSDK from "@woovi/node-sdk";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import {
+  buildChargeDeleteRequest,
   buildDebitRequest,
   buildWithdrawRequest,
+  isProviderMissingMessage,
+  providerErrorMessage,
   providerFetch,
   resolveWithdrawalProviderId,
 } from "../../domains/payment/provider-requests";
@@ -36,12 +39,14 @@ function providerClient() {
 }
 
 /**
- * Charge status by correlationID, for the reconciliation cron (missed webhooks).
+ * Charge status by correlationID, for the reconciliation cron (missed webhooks)
+ * and the cancellation probe. `status: null` means the provider says the charge
+ * does NOT exist there — the only proof a cancelled PIX is really gone.
  * Raw REST instead of the SDK, whose `charge.get` typing doesn't match the live API.
  */
 export const getChargeStatusAction = privateAction
   .input(z.object({ correlationId: z.string().min(1) }))
-  .output(z.object({ status: z.string() }))
+  .output(z.object({ status: z.string().nullable() }))
   .action(async ({ input }) => {
     const { WOOVI_APP_ID, WOOVI_BASE_URL } = getEnv();
     if (!WOOVI_APP_ID) {
@@ -52,7 +57,7 @@ export const getChargeStatusAction = privateAction
     }
     const baseUrl = WOOVI_BASE_URL ?? "https://api.woovi-sandbox.com";
     const response = await providerFetch(
-      `${baseUrl}/api/v1/charge/${input.correlationId}`,
+      `${baseUrl}/api/v1/charge/${encodeURIComponent(input.correlationId)}`,
       {
         headers: {
           Authorization: WOOVI_APP_ID,
@@ -60,6 +65,10 @@ export const getChargeStatusAction = privateAction
       }
     );
     if (!response.ok) {
+      const body = await readJsonBody(response);
+      if (isProviderMissingMessage(providerErrorMessage(body))) {
+        return { status: null };
+      }
       throw new CRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: `Provider returned ${response.status}`,
@@ -69,6 +78,47 @@ export const getChargeStatusAction = privateAction
       charge?: { status?: string };
     };
     return { status: data?.charge?.status ?? "ACTIVE" };
+  });
+
+// Charge cancellation (the player gives up the PIX)
+
+/**
+ * Deletes the charge at the provider: `DELETE /api/v1/charge/{correlationID}`.
+ * The provider answers 2xx for a charge it deleted, and 400 "Cobrança não
+ * encontrada" for one it does not know — which is ALSO what a second DELETE
+ * gets, so this action never interprets a refusal: the caller probes the charge
+ * status to learn whether the PIX is gone, paid or still alive.
+ */
+export const deleteChargeAction = privateAction
+  .input(z.object({ correlationId: z.string().min(1) }))
+  .output(z.object({ deleted: z.boolean(), message: z.string().nullable() }))
+  .action(async ({ input }) => {
+    const { WOOVI_APP_ID, WOOVI_BASE_URL } = getEnv();
+    if (!WOOVI_APP_ID) {
+      throw new CRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WOOVI_APP_ID must be configured.",
+      });
+    }
+    const baseUrl = WOOVI_BASE_URL ?? "https://api.woovi-sandbox.com";
+    const request = buildChargeDeleteRequest(input.correlationId);
+    const response = await providerFetch(`${baseUrl}${request.path}`, {
+      headers: {
+        Authorization: WOOVI_APP_ID,
+      },
+      method: "DELETE",
+    });
+
+    if (response.ok) {
+      return { deleted: true, message: null };
+    }
+
+    const body = await readJsonBody(response);
+    return {
+      deleted: false,
+      message:
+        providerErrorMessage(body) ?? `Provider returned ${response.status}`,
+    };
   });
 
 // Subaccount provisioning
@@ -186,13 +236,18 @@ const WITHDRAW_ERROR_MESSAGES: Record<string, string> = {
     "A chave PIX da subconta não está registrada em nenhum banco.",
 };
 
-async function toLegibleProviderError(response: Response): Promise<string> {
-  let body: unknown = null;
+/** Corpo JSON do provedor, ou null quando não é JSON (a mensagem de erro ainda
+ * vem do status HTTP). */
+async function readJsonBody(response: Response): Promise<unknown> {
   try {
-    body = await response.json();
+    return await response.json();
   } catch {
-    // Not JSON — fall through to the generic message.
+    return null;
   }
+}
+
+async function toLegibleProviderError(response: Response): Promise<string> {
+  const body = await readJsonBody(response);
   const error = (body as { error?: unknown } | null)?.error;
   if (typeof error === "string") {
     return WITHDRAW_ERROR_MESSAGES[error] ?? error;

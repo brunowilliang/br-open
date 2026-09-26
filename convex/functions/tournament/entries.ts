@@ -32,6 +32,7 @@ import {
   tournamentEntry,
 } from "../../domains/tournament/tables";
 import { paymentCharge } from "../../domains/payment/tables";
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../../domains/payment/contract";
 
 type EntryRecord = InferSelectModel<typeof tournamentEntry>;
 type CategoryRecord = InferSelectModel<typeof tournamentCategory>;
@@ -781,6 +782,19 @@ export const cancel = authMutation
       entry: updated,
       tournamentId: tournamentRecord.id as Id<"tournament">,
     });
+
+    // A inscricao cancelada nao pode deixar PIX pagavel: a cobranca PENDING vira
+    // CANCELED e o DELETE no provedor roda fora da transacao (a PAID acima ja
+    // esta no estorno). Um pagamento que chegue depois vira estorno, nunca
+    // dinheiro parado.
+    await ctx.runMutation(
+      internal.payment.charge.cancelPendingChargesForSource,
+      {
+        sourceIds: [entry.id as string],
+        sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+      }
+    );
+
     return serializeEntry(updated);
   });
 

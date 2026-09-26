@@ -704,6 +704,7 @@ export type DataModel = {
     document: {
       amountCents: number;
       brCode?: null | string;
+      cancelStatus?: null | string;
       correlationId: string;
       createdAt: number;
       expiresAt?: null | number;
@@ -729,6 +730,7 @@ export type DataModel = {
       | "_id"
       | "amountCents"
       | "brCode"
+      | "cancelStatus"
       | "correlationId"
       | "createdAt"
       | "expiresAt"
@@ -749,6 +751,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      cancelStatus: ["cancelStatus", "_creationTime"];
       correlationId: ["correlationId", "_creationTime"];
       playerProfileId_status: ["playerProfileId", "status", "_creationTime"];
       sourceType_sourceId_status: [

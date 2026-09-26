@@ -420,7 +420,8 @@ export const api: {
           chargeId: string;
           expiresAt: string | null;
           qrCodeUrl: string;
-          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          status:
+            "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "CANCELED" | "FAILED";
         }
       >;
       getCheckoutContext: FunctionReference<
@@ -438,13 +439,21 @@ export const api: {
             chargeId: string;
             expiresAt: string | null;
             qrCodeUrl: string;
-            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+            status:
+              | "PENDING"
+              | "PAID"
+              | "EXPIRED"
+              | "REFUNDED"
+              | "CANCELED"
+              | "FAILED";
           } | null;
           qrCodeUrl: string;
+          sourceCategory: string | null;
           sourceId: string;
           sourceLabel: string | null;
           sourceType: string;
-          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          status:
+            "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "CANCELED" | "FAILED";
         }
       >;
       getPendingCharge: FunctionReference<
@@ -466,7 +475,13 @@ export const api: {
             sourceId: string;
             sourceLabel: string | null;
             sourceType: string;
-            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+            status:
+              | "PENDING"
+              | "PAID"
+              | "EXPIRED"
+              | "REFUNDED"
+              | "CANCELED"
+              | "FAILED";
           }>;
         }
       >;
@@ -501,7 +516,13 @@ export const api: {
             paidAt: string | null;
             playerName: string | null;
             sourceLabel: string | null;
-            status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+            status:
+              | "PENDING"
+              | "PAID"
+              | "EXPIRED"
+              | "REFUNDED"
+              | "CANCELED"
+              | "FAILED";
           }>;
         }
       >;
@@ -2157,11 +2178,23 @@ export const internal: {
   };
   payment: {
     charge: {
+      applyChargeCancelOutcome: FunctionReference<
+        "mutation",
+        "internal",
+        { chargeId: string; outcome: "canceled" | "failed" },
+        { cancelStatus: string }
+      >;
       applyPaidCharge: FunctionReference<
         "mutation",
         "internal",
         { correlationId: string; providerTransactionId?: string },
         { activated: boolean }
+      >;
+      cancelPendingChargesForSource: FunctionReference<
+        "mutation",
+        "internal",
+        { sourceIds: Array<string>; sourceType: string },
+        { canceledCount: number }
       >;
       expireStaleCharges: FunctionReference<"mutation", "internal", {}, any>;
       findPendingChargeForSource: FunctionReference<
@@ -2173,7 +2206,8 @@ export const internal: {
           chargeId: string;
           expiresAt: string | null;
           qrCodeUrl: string;
-          status: "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "FAILED";
+          status:
+            "PENDING" | "PAID" | "EXPIRED" | "REFUNDED" | "CANCELED" | "FAILED";
         } | null
       >;
       findStaleChargesForReconciliation: FunctionReference<
@@ -2181,6 +2215,17 @@ export const internal: {
         "internal",
         {},
         any
+      >;
+      getChargeForProviderCommand: FunctionReference<
+        "query",
+        "internal",
+        { chargeId: string },
+        {
+          amountCents: number;
+          correlationId: string;
+          refundStatus: string | null;
+          status: string;
+        } | null
       >;
       markChargeExpired: FunctionReference<
         "mutation",
@@ -2193,6 +2238,12 @@ export const internal: {
         "internal",
         { correlationId: string },
         any
+      >;
+      processChargeCancellation: FunctionReference<
+        "action",
+        "internal",
+        { chargeId: string },
+        { outcome: "canceled" | "failed" | "late_payment" | "skipped" }
       >;
       reconcileCharges: FunctionReference<"action", "internal", {}, any>;
       resolveActiveManagerOrg: FunctionReference<
@@ -2237,6 +2288,27 @@ export const internal: {
           splitConfig: any;
           status: string;
         },
+        {
+          charge: {
+            brCode: string;
+            chargeId: string;
+            expiresAt: string | null;
+            qrCodeUrl: string;
+            status:
+              | "PENDING"
+              | "PAID"
+              | "EXPIRED"
+              | "REFUNDED"
+              | "CANCELED"
+              | "FAILED";
+          };
+          reused: boolean;
+        }
+      >;
+      sweepPendingChargeCancellations: FunctionReference<
+        "mutation",
+        "internal",
+        {},
         any
       >;
     };
@@ -2288,11 +2360,17 @@ export const internal: {
         { pixKey: string; valueCents: number },
         { value: number }
       >;
+      deleteChargeAction: FunctionReference<
+        "action",
+        "internal",
+        { correlationId: string },
+        { deleted: boolean; message: string | null }
+      >;
       getChargeStatusAction: FunctionReference<
         "action",
         "internal",
         { correlationId: string },
-        { status: string }
+        { status: string | null }
       >;
       getSubaccountBalanceAction: FunctionReference<
         "action",
@@ -2516,6 +2594,12 @@ export const internal: {
         { chargeId: string; outcome: "pending" | "refunded" | "failed" },
         any
       >;
+      findRefundableCharge: FunctionReference<
+        "query",
+        "internal",
+        { chargeId: string },
+        { amountCents: number; chargeId: string; correlationId: string } | null
+      >;
       listRefundableCharges: FunctionReference<
         "query",
         "internal",
@@ -2526,6 +2610,12 @@ export const internal: {
         "action",
         "internal",
         { tournamentId: string },
+        any
+      >;
+      refundLatePaymentForCharge: FunctionReference<
+        "action",
+        "internal",
+        { chargeId: string },
         any
       >;
       sweepPendingRefunds: FunctionReference<"mutation", "internal", {}, any>;
