@@ -65,7 +65,7 @@ describe("buildWithdrawInfoContent", () => {
     });
 
     expect(content.description).toContain(
-      "R$ 1.200,00 está reservado para estornos em andamento"
+      "R$ 1.200,00 está reservado para estornos em andamento e recolhimentos pendentes"
     );
     // A tabela de taxas continua no dialog mesmo com a reserva.
     expect(content.description).toContain("· a partir de R$ 3.000,00 → Grátis");

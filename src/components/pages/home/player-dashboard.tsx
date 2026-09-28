@@ -8,9 +8,9 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 
+import { AgreementMatchCard } from "@/components/pages/tournaments/agreement-match-card";
 import { Text } from "@/components/core/text";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { MatchCard } from "@/components/ui/match-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
 import { useCRPC } from "@/lib/convex/crpc";
@@ -127,8 +127,9 @@ export function PlayerDashboard(props: {
                   }}
                 >
                   {/* Card e ordem de props do "Próximo jogo" da casa do torneio
-                      (`pages/tournaments/player-overview.tsx`). */}
-                  <MatchCard
+                      (`pages/tournaments/player-overview.tsx`); o COMBINAR JOGO
+                      entra pelo `AgreementMatchCard` quando o jogo é do viewer. */}
+                  <AgreementMatchCard
                     challengedAvatarUrl={item.sideBAvatarUrl}
                     challengedName={item.sideBName}
                     challengedPartnerAvatarUrl={item.sideBPartnerAvatarUrl}
@@ -139,9 +140,14 @@ export function PlayerDashboard(props: {
                     challengerPartnerName={item.sideAPartnerName}
                     courtName={item.courtName}
                     matchDate={item.matchDate}
+                    matchId={item.id}
                     matchStatus={item.matchStatus}
+                    sideOrder="viewer"
                     stageLabel={item.stageLabel}
-                    startMinute={item.startMinute}
+                    // Sem agendamento o minuto é null: o card não lê o número
+                    // sem data e quadra (o rodapé de horário não entra).
+                    startMinute={item.startMinute ?? 0}
+                    tournamentId={item.competitionId}
                   />
                 </PressableFeedback>
               ))}

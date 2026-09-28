@@ -40,6 +40,17 @@ export type PlayerDashboardViewer = {
   nickname: null | string;
 };
 
+/** O wire dos próximos jogos: o MESMO shape do dash, com o agendamento nulo
+ * quando o confronto ainda não tem horário (a chave saiu e o jogo já é dele). */
+export type UpcomingMatchWire = Omit<
+  PlayerDashboardOverview["upcomingMatches"][number],
+  "endMinute" | "matchDate" | "startMinute"
+> & {
+  endMinute: null | number;
+  matchDate: null | string;
+  startMinute: null | number;
+};
+
 /** Item do card do "Próximos jogos" no molde da agenda do torneio
  * (`lib/tournaments/schedule-items.ts`): o lado do viewer vai em A e o
  * adversário em B, como no "Próximo jogo" da casa do torneio. */
@@ -47,8 +58,11 @@ export type UpcomingMatchItem = {
   competitionId: string;
   courtName: string;
   id: string;
-  matchDate: string;
-  /** A query só emite partida `scheduled`: é o status do chip do card. */
+  /** Dia do jogo (`YYYY-MM-DD`) ou `null` sem agendamento: o card só desenha o
+   * rodapé de horário quando tem data e quadra. */
+  matchDate: null | string;
+  /** Status do chip do card: `pending` ("A definir") enquanto o confronto não
+   * tem horário, `scheduled` depois. */
   matchStatus: string;
   sideAAvatarUrl: null | string;
   sideAName: string;
@@ -61,22 +75,26 @@ export type UpcomingMatchItem = {
   /** Fase do quadro (`formatBracketStage`), como no torneio; `null` quando a
    * partida não traz o tamanho do quadro e o card fica sem o chip. */
   stageLabel: null | string;
-  startMinute: number;
+  /** Minuto do início ou `null` sem agendamento (não é lido sem data). */
+  startMinute: null | number;
 };
 
 export function buildUpcomingMatchItems(input: {
-  matches: PlayerDashboardOverview["upcomingMatches"];
+  matches: readonly UpcomingMatchWire[];
   viewer: PlayerDashboardViewer;
 }): UpcomingMatchItem[] {
   return input.matches.map((match) => {
     const [firstOpponent, secondOpponent] = match.opponents;
+    // A chave saiu: o confronto entra na lista MESMO sem horário (o card desenha
+    // os dois lados e a ação de propor horário), só sem a linha de agendamento.
+    const isScheduled = match.matchDate !== null && match.startMinute !== null;
 
     return {
       competitionId: match.competitionId,
       courtName: match.courtName ?? "",
       id: match.id,
       matchDate: match.matchDate,
-      matchStatus: "scheduled",
+      matchStatus: isScheduled ? "scheduled" : "pending",
       sideAAvatarUrl: input.viewer.avatarUrl,
       sideAName: formatPlayerCardName(input.viewer),
       sideAPartnerAvatarUrl: match.partner?.avatarUrl ?? null,

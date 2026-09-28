@@ -153,3 +153,55 @@ describe("buildUpcomingMatchItems", () => {
     ).toBeNull();
   });
 });
+
+describe("buildUpcomingMatchItems sem agendamento", () => {
+  it("confronto sem data entra na lista: lados desenhados, chip A definir e sem horário", () => {
+    expect(
+      buildUpcomingMatchItems({
+        matches: [
+          {
+            categoryDisplayName: "Simples Masculino",
+            categoryId: "cat-3",
+            competitionId: "t-3",
+            competitionName: "Copa Guarujá",
+            courtName: null,
+            endMinute: null,
+            id: "match-3",
+            matchDate: null,
+            opponents: [
+              {
+                avatarUrl: "https://cdn/dieguinho.png",
+                fullName: "Diego Nakamura",
+                nickname: "Dieguinho",
+                playerProfileId: "p-x",
+              },
+            ],
+            partner: null,
+            round: 1,
+            startMinute: null,
+            totalRounds: 2,
+          },
+        ],
+        viewer: { avatarUrl: null, fullName: "Bruno Garcia", nickname: null },
+      })
+    ).toEqual([
+      {
+        competitionId: "t-3",
+        courtName: "",
+        id: "match-3",
+        matchDate: null,
+        matchStatus: "pending",
+        sideAAvatarUrl: null,
+        sideAName: "Bruno Garcia",
+        sideAPartnerAvatarUrl: null,
+        sideAPartnerName: null,
+        sideBAvatarUrl: "https://cdn/dieguinho.png",
+        sideBName: "Dieguinho",
+        sideBPartnerAvatarUrl: null,
+        sideBPartnerName: null,
+        stageLabel: "Semifinal",
+        startMinute: null,
+      },
+    ]);
+  });
+});
