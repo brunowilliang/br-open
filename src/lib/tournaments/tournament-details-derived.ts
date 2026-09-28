@@ -1,22 +1,10 @@
-import type {
-  TournamentEntryWithPlayers,
-  TournamentGender,
-  TournamentModality,
-} from "@convex/domains/tournament/contract";
-import {
-  buildCategoryDisplayName,
-  isRegistrationOpen,
-} from "@convex/domains/tournament/entry-rules";
+import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
+import { isRegistrationOpen } from "@convex/domains/tournament/entry-rules";
 
 import {
   formatPlayerCardName,
   UNDEFINED_PLAYER_NAME,
 } from "@/lib/matches/match-display";
-
-type CategoryKey = {
-  gender: TournamentGender;
-  modality: TournamentModality;
-};
 
 export type TournamentDetailsRole = "guest" | "organizer" | "player";
 
@@ -313,10 +301,6 @@ export function formatBracketStage(round: number, totalRounds: number): string {
     default:
       return `Rodada ${round}`;
   }
-}
-
-export function buildCategoryDisplayNameFromKey(key: CategoryKey) {
-  return buildCategoryDisplayName(key.modality, key.gender);
 }
 
 export type TournamentRegistrationWindowState = {

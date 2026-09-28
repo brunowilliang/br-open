@@ -40,7 +40,7 @@ const TOURNAMENT_FORM_ERROR_GROUPS: TournamentFormErrorGroup[] = [
     tab: "location",
   },
   {
-    fallbackDescription: "Selecione pelo menos uma categoria.",
+    fallbackDescription: "Crie pelo menos uma categoria.",
     fields: ["categories"],
     label: "Categorias incompletas",
     tab: "categories",
@@ -59,7 +59,7 @@ const TOURNAMENT_FORM_ERROR_GROUPS: TournamentFormErrorGroup[] = [
   },
   {
     fallbackDescription: "Confira as configurações do torneio.",
-    fields: ["visibility", "approvalMode"],
+    fields: ["allowMultipleEntriesPerType", "visibility", "approvalMode"],
     label: "Configurações incompletas",
     tab: "settings",
   },

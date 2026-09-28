@@ -39,6 +39,8 @@ export type JoinFooterCategory = {
   modality: "doubles" | "singles";
   /** Preço da categoria pronto pra exibição (a derivada fica na página). */
   priceLabel: string;
+  /** Segunda linha técnica abaixo do nome (ex. "Simples masculino"). */
+  typeLabel?: null | string;
   vacancyLabel?: null | string;
 };
 
@@ -230,8 +232,14 @@ export function JoinFooter(props: JoinFooterProps) {
                         isDisabled={isUnavailable}
                         key={category.id}
                         onPress={() => {
-                          setSelectedCategoryId(category.id);
-                          props.onCategoryChange?.(category.id);
+                          // Tocar de novo na categoria já selecionada desmarca:
+                          // sem seleção o CTA do painel fica desabilitado.
+                          const nextCategoryId = isSelected
+                            ? null
+                            : category.id;
+
+                          setSelectedCategoryId(nextCategoryId);
+                          props.onCategoryChange?.(nextCategoryId);
                         }}
                       >
                         <Card
@@ -250,6 +258,15 @@ export function JoinFooter(props: JoinFooterProps) {
                             >
                               {category.displayName}
                             </Text>
+                            {category.typeLabel ? (
+                              <Text
+                                color="muted"
+                                numberOfLines={1}
+                                variant="description"
+                              >
+                                {category.typeLabel}
+                              </Text>
+                            ) : null}
                             <View className="flex-row items-center gap-1">
                               {/* Sem motivo (perfil legado SEM gênero) a linha fica
                                   SEM chip DE PROPÓSITO: vagas não explicam. */}
@@ -415,7 +432,12 @@ export function JoinFooter(props: JoinFooterProps) {
             <Button
               className="w-1/3"
               onPress={() => {
+                // Fechar o painel ZERA a seleção: reabrir começa do zero.
                 setIsOpen(false);
+                setSelectedCategoryId(null);
+                props.onCategoryChange?.(null);
+                setSelectedPartner(null);
+                setPartnerSearchTerm("");
               }}
               size="sm"
               variant="secondary"

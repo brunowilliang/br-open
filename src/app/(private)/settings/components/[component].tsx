@@ -16,6 +16,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Alert, Button, Chip, ListGroup, Separator, Tabs } from "heroui-native";
 import { Fragment, type ComponentProps, type ReactNode, useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
@@ -27,6 +28,7 @@ import {
   type LinkedAccountStatus,
 } from "@/components/pages/player/linked-account-row";
 import { buildPlayerAgreementCard } from "@/components/pages/tournaments/match-agreement-provider";
+import { CategoryEditor } from "@/components/ui/category-editor";
 import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EntryCard } from "@/components/ui/entry-card";
@@ -70,6 +72,10 @@ import {
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
 import { MATCH_AGREEMENT_MESSAGE } from "@/lib/tournaments/match-agreement-copy";
+import {
+  buildCategoryTypeLabel,
+  type TournamentCategoryDraft,
+} from "@/lib/tournaments/category-editor-derived";
 import { resolveTableWalkoverWinnerEntryId } from "@/lib/tournaments/match-agreement-view";
 import {
   readMatchAgreementActionLabel,
@@ -107,11 +113,11 @@ function VariantSection(props: {
 function KpiVariantsSection() {
   return (
     <View className="gap-6">
-      <VariantSection title="KPI 1 · normal">
+      <VariantSection title="KPI 1 | normal">
         <KpiCard label="Ocupação" value="18 ativos" />
       </VariantSection>
 
-      <VariantSection title="KPI 2 · com descrição">
+      <VariantSection title="KPI 2 | com descrição">
         <KpiCard
           description="de 24 vagas"
           icon={UserGroup02Icon}
@@ -120,11 +126,11 @@ function KpiVariantsSection() {
         />
       </VariantSection>
 
-      <VariantSection title="KPI 3 · com erro">
+      <VariantSection title="KPI 3 | com erro">
         <KpiCard icon={Clock02Icon} label="Em atraso" tint="danger" value="3" />
       </VariantSection>
 
-      <VariantSection title="KPI 4 · com diálogo">
+      <VariantSection title="KPI 4 | com diálogo">
         {/* InfoDialog INTERNO do KpiCard (prop `info` -> InfoTrigger +        */}
         {/* InfoDialog no próprio componente, ui/kpi-card.tsx). */}
         <KpiCard
@@ -145,42 +151,42 @@ function KpiVariantsSection() {
 function TextVariantsSection() {
   return (
     <View className="gap-6">
-      <VariantSection title="Texto 1 · título de tela">
+      <VariantSection title="Texto 1 | título de tela">
         <Text variant="title">Configurações</Text>
       </VariantSection>
 
-      <VariantSection title="Texto 2 · heading de seção">
+      <VariantSection title="Texto 2 | heading de seção">
         <Text variant="heading">Aviso importante</Text>
       </VariantSection>
 
-      <VariantSection title="Texto 3 · corpo">
+      <VariantSection title="Texto 3 | corpo">
         <Text>
           Sua inscrição foi confirmada. Os horários das partidas aparecem na
           agenda da competição.
         </Text>
       </VariantSection>
 
-      <VariantSection title="Texto 4 · descrição (secundário apagado)">
+      <VariantSection title="Texto 4 | descrição (secundário apagado)">
         <Text color="muted" variant="description">
           Push e central de notificações.
         </Text>
       </VariantSection>
 
-      <VariantSection title="Texto 5 · rótulo concentrado">
+      <VariantSection title="Texto 5 | rótulo concentrado">
         <Text variant="label">Modo de uso</Text>
       </VariantSection>
 
-      <VariantSection title="Texto 6 · display">
+      <VariantSection title="Texto 6 | display">
         <Text variant="display">42</Text>
       </VariantSection>
 
-      <VariantSection title="Texto 7 · valor de preço">
+      <VariantSection title="Texto 7 | valor de preço">
         <Text size="3xl" weight="semibold">
           {formatCurrencyCents(123_456)}
         </Text>
       </VariantSection>
 
-      <VariantSection title="Texto 8 · ênfases semânticas">
+      <VariantSection title="Texto 8 | ênfases semânticas">
         <View className="gap-1">
           <Text color="danger" variant="description">
             Cobrança expirada.
@@ -197,7 +203,7 @@ function TextVariantsSection() {
         </View>
       </VariantSection>
 
-      <VariantSection title="Texto 9 · alinhamento centralizado (novo)">
+      <VariantSection title="Texto 9 | alinhamento centralizado (novo)">
         <Text align="center" color="muted" variant="description">
           Nenhum resultado encontrado.
         </Text>
@@ -225,6 +231,7 @@ function JoinFooterVariantsSection() {
       id: "singles",
       modality: "singles",
       priceLabel: formatCurrencyCents(4000),
+      typeLabel: buildCategoryTypeLabel("singles", "male"),
       vacancyLabel: "8 vagas",
     },
     {
@@ -232,6 +239,7 @@ function JoinFooterVariantsSection() {
       id: "doubles",
       modality: "doubles",
       priceLabel: formatCurrencyCents(4000),
+      typeLabel: buildCategoryTypeLabel("doubles", "mixed"),
       vacancyLabel: "4 vagas",
     },
     {
@@ -240,12 +248,13 @@ function JoinFooterVariantsSection() {
       isFull: true,
       modality: "singles",
       priceLabel: formatCurrencyCents(4000),
+      typeLabel: buildCategoryTypeLabel("singles", "female"),
     },
   ] satisfies JoinFooterCategory[];
 
   return (
     <View className="flex-1 justify-end gap-6">
-      <VariantSection title="Inscrição 1 · liga (clique direto)">
+      <VariantSection title="Inscrição 1 | liga (clique direto)">
         <View className="h-28">
           <JoinFooter
             actionLabel="Solicitar entrada"
@@ -261,7 +270,7 @@ function JoinFooterVariantsSection() {
         </View>
       </VariantSection>
 
-      <VariantSection title="Inscrição 2 · torneio (abre o painel)">
+      <VariantSection title="Inscrição 2 | torneio (abre o painel)">
         <View className="h-28">
           <JoinFooter
             actionLabel="Pagar R$ 40,00"
@@ -278,7 +287,7 @@ function JoinFooterVariantsSection() {
         </View>
       </VariantSection>
 
-      <VariantSection title="Inscrição 3 · lotada (desabilitada)">
+      <VariantSection title="Inscrição 3 | lotada (desabilitada)">
         <View className="h-28">
           <JoinFooter
             actionLabel="Solicitar entrada"
@@ -436,7 +445,7 @@ function AlertsVariantsSection() {
     <View className="gap-6">
       <VariantSection
         note="Título real da casa do torneio (pages/tournaments/player-overview.tsx:108-117, com o singular 1 inscrição aguardando pagamento na mesma linha). Hoje esse alerta só tem título: a descrição e o CTA são PROPOSTA, e o Pagar é o rótulo real do botão do card Suas inscrições (:213-222), já de uma palavra. Sem destaque: a frase não tem palavra-chave (o valor que decide a inscrição é dado que só o contrato manda) — apontado."
-        title="Alerta 4 · REAL + descrição e ação propostas · Torneio (jogador): inscrição aguardando pagamento"
+        title="Alerta 4 | REAL + descrição e ação propostas | Torneio (jogador): inscrição aguardando pagamento"
       >
         <WidgetAlert
           action={{ label: "Pagar", onPress: noop }}
@@ -448,7 +457,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Título e status accent REAIS do item `player_tournament_partner_invite_received` do SERVIDOR (convex/domains/tournament/pendings-rules.ts:91-127; o alerta de título único que existia na casa do torneio saiu no cutover da Etapa 2 do PLN-0008); o pedido citava warning. A descrição diz QUEM convida, PARA QUE (categoria) e ONDE (competição), com o nome em negrito: a categoria usa o formato real do app (Duplas Mistas: convex/domains/tournament/entry-rules.ts:29-38). Só o NOME fica destacado porque a régua é um destaque por linha e o dado que ele precisa reconhecer para agir é quem chamou (a categoria e a competição disputam o mesmo destaque: apontado). As DUAS ações estão no RODAPÉ do alerta, dentro da superfície e na mesma linha, na ordem do molde do app: recusar (pages/tournaments/player-overview.tsx:169-179) antes de aceitar (:180-191), ou seja quem confirma fica por último. Rótulos de uma palavra."
-        title="Alerta 5 · REAL + descrição e ações propostas · Torneio (jogador): convite de dupla recebido"
+        title="Alerta 5 | REAL + descrição e ações propostas | Torneio (jogador): convite de dupla recebido"
       >
         <WidgetAlert
           action={{ label: "Aceitar", onPress: noop }}
@@ -461,7 +470,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Copy nova (hoje o estado só existe como chip Aguardando parceiro, lib/tournaments/tournament-details-derived.ts:124). A descrição traz o nome de quem foi convidado, a categoria e a competição, com o NOME em negrito (mesma régua do cartão 5: um destaque por linha e o dado que decide é de quem se espera resposta; categoria e competição ficam sem destaque: apontado). info = accent: o vocabulário do alerta não tem info (alert.md da versão instalada e ui/widget-alert.tsx:33)."
-        title="Alerta 6 · PROPOSTA · Torneio (jogador): convite de dupla enviado"
+        title="Alerta 6 | PROPOSTA | Torneio (jogador): convite de dupla enviado"
       >
         <WidgetAlert
           description={[{ parts: galleryInviteSentParts }]}
@@ -472,7 +481,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Copy nova (hoje o estado só existe como chip Aguardando aprovação, lib/tournaments/tournament-details-derived.ts:123). Sem destaque: a frase não tem palavra-chave (nem nome, nem valor, nem prazo) — apontado. info = accent, mesmo motivo do cartão 6."
-        title="Alerta 7 · PROPOSTA · Torneio (jogador): inscrição aguardando aprovação do organizador"
+        title="Alerta 7 | PROPOSTA | Torneio (jogador): inscrição aguardando aprovação do organizador"
       >
         <WidgetAlert
           description="O organizador precisa liberar sua inscrição para você entrar na chave."
@@ -483,7 +492,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Título e CTA reais (pages/tournaments/organizer-overview.tsx:66-78), com o singular 1 inscrição aguardando aprovação na mesma linha e o Ver levando para Inscrições na aba Pendências. O status real é accent, o pedido citava warning. Descrição PROPOSTA: hoje este alerta só tem título. Sem destaque: a frase não tem palavra-chave (a lista de quem espera liberação é dado que só o contrato manda) — apontado."
-        title="Alerta 11 · REAL + descrição proposta · Torneio (organizador): inscrições aguardando aprovação"
+        title="Alerta 11 | REAL + descrição proposta | Torneio (organizador): inscrições aguardando aprovação"
       >
         <WidgetAlert
           action={{ label: "Ver", onPress: noop }}
@@ -495,7 +504,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Título e CTA reais (pages/tournaments/organizer-overview.tsx:80-93), mesmo destino do alerta anterior. Descrição PROPOSTA: hoje este alerta só tem título. Sem destaque: a frase não tem palavra-chave (sem valor, sem prazo e sem nome) — apontado."
-        title="Alerta 12 · REAL + descrição proposta · Torneio (organizador): inscrições aguardando pagamento"
+        title="Alerta 12 | REAL + descrição proposta | Torneio (organizador): inscrições aguardando pagamento"
       >
         <WidgetAlert
           action={{ label: "Ver", onPress: noop }}
@@ -507,7 +516,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Copy nova, com DOIS apontamentos: sem placar não existe como estado hoje (a partida é A definir, Agendada, Encerrada ou W.O., lib/matches/match-display.ts:14-21) e nenhum aviso do app fala de confronto sem agendamento — não há texto real equivalente. Qual confronto conta como pendência ainda não tem regra. Sem destaque: falta a palavra-chave (qual rodada ou quadra está em aberto) — apontado. Sem CTA."
-        title="Alerta 15 · PROPOSTA · Torneio (organizador): confronto sem agendamento"
+        title="Alerta 15 | PROPOSTA | Torneio (organizador): confronto sem agendamento"
       >
         <WidgetAlert
           description="A chave fica pronta para começar quando todos os confrontos estiverem agendados."
@@ -518,7 +527,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="PROPOSTA (não aprovada). Origem do dado: a inscrição de torneio com pagamento pendente e a cobrança da entry, PENDING no pendente e EXPIRED no vencido (payment.charge.getPendingCharge, o mesmo caminho do CTA Pagar da casa do torneio, tournaments/[tournamentId]/index.tsx:79-96). O contrato precisa mandar: kind novo de escopo player (ex.: player_payment_charge_open no pendente e player_payment_charge_expired no vencido), source {type: payment_charge, id} (TIPO NOVO de fonte: PENDING_SOURCE_TYPE_OPTIONS hoje não tem payment_charge, convex/domains/pendings/contract.ts:46-50) + sourceId/sourceType da cobrança para o CTA Pagar reabrir o checkout (destino vivo: /checkout/[chargeId], settings/player/payments.tsx:95-100), deadlineAt = expiração do PIX, moneyCents = valor da cobrança, domain payment, actionLabel Pagar (Renovar quando a vaga foi liberada). REGRA de severidade: warning no PENDING e no EXPIRED com a vaga ainda reservada; danger quando o prazo terminou e a vaga foi liberada. BURACO na v1: o estado awaiting_payment não gera item nenhum hoje (evidência: membership de DEV n97ef6kqw5fsgvc9ng0hrddg7s8b3avs), então o jogador que gerou o PIX e não pagou não tem aviso centralizado."
-        title="Alerta 17 · PROPOSTA · Jogador: PIX pendente ou vencido"
+        title="Alerta 17 | PROPOSTA | Jogador: PIX pendente ou vencido"
       >
         <View className="gap-4">
           <LabeledBlock label="Pendente">
@@ -552,7 +561,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="O GESTO que só as duas homes ligam (opt-in `isSwipeEnabled` + `dismissSurface` na superfície `home`): arraste o cartão para a esquerda — ou toque nele — e a ação revelada Esconder aparece animando; tocar nela aqui não executa nada (a galeria aprova, não executa: o handler é o noop). O sangramento usa o MESMO par das homes (o `px-4` do container desta galeria é o `mx-4` da página delas): container `-mx-4`, childrenContainer `mx-4` e ação `pr-4 -ml-1`. A copy é a real do servidor para a inscrição aguardando pagamento — o que este cartão amostra é o gesto; o resto da seção segue estático de propósito."
-        title="Alerta 18 · GESTO · o swipe com a ação revelada Esconder"
+        title="Alerta 18 | GESTO | o swipe com a ação revelada Esconder"
       >
         <WidgetAlert
           action={{ label: "Pagar", onPress: noop }}
@@ -571,7 +580,7 @@ function AlertsVariantsSection() {
 
       <VariantSection
         note="Item REAL do servidor (buildOrganizerConclusionPendings, convex/domains/tournament/pendings-rules.ts:337: nome, CTA e frase vêm da regra, nada digitado aqui). É o kind organization_tournament_awaiting_conclusion, o único SEM dispensa (PENDING_NON_DISMISSIBLE_KINDS): este cartão não tem gesto de esconder nem na home (o servidor recusaria) e sai da tela só quando o organizador conclui. O CTA roda tournament.lifecycle.conclude."
-        title="Alerta 19 · REAL · Torneio (organizador): concluir torneio"
+        title="Alerta 19 | REAL | Torneio (organizador): concluir torneio"
       >
         <WidgetAlert
           action={{
@@ -616,8 +625,8 @@ function NotificationMenuAnatomy(props: {
             </Text>
             <Text color="muted" size="xs">
               {item.kind === "action"
-                ? `tom ${item.tone} · ${item.resolution.kind}`
-                : `tom ${item.tone} · remove o item da central`}
+                ? `tom ${item.tone} | ${item.resolution.kind}`
+                : `tom ${item.tone} | remove o item da central`}
             </Text>
           </View>
         ))}
@@ -662,7 +671,7 @@ function NotificationVariantsSection() {
                 note={buildGalleryNotificationNote(eventType)}
                 title={`Notificação ${
                   NOTIFICATION_GALLERY_EVENT_TYPES.indexOf(eventType) + 1
-                } · ${group.title}: ${eventType}`}
+                } | ${group.title}: ${eventType}`}
               >
                 <NotificationCard
                   isClamped={false}
@@ -780,7 +789,7 @@ const galleryMatchCardCases: {
     ],
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 1 · duplas · encerrado com resultado",
+    title: "Partida 1 | duplas | encerrado com resultado",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -795,7 +804,7 @@ const galleryMatchCardCases: {
     note: "Agendado: cada ponta é uma dupla (dois avatares e um nome por linha) e o ponto do resultado não é desenhado.",
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 2 · duplas · agendado",
+    title: "Partida 2 | duplas | agendado",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -811,7 +820,7 @@ const galleryMatchCardCases: {
     scoreSets: [{ aGames: 0, bGames: 0, kind: "set" }],
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 3 · duplas · W.O.",
+    title: "Partida 3 | duplas | W.O.",
     walkoverWinner: "b",
   },
   {
@@ -828,7 +837,7 @@ const galleryMatchCardCases: {
     scoreSets: [{ aGames: 0, bGames: 0, kind: "set" }],
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 3b · duplas · W.O. sem vencedor no wire",
+    title: "Partida 3b | duplas | W.O. sem vencedor no wire",
   },
   {
     challengedName: "Ana Beatriz Cardoso",
@@ -845,7 +854,7 @@ const galleryMatchCardCases: {
     ],
     stageLabel: "Final",
     startMinute: 1080,
-    title: "Partida 4 · simples · encerrado com resultado",
+    title: "Partida 4 | simples | encerrado com resultado",
   },
   {
     challengedName: "Ana Beatriz Cardoso",
@@ -858,7 +867,7 @@ const galleryMatchCardCases: {
     note: "Simples agendado: um avatar e um nome por ponta, sem resultado.",
     stageLabel: "Final",
     startMinute: 1080,
-    title: "Partida 5 · simples · agendado",
+    title: "Partida 5 | simples | agendado",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -872,7 +881,7 @@ const galleryMatchCardCases: {
     note: "A definir: sem dia (nem quadra) o chip de agendamento não aparece e o status do topo fica em A definir.",
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 6 · duplas · a definir (sem chip de agendamento)",
+    title: "Partida 6 | duplas | a definir (sem chip de agendamento)",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -890,7 +899,7 @@ const galleryMatchCardCases: {
     stageLabel: "Quartas de final",
     startMinute: 840,
     swapPickEnabled: { a: true, b: true },
-    title: "Partida 7 · troca de oponente armada (chave)",
+    title: "Partida 7 | troca de oponente armada (chave)",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -907,7 +916,7 @@ const galleryMatchCardCases: {
     note: "Menu do organizador no nó da chave, com os dois lados preenchidos: Agendar e Resultado. O menu é do CARD e só é desenhado onde há ação — nas agendas e no Próximo jogo nenhum card mostra menu.",
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 8 · chave · menu do organizador (Agendar + Resultado)",
+    title: "Partida 8 | chave | menu do organizador (Agendar + Resultado)",
   },
   {
     challengedName: "Jose Almeida Prado",
@@ -928,7 +937,7 @@ const galleryMatchCardCases: {
     ],
     stageLabel: "Quartas de final",
     startMinute: 840,
-    title: "Partida 9 · chave · menu do organizador (Editar resultado)",
+    title: "Partida 9 | chave | menu do organizador (Editar resultado)",
   },
   {
     challengedName: "Marina Costa",
@@ -943,7 +952,7 @@ const galleryMatchCardCases: {
     stageLabel: "Quartas de final",
     startMinute: 840,
     title:
-      "Partida 10 · chave · duplas · adversário a definir (vaga vazia sem chip)",
+      "Partida 10 | chave | duplas | adversário a definir (vaga vazia sem chip)",
   },
   {
     challengedName: "Ana Beatriz Cardoso",
@@ -957,7 +966,7 @@ const galleryMatchCardCases: {
     note: "Final decidida: o chip do topo vira Campeão, em success. Quem sabe que é a final é a tela (o status do wire é 'finished', igual ao de qualquer partida encerrada).",
     stageLabel: "Final",
     startMinute: 1080,
-    title: "Partida 11 · chave · final decidida com Campeão",
+    title: "Partida 11 | chave | final decidida com Campeão",
   },
   {
     challengedDefined: false,
@@ -970,7 +979,7 @@ const galleryMatchCardCases: {
     note: "Contraprova da Partida 10 em simples: o mesmo adversário em aberto sai com UM avatar black e UMA linha A definir em muted. Quem decide a forma do lado é a modalidade, e o indefinido é sinal do caller, nunca o texto do nome.",
     stageLabel: "Final",
     startMinute: 1080,
-    title: "Partida 12 · simples · adversário a definir",
+    title: "Partida 12 | simples | adversário a definir",
   },
 ];
 
@@ -1135,7 +1144,7 @@ const galleryEntryCardCases: {
     note: "Dupla confirmada: cada ponta é uma dupla, sem nota no pé e sem ação.",
     partnerName: "Rafael de Souza Lima",
     playerName: "Bruno William Garcia",
-    title: "Inscrição 1 · dupla confirmada",
+    title: "Inscrição 1 | dupla confirmada",
   },
   {
     actions: (
@@ -1155,7 +1164,7 @@ const galleryEntryCardCases: {
     noteLabel: "@marina.costa convidou você para esta dupla.",
     partnerName: "Rafael de Souza Lima",
     playerName: "Bruno William Garcia",
-    title: "Inscrição 2 · convite de dupla recebido",
+    title: "Inscrição 2 | convite de dupla recebido",
   },
   {
     actions: (
@@ -1174,7 +1183,7 @@ const galleryEntryCardCases: {
     note: "Aprovação do organizador: o par recusar/aprovar fica na ponta e o status no topo.",
     partnerName: "Marina Costa",
     playerName: "Ana Beatriz Cardoso",
-    title: "Inscrição 3 · aguardando aprovação",
+    title: "Inscrição 3 | aguardando aprovação",
   },
   {
     actions: (
@@ -1187,7 +1196,7 @@ const galleryEntryCardCases: {
     id: "pagamento",
     note: "Inscrição do jogador aguardando pagamento: a ação fica na ponta.",
     playerName: "Tiago Moreira",
-    title: "Inscrição 4 · aguardando pagamento",
+    title: "Inscrição 4 | aguardando pagamento",
   },
   {
     categoryLabel: "Simples Masculino",
@@ -1195,7 +1204,7 @@ const galleryEntryCardCases: {
     id: "simples",
     note: "Simples: sem parceiro a ponta fica com UM avatar e UM nome.",
     playerName: "Tiago Moreira",
-    title: "Inscrição 5 · simples confirmada",
+    title: "Inscrição 5 | simples confirmada",
   },
 ];
 
@@ -1240,7 +1249,7 @@ const galleryLinkedAccountCases: {
     note: "Conta conectada: chip em cima do título e ação desconectar.",
     providerLabel: "Apple",
     status: "connected",
-    title: "Linha 1 · conta conectada",
+    title: "Linha 1 | conta conectada",
   },
   {
     icon: GoogleIcon,
@@ -1248,7 +1257,7 @@ const galleryLinkedAccountCases: {
     note: "Conta fora: chip apagado em cima do título e ação conectar.",
     providerLabel: "Google",
     status: "disconnected",
-    title: "Linha 2 · conta não conectada",
+    title: "Linha 2 | conta não conectada",
   },
   {
     icon: GoogleIcon,
@@ -1257,7 +1266,7 @@ const galleryLinkedAccountCases: {
     pendingAction: "link",
     providerLabel: "Google",
     status: "disconnected",
-    title: "Linha 3 · botão conectando",
+    title: "Linha 3 | botão conectando",
   },
   {
     icon: AppleIcon,
@@ -1266,7 +1275,7 @@ const galleryLinkedAccountCases: {
     pendingAction: "unlink",
     providerLabel: "Apple",
     status: "connected",
-    title: "Linha 4 · botão desconectando",
+    title: "Linha 4 | botão desconectando",
   },
   {
     icon: GoogleIcon,
@@ -1275,7 +1284,7 @@ const galleryLinkedAccountCases: {
     note: "Enquanto UMA conta conecta, as outras linhas ficam com a ação travada (hoje é o pendingProvider da seção).",
     providerLabel: "Google",
     status: "connected",
-    title: "Linha 5 · ação travada por outra linha",
+    title: "Linha 5 | ação travada por outra linha",
   },
   {
     icon: Mail01Icon,
@@ -1284,7 +1293,7 @@ const galleryLinkedAccountCases: {
     note: "Linha informativa: chip de status e sem ação. Alterar a senha continua na Segurança.",
     providerLabel: "E-mail e senha",
     status: "connected",
-    title: "Linha 6 · informativa conectada",
+    title: "Linha 6 | informativa conectada",
   },
   {
     icon: Mail01Icon,
@@ -1293,7 +1302,7 @@ const galleryLinkedAccountCases: {
     note: "A mesma informativa quando a conta não tem senha: o chip fica Não conectado e a linha esmaece, como hoje.",
     providerLabel: "E-mail e senha",
     status: "disconnected",
-    title: "Linha 7 · informativa não conectada",
+    title: "Linha 7 | informativa não conectada",
   },
   {
     icon: ShieldUserIcon,
@@ -1301,7 +1310,7 @@ const galleryLinkedAccountCases: {
     note: "Rótulo comprido: o chip fica em cima e o título quebra sem empurrar a ação.",
     providerLabel: "Conta corporativa da Federação Paulista de Tênis",
     status: "disconnected",
-    title: "Linha 8 · rótulo longo",
+    title: "Linha 8 | rótulo longo",
   },
   {
     icon: UserCircleIcon,
@@ -1309,7 +1318,7 @@ const galleryLinkedAccountCases: {
     note: "Provedor fora dos três do app: entra por ícone e título, sem caso especial no componente.",
     providerLabel: "Discord",
     status: "connected",
-    title: "Linha 9 · provedor fora da lista",
+    title: "Linha 9 | provedor fora da lista",
   },
 ];
 
@@ -1338,27 +1347,27 @@ const galleryCheckoutStatusCases: {
   {
     note: "Webhook confirma o pagamento e a inscrição entra na chave; o checkout fecha neste cartão.",
     status: "PAID",
-    title: "Estado 1 · pagamento confirmado",
+    title: "Estado 1 | pagamento confirmado",
   },
   {
     note: "O prazo do PIX venceu sem pagamento e a vaga não ficou reservada; o cartão oferece gerar um novo código.",
     status: "EXPIRED",
-    title: "Estado 2 · PIX expirado",
+    title: "Estado 2 | PIX expirado",
   },
   {
     note: "O jogador cancelou pelo próprio PIX: a inscrição é encerrada junto (a vaga volta) e a cobrança morre no provedor.",
     status: "CANCELED",
-    title: "Estado 3 · PIX cancelado",
+    title: "Estado 3 | PIX cancelado",
   },
   {
     note: "Dinheiro devolvido (capacidade cheia ou cancelamento do torneio).",
     status: "REFUNDED",
-    title: "Estado 4 · pagamento reembolsado",
+    title: "Estado 4 | pagamento reembolsado",
   },
   {
     note: "PIX não aprovado pelo provedor. Nenhum caminho do app escreve este estado hoje; o cartão existe no mesmo molde.",
     status: "FAILED",
-    title: "Estado 5 · pagamento não concluído",
+    title: "Estado 5 | pagamento não concluído",
   },
 ];
 
@@ -1419,7 +1428,7 @@ function LinkedAccountRowVariantsSection() {
 
       <VariantSection
         note="Ordem e separadores como a seção monta hoje."
-        title="Lista real · informativa, Apple e Google"
+        title="Lista real | informativa, Apple e Google"
       >
         <ListGroup>
           {galleryLinkedAccountList.map((item, index) => (
@@ -1439,7 +1448,7 @@ function LinkedAccountRowVariantsSection() {
 
       <VariantSection
         note="Proposta: Conectado em success e Não conectado em default (muted), em soft. As outras cores ficam para riscar."
-        title="Variantes do chip · cor"
+        title="Variantes do chip | cor"
       >
         <View className="gap-2">
           {galleryLinkedAccountStatuses.map((status) => {
@@ -1467,7 +1476,7 @@ function LinkedAccountRowVariantsSection() {
 
       <VariantSection
         note="Proposta é o sm; md e lg ficam visíveis para comparar."
-        title="Variantes do chip · tamanho"
+        title="Variantes do chip | tamanho"
       >
         <View className="flex-row flex-wrap items-center gap-2">
           {galleryLinkedAccountChipSizes.map((size) => (
@@ -1567,7 +1576,7 @@ function StandingsCardVariantsSection() {
       <Tabs.Content className="pt-4" value="drag">
         <VariantSection
           note="Segure a alça à esquerda do avatar e arraste: quem reordena é o estado local, sem servidor nem query. No item em accent (o jogador do viewer) a forma traz a mistura de exemplo (ganha, ganha, perdida, perdida, ganha); nas outras pontas saem as casas cinzas do fallback sem dado."
-          title="Lista reordenável · com a alça"
+          title="Lista reordenável | com a alça"
         >
           <View className="h-96">
             <SortableCardList
@@ -1608,7 +1617,7 @@ function StandingsCardVariantsSection() {
       <Tabs.Content className="pt-4" value="static">
         <VariantSection
           note="A mesma lista sem a alça: posição, avatar, nome e nickname, só leitura. A mistura de exemplo da forma segue no item em accent."
-          title="Lista estática · sem a alça"
+          title="Lista estática | sem a alça"
         >
           <View className="gap-2">
             {items.map((item) => (
@@ -1645,37 +1654,37 @@ const galleryTournamentStatusCases: {
     note: "Torneio criado e ainda não publicado: sem inscrição aberta e sem chave.",
     registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 10,
     status: "draft",
-    title: "Estado 1 · rascunho",
+    title: "Estado 1 | rascunho",
   },
   {
     note: "Publicado dentro do prazo: é o estado em que a inscrição está aberta.",
     registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 3,
     status: "published",
-    title: "Estado 2 · inscrições abertas",
+    title: "Estado 2 | inscrições abertas",
   },
   {
     note: "Prazo vencido e torneio ainda não começou (sorteio feito ou não): quem fecha a inscrição é o prazo, nunca o sorteio.",
     registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS,
     status: "drawn",
-    title: "Estado 3 · inscrições encerradas",
+    title: "Estado 3 | inscrições encerradas",
   },
   {
     note: "Chave em disputa. Fica com a mesma cor de inscrições encerradas, como o vocabulário aprovado.",
     registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS * 5,
     status: "ongoing",
-    title: "Estado 4 · em andamento",
+    title: "Estado 4 | em andamento",
   },
   {
     note: "Todas as categorias com campeão.",
     registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS * 30,
     status: "finished",
-    title: "Estado 5 · encerrado",
+    title: "Estado 5 | encerrado",
   },
   {
     note: "Cancelado pelo organizador antes do início.",
     registrationDeadlineAt: galleryTournamentNowMs + GALLERY_DAY_MS * 2,
     status: "cancelled",
-    title: "Estado 6 · cancelado",
+    title: "Estado 6 | cancelado",
   },
 ];
 
@@ -1725,6 +1734,119 @@ function TournamentStatusVariantsSection() {
           />
         </View>
       </VariantSection>
+    </View>
+  );
+}
+
+type CategoryEditorGalleryVariant = {
+  categories: TournamentCategoryDraft[];
+  /** Fixture abre o card direto: a expansão do editor é estado interno. */
+  expandedCategoryIds?: string[];
+  note: string;
+  title: string;
+};
+
+function buildGalleryCategory(
+  overrides: Partial<TournamentCategoryDraft> & { id: string }
+): TournamentCategoryDraft {
+  return {
+    entryFeeCents: 0,
+    gender: "male",
+    maxEntries: null,
+    modality: "singles",
+    name: "Categoria",
+    ...overrides,
+  };
+}
+
+const galleryCategoryEditorVariants: CategoryEditorGalleryVariant[] = [
+  {
+    categories: [],
+    note: "Sem categoria: o vazio abre o mesmo dialog de criação.",
+    title: "Categorias 1 | vazio",
+  },
+  {
+    categories: [
+      buildGalleryCategory({
+        entryFeeCents: 3000,
+        id: "gallery-a",
+        maxEntries: 8,
+        name: "Categoria A",
+      }),
+    ],
+    note: "Nome livre carrega o nível; o resumo traz tipo, taxa e vagas.",
+    title: "Categorias 2 | uma colapsada",
+  },
+  {
+    categories: [
+      buildGalleryCategory({
+        entryFeeCents: 3000,
+        gender: "female",
+        id: "gallery-a",
+        maxEntries: 8,
+        name: "Categoria A",
+      }),
+    ],
+    expandedCategoryIds: ["gallery-a"],
+    note: "Card aberto: modalidade, gênero, taxa e vagas.",
+    title: "Categorias 3 | aberta",
+  },
+  {
+    categories: [
+      buildGalleryCategory({ id: "gallery-a", name: "Categoria A" }),
+      buildGalleryCategory({ id: "gallery-b", name: "categoria a" }),
+    ],
+    expandedCategoryIds: ["gallery-a", "gallery-b"],
+    note: "Nome repetido no mesmo tipo: o FieldError marca as duas linhas e o salvar fica bloqueado.",
+    title: "Categorias 4 | duplicado",
+  },
+  {
+    categories: [
+      buildGalleryCategory({
+        id: "gallery-c",
+        liveEntryCount: 3,
+        name: "Categoria B",
+      }),
+    ],
+    expandedCategoryIds: ["gallery-c"],
+    note: "Com inscrição viva, modalidade e gênero ficam travados e o Remover fica bloqueado com o motivo ANTES do toque.",
+    title: "Categorias 5 | travada",
+  },
+];
+
+function CategoryEditorFixture(props: {
+  categories: TournamentCategoryDraft[];
+  expandedCategoryIds?: string[];
+}) {
+  const form = useForm<{ categories: TournamentCategoryDraft[] }>({
+    defaultValues: { categories: props.categories },
+  });
+
+  return (
+    <FormProvider {...form}>
+      <CategoryEditor
+        initialExpandedCategoryIds={props.expandedCategoryIds}
+        isDisabled={false}
+      />
+    </FormProvider>
+  );
+}
+
+function CategoryEditorVariantsSection() {
+  return (
+    <View className="gap-6">
+      {galleryCategoryEditorVariants.map((variant) => (
+        <VariantSection
+          key={variant.title}
+          note={variant.note}
+          title={variant.title}
+        >
+          <CategoryEditorFixture
+            categories={variant.categories}
+            expandedCategoryIds={variant.expandedCategoryIds}
+          />
+        </VariantSection>
+      ))}
     </View>
   );
 }
@@ -1782,6 +1904,8 @@ export default function ComponentVariantsRoute() {
             <StandingsCardVariantsSection />
           ) : entry.id === "tournament-status" ? (
             <TournamentStatusVariantsSection />
+          ) : entry.id === "category-editor" ? (
+            <CategoryEditorVariantsSection />
           ) : null
         ) : (
           <EmptyState

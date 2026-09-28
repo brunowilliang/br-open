@@ -1,6 +1,7 @@
 import type {
   CreateTournamentInput,
   Tournament,
+  TournamentOrganizerCategory,
   UpdateTournamentInput,
 } from "@convex/domains/tournament/contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ import { FormFallback } from "@/components/ui/form-fallback";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { buildCategoryUpdatePayload } from "@/lib/tournaments/category-editor-derived";
 import { normalizeRouteParam } from "@/lib/router/normalize-param";
 import {
   TOURNAMENT_FORM_TAB_ITEMS,
@@ -53,12 +55,7 @@ type TournamentFormTarget =
   | { message: string; mode: "invalid"; title: string };
 
 type ManagedTournament = {
-  categories: Array<{
-    entryFeeCents: number;
-    gender: "female" | "male" | "mixed";
-    maxEntries: null | number;
-    modality: "doubles" | "singles";
-  }>;
+  categories: TournamentOrganizerCategory[];
   tournament: Tournament;
 };
 
@@ -100,9 +97,16 @@ function toCreateTournamentInput(
   values: TournamentScreenValues
 ): CreateTournamentInput {
   return {
+    allowMultipleEntriesPerType: values.allowMultipleEntriesPerType,
     approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
-    categories: values.categories,
+    categories: values.categories.map((category) => ({
+      entryFeeCents: category.entryFeeCents,
+      gender: category.gender,
+      maxEntries: category.maxEntries,
+      modality: category.modality,
+      name: category.name,
+    })),
     city: values.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
@@ -125,13 +129,17 @@ function toTournamentScreenValues(
   const tournament = managed.tournament;
 
   return {
+    allowMultipleEntriesPerType: tournament.allowMultipleEntriesPerType,
     approvalMode: tournament.approvalMode,
     avatarStorageId: tournament.avatarStorageId,
     categories: managed.categories.map((category) => ({
       entryFeeCents: category.entryFeeCents,
       gender: category.gender,
+      id: category.id,
+      liveEntryCount: category.liveEntryCount,
       maxEntries: category.maxEntries,
       modality: category.modality,
+      name: category.name,
     })),
     city: tournament.city,
     courts: tournament.courts,
@@ -155,6 +163,11 @@ function toUpdateTournamentInput(
 ): UpdateTournamentInput {
   return {
     ...toCreateTournamentInput(values),
+    // O diff do servidor casa a categoria pelo `id`: o update NÃO pode perder
+    // — mas só a categoria vinda do servidor pode levar o seu.
+    categories: values.categories.map((category) =>
+      buildCategoryUpdatePayload(category)
+    ),
     tournamentId,
   };
 }

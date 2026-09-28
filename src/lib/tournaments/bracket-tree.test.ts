@@ -60,7 +60,7 @@ describe("buildBracketCategoryTrees", () => {
         buildMatch("final", "catA", 2, 0),
         buildMatch("a1", "catA", 1, 0),
       ],
-      { catA: { displayName: "Duplas masculinas", id: "catA" } }
+      { catA: { id: "catA", name: "Duplas masculinas" } }
     );
 
     expect(trees).toHaveLength(2);

@@ -50,6 +50,7 @@ import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
 import { formatCompetitionMeta } from "@/lib/format/competition";
+import { buildCategoryTypeLabel } from "@/lib/tournaments/category-editor-derived";
 import {
   buildRegistrationWindowState,
   buildTournamentActiveEntriesCountByCategory,
@@ -264,13 +265,14 @@ export default function TournamentOverviewRoute() {
           });
 
           return {
-            displayName: category.displayName,
             entryFeeCents: category.entryFeeCents,
+            gender: category.gender,
             id: category.id,
             ineligibleReason: category.viewerIneligibleReason,
             isFull: vacancy.isFull,
             isIneligible: category.viewerEligible === false,
             modality: category.modality,
+            name: category.name,
             vacancyLabel: vacancy.label,
           };
         })
@@ -333,7 +335,7 @@ export default function TournamentOverviewRoute() {
   // de gênero é recalculada nem categoria escondida aqui.
   const joinFooterCategories: JoinFooterCategory[] = joinableCategories.map(
     (category) => ({
-      displayName: category.displayName,
+      displayName: category.name,
       id: category.id,
       ineligibleReason: category.ineligibleReason,
       isFull: category.isFull,
@@ -343,6 +345,7 @@ export default function TournamentOverviewRoute() {
         category.entryFeeCents > 0
           ? formatCurrencyCents(category.entryFeeCents)
           : "Grátis",
+      typeLabel: buildCategoryTypeLabel(category.modality, category.gender),
       vacancyLabel: category.vacancyLabel,
     })
   );

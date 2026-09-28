@@ -9,14 +9,17 @@ import {
 
 function buildValidValues() {
   return {
+    allowMultipleEntriesPerType: true,
     approvalMode: "auto",
     avatarStorageId: null,
     categories: [
       {
         entryFeeCents: 0,
         gender: "male",
+        id: "category-a",
         maxEntries: null,
         modality: "singles",
+        name: "Categoria A",
       },
     ],
     city: "Sao Paulo",
@@ -96,6 +99,44 @@ describe("TournamentSchema matchConfig bestOfSets", () => {
         ...DEFAULT_MATCH_CONFIG,
         bestOfSets,
       },
+    });
+
+    expect(result.success).toBeTrue();
+  });
+});
+
+describe("TournamentSchema duplicate category names", () => {
+  test("mesmo nome no mesmo tipo barra o submit nas DUAS linhas", () => {
+    const values = buildValidValues();
+    const result = TournamentSchema.safeParse({
+      ...values,
+      categories: [
+        { ...values.categories[0], id: "a", name: "Manhã" },
+        { ...values.categories[0], id: "b", name: " manhã " },
+      ],
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const nameIssues = result.error.issues.filter(
+        (issue) => issue.path[0] === "categories" && issue.path[2] === "name"
+      );
+
+      expect(nameIssues.map((issue) => issue.path[1])).toEqual([0, 1]);
+      expect(nameIssues[0].message).toBe(
+        "Já existe uma categoria com esse nome nesse tipo."
+      );
+    }
+  });
+
+  test("mesmo nome em tipo diferente passa", () => {
+    const values = buildValidValues();
+    const result = TournamentSchema.safeParse({
+      ...values,
+      categories: [
+        { ...values.categories[0], gender: "male", name: "Manhã" },
+        { ...values.categories[0], gender: "female", name: "Manhã" },
+      ],
     });
 
     expect(result.success).toBeTrue();

@@ -12,6 +12,7 @@ import {
   Label,
   Menu,
   Select,
+  Switch,
   TextField,
 } from "heroui-native";
 import { useState } from "react";
@@ -68,6 +69,11 @@ export default function TournamentSettingsRoute() {
     control,
     defaultValue: getValues("approvalMode"),
     name: "approvalMode",
+  });
+  const allowMultipleEntriesPerType = useWatch({
+    control,
+    defaultValue: getValues("allowMultipleEntriesPerType"),
+    name: "allowMultipleEntriesPerType",
   });
   const visibilityError = errors.visibility?.message;
   const approvalModeError = errors.approvalMode?.message;
@@ -215,6 +221,29 @@ export default function TournamentSettingsRoute() {
           </Description>
           <FieldError>{approvalModeError ?? ""}</FieldError>
         </TextField>
+
+        <View className="flex-row items-center gap-3">
+          <View className="min-w-0 flex-1">
+            <Text weight="medium">
+              Permitir mais de uma inscrição no mesmo tipo
+            </Text>
+            <Text color="muted" variant="description">
+              Ligado, o jogador pode se inscrever em mais de uma categoria do
+              mesmo tipo. Desligado, vale uma inscrição por tipo.
+            </Text>
+          </View>
+          <Switch
+            isDisabled={isDisabled}
+            isSelected={allowMultipleEntriesPerType}
+            onSelectedChange={(nextValue) => {
+              setValue("allowMultipleEntriesPerType", nextValue, {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+              });
+            }}
+          />
+        </View>
 
         {showDelete ? (
           <Animated.View className="gap-2" layout={AccordionLayoutTransition}>

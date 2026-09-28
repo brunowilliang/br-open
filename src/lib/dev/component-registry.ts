@@ -71,6 +71,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "tournament-status",
     title: "Estado do torneio",
   },
+  {
+    description: "Editor de categorias do torneio por estado, para aprovação",
+    id: "category-editor",
+    title: "Categorias",
+  },
 ];
 
 export function findComponentGalleryEntry(

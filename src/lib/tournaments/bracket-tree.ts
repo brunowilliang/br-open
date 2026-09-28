@@ -341,7 +341,7 @@ type BracketTreeSizing = {
  * categorias. */
 export function buildBracketCategoryTrees(
   matches: TournamentMatchWithSides[],
-  categoriesById: Record<string, { displayName?: string; id: string }> = {}
+  categoriesById: Record<string, { id: string; name?: string }> = {}
 ): BracketCategoryTree[] {
   const byCategory = new Map<string, TournamentMatchWithSides[]>();
 
@@ -371,7 +371,7 @@ export function buildBracketCategoryTrees(
           )
         ),
       id: categoryId,
-      label: categoriesById[categoryId]?.displayName ?? categoryId,
+      label: categoriesById[categoryId]?.name ?? categoryId,
     });
   }
 

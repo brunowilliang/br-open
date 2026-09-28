@@ -686,7 +686,7 @@ export default function TournamentBracketRoute() {
                   <Tabs.Indicator />
                   {categoryTabs.map((category) => (
                     <Tabs.Trigger key={category.id} value={category.id}>
-                      <Tabs.Label>{category.displayName}</Tabs.Label>
+                      <Tabs.Label>{category.name}</Tabs.Label>
                     </Tabs.Trigger>
                   ))}
                 </Tabs.ScrollView>

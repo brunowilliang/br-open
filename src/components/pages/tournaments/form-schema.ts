@@ -3,10 +3,14 @@ import { z } from "zod";
 
 import { getBestOfSetValidationError } from "@convex/domains/match/contract";
 import {
-  CreateCategoryInputSchema,
   CreateTournamentSchema,
+  UpdateCategoryInputSchema,
 } from "@convex/domains/tournament/contract";
-import { buildCategoryDisplayName } from "@convex/domains/tournament/entry-rules";
+
+import {
+  CATEGORY_NAME_DUPLICATE_MESSAGE,
+  collectDuplicateCategoryIds,
+} from "@/lib/tournaments/category-editor-derived";
 
 /** Melhor de 1, 3 ou 5 — o refine vem do contrato de partida (`getBestOfSetValidationError`). */
 const TournamentMatchConfigFormSchema =
@@ -34,64 +38,22 @@ const tournamentFormDateSchema = z
   .min(1, "Informe a data.")
   .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Data inválida.");
 
-export type TournamentCategoryPreset = {
-  gender: "female" | "male" | "mixed";
-  label: string;
-  modality: "singles" | "doubles";
-  value: string;
-};
-
-/** As 5 categorias fixas do produto (checkboxes da aba Categorias). */
-export const TOURNAMENT_CATEGORY_PRESETS: readonly TournamentCategoryPreset[] =
-  [
-    {
-      gender: "male",
-      label: buildCategoryDisplayName("singles", "male"),
-      modality: "singles",
-      value: "singles:male",
-    },
-    {
-      gender: "female",
-      label: buildCategoryDisplayName("singles", "female"),
-      modality: "singles",
-      value: "singles:female",
-    },
-    {
-      gender: "male",
-      label: buildCategoryDisplayName("doubles", "male"),
-      modality: "doubles",
-      value: "doubles:male",
-    },
-    {
-      gender: "female",
-      label: buildCategoryDisplayName("doubles", "female"),
-      modality: "doubles",
-      value: "doubles:female",
-    },
-    {
-      gender: "mixed",
-      label: buildCategoryDisplayName("doubles", "mixed"),
-      modality: "doubles",
-      value: "doubles:mixed",
-    },
-  ];
-
-export function getTournamentCategoryPreset(
-  modality: "singles" | "doubles",
-  gender: "female" | "male" | "mixed"
-) {
-  return TOURNAMENT_CATEGORY_PRESETS.find(
-    (preset) => preset.modality === modality && preset.gender === gender
-  );
-}
+/** Categoria no editor: `id` local identifica a linha no diff do servidor;
+ * `liveEntryCount` chega só na edição e sustenta as travas. */
+const TournamentCategoryFormSchema = UpdateCategoryInputSchema.safeExtend({
+  id: z.string().min(1, "Categoria inválida."),
+  liveEntryCount: z.number().int().nonnegative().optional(),
+});
 
 export const TournamentSchema = z
   .object({
+    allowMultipleEntriesPerType:
+      CreateTournamentSchema.shape.allowMultipleEntriesPerType,
     approvalMode: CreateTournamentSchema.shape.approvalMode,
     avatarStorageId: CreateTournamentSchema.shape.avatarStorageId,
     categories: z
-      .array(CreateCategoryInputSchema)
-      .min(1, "Selecione pelo menos uma categoria."),
+      .array(TournamentCategoryFormSchema)
+      .min(1, "Crie pelo menos uma categoria."),
     city: CreateTournamentSchema.shape.city,
     courts: CreateTournamentSchema.shape.courts,
     coverStorageId: CreateTournamentSchema.shape.coverStorageId,
@@ -110,6 +72,24 @@ export const TournamentSchema = z
         code: z.ZodIssueCode.custom,
         message: "O prazo de inscrições deve ser anterior à data de início.",
         path: ["registrationDeadlineAt"],
+      });
+    }
+
+    // O card já marca as linhas duplicadas; aqui o SALVAR também barra (mesma
+    // frase do refine do contrato), senão o submit passaria e o servidor recusaria.
+    const duplicateIds = new Set(collectDuplicateCategoryIds(value.categories));
+
+    if (duplicateIds.size > 0) {
+      value.categories.forEach((category, index) => {
+        if (!duplicateIds.has(category.id)) {
+          return;
+        }
+
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: CATEGORY_NAME_DUPLICATE_MESSAGE,
+          path: ["categories", index, "name"],
+        });
       });
     }
   });

@@ -468,7 +468,7 @@ export default function TournamentEntriesRoute() {
 
             return (
               <EntryCard
-                categoryLabel={category?.displayName ?? null}
+                categoryLabel={category?.name ?? null}
                 entryStatus={entry.status}
                 key={entry.id}
                 noteLabel={resolveInviteNote({
@@ -482,7 +482,7 @@ export default function TournamentEntriesRoute() {
                 playerName={names[0] ?? ""}
               >
                 <EntryRowActions
-                  categoryName={category?.displayName ?? ""}
+                  categoryName={category?.name ?? ""}
                   entry={entry}
                   isActionPending={isActionPending}
                   isOrganizer={isOrganizer}
