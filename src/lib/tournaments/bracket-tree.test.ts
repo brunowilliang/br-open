@@ -8,6 +8,7 @@ import {
   commitCardHeight,
   bracketFitTransform,
   bracketFitZoom,
+  bracketOpeningBand,
   bracketOpeningColumn,
   bracketOpeningTransform,
   bracketOpeningZoom,
@@ -215,15 +216,40 @@ describe("bracketFitZoom", () => {
   });
 });
 
+/** Header flutuante (tab das categorias) e barra de navegação de baixo: os dois
+ * flutuantes que a abertura da chave desconta. */
+const HEADER_INSET = 167;
+const BOTTOM_INSET = 110;
+
+/** Faixa sem flutuantes: reproduz a geometria anterior às folgas. */
+function fullBand(viewportHeight: number) {
+  return {
+    bottom: viewportHeight - BRACKET_FIT_VIEW_PADDING,
+    top: BRACKET_FIT_VIEW_PADDING,
+  };
+}
+
 describe("bracketOpeningZoom", () => {
   const COLUMN = { cardWidth: 320, connectorWidth: 32 };
 
   test("enquadra UMA coluna e nunca upscala", () => {
     expect(
-      bracketOpeningZoom({ ...COLUMN, fitZoom: 0.51, viewportWidth: 393 })
+      bracketOpeningZoom({
+        ...COLUMN,
+        band: fullBand(956),
+        columnHeight: 0,
+        fitZoom: 0.51,
+        viewportWidth: 393,
+      })
     ).toBeCloseTo((393 - 48) / 352);
     expect(
-      bracketOpeningZoom({ ...COLUMN, fitZoom: 0.2, viewportWidth: 2000 })
+      bracketOpeningZoom({
+        ...COLUMN,
+        band: fullBand(956),
+        columnHeight: 0,
+        fitZoom: 0.2,
+        viewportWidth: 2000,
+      })
     ).toBe(1);
   });
 
@@ -231,7 +257,43 @@ describe("bracketOpeningZoom", () => {
     // Grafo de UMA coluna: o fit do grafo é maior que o enquadramento de uma
     // coluna, e mesmo assim a abertura não pode afastar mais que ele.
     expect(
-      bracketOpeningZoom({ ...COLUMN, fitZoom: 1, viewportWidth: 393 })
+      bracketOpeningZoom({
+        ...COLUMN,
+        band: fullBand(956),
+        columnHeight: 0,
+        fitZoom: 1,
+        viewportWidth: 393,
+      })
+    ).toBe(1);
+  });
+
+  test("a coluna do foco cabe na faixa util: o teto e as folgas", () => {
+    const band = bracketOpeningBand({
+      bottomInset: BOTTOM_INSET,
+      headerInset: HEADER_INSET,
+      viewportHeight: 956,
+    });
+    const columnHeight = 904;
+
+    // Faixa = 956 - 110 (barra) - 24 (padding) - 167 (header) - 16 (folga) = 639.
+    expect(
+      bracketOpeningZoom({
+        ...COLUMN,
+        band,
+        columnHeight,
+        fitZoom: 0.2,
+        viewportWidth: 440,
+      })
+    ).toBeCloseTo(639 / columnHeight);
+    // Coluna baixa não mexe no enquadramento de largura.
+    expect(
+      bracketOpeningZoom({
+        ...COLUMN,
+        band,
+        columnHeight: 300,
+        fitZoom: 0.2,
+        viewportWidth: 440,
+      })
     ).toBe(1);
   });
 });
@@ -709,19 +771,19 @@ describe("bracketOpeningColumn", () => {
       bracketOpeningColumn(
         buildLayout([["scheduled", "scheduled"], ["scheduled"]])
       )
-    ).toEqual({ bottom: 212, top: 0, x: 0 });
+    ).toEqual({ bottom: 212, top: 0, width: SIZING.cardWidth, x: 0 });
   });
 
   test("com a rodada 1 decidida enquadra a rodada aberta seguinte", () => {
     expect(
       bracketOpeningColumn(buildLayout([["finished", "finished"], ["pending"]]))
-    ).toEqual({ bottom: 156, top: 56, x: 288 });
+    ).toEqual({ bottom: 156, top: 56, width: SIZING.cardWidth, x: 288 });
   });
 
   test("bye e vaga morta não seguram a rodada aberta", () => {
     expect(
       bracketOpeningColumn(buildLayout([["walkover", "vacant"], ["scheduled"]]))
-    ).toEqual({ bottom: 156, top: 56, x: 288 });
+    ).toEqual({ bottom: 156, top: 56, width: SIZING.cardWidth, x: 288 });
   });
 
   test("tudo decidido cai na última rodada (a final)", () => {
@@ -733,7 +795,7 @@ describe("bracketOpeningColumn", () => {
           ["finished"],
         ])
       )
-    ).toEqual({ bottom: 268, top: 168, x: 576 });
+    ).toEqual({ bottom: 268, top: 168, width: SIZING.cardWidth, x: 576 });
   });
 
   test("layout vazio não tem coluna", () => {
@@ -767,7 +829,9 @@ describe("bracketOpeningTransform", () => {
     return {
       fitZoom,
       openingZoom: bracketOpeningZoom({
+        band: fullBand(VIEWPORT.viewportHeight),
         cardWidth: SIZING.cardWidth,
+        columnHeight: 0,
         connectorWidth: SIZING.connectorWidth,
         fitZoom,
         viewportWidth: VIEWPORT.viewportWidth,
@@ -775,7 +839,7 @@ describe("bracketOpeningTransform", () => {
     };
   };
 
-  test("enquadra a rodada aberta na margem e tira a rodada 1 da tela", () => {
+  test("centra a rodada aberta e tira a rodada 1 da tela", () => {
     const layout = buildLayout([
       Array.from({ length: 16 }, () => "finished"),
       Array.from({ length: 8 }, () => "scheduled"),
@@ -783,8 +847,14 @@ describe("bracketOpeningTransform", () => {
       Array.from({ length: 2 }, () => "scheduled"),
       ["scheduled"],
     ]);
-    const column = bracketOpeningColumn(layout) ?? { bottom: 0, top: 0, x: 0 };
+    const column = bracketOpeningColumn(layout) ?? {
+      bottom: 0,
+      top: 0,
+      width: SIZING.cardWidth,
+      x: 0,
+    };
     const transform = bracketOpeningTransform({
+      band: fullBand(VIEWPORT.viewportHeight),
       column,
       ...zoomFor(layout),
       graphHeight: layout.height,
@@ -792,15 +862,22 @@ describe("bracketOpeningTransform", () => {
       ...VIEWPORT,
     });
 
-    // Zoom de UMA coluna: a rodada aberta encosta na margem de cima e da
-    // esquerda, o card inteiro cabe na largura e a coluna da esquerda sai da
-    // tela.
+    // Zoom de UMA coluna, com a do foco CENTRADA nos dois eixos: o card no
+    // meio da largura e a coluna no meio da faixa útil.
     expect(transform.zoom).toBe(1);
-    expect(transform.x).toBe(-264);
-    expect(transform.y).toBe(-32);
-    expect(transform.x + transform.zoom * column.x).toBe(
-      BRACKET_FIT_VIEW_PADDING
+    expect(
+      transform.x + transform.zoom * (column.x + column.width / 2)
+    ).toBeCloseTo(VIEWPORT.viewportWidth / 2, 6);
+    expect(
+      transform.y + transform.zoom * ((column.top + column.bottom) / 2)
+    ).toBeCloseTo(
+      (fullBand(VIEWPORT.viewportHeight).top +
+        fullBand(VIEWPORT.viewportHeight).bottom) /
+        2,
+      6
     );
+    // O card inteiro cabe na largura e a primeira rodada sai da tela pela
+    // esquerda.
     expect(
       transform.x + transform.zoom * (column.x + SIZING.cardWidth)
     ).toBeLessThanOrEqual(VIEWPORT.viewportWidth);
@@ -813,8 +890,14 @@ describe("bracketOpeningTransform", () => {
       Array.from({ length: 2 }, () => "finished"),
       ["finished"],
     ]);
-    const column = bracketOpeningColumn(layout) ?? { bottom: 0, top: 0, x: 0 };
+    const column = bracketOpeningColumn(layout) ?? {
+      bottom: 0,
+      top: 0,
+      width: SIZING.cardWidth,
+      x: 0,
+    };
     const transform = bracketOpeningTransform({
+      band: fullBand(VIEWPORT.viewportHeight),
       column,
       ...zoomFor(layout),
       graphHeight: layout.height,
@@ -822,15 +905,30 @@ describe("bracketOpeningTransform", () => {
       ...VIEWPORT,
     });
 
-    expect(transform.x).toBe(-552);
     expect(transform.zoom).toBe(1);
-    // Coluna mais baixa que a tela: o centro dela cai no centro do viewport.
+    // A rodada do foco centra na largura e no meio da faixa útil, mesmo sendo
+    // a última: o que aparece nas bordas é o que existe (a semi, à esquerda).
+    expect(
+      transform.x + transform.zoom * (column.x + column.width / 2)
+    ).toBeCloseTo(VIEWPORT.viewportWidth / 2, 6);
     expect(
       transform.y + transform.zoom * ((column.top + column.bottom) / 2)
-    ).toBeCloseTo(VIEWPORT.viewportHeight / 2, 6);
+    ).toBeCloseTo(
+      (fullBand(VIEWPORT.viewportHeight).top +
+        fullBand(VIEWPORT.viewportHeight).bottom) /
+        2,
+      6
+    );
+    expect(
+      transform.x +
+        transform.zoom *
+          (column.x -
+            (SIZING.cardWidth + SIZING.connectorWidth) +
+            SIZING.cardWidth)
+    ).toBeGreaterThan(0);
   });
 
-  test("na 1ª rodada o enquadramento é o mesmo de antes", () => {
+  test("1ª rodada aberta: o card centra e a rodada seguinte espia na borda", () => {
     const layout = buildLayout([
       Array.from({ length: 16 }, () => "scheduled"),
       Array.from({ length: 8 }, () => "scheduled"),
@@ -838,25 +936,121 @@ describe("bracketOpeningTransform", () => {
       Array.from({ length: 2 }, () => "scheduled"),
       ["scheduled"],
     ]);
-    const { fitZoom, openingZoom } = zoomFor(layout);
+    const { fitZoom } = zoomFor(layout);
+    const band = fullBand(VIEWPORT.viewportHeight);
+    const column = bracketOpeningColumn(layout);
+    const openingZoom = bracketOpeningZoom({
+      band,
+      cardWidth: SIZING.cardWidth,
+      columnHeight: column ? column.bottom - column.top : 0,
+      connectorWidth: SIZING.connectorWidth,
+      fitZoom,
+      viewportWidth: VIEWPORT.viewportWidth,
+    });
+    const transform = bracketOpeningTransform({
+      band,
+      column,
+      fitZoom,
+      graphHeight: layout.height,
+      graphWidth: layout.width,
+      openingZoom,
+      ...VIEWPORT,
+    });
+    const focus = column ?? { width: SIZING.cardWidth, x: 0 };
 
+    // Sem vizinha à esquerda o card ainda centra; a rodada seguinte começa
+    // dentro da largura (é o "pedacinho" que aparece na borda direita).
     expect(
-      bracketOpeningTransform({
-        column: bracketOpeningColumn(layout),
-        fitZoom,
-        graphHeight: layout.height,
-        graphWidth: layout.width,
-        openingZoom,
-        ...VIEWPORT,
-      })
-    ).toEqual(
-      bracketFitTransform({
-        fitZoom: openingZoom,
-        graphHeight: layout.height,
-        graphWidth: layout.width,
-        ...VIEWPORT,
-      })
+      transform.x + transform.zoom * (focus.x + focus.width / 2)
+    ).toBeCloseTo(VIEWPORT.viewportWidth / 2, 6);
+    expect(
+      transform.x +
+        transform.zoom * (focus.x + SIZING.cardWidth + SIZING.connectorWidth)
+    ).toBeLessThan(VIEWPORT.viewportWidth);
+  });
+
+  test("com tab e barra, a coluna ancora abaixo da tab e acaba acima da barra", () => {
+    const layout = buildLayout([
+      Array.from({ length: 8 }, () => "scheduled"),
+      Array.from({ length: 4 }, () => "scheduled"),
+      Array.from({ length: 2 }, () => "scheduled"),
+      ["scheduled"],
+    ]);
+    const band = bracketOpeningBand({
+      bottomInset: BOTTOM_INSET,
+      headerInset: HEADER_INSET,
+      viewportHeight: VIEWPORT.viewportHeight,
+    });
+    const column = bracketOpeningColumn(layout) ?? {
+      bottom: 0,
+      top: 0,
+      width: SIZING.cardWidth,
+      x: 0,
+    };
+    const { fitZoom } = zoomFor(layout);
+    const openingZoom = bracketOpeningZoom({
+      band,
+      cardWidth: SIZING.cardWidth,
+      columnHeight: column.bottom - column.top,
+      connectorWidth: SIZING.connectorWidth,
+      fitZoom,
+      viewportWidth: VIEWPORT.viewportWidth,
+    });
+    const transform = bracketOpeningTransform({
+      band,
+      column,
+      fitZoom,
+      graphHeight: layout.height,
+      graphWidth: layout.width,
+      openingZoom,
+      ...VIEWPORT,
+    });
+
+    // Coluna de 8 partidas (884 de grafo) não cabe na faixa (639) no zoom de
+    // uma coluna cheia (1): o teto da faixa afasta o enquadramento…
+    expect(transform.zoom).toBeCloseTo(639 / 884);
+    // …o topo ANCORA na folga abaixo da tab e a base acaba na faixa, sem
+    // encostar na barra de baixo.
+    expect(transform.y + transform.zoom * column.top).toBeCloseTo(band.top, 6);
+    expect(transform.y + transform.zoom * column.bottom).toBeCloseTo(
+      band.bottom,
+      6
     );
+    expect(transform.y + transform.zoom * column.bottom).toBeLessThan(
+      VIEWPORT.viewportHeight - BOTTOM_INSET
+    );
+  });
+
+  test("com a tab, coluna que já cabe na faixa não muda de zoom", () => {
+    const layout = buildLayout([
+      Array.from({ length: 4 }, () => "scheduled"),
+      Array.from({ length: 2 }, () => "scheduled"),
+      ["scheduled"],
+    ]);
+    const band = bracketOpeningBand({
+      bottomInset: BOTTOM_INSET,
+      headerInset: HEADER_INSET,
+      viewportHeight: VIEWPORT.viewportHeight,
+    });
+    const column = bracketOpeningColumn(layout) ?? {
+      bottom: 0,
+      top: 0,
+      width: SIZING.cardWidth,
+      x: 0,
+    };
+
+    // 436 de coluna contra 639 de faixa: o teto não pega e a abertura fica
+    // exatamente como era.
+    expect(
+      bracketOpeningZoom({
+        band,
+        cardWidth: SIZING.cardWidth,
+        columnHeight: column.bottom - column.top,
+        connectorWidth: SIZING.connectorWidth,
+        fitZoom: 0.2,
+        viewportWidth: VIEWPORT.viewportWidth,
+      })
+    ).toBe(1);
   });
 
   test("grafo inteiro já no zoom de abertura: nada de deslocar", () => {
@@ -869,7 +1063,9 @@ describe("bracketOpeningTransform", () => {
         ...wideViewport,
       }) ?? 1;
     const openingZoom = bracketOpeningZoom({
+      band: fullBand(wideViewport.viewportHeight),
       cardWidth: SIZING.cardWidth,
+      columnHeight: 0,
       connectorWidth: SIZING.connectorWidth,
       fitZoom,
       viewportWidth: wideViewport.viewportWidth,
@@ -877,6 +1073,7 @@ describe("bracketOpeningTransform", () => {
 
     expect(
       bracketOpeningTransform({
+        band: fullBand(VIEWPORT.viewportHeight),
         column: bracketOpeningColumn(layout),
         fitZoom,
         graphHeight: layout.height,
@@ -899,6 +1096,7 @@ describe("bracketOpeningTransform", () => {
 
     expect(
       bracketOpeningTransform({
+        band: fullBand(VIEWPORT.viewportHeight),
         column: null,
         fitZoom: 0.5,
         graphHeight: 0,

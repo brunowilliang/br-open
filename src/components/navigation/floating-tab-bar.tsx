@@ -7,6 +7,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Uniwind } from "uniwind";
 
 import { HugeIcons } from "@/components/ui/huge-icons";
+import {
+  FLOATING_TAB_BAR_BOTTOM_GAP,
+  floatingTabBarHeight$,
+  getFloatingTabBarSpacing,
+} from "@/lib/navigation/floating-tab-bar-layout";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 
 export type FloatingTabBarItem = {
@@ -31,14 +36,7 @@ type FloatingTabBarProps = BottomTabBarProps & {
   triggerClassName?: string;
 };
 
-const FLOATING_TAB_BAR_BOTTOM_GAP = 12;
 const FLOATING_TAB_BAR_THEMES = ["light", "dark"] as const;
-
-// Altura da barra APRENDIDA no primeiro layout e lembrada no módulo: a barra tem
-// desenho fixo (muda com a safe area, não com o conteúdo), e sem valor conhecido
-// no primeiro frame o `pb-floating-tab-bar-*` das telas caía no fallback (16px) e
-// só depois subia — o rodapé dava um pulo quando a barra aparecia.
-let knownTabBarHeight = 0;
 
 type FloatingTabBarCSSVariables = {
   "--floating-tab-bar-bottom-offset": number;
@@ -46,22 +44,23 @@ type FloatingTabBarCSSVariables = {
   "--spacing-floating-tab-bar": number;
 };
 
-function normalizeLayoutValue(value: number) {
-  return Math.ceil(Math.max(value, 0));
-}
-
 function buildFloatingTabBarCSSVariables(input: {
   bottomInset: number;
   height: number;
 }): FloatingTabBarCSSVariables {
-  const height = normalizeLayoutValue(input.height);
+  const height = Math.ceil(Math.max(input.height, 0));
+  // A folga da barra é a MESMA que as telas descontam do layout (a altura dela
+  // é aprendida no primeiro layout e fica no store): um número só.
   const bottomOffset =
-    normalizeLayoutValue(input.bottomInset) + FLOATING_TAB_BAR_BOTTOM_GAP;
+    Math.ceil(Math.max(input.bottomInset, 0)) + FLOATING_TAB_BAR_BOTTOM_GAP;
 
   return {
     "--floating-tab-bar-bottom-offset": bottomOffset,
     "--floating-tab-bar-height": height,
-    "--spacing-floating-tab-bar": height + bottomOffset,
+    "--spacing-floating-tab-bar": getFloatingTabBarSpacing({
+      bottomInset: input.bottomInset,
+      height: input.height,
+    }),
   };
 }
 
@@ -80,7 +79,9 @@ function FloatingTabBarRoot(
   props: ComponentProps<typeof View>
 ): React.ReactElement {
   const insets = useSafeAreaInsets();
-  const [tabBarHeight, setTabBarHeight] = useState(knownTabBarHeight);
+  const [tabBarHeight, setTabBarHeight] = useState(
+    floatingTabBarHeight$.peek()
+  );
 
   // Layout effect (antes do paint) e já semeado com a altura conhecida: o
   // `pb-floating-tab-bar-*` das telas vale certo no primeiro frame. SEM cleanup:
@@ -103,7 +104,7 @@ function FloatingTabBarRoot(
         props.className
       )}
       onLayout={(event) => {
-        knownTabBarHeight = event.nativeEvent.layout.height;
+        floatingTabBarHeight$.set(event.nativeEvent.layout.height);
         setTabBarHeight(event.nativeEvent.layout.height);
         props.onLayout?.(event);
       }}

@@ -2,16 +2,29 @@ import { MoreVerticalIcon, ShuffleIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Dialog, Menu, Tabs, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
+import {
+  floatingTabBarHeight$,
+  getFloatingTabBarSpacing,
+} from "@/lib/navigation/floating-tab-bar-layout";
 
 import { ScheduleProposalDialog } from "@/components/ui/schedule-proposal-dialog";
 import { BracketCanvas } from "@/components/pages/tournaments/bracket-canvas";
 import { BracketMatchCard } from "@/components/pages/tournaments/bracket-match-card";
+import {
+  buildPlayerAgreementCard,
+  useMatchAgreement,
+  useMatchAgreementView,
+  useNegotiablePlayerMatches,
+  type RunMatchAgreementAction,
+} from "@/components/pages/tournaments/match-agreement-provider";
+import { PlayerMatchPanel } from "@/components/pages/tournaments/player-match-panel";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -44,6 +57,7 @@ import {
   formatBracketStage,
   formatEntrySideLabel,
 } from "@/lib/tournaments/tournament-details-derived";
+import { isMatchAgreementLocked } from "@/lib/tournaments/match-agreement-view";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 /** Card da chave + espaço do cotovelo entre rodadas (uniwind rem = 16). O card
@@ -69,6 +83,17 @@ export default function TournamentBracketRoute() {
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  // Alturas flutuantes que a abertura da chave desconta (o header com a tab das
+  // categorias e a barra de navegação de baixo): o header se mede aqui porque o
+  // `Page` é filho deste mesmo componente (o contexto da Page nasce daqui pra
+  // dentro); a barra é irmã da tela e publica a altura dela no store.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const floatingTabBarHeight = useValue(floatingTabBarHeight$);
+  const insets = useSafeAreaInsets();
+  const bottomInset = getFloatingTabBarSpacing({
+    bottomInset: insets.bottom,
+    height: floatingTabBarHeight,
+  });
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
   const access = useValue(bucket$.derived.access);
@@ -77,6 +102,17 @@ export default function TournamentBracketRoute() {
   const entriesById = useValue(bucket$.derived.entriesById);
   const categoriesById = useValue(bucket$.derived.categoriesById);
 
+  const { runAction } = useMatchAgreement();
+  const { byMatchId: myMatchesByMatchId } = useMatchAgreementView(tournamentId);
+  const myMatches = useNegotiablePlayerMatches(tournamentId);
+  // O host do acerto vive no casco privado e não conhece a tela: quem sabe o
+  // torneio do nó é o card, então o id vai junto na ação.
+  const runAgreementAction = useCallback<RunMatchAgreementAction>(
+    (request) => {
+      runAction({ ...request, tournamentId });
+    },
+    [runAction, tournamentId]
+  );
   const [resultTarget, setResultTarget] = useState<ResultTarget | null>(null);
   const [scheduleTarget, setScheduleTarget] =
     useState<TournamentMatchWithSides | null>(null);
@@ -472,6 +508,8 @@ export default function TournamentBracketRoute() {
 
   // Stable identity across gesture-end canvas re-renders: the canvas only
   // re-renders its edges then, so cards skip reconciliation entirely.
+  const bracketCourts = tournament?.courts;
+
   const renderCard = useCallback(
     ({ match }: BracketTreeCardEntry) => {
       const courtName = courtNameOf(match);
@@ -484,8 +522,26 @@ export default function TournamentBracketRoute() {
         modality,
       });
 
+      const playerMatch = myMatchesByMatchId[match.id] ?? null;
+
       return (
         <BracketMatchCard
+          agreement={
+            playerMatch
+              ? buildPlayerAgreementCard({
+                  courts: bracketCourts ?? [],
+                  isMatchLocked: isMatchAgreementLocked({
+                    matchStatus: match.status,
+                    tournamentStatus,
+                    winnerEntryId: match.winnerEntryId,
+                  }),
+                  playerMatch,
+                  runAction: runAgreementAction,
+                  sideOrder: "match",
+                  tournamentStatus,
+                })
+              : null
+          }
           courtName={courtName}
           isConclusionPending={isConclusionPending}
           isFinal={match.round === activeTreeLayout?.tree.columns.length}
@@ -538,6 +594,7 @@ export default function TournamentBracketRoute() {
     },
     [
       activeTreeLayout,
+      bracketCourts,
       courtNameOf,
       feedBySlot,
       handleConcludePress,
@@ -547,6 +604,8 @@ export default function TournamentBracketRoute() {
       isOrganizer,
       isSwapPending,
       isTournamentClosed,
+      myMatchesByMatchId,
+      runAgreementAction,
       swapTarget,
       tournamentStatus,
     ]
@@ -576,7 +635,12 @@ export default function TournamentBracketRoute() {
   const hasMultipleCategories = categoryTabs.length > 1;
   return (
     <Page>
-      <Page.Header>
+      <Page.Header
+        onLayout={(event) => {
+          const { height } = event.nativeEvent.layout;
+          setHeaderHeight((current) => (current === height ? current : height));
+        }}
+      >
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row">
             <Page.Header.Left />
@@ -640,6 +704,14 @@ export default function TournamentBracketRoute() {
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           <LoadingState />
         </Page.ScrollView>
+      ) : bracketPlaceholder && myMatches.length > 0 ? (
+        <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
+          <PlayerMatchPanel showBracketNote tournamentId={tournamentId} />
+          <EmptyState
+            description={bracketPlaceholder}
+            title="Chave em preparação"
+          />
+        </Page.ScrollView>
       ) : bracketPlaceholder ? (
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           <EmptyState
@@ -652,9 +724,11 @@ export default function TournamentBracketRoute() {
         // a re-entrada na aba NÃO remonta: o focusSeed re-enquadra a mesma
         // instância (sem piscar).
         <BracketCanvas
+          bottomInset={bottomInset}
           cardWidth={CARD_WIDTH}
           connectorWidth={CONNECTOR_WIDTH}
           focusSeed={bracketFocusSeed}
+          headerInset={headerHeight}
           key={activeTreeLayout.tree.id}
           layout={layout}
           renderCard={renderCard}

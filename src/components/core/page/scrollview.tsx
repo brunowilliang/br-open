@@ -1,9 +1,10 @@
 import { cn } from "better-styled";
-import type { ComponentProps } from "react";
+import type { ComponentProps, Ref } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { View } from "react-native";
 import {
   type KeyboardAwareScrollViewProps,
+  type KeyboardAwareScrollViewRef,
   KeyboardAwareScrollView as RNKeyboardAwareScrollView,
 } from "react-native-keyboard-controller";
 import { useAnimatedScrollHandler } from "react-native-reanimated";
@@ -30,8 +31,12 @@ export function buildPageInsetStyle(input: {
   return style;
 }
 
+/** `ref` entra por prop (função-componente no React 19): telas que rolam até um
+ * alvo medem e chamam `scrollTo` pelo ref do próprio ScrollView. */
 export const PageKeyboardAwareScrollView = (
-  props: KeyboardAwareScrollViewProps
+  props: KeyboardAwareScrollViewProps & {
+    ref?: Ref<KeyboardAwareScrollViewRef>;
+  }
 ) => {
   const context = usePageContext();
 
@@ -75,6 +80,7 @@ export const PageKeyboardAwareScrollView = (
           typeof RNKeyboardAwareScrollView
         >["onScroll"]
       }
+      ref={props.ref}
       scrollEventThrottle={
         props.scrollEventThrottle ?? DEFAULT_SCROLL_EVENT_THROTTLE
       }

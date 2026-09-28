@@ -1,7 +1,7 @@
 import { Card } from "heroui-native";
 import { View } from "react-native";
 
-import { MatchCard } from "@/components/ui/match-card";
+import { MatchCard, type MatchCardAgreement } from "@/components/ui/match-card";
 import { BRACKET_BYE_CARD_HEIGHT } from "@/lib/tournaments/bracket-tree";
 import {
   isByeMatch,
@@ -14,6 +14,9 @@ import {
 } from "@/lib/tournaments/tournament-details-derived";
 
 type BracketMatchCardProps = {
+  /** Acerto do confronto: só o card de quem JOGA o recebe (o organizador segue
+   * com o menu dele). */
+  agreement?: MatchCardAgreement | null;
   courtName: null | string;
   isFinal: boolean;
   /** A pendência do organizador de concluir o torneio está viva (toda categoria
@@ -43,6 +46,7 @@ type BracketMatchCardProps = {
  * menu do organizador só onde há ação (torneio aberto e os dois lados
  * preenchidos). */
 export function BracketMatchCard({
+  agreement,
   courtName,
   isConclusionPending,
   isFinal,
@@ -107,6 +111,7 @@ export function BracketMatchCard({
       }}
     >
       <MatchCard
+        agreement={agreement}
         challengedAvatarUrl={match.entryB?.playerA?.avatarUrl ?? null}
         challengedDefined={match.entryB !== null}
         challengedName={sideBNames[0]}

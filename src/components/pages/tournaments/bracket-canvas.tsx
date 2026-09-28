@@ -17,6 +17,7 @@ import {
 } from "@/lib/tournaments/bracket-edges";
 import {
   bracketFitZoom,
+  bracketOpeningBand,
   bracketOpeningColumn,
   bracketOpeningTransform,
   bracketOpeningZoom,
@@ -41,6 +42,9 @@ const ZOOM_TIMING = {
 type BracketCanvasCard = BracketTreeLayout["cards"][number];
 
 type BracketCanvasProps = {
+  /** Espaço que a barra de navegação flutuante ocupa na base da tela
+   * (`getFloatingTabBarSpacing`): entra na faixa útil da abertura. */
+  bottomInset: number;
   /** Largura do card e do cotovelo em pt de GRAFO: é o que define quantas
    * colunas cabem no enquadramento de abertura. */
   cardWidth: number;
@@ -48,14 +52,19 @@ type BracketCanvasProps = {
   /** Versão monotônica do foco: mudar (re-entrada na tela) re-enquadra a chave
    * no fit SEM remontar o canvas (o remount por foco piscava a tela). */
   focusSeed: number;
+  /** Altura do header flutuante (a tab do chaveamento) medida pela tela: entra
+   * na faixa útil do enquadramento de abertura. */
+  headerInset: number;
   layout: BracketTreeLayout;
   renderCard: (card: BracketCanvasCard) => ReactNode;
 };
 
 type FramedBracketContentProps = Omit<
   BracketCanvasProps,
-  "cardWidth" | "connectorWidth"
+  "bottomInset" | "cardWidth" | "connectorWidth" | "headerInset"
 > & {
+  /** Faixa vertical útil do enquadramento (abaixo do header flutuante). */
+  band: { bottom: number; top: number };
   /** Já não-nulo: o filho só monta depois do viewport medido. */
   fitZoom: number;
   /** Coluna do enquadramento de abertura (a rodada ainda aberta). */
@@ -138,6 +147,7 @@ const BracketEdges = memo(function BracketEdges({
  * condicional nasceria em identidade e o primeiro frame nativo pintaria o grafo
  * gigante antes de saltar pro fit (a piscada da 1ª abertura). */
 function FramedBracketContent({
+  band,
   fitZoom,
   focusSeed,
   layout,
@@ -149,6 +159,7 @@ function FramedBracketContent({
   const tint = useThemeColor("muted");
 
   const initialTransform = bracketOpeningTransform({
+    band,
     column: openingColumn,
     fitZoom,
     graphHeight: layout.height,
@@ -180,6 +191,7 @@ function FramedBracketContent({
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusSeed é o gatilho INTENCIONAL do re-enquadramento na re-entrada da aba (não é lido no corpo; o remount por foco piscava a tela)
   useLayoutEffect(() => {
     const next = bracketOpeningTransform({
+      band,
       column: openingColumn,
       fitZoom,
       graphHeight: layout.height,
@@ -193,6 +205,10 @@ function FramedBracketContent({
     translateX.value = next.x;
     translateY.value = next.y;
   }, [
+    // A faixa entra por VALOR (o par top/bottom): a identidade mudaria a cada
+    // render da tela e re-enquadraria à toa, resetando o pan do usuário.
+    band.bottom,
+    band.top,
     fitZoom,
     focusSeed,
     layout.height,
@@ -510,9 +526,11 @@ function FramedBracketContent({
  * zoom de abertura pronto, então o primeiro frame nativo nasce nele, sem passar
  * por identidade. */
 export function BracketCanvas({
+  bottomInset,
   cardWidth,
   connectorWidth,
   focusSeed,
+  headerInset,
   layout,
   renderCard,
 }: BracketCanvasProps) {
@@ -539,28 +557,44 @@ export function BracketCanvas({
     [layout.height, layout.width, viewport.height, viewport.width]
   );
 
-  // Abertura: UMA coluna enquadrada, nunca abaixo do fit.
+  // A coluna da abertura é a rodada ainda aberta da ÁRVORE ATIVA (a categoria
+  // remonta o canvas por key, então o enquadramento é dela mesma).
+  const openingColumn = useMemo(() => bracketOpeningColumn(layout), [layout]);
+
+  // Faixa vertical útil: abaixo do header flutuante e acima da barra de baixo.
+  const band = useMemo(
+    () =>
+      bracketOpeningBand({
+        bottomInset,
+        headerInset,
+        viewportHeight: viewport.height,
+      }),
+    [bottomInset, headerInset, viewport.height]
+  );
+
+  // Abertura: UMA coluna enquadrada (na largura e na faixa), nunca abaixo do fit.
   const openingZoom = useMemo(
     () =>
       fitZoom === null
         ? null
         : bracketOpeningZoom({
+            band,
             cardWidth,
+            columnHeight: openingColumn
+              ? openingColumn.bottom - openingColumn.top
+              : 0,
             connectorWidth,
             fitZoom,
             viewportWidth: viewport.width,
           }),
-    [cardWidth, connectorWidth, fitZoom, viewport.width]
+    [band, cardWidth, connectorWidth, fitZoom, openingColumn, viewport.width]
   );
-
-  // A coluna da abertura é a rodada ainda aberta da ÁRVORE ATIVA (a categoria
-  // remonta o canvas por key, então o enquadramento é dela mesma).
-  const openingColumn = useMemo(() => bracketOpeningColumn(layout), [layout]);
 
   return (
     <View collapsable={false} onLayout={handleLayout} style={{ flex: 1 }}>
       {openingZoom === null || fitZoom === null ? null : (
         <FramedBracketContent
+          band={band}
           fitZoom={fitZoom}
           focusSeed={focusSeed}
           layout={layout}

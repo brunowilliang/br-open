@@ -59,12 +59,38 @@ export function bracketFitZoom(input: {
 
 export const PAN_VISIBILITY_BAND = 24;
 
+/** Folga entre a coluna da abertura e o header flutuante (a tab do chaveamento,
+ * medida pela tela): o card não nasce colado nela. */
+export const BRACKET_OPENING_HEADER_GAP = 16;
+
+/** Faixa vertical ÚTIL da abertura: começa abaixo do header flutuante com a
+ * folga e termina acima da barra de navegação (e do padding do enquadramento).
+ * É dentro dela que a coluna do foco cabe e ancora — a centragem no viewport
+ * inteiro deixava o topo atrás da tab e a base sob a barra. */
+export function bracketOpeningBand(input: {
+  /** Espaço que a barra de navegação ocupa na base (`getFloatingTabBarSpacing`). */
+  bottomInset: number;
+  headerInset: number;
+  viewportHeight: number;
+}): { bottom: number; top: number } {
+  return {
+    bottom: input.viewportHeight - input.bottomInset - BRACKET_FIT_VIEW_PADDING,
+    top: input.headerInset + BRACKET_OPENING_HEADER_GAP,
+  };
+}
+
 /** Zoom de ABERTURA do canvas: enquadra UMA coluna (card + cotovelo) em vez do
  * grafo inteiro — é o que faz o card nascer grande na tela. O piso do gesto
  * continua sendo `bracketFitZoom` (a chave inteira), então a pinça afasta até
- * ela; e nunca passa de 1, porque o canvas não upscala. */
+ * ela; e nunca passa de 1, porque o canvas não upscala. Com a coluna do foco
+ * medida, o mesmo enquadramento vale na vertical: ela tem que caber inteira na
+ * faixa útil (`bracketOpeningBand`), que é o que dá o respiro da tab. */
 export function bracketOpeningZoom(input: {
+  /** Faixa vertical útil: teto do zoom da coluna do foco. */
+  band: { bottom: number; top: number };
   cardWidth: number;
+  /** Altura da coluna do foco em pt de GRAFO; 0 = sem coluna (só a largura). */
+  columnHeight: number;
   connectorWidth: number;
   fitZoom: number;
   viewportWidth: number;
@@ -72,8 +98,16 @@ export function bracketOpeningZoom(input: {
   const oneColumn =
     (input.viewportWidth - BRACKET_FIT_VIEW_PADDING * 2) /
     (input.cardWidth + input.connectorWidth);
+  const bandHeight = input.band.bottom - input.band.top;
+  const columnCeiling =
+    input.columnHeight > 0 && bandHeight > 0
+      ? bandHeight / input.columnHeight
+      : 1;
 
-  return Math.max(input.fitZoom, Math.min(1, oneColumn));
+  return Math.max(
+    input.fitZoom,
+    Math.min(1, oneColumn, columnCeiling > 0 ? columnCeiling : 1)
+  );
 }
 
 /** Malha [0..graphWidth]x[0..graphHeight], screen = translate + zoom * graph:
@@ -126,7 +160,13 @@ export function bracketFitTransform(input: {
 }
 
 /** Caixa da coluna (rodada) em coordenadas de grafo. */
-export type BracketOpeningColumn = { bottom: number; top: number; x: number };
+export type BracketOpeningColumn = {
+  bottom: number;
+  top: number;
+  /** Largura do card da rodada: é com ela que a abertura centra na horizontal. */
+  width: number;
+  x: number;
+};
 
 /** Coluna onde a abertura enquadra: a rodada MENOS avançada que ainda tem
  * partida sem resultado — sem nada lançado é a primeira, tudo decidido é a
@@ -160,15 +200,18 @@ export function bracketOpeningColumn(
   return {
     bottom: Math.max(...cards.map(({ layout: box }) => box.y + box.height)),
     top: Math.min(...cards.map(({ layout: box }) => box.y)),
+    width: Math.max(...cards.map(({ layout: box }) => box.width)),
     x: Math.min(...cards.map(({ layout: box }) => box.x)),
   };
 }
 
-/** Transform de ABERTURA: a coluna do foco encosta na margem à esquerda e, na
- * vertical, centra quando cabe na tela — coluna mais alta que o viewport ancora
- * no topo, que é o que a 1ª coluna sempre fez. Com o grafo inteiro já no zoom de
- * abertura não há o que deslocar: cai no fit centrado. */
+/** Transform de ABERTURA: a coluna do foco sai CENTRADA nos dois eixos — na
+ * horizontal, o que deixa as rodadas vizinhas aparecendo nas bordas; na
+ * vertical, dentro da faixa útil (abaixo do header e acima da barra de baixo, e
+ * não do viewport, que é o que a empurrava pra baixo). Com o grafo inteiro já no
+ * zoom de abertura não há o que deslocar: cai no fit centrado. */
 export function bracketOpeningTransform(input: {
+  band: { bottom: number; top: number };
   column: BracketOpeningColumn | null;
   fitZoom: number;
   graphHeight: number;
@@ -187,16 +230,15 @@ export function bracketOpeningTransform(input: {
     });
   }
 
-  const { bottom, top, x } = input.column;
-  const columnHeight = input.openingZoom * (bottom - top);
-  const fitsVertically =
-    columnHeight < input.viewportHeight - BRACKET_FIT_VIEW_PADDING * 2;
+  const { bottom, top, width, x } = input.column;
+  const bandHeight = input.band.bottom - input.band.top;
 
   return {
-    x: BRACKET_FIT_VIEW_PADDING - input.openingZoom * x,
-    y: fitsVertically
-      ? (input.viewportHeight - input.openingZoom * (top + bottom)) / 2
-      : BRACKET_FIT_VIEW_PADDING - input.openingZoom * top,
+    x: input.viewportWidth / 2 - input.openingZoom * (x + width / 2),
+    y:
+      input.band.top +
+      bandHeight / 2 -
+      input.openingZoom * ((top + bottom) / 2),
     zoom: input.openingZoom,
   };
 }
