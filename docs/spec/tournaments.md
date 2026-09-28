@@ -2347,9 +2347,9 @@ de uma superfície para outra é o dado que ela tem.
 
 - `BracketMatchCard` (bracket-match-card.tsx:45) é CASCA: embrulha o `MatchCard`
   num `View` com `onLayout` (a medida alimenta o grafo), resolve a vaga bye,
-  gateia as ações do organizador (`canAct`, :96 — organizador, torneio NÃO
+  gateia as ações do organizador (`canAct`, :100 — organizador, torneio NÃO
   encerrado e os dois lados preenchidos) e deriva o `walkoverWinner` do
-  próprio `match` (:101) — o W.O. jogado não precisa de dado novo da tela. É
+  próprio `match` (:105) — o W.O. jogado não precisa de dado novo da tela. É
   ela que decide o item "Concluir torneio" da final, com o torneio aberto e a
   pendência viva.
 - A vaga BYE (bye do sorteio, `isByeMatch`) sai antes do card: container vazio
