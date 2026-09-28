@@ -1135,7 +1135,15 @@
   `buildSwapPersistPlan` (linhas reescritas + entradas afetadas para a
   notificação; o move descendido persiste a POSIÇÃO permutada e a linha
   clicada entra como alimentada, com bump de `rowVersion`), `validateBracketStartable`
-  (gate do `start`, vaga de rodada 1 incluída) e `nextMatchCoordinates`.
+  (gate do `start`, vaga de rodada 1 incluída), `nextMatchCoordinates`,
+  `resolveCategoryTotalRounds` (a última rodada do quadro da categoria — o
+  `totalRounds` que o chip de fase do confronto usa; piso 1 quando o quadro está
+  vazio), `matchBecameReady` (o lado que faltava CHEGOU — o gate do aviso de
+  "próximo jogo": a chave publicada já avisa todos de uma vez, então o aviso só
+  nasce quando um lado entra depois, por avanço ou encaixe manual) e
+  `formatBracketStage` (nome do estágio pelo tamanho do quadro — Final/Semifinal/
+  Quartas de final/Oitavas de final; tamanho incomum cai em "Rodada N", o mesmo
+  rótulo do app).
 - **entry-rules.ts** (puro, testado) — `buildCategoryDisplayName` (as 5 categorias),
   `resolveCallerEligibility` (**r27**: elegibilidade de QUEM SE INSCREVE por
   categoria — fixa exige o gênero do perfil do caller, nulo/oposto recusados;
@@ -1153,7 +1161,10 @@
   `validateEntryGenders` (compõe o gate do CALLER + o do PARCEIRO em duplas:
   mixed = 1 "Masculino"+1 "Feminino", ambos definidos; r25: male/female exigem
   parceiro do gênero da categoria),
-  `resolveEntryStatusAfterPartnerAccepted`, `isEntryDrawable`.
+  `resolveEntryStatusAfterPartnerAccepted`, `resolveEntryCancelledRecipients`
+  (destinatários do aviso de inscrição cancelada: os gestores das duas contas,
+  sem quem agiu — quem cancelou não precisa do aviso do próprio ato),
+  `isEntryDrawable`.
 - **score-rules.ts** — `validateTournamentMatchScore` reusa o
   `resolveMatchScoreOutcome` do módulo de partida
   (`convex/domains/match/score-rules.ts`) e `validateWalkoverWinner` (M4:
@@ -1272,9 +1283,10 @@
   em `tournamentMatchEdit` before/after + editor; notifica
   `tournament.match.result_edited`),
   `scheduleMatch` (data/hora/quadra; reschedule distinto),
-  `listForTournament`. As duas escritas do organizador fecham o acerto VIGENTE
-  por cima (`sweepMatchAgreements` com kind `overridden` no histórico — agendar
-  fecha só o canal de horário, o placar combinado depois do jogo continua
+  `listForTournament`. Os três call sites do organizador — `publishResult`
+  (matches.ts:69), `editResult` (:225) e `scheduleMatch` (:263) — fecham o acerto
+  VIGENTE por cima (`sweepMatchAgreements` com kind `overridden` no histórico —
+  agendar fecha só o canal de horário, o placar combinado depois do jogo continua
   valendo) e o corpo compartilhado mora em `_shared/match_writes.ts`
   (serialização/resolução do resultado, agendamento com janela revalidada,
   destinatários por inscrição).
@@ -1719,8 +1731,9 @@ Vocabulário de produto: **torneio** (nunca "evento").
 - **`tournamentMatchAgreementEvent`** — histórico append-only do acerto (molde
   do `tournamentMatchEdit`): `matchId`, `channel`, `kind`
   (`proposed|accepted|declined|cancelled|reopened|overridden|closed`),
-  `actorSide` (`a|b|organizer`), `actorUserId`, `before`/`after` (snapshot do
-  canal), `createdAt`; índice `matchId`.
+  `actorSide` (`a|b|organizer`), `actorUserId`, `tournamentId` (desnormalizado,
+  `tables.ts:284`; gravado em `match_writes.ts:499`), `before`/`after`
+  (snapshot do canal), `createdAt`; índice `matchId`.
 - **`tournamentEntry.partnerAwaitingReplyNotifiedAt`** — marca do aviso ÚNICO de
   "convite sem resposta" ao dono: o cron horário e o início do torneio varrem a
   mesma condição e a marca segura a repetição (campo opcional, sem migration).
@@ -2301,13 +2314,13 @@ de uma superfície para outra é o dado que ela tem.
   do jogador (`pages/tournaments/player-overview.tsx`), a lista "Próximos jogos"
   da home (`pages/home/player-dashboard.tsx`), os cards do painel "Seu
   confronto" (`player-match-panel.tsx`) e o NÓ do chaveamento (via
-  `BracketMatchCard`, bracket.tsx:488). Nas superfícies do ACERTO quem hospeda o
+  `BracketMatchCard`, bracket.tsx:528). Nas superfícies do ACERTO quem hospeda o
   card é o `AgreementMatchCard`, que injeta o `agreement` (chip, rodapé e menu
   do Combinar jogo) e a ordem dos lados (`sideOrder="viewer"`; a agenda usa
   `sideOrder="match"`). Quem manda
   o `walkoverWinner` do W.O. é a agenda do torneio, pelo item
   (`lib/tournaments/schedule-items.ts:82`), e
-  o nó, pela casca (:87).
+  o nó, pela casca (`bracket-match-card.tsx:105` e `:168`).
 - O "Próximo jogo" da casa do jogador e a lista da home NÃO filtram por
   agendamento: entram os confrontos com os dois lados definidos e sem vencedor,
   com OU sem horário — sem data o card sai com o chip "A definir" e o rodapé de
@@ -2393,7 +2406,7 @@ de uma superfície para outra é o dado que ela tem.
   a aba volta a ganhar foco: a tela incrementa um `focusSeed` monotônico e o
   canvas re-enquadra a MESMA instância (sem o pisca do remount). A largura do
   card e o vão do cotovelo são constantes da rota (`CARD_WIDTH = 320` e
-  `CONNECTOR_WIDTH = 32`, bracket.tsx:52-53) — o card na tela nasce ~1:1.
+  `CONNECTOR_WIDTH = 32`, bracket.tsx:66-67) — o card na tela nasce ~1:1.
 
 ### Fora desta fatia (delta acumulado do domínio)
 

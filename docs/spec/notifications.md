@@ -46,13 +46,13 @@ escreve na tabela direto.
 - **Ator:** `getActorName` (`orchestrator.ts:83`) resolve
   `playerProfile.nickname` → `playerProfile.fullName` → `user.name`. Sem ator, o
   template cai no genérico `Um jogador`.
-- **Destinatário:** `resolveRecipientActor` (`orchestrator.ts:131`). O evento
+- **Destinatário:** `resolveRecipientActor` (`orchestrator.ts:132`). O evento
   decide o KIND do ator: `ORGANIZER_RECIPIENT_EVENTS` (`orchestrator.ts:101`) tem
   **dois** eventos (`tournament.entry.created` e `tournament.entry.cancelled`),
   que nascem no ator **organização**;
   todo o resto nasce no ator **jogador** e é **descartado em silêncio** quando o
-  usuário destinatário não tem `playerProfile` (`orchestrator.ts:150` devolve
-  `null` → `:254-256` pula o destinatário).
+  usuário destinatário não tem `playerProfile` (`orchestrator.ts:151` devolve
+  `null` → `:255-257` pula o destinatário).
 - **Conteúdo e apresentação:** `buildNotificationContent`
   (`definitions.ts:161`) e `buildNotificationPresentation` (`presentation.ts`)
   recebem o MESMO input (`orchestrator.ts:258-268`), então corpo e botão nunca
