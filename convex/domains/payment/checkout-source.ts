@@ -10,7 +10,7 @@ export type CheckoutSourceIdentity = {
 /** Cadeia quebrada devolve `label` nulo em vez do snapshot: repetir o texto
  * antigo reintroduziria a categoria no titulo. */
 export function resolveCheckoutSourceIdentity(args: {
-  category: null | { displayName: string };
+  category: null | { name: string };
   snapshotLabel: null | string;
   sourceType: string;
   tournament: null | { name: string };
@@ -21,5 +21,5 @@ export function resolveCheckoutSourceIdentity(args: {
   if (!(args.category && args.tournament)) {
     return { category: null, label: null };
   }
-  return { category: args.category.displayName, label: args.tournament.name };
+  return { category: args.category.name, label: args.tournament.name };
 }

@@ -6,7 +6,11 @@ import {
   collectReplacedStorageIds,
   deleteStorageIds,
 } from "../../shared/media-rules";
-import { buildCategoryDisplayName } from "../../domains/tournament/entry-rules";
+import {
+  type CategorySyncExistingRow,
+  resolveCategorySyncPlan,
+} from "../../domains/tournament/category-rules";
+import { ENTRY_LIVE_STATUSES } from "../../domains/tournament/entry-rules";
 import {
   findRemovedScheduledCourt,
   validateTournamentEditStatus,
@@ -15,10 +19,12 @@ import type { TournamentScheduledMatch } from "../../domains/tournament/scheduli
 import {
   CreateTournamentSchema,
   DeleteTournamentSchema,
+  MAX_TOURNAMENT_CATEGORIES,
   TournamentByIdSchema,
+  type TournamentOrganizerCategory,
   type TournamentStatus,
   UpdateTournamentSchema,
-  tournamentCategorySchema,
+  tournamentOrganizerCategorySchema,
   tournamentSchema,
 } from "../../domains/tournament/contract";
 import {
@@ -29,116 +35,134 @@ import { authMutation, authQuery } from "../../lib/crpc";
 import { requireActiveManager } from "../viewer/context";
 import {
   getManagedTournamentOrThrow,
+  isUniqueIndexViolation,
   serializeCategory,
   serializeTournament,
+  type OrmCtx,
   type OrmMutationCtx,
 } from "./_shared/guards";
 
 type CategoryInput = z.infer<typeof CreateTournamentSchema>["categories"];
+
 /**
- * Category sync by DIFF: categories are keyed by their natural pair (modality,
- * gender; backed by uniqueIndex), so never delete+recreate — the cascade would
- * wipe entries/matches of published tournaments and orphan paid charges with no
- * refund. Instead: UPDATE kept pairs (fee/caps, with a capacity floor), DELETE
- * only removed pairs with zero entries (otherwise a clear error), INSERT new ones.
+ * Inscricoes VIVAS da categoria: reservam vaga (travam remocao e troca de tipo)
+ * e sao o numero que o organizador ve na tela de edicao.
+ */
+function listLiveEntriesInCategory(
+  ctx: OrmCtx,
+  categoryId: Id<"tournamentCategory">
+) {
+  return ctx.orm.query.tournamentEntry.findMany({
+    limit: 300,
+    where: { categoryId, status: { in: [...ENTRY_LIVE_STATUSES] } },
+  });
+}
+
+/** Estado de cada categoria gravada que o diff precisa para decidir. */
+async function collectExistingCategoryRows(
+  ctx: OrmCtx,
+  tournamentId: Id<"tournament">
+) {
+  const existing = await ctx.orm.query.tournamentCategory.findMany({
+    limit: MAX_TOURNAMENT_CATEGORIES,
+    where: { tournamentId },
+  });
+
+  const rows: CategorySyncExistingRow[] = [];
+  for (const category of existing) {
+    const categoryId = category.id as Id<"tournamentCategory">;
+    const [liveEntries, matches] = await Promise.all([
+      listLiveEntriesInCategory(ctx, categoryId),
+      ctx.orm.query.tournamentMatch.findMany({
+        limit: 300,
+        where: { categoryId },
+      }),
+    ]);
+    rows.push({
+      activeEntryCount: liveEntries.filter((entry) => entry.status === "active")
+        .length,
+      gender: category.gender,
+      id: category.id as string,
+      liveEntryCount: liveEntries.length,
+      matchCount: matches.length,
+      modality: category.modality,
+      name: category.name,
+    });
+  }
+  return rows;
+}
+
+/**
+ * Category sync by DIFF: the payload carries the `id` of every category it
+ * keeps, so never delete+recreate — the cascade would wipe entries/matches of
+ * published tournaments and orphan paid charges with no refund. The decision
+ * (unknown id, duplicate name in the same type, type lock, capacity floor,
+ * removal) lives in `resolveCategorySyncPlan`; here we only read the current
+ * state and apply the plan. Deletes run FIRST so a freed name can be reused in
+ * the same payload without tripping the unique index.
  */
 async function syncCategories(
   ctx: OrmMutationCtx,
   tournamentId: Id<"tournament">,
   categories: CategoryInput
 ) {
-  const existing = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
-    where: { tournamentId },
+  const result = resolveCategorySyncPlan({
+    existing: await collectExistingCategoryRows(ctx, tournamentId),
+    next: categories,
   });
-  const existingByKey = new Map(
-    existing.map((category) => [
-      `${category.modality}:${category.gender}`,
-      category,
-    ])
-  );
+  if ("error" in result) {
+    throw new CRPCError({
+      code: result.error.code,
+      message: result.error.message,
+    });
+  }
+
   const now = new Date();
-
-  for (const category of categories) {
-    const key = `${category.modality}:${category.gender}`;
-    const current = existingByKey.get(key);
-
-    if (!current) {
+  try {
+    for (const id of result.plan.deletes) {
+      await ctx.orm
+        .delete(tournamentCategory)
+        .where(eq(tournamentCategory.id, id as Id<"tournamentCategory">));
+    }
+    for (const category of result.plan.updates) {
+      await ctx.orm
+        .update(tournamentCategory)
+        .set({
+          entryFeeCents: category.entryFeeCents,
+          gender: category.gender,
+          maxEntries: category.maxEntries,
+          modality: category.modality,
+          name: category.name,
+          nameKey: category.nameKey,
+          updatedAt: now,
+        })
+        .where(
+          eq(tournamentCategory.id, category.id as Id<"tournamentCategory">)
+        );
+    }
+    for (const category of result.plan.inserts) {
       await ctx.orm.insert(tournamentCategory).values({
         createdAt: now,
-        displayName: buildCategoryDisplayName(
-          category.modality,
-          category.gender
-        ),
         entryFeeCents: category.entryFeeCents,
         gender: category.gender,
         maxEntries: category.maxEntries,
         modality: category.modality,
+        name: category.name,
+        nameKey: category.nameKey,
         tournamentId,
         updatedAt: now,
       });
-      continue;
     }
-
-    // Capacity floor: the new cap can never strand existing entries.
-    if (category.maxEntries !== null) {
-      const entries = await ctx.orm.query.tournamentEntry.findMany({
-        limit: 300,
-        where: {
-          categoryId: current.id as Id<"tournamentCategory">,
-          status: "active",
-        },
-      });
-      if (category.maxEntries < entries.length) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: `A categoria ${current.displayName} já tem ${entries.length} inscrições — o limite não pode ser menor que isso.`,
-        });
-      }
-    }
-
-    await ctx.orm
-      .update(tournamentCategory)
-      .set({
-        entryFeeCents: category.entryFeeCents,
-        maxEntries: category.maxEntries,
-        updatedAt: now,
-      })
-      .where(eq(tournamentCategory.id, current.id as Id<"tournamentCategory">));
-  }
-
-  const inputKeys = new Set(
-    categories.map((category) => `${category.modality}:${category.gender}`)
-  );
-  for (const category of existing) {
-    if (inputKeys.has(`${category.modality}:${category.gender}`)) {
-      continue;
-    }
-    const entries = await ctx.orm.query.tournamentEntry.findMany({
-      limit: 300,
-      where: {
-        categoryId: category.id as Id<"tournamentCategory">,
-        status: {
-          in: [
-            "pending_partner",
-            "pending_approval",
-            "awaiting_payment",
-            "active",
-          ],
-        },
-      },
-    });
-    if (entries.length > 0) {
+  } catch (error) {
+    // Troca de nomes entre categorias ("A" <-> "B") colide no meio do caminho:
+    // o indice unico e a rede, e o cliente ve a mesma recusa da regra.
+    if (isUniqueIndexViolation(error)) {
       throw new CRPCError({
-        code: "CONFLICT",
-        message: `A categoria ${category.displayName} tem inscrições e não pode ser removida.`,
+        code: "BAD_REQUEST",
+        message: "Já existe uma categoria com esse nome nesse tipo.",
       });
     }
-    await ctx.orm
-      .delete(tournamentCategory)
-      .where(
-        eq(tournamentCategory.id, category.id as Id<"tournamentCategory">)
-      );
+    throw error;
   }
 }
 
@@ -159,7 +183,7 @@ export const getById = authQuery
   .input(TournamentByIdSchema)
   .output(
     z.object({
-      categories: z.array(tournamentCategorySchema),
+      categories: z.array(tournamentOrganizerCategorySchema),
       tournament: tournamentSchema,
     })
   )
@@ -169,11 +193,22 @@ export const getById = authQuery
       input.tournamentId as Id<"tournament">
     );
     const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
+    const categoriesWithCounts: TournamentOrganizerCategory[] = [];
+    for (const category of categories) {
+      const liveEntries = await listLiveEntriesInCategory(
+        ctx,
+        category.id as Id<"tournamentCategory">
+      );
+      categoriesWithCounts.push({
+        ...serializeCategory(category),
+        liveEntryCount: liveEntries.length,
+      });
+    }
     return {
-      categories: categories.map(serializeCategory),
+      categories: categoriesWithCounts,
       tournament: await serializeTournament(ctx, record),
     };
   });
@@ -243,7 +278,7 @@ export const update = authMutation
       const scheduledMatches: TournamentScheduledMatch[] = [];
       const tournamentCategories =
         await ctx.orm.query.tournamentCategory.findMany({
-          limit: 10,
+          limit: MAX_TOURNAMENT_CATEGORIES,
           where: { tournamentId: current.id as Id<"tournament"> },
         });
       for (const category of tournamentCategories) {

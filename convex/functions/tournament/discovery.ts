@@ -4,6 +4,7 @@ import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../generated/server";
 import {
+  MAX_TOURNAMENT_CATEGORIES,
   TournamentByIdSchema,
   tournamentDiscoverySchema,
   tournamentSchema,
@@ -30,7 +31,7 @@ async function countActiveEntries(
   tournamentId: Id<"tournament">
 ) {
   const categories = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
+    limit: MAX_TOURNAMENT_CATEGORIES,
     where: { tournamentId },
   });
   let count = 0;
@@ -71,7 +72,7 @@ export const getById = authQuery
     // open the detail, even when private. The category filter ties participation
     // to the tournament, so a foreign entry neither unlocks the gate nor leaks.
     const categoryRecords = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
     const viewerEntryIds: string[] = [];
@@ -120,6 +121,7 @@ export const getById = authQuery
     const categories = categoryRecords.map((category) => {
       const eligibility = isViewerPlayer
         ? resolveCallerEligibility({
+            categoryName: category.name,
             gender: category.gender as TournamentGender,
             modality: category.modality as TournamentModality,
             playerAGender: viewerPlayerGender,

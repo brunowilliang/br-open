@@ -1343,16 +1343,17 @@ export const api: {
         { tournamentId: string },
         {
           activeEntryCount: number;
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
           categories: Array<{
-            displayName: string;
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
             id: string;
             maxEntries: number | null;
             modality: "singles" | "doubles";
+            name: string;
             tournamentId: string;
             viewerEligible: boolean | null;
             viewerIneligibleReason: string | null;
@@ -1409,6 +1410,7 @@ export const api: {
         "public",
         {},
         Array<{
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -1462,6 +1464,7 @@ export const api: {
         "public",
         {},
         Array<{
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -1731,6 +1734,7 @@ export const api: {
         "public",
         { tournamentId: string },
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -1785,6 +1789,7 @@ export const api: {
         "mutation",
         "public",
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<{
@@ -1792,6 +1797,7 @@ export const api: {
             gender: "male" | "female" | "mixed";
             maxEntries: number | null;
             modality: "singles" | "doubles";
+            name: string;
           }>;
           city: string;
           courts: Array<{
@@ -1827,6 +1833,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -1882,15 +1889,17 @@ export const api: {
         { tournamentId: string },
         {
           categories: Array<{
-            displayName: string;
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
             id: string;
+            liveEntryCount: number;
             maxEntries: number | null;
             modality: "singles" | "doubles";
+            name: string;
             tournamentId: string;
           }>;
           tournament: {
+            allowMultipleEntriesPerType: boolean;
             approvalMode: "auto" | "manual";
             avatarStorageId: string | null;
             avatarUrl?: string | null;
@@ -1945,6 +1954,7 @@ export const api: {
         "public",
         {},
         Array<{
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -1998,6 +2008,7 @@ export const api: {
         "public",
         { tournamentId: string },
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -2056,13 +2067,16 @@ export const api: {
         "mutation",
         "public",
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           categories: Array<{
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
+            id?: string;
             maxEntries: number | null;
             modality: "singles" | "doubles";
+            name: string;
           }>;
           city: string;
           courts: Array<{
@@ -2099,6 +2113,7 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
@@ -3108,8 +3123,8 @@ export const internal: {
         acceptedInvites: number;
         categories: Array<{
           activeEntries: number;
-          displayName: string;
           gender: string;
+          name: string;
           round1Matches: number;
           scheduledMatches: number;
         }>;
@@ -3141,9 +3156,9 @@ export const internal: {
         activePairsCreated: number;
         categories: Array<{
           activePairs: number;
-          displayName: string;
           gender: string;
           invitePairs: number;
+          name: string;
         }>;
         categoriesCreated: number;
         invitePairsCreated: number;
@@ -3184,6 +3199,16 @@ export const internal: {
         resetApplied: boolean;
         skipped: boolean;
         usersCreated: number;
+      }
+    >;
+    wipeTournaments: FunctionReference<
+      "mutation",
+      "internal",
+      { confirm: "wipe-tournaments-dev" },
+      {
+        deletedCharges: number;
+        deletedEntries: number;
+        deletedTournaments: number;
       }
     >;
   };

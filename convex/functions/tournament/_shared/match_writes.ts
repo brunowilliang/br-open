@@ -23,7 +23,10 @@ import {
   tournamentMatchAgreement,
   tournamentMatchAgreementEvent,
 } from "../../../domains/tournament/tables";
-import { tournamentMatchSchema } from "../../../domains/tournament/contract";
+import {
+  MAX_TOURNAMENT_CATEGORIES,
+  tournamentMatchSchema,
+} from "../../../domains/tournament/contract";
 import {
   getCategoryRecordOrThrow,
   getTournamentRecordOrThrow,
@@ -122,7 +125,7 @@ export async function listTournamentMatchRecords(
   tournamentId: Id<"tournament">
 ): Promise<MatchRecord[]> {
   const categories = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
+    limit: MAX_TOURNAMENT_CATEGORIES,
     where: { tournamentId },
   });
   const matches: MatchRecord[] = [];

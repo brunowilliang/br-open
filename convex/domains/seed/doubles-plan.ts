@@ -19,7 +19,7 @@ export type DoublesSeedProfile = {
 
 export const DOUBLES_SEED_TOURNAMENT = {
   city: "São Paulo",
-  name: "SEED · Torneio de Duplas",
+  name: "SEED | Torneio de Duplas",
   registrationDeadlineDays: 14,
   startDateDays: 21,
   state: "SP",
@@ -27,8 +27,8 @@ export const DOUBLES_SEED_TOURNAMENT = {
 
 /** So as duas categorias do pedido: sem misto e sem simples. */
 export const DOUBLES_SEED_CATEGORIES = [
-  { gender: "male" },
-  { gender: "female" },
+  { gender: "male", name: "Duplas Masculinas" },
+  { gender: "female", name: "Duplas Femininas" },
 ] as const;
 
 /** Inscricao gratuita: o fluxo de duplas nao passa por checkout. */

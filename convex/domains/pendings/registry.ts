@@ -11,6 +11,7 @@ import {
   canConcludeTournament,
   type TournamentConclusionCategory,
 } from "../tournament/conclusion-rules";
+import { MAX_TOURNAMENT_CATEGORIES } from "../tournament/contract";
 import {
   buildOrganizerAgreementPendings,
   buildOrganizerConclusionPendings,
@@ -57,7 +58,7 @@ const PLAYER_ENTRY_SCAN_LIMIT = 100;
 const ORG_TOURNAMENT_SCAN_LIMIT = 50;
 /** Torneios cujas inscricoes sao varridas, dos mais recentes para os mais antigos. */
 const ORG_TOURNAMENT_ENTRY_LIMIT = 20;
-const ORG_CATEGORY_SCAN_LIMIT = 10;
+const ORG_CATEGORY_SCAN_LIMIT = MAX_TOURNAMENT_CATEGORIES;
 const ORG_ENTRY_SCAN_LIMIT = 300;
 /** Partidas lidas por categoria para achar a final (mesmo teto da chave). */
 const ORG_CONCLUSION_MATCH_SCAN_LIMIT = 300;
@@ -303,7 +304,7 @@ async function collectPlayerEntryPendings(
     const isInvited = entry.playerBId === actor.playerProfileId;
 
     views.push({
-      categoryDisplayName: category.displayName,
+      categoryDisplayName: category.name,
       entryFeeCents: category.entryFeeCents,
       entryId: entry.id as string,
       invitedName,

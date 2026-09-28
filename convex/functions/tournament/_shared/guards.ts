@@ -31,6 +31,19 @@ const DISCOVERABLE_STATUSES = [
 ] as const;
 
 /**
+ * Net de corrida dos indices unicos: o cliente ve um erro tratado do dominio,
+ * nunca o 500 cru do indice. Os guards de codigo tornam a colisao quase
+ * impossivel, mas dois writes concorrentes ainda podem intercalar.
+ */
+export function isUniqueIndexViolation(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Unique index") &&
+    error.message.includes("violation")
+  );
+}
+
+/**
  * Public + not-cancelled: tournaments any viewer can discover. Shared by the
  * discovery detail gate and the entries listing gate.
  */
@@ -132,12 +145,12 @@ export async function serializeTournament(
 
 export function serializeCategory(record: TournamentCategoryRecord) {
   return tournamentCategorySchema.parse({
-    displayName: record.displayName,
     entryFeeCents: record.entryFeeCents,
     gender: record.gender,
     id: record.id,
     maxEntries: record.maxEntries ?? null,
     modality: record.modality,
+    name: record.name,
     tournamentId: record.tournamentId,
   });
 }

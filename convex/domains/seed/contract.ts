@@ -59,9 +59,9 @@ export const DoublesScenarioSchema = z.object({
 /** Totais LIDOS do banco depois do plantio: repetir a execucao nao os muda. */
 export const doublesScenarioCategoryResultSchema = z.object({
   activePairs: z.number().int().nonnegative(),
-  displayName: z.string(),
   gender: z.string(),
   invitePairs: z.number().int().nonnegative(),
+  name: z.string(),
 });
 
 export const doublesScenarioResultSchema = z.object({
@@ -94,8 +94,8 @@ export const DoublesAgendaScenarioSchema = z.object({
 
 export const doublesAgendaCategoryResultSchema = z.object({
   activeEntries: z.number().int().nonnegative(),
-  displayName: z.string(),
   gender: z.string(),
+  name: z.string(),
   round1Matches: z.number().int().nonnegative(),
   scheduledMatches: z.number().int().nonnegative(),
 });

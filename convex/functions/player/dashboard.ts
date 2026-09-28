@@ -214,7 +214,7 @@ export const getOverview = authQuery
     const entryCategories = [...activeCounts.entries()]
       .map(([categoryId, entryCount]) => ({
         categoryId,
-        displayName: categoryById.get(categoryId)?.displayName ?? "Categoria",
+        displayName: categoryById.get(categoryId)?.name ?? "Categoria",
         entryCount,
       }))
       .sort(
@@ -341,8 +341,7 @@ export const getOverview = authQuery
             )
           : [];
         upcoming.push({
-          categoryDisplayName:
-            categoryById.get(entry.categoryId)?.displayName ?? null,
+          categoryDisplayName: categoryById.get(entry.categoryId)?.name ?? null,
           categoryId: entry.categoryId,
           competitionId: tournament.id,
           competitionName: tournament.name,

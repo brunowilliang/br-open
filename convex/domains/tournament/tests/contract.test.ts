@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
-import { CreateTournamentSchema, UpdateTournamentSchema } from "../contract";
+import {
+  CreateTournamentSchema,
+  MAX_TOURNAMENT_CATEGORIES,
+  UpdateTournamentSchema,
+} from "../contract";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -9,6 +13,7 @@ function buildTournamentInput(bestOfSets: number) {
   const now = Date.now();
 
   return {
+    allowMultipleEntriesPerType: true,
     approvalMode: "auto",
     avatarStorageId: null,
     categories: [
@@ -17,6 +22,7 @@ function buildTournamentInput(bestOfSets: number) {
         gender: "male",
         maxEntries: null,
         modality: "singles",
+        name: "Simples Masculino",
       },
     ],
     city: "Dracena",
@@ -106,6 +112,109 @@ describe("CreateTournamentSchema tie-break points (R11)", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.matchConfig).not.toHaveProperty("finalSetMode");
+    }
+  });
+});
+
+describe("CreateTournamentSchema categorias", () => {
+  function buildCategory(input: {
+    gender: "female" | "male" | "mixed";
+    modality: "doubles" | "singles";
+    name: string;
+  }) {
+    return { entryFeeCents: 0, maxEntries: null, ...input };
+  }
+
+  it("aceita nomes livres, inclusive curtos (A, B, C)", () => {
+    const result = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      categories: [
+        buildCategory({ gender: "male", modality: "singles", name: "A" }),
+        buildCategory({ gender: "male", modality: "singles", name: "B" }),
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("recusa o mesmo nome no MESMO tipo, ignorando caixa e espaços", () => {
+    const result = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      categories: [
+        buildCategory({
+          gender: "male",
+          modality: "singles",
+          name: "Amador A",
+        }),
+        buildCategory({
+          gender: "male",
+          modality: "singles",
+          name: "  amador a  ",
+        }),
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) =>
+          item.message === "Já existe uma categoria com esse nome nesse tipo."
+      );
+      expect(issue?.path.join(".")).toBe("categories.1.name");
+    }
+  });
+
+  it("aceita o mesmo nome em tipos diferentes", () => {
+    const result = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      categories: [
+        buildCategory({ gender: "male", modality: "singles", name: "A" }),
+        buildCategory({ gender: "female", modality: "singles", name: "A" }),
+        buildCategory({ gender: "mixed", modality: "doubles", name: "A" }),
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("recusa acima do teto de categorias por torneio", () => {
+    const result = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      categories: Array.from(
+        { length: MAX_TOURNAMENT_CATEGORIES + 1 },
+        (_, i) =>
+          buildCategory({
+            gender: "male",
+            modality: "singles",
+            name: `Categoria ${i + 1}`,
+          })
+      ),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("update aceita `id` na categoria existente e o omite na nova", () => {
+    const result = UpdateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      categories: [
+        {
+          ...buildCategory({
+            gender: "male",
+            modality: "singles",
+            name: "A",
+          }),
+          id: "category-1",
+        },
+        buildCategory({ gender: "male", modality: "singles", name: "B" }),
+      ],
+      tournamentId: "tournament-1",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.categories[0]?.id).toBe("category-1");
+      expect(result.data.categories[1]?.id).toBeUndefined();
     }
   });
 });

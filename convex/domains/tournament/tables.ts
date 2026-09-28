@@ -16,6 +16,9 @@ import * as playerTables from "../player/tables";
 export const tournament = convexTable(
   "tournament",
   {
+    // Nasce LIGADO (DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE): desligado, o
+    // servidor barra nova inscricao do jogador que ja tem uma viva no tipo.
+    allowMultipleEntriesPerType: boolean().notNull(),
     approvalMode: text(),
     avatarStorageId: text(),
     city: text().notNull(),
@@ -53,11 +56,14 @@ export const tournamentCategory = convexTable(
   "tournamentCategory",
   {
     createdAt: timestamp().notNull(),
-    displayName: text().notNull(),
     entryFeeCents: integer().notNull(),
     gender: text().notNull(),
     maxEntries: integer(),
     modality: text().notNull(),
+    // Nome LIVRE do organizador; e o rotulo da categoria no app inteiro.
+    name: text().notNull(),
+    // `name` normalizado (trim + caixa baixa pt-BR) para a unicidade abaixo.
+    nameKey: text().notNull(),
     tournamentId: id("tournament")
       .notNull()
       .references(() => tournament.id, { onDelete: "cascade" }),
@@ -65,11 +71,13 @@ export const tournamentCategory = convexTable(
   },
   (tournamentCategory) => [
     index("tournamentId").on(tournamentCategory.tournamentId),
-    // One category per modality×gender pair per tournament.
-    uniqueIndex("tournamentId_modality_gender").on(
+    // Mesmo nome (normalizado) no MESMO tipo nao repete dentro do torneio;
+    // tipos diferentes e nomes diferentes coexistem a vontade.
+    uniqueIndex("tournamentId_modality_gender_nameKey").on(
       tournamentCategory.tournamentId,
       tournamentCategory.modality,
-      tournamentCategory.gender
+      tournamentCategory.gender,
+      tournamentCategory.nameKey
     ),
   ]
 );
@@ -249,6 +257,9 @@ export const tournamentMatchAgreement = convexTable(
       tournamentMatchAgreement.matchId,
       tournamentMatchAgreement.channel
     ),
+    // Indice da CASCATA: sem ele a ORM recusa apagar a categoria/torneio com
+    // acerto gravado (a FK exige indice na coluna filha).
+    index("categoryId").on(tournamentMatchAgreement.categoryId),
     index("entryAId_state").on(
       tournamentMatchAgreement.entryAId,
       tournamentMatchAgreement.state
@@ -287,5 +298,7 @@ export const tournamentMatchAgreementEvent = convexTable(
   },
   (tournamentMatchAgreementEvent) => [
     index("matchId").on(tournamentMatchAgreementEvent.matchId),
+    // Indice da CASCATA (mesmo motivo do `categoryId` do acordo).
+    index("tournamentId").on(tournamentMatchAgreementEvent.tournamentId),
   ]
 );

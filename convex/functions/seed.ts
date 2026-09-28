@@ -1,8 +1,11 @@
 import { eq, type InferSelectModel } from "kitcn/orm";
+import { z } from "zod";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./generated/server";
 
 import * as authTables from "../domains/auth/tables";
+import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../domains/payment/contract";
+import { paymentCharge } from "../domains/payment/tables";
 import {
   SEED_EMAIL_DOMAIN,
   SEED_EMAIL_PREFIX,
@@ -35,6 +38,7 @@ import {
 } from "../domains/seed/doubles-plan";
 import {
   comparePendencyTargetRecency,
+  PENDENCY_SEED_CATEGORY_NAME_BY_TYPE,
   PENDENCY_SEED_ORGANIZATION_NAME,
   PENDENCY_SEED_PRIMARY_ENTRY_TARGETS,
   PENDENCY_SEED_PRIMARY_ORGANIZATION_LIMIT,
@@ -46,16 +50,15 @@ import {
   selectFreePendencyEntryProfiles,
 } from "../domains/seed/pendency-plan";
 import * as playerTables from "../domains/player/tables";
-import {
-  buildCategoryDisplayName,
-  entrySlotFields,
-} from "../domains/tournament/entry-rules";
+import { entrySlotFields } from "../domains/tournament/entry-rules";
 import type { MatchConfig } from "../domains/match/contract";
 import { resolveMatchOccupiedEndMinute } from "../domains/match/scheduling";
 import { findCourtSlotConflict } from "../domains/tournament/scheduling-rules";
-import type {
-  TournamentGender,
-  TournamentModality,
+import {
+  DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
+  normalizeCategoryNameKey,
+  type TournamentGender,
+  type TournamentModality,
 } from "../domains/tournament/contract";
 import * as tournamentTables from "../domains/tournament/tables";
 import { privateMutation } from "../lib/crpc";
@@ -382,6 +385,7 @@ async function ensurePendencyTournament(
   const [createdTournament] = await ctx.orm
     .insert(tournamentTables.tournament)
     .values({
+      allowMultipleEntriesPerType: DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
       city: input.template.city,
       courts: [],
       createdAt: now,
@@ -402,15 +406,27 @@ async function ensurePendencyTournament(
   return { created: true, tournament: createdTournament };
 }
 
-/** Categoria da entrada: uma por (modalidade, genero), como o indice unico. */
+/** Categoria da entrada: uma por (modalidade, genero, nome) do cenario. */
 async function ensurePendencyCategory(
   ctx: SeedCtx,
   input: { entry: PendencySeedEntry; tournamentId: Id<"tournament"> }
 ) {
+  const name =
+    PENDENCY_SEED_CATEGORY_NAME_BY_TYPE[
+      `${input.entry.modality}:${input.entry.gender}`
+    ];
+  if (!name) {
+    throw new Error(
+      `Categoria do cenário de pendências sem nome: ${input.entry.modality}/${input.entry.gender}.`
+    );
+  }
+  const nameKey = normalizeCategoryNameKey(name);
+
   const existingCategory = await ctx.orm.query.tournamentCategory.findFirst({
     where: {
       gender: input.entry.gender,
       modality: input.entry.modality,
+      nameKey,
       tournamentId: input.tournamentId,
     },
   });
@@ -424,13 +440,11 @@ async function ensurePendencyCategory(
     .insert(tournamentTables.tournamentCategory)
     .values({
       createdAt: now,
-      displayName: buildCategoryDisplayName(
-        input.entry.modality,
-        input.entry.gender
-      ),
       entryFeeCents: input.entry.entryFeeCents,
       gender: input.entry.gender,
       modality: input.entry.modality,
+      name,
+      nameKey,
       tournamentId: input.tournamentId,
       updatedAt: now,
     })
@@ -958,6 +972,7 @@ async function ensureDoublesSeedTournament(
   const [createdTournament] = await ctx.orm
     .insert(tournamentTables.tournament)
     .values({
+      allowMultipleEntriesPerType: DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
       approvalMode: "auto",
       city: DOUBLES_SEED_TOURNAMENT.city,
       courts: [],
@@ -979,15 +994,21 @@ async function ensureDoublesSeedTournament(
   return { created: true, tournament: createdTournament };
 }
 
-/** Categoria por (modalidade, genero) — a chave do indice unico do schema. */
+/** Categoria por (modalidade, genero, nome) — a chave do indice unico. */
 async function ensureDoublesSeedCategory(
   ctx: SeedCtx,
-  input: { gender: TournamentGender; tournamentId: Id<"tournament"> }
+  input: {
+    gender: TournamentGender;
+    name: string;
+    tournamentId: Id<"tournament">;
+  }
 ) {
+  const nameKey = normalizeCategoryNameKey(input.name);
   const existing = await ctx.orm.query.tournamentCategory.findFirst({
     where: {
       gender: input.gender,
       modality: "doubles",
+      nameKey,
       tournamentId: input.tournamentId,
     },
   });
@@ -1001,11 +1022,12 @@ async function ensureDoublesSeedCategory(
     .insert(tournamentTables.tournamentCategory)
     .values({
       createdAt: now,
-      displayName: buildCategoryDisplayName("doubles", input.gender),
       entryFeeCents: DOUBLES_SEED_ENTRY_FEE_CENTS,
       gender: input.gender,
       maxEntries: DOUBLES_SEED_MAX_ENTRIES,
       modality: "doubles",
+      name: input.name,
+      nameKey,
       tournamentId: input.tournamentId,
       updatedAt: now,
     })
@@ -1056,6 +1078,7 @@ export const doublesScenario = privateMutation
     for (const template of DOUBLES_SEED_CATEGORIES) {
       const categoryResult = await ensureDoublesSeedCategory(ctx, {
         gender: template.gender,
+        name: template.name,
         tournamentId,
       });
       const categoryId = categoryResult.category.id as Id<"tournamentCategory">;
@@ -1138,11 +1161,11 @@ export const doublesScenario = privateMutation
       categories.push({
         activePairs: plantedEntries.filter((entry) => entry.status === "active")
           .length,
-        displayName: categoryResult.category.displayName,
         gender: template.gender,
         invitePairs: plantedEntries.filter(
           (entry) => entry.status === "pending_partner"
         ).length,
+        name: categoryResult.category.name,
       });
     }
 
@@ -1325,6 +1348,7 @@ export const doublesAgendaScenario = privateMutation
       for (const template of DOUBLES_SEED_CATEGORIES) {
         const categoryResult = await ensureDoublesSeedCategory(ctx, {
           gender: template.gender,
+          name: template.name,
           tournamentId,
         });
         const categoryId = categoryResult.category
@@ -1398,7 +1422,9 @@ export const doublesAgendaScenario = privateMutation
     let matchesScheduled = 0;
 
     for (const [categoryIndex, template] of DOUBLES_SEED_CATEGORIES.entries()) {
-      const category = categories.find((row) => row.gender === template.gender);
+      const category = categories.find(
+        (row) => row.nameKey === normalizeCategoryNameKey(template.name)
+      );
 
       if (!category) {
         continue;
@@ -1482,7 +1508,7 @@ export const doublesAgendaScenario = privateMutation
         }
 
         scheduled.push({
-          category: category.displayName,
+          category: category.name,
           courtName: slot.courtName,
           entryAId: match.entryAId ?? null,
           entryBId: match.entryBId ?? null,
@@ -1495,8 +1521,8 @@ export const doublesAgendaScenario = privateMutation
       categoryResults.push({
         activeEntries: entries.filter((entry) => entry.status === "active")
           .length,
-        displayName: category.displayName,
         gender: template.gender,
+        name: category.name,
         round1Matches: round1.length,
         scheduledMatches: scheduledInCategory,
       });
@@ -1571,4 +1597,77 @@ export const doublesAgendaScenario = privateMutation
       tournamentId: tournamentId as string,
       tournamentName: DOUBLES_SEED_TOURNAMENT.name,
     };
+  });
+
+const WIPE_TOURNAMENTS_CONFIRMATION = "wipe-tournaments-dev";
+
+/**
+ * DEV-only: apaga TODOS os torneios do deployment (a cascata das FKs leva
+ * categorias, inscricoes, chave e acerto) mais as cobrancas de inscricao de
+ * torneio. Usuarios, perfis e organizacoes FICAM. Existe para o reset quando o
+ * schema de torneio muda de forma incompativel com as linhas gravadas.
+ */
+export const wipeTournaments = privateMutation
+  .input(z.object({ confirm: z.literal(WIPE_TOURNAMENTS_CONFIRMATION) }))
+  .output(
+    z.object({
+      deletedCharges: z.number(),
+      deletedEntries: z.number(),
+      deletedTournaments: z.number(),
+    })
+  )
+  .mutation(async ({ ctx }) => {
+    let deletedCharges = 0;
+    let deletedEntries = 0;
+    let deletedTournaments = 0;
+
+    // Em rodadas: a tabela encolhe enquanto apaga, entao cada lote so roda
+    // depois de drenar o anterior.
+    for (let round = 0; round < 100; round += 1) {
+      const tournaments = await ctx.orm.query.tournament.findMany({
+        limit: 20,
+        orderBy: { createdAt: "asc" },
+      });
+      if (tournaments.length === 0) {
+        break;
+      }
+
+      for (const record of tournaments) {
+        const categories = await ctx.orm.query.tournamentCategory.findMany({
+          limit: 500,
+          where: { tournamentId: record.id as Id<"tournament"> },
+        });
+        for (const category of categories) {
+          const entries = await ctx.orm.query.tournamentEntry.findMany({
+            limit: 500,
+            where: { categoryId: category.id as Id<"tournamentCategory"> },
+          });
+          for (const entry of entries) {
+            // Cobranca nao tem FK para a inscricao: sem apagar aqui a linha
+            // fica orfa apontando para um sourceId que nao existe mais.
+            const charges = await ctx.orm.query.paymentCharge.findMany({
+              limit: 50,
+              where: {
+                sourceId: entry.id as string,
+                sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+              },
+            });
+            for (const charge of charges) {
+              await ctx.orm
+                .delete(paymentCharge)
+                .where(eq(paymentCharge.id, charge.id));
+              deletedCharges += 1;
+            }
+          }
+          deletedEntries += entries.length;
+        }
+
+        await ctx.orm
+          .delete(tournamentTables.tournament)
+          .where(eq(tournamentTables.tournament.id, record.id));
+        deletedTournaments += 1;
+      }
+    }
+
+    return { deletedCharges, deletedEntries, deletedTournaments };
   });

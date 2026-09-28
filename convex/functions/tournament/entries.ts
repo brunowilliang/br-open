@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import type { MutationCtx } from "../generated/server";
 import {
   CreateTournamentEntrySchema,
+  MAX_TOURNAMENT_CATEGORIES,
   SetEntryRoundSchema,
   SetEntrySeedSchema,
   TournamentEntryActionSchema,
@@ -15,6 +16,7 @@ import {
   type TournamentModality,
   type TournamentPlayerCard,
 } from "../../domains/tournament/contract";
+import { resolveDuplicateTypeEntryError } from "../../domains/tournament/category-rules";
 import {
   ENTRY_LIVE_STATUSES,
   entrySlotFields,
@@ -49,6 +51,7 @@ import {
   getTournamentManagerUserIds,
   getTournamentRecordOrThrow,
   isDiscoverable,
+  isUniqueIndexViolation,
   scheduleTournamentNotification,
   serializePlayerCard,
   type OrmCtx,
@@ -188,6 +191,77 @@ async function assertPlayersNotInCategory(
           "Esse jogador já está inscrito nessa categoria em outra inscrição.",
       });
     }
+  }
+}
+
+/**
+ * Gate do `allowMultipleEntriesPerType` (nasce LIGADO; o organizador DESLIGA).
+ * Desligado, o jogador nao pode ter inscricao VIVA em OUTRA categoria do mesmo
+ * tipo (modalidade + genero). Roda antes do capacity para o diagnostico do tipo
+ * vencer, e nao retroage: inscricao ja criada nunca cai por desligar a opcao.
+ */
+async function assertEntryPerTypeGate(
+  ctx: OrmCtx,
+  input: {
+    category: CategoryRecord;
+    playerProfileIds: string[];
+    subject: "caller" | "partner";
+    tournament: TournamentRecord;
+  }
+) {
+  if (input.tournament.allowMultipleEntriesPerType) {
+    return;
+  }
+  const categories = await ctx.orm.query.tournamentCategory.findMany({
+    limit: MAX_TOURNAMENT_CATEGORIES,
+    where: { tournamentId: input.tournament.id as Id<"tournament"> },
+  });
+  const siblingIds = categories
+    .filter(
+      (category) =>
+        category.id !== input.category.id &&
+        category.modality === input.category.modality &&
+        category.gender === input.category.gender
+    )
+    .map((category) => category.id as Id<"tournamentCategory">);
+  if (siblingIds.length === 0) {
+    return;
+  }
+
+  const liveEntries: Array<{
+    categoryId: string;
+    playerAId: string;
+    playerBId: null | string;
+    status: string;
+  }> = [];
+  for (const siblingId of siblingIds) {
+    const rows = await ctx.orm.query.tournamentEntry.findMany({
+      limit: 300,
+      where: {
+        categoryId: siblingId,
+        status: { in: [...ENTRY_LIVE_STATUSES] },
+      },
+    });
+    liveEntries.push(
+      ...rows.map((row) => ({
+        categoryId: row.categoryId as string,
+        playerAId: row.playerAId as string,
+        playerBId: row.playerBId as string | null,
+        status: row.status,
+      }))
+    );
+  }
+
+  const error = resolveDuplicateTypeEntryError({
+    allowMultipleEntriesPerType: input.tournament.allowMultipleEntriesPerType,
+    categories,
+    liveEntries,
+    playerProfileIds: input.playerProfileIds,
+    subject: input.subject,
+    targetCategoryId: input.category.id as string,
+  });
+  if (error) {
+    throw new CRPCError({ code: "CONFLICT", message: error });
   }
 }
 
@@ -406,21 +480,6 @@ async function notifyPartnerInviteCancelled(
   });
 }
 
-/**
- * Last-resort race net for entry inserts: the code guard
- * (`assertPlayersNotInCategory`) plus the mirrored-slot unique indexes make a
- * duplicate virtually impossible, but two concurrent creates can still
- * interleave check and insert — the client must see a treated CONFLICT, never
- * the raw unique-index 500.
- */
-function isUniqueIndexViolation(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes("Unique index") &&
-    error.message.includes("violation")
-  );
-}
-
 export const create = authMutation
   .input(CreateTournamentEntrySchema)
   .output(tournamentEntrySchema)
@@ -443,6 +502,7 @@ export const create = authMutation
       where: { id: playerProfileId },
     });
     const callerEligibility = resolveCallerEligibility({
+      categoryName: category.name,
       gender: category.gender as TournamentGender,
       modality: category.modality as TournamentModality,
       playerAGender: viewerProfile?.gender ?? null,
@@ -454,6 +514,12 @@ export const create = authMutation
       });
     }
 
+    await assertEntryPerTypeGate(ctx, {
+      category,
+      playerProfileIds: [playerProfileId as string],
+      subject: "caller",
+      tournament: tournamentRecord,
+    });
     await assertCategoryCapacity(ctx, category);
     await assertPlayersNotInCategory(
       ctx,
@@ -537,8 +603,15 @@ export const create = authMutation
       category.id as Id<"tournamentCategory">,
       [partnerProfile.id as string]
     );
+    await assertEntryPerTypeGate(ctx, {
+      category,
+      playerProfileIds: [partnerProfile.id as string],
+      subject: "partner",
+      tournament: tournamentRecord,
+    });
 
     const genderError = validateEntryGenders({
+      categoryName: category.name,
       gender: category.gender as TournamentGender,
       modality: "doubles",
       playerAGender: viewerProfile?.gender ?? null,
@@ -662,6 +735,13 @@ export const respondPartnerInvite = authMutation
       [entry.playerBId as string],
       { ignoreEntryId: entry.id as Id<"tournamentEntry"> }
     );
+    // Quem ACEITA e o proprio jogador: o gate fala com ele.
+    await assertEntryPerTypeGate(ctx, {
+      category,
+      playerProfileIds: [entry.playerBId as string],
+      subject: "caller",
+      tournament: tournamentRecord,
+    });
     await assertCategoryCapacity(ctx, category);
     const nextStatus = resolveEntryStatusAfterPartnerAccepted({
       approvalMode: (tournamentRecord.approvalMode ?? "auto") as
@@ -982,7 +1062,7 @@ export const listForTournament = authQuery
       input.tournamentId as Id<"tournament">
     );
     const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
     // Entries carry player cards (name/avatar/username), so the same visibility

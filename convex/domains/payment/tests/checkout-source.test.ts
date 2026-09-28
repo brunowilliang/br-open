@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { resolveCheckoutSourceIdentity } from "../checkout-source";
 
 const ENTRY = "tournament_entry";
-const CATEGORY = { displayName: "Simples Masculino" };
+const CATEGORY = { name: "Simples Masculino" };
 const TOURNAMENT = { name: "Copa Dracena de Beach Tennis" };
 
 describe("resolveCheckoutSourceIdentity", () => {

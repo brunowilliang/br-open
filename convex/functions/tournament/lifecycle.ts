@@ -6,6 +6,7 @@ import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import type { QueryCtx } from "../generated/server";
 import {
+  MAX_TOURNAMENT_CATEGORIES,
   TournamentByIdSchema,
   tournamentSchema,
 } from "../../domains/tournament/contract";
@@ -48,7 +49,7 @@ async function listPaidEntryChargesForTournament(
   tournamentId: Id<"tournament">
 ): Promise<ChargeRecord[]> {
   const categories = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
+    limit: MAX_TOURNAMENT_CATEGORIES,
     where: { tournamentId },
   });
   const entryIds: string[] = [];
@@ -94,7 +95,7 @@ export const cancel = authMutation
 
     const now = new Date();
     const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
 
@@ -198,7 +199,7 @@ export const conclude = authMutation
       input.tournamentId as Id<"tournament">
     );
     const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
 

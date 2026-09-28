@@ -36,6 +36,16 @@ export const TournamentVisibilityOptions = ["public", "private"] as const;
 export const DEFAULT_TOURNAMENT_APPROVAL_MODE = "auto" as const;
 export const DEFAULT_TOURNAMENT_VISIBILITY = "public" as const;
 
+/** Nasce LIGADO: o organizador DESLIGA para valer um tipo por jogador. */
+export const DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE = true;
+
+/**
+ * Teto de categorias por torneio. As leituras de categoria nao sao paginadas,
+ * entao este e o MESMO limite das queries (antes `limit: 10`, que truncava a
+ * lista em silencio acima de 10 categorias).
+ */
+export const MAX_TOURNAMENT_CATEGORIES = 50;
+
 /** Gênero do jogador como gravado em `playerProfile.gender` (rótulos pt-BR). */
 export const PLAYER_GENDER_MALE = "Masculino";
 export const PLAYER_GENDER_FEMALE = "Feminino";
@@ -91,12 +101,42 @@ export const TournamentSchemaBase = {
   ),
 };
 
+/**
+ * Normalizacao canonica do nome da categoria para a unicidade (mesma regra do
+ * nome de quadra: trim + caixa baixa pt-BR). "A" e "a" sao o MESMO nome.
+ */
+export function normalizeCategoryNameKey(name: string) {
+  return name.trim().toLocaleLowerCase("pt-BR");
+}
+
+/** Indice do PRIMEIRO nome repetido no mesmo tipo (modalidade + genero). */
+export function findDuplicateCategoryName(
+  categories: ReadonlyArray<{ gender: string; modality: string; name: string }>
+): number | null {
+  const seen = new Set<string>();
+  for (const [index, category] of categories.entries()) {
+    const key = `${category.modality}:${category.gender}:${normalizeCategoryNameKey(category.name)}`;
+    if (seen.has(key)) {
+      return index;
+    }
+    seen.add(key);
+  }
+  return null;
+}
+
+const categoryNameSchema = requiredString("Informe o nome da categoria.").pipe(
+  z.string().min(1)
+);
+
 export const CreateCategoryInputSchema = z
   .object({
     entryFeeCents: z.number().int().min(0),
     gender: enumField(TournamentGenderOptions, "Selecione o gênero."),
     maxEntries: z.number().int().min(2).nullable(),
     modality: enumField(TournamentModalityOptions, "Selecione a modalidade."),
+    // Nome LIVRE do organizador ("Simples Masculino A", "Amador", "A"): e o
+    // rotulo da categoria no app inteiro.
+    name: categoryNameSchema,
   })
   .superRefine((value, ctx) => {
     if (value.modality === "singles" && value.gender === "mixed") {
@@ -107,6 +147,34 @@ export const CreateCategoryInputSchema = z
       });
     }
   });
+
+/**
+ * Payload da edicao: `id` presente = categoria EXISTENTE (o diff casa por ele);
+ * ausente = categoria nova.
+ */
+export const UpdateCategoryInputSchema = CreateCategoryInputSchema.extend({
+  id: z.string().min(1, "Categoria inválida.").optional(),
+});
+
+type CategoryNameInput = {
+  categories: ReadonlyArray<{
+    gender: string;
+    modality: string;
+    name: string;
+  }>;
+};
+
+/** Mesmo nome no MESMO tipo, ignorando caixa e espacos, nao passa. */
+function refineCategoryNames(value: CategoryNameInput, ctx: z.RefinementCtx) {
+  const duplicateIndex = findDuplicateCategoryName(value.categories);
+  if (duplicateIndex !== null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Já existe uma categoria com esse nome nesse tipo.",
+      path: ["categories", duplicateIndex, "name"],
+    });
+  }
+}
 
 function refineTournamentWindow(
   value: { registrationDeadlineAt: number; startDate: number },
@@ -124,9 +192,16 @@ function refineTournamentWindow(
 export const CreateTournamentSchema = z
   .object({
     ...TournamentSchemaBase,
-    categories: z.array(CreateCategoryInputSchema).min(1),
+    allowMultipleEntriesPerType: z.boolean(),
+    // O teto e o MESMO limite das leituras de categoria; nomes unicos no mesmo
+    // tipo, checados de novo contra o que ja esta gravado no diff do servidor.
+    categories: z
+      .array(CreateCategoryInputSchema)
+      .min(1)
+      .max(MAX_TOURNAMENT_CATEGORIES),
   })
-  .superRefine(refineTournamentWindow);
+  .superRefine(refineTournamentWindow)
+  .superRefine(refineCategoryNames);
 
 const tournamentIdSchema = z.string().min(1, "Torneio inválido.");
 
@@ -137,10 +212,15 @@ export const TournamentByIdSchema = z.object({
 export const UpdateTournamentSchema = z
   .object({
     ...TournamentSchemaBase,
-    categories: z.array(CreateCategoryInputSchema).min(1),
+    allowMultipleEntriesPerType: z.boolean(),
+    categories: z
+      .array(UpdateCategoryInputSchema)
+      .min(1)
+      .max(MAX_TOURNAMENT_CATEGORIES),
     tournamentId: tournamentIdSchema,
   })
-  .superRefine(refineTournamentWindow);
+  .superRefine(refineTournamentWindow)
+  .superRefine(refineCategoryNames);
 
 export const DeleteTournamentSchema = z.object({
   tournamentId: tournamentIdSchema,
@@ -151,14 +231,24 @@ export const DeleteTournamentSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const tournamentCategorySchema = z.object({
-  displayName: z.string(),
   entryFeeCents: z.number().int().min(0),
   gender: z.enum(TournamentGenderOptions),
   id: z.string(),
   maxEntries: z.number().int().nullable(),
   modality: z.enum(TournamentModalityOptions),
+  name: z.string(),
   tournamentId: z.string(),
 });
+
+/**
+ * Categoria na leitura do ORGANIZADOR (`management.getById`): soma quantas
+ * inscricoes VIVAS a categoria tem. A tela de edicao usa o numero para travar a
+ * remocao e explicar o porque antes de tentar.
+ */
+export const tournamentOrganizerCategorySchema =
+  tournamentCategorySchema.extend({
+    liveEntryCount: z.number().int().nonnegative(),
+  });
 
 /**
  * A categoria exposta ao jogador acrescenta o gate do CALLER. `viewerEligible`
@@ -174,6 +264,7 @@ export const tournamentDiscoveryCategorySchema =
   });
 
 export const tournamentSchema = z.object({
+  allowMultipleEntriesPerType: z.boolean(),
   approvalMode: z.enum(TournamentApprovalModeOptions),
   avatarStorageId: z.string().nullable(),
   avatarUrl: z.string().nullable().optional(),
@@ -493,6 +584,9 @@ export type TournamentEntryStatus =
   (typeof TournamentEntryStatusOptions)[number];
 export type Tournament = z.infer<typeof tournamentSchema>;
 export type TournamentCategory = z.infer<typeof tournamentCategorySchema>;
+export type TournamentOrganizerCategory = z.infer<
+  typeof tournamentOrganizerCategorySchema
+>;
 export type TournamentDiscovery = z.infer<typeof tournamentDiscoverySchema>;
 export type TournamentEntry = z.infer<typeof tournamentEntrySchema>;
 export type TournamentMatch = z.infer<typeof tournamentMatchSchema>;

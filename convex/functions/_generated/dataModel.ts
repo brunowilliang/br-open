@@ -960,6 +960,7 @@ export type DataModel = {
   };
   tournament: {
     document: {
+      allowMultipleEntriesPerType: boolean;
       approvalMode?: null | string;
       avatarStorageId?: null | string;
       city: string;
@@ -985,6 +986,7 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "allowMultipleEntriesPerType"
       | "approvalMode"
       | "avatarStorageId"
       | "city"
@@ -1016,11 +1018,12 @@ export type DataModel = {
   tournamentCategory: {
     document: {
       createdAt: number;
-      displayName: string;
       entryFeeCents: number;
       gender: string;
       maxEntries?: null | number;
       modality: string;
+      name: string;
+      nameKey: string;
       tournamentId: Id<"tournament">;
       updatedAt: number;
       _id: Id<"tournamentCategory">;
@@ -1030,21 +1033,23 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "createdAt"
-      | "displayName"
       | "entryFeeCents"
       | "gender"
       | "maxEntries"
       | "modality"
+      | "name"
+      | "nameKey"
       | "tournamentId"
       | "updatedAt";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       tournamentId: ["tournamentId", "_creationTime"];
-      tournamentId_modality_gender: [
+      tournamentId_modality_gender_nameKey: [
         "tournamentId",
         "modality",
         "gender",
+        "nameKey",
         "_creationTime",
       ];
     };
@@ -1198,6 +1203,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      categoryId: ["categoryId", "_creationTime"];
       entryAId_state: ["entryAId", "state", "_creationTime"];
       entryBId_state: ["entryBId", "state", "_creationTime"];
       matchId_channel: ["matchId", "channel", "_creationTime"];
@@ -1236,6 +1242,7 @@ export type DataModel = {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       matchId: ["matchId", "_creationTime"];
+      tournamentId: ["tournamentId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

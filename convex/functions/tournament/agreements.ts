@@ -24,6 +24,7 @@ import {
 import { buildPlayerProfileDisplayName } from "../../domains/player/identity";
 import { resolveCategoryTotalRounds } from "../../domains/tournament/bracket-rules";
 import {
+  MAX_TOURNAMENT_CATEGORIES,
   MatchAgreementActionSchema,
   PublishMatchResultSchema,
   type MatchAgreementActorSide,
@@ -831,7 +832,7 @@ export const listMyMatches = authQuery
     );
     const playerProfileId = await requireActivePlayerProfile(ctx);
     const categories = await ctx.orm.query.tournamentCategory.findMany({
-      limit: 10,
+      limit: MAX_TOURNAMENT_CATEGORIES,
       where: { tournamentId: record.id as Id<"tournament"> },
     });
     const categoryIds = new Set(

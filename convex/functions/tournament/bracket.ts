@@ -3,6 +3,7 @@ import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
 import {
+  MAX_TOURNAMENT_CATEGORIES,
   SwapBracketSlotsSchema,
   TournamentByIdSchema,
   tournamentMatchSchema,
@@ -61,7 +62,7 @@ function serializeMatch(record: MatchRecord) {
 
 function getCategories(ctx: OrmCtx, tournamentId: Id<"tournament">) {
   return ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
+    limit: MAX_TOURNAMENT_CATEGORIES,
     where: { tournamentId },
   });
 }

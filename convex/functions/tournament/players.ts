@@ -56,6 +56,7 @@ export const searchByUsername = authQuery
     });
     const partnerGender = resolvePartnerSearchGender({
       categoryGender: category.gender as TournamentGender,
+      categoryName: category.name,
       modality: category.modality as TournamentModality,
       playerAGender: viewerProfile?.gender ?? null,
     });

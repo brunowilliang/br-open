@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  buildCategoryDisplayName,
   ENTRY_LIVE_STATUSES,
   entrySlotFields,
   isEntryDrawable,
@@ -25,28 +24,11 @@ import {
 import { CreateTournamentSchema, PublishMatchResultSchema } from "../contract";
 import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
 
-describe("buildCategoryDisplayName", () => {
-  it("nomeia as 5 categorias do produto", () => {
-    expect(buildCategoryDisplayName("singles", "male")).toBe(
-      "Simples Masculino"
-    );
-    expect(buildCategoryDisplayName("singles", "female")).toBe(
-      "Simples Feminino"
-    );
-    expect(buildCategoryDisplayName("doubles", "male")).toBe(
-      "Duplas Masculinas"
-    );
-    expect(buildCategoryDisplayName("doubles", "female")).toBe(
-      "Duplas Femininas"
-    );
-    expect(buildCategoryDisplayName("doubles", "mixed")).toBe("Duplas Mistas");
-  });
-});
-
 describe("validateEntryGenders", () => {
   it("misto exige gênero definido nos dois perfis", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -58,6 +40,7 @@ describe("validateEntryGenders", () => {
   it("misto aceita 1 homem + 1 mulher em qualquer ordem", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -66,6 +49,7 @@ describe("validateEntryGenders", () => {
     ).toBeNull();
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -77,6 +61,7 @@ describe("validateEntryGenders", () => {
   it("misto rejeita dois jogadores do mesmo gênero", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -412,6 +397,7 @@ describe("refineTournamentWindow — prazo vs início (strict)", () => {
 
   function parseWindow(registrationDeadlineAt: number, startDate: number) {
     return CreateTournamentSchema.safeParse({
+      allowMultipleEntriesPerType: true,
       approvalMode: "auto",
       avatarStorageId: null,
       categories: [
@@ -420,6 +406,7 @@ describe("refineTournamentWindow — prazo vs início (strict)", () => {
           gender: "male",
           maxEntries: null,
           modality: "doubles",
+          name: "Duplas Masculinas",
         },
       ],
       city: "São Paulo",
@@ -570,14 +557,11 @@ describe("resolvePartnerGenderTarget", () => {
   });
 });
 
-const CALLER_DUPLAS_MASCULINAS =
-  "Você não pode se inscrever em Duplas Masculinas. A categoria aceita apenas o gênero masculino.";
-const CALLER_SIMPLES_MASCULINO =
-  "Você não pode se inscrever em Simples Masculino. A categoria aceita apenas o gênero masculino.";
-const CALLER_DUPLAS_FEMININAS =
-  "Você não pode se inscrever em Duplas Femininas. A categoria aceita apenas o gênero feminino.";
-const CALLER_SIMPLES_FEMININO =
-  "Você não pode se inscrever em Simples Feminino. A categoria aceita apenas o gênero feminino.";
+// A recusa cita o NOME LIVRE da categoria: o rotulo de tipo ("Simples
+// masculino") e do app, nao do servidor.
+const CATEGORY_NAME = "Duplas do Vale";
+const CALLER_MASCULINO = `Você não pode se inscrever em ${CATEGORY_NAME}. A categoria aceita apenas o gênero masculino.`;
+const CALLER_FEMININO = `Você não pode se inscrever em ${CATEGORY_NAME}. A categoria aceita apenas o gênero feminino.`;
 const CALLER_MISTA_SEM_GENERO =
   "Duplas mistas exigem o gênero definido no perfil dos dois jogadores.";
 
@@ -590,6 +574,7 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
   it("duplas masculinas aceitam parceiro masculino", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -601,6 +586,7 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
   it("duplas masculinas recusam parceira feminina", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -614,6 +600,7 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
   it("duplas masculinas recusam parceiro sem gênero definido", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -627,6 +614,7 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
   it("duplas femininas recusam parceiro masculino", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -641,23 +629,25 @@ describe("validateEntryGenders — gênero do parceiro (r25)", () => {
   it("o gênero de quem convida é exigido em categoria fixa (r27)", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: null,
         playerBGender: "Masculino",
       })
-    ).toBe(CALLER_DUPLAS_MASCULINAS);
+    ).toBe(CALLER_MASCULINO);
   });
 
   it("simples de gênero fixo também gateia quem se inscreve (r27)", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "singles",
         playerAGender: null,
         playerBGender: null,
       })
-    ).toBe(CALLER_SIMPLES_MASCULINO);
+    ).toBe(CALLER_MASCULINO);
   });
 });
 
@@ -665,69 +655,76 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
   it("caller masculino é recusado em duplas femininas mesmo com parceira feminina", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Masculino",
         playerBGender: "Feminino",
       })
-    ).toBe(CALLER_DUPLAS_FEMININAS);
+    ).toBe(CALLER_FEMININO);
   });
 
   it("caller feminino é recusado em duplas masculinas mesmo com parceiro masculino", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Feminino",
         playerBGender: "Masculino",
       })
-    ).toBe(CALLER_DUPLAS_MASCULINAS);
+    ).toBe(CALLER_MASCULINO);
   });
 
   it("simples feminino recusa caller masculino", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "singles",
         playerAGender: "Masculino",
         playerBGender: null,
       })
-    ).toBe(CALLER_SIMPLES_FEMININO);
+    ).toBe(CALLER_FEMININO);
   });
 
   it("simples masculino recusa caller feminino", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "singles",
         playerAGender: "Feminino",
         playerBGender: null,
       })
-    ).toBe(CALLER_SIMPLES_MASCULINO);
+    ).toBe(CALLER_MASCULINO);
   });
 
   it("perfil sem gênero é recusado em categoria fixa (simples e duplas)", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "singles",
         playerAGender: null,
         playerBGender: null,
       })
-    ).toBe(CALLER_SIMPLES_FEMININO);
+    ).toBe(CALLER_FEMININO);
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: null,
         playerBGender: "Feminino",
       })
-    ).toBe(CALLER_DUPLAS_FEMININAS);
+    ).toBe(CALLER_FEMININO);
   });
 
   it("aceites legítimos continuam passando", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "singles",
         playerAGender: "Masculino",
@@ -736,6 +733,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
     ).toBeNull();
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "singles",
         playerAGender: "Feminino",
@@ -744,6 +742,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
     ).toBeNull();
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -752,6 +751,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
     ).toBeNull();
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -763,6 +763,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
   it("mista segue sem gate de caller: qualquer gênero definido entra", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -771,6 +772,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
     ).toBeNull();
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -782,6 +784,7 @@ describe("validateEntryGenders — gênero do CALLER (r27)", () => {
   it("simples misto não gateia quem se inscreve", () => {
     expect(
       validateEntryGenders({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "singles",
         playerAGender: null,
@@ -796,6 +799,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "male",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Feminino",
       })
@@ -806,6 +810,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "female",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Masculino",
       })
@@ -816,6 +821,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "male",
+        categoryName: CATEGORY_NAME,
         modality: "singles",
         playerAGender: "Feminino",
       })
@@ -826,6 +832,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "female",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: null,
       })
@@ -836,6 +843,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "mixed",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: null,
       })
@@ -847,6 +855,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "female",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Feminino",
       })
@@ -854,6 +863,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "female",
+        categoryName: CATEGORY_NAME,
         modality: "singles",
         playerAGender: "Feminino",
       })
@@ -862,6 +872,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "male",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Masculino",
       })
@@ -869,6 +880,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "male",
+        categoryName: CATEGORY_NAME,
         modality: "singles",
         playerAGender: "Masculino",
       })
@@ -877,6 +889,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "mixed",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Masculino",
       })
@@ -884,6 +897,7 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
     expect(
       resolvePartnerSearchGender({
         categoryGender: "mixed",
+        categoryName: CATEGORY_NAME,
         modality: "doubles",
         playerAGender: "Feminino",
       })
@@ -892,23 +906,10 @@ describe("resolvePartnerSearchGender — gate da BUSCA (IBX-0074 r27 review MEDI
 });
 
 describe("resolveCallerEligibility (IBX-0074 r27)", () => {
-  it("categoria feminina recusa caller masculino: rótulo curto + motivo exato", () => {
+  it("a recusa cita o NOME livre da categoria, sem derivar tipo", () => {
     expect(
       resolveCallerEligibility({
-        gender: "female",
-        modality: "doubles",
-        playerAGender: "Masculino",
-      })
-    ).toEqual({
-      eligible: false,
-      label: LABEL_MULHERES,
-      reason: CALLER_DUPLAS_FEMININAS,
-    });
-  });
-
-  it("categoria masculina recusa caller feminino: rótulo curto + motivo exato", () => {
-    expect(
-      resolveCallerEligibility({
+        categoryName: "Amador B",
         gender: "male",
         modality: "singles",
         playerAGender: "Feminino",
@@ -916,13 +917,45 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
     ).toEqual({
       eligible: false,
       label: LABEL_HOMENS,
-      reason: CALLER_SIMPLES_MASCULINO,
+      reason:
+        "Você não pode se inscrever em Amador B. A categoria aceita apenas o gênero masculino.",
+    });
+  });
+
+  it("categoria feminina recusa caller masculino: rótulo curto + motivo exato", () => {
+    expect(
+      resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
+        gender: "female",
+        modality: "doubles",
+        playerAGender: "Masculino",
+      })
+    ).toEqual({
+      eligible: false,
+      label: LABEL_MULHERES,
+      reason: CALLER_FEMININO,
+    });
+  });
+
+  it("categoria masculina recusa caller feminino: rótulo curto + motivo exato", () => {
+    expect(
+      resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
+        gender: "male",
+        modality: "singles",
+        playerAGender: "Feminino",
+      })
+    ).toEqual({
+      eligible: false,
+      label: LABEL_HOMENS,
+      reason: CALLER_MASCULINO,
     });
   });
 
   it("perfil sem gênero em categoria fixa: recusa sem chip, só a frase", () => {
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: null,
@@ -930,13 +963,14 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
     ).toEqual({
       eligible: false,
       label: null,
-      reason: CALLER_DUPLAS_MASCULINAS,
+      reason: CALLER_MASCULINO,
     });
   });
 
   it("caller que casa com a categoria é elegível sem motivo nem rótulo", () => {
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "singles",
         playerAGender: "Masculino",
@@ -944,6 +978,7 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
     ).toEqual({ eligible: true, label: null, reason: null });
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -954,6 +989,7 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
   it("mista aceita qualquer gênero definido e recusa perfil sem gênero", () => {
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -961,6 +997,7 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
     ).toEqual({ eligible: true, label: null, reason: null });
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -968,6 +1005,7 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
     ).toEqual({ eligible: true, label: null, reason: null });
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: null,
@@ -982,6 +1020,7 @@ describe("resolveCallerEligibility (IBX-0074 r27)", () => {
   it("simples misto não gateia (não existe parceiro a resolver)", () => {
     expect(
       resolveCallerEligibility({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "singles",
         playerAGender: null,
@@ -1002,6 +1041,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
   it("usa as strings finais: Mulheres na feminina, Homens na masculina", () => {
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Masculino",
@@ -1009,6 +1049,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
     ).toBe(LABEL_MULHERES);
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "singles",
         playerAGender: "Masculino",
@@ -1016,6 +1057,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
     ).toBe(LABEL_MULHERES);
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "doubles",
         playerAGender: "Feminino",
@@ -1023,6 +1065,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
     ).toBe(LABEL_HOMENS);
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "male",
         modality: "singles",
         playerAGender: "Feminino",
@@ -1033,6 +1076,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
   it("perfil sem gênero não tem chip (label null) em fixa nem em mista", () => {
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "singles",
         playerAGender: null,
@@ -1040,6 +1084,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
     ).toBeNull();
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: null,
@@ -1047,6 +1092,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
     ).toBeNull();
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "mixed",
         modality: "doubles",
         playerAGender: null,
@@ -1056,8 +1102,18 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
 
   it("cabe num chip: no máximo 2 palavras e nenhum travessão", () => {
     const inputs: Parameters<typeof resolveCallerEligibility>[0][] = [
-      { gender: "female", modality: "doubles", playerAGender: "Masculino" },
-      { gender: "male", modality: "singles", playerAGender: "Feminino" },
+      {
+        categoryName: CATEGORY_NAME,
+        gender: "female",
+        modality: "doubles",
+        playerAGender: "Masculino",
+      },
+      {
+        categoryName: CATEGORY_NAME,
+        gender: "male",
+        modality: "singles",
+        playerAGender: "Feminino",
+      },
     ];
 
     for (const input of inputs) {
@@ -1071,6 +1127,7 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
   it("elegível não tem rótulo", () => {
     expect(
       labelOf({
+        categoryName: CATEGORY_NAME,
         gender: "female",
         modality: "doubles",
         playerAGender: "Feminino",

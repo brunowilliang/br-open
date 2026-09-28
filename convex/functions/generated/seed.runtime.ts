@@ -18,6 +18,7 @@ const procedureRegistry = {
   "doublesScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").doublesScenario>("seed:doublesScenario"), () => (require("../seed") as Record<string, unknown>)["doublesScenario"])],
   "pendencyScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").pendencyScenario>("seed:pendencyScenario"), () => (require("../seed") as Record<string, unknown>)["pendencyScenario"])],
   "preview": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").preview>("seed:preview"), () => (require("../seed") as Record<string, unknown>)["preview"])],
+  "wipeTournaments": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").wipeTournaments>("seed:wipeTournaments"), () => (require("../seed") as Record<string, unknown>)["wipeTournaments"])],
 } as const;
 
   const handlerRegistry = procedureRegistry;

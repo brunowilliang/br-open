@@ -624,7 +624,7 @@ async function resolveTournamentEntrySource(
     platformFeePercent:
       tournamentRecord.platformFeePercent ?? DEFAULT_PLATFORM_FEE_PERCENT,
     playerProfileId: (playerProfile?.id ?? entry.playerAId) as string,
-    sourceLabel: `${tournamentRecord.name} — ${category.displayName}`,
+    sourceLabel: `${tournamentRecord.name} — ${category.name}`,
   };
 }
 

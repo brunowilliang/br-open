@@ -1,43 +1,18 @@
-/** Regras puras de inscrição: nome da categoria e gates de gênero. */
+/** Regras puras de inscrição: gates de gênero, status e vagas. */
 import {
   PLAYER_GENDER_FEMALE,
   PLAYER_GENDER_MALE,
   type TournamentGender,
   type TournamentModality,
 } from "./contract";
-const MODALITY_LABEL: Record<TournamentModality, string> = {
-  doubles: "Duplas",
-  singles: "Simples",
-};
-
-const SINGLES_GENDER_LABEL: Record<TournamentGender, string> = {
-  female: "Feminino",
-  male: "Masculino",
-  mixed: "Misto",
-};
-
-const DOUBLES_GENDER_LABEL: Record<TournamentGender, string> = {
-  female: "Femininas",
-  male: "Masculinas",
-  mixed: "Mistas",
-};
-
-export function buildCategoryDisplayName(
-  modality: TournamentModality,
-  gender: TournamentGender
-) {
-  const genderLabel =
-    modality === "singles"
-      ? SINGLES_GENDER_LABEL[gender]
-      : DOUBLES_GENDER_LABEL[gender];
-  return `${MODALITY_LABEL[modality]} ${genderLabel}`;
-}
 
 export type GenderCheckInput = {
+  /** Nome LIVRE da categoria: a recusa cita o rotulo do organizador. */
+  categoryName: string;
   gender: TournamentGender;
   modality: TournamentModality;
-  playerAGender: string | null | undefined;
-  playerBGender: string | null | undefined;
+  playerAGender: null | string | undefined;
+  playerBGender: null | string | undefined;
 };
 
 const MIXED_GENDER_REQUIRED_MESSAGE =
@@ -57,6 +32,7 @@ export type CategoryCallerEligibility =
  * definido (resolve o parceiro oposto) e `Simples Misto` não gateia.
  */
 export function resolveCallerEligibility(input: {
+  categoryName: string;
   gender: TournamentGender;
   modality: TournamentModality;
   playerAGender: null | string | undefined;
@@ -90,7 +66,7 @@ export function resolveCallerEligibility(input: {
     eligible: false,
     // Definido e divergente = categoria do outro gênero; ausente = legado.
     label: isDefined ? (input.gender === "male" ? "Homens" : "Mulheres") : null,
-    reason: `Você não pode se inscrever em ${buildCategoryDisplayName(input.modality, input.gender)}. A categoria aceita apenas o gênero ${input.gender === "male" ? "masculino" : "feminino"}.`,
+    reason: `Você não pode se inscrever em ${input.categoryName}. A categoria aceita apenas o gênero ${input.gender === "male" ? "masculino" : "feminino"}.`,
   };
 }
 
@@ -101,6 +77,7 @@ export function resolveCallerEligibility(input: {
  */
 export function validateEntryGenders(input: GenderCheckInput) {
   const caller = resolveCallerEligibility({
+    categoryName: input.categoryName,
     gender: input.gender,
     modality: input.modality,
     playerAGender: input.playerAGender,
@@ -167,10 +144,12 @@ export function resolvePartnerGenderTarget(input: {
 /** `null` quando o gate do CALLER já recusaria: nada a sugerir na busca. */
 export function resolvePartnerSearchGender(input: {
   categoryGender: TournamentGender;
+  categoryName: string;
   modality: TournamentModality;
   playerAGender: null | string | undefined;
 }): "Feminino" | "Masculino" | null {
   const caller = resolveCallerEligibility({
+    categoryName: input.categoryName,
     gender: input.categoryGender,
     modality: input.modality,
     playerAGender: input.playerAGender,

@@ -8,6 +8,18 @@ import type {
 
 export const PENDENCY_SEED_ORGANIZATION_NAME = "Arena Beira-Rio";
 
+/**
+ * Nome da categoria que o plantio cria para cada par (modalidade, genero) — o
+ * cenario tem UMA categoria por par, e o nome e o rotulo que o app mostra.
+ */
+export const PENDENCY_SEED_CATEGORY_NAME_BY_TYPE: Record<string, string> = {
+  "doubles:female": "Duplas Femininas",
+  "doubles:male": "Duplas Masculinas",
+  "doubles:mixed": "Duplas Mistas",
+  "singles:female": "Simples Feminino",
+  "singles:male": "Simples Masculino",
+};
+
 export type PendencySeedEntry = {
   /** Indice em `seedPlayers` do outro lado (parceiro, convidante ou inscrito). */
   counterpartIndex: number | null;

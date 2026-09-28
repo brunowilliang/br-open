@@ -364,16 +364,22 @@ await client.mutation(anyApi.viewer.context.setActiveActor, {
 console.log("  active actor = organizacao");
 
 const bigBefore = inlineQuery(
-  `const t = await ctx.db.get("${BIG_TOURNAMENT_ID}"); return { status: t.status, name: t.name };`
+  `const t = await ctx.db.get("${BIG_TOURNAMENT_ID}"); return t ? { status: t.status, name: t.name } : null;`
 );
-console.log(`  big antes: ${bigBefore.name} status=${bigBefore.status}`);
-if (bigBefore.status === "drawn") {
-  await client.mutation(anyApi.tournament.bracket.start, {
-    tournamentId: BIG_TOURNAMENT_ID,
-  });
-  console.log("  big INICIADO (drawn -> ongoing)");
+if (bigBefore) {
+  console.log(`  big antes: ${bigBefore.name} status=${bigBefore.status}`);
+  if (bigBefore.status === "drawn") {
+    await client.mutation(anyApi.tournament.bracket.start, {
+      tournamentId: BIG_TOURNAMENT_ID,
+    });
+    console.log("  big INICIADO (drawn -> ongoing)");
+  } else {
+    console.log("  big ja esta ongoing, nada a fazer");
+  }
 } else {
-  console.log("  big ja esta ongoing, nada a fazer");
+  // O wipe do DEV (IBX-0162) levou o torneio grande: sem ele, so a conferencia
+  // do pequeno segue valendo.
+  console.log("  big NAO existe no DEV: pulando o start");
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +397,7 @@ if (existingSmall.length > 0) {
   );
 } else {
   const created = await client.mutation(anyApi.tournament.management.create, {
+    allowMultipleEntriesPerType: true,
     approvalMode: "auto",
     avatarStorageId: null,
     categories: [
@@ -399,6 +406,7 @@ if (existingSmall.length > 0) {
         gender: "male",
         maxEntries: null,
         modality: "singles",
+        name: "Simples Masculino",
       },
     ],
     city: "Dracena",
@@ -504,7 +512,7 @@ if (smallAfter.status === "published") {
 // ---------------------------------------------------------------------------
 console.log("== 5) verificacao ==");
 const verify = inlineQuery(
-  `const out = []; for await (const t of ctx.db.query("tournament")) { const cats = []; for await (const c of ctx.db.query("tournamentCategory")) { if (c.tournamentId !== t._id) continue; const byRound = {}; let entries = 0; for await (const m of ctx.db.query("tournamentMatch")) { if (m.categoryId !== c._id) continue; byRound[m.round] = (byRound[m.round] ?? 0) + 1; } for await (const e of ctx.db.query("tournamentEntry")) { if (e.categoryId === c._id) entries += 1; } cats.push({ name: c.displayName, entries, byRound }); } out.push({ name: t.name, status: t.status, cats }); } return out;`
+  `const out = []; for await (const t of ctx.db.query("tournament")) { const cats = []; for await (const c of ctx.db.query("tournamentCategory")) { if (c.tournamentId !== t._id) continue; const byRound = {}; let entries = 0; for await (const m of ctx.db.query("tournamentMatch")) { if (m.categoryId !== c._id) continue; byRound[m.round] = (byRound[m.round] ?? 0) + 1; } for await (const e of ctx.db.query("tournamentEntry")) { if (e.categoryId === c._id) entries += 1; } cats.push({ name: c.name, entries, byRound }); } out.push({ name: t.name, status: t.status, cats }); } return out;`
 );
 console.log(JSON.stringify(verify, null, 2));
 
