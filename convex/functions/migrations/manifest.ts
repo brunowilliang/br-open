@@ -13,6 +13,8 @@ import { migration as migration_6 } from './20260917_221648_backfill_team_member
 import { migration as migration_7 } from './20260920_091746_backfill_tournament_entry_slots';
 import { migration as migration_8 } from './20260921_191850_add_pending_dismissal';
 import { migration as migration_9 } from './20260926_113435_backfill_refund_recovery_status';
+import { migration as migration_10 } from './20260928_142549_backfill_tournament_allow_multiple_entries';
+import { migration as migration_11 } from './20260928_142549_backfill_tournament_category_name';
 
 export const migrations = defineMigrationSet([
   migration_0,
@@ -25,4 +27,6 @@ export const migrations = defineMigrationSet([
   migration_7,
   migration_8,
   migration_9,
+  migration_10,
+  migration_11,
 ]);
