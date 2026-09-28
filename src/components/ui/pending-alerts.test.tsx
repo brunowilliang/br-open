@@ -12,12 +12,15 @@ import type {
 import {
   buildOrganizerConclusionPendings,
   buildPlayerEntryPendings,
+  buildPlayerMatchAgreementPendings,
 } from "@convex/domains/tournament/pendings-rules";
 
 // O repo não tem harness de render (nem `react-test-renderer`) e `react-native`
 // não parseia sob bun (Flow): o componente é CHAMADO como função e a árvore
 // devolvida é inspecionada, com os módulos de boundary mockados antes do import.
 
+const acceptScheduleCalls: unknown[] = [];
+const acceptScoreCalls: unknown[] = [];
 const chargeCalls: unknown[] = [];
 const concludeCalls: unknown[] = [];
 const dismissCalls: unknown[] = [];
@@ -72,6 +75,10 @@ mock.module("@/lib/convex/crpc", () => ({
       list: { list: { queryFilter: () => ({ queryKey: [] }) } },
     },
     tournament: {
+      agreements: {
+        acceptSchedule: { mutationKey: () => ["accept-match-schedule"] },
+        acceptScore: { mutationKey: () => ["confirm-match-score"] },
+      },
       entries: {
         approve: { mutationKey: () => ["approve-entry"] },
         reject: { mutationKey: () => ["reject-entry"] },
@@ -110,6 +117,18 @@ mock.module("@/lib/convex/crpc", () => ({
         },
       },
       tournament: {
+        agreements: {
+          acceptSchedule: {
+            mutate: (variables: unknown) => {
+              acceptScheduleCalls.push(variables);
+            },
+          },
+          acceptScore: {
+            mutate: (variables: unknown) => {
+              acceptScoreCalls.push(variables);
+            },
+          },
+        },
         entries: {
           approve: notUsed(),
           reject: notUsed(),
@@ -234,7 +253,30 @@ function buildConclusionItem(): PendingItem {
   return item as PendingItem;
 }
 
+/** Horário/placar propostos pelo outro lado: item com CTA de UM toque. */
+function buildAgreementItem(channel: "schedule" | "score"): PendingItem {
+  const [item] = buildPlayerMatchAgreementPendings({
+    matches: [
+      {
+        channel,
+        matchId: "match-7",
+        opponentName: "Rodrigo Bittencourt",
+        proposalLabel: channel === "schedule" ? "28/09 às 08:00" : "6-3, 6-2",
+        proposedAt: 1_789_653_600_000,
+        proposerName: "Diego Barros",
+        reopened: false,
+        tournamentId: "tournament-1",
+        tournamentName: "Copa Dracena 8",
+      },
+    ],
+  });
+
+  return item as PendingItem;
+}
+
 beforeEach(() => {
+  acceptScheduleCalls.length = 0;
+  acceptScoreCalls.length = 0;
   chargeCalls.length = 0;
   concludeCalls.length = 0;
   dismissCalls.length = 0;
@@ -268,7 +310,40 @@ describe("PendingAlerts wiring", () => {
     ]);
   });
 
-  it("opens the checkout for the entry without waiting for the charge", () => {
+  it("accepts the proposed schedule in ONE tap and keeps the match as the target", () => {
+    const alert = renderAlert(buildAgreementItem("schedule"));
+
+    expect(alert.action?.label).toBe("Aceitar");
+    expect(alert.secondaryAction?.label).toBe("Combinar");
+
+    alert.action?.onPress();
+
+    // O alvo vem da PROPRIA acao: nenhum outro confronto, nenhuma navegacao.
+    expect(acceptScheduleCalls).toEqual([{ matchId: "match-7" }]);
+    expect(navigateCalls).toEqual([]);
+
+    // O secundario continua abrindo o Combinar jogo (editar o horario).
+    alert.secondaryAction?.onPress();
+    expect(navigateCalls).toEqual([
+      {
+        params: { matchId: "match-7", tournamentId: "tournament-1" },
+        pathname: "/tournaments/[tournamentId]",
+      },
+    ]);
+  });
+
+  it("confirms the proposed score in ONE tap", () => {
+    const alert = renderAlert(buildAgreementItem("score"));
+
+    expect(alert.action?.label).toBe("Confirmar");
+
+    alert.action?.onPress();
+
+    expect(acceptScoreCalls).toEqual([{ matchId: "match-7" }]);
+    expect(acceptScheduleCalls).toEqual([]);
+  });
+
+  it("keeps the buttons enabled when another mutation is in flight", () => {
     const alert = renderAlert(buildPaymentItem());
 
     alert.action?.onPress();

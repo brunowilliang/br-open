@@ -3,13 +3,18 @@ import { useValue } from "@legendapp/state/react";
 import { useMemo } from "react";
 import { View } from "react-native";
 
+import { AgreementMatchCard } from "@/components/pages/tournaments/agreement-match-card";
+import { useNegotiablePlayerMatches } from "@/components/pages/tournaments/match-agreement-provider";
+import { PlayerMatchPanel } from "@/components/pages/tournaments/player-match-panel";
 import { Text } from "@/components/core/text";
 import { PendingAlerts } from "@/components/ui/pending-alerts";
-import { MatchCard } from "@/components/ui/match-card";
 import { buildMatchSides } from "@/lib/tournaments/bracket-view";
+import { resolveMatchFocus } from "@/lib/tournaments/match-focus";
+import { selectNextPlayerMatch } from "@/lib/tournaments/player-overview-derived";
 import {
   formatBracketStage,
   formatEntryPlayerNames,
+  isBracketPublic,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
@@ -22,6 +27,10 @@ type PlayerOverviewProps = {
    */
   onPendingActionPerformed?: () => void;
   tournament: TournamentOverview;
+  /** Confronto que a url abriu (`matchId` do aviso): o ref que a página (dona
+   * do scroll) mede para rolar até o card dele. */
+  focusCardRef?: (node: View | null) => void;
+  focusMatchId?: null | string;
 };
 
 /** Casa do torneio para o jogador: alertas de pendência das PRÓPRIAS inscrições
@@ -41,20 +50,12 @@ export function PlayerOverview(props: PlayerOverviewProps) {
     [entriesById, matches]
   );
   const viewerEntryIds = new Set(tournament.viewerEntryIds);
-  const nextMatch = matchesWithSides
-    .filter(
-      (match) =>
-        match.status === "scheduled" &&
-        match.matchDate !== null &&
-        match.startMinute !== null &&
-        ((match.entryAId !== null && viewerEntryIds.has(match.entryAId)) ||
-          (match.entryBId !== null && viewerEntryIds.has(match.entryBId)))
-    )
-    .sort(
-      (a, b) =>
-        (a.matchDate ?? "").localeCompare(b.matchDate ?? "") ||
-        (a.startMinute ?? 0) - (b.startMinute ?? 0)
-    )[0];
+  // Sem horário o confronto CONTA: o card desenha os dois lados, o chip sai "A
+  // definir" e o menu do acerto traz "Propor horário".
+  const nextMatch = selectNextPlayerMatch({
+    matches: matchesWithSides,
+    viewerEntryIds: tournament.viewerEntryIds,
+  });
   // Lados do próximo jogo no shape do card (ui/match-card.tsx): o lado do
   // viewer vai em "challenger" e o adversário em "challenged", mesmo molde de
   // tournaments/[tournamentId]/schedule.tsx.
@@ -85,7 +86,17 @@ export function PlayerOverview(props: PlayerOverviewProps) {
       .map((match) => match.round)
   );
 
-  if (!nextMatch && pendings.length === 0) {
+  // Chave ainda privada: o painel do PRÓPRIO confronto é a superfície do
+  // jogador (o "Próximo jogo" acima só existe com a chave aberta).
+  const myMatches = useNegotiablePlayerMatches(tournament.id);
+  const showOwnMatch =
+    !isBracketPublic(tournament.status) && myMatches.length > 0;
+  const focus = resolveMatchFocus({
+    focusMatchId: props.focusMatchId,
+    nextMatchId: nextMatch?.id,
+  });
+
+  if (!nextMatch && pendings.length === 0 && !showOwnMatch) {
     return null;
   }
 
@@ -100,18 +111,27 @@ export function PlayerOverview(props: PlayerOverviewProps) {
         onActionPerformed={props.onPendingActionPerformed}
       />
 
-      {nextMatch &&
-      nextMatch.matchDate !== null &&
-      nextMatch.startMinute !== null &&
-      viewerSideEntry &&
-      opponentSideEntry ? (
-        <View className="gap-1">
+      {showOwnMatch ? (
+        <PlayerMatchPanel
+          focusCardRef={props.focusCardRef}
+          focusMatchId={focus.panelFocusMatchId}
+          showBracketNote
+          tournamentId={tournament.id}
+        />
+      ) : null}
+
+      {nextMatch && viewerSideEntry && opponentSideEntry ? (
+        <View
+          className="gap-1"
+          ref={focus.isNextMatchFocused ? props.focusCardRef : undefined}
+        >
           <Text color="muted" variant="description" weight="medium">
             Próximo jogo
           </Text>
           {/* Card reutilizado das agendas (ui/match-card.tsx), mesmo molde
-              de tournaments/[tournamentId]/schedule.tsx. */}
-          <MatchCard
+              de tournaments/[tournamentId]/schedule.tsx; o COMBINAR JOGO entra
+              pelo `AgreementMatchCard` (o viewer é dono de um dos lados). */}
+          <AgreementMatchCard
             challengedAvatarUrl={opponentSideEntry.playerA?.avatarUrl ?? null}
             challengedName={opponentSideNames[0]}
             challengedPartnerAvatarUrl={
@@ -126,9 +146,14 @@ export function PlayerOverview(props: PlayerOverviewProps) {
             challengerPartnerName={viewerSideNames[1] ?? null}
             courtName={nextMatchCourtName}
             matchDate={nextMatch.matchDate}
+            matchId={nextMatch.id}
             matchStatus={nextMatch.status}
+            sideOrder="viewer"
             stageLabel={formatBracketStage(nextMatch.round, nextMatchLastRound)}
-            startMinute={nextMatch.startMinute}
+            // Sem agendamento o minuto é null: o card não lê o número sem data
+            // e quadra (o rodapé de horário não entra).
+            startMinute={nextMatch.startMinute ?? 0}
+            tournamentId={tournament.id}
           />
         </View>
       ) : null}

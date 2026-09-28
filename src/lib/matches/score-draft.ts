@@ -90,6 +90,44 @@ export function getLineLabel(lines: ScoreDraftSet[], lineIndex: number) {
   return `Set ${scoreLineNumber}`;
 }
 
+/** Mesmas linhas, na mesma ordem: o placar novo tem que diferir do que já está
+ * na mesa. Linhas em branco no fim não contam e o tie-break é comparado ponto a
+ * ponto (`null` e ausente são a mesma coisa). Sem placar na mesa não há o que
+ * repetir: a resposta é sempre `false`. */
+export function areSameScoreDraftSets(
+  current: ScoreDraftSet[] | undefined,
+  next: ScoreDraftSet[]
+) {
+  const currentSets = trimTrailingBlankSets(current ?? []);
+  const nextSets = trimTrailingBlankSets(next);
+
+  if (currentSets.length === 0) {
+    return false;
+  }
+
+  if (currentSets.length !== nextSets.length) {
+    return false;
+  }
+
+  return currentSets.every((set, index) => {
+    const other = nextSets[index];
+    const tieBreak = set.tieBreak ?? null;
+    const otherTieBreak = other.tieBreak ?? null;
+    const sameTieBreak =
+      tieBreak === null || otherTieBreak === null
+        ? tieBreak === otherTieBreak
+        : tieBreak.aPoints === otherTieBreak.aPoints &&
+          tieBreak.bPoints === otherTieBreak.bPoints;
+
+    return (
+      set.aGames === other.aGames &&
+      set.bGames === other.bGames &&
+      set.kind === other.kind &&
+      sameTieBreak
+    );
+  });
+}
+
 /** Mais games vence a linha; empate vai ao tie-break anexo; TB empatado não é de ninguém. */
 export function buildScoreboard(sets: ScoreDraftSet[]): ScoreDraftScoreboard {
   let aLineWins = 0;

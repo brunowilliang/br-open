@@ -3,6 +3,7 @@ import { Text } from "@/components/core/text";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { getViewerMode } from "@/lib/actors/viewer-mode";
+import { isComponentGalleryEnabled } from "@/lib/dev/component-gallery-flag";
 import { applyViewerContextToClientState } from "@/lib/convex/actor-scoped-cache";
 import { useSignOutMutationOptions } from "@/lib/convex/auth-client";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
@@ -36,7 +37,8 @@ import { View } from "react-native";
 type SettingsItem = {
   badge?: number;
   description: string;
-  devOnly?: boolean;
+  /** Só aparece com a marca da galeria de componentes ligada. */
+  galleryOnly?: boolean;
   href?: Href;
   icon: ComponentProps<typeof HugeIcons>["icon"];
   id: string;
@@ -180,7 +182,7 @@ export default function Settings() {
     },
     {
       description: "Galeria dev para aprovação de componentes",
-      devOnly: true,
+      galleryOnly: true,
       href: "/settings/components",
       icon: ViewIcon,
       id: "components",
@@ -271,7 +273,7 @@ export default function Settings() {
                 !(
                   (item.requiresOrganizer && !canShowOrganizerResources) ||
                   (item.playerOnly && isOrganizationActor) ||
-                  (item.devOnly && process.env.EXPO_PUBLIC_IS_DEV !== "true")
+                  (item.galleryOnly && !isComponentGalleryEnabled)
                 )
             )
             .map((item, index) => (

@@ -17,8 +17,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Chip, Dialog, Menu, useToast } from "heroui-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
+import type { KeyboardAwareScrollViewRef } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -56,20 +58,36 @@ import {
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
+/** Espaço do header flutuante acima do card em foco (respiro + botão + respiro):
+ * o card para logo abaixo dele, sem ficar atrás. */
+const FOCUS_HEADER_OFFSET = 72;
+
 export default function TournamentOverviewRoute() {
-  const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
+  const { matchId: rawMatchId, tournamentId } = useLocalSearchParams<{
+    matchId?: string | string[];
+    tournamentId: string;
+  }>();
   const router = useRouter();
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
+  // O aviso (e o "Combinar" da pendência) trazem o matchId na url: a tela rola
+  // até o card do confronto, logo abaixo do header flutuante. Query repetida
+  // chega como array (mesmo molde do `_layout`): vale o primeiro.
+  const focusMatchParam = Array.isArray(rawMatchId)
+    ? rawMatchId[0]
+    : rawMatchId;
+  const focusMatchId = focusMatchParam || null;
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const insets = useSafeAreaInsets();
+  const focusScrollInset = insets.top + FOCUS_HEADER_OFFSET;
   const screenState = useValue(bucket$.derived.screenState);
   const access = useValue(bucket$.derived.access);
   const role = useValue(bucket$.derived.role);
   const tournament = useValue(bucket$.data.tournament);
   const entries = useValue(bucket$.data.entries);
-
   async function invalidateTournamentContext() {
     await queryClient.invalidateQueries(
       crpc.tournament.discovery.getById.queryFilter({ tournamentId })
@@ -141,6 +159,33 @@ export default function TournamentOverviewRoute() {
   }, [partnerSearch]);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  // O card em foco se registra aqui na montagem; a medida é relativa ao scroll,
+  // então rolar até o y devolvido põe o card no lugar (um frame para o layout
+  // do card existir antes da medida).
+  const focusCardRef = useCallback(
+    (node: View | null) => {
+      const scroll = scrollRef.current;
+
+      if (!(node && scroll)) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        node.measureLayout(
+          scroll as unknown as Parameters<typeof node.measureLayout>[0],
+          (_x, y) => {
+            scroll.scrollTo({
+              animated: true,
+              y: Math.max(0, y - focusScrollInset),
+            });
+          },
+          () => undefined
+        );
+      });
+    },
+    [focusScrollInset]
+  );
 
   const publishTournament = useMutation({
     mutationFn: crpcClient.tournament.management.publish.mutate,
@@ -424,6 +469,7 @@ export default function TournamentOverviewRoute() {
           "grow",
           showStatusState && "centered gap-4 px-4"
         )}
+        ref={scrollRef}
       >
         {showStatusState ? (
           screenState === "error" ? (
@@ -444,6 +490,8 @@ export default function TournamentOverviewRoute() {
                 )}
                 {role === "player" && (
                   <PlayerOverview
+                    focusCardRef={focusMatchId ? focusCardRef : undefined}
+                    focusMatchId={focusMatchId}
                     onPendingActionPerformed={invalidateTournamentContext}
                     tournament={tournament}
                   />

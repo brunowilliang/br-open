@@ -20,7 +20,7 @@ import type { PendingActionResolution } from "@/lib/pendings/pendings-view";
  * MESMO `onPress`, em que a secundária dispara a ação da principal: aqui a
  * asserção é a resolução que CADA item entrega ao runner, a ordem e a cor.
  *
- * O último caso prova a COPY: para os 16 tipos do catálogo, o que o cartão
+ * O último caso prova a COPY: para os 23 tipos do catálogo, o que o cartão
  * desenha é o texto do servidor VERBATIM, sem reformulação.
  *
  * O repo não tem harness de render e `react-native` não parseia sob bun (Flow),
@@ -344,6 +344,25 @@ describe("NotificationCard", () => {
     expect(menu.items.map(readItemLabel)).toEqual(["Remover notificação"]);
   });
 
+  it("dispara o botão do confronto definido na url do item, com o matchId", () => {
+    // Item REAL do servidor: o botão é o único caminho da ação e tem que
+    // resolver na MESMA url do toque (o matchId vai embutido nela).
+    const item = buildGalleryNotificationItem("tournament.match.ready");
+    const { menu } = renderCard({ item });
+
+    expect(menu.items.map(readItemLabel)).toEqual([
+      "Combinar horário",
+      "Remover notificação",
+    ]);
+
+    menu.items[0].onPress?.();
+
+    expect(actionCalls).toEqual([
+      { kind: "navigate", params: {}, route: item.data.url as string },
+    ]);
+    expect(removeCalls).toEqual([]);
+  });
+
   it("disables only the item whose action is in flight", () => {
     const { menu } = renderCard({
       isActionPending: (resolution) => resolution?.kind === "approve_entry",
@@ -413,7 +432,7 @@ describe("NotificationCard", () => {
       }
     }
 
-    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(16);
+    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(26);
     expect(mismatches).toEqual([]);
   });
 });

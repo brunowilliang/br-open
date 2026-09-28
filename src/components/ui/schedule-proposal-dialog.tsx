@@ -17,6 +17,7 @@ import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { getSelectedOption } from "@/lib/collections";
+import { isSameScheduleSlot } from "@/lib/scheduling/slot-equality";
 import { buildSlotTimeOptions } from "@/lib/scheduling/slot-options";
 import type { Court } from "@convex/domains/match/contract";
 import type { CalendarDate } from "@internationalized/date";
@@ -58,6 +59,10 @@ type ScheduleProposalDialogProps = {
   occupiedSlots: OccupiedSlot[];
   onSubmit: (value: ScheduleProposalDialogValue) => Promise<void> | void;
   title: string;
+  /** Aviso (neutro) enquanto o slot for o MESMO do `initialValue`: o envio fica
+   * bloqueado e aviso e bloqueio caem juntos na primeira mudança. Ausente = o
+   * diálogo aceita repetir (o reagendamento do organizador é um no-op). */
+  unchangedMessage?: string;
 };
 
 const MATCH_DATE_LOCALE = "pt-BR";
@@ -138,6 +143,7 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
     occupiedSlots,
     onSubmit,
     title,
+    unchangedMessage,
   } = props;
   const [matchDate, setMatchDate] = useState<DatePickerOption | undefined>(
     buildDateOption(initialValue?.matchDate)
@@ -232,6 +238,22 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
       setStartMinute(undefined);
     }
   }, [selectedCourt, selectedDayKey, startMinute, startTimeOptions]);
+
+  // Prefill = o que está na mesa: enquanto o valor for o mesmo não há proposta
+  // nova a enviar. Derivado a cada render, então o aviso e o bloqueio do botão
+  // caem juntos na primeira mudança de campo.
+  const isSameAsTable = Boolean(
+    unchangedMessage &&
+      initialValue &&
+      matchDate?.value &&
+      courtId &&
+      startMinute !== undefined &&
+      isSameScheduleSlot(initialValue, {
+        courtId,
+        matchDate: matchDate.value,
+        startMinute: Number(startMinute),
+      })
+  );
 
   async function handleSubmit() {
     if (!(matchDate?.value && courtId) || startMinute === undefined) {
@@ -448,9 +470,15 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
             {errorMessage}
           </FieldError>
 
+          {isSameAsTable && unchangedMessage ? (
+            <Text color="muted" size="xs">
+              {unchangedMessage}
+            </Text>
+          ) : null}
+
           <View className="self-end">
             <Button
-              isDisabled={isPending}
+              isDisabled={isPending || isSameAsTable}
               onPress={() => {
                 handleSubmit().catch(() => undefined);
               }}

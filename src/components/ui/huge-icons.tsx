@@ -18,3 +18,6 @@ export const HugeIcons = styled(HugeIconsUiwind, {
     icon: DashedLineCircleIcon,
   },
 });
+
+/** Glifo aceito pelo `HugeIcons`: o que a tabela de verbos e os cards tipam. */
+export type HugeIconGlyph = Parameters<typeof HugeIcons>[0]["icon"];

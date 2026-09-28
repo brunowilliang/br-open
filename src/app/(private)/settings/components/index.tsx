@@ -7,14 +7,13 @@ import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
 
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { isComponentGalleryEnabled } from "@/lib/dev/component-gallery-flag";
 import { COMPONENT_GALLERY_ENTRIES } from "@/lib/dev/component-registry";
 
-/**
- * DEV ONLY: gated por `EXPO_PUBLIC_IS_DEV`, mesmo mecanismo do simulatePayment
- * do checkout.
- */
+/** Gated pela marca da galeria (`EXPO_PUBLIC_COMPONENT_GALLERY`), não pelo
+ * `EXPO_PUBLIC_IS_DEV` dos atalhos de desenvolvimento. */
 export default function ComponentGalleryListingRoute() {
-  if (process.env.EXPO_PUBLIC_IS_DEV !== "true") {
+  if (!isComponentGalleryEnabled) {
     return null;
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  areSameScoreDraftSets,
   buildEmptyDraftSet,
   buildScoreboard,
   canAttachTieBreak,
@@ -343,6 +344,110 @@ describe("score-draft", () => {
         bLineWins: 0,
         winnerSide: null,
       });
+    });
+  });
+
+  describe("areSameScoreDraftSets", () => {
+    it("recognizes the same lines in the same order", () => {
+      const current = [
+        { aGames: 6, bGames: 4, kind: "set" },
+        { aGames: 3, bGames: 6, kind: "set" },
+      ] satisfies ScoreDraftFixture[];
+
+      expect(areSameScoreDraftSets(current, [...current])).toBe(true);
+    });
+
+    it("treats any changed line as another score", () => {
+      const current = [{ aGames: 6, bGames: 4, kind: "set" }] as const;
+
+      expect(
+        areSameScoreDraftSets(
+          [...current],
+          [{ aGames: 7, bGames: 4, kind: "set" }]
+        )
+      ).toBe(false);
+      expect(
+        areSameScoreDraftSets(
+          [...current],
+          [{ aGames: 6, bGames: 4, kind: "super_tiebreak" }]
+        )
+      ).toBe(false);
+      expect(
+        areSameScoreDraftSets(
+          [...current],
+          [
+            { aGames: 6, bGames: 4, kind: "set" },
+            { aGames: 10, bGames: 8, kind: "tiebreak" },
+          ]
+        )
+      ).toBe(false);
+    });
+
+    it("compares the attached tie-break point by point", () => {
+      const current = [
+        {
+          aGames: 6,
+          bGames: 6,
+          kind: "set",
+          tieBreak: { aPoints: 10, bPoints: 8 },
+        },
+      ] satisfies ScoreDraftFixture[];
+
+      expect(
+        areSameScoreDraftSets(current, [
+          {
+            aGames: 6,
+            bGames: 6,
+            kind: "set",
+            tieBreak: { aPoints: 10, bPoints: 8 },
+          },
+        ])
+      ).toBe(true);
+      expect(
+        areSameScoreDraftSets(current, [
+          {
+            aGames: 6,
+            bGames: 6,
+            kind: "set",
+            tieBreak: { aPoints: 12, bPoints: 10 },
+          },
+        ])
+      ).toBe(false);
+      // Anexo ausente e anexo nulo são o mesmo estado.
+      expect(
+        areSameScoreDraftSets(current, [
+          { aGames: 6, bGames: 6, kind: "set", tieBreak: null },
+        ])
+      ).toBe(false);
+      expect(
+        areSameScoreDraftSets(
+          [{ aGames: 6, bGames: 6, kind: "set", tieBreak: null }],
+          [{ aGames: 6, bGames: 6, kind: "set" }]
+        )
+      ).toBe(true);
+    });
+
+    it("ignores blank lines left at the end of the form", () => {
+      const current = [{ aGames: 6, bGames: 4, kind: "set" }] as const;
+
+      expect(
+        areSameScoreDraftSets(
+          [...current],
+          [
+            { aGames: 6, bGames: 4, kind: "set" },
+            { aGames: 0, bGames: 0, kind: "set" },
+          ]
+        )
+      ).toBe(true);
+    });
+
+    it("has nothing to compare without a score on the table", () => {
+      expect(
+        areSameScoreDraftSets(undefined, [
+          { aGames: 0, bGames: 0, kind: "set" },
+        ])
+      ).toBe(false);
+      expect(areSameScoreDraftSets(undefined, [])).toBe(false);
     });
   });
 });

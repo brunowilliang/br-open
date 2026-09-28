@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import type { NotificationPresentation } from "@convex/domains/notification/contract";
 
+import { buildGalleryNotificationItem } from "@/lib/dev/notification-gallery-fixtures";
 import {
   buildNotificationDescription,
+  buildNotificationMenuItems,
   getNotificationActionTarget,
   type NotificationCardItem,
 } from "./notification-view";
@@ -155,5 +157,36 @@ describe("getNotificationActionTarget", () => {
 
     expect(target.action).toBeNull();
     expect(target.route).toBeNull();
+  });
+});
+
+describe("botão do aviso com confronto definido (tournament.match.ready)", () => {
+  // Item REAL do servidor (definitions + presentation): o destino do botão tem
+  // que ser a MESMA url do toque do item, com o matchId que o servidor embutiu.
+  const item = buildGalleryNotificationItem("tournament.match.ready");
+  const url = item.data.url as string;
+
+  it("mantém o matchId no alvo: a rota do item é o destino, sem params", () => {
+    expect(url).toContain("?matchId=gallery-match-1");
+
+    expect(getNotificationActionTarget(item)).toEqual({
+      action: { params: null, type: "open_route" },
+      params: null,
+      route: url,
+    });
+  });
+
+  it("leva o botão à url do item (o matchId não se perde no caminho)", () => {
+    const items = buildNotificationMenuItems(item);
+
+    expect(items).toEqual([
+      {
+        kind: "action",
+        label: "Combinar horário",
+        resolution: { kind: "navigate", params: {}, route: url },
+        tone: "default",
+      },
+      { kind: "remove", label: "Remover notificação", tone: "danger" },
+    ]);
   });
 });

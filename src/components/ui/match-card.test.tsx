@@ -107,6 +107,15 @@ function renderCard(props: Record<string, unknown>) {
       .filter((node) => node.type === Text)
       .filter((node) => typeof node.props?.children === "number")
       .map((node) => node.props?.children),
+    /** Números do placar com o destaque de cada um (set vencido x perdido). */
+    scoreTokens: nodes
+      .filter((node) => node.type === Text)
+      .filter((node) => typeof node.props?.children === "number")
+      .map((node) => ({
+        color: node.props?.color,
+        value: node.props?.children,
+        weight: node.props?.weight,
+      })),
   };
 }
 
@@ -290,5 +299,91 @@ describe("MatchCard no menu do organizador", () => {
     );
 
     expect(labels).not.toContain("Concluir torneio");
+  });
+});
+
+describe("MatchCard no placar da mesa", () => {
+  const proposedScore = (overrides: Record<string, unknown> = {}) => ({
+    chip: null,
+    menuItems: [],
+    scheduleProposal: null,
+    scoreProposal: { sets: PLAYED_SETS, walkoverWinner: null },
+    ...overrides,
+  });
+
+  it("pinta o vencedor da proposta como o resultado publicado", () => {
+    const { lines, scoreTokens } = renderCard(
+      buildProps({ agreement: proposedScore() })
+    );
+
+    // 2 sets a 1 para o desafiante: ele fica accent + semibold.
+    expect(lines.map((line) => [line.color, line.weight])).toEqual([
+      ["accent", "semibold"],
+      ["accent", "semibold"],
+      ["muted", "normal"],
+      ["muted", "normal"],
+    ]);
+    // Set vencido sai accent + bold, perdido muted + normal, linha por linha,
+    // com o mini-placar do tie-break no mesmo tom do lado.
+    expect(scoreTokens.map((token) => [token.value, token.color])).toEqual([
+      [6, "accent"],
+      [3, "muted"],
+      [7, "accent"],
+      [7, "accent"],
+      [4, "muted"],
+      [6, "accent"],
+      [6, "muted"],
+      [5, "muted"],
+    ]);
+  });
+
+  it("empate entre sets não pinta ninguém", () => {
+    const { lines, scoreTokens } = renderCard(
+      buildProps({
+        agreement: proposedScore({
+          scoreProposal: {
+            sets: [
+              { aGames: 6, bGames: 4, kind: "set" },
+              { aGames: 3, bGames: 6, kind: "set" },
+            ],
+            walkoverWinner: null,
+          },
+        }),
+      })
+    );
+
+    expect(lines.map((line) => [line.color, line.weight])).toEqual([
+      [undefined, "normal"],
+      [undefined, "normal"],
+      [undefined, "normal"],
+      [undefined, "normal"],
+    ]);
+    expect(scoreTokens.map((token) => token.color)).toEqual([
+      "accent",
+      "muted",
+      "muted",
+      "accent",
+    ]);
+  });
+
+  it("W.O. proposto: sem placar e com o vencedor pintado", () => {
+    const { lines, numbers, chipLabels } = renderCard(
+      buildProps({
+        agreement: proposedScore({
+          scoreProposal: { sets: [], walkoverWinner: "b" },
+        }),
+        matchStatus: "scheduled",
+      })
+    );
+
+    expect(numbers).toEqual([]);
+    expect(lines.map((line) => [line.color, line.weight])).toEqual([
+      ["muted", "normal"],
+      ["muted", "normal"],
+      ["accent", "semibold"],
+      ["accent", "semibold"],
+    ]);
+    // Proposta não é desfecho: o chip de status continua contando o jogo.
+    expect(chipLabels).toContain("Agendado");
   });
 });

@@ -28,7 +28,7 @@ import {
   MoreVerticalIcon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
-import { HugeIcons } from "./huge-icons";
+import { HugeIcons, type HugeIconGlyph } from "./huge-icons";
 
 /** Avatar do jogador indefinido: sem foto, o placeholder marca a vaga (o core
  * tem blue/green/white/black) e o par do lado em aberto fica todo black. */
@@ -77,7 +77,45 @@ function buildSideLines(input: {
     : [line, { color: "muted", name: UNDEFINED_PLAYER_NAME, weight: "normal" }];
 }
 
-type MatchCardProps = {
+/** Com o COMBINAR JOGO, o card ganha a linha do que está na mesa e os itens do
+ * jogador no menu (o mesmo molde do menu do organizador: sem item, sem menu). */
+export type MatchCardAgreementItem = {
+  icon: HugeIconGlyph;
+  /** Verbo destrutivo (Recusar, Cancelar): rótulo e ícone em vermelho, como o
+   * `variant="danger"` dos outros menus. */
+  isDanger?: boolean;
+  label: string;
+  onPress: () => void;
+};
+
+/** Estado do acerto NO CHIP (padrão das ligas): o card não escreve frase. */
+export type MatchCardAgreementChip = {
+  color: "accent" | "default" | "success" | "warning";
+  label: string;
+  variant: "soft";
+};
+
+export type MatchCardAgreement = {
+  chip: MatchCardAgreementChip | null;
+  menuItems: readonly MatchCardAgreementItem[];
+  /** Horário NA MESA (proposta ainda não confirmada): ocupa o rodapé de
+   * agendamento com a cor de atenção. */
+  scheduleProposal: null | {
+    courtName: null | string;
+    matchDate: string;
+    startMinute: number;
+  };
+  /** Placar NA MESA, no lugar do publicado e pintado como ele: o vencedor sai
+   * accent + semibold, o perdedor muted. W.O. proposto vem sem sets e só com o
+   * vencedor (o card desenha como o W.O. publicado). */
+  scoreProposal: null | {
+    sets: readonly ScoreSet[];
+    walkoverWinner: "a" | "b" | null;
+  };
+};
+
+export type MatchCardProps = {
+  agreement?: MatchCardAgreement | null;
   challengedAvatarUrl?: string | null;
   /** Sinal EXPLÍCITO do lado sem jogador definido (a vaga em aberto da chave):
    * a linha sai muted e o avatar, `fallback="black"`. Ausente = lado definido;
@@ -98,6 +136,9 @@ type MatchCardProps = {
   /** Status da partida (chip do topo, à direita) no vocabulário do chaveamento
    * (`getMatchStatusChip`); ausente não desenha o chip. */
   matchStatus?: null | string;
+  /** Abre o menu já na montagem (a galeria de componentes mostra o menu de cada
+   * estado sem toque). */
+  isMenuDefaultOpen?: boolean;
   /** Modalidade do LADO, que o card não consegue ver sozinho no lado vazio (a
    * vaga em aberto não tem parceiro para denunciar a dupla). Sem a prop vale a
    * inferência pelo parceiro, como antes; `singles` força um avatar e uma
@@ -139,9 +180,26 @@ function MatchCardImpl(props: MatchCardProps) {
           props.courtName,
         ]
       : null;
-  // W.O.: a prop dá o vencedor; o status `walkover` é o W.O. sem vencedor no wire.
-  // O chip troca o "Encerrado" do wire; status deliberado do caller passa.
-  const walkoverWinner = props.walkoverWinner ?? null;
+  // Proposta na mesa manda no rodapé (é a pergunta em aberto), com a cor de
+  // atenção no lugar do cinza do agendamento confirmado. Sem quadra escolhida,
+  // o slot da quadra não entra.
+  const scheduleProposal = props.agreement?.scheduleProposal ?? null;
+  const scheduleProposalLabels = scheduleProposal
+    ? [
+        formatMatchMonthDay(scheduleProposal.matchDate),
+        formatMinuteToHHMM(scheduleProposal.startMinute),
+        scheduleProposal.courtName,
+      ].filter((label): label is string => Boolean(label))
+    : null;
+  const footerLabels = scheduleProposalLabels ?? scheduleLabels;
+  const footerIsProposal = scheduleProposalLabels !== null;
+  // W.O.: a prop dá o vencedor do jogo publicado e o acerto, o do W.O. proposto;
+  // o status `walkover` é o W.O. sem vencedor no wire. O chip troca o
+  // "Encerrado" do wire; status deliberado do caller passa.
+  const walkoverWinner =
+    props.walkoverWinner ??
+    props.agreement?.scoreProposal?.walkoverWinner ??
+    null;
   const chipStatus =
     walkoverWinner && props.matchStatus === "finished"
       ? "walkover"
@@ -162,22 +220,29 @@ function MatchCardImpl(props: MatchCardProps) {
   const resultAction = isDecided ? undefined : props.onResultPress;
   const scheduleAction = isDecided ? undefined : props.onSchedulePress;
   const concludeAction = props.onConcludePress;
-  const hasMenuActions = Boolean(
-    concludeAction || editResultAction || resultAction || scheduleAction
-  );
+  const agreementItems = props.agreement?.menuItems ?? [];
+  const agreementChip = props.agreement?.chip ?? null;
+  const hasMenuActions =
+    Boolean(
+      concludeAction || editResultAction || resultAction || scheduleAction
+    ) || agreementItems.length > 0;
 
   // Challenger é o lado A e challenged o lado B (mesma convenção das agendas);
   // o vencedor de cada set sai do próprio placar, com o tie-break desempatando.
   const isWalkover =
     walkoverWinner !== null || props.matchStatus === "walkover";
+  // Placar publicado tem a prop; sem ela, o placar NA MESA ocupa o mesmo lugar e
+  // pinta igual: o vencedor da proposta também é vencedor.
+  const proposedSets = props.agreement?.scoreProposal?.sets ?? null;
+  const isProposedScore =
+    (props.scoreSets?.length ?? 0) === 0 && (proposedSets?.length ?? 0) > 0;
+  const scoreSets = isProposedScore
+    ? [...(proposedSets ?? [])]
+    : props.scoreSets;
   const challengerScoreTokens =
-    isWalkover || !props.scoreSets
-      ? []
-      : buildBracketScoreTokens(props.scoreSets, "a");
+    isWalkover || !scoreSets ? [] : buildBracketScoreTokens(scoreSets, "a");
   const challengedScoreTokens =
-    isWalkover || !props.scoreSets
-      ? []
-      : buildBracketScoreTokens(props.scoreSets, "b");
+    isWalkover || !scoreSets ? [] : buildBracketScoreTokens(scoreSets, "b");
 
   // Os NOMES são do LADO: o par que venceu a partida fica em accent e semibold,
   // o que perdeu em muted e normal. O vencedor é o do W.O. quando ele vem
@@ -271,7 +336,11 @@ function MatchCardImpl(props: MatchCardProps) {
           </Chip>
         ) : null}
         <View className="flex-row items-center gap-2">
-          {statusChip ? (
+          {agreementChip ? (
+            <Chip color={agreementChip.color} size="md" variant="soft">
+              <Chip.Label>{agreementChip.label}</Chip.Label>
+            </Chip>
+          ) : statusChip ? (
             <Chip color={statusChip.color} size="md" variant="soft">
               <Chip.Label className={statusLabelClassName}>
                 {statusChip.label}
@@ -279,7 +348,7 @@ function MatchCardImpl(props: MatchCardProps) {
             </Chip>
           ) : null}
           {hasMenuActions ? (
-            <Menu>
+            <Menu isDefaultOpen={props.isMenuDefaultOpen}>
               <Menu.Trigger asChild>
                 <Button
                   animation={{ scale: false }}
@@ -320,6 +389,21 @@ function MatchCardImpl(props: MatchCardProps) {
                       <HugeIcons className="size-4.5" icon={Edit02Icon} />
                     </Menu.Item>
                   ) : null}
+                  {agreementItems.map((item) => (
+                    <Menu.Item key={item.label} onPress={item.onPress}>
+                      <Menu.ItemTitle
+                        className={item.isDanger ? "text-danger" : undefined}
+                      >
+                        {item.label}
+                      </Menu.ItemTitle>
+                      <HugeIcons
+                        className={
+                          item.isDanger ? "size-4.5 text-danger" : "size-4.5"
+                        }
+                        icon={item.icon}
+                      />
+                    </Menu.Item>
+                  ))}
                 </Menu.Content>
               </Menu.Portal>
             </Menu>
@@ -489,16 +573,19 @@ function MatchCardImpl(props: MatchCardProps) {
         ) : null}
       </PressableFeedback>
 
-      {scheduleLabels ? (
+      {footerLabels ? (
         <View className="flex-row items-center gap-2">
           <Chip
             className="flex-1 gap-2"
-            color="default"
+            color={footerIsProposal ? "accent" : "default"}
             size="md"
             variant="soft"
           >
-            <Chip.Label className="text-muted" numberOfLines={1}>
-              {scheduleLabels.join("   |   ")}
+            <Chip.Label
+              className={footerIsProposal ? undefined : "text-muted"}
+              numberOfLines={1}
+            >
+              {footerLabels.join("   |   ")}
             </Chip.Label>
           </Chip>
         </View>

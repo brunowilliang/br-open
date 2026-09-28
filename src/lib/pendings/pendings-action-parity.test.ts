@@ -3,9 +3,11 @@ import { describe, expect, it } from "bun:test";
 import type { PendingItem } from "@convex/domains/pendings/contract";
 import { PENDING_KINDS_BY_SCOPE } from "@convex/domains/pendings/contract";
 import {
+  buildOrganizerAgreementPendings,
   buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
+  buildPlayerMatchAgreementPendings,
   type TournamentEntryPendingView,
 } from "@convex/domains/tournament/pendings-rules";
 
@@ -81,6 +83,59 @@ function buildEveryKindItem(): PendingItem[] {
       tournaments: [
         {
           canConclude: true,
+          tournamentId: TOURNAMENT_ID,
+          tournamentName: "Copa Vila Tênis Clube",
+        },
+      ],
+    }),
+    ...buildPlayerMatchAgreementPendings({
+      matches: [
+        {
+          channel: "schedule",
+          matchId: "match-1",
+          opponentName: "Rodrigo Bittencourt",
+          proposalLabel: "28/09 às 08:00, na Quadra Central",
+          proposedAt: 1_789_653_600_000,
+          proposerName: "Diego Barros",
+          reopened: false,
+          tournamentId: TOURNAMENT_ID,
+          tournamentName: "Copa Vila Tênis Clube",
+        },
+        {
+          channel: "score",
+          matchId: "match-2",
+          opponentName: "Rodrigo Bittencourt",
+          proposalLabel: "6-3, 6-2",
+          proposedAt: 1_789_653_600_500,
+          proposerName: "Diego Barros",
+          reopened: false,
+          tournamentId: TOURNAMENT_ID,
+          tournamentName: "Copa Vila Tênis Clube",
+        },
+        {
+          channel: "schedule",
+          matchId: "match-3",
+          opponentName: "Rodrigo Bittencourt",
+          proposalLabel: "09/10 às 11:30, na Quadra 2",
+          proposedAt: 1_789_653_601_000,
+          proposerName: "Diego Barros",
+          reopened: true,
+          tournamentId: TOURNAMENT_ID,
+          tournamentName: "Copa Vila Tênis Clube",
+        },
+      ],
+    }),
+    ...buildOrganizerAgreementPendings({
+      tournaments: [
+        {
+          proposals: [
+            {
+              channel: "schedule",
+              matchId: "match-1",
+              proposedAt: 1_789_653_600_000,
+            },
+          ],
+          stalledMatchCount: 2,
           tournamentId: TOURNAMENT_ID,
           tournamentName: "Copa Vila Tênis Clube",
         },
@@ -175,6 +230,35 @@ describe("pendings server -> client parity", () => {
       .filter((item) => item.actionLabel !== null);
 
     expect(withLabel).toEqual([]);
+  });
+
+  it("resolve o aceite do acerto em UM toque, com o confronto como alvo", () => {
+    const sch = items.find(
+      (item) => item.kind === "player_tournament_match_schedule_proposed"
+    ) as PendingItem;
+    const score = items.find(
+      (item) => item.kind === "player_tournament_match_score_proposed"
+    ) as PendingItem;
+    const reopened = items.find(
+      (item) => item.kind === "player_tournament_match_reschedule_requested"
+    ) as PendingItem;
+
+    expect(resolvePendingAction(sch)).toEqual({
+      kind: "accept_match_schedule",
+      matchId: sch.source.id,
+    });
+    expect(resolvePendingAction(reopened)).toEqual({
+      kind: "accept_match_schedule",
+      matchId: reopened.source.id,
+    });
+    expect(resolvePendingAction(score)).toEqual({
+      kind: "confirm_match_score",
+      matchId: score.source.id,
+    });
+    // A navegação continua no secundário, com o torneio do item.
+    expect(
+      resolvePendingAction({ ...sch, action: sch.secondaryAction })
+    ).toMatchObject({ kind: "navigate" });
   });
 
   // No `open_route` o destino é o par do ITEM (`action.params` é nulo): sem o

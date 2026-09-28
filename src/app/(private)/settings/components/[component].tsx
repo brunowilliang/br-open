@@ -26,6 +26,7 @@ import {
   LINKED_ACCOUNT_STATUS_CHIPS,
   type LinkedAccountStatus,
 } from "@/components/pages/player/linked-account-row";
+import { buildPlayerAgreementCard } from "@/components/pages/tournaments/match-agreement-provider";
 import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EntryCard } from "@/components/ui/entry-card";
@@ -39,6 +40,8 @@ import { CheckoutStatusCard } from "@/components/ui/checkout-status-card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { MonthlyChartCard } from "@/components/ui/monthly-chart-card";
 import { MatchCard } from "@/components/ui/match-card";
+import { ScheduleProposalDialog } from "@/components/ui/schedule-proposal-dialog";
+import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
 import { SortableCardList } from "@/components/ui/sortable-card-list";
 import {
   StandingsCard,
@@ -50,7 +53,14 @@ import {
   WidgetAlert,
   type WidgetAlertDescriptionPart,
 } from "@/components/ui/widget-alert";
+import { isComponentGalleryEnabled } from "@/lib/dev/component-gallery-flag";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
+import {
+  MATCH_AGREEMENT_GALLERY_CASES,
+  MATCH_AGREEMENT_GALLERY_COURTS,
+  MATCH_AGREEMENT_GALLERY_DURATION_MINUTES,
+  type MatchAgreementGalleryCase,
+} from "@/lib/dev/match-agreement-gallery-fixtures";
 import {
   buildGalleryNotificationItem,
   buildGalleryNotificationNote,
@@ -59,6 +69,12 @@ import {
 } from "@/lib/dev/notification-gallery-fixtures";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildPlayerResultsChart } from "@/lib/home/player-dashboard-view";
+import { MATCH_AGREEMENT_MESSAGE } from "@/lib/tournaments/match-agreement-copy";
+import { resolveTableWalkoverWinnerEntryId } from "@/lib/tournaments/match-agreement-view";
+import {
+  readMatchAgreementActionLabel,
+  type MatchAgreementActionKind,
+} from "@/lib/tournaments/match-agreement-actions";
 import { PENDING_ALERT_STATUS } from "@/lib/pendings/pendings-view";
 import { buildCheckoutChargeView } from "@/lib/payments/checkout-view";
 import {
@@ -959,6 +975,25 @@ const galleryMatchCardCases: {
 ];
 
 function MatchCardVariantsSection() {
+  const [request, setRequest] = useState<null | {
+    action: MatchAgreementActionKind;
+    galleryCase: MatchAgreementGalleryCase;
+  }>(null);
+  const galleryCase = request?.galleryCase ?? null;
+  const scheduleProposal =
+    galleryCase?.playerMatch.agreements.schedule.proposal ?? null;
+  const scoreProposal =
+    galleryCase?.playerMatch.agreements.score.proposal ?? null;
+  const actionLabel = request
+    ? readMatchAgreementActionLabel(request.action)
+    : "";
+  const isScheduleAction =
+    request?.action === "propose_schedule" ||
+    request?.action === "counter_schedule";
+  const close = () => {
+    setRequest(null);
+  };
+
   return (
     <View className="gap-6">
       {galleryMatchCardCases.map((item) => (
@@ -989,6 +1024,90 @@ function MatchCardVariantsSection() {
           </View>
         </VariantSection>
       ))}
+
+      {/* O combinado é um ESTADO deste mesmo card: chip no topo, menu de
+          aprovar/editar no ⋮ e a proposta no rodapé de agendamento. */}
+      {MATCH_AGREEMENT_GALLERY_CASES.map((item, index) => (
+        <VariantSection key={item.id} note={item.note} title={item.title}>
+          <MatchCard
+            {...item.card}
+            agreement={buildPlayerAgreementCard({
+              courts: MATCH_AGREEMENT_GALLERY_COURTS,
+              isMatchLocked: item.isMatchLocked,
+              playerMatch: item.playerMatch,
+              runAction: (nextAction) => {
+                setRequest({ action: nextAction.action, galleryCase: item });
+              },
+              sideOrder: "match",
+              tournamentStatus: item.tournamentStatus,
+            })}
+            isMenuDefaultOpen={index === 0}
+          />
+        </VariantSection>
+      ))}
+
+      {request && isScheduleAction ? (
+        <ScheduleProposalDialog
+          actionLabel={actionLabel}
+          courts={MATCH_AGREEMENT_GALLERY_COURTS}
+          defaultDurationMinutes={MATCH_AGREEMENT_GALLERY_DURATION_MINUTES}
+          description={MATCH_AGREEMENT_MESSAGE.scheduleDialogDescription({
+            sides: `${request.galleryCase.card.challengerName} contra ${request.galleryCase.card.challengedName}`,
+          })}
+          initialValue={
+            scheduleProposal
+              ? {
+                  courtId: scheduleProposal.courtId ?? "",
+                  endMinute:
+                    scheduleProposal.startMinute +
+                    MATCH_AGREEMENT_GALLERY_DURATION_MINUTES,
+                  matchDate: scheduleProposal.matchDate,
+                  startMinute: scheduleProposal.startMinute,
+                }
+              : undefined
+          }
+          isOpen
+          occupiedSlots={[]}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              close();
+            }
+          }}
+          onSubmit={close}
+          slotIdToIgnore={request.galleryCase.playerMatch.match.id}
+          title={actionLabel}
+          unchangedMessage={MATCH_AGREEMENT_MESSAGE.sameScheduleProposal}
+        />
+      ) : null}
+
+      {request && !isScheduleAction ? (
+        <ScoreResultDialog
+          actionLabel={actionLabel}
+          initialSets={scoreProposal?.score.sets}
+          initialWalkoverWinnerId={
+            galleryCase
+              ? resolveTableWalkoverWinnerEntryId(galleryCase.playerMatch)
+              : null
+          }
+          isOpen
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              close();
+            }
+          }}
+          onSubmit={close}
+          sideAId={request.galleryCase.playerMatch.match.entryAId ?? ""}
+          sideAName={request.galleryCase.card.challengerName}
+          sideBId={request.galleryCase.playerMatch.match.entryBId ?? ""}
+          sideBName={request.galleryCase.card.challengedName}
+          title={actionLabel}
+          unchangedMessage={MATCH_AGREEMENT_MESSAGE.sameScoreProposal}
+          unchangedWalkoverMessage={
+            MATCH_AGREEMENT_MESSAGE.sameWalkoverProposal
+          }
+          walkoverEnabled
+        />
+      ) : null}
     </View>
   );
 }
@@ -1610,12 +1729,12 @@ function TournamentStatusVariantsSection() {
   );
 }
 
-/** DEV ONLY: mesmo gate `EXPO_PUBLIC_IS_DEV` da entrada e do checkout. */
+/** Mesma marca da entrada da galeria (`EXPO_PUBLIC_COMPONENT_GALLERY`). */
 export default function ComponentVariantsRoute() {
   const { component } = useLocalSearchParams<{ component: string }>();
   const entry = findComponentGalleryEntry(component);
 
-  if (process.env.EXPO_PUBLIC_IS_DEV !== "true") {
+  if (!isComponentGalleryEnabled) {
     return null;
   }
 

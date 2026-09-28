@@ -15,7 +15,7 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
  * digitada aqui — texto alterado no servidor aparece na galeria sem tocar neste
  * arquivo. Fixture é só o INPUT (ator, competição e os ids do emissor).
  *
- * `NOTIFICATION_GALLERY_GROUPS` cobre os 16 tipos do catálogo, um a um; um teste
+ * `NOTIFICATION_GALLERY_GROUPS` cobre os 26 tipos do catálogo, um a um; um teste
  * co-localizado garante que o conjunto é EXATAMENTE o catálogo.
  */
 
@@ -23,9 +23,10 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
  * resto resolve ator jogador. */
 const ORGANIZER_EVENT_TYPES: readonly NotificationEventType[] = [
   "tournament.entry.created",
+  "tournament.entry.cancelled",
 ];
 
-/** Ação real de hoje por evento acionável (2 dos 16): rótulo do builder de
+/** Ação real de hoje por evento acionável (3 dos 26): rótulo do builder de
  * apresentação, mutation executada pelo runner de pendências. Evento fora do
  * mapa é INFORMATIVO (`buildNotificationPresentation` devolve `null`). */
 export const GALLERY_ACTION_NOTES: Partial<
@@ -33,33 +34,45 @@ export const GALLERY_ACTION_NOTES: Partial<
 > = {
   "tournament.entry.created":
     "Aprovar/Recusar · tournament.entries.approve|reject (gate: pending_approval)",
+  "tournament.match.ready":
+    "Combinar horário · abre o Combinar jogo do confronto (open_route, sem mutation)",
   "tournament.partner.invited":
     "Aceitar/Recusar · tournament.entries.respondPartnerInvite (gate: pending_partner)",
 };
 
 /** Linha do template em `convex/domains/notification/definitions.ts`. */
 export const GALLERY_TEMPLATE_LINES: Record<NotificationEventType, number> = {
-  "tournament.bracket.placement_failed": 42,
-  "tournament.bracket.published": 49,
-  "tournament.cancelled": 56,
-  "tournament.entry.confirmed": 63,
-  "tournament.entry.created": 70,
-  "tournament.entry.refund_requested": 77,
-  "tournament.entry.rejected": 87,
-  "tournament.finished": 94,
-  "tournament.match.reassigned": 101,
-  "tournament.match.rescheduled": 108,
-  "tournament.match.result": 115,
-  "tournament.match.result_edited": 122,
-  "tournament.match.scheduled": 129,
-  "tournament.partner.awaiting_reply": 136,
-  "tournament.partner.invited": 143,
-  "tournament.partner.responded": 150,
+  "tournament.bracket.placement_failed": 55,
+  "tournament.bracket.published": 62,
+  "tournament.cancelled": 69,
+  "tournament.entry.cancelled": 76,
+  "tournament.entry.confirmed": 85,
+  "tournament.entry.created": 92,
+  "tournament.entry.refund_requested": 99,
+  "tournament.entry.refunded": 109,
+  "tournament.entry.rejected": 116,
+  "tournament.finished": 123,
+  "tournament.match.ready": 130,
+  "tournament.match.reassigned": 139,
+  "tournament.match.rescheduled": 146,
+  "tournament.match.result": 153,
+  "tournament.match.result_edited": 160,
+  "tournament.match.schedule_cancelled": 167,
+  "tournament.match.schedule_declined": 174,
+  "tournament.match.schedule_proposed": 181,
+  "tournament.match.scheduled": 192,
+  "tournament.match.score_cancelled": 199,
+  "tournament.match.score_declined": 208,
+  "tournament.match.score_proposed": 217,
+  "tournament.partner.awaiting_reply": 226,
+  "tournament.partner.invite_cancelled": 233,
+  "tournament.partner.invited": 240,
+  "tournament.partner.responded": 247,
 };
 
 const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
   "tournament.bracket.placement_failed":
-    "Texto de ORGANIZADOR no corpo, mas o evento resolve ator JOGADOR: não está em ORGANIZER_RECIPIENT_EVENTS (orchestrator.ts:99-101). Divergência apontada no levantamento, não corrigida aqui.",
+    "Texto de ORGANIZADOR no corpo, mas o evento resolve ator JOGADOR: não está em ORGANIZER_RECIPIENT_EVENTS (orchestrator.ts:101-104). Divergência apontada no levantamento, não corrigida aqui.",
   "tournament.entry.confirmed":
     "INFORMATIVO por decisão de produto: evento pós-pagamento (a inscrição já está ativa e o charge já está PAID, um botão Pagar mentiria). O CTA de pagar do torneio vive na pendência, não no feed.",
 };
@@ -69,8 +82,49 @@ const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
 const GALLERY_METADATA: Partial<
   Record<NotificationEventType, Record<string, unknown>>
 > = {
+  "tournament.entry.cancelled": { refundStarted: true },
   "tournament.entry.created": { entryId: "gallery-entry-1" },
   "tournament.entry.refund_requested": { reason: "category_full" },
+  "tournament.entry.refunded": { amountLabel: "R$ 120,00" },
+  "tournament.match.ready": {
+    matchId: "gallery-match-1",
+    sideALabel: "Bruno Willian Garcia e Rodrigo Bittencourt",
+    sideBLabel: "Rafa e Dieguinho",
+    stageLabel: "Semifinal",
+  },
+  "tournament.match.schedule_cancelled": {
+    courtName: "Quadra Central",
+    matchDate: "2026-09-29",
+    matchId: "gallery-match-1",
+    startMinute: 1140,
+  },
+  "tournament.match.schedule_declined": {
+    courtName: "Quadra Central",
+    matchDate: "2026-09-29",
+    matchId: "gallery-match-1",
+    startMinute: 1140,
+  },
+  "tournament.match.schedule_proposed": {
+    courtName: "Quadra Central",
+    matchDate: "2026-09-29",
+    matchId: "gallery-match-1",
+    startMinute: 1140,
+  },
+  "tournament.match.score_cancelled": {
+    matchId: "gallery-match-1",
+    sets: [{ aGames: 6, bGames: 3, kind: "set" }],
+    walkover: false,
+  },
+  "tournament.match.score_declined": {
+    matchId: "gallery-match-1",
+    sets: [{ aGames: 6, bGames: 3, kind: "set" }],
+    walkover: false,
+  },
+  "tournament.match.score_proposed": {
+    matchId: "gallery-match-1",
+    sets: [{ aGames: 6, bGames: 3, kind: "set" }],
+    walkover: false,
+  },
   "tournament.partner.invited": { entryId: "gallery-entry-1" },
   "tournament.partner.responded": { accepted: true },
 };
@@ -166,11 +220,12 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.entry.confirmed",
       "tournament.entry.rejected",
       "tournament.entry.refund_requested",
+      "tournament.entry.refunded",
     ],
     title: "Torneio · inscrição (jogador)",
   },
   {
-    eventTypes: ["tournament.entry.created"],
+    eventTypes: ["tournament.entry.created", "tournament.entry.cancelled"],
     title: "Torneio · inscrição (organizador)",
   },
   {
@@ -178,6 +233,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.partner.invited",
       "tournament.partner.responded",
       "tournament.partner.awaiting_reply",
+      "tournament.partner.invite_cancelled",
     ],
     title: "Torneio · dupla e convite (jogador)",
   },
@@ -185,7 +241,14 @@ export const NOTIFICATION_GALLERY_GROUPS: {
     eventTypes: [
       "tournament.bracket.published",
       "tournament.bracket.placement_failed",
+      "tournament.match.ready",
       "tournament.match.scheduled",
+      "tournament.match.schedule_proposed",
+      "tournament.match.schedule_declined",
+      "tournament.match.schedule_cancelled",
+      "tournament.match.score_proposed",
+      "tournament.match.score_declined",
+      "tournament.match.score_cancelled",
       "tournament.match.rescheduled",
       "tournament.match.reassigned",
       "tournament.match.result",
@@ -199,7 +262,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
   },
 ];
 
-/** Os 16 tipos na ordem em que a galeria desenha (numeração dos títulos). */
+/** Os 26 tipos na ordem em que a galeria desenha (numeração dos títulos). */
 export const NOTIFICATION_GALLERY_EVENT_TYPES: readonly NotificationEventType[] =
   NOTIFICATION_GALLERY_GROUPS.flatMap((group) => group.eventTypes);
 

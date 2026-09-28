@@ -39,7 +39,7 @@ describe("NOTIFICATION_GALLERY_GROUPS", () => {
 
   it("keeps the organizer event in its own group", () => {
     // O papel é do MAPA do servidor (ORGANIZER_RECIPIENT_EVENTS,
-    // orchestrator.ts:99-101): só a inscrição nova do torneio chega ao ator
+    // orchestrator.ts:101-104): inscrição nova e cancelamento chegam ao ator
     // organização.
     const organizerGroups = NOTIFICATION_GALLERY_GROUPS.filter((group) =>
       group.title.includes("(organizador)")
@@ -47,6 +47,7 @@ describe("NOTIFICATION_GALLERY_GROUPS", () => {
 
     expect(organizerGroups.flatMap((group) => group.eventTypes)).toEqual([
       "tournament.entry.created",
+      "tournament.entry.cancelled",
     ]);
   });
 });
@@ -57,22 +58,32 @@ describe("galeria de notificações", () => {
     // servidor) e é conferido contra o arquivo REAL abaixo: um deslocamento
     // lá reprova aqui.
     expect(GALLERY_TEMPLATE_LINES).toEqual({
-      "tournament.bracket.placement_failed": 42,
-      "tournament.bracket.published": 49,
-      "tournament.cancelled": 56,
-      "tournament.entry.confirmed": 63,
-      "tournament.entry.created": 70,
-      "tournament.entry.refund_requested": 77,
-      "tournament.entry.rejected": 87,
-      "tournament.finished": 94,
-      "tournament.match.reassigned": 101,
-      "tournament.match.rescheduled": 108,
-      "tournament.match.result": 115,
-      "tournament.match.result_edited": 122,
-      "tournament.match.scheduled": 129,
-      "tournament.partner.awaiting_reply": 136,
-      "tournament.partner.invited": 143,
-      "tournament.partner.responded": 150,
+      "tournament.bracket.placement_failed": 55,
+      "tournament.bracket.published": 62,
+      "tournament.cancelled": 69,
+      "tournament.entry.cancelled": 76,
+      "tournament.entry.confirmed": 85,
+      "tournament.entry.created": 92,
+      "tournament.entry.refund_requested": 99,
+      "tournament.entry.refunded": 109,
+      "tournament.entry.rejected": 116,
+      "tournament.finished": 123,
+      "tournament.match.ready": 130,
+      "tournament.match.reassigned": 139,
+      "tournament.match.rescheduled": 146,
+      "tournament.match.result": 153,
+      "tournament.match.result_edited": 160,
+      "tournament.match.schedule_cancelled": 167,
+      "tournament.match.schedule_declined": 174,
+      "tournament.match.schedule_proposed": 181,
+      "tournament.match.scheduled": 192,
+      "tournament.match.score_cancelled": 199,
+      "tournament.match.score_declined": 208,
+      "tournament.match.score_proposed": 217,
+      "tournament.partner.awaiting_reply": 226,
+      "tournament.partner.invite_cancelled": 233,
+      "tournament.partner.invited": 240,
+      "tournament.partner.responded": 247,
     });
 
     const lines = (await readFile(DEFINITIONS_FILE, "utf8")).split("\n");
@@ -127,8 +138,17 @@ describe("galeria de notificações", () => {
   it("cites the template and the action in the card note", () => {
     const note = buildGalleryNotificationNote("tournament.entry.created");
 
-    expect(note).toContain("definitions.ts:70");
+    expect(note).toContain("definitions.ts:92");
     expect(note).toContain("papel organizador");
     expect(note).toContain("Aprovar/Recusar");
+  });
+
+  it("resolves the organizer role for the cancelled entry too", () => {
+    // Papel é do mapa do servidor (`ORGANIZER_RECIPIENT_EVENTS`): o cancelamento
+    // da inscrição chega ao ator organização, não ao jogador.
+    const note = buildGalleryNotificationNote("tournament.entry.cancelled");
+
+    expect(note).toContain("definitions.ts:76");
+    expect(note).toContain("papel organizador");
   });
 });

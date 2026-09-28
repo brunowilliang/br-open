@@ -7,7 +7,7 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { MatchCard } from "@/components/ui/match-card";
+import { AgreementMatchCard } from "@/components/pages/tournaments/agreement-match-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -171,7 +171,7 @@ export default function TournamentScheduleRoute() {
                   </Text>
                   <View className="gap-2">
                     {items.map((item) => (
-                      <MatchCard
+                      <AgreementMatchCard
                         challengedAvatarUrl={item.sideBAvatarUrl}
                         challengedName={item.sideBName}
                         challengedPartnerAvatarUrl={item.sideBPartnerAvatarUrl}
@@ -183,10 +183,13 @@ export default function TournamentScheduleRoute() {
                         courtName={item.courtName}
                         key={item.id}
                         matchDate={item.matchDate}
+                        matchId={item.id}
                         matchStatus={item.matchStatus}
                         scoreSets={item.scoreSets}
+                        sideOrder="match"
                         stageLabel={item.stageLabel}
                         startMinute={item.startMinute}
+                        tournamentId={tournamentId}
                         walkoverWinner={item.walkoverWinner}
                       />
                     ))}

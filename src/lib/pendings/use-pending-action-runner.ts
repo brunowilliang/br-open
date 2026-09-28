@@ -129,6 +129,66 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
     },
   });
 
+  // Aceite do horário proposto: o um toque do item. Não é otimista — quem tira o
+  // item da tela é a releitura, e a mensagem do servidor (quadra ocupada, acerto
+  // já fechado, torneio encerrado) chega no toast.
+  const acceptMatchSchedule = useMutation({
+    mutationFn: crpcClient.tournament.agreements.acceptSchedule.mutate,
+    mutationKey: crpc.tournament.agreements.acceptSchedule.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível aceitar o horário. Tente novamente."
+        ),
+        id: "accept-match-schedule-error",
+        label: "Falha ao aceitar o horário",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.pendings.list.list.queryFilter()
+      );
+      await input?.onPerformed?.();
+      toast.show({
+        description: "Horário aceito, o confronto está agendado.",
+        id: "accept-match-schedule-success",
+        label: "Horário confirmado",
+        variant: "success",
+      });
+    },
+  });
+
+  // Confirmação do placar proposto: publica o resultado pelo mesmo caminho.
+  const confirmMatchScore = useMutation({
+    mutationFn: crpcClient.tournament.agreements.acceptScore.mutate,
+    mutationKey: crpc.tournament.agreements.acceptScore.mutationKey(),
+    onError: (error) => {
+      toast.show({
+        description: getToastErrorMessage(
+          error,
+          "Não foi possível confirmar o placar. Tente novamente."
+        ),
+        id: "confirm-match-score-error",
+        label: "Falha ao confirmar o placar",
+        variant: "danger",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(
+        crpc.pendings.list.list.queryFilter()
+      );
+      await input?.onPerformed?.();
+      toast.show({
+        description: "Placar confirmado, o resultado foi publicado.",
+        id: "confirm-match-score-success",
+        label: "Placar confirmado",
+        variant: "success",
+      });
+    },
+  });
+
   // Não é otimista: quem tira o item da tela é a releitura (falha não esconde nada).
   const dismissPendingItem = useMutation({
     mutationFn: crpcClient.pendings.dismiss.dismiss.mutate,
@@ -189,6 +249,12 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
       case "conclude_tournament":
         concludeTournament.mutate({ tournamentId: resolution.tournamentId });
         return;
+      case "accept_match_schedule":
+        acceptMatchSchedule.mutate({ matchId: resolution.matchId });
+        return;
+      case "confirm_match_score":
+        confirmMatchScore.mutate({ matchId: resolution.matchId });
+        return;
       default:
         return;
     }
@@ -206,6 +272,10 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
         return rejectEntry.isPending;
       case "conclude_tournament":
         return concludeTournament.isPending;
+      case "accept_match_schedule":
+        return acceptMatchSchedule.isPending;
+      case "confirm_match_score":
+        return confirmMatchScore.isPending;
       default:
         return false;
     }

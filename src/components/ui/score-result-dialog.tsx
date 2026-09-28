@@ -14,6 +14,7 @@ import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import {
+  areSameScoreDraftSets,
   buildEmptyDraftSet,
   buildScoreboard,
   canAttachTieBreak,
@@ -38,7 +39,13 @@ export type ScoreResultDialogValue = {
 };
 
 type ScoreResultDialogProps = {
+  /** Rótulo do botão de envio: o organizador SALVA o resultado, o jogador
+   * PROPÕE o placar (mesmo componente, verbo do domínio que o abriu). */
+  actionLabel?: string;
   initialSets?: ScoreDraftSet[];
+  /** W.O. que está na mesa (entry id do vencedor): sem ele, o W.O. escolhido não
+   * é comparado com nada. */
+  initialWalkoverWinnerId?: null | string;
   isOpen: boolean;
   isPending?: boolean;
   onOpenChange: (nextOpen: boolean) => void;
@@ -48,6 +55,13 @@ type ScoreResultDialogProps = {
   sideBId: string;
   sideBName: string;
   title: string;
+  /** Aviso (neutro) enquanto o placar for o MESMO do `initialSets`: o envio fica
+   * bloqueado e aviso e bloqueio caem juntos na primeira mudança. Ausente = o
+   * diálogo aceita repetir (o organizador pode salvar sem mudar nada). */
+  unchangedMessage?: string;
+  /** Aviso (neutro) do W.O. repetido: mesmo vencedor do
+   * `initialWalkoverWinnerId`. Ausente = o W.O. não é comparado. */
+  unchangedWalkoverMessage?: string;
   /** W.O. existe só no torneio (delta deliberado em relação à liga). */
   walkoverEnabled?: boolean;
 };
@@ -260,7 +274,9 @@ function ScoreLineRow(props: ScoreLineRowProps) {
  * final é montado no `onSubmit` de cada tela. */
 export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
   const {
+    actionLabel = "Salvar resultado",
     initialSets,
+    initialWalkoverWinnerId,
     isOpen,
     isPending,
     onOpenChange,
@@ -270,6 +286,8 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
     sideBId,
     sideBName,
     title,
+    unchangedMessage,
+    unchangedWalkoverMessage,
     walkoverEnabled = false,
   } = props;
   const { height: windowHeight } = useWindowDimensions();
@@ -313,6 +331,19 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
       ? null
       : resolvedWinnerId;
   const hasScoreLine = lines.some((line) => line.kind !== "tiebreak");
+  // Mesa não volta para aprovação: igual bloqueia o envio. Derivado a cada
+  // render, então o aviso e o bloqueio caem juntos na primeira mudança. O W.O.
+  // se compara por VENCEDOR (o payload dele não tem linhas).
+  const isSameAsTable = isWalkoverMode
+    ? Boolean(
+        unchangedWalkoverMessage &&
+          initialWalkoverWinnerId &&
+          walkoverWinnerId === initialWalkoverWinnerId
+      )
+    : Boolean(unchangedMessage) && areSameScoreDraftSets(initialSets, lines);
+  const unchangedHint = isWalkoverMode
+    ? unchangedWalkoverMessage
+    : unchangedMessage;
   const scrollMaxHeight = Math.min(
     SCROLL_MAX_HEIGHT,
     Math.round(windowHeight / 2)
@@ -575,10 +606,17 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
             </Text>
           ) : null}
 
+          {isSameAsTable && unchangedHint ? (
+            <Text color="muted" size="xs">
+              {unchangedHint}
+            </Text>
+          ) : null}
+
           <View className="self-end">
             <Button
               isDisabled={
                 isPending ||
+                isSameAsTable ||
                 (isWalkoverMode
                   ? walkoverWinnerId === null
                   : lines.length === 0)
@@ -588,7 +626,7 @@ export const ScoreResultDialog = (props: ScoreResultDialogProps) => {
               }}
               size="sm"
             >
-              <Button.Label>Salvar resultado</Button.Label>
+              <Button.Label>{actionLabel}</Button.Label>
             </Button>
           </View>
         </Dialog.Content>
