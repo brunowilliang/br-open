@@ -2,9 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import type { Id } from "../../../functions/_generated/dataModel";
 import {
+  buildOrganizerAgreementPendings,
   buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
+  buildPlayerMatchAgreementPendings,
   type TournamentEntryPendingView,
 } from "../../tournament/pendings-rules";
 import type {
@@ -295,6 +297,59 @@ describe("pendings: acao de cada kind", () => {
           },
         ],
       }),
+      ...buildPlayerMatchAgreementPendings({
+        matches: [
+          {
+            channel: "schedule",
+            matchId: "match-1",
+            opponentName: "Rodrigo Bittencourt",
+            proposalLabel: "28/09 às 08:00, na Quadra Central",
+            proposedAt: 1_789_653_600_000,
+            proposerName: "Diego Barros",
+            reopened: false,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+          {
+            channel: "score",
+            matchId: "match-2",
+            opponentName: "Rodrigo Bittencourt",
+            proposalLabel: "6-3, 6-2",
+            proposedAt: 1_789_653_600_500,
+            proposerName: "Diego Barros",
+            reopened: false,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+          {
+            channel: "schedule",
+            matchId: "match-3",
+            opponentName: "Rodrigo Bittencourt",
+            proposalLabel: "09/10 às 11:30",
+            proposedAt: 1_789_653_601_000,
+            proposerName: "Diego Barros",
+            reopened: true,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
+      ...buildOrganizerAgreementPendings({
+        tournaments: [
+          {
+            proposals: [
+              {
+                channel: "schedule",
+                matchId: "match-1",
+                proposedAt: 1_789_653_600_000,
+              },
+            ],
+            stalledMatchCount: 2,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
     ];
 
     return collected;
@@ -306,8 +361,12 @@ describe("pendings: acao de cada kind", () => {
       organization_tournament_awaiting_conclusion: "conclude_tournament",
       organization_tournament_entries_awaiting_approval: "open_route",
       organization_tournament_entries_awaiting_payment: "open_route",
+      organization_tournament_matches_awaiting_agreement: "open_route",
       player_tournament_entries_awaiting_payment: "pay_tournament_entry",
       player_tournament_entry_awaiting_approval: null,
+      player_tournament_match_reschedule_requested: "accept_match_schedule",
+      player_tournament_match_schedule_proposed: "accept_match_schedule",
+      player_tournament_match_score_proposed: "confirm_match_score",
       player_tournament_partner_invite_received: "accept_partner_invite",
       player_tournament_partner_invite_sent: null,
     };
@@ -351,8 +410,10 @@ describe("pendings: acao de cada kind", () => {
 
   it("acao de MUTACAO traz o ALVO na acao; route/params sao contexto, nunca o alvo", () => {
     const targetKeyByAction: Record<string, string> = {
+      accept_match_schedule: "matchId",
       accept_partner_invite: "entryId",
       conclude_tournament: "tournamentId",
+      confirm_match_score: "matchId",
       decline_partner_invite: "entryId",
       pay_tournament_entry: "entryId",
     };

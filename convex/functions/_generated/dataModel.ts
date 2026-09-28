@@ -786,6 +786,7 @@ export type DataModel = {
       dismissedAt: number;
       itemId: string;
       severity: "danger" | "info" | "warning";
+      signature?: null | string;
       surface: "home" | "house";
       _id: Id<"pendingDismissal">;
       _creationTime: number;
@@ -800,6 +801,7 @@ export type DataModel = {
       | "dismissedAt"
       | "itemId"
       | "severity"
+      | "signature"
       | "surface";
     indexes: {
       by_id: ["_id"];
@@ -1057,6 +1059,7 @@ export type DataModel = {
       createdAt: number;
       createdByUserId?: null | Id<"user">;
       entryRound?: null | number;
+      partnerAwaitingReplyNotifiedAt?: null | number;
       partnerUserId?: null | Id<"user">;
       playerAId: Id<"playerProfile">;
       playerBId?: null | Id<"playerProfile">;
@@ -1075,6 +1078,7 @@ export type DataModel = {
       | "createdAt"
       | "createdByUserId"
       | "entryRound"
+      | "partnerAwaitingReplyNotifiedAt"
       | "partnerUserId"
       | "playerAId"
       | "playerBId"
@@ -1149,6 +1153,89 @@ export type DataModel = {
       entryBId: ["entryBId", "_creationTime"];
       matchDate: ["matchDate", "_creationTime"];
       winnerEntryId: ["winnerEntryId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentMatchAgreement: {
+    document: {
+      agreedAt?: null | number;
+      categoryId: Id<"tournamentCategory">;
+      channel: string;
+      createdAt: number;
+      entryAId: Id<"tournamentEntry">;
+      entryBId: Id<"tournamentEntry">;
+      matchId: Id<"tournamentMatch">;
+      proposal?: null | any;
+      proposedAt?: null | number;
+      proposedBySide?: null | string;
+      proposedByUserId?: null | Id<"user">;
+      rowVersion: number;
+      state: string;
+      tournamentId: Id<"tournament">;
+      updatedAt: number;
+      _id: Id<"tournamentMatchAgreement">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "agreedAt"
+      | "categoryId"
+      | "channel"
+      | "createdAt"
+      | "entryAId"
+      | "entryBId"
+      | "matchId"
+      | "proposal"
+      | "proposedAt"
+      | "proposedBySide"
+      | "proposedByUserId"
+      | "rowVersion"
+      | "state"
+      | "tournamentId"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      entryAId_state: ["entryAId", "state", "_creationTime"];
+      entryBId_state: ["entryBId", "state", "_creationTime"];
+      matchId_channel: ["matchId", "channel", "_creationTime"];
+      tournamentId_state: ["tournamentId", "state", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentMatchAgreementEvent: {
+    document: {
+      actorSide: string;
+      actorUserId?: null | Id<"user">;
+      after: any;
+      before: any;
+      channel: string;
+      createdAt: number;
+      kind: string;
+      matchId: Id<"tournamentMatch">;
+      tournamentId: Id<"tournament">;
+      _id: Id<"tournamentMatchAgreementEvent">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "actorSide"
+      | "actorUserId"
+      | "after"
+      | "before"
+      | "channel"
+      | "createdAt"
+      | "kind"
+      | "matchId"
+      | "tournamentId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      matchId: ["matchId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

@@ -28,6 +28,7 @@ function makeItem(input: {
   id: string;
   kind?: PendingKind;
   severity?: PendingSeverity;
+  signature?: string;
 }): PendingItem {
   return {
     action: null,
@@ -44,6 +45,7 @@ function makeItem(input: {
     secondaryAction: null,
     secondaryActionLabel: null,
     severity: input.severity ?? "warning",
+    signature: input.signature,
     source: { id: input.id, type: "tournament_entry" },
     title: "Pendência de teste",
   };
@@ -167,6 +169,27 @@ describe("pendings: dispensa de item", () => {
     ).toEqual([]);
   });
 
+  it("payload reescrito (proposta nova) mata o recibo e o item VOLTA", () => {
+    const was = makeItem({ id: "item-a", signature: "8f1c2a30" });
+    const rewritten = makeItem({ id: "item-a", signature: "44d90bb7" });
+    const receipt = makeReceipt({ item: was });
+
+    expect(result({ items: [was], receipts: [receipt] }).items).toEqual([]);
+    expect(
+      result({ items: [rewritten], receipts: [receipt] }).items.map(
+        (item) => item.id
+      )
+    ).toEqual(["item-a"]);
+  });
+
+  it("mesma assinatura segue escondendo a negociacao inteira", () => {
+    const item = makeItem({ id: "item-a", signature: "8f1c2a30" });
+
+    expect(
+      result({ items: [item], receipts: [makeReceipt({ item })] }).items
+    ).toEqual([]);
+  });
+
   it("prazo novo ou diferente mata o recibo e o item VOLTA", () => {
     const was = makeItem({ deadlineAt: null, id: "item-a" });
     const withDeadline = makeItem({
@@ -274,6 +297,17 @@ describe("pendings: kind de ESTADO nao aceita dispensa", () => {
         "player_tournament_entry_awaiting_approval:entry-1"
       )
     ).toBe(true);
+  });
+
+  it("os kinds do acerto aceitam o gesto da home", () => {
+    for (const kind of [
+      "organization_tournament_matches_awaiting_agreement",
+      "player_tournament_match_reschedule_requested",
+      "player_tournament_match_schedule_proposed",
+      "player_tournament_match_score_proposed",
+    ] as const) {
+      expect(isPendingItemDismissible(`${kind}:match-1`)).toBe(true);
+    }
   });
 
   it("a home nao esconde o item, nem com recibo vivo no mesmo ator", () => {

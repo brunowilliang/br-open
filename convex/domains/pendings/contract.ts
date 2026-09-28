@@ -19,12 +19,16 @@ export const PENDING_KINDS_BY_SCOPE = {
     "organization_tournament_entries_awaiting_approval",
     "organization_tournament_entries_awaiting_payment",
     "organization_tournament_awaiting_conclusion",
+    "organization_tournament_matches_awaiting_agreement",
   ],
   player: [
     "player_tournament_entries_awaiting_payment",
     "player_tournament_entry_awaiting_approval",
     "player_tournament_partner_invite_received",
     "player_tournament_partner_invite_sent",
+    "player_tournament_match_schedule_proposed",
+    "player_tournament_match_score_proposed",
+    "player_tournament_match_reschedule_requested",
   ],
 } as const satisfies Record<
   (typeof PENDING_SCOPE_OPTIONS)[number],
@@ -48,6 +52,7 @@ export const PENDING_SOURCE_TYPE_OPTIONS = [
   "organization",
   "tournament",
   "tournament_entry",
+  "tournament_match",
 ] as const;
 
 /**
@@ -64,6 +69,8 @@ export const PENDING_ACTION_TYPE_OPTIONS = [
   "approve_tournament_entry",
   "reject_tournament_entry",
   "conclude_tournament",
+  "accept_match_schedule",
+  "confirm_match_score",
 ] as const;
 
 export type PendingDomain = (typeof PENDING_DOMAIN_OPTIONS)[number];
@@ -81,7 +88,9 @@ export const PENDING_KIND_SCOPES = Object.fromEntries(
 
 /**
  * Kinds SEM dispensa: o item e ESTADO (sai quando o problema acaba), nao
- * lembrete. A home nunca esconde e `pendings.dismiss` recusa.
+ * lembrete. A home nunca esconde e `pendings.dismiss` recusa. So o fechamento de
+ * torneio fica de fora: o acerto (proposta recebida e acerto aberto do
+ * organizador) e lembrete valido e aceita o gesto da home.
  */
 export const PENDING_NON_DISMISSIBLE_KINDS = {
   organization_tournament_awaiting_conclusion: true,
@@ -130,6 +139,11 @@ export const pendingItemSchema = z.object({
   secondaryAction: pendingActionSchema.nullable(),
   secondaryActionLabel: z.string().min(1).nullable(),
   severity: z.enum(PENDING_SEVERITY_OPTIONS),
+  /**
+   * Impressao do dado que sustenta o item, so nos kinds de payload mutavel (o
+   * acerto): o recibo de dispensa morre quando ela muda.
+   */
+  signature: z.string().min(1).optional(),
   source: pendingSourceSchema,
   title: z.string().min(1),
 });

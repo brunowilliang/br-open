@@ -887,3 +887,51 @@ export function validateBracketStartable(board: SwapBoardMatch[]) {
 export function nextMatchCoordinates(round: number, slotInRound: number) {
   return { round: round + 1, slotInRound: Math.floor(slotInRound / 2) };
 }
+
+/** Rounds of a category's draw: the furthest among its rows is the last one
+ * (a built bracket materializes every round). Floor of 1 keeps the stage label
+ * helper (draw size 2^(totalRounds-round+1)) sane without a board. */
+export function resolveCategoryTotalRounds(
+  matches: readonly { round: number }[]
+): number {
+  let lastRound = 1;
+  for (const match of matches) {
+    if (match.round > lastRound) {
+      lastRound = match.round;
+    }
+  }
+  return lastRound;
+}
+
+/**
+ * Confronto que GANHOU o lado que faltava: é o que vira aviso de "próximo jogo".
+ * A chave publicada já avisa todos de uma vez (com os dois lados prontos), então
+ * o aviso só nasce quando um lado entra DEPOIS — avanço ou encaixe manual.
+ */
+export function matchBecameReady(input: {
+  after: { entryAId: null | string; entryBId: null | string };
+  before: { entryAId: null | string; entryBId: null | string };
+}): boolean {
+  const wasReady = Boolean(input.before.entryAId && input.before.entryBId);
+
+  return !wasReady && Boolean(input.after.entryAId && input.after.entryBId);
+}
+
+/** Nome do estágio pelo tamanho do quadro (2^(totalRounds-round+1)); tamanhos
+ * incomuns caem em "Rodada N". Espelha o rótulo que o app desenha na chave. */
+export function formatBracketStage(round: number, totalRounds: number): string {
+  const drawSize = 2 ** (totalRounds - round + 1);
+
+  switch (drawSize) {
+    case 2:
+      return "Final";
+    case 4:
+      return "Semifinal";
+    case 8:
+      return "Quartas de final";
+    case 16:
+      return "Oitavas de final";
+    default:
+      return `Rodada ${round}`;
+  }
+}

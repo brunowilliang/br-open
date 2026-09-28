@@ -6,9 +6,12 @@ import {
   buildSwapPersistPlan,
   canDrawTournament,
   deriveSwapMatchStatus,
+  formatBracketStage,
   isBracketFinished,
+  matchBecameReady,
   nextBracketSize,
   nextMatchCoordinates,
+  resolveCategoryTotalRounds,
   seedOrder,
   slotOfSeed,
   validateBracketStartable,
@@ -1690,6 +1693,19 @@ describe("re-sorteio em drawn (IBX-0037)", () => {
   });
 });
 
+describe("resolveCategoryTotalRounds", () => {
+  it("uses the furthest round of the category board", () => {
+    expect(
+      resolveCategoryTotalRounds([{ round: 1 }, { round: 3 }, { round: 2 }])
+    ).toBe(3);
+  });
+
+  it("keeps 1 for a board with no match (or none drawn yet)", () => {
+    expect(resolveCategoryTotalRounds([])).toBe(1);
+    expect(resolveCategoryTotalRounds([{ round: 1 }])).toBe(1);
+  });
+});
+
 describe("buildBracket H1 com entrada direta", () => {
   for (const count of [6, 7, 12] as const) {
     it(`${count} entries com seed 1 direto na 2ª rodada: 1 bye por par vivo e campeão definido`, () => {
@@ -1710,4 +1726,30 @@ describe("buildBracket H1 com entrada direta", () => {
       expect(playOutToFinish(bracket!)).not.toBeNull();
     });
   }
+});
+
+describe("confronto que acabou de ficar definido", () => {
+  it("avisa so quando o lado que faltava entra", () => {
+    const empty = { entryAId: null, entryBId: null };
+    const half = { entryAId: "a", entryBId: null };
+    const ready = { entryAId: "a", entryBId: "b" };
+
+    expect(matchBecameReady({ after: ready, before: half })).toBe(true);
+    expect(matchBecameReady({ after: ready, before: empty })).toBe(true);
+    // Ja estava pronto: repetir aqui duplicaria o aviso (chave publicada avisa
+    // todos de uma vez) e o swap de um lado so nao define confronto.
+    expect(matchBecameReady({ after: ready, before: ready })).toBe(false);
+    expect(matchBecameReady({ after: half, before: empty })).toBe(false);
+    expect(matchBecameReady({ after: half, before: ready })).toBe(false);
+  });
+
+  it("nomeia o estagio pelo tamanho do quadro", () => {
+    expect(formatBracketStage(3, 3)).toBe("Final");
+    expect(formatBracketStage(2, 3)).toBe("Semifinal");
+    expect(formatBracketStage(1, 3)).toBe("Quartas de final");
+    expect(formatBracketStage(1, 4)).toBe("Oitavas de final");
+    // Quadro maior que 16 cai na rodada numerada (o app faz igual).
+    expect(formatBracketStage(1, 5)).toBe("Rodada 1");
+    expect(formatBracketStage(2, 5)).toBe("Oitavas de final");
+  });
 });

@@ -22,6 +22,7 @@ import {
   refundedChargeFields,
   resolveRefundOutcome,
 } from "../../domains/payment/rules";
+import { formatCentsBRL } from "../../domains/payment/labels";
 import { paymentCharge } from "../../domains/payment/tables";
 import {
   authMutation,
@@ -31,10 +32,13 @@ import {
 } from "../../lib/crpc";
 import { getEnv } from "../../lib/get-env";
 import {
+  getCategoryRecordOrThrow,
   getManagedTournamentOrThrow,
+  getTournamentRecordOrThrow,
   scheduleTournamentNotification,
   serializeTournament,
   type OrmCtx,
+  type OrmMutationCtx,
 } from "./_shared/guards";
 
 type ChargeRecord = InferSelectModel<typeof paymentCharge>;
@@ -320,6 +324,45 @@ export const listRefundableCharges = privateQuery
       }));
   });
 
+/**
+ * Reembolso CONCLUIDO: o dinheiro voltou de fato. Avisa quem pagou (a cobranca
+ * guarda o perfil do pagador e a inscricao de origem), citando o valor.
+ */
+async function notifyRefundSettled(ctx: OrmMutationCtx, charge: ChargeRecord) {
+  if (charge.sourceType !== SOURCE_TYPE_TOURNAMENT_ENTRY) {
+    return;
+  }
+
+  const entry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { id: charge.sourceId as Id<"tournamentEntry"> },
+  });
+  const payer = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: charge.playerProfileId },
+  });
+  const payerUserId = payer?.userId as Id<"user"> | undefined;
+  if (!(entry && payerUserId)) {
+    return;
+  }
+
+  const category = await getCategoryRecordOrThrow(
+    ctx,
+    entry.categoryId as Id<"tournamentCategory">
+  );
+  const tournamentRecord = await getTournamentRecordOrThrow(
+    ctx,
+    category.tournamentId as Id<"tournament">
+  );
+
+  await scheduleTournamentNotification(ctx, {
+    eventType: "tournament.entry.refunded",
+    metadata: { amountLabel: formatCentsBRL(charge.amountCents) },
+    recipientUserIds: [payerUserId],
+    sourceEntityId: entry.id as string,
+    sourceEntityType: "tournamentEntry",
+    tournamentId: tournamentRecord.id as Id<"tournament">,
+  });
+}
+
 export const applyRefundOutcome = privateMutation
   .input(
     z.object({
@@ -360,6 +403,7 @@ export const applyRefundOutcome = privateMutation
         { chargeId: charge.id as string }
       );
     }
+    await notifyRefundSettled(ctx as unknown as OrmMutationCtx, charge);
   });
 
 /**

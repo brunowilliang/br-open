@@ -79,7 +79,9 @@ export const playerDashboardUpcomingMatchSchema = z.object({
     .max(24 * 60)
     .nullable(),
   id: z.string(),
-  matchDate: z.string(),
+  // Sem agendamento a data e a hora chegam nulas (mesma forma do confronto
+  // `pending` da chave): o jogo vai acontecer, o horário é que não existe ainda.
+  matchDate: z.string().nullable(),
   opponents: z.array(playerDashboardPlayerCardSchema),
   partner: playerDashboardPlayerCardSchema.nullable(),
   round: z.number().int().min(1),
@@ -87,7 +89,8 @@ export const playerDashboardUpcomingMatchSchema = z.object({
     .number()
     .int()
     .min(0)
-    .max(24 * 60),
+    .max(24 * 60)
+    .nullable(),
   totalRounds: z.number().int().min(1),
 });
 

@@ -1,7 +1,6 @@
 import { eq } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
-import type { InferSelectModel } from "kitcn/orm";
 import type { Id } from "../_generated/dataModel";
 import type { MatchConfig } from "../../domains/match/contract";
 import {
@@ -12,17 +11,10 @@ import {
   tournamentMatchOccupiedSlotSchema,
   tournamentMatchSchema,
 } from "../../domains/tournament/contract";
-import {
-  resolveResultEditReverb,
-  validateTournamentMatchScore,
-  validateWalkoverWinner,
-} from "../../domains/tournament/score-rules";
+import { resolveResultEditReverb } from "../../domains/tournament/score-rules";
 import { resolveMatchOccupiedEndMinute } from "../../domains/match/scheduling";
 import { isTournamentClosed } from "../../domains/tournament/management-rules";
-import {
-  findCourtSlotConflict,
-  isScheduledTournamentMatch,
-} from "../../domains/tournament/scheduling-rules";
+import { isScheduledTournamentMatch } from "../../domains/tournament/scheduling-rules";
 import {
   tournamentMatch,
   tournamentMatchEdit,
@@ -30,107 +22,23 @@ import {
 import { authMutation, authQuery } from "../../lib/crpc";
 import { getViewerContext } from "../viewer/context";
 import {
-  getCategoryRecordOrThrow,
   getManagedTournamentOrThrow,
   getTournamentRecordOrThrow,
   scheduleTournamentNotification,
-  type OrmCtx,
 } from "./_shared/guards";
-
-type MatchRecord = InferSelectModel<typeof tournamentMatch>;
-
-function serializeMatch(record: MatchRecord) {
-  return tournamentMatchSchema.parse({
-    categoryId: record.categoryId,
-    courtId: record.courtId ?? null,
-    createdAt: record.createdAt.getTime(),
-    endMinute: record.endMinute ?? null,
-    entryAId: record.entryAId ?? null,
-    entryBId: record.entryBId ?? null,
-    id: record.id,
-    matchDate: record.matchDate ?? null,
-    round: record.round,
-    rowVersion: record.rowVersion,
-    scheduledById: record.scheduledById ?? null,
-    score: (record.score as never) ?? null,
-    slotInRound: record.slotInRound,
-    startMinute: record.startMinute ?? null,
-    status: record.status,
-    updatedAt: record.updatedAt.getTime(),
-    walkover: record.walkover,
-    winnerEntryId: record.winnerEntryId ?? null,
-  });
-}
-
-async function getMatchOrThrow(
-  ctx: OrmCtx,
-  matchId: Id<"tournamentMatch">
-): Promise<MatchRecord> {
-  const record = await ctx.orm.query.tournamentMatch.findFirst({
-    where: { id: matchId },
-  });
-  if (!record) {
-    throw new CRPCError({
-      code: "NOT_FOUND",
-      message: "Confronto não encontrado.",
-    });
-  }
-  return record;
-}
-
-async function resolveMatchContext(ctx: OrmCtx, match: MatchRecord) {
-  const category = await getCategoryRecordOrThrow(
-    ctx,
-    match.categoryId as Id<"tournamentCategory">
-  );
-  const tournamentRecord = await getTournamentRecordOrThrow(
-    ctx,
-    category.tournamentId as Id<"tournament">
-  );
-  return { category, tournament: tournamentRecord };
-}
-
-async function entryRecipientUserIds(
-  ctx: OrmCtx,
-  entryIds: (string | null)[]
-): Promise<Id<"user">[]> {
-  const recipients = new Set<Id<"user">>();
-  for (const entryId of entryIds) {
-    if (!entryId) {
-      continue;
-    }
-    const entry = await ctx.orm.query.tournamentEntry.findFirst({
-      where: { id: entryId as Id<"tournamentEntry"> },
-    });
-    if (entry?.createdByUserId) {
-      recipients.add(entry.createdByUserId as Id<"user">);
-    }
-    if (entry?.partnerUserId) {
-      recipients.add(entry.partnerUserId as Id<"user">);
-    }
-  }
-  return [...recipients];
-}
-
-/** All matches of a tournament across its categories (bounded, per category). */
-async function listTournamentMatchRecords(
-  ctx: OrmCtx,
-  tournamentId: Id<"tournament">
-): Promise<MatchRecord[]> {
-  const categories = await ctx.orm.query.tournamentCategory.findMany({
-    limit: 10,
-    where: { tournamentId },
-  });
-  const matches: MatchRecord[] = [];
-  for (const category of categories) {
-    const rows = await ctx.orm.query.tournamentMatch.findMany({
-      limit: 300,
-      where: { categoryId: category.id as Id<"tournamentCategory"> },
-    });
-    matches.push(...rows);
-  }
-  return matches;
-}
+import { notifyMatchReady } from "./_shared/match_notices";
+import {
+  applyMatchResult,
+  applyMatchSchedule,
+  entryRecipientUserIds,
+  getMatchOrThrow,
+  listTournamentMatchRecords,
+  resolveMatchContext,
+  sweepMatchAgreements,
+  resolveMatchResultWinner,
+  serializeMatch,
+  type MatchRecord,
+} from "./_shared/match_writes";
 
 export const publishResult = authMutation
   .input(PublishMatchResultSchema)
@@ -148,113 +56,22 @@ export const publishResult = authMutation
       ctx,
       tournamentRecord.id as Id<"tournament">
     );
-    if (tournamentRecord.status !== "ongoing") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Resultados só podem ser lançados com o torneio em andamento.",
-      });
-    }
-    if (match.publishedAt) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esse confronto já tem resultado publicado.",
-      });
-    }
-    if (match.status === "vacant") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Essa vaga da chave está vazia e não tem resultado.",
-      });
-    }
-    if (!(match.entryAId && match.entryBId)) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esse confronto ainda não tem os dois lados definidos.",
-      });
-    }
-    const matchConfig = tournamentRecord.matchConfig as MatchConfig;
-    let winnerEntryId: string;
-    const isWalkover = Boolean(input.walkover);
-    if (input.walkover) {
-      // Walkover: winner declared by the organizer, no score validation — but
-      // the winner must be one of the two sides.
-      const walkoverCheck = validateWalkoverWinner({
-        entryAId: match.entryAId as string,
-        entryBId: match.entryBId as string,
-        winnerEntryId: input.score.winnerEntryId,
-      });
-      if (walkoverCheck.error || !walkoverCheck.winnerEntryId) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: walkoverCheck.error ?? "Resultado inválido.",
-        });
-      }
-      winnerEntryId = walkoverCheck.winnerEntryId;
-    } else {
-      const validation = validateTournamentMatchScore({
-        entryAId: match.entryAId,
-        entryBId: match.entryBId,
-        matchConfig,
-        score: input.score,
-      });
-      if (validation.error || !validation.winnerEntryId) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: validation.error ?? "Resultado inválido.",
-        });
-      }
-      winnerEntryId = validation.winnerEntryId;
-    }
 
-    const now = new Date();
-    const [updated] = await ctx.orm
-      .update(tournamentMatch)
-      .set({
-        publishedAt: now,
-        rowVersion: match.rowVersion + 1,
-        score: { sets: input.score.sets, winnerEntryId },
-        status: "finished",
-        updatedAt: now,
-        walkover: isWalkover,
-        winnerEntryId: winnerEntryId as Id<"tournamentEntry">,
-      })
-      .where(eq(tournamentMatch.id, match.id as never))
-      .returning();
-
-    // Advance the winner into the next round (only into unpublished slots).
-    const next = await ctx.orm.query.tournamentMatch.findFirst({
-      where: {
-        categoryId: match.categoryId as Id<"tournamentCategory">,
-        round: match.round + 1,
-        slotInRound: Math.floor(match.slotInRound / 2),
-      },
+    const updated = await applyMatchResult(ctx, {
+      match,
+      score: input.score,
+      tournament: tournamentRecord,
+      walkover: Boolean(input.walkover),
     });
-    if (next && !next.publishedAt) {
-      const side = match.slotInRound % 2 === 0 ? "entryAId" : "entryBId";
-      await ctx.orm
-        .update(tournamentMatch)
-        .set({
-          [side]: winnerEntryId as Id<"tournamentEntry">,
-          rowVersion: next.rowVersion + 1,
-          updatedAt: now,
-        })
-        .where(eq(tournamentMatch.id, next.id as never));
-    }
 
-    const recipients = await entryRecipientUserIds(ctx, [
-      match.entryAId,
-      match.entryBId,
-    ]);
-    if (recipients.length > 0) {
-      await scheduleTournamentNotification(ctx, {
-        eventType: "tournament.match.result",
-        metadata: { matchId: match.id },
-        recipientUserIds: recipients,
-        sourceEntityId: match.id as string,
-        sourceEntityType: "tournamentMatch",
-        tournamentId: tournamentRecord.id as Id<"tournament">,
-      });
-    }
+    // A escrita do organizador é por cima do acerto: o que os jogadores
+    // combinaram perde efeito e o atropelo fica no histórico.
+    await sweepMatchAgreements(ctx, {
+      actorSide: "organizer",
+      kind: "overridden",
+      matchId: match.id as Id<"tournamentMatch">,
+      tournamentId: tournamentRecord.id as Id<"tournament">,
+    });
 
     return serializeMatch(updated);
   });
@@ -307,35 +124,13 @@ export const editResult = authMutation
     }
 
     const matchConfig = tournamentRecord.matchConfig as MatchConfig;
-    let newWinnerEntryId: string;
-    if (input.walkover) {
-      const walkoverCheck = validateWalkoverWinner({
-        entryAId: match.entryAId,
-        entryBId: match.entryBId,
-        winnerEntryId: input.score.winnerEntryId,
-      });
-      if (walkoverCheck.error || !walkoverCheck.winnerEntryId) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: walkoverCheck.error ?? "Resultado inválido.",
-        });
-      }
-      newWinnerEntryId = walkoverCheck.winnerEntryId;
-    } else {
-      const validation = validateTournamentMatchScore({
-        entryAId: match.entryAId,
-        entryBId: match.entryBId,
-        matchConfig,
-        score: input.score,
-      });
-      if (validation.error || !validation.winnerEntryId) {
-        throw new CRPCError({
-          code: "BAD_REQUEST",
-          message: validation.error ?? "Resultado inválido.",
-        });
-      }
-      newWinnerEntryId = validation.winnerEntryId;
-    }
+    const newWinnerEntryId = resolveMatchResultWinner({
+      entryAId: match.entryAId,
+      entryBId: match.entryBId,
+      matchConfig,
+      score: input.score,
+      walkover: Boolean(input.walkover),
+    });
 
     const next = await ctx.orm.query.tournamentMatch.findFirst({
       where: {
@@ -377,6 +172,10 @@ export const editResult = authMutation
 
     if (reverb.action === "swap" && next) {
       const side = match.slotInRound % 2 === 0 ? "entryAId" : "entryBId";
+      const nextSides = {
+        entryAId: (next.entryAId ?? null) as null | string,
+        entryBId: (next.entryBId ?? null) as null | string,
+      };
       await ctx.orm
         .update(tournamentMatch)
         .set({
@@ -385,6 +184,14 @@ export const editResult = authMutation
           updatedAt: now,
         })
         .where(eq(tournamentMatch.id, next.id as never));
+      await notifyMatchReady(ctx, {
+        after: { ...nextSides, [side]: newWinnerEntryId as string },
+        before: nextSides,
+        categoryId: match.categoryId as Id<"tournamentCategory">,
+        matchId: next.id as string,
+        round: next.round,
+        tournament: tournamentRecord,
+      });
     }
 
     await ctx.orm.insert(tournamentMatchEdit).values({
@@ -415,6 +222,13 @@ export const editResult = authMutation
       });
     }
 
+    await sweepMatchAgreements(ctx, {
+      actorSide: "organizer",
+      kind: "overridden",
+      matchId: match.id as Id<"tournamentMatch">,
+      tournamentId: tournamentRecord.id as Id<"tournament">,
+    });
+
     return serializeMatch(updated);
   });
 
@@ -434,98 +248,25 @@ export const scheduleMatch = authMutation
       ctx,
       tournamentRecord.id as Id<"tournament">
     );
-    if (
-      tournamentRecord.status !== "drawn" &&
-      tournamentRecord.status !== "ongoing"
-    ) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Agendamento exige chave sorteada ou torneio em andamento.",
-      });
-    }
-    if (match.publishedAt) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Confronto encerrado não pode ser reagendado.",
-      });
-    }
-    if (match.status === "vacant") {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Essa vaga da chave está vazia e não pode ser agendada.",
-      });
-    }
-    if (input.startMinute >= input.endMinute) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "O horário de início deve ser antes do término.",
-      });
-    }
-    const courts = tournamentRecord.courts ?? [];
-    if (!courts.some((court: { id: string }) => court.id === input.courtId)) {
-      throw new CRPCError({ code: "BAD_REQUEST", message: "Quadra inválida." });
-    }
 
-    // One match per court at a time: occupancy comes from the rules' default
-    // duration, never from the client-sent endMinute.
-    const matchConfig = tournamentRecord.matchConfig as MatchConfig;
-    const occupiedEndMinute = resolveMatchOccupiedEndMinute({
-      matchConfig,
-      startMinute: input.startMinute,
-    });
-    const conflict = findCourtSlotConflict({
+    const updated = await applyMatchSchedule(ctx, {
       courtId: input.courtId,
-      endMinute: occupiedEndMinute,
-      ignoredMatchId: match.id,
-      matchConfig,
+      endMinute: input.endMinute,
+      match,
       matchDate: input.matchDate,
-      scheduledMatches: await listTournamentMatchRecords(
-        ctx,
-        tournamentRecord.id as Id<"tournament">
-      ),
       startMinute: input.startMinute,
+      tournament: tournamentRecord,
     });
-    if (conflict) {
-      throw new CRPCError({
-        code: "BAD_REQUEST",
-        message: "Esse horário já está reservado para outro confronto.",
-      });
-    }
-    const wasScheduled = match.matchDate !== null;
-    const now = new Date();
-    const [updated] = await ctx.orm
-      .update(tournamentMatch)
-      .set({
-        courtId: input.courtId,
-        endMinute: occupiedEndMinute,
-        matchDate: input.matchDate,
-        rowVersion: match.rowVersion + 1,
-        scheduledById: ctx.userId as Id<"user">,
-        startMinute: input.startMinute,
-        // A draw-time bye (walkover) stays a walkover: scheduling data can be
-        // attached without rewriting the resolved outcome.
-        status: match.status === "walkover" ? "walkover" : "scheduled",
-        updatedAt: now,
-      })
-      .where(eq(tournamentMatch.id, match.id as never))
-      .returning();
 
-    const recipients = await entryRecipientUserIds(ctx, [
-      match.entryAId,
-      match.entryBId,
-    ]);
-    if (recipients.length > 0) {
-      await scheduleTournamentNotification(ctx, {
-        eventType: wasScheduled
-          ? "tournament.match.rescheduled"
-          : "tournament.match.scheduled",
-        metadata: { matchId: match.id },
-        recipientUserIds: recipients,
-        sourceEntityId: match.id as string,
-        sourceEntityType: "tournamentMatch",
-        tournamentId: tournamentRecord.id as Id<"tournament">,
-      });
-    }
+    // Agendar por cima fecha só o acerto de HORÁRIO: o placar combinado depois do
+    // jogo continua valendo.
+    await sweepMatchAgreements(ctx, {
+      actorSide: "organizer",
+      channel: "schedule",
+      kind: "overridden",
+      matchId: match.id as Id<"tournamentMatch">,
+      tournamentId: tournamentRecord.id as Id<"tournament">,
+    });
 
     return serializeMatch(updated);
   });

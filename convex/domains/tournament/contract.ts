@@ -366,9 +366,126 @@ export const tournamentMatchSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Acerto do confronto entre os dois lados
+// ---------------------------------------------------------------------------
+// Um lado PROPÕE, o outro aceita ou propõe outro. Com o aceite dos dois o
+// confronto fica agendado (canal `schedule`) ou publicado (canal `score`), com o
+// mesmo efeito da escrita do organizador. O estado do canal é FECHADO e cresce
+// por adição: `idle` (sem proposta vigente), `negotiating` (proposta esperando o
+// outro lado) e `agreed` (fechado pelos dois).
+
+export const MatchAgreementChannelOptions = ["schedule", "score"] as const;
+
+export const MatchAgreementEventKindOptions = [
+  "proposed",
+  "accepted",
+  "declined",
+  "cancelled",
+  "reopened",
+  "overridden",
+  "closed",
+] as const;
+
+export const MatchAgreementStateOptions = [
+  "idle",
+  "negotiating",
+  "agreed",
+] as const;
+
+export const MatchAgreementSideOptions = ["a", "b"] as const;
+
+/** Lado no histórico: `organizer` só aparece quando ele age por cima. */
+export const MatchAgreementActorSideOptions = ["a", "b", "organizer"] as const;
+
+export const MatchAgreementActionSchema = z.object({
+  matchId: z.string().min(1, "Confronto inválido."),
+});
+
+export const ProposeMatchScheduleSchema = z.object({
+  // Null quando o torneio não tem quadra cadastrada: sem quadra o acerto fica em
+  // data e horário, e não há janela para conflitar.
+  courtId: z.string().min(1).nullable(),
+  endMinute: z.number().int().min(0).max(1440),
+  matchDate: z.string().min(1, "Data inválida."),
+  matchId: z.string().min(1, "Confronto inválido."),
+  startMinute: z.number().int().min(0).max(1440),
+});
+
+export const matchScheduleProposalSchema = z.object({
+  courtId: z.string().nullable(),
+  endMinute: z.number().int(),
+  matchDate: z.string(),
+  startMinute: z.number().int(),
+});
+
+export const matchScoreProposalSchema = z.object({
+  score: tournamentMatchScoreSchema,
+  walkover: z.boolean(),
+});
+
+const matchAgreementChannelBaseSchema = z.object({
+  agreedAt: z.number().nullable(),
+  proposedAt: z.number().nullable(),
+  // A leitura é sempre de UMA das partes: o cliente não compara id de usuário.
+  proposedByMe: z.boolean(),
+  proposedBySide: z.enum(MatchAgreementSideOptions).nullable(),
+  state: z.enum(MatchAgreementStateOptions),
+});
+
+export const matchScheduleAgreementSchema =
+  matchAgreementChannelBaseSchema.extend({
+    proposal: matchScheduleProposalSchema.nullable(),
+  });
+
+export const matchScoreAgreementSchema = matchAgreementChannelBaseSchema.extend(
+  {
+    proposal: matchScoreProposalSchema.nullable(),
+  }
+);
+
+export const matchAgreementsSchema = z.object({
+  matchId: z.string(),
+  schedule: matchScheduleAgreementSchema,
+  score: matchScoreAgreementSchema,
+});
+
+/** Confronto do PRÓPRIO jogador: nada do resto da chave entra neste payload. */
+export const playerMatchSchema = z.object({
+  agreements: matchAgreementsSchema,
+  match: tournamentMatchSchema,
+  mySide: z.enum(MatchAgreementSideOptions),
+  /** Última rodada da categoria: mesmo par do rótulo de estágio do app. */
+  totalRounds: z.number().int().min(1),
+});
+
+export const matchAgreementEventSchema = z.object({
+  actorName: z.string(),
+  actorSide: z.enum(MatchAgreementActorSideOptions),
+  channel: z.enum(MatchAgreementChannelOptions),
+  createdAt: z.number(),
+  id: z.string(),
+  kind: z.enum(MatchAgreementEventKindOptions),
+  schedule: matchScheduleProposalSchema.nullable(),
+  score: matchScoreProposalSchema.nullable(),
+});
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+export type MatchAgreementActorSide =
+  (typeof MatchAgreementActorSideOptions)[number];
+export type MatchAgreementChannel =
+  (typeof MatchAgreementChannelOptions)[number];
+export type MatchAgreementEvent = z.infer<typeof matchAgreementEventSchema>;
+export type MatchAgreementEventKind =
+  (typeof MatchAgreementEventKindOptions)[number];
+export type MatchAgreementSide = (typeof MatchAgreementSideOptions)[number];
+export type MatchAgreementState = (typeof MatchAgreementStateOptions)[number];
+export type MatchAgreements = z.infer<typeof matchAgreementsSchema>;
+export type MatchScoreProposal = z.infer<typeof matchScoreProposalSchema>;
+export type MatchScheduleProposal = z.infer<typeof matchScheduleProposalSchema>;
+export type PlayerMatch = z.infer<typeof playerMatchSchema>;
 export type TournamentStatus = (typeof TournamentStatusOptions)[number];
 export type TournamentModality = (typeof TournamentModalityOptions)[number];
 export type TournamentGender = (typeof TournamentGenderOptions)[number];

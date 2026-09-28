@@ -101,6 +101,26 @@ function buildPartnerInviteDecision(
 }
 
 /**
+ * Confronto definido: um toque abre o Combinar jogo do confronto EXATO. A acao
+ * so NAVEGA (a url do item leva o matchId); sem o id, o item vira informativo.
+ */
+function buildMatchReadyDecision(
+  input: NotificationActionSpecInput
+): NotificationActionSpec | null {
+  const matchId = readMetadataId(input.metadata, "matchId");
+
+  return matchId
+    ? {
+        action: { params: null, type: "open_route" },
+        actionLabel: "Combinar horário",
+        highlightsActorName: false,
+        secondaryAction: null,
+        secondaryActionLabel: null,
+      }
+    : null;
+}
+
+/**
  * Mapa declarativo evento -> decisao. Tipo ausente = INFORMATIVO (a maioria dos
  * eventos): o item cai no cartao de hoje. Tipo novo com botao entra AQUI e
  * nada mais muda no servidor.
@@ -109,6 +129,7 @@ const EVENT_PRESENTATION_BUILDERS: Partial<
   Record<NotificationEventType, NotificationActionSpecBuilder>
 > = {
   "tournament.entry.created": buildTournamentEntryDecision,
+  "tournament.match.ready": buildMatchReadyDecision,
   "tournament.partner.invited": buildPartnerInviteDecision,
 };
 

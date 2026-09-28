@@ -46,6 +46,25 @@ export function buildPendingItemId(kind: string, sourceId: string) {
   return `${kind}:${sourceId}`;
 }
 
+/**
+ * Assinatura do payload que sustenta o item (hash djb2 sobre as partes
+ * ordenadas): muda quando qualquer parte muda, entao o recibo de dispensa de um
+ * item reescrito (proposta nova) morre em vez de seguir escondendo.
+ */
+export function pendingItemSignature(parts: readonly string[]): string {
+  let hash = 5381;
+
+  for (const part of [...parts].sort()) {
+    for (let index = 0; index < part.length; index += 1) {
+      hash = (hash * 33 + part.charCodeAt(index)) % 4_294_967_296;
+    }
+    // Separador entre as partes: "ab"+"c" nao colide com "a"+"bc".
+    hash = (hash * 33 + 31) % 4_294_967_296;
+  }
+
+  return hash.toString(16).padStart(8, "0");
+}
+
 export function openRouteAction() {
   return { params: null, type: "open_route" as const };
 }
@@ -114,7 +133,7 @@ export type PendingsActorRef = { id: string; kind: PendingScope };
 
 /**
  * Recibo como ele vive na tabela `pendingDismissal`: o snapshot (severidade,
- * contagem e prazo) e o que decide se o item segue escondido.
+ * contagem, prazo e assinatura) e o que decide se o item segue escondido.
  */
 export type PendingDismissalReceipt = {
   actorId: string;
@@ -123,6 +142,7 @@ export type PendingDismissalReceipt = {
   deadlineAt: number | null;
   itemId: string;
   severity: PendingSeverity;
+  signature: string | null;
   surface: PendingSurface;
 };
 
@@ -132,6 +152,7 @@ export function buildPendingDismissalSnapshot(item: PendingItem) {
     count: item.count,
     deadlineAt: item.deadlineAt,
     severity: item.severity,
+    signature: item.signature ?? null,
   };
 }
 
@@ -157,7 +178,7 @@ export function resolvePendingItemScope(itemId: string): PendingScope | null {
 /**
  * Classificacao UNICA dos recibos do ator naquela superficie, servindo as duas
  * pontas: `hiddenIds` e o que a LEITURA esconde (recibo vivo = item intacto nos
- * tres campos do snapshot; roda antes do corte) e `dead` e o que ela ja ignora —
+ * campos do snapshot; roda antes do corte) e `dead` e o que ela ja ignora —
  * item fora da derivacao ou snapshot que nao casa — e a poda pode apagar. A casa
  * nunca esconde e recibo de outro ator/superficie nao entra em nenhum dos dois.
  */
@@ -191,7 +212,8 @@ function classifyPendingDismissals(input: {
       isPendingItemDismissible(item.id) &&
       receipt.severity === item.severity &&
       (receipt.count ?? 1) === (item.count ?? 1) &&
-      receipt.deadlineAt === item.deadlineAt;
+      receipt.deadlineAt === item.deadlineAt &&
+      (receipt.signature ?? null) === (item.signature ?? null);
 
     if (isAlive) {
       hiddenIds.add(receipt.itemId);

@@ -14,9 +14,10 @@ import {
 } from "./contract";
 
 /**
- * Recibo da dispensa: snapshot do item (severidade, contagem e prazo) no
- * momento em que o usuario o escondeu NAQUELA superficie — quando o item
- * piora, o recibo morre e o item volta (regra em pendings-rules.ts).
+ * Recibo da dispensa: snapshot do item (severidade, contagem, prazo e a
+ * assinatura do payload, quando existe) no momento em que o usuario o escondeu
+ * NAQUELA superficie — quando o item piora ou o payload muda, o recibo morre e o
+ * item volta (regra em pendings-rules.ts).
  */
 export const pendingDismissal = convexTable(
   "pendingDismissal",
@@ -30,6 +31,8 @@ export const pendingDismissal = convexTable(
     /** Id deterministico do item (`<kind>:<sourceId>`), como na leitura. */
     itemId: text().notNull(),
     severity: textEnum(PENDING_SEVERITY_OPTIONS).notNull(),
+    /** `null` nos kinds sem payload mutavel: so a severidade/contagem/prazo valem. */
+    signature: text(),
     surface: textEnum(PENDING_SURFACE_OPTIONS).notNull(),
   },
   (pendingDismissal) => [

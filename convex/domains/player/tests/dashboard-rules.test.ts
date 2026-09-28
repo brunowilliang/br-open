@@ -6,7 +6,7 @@ import {
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
-  resolveCategoryTotalRounds,
+  isUpcomingMatchCandidate,
   selectUpcomingMatches,
   type DashResult,
 } from "../dashboard-rules";
@@ -137,12 +137,67 @@ describe("findMostFrequentPartner", () => {
   });
 });
 
-describe("selectUpcomingMatches", () => {
-  const candidate = (matchDate: string, startMinute = 0) => ({
-    id: `${matchDate}-${startMinute}`,
-    matchDate,
-    startMinute,
+describe("isUpcomingMatchCandidate", () => {
+  const base = {
+    entryAId: "entry-a",
+    entryBId: "entry-b",
+    matchDate: null,
+    status: "pending",
+    todayKey: "2026-09-28",
+  };
+
+  it("takes an undated match with both sides on the table", () => {
+    expect(isUpcomingMatchCandidate(base)).toBe(true);
+    expect(isUpcomingMatchCandidate({ ...base, status: "scheduled" })).toBe(
+      true
+    );
   });
+
+  it("drops a side-less, settled or empty-slot match", () => {
+    expect(isUpcomingMatchCandidate({ ...base, entryBId: null })).toBe(false);
+    expect(isUpcomingMatchCandidate({ ...base, status: "finished" })).toBe(
+      false
+    );
+    expect(isUpcomingMatchCandidate({ ...base, status: "walkover" })).toBe(
+      false
+    );
+    expect(isUpcomingMatchCandidate({ ...base, status: "vacant" })).toBe(false);
+  });
+
+  it("drops a dated match that already went by", () => {
+    expect(
+      isUpcomingMatchCandidate({
+        ...base,
+        matchDate: "2026-09-27",
+        status: "scheduled",
+      })
+    ).toBe(false);
+    expect(
+      isUpcomingMatchCandidate({
+        ...base,
+        matchDate: "2026-09-28",
+        status: "scheduled",
+      })
+    ).toBe(true);
+  });
+});
+
+describe("selectUpcomingMatches", () => {
+  const candidate = (
+    matchDate: null | string,
+    startMinute: null | number = 0,
+    coordinates: { round?: number; slotInRound?: number } = {}
+  ) => {
+    const round = coordinates.round ?? 1;
+    const slotInRound = coordinates.slotInRound ?? 1;
+    return {
+      id: `${matchDate ?? "sem-data"}-${startMinute ?? "sem-hora"}-${round}.${slotInRound}`,
+      matchDate,
+      round,
+      slotInRound,
+      startMinute,
+    };
+  };
 
   it("keeps the nearest match when the list is over the limit", () => {
     const farMatches = Array.from({ length: 20 }, (_, index) =>
@@ -151,6 +206,8 @@ describe("selectUpcomingMatches", () => {
     const tournamentMatch = {
       id: "tournament-tomorrow",
       matchDate: "2026-09-20",
+      round: 1,
+      slotInRound: 1,
       startMinute: 900,
     };
 
@@ -175,18 +232,26 @@ describe("selectUpcomingMatches", () => {
 
     expect(selected.map((item) => item.startMinute)).toEqual([480, 900]);
   });
-});
 
-describe("resolveCategoryTotalRounds", () => {
-  it("uses the furthest round of the category board", () => {
-    expect(
-      resolveCategoryTotalRounds([{ round: 1 }, { round: 3 }, { round: 2 }])
-    ).toBe(3);
-  });
+  it("pushes the undated matches after the dated ones, in bracket order", () => {
+    const selected = selectUpcomingMatches({
+      limit: 10,
+      matches: [
+        candidate(null, null, { round: 2, slotInRound: 0 }),
+        candidate("2026-09-30", 600),
+        candidate(null, null, { round: 1, slotInRound: 1 }),
+        candidate("2026-09-20", 900),
+        candidate(null, null, { round: 1, slotInRound: 0 }),
+      ],
+    });
 
-  it("keeps 1 for a board with no match (or none drawn yet)", () => {
-    expect(resolveCategoryTotalRounds([])).toBe(1);
-    expect(resolveCategoryTotalRounds([{ round: 1 }])).toBe(1);
+    expect(selected.map((item) => item.id)).toEqual([
+      "2026-09-20-900-1.1",
+      "2026-09-30-600-1.1",
+      "sem-data-sem-hora-1.0",
+      "sem-data-sem-hora-1.1",
+      "sem-data-sem-hora-2.0",
+    ]);
   });
 });
 

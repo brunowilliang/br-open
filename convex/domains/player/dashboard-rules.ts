@@ -134,36 +134,55 @@ export function countActiveEntriesByCategory(input: {
 
 /** Minimum shape the upcoming cut needs (contract items satisfy this). */
 export type UpcomingMatchCandidate = {
-  matchDate: string;
-  startMinute: number;
+  matchDate: null | string;
+  round: number;
+  slotInRound: number;
+  startMinute: null | number;
 };
 
-/** Rounds of the category's draw: the furthest among its bracket rows is the
- * last one (a built bracket materializes every round). Floor of 1 keeps the
- * stage label helper (draw size 2^(totalRounds-round+1)) sane without a board. */
-export function resolveCategoryTotalRounds(
-  matches: readonly { round: number }[]
-): number {
-  let lastRound = 1;
-  for (const match of matches) {
-    if (match.round > lastRound) {
-      lastRound = match.round;
-    }
+/**
+ * Whether the match is still to be played: both sides filled and the row alive
+ * (`pending`/`scheduled`). A dated match already gone by is not "next" anymore;
+ * an undated one always is (it is the game waiting for a schedule).
+ */
+export function isUpcomingMatchCandidate(input: {
+  entryAId: null | string | undefined;
+  entryBId: null | string | undefined;
+  matchDate: null | string | undefined;
+  status: string;
+  todayKey: string;
+}): boolean {
+  if (!(input.entryAId && input.entryBId)) {
+    return false;
   }
-  return lastRound;
+  if (input.status !== "pending" && input.status !== "scheduled") {
+    return false;
+  }
+  return !(input.matchDate && input.matchDate < input.todayKey);
 }
 
-/** Order + cut of the upcoming list: by date, then start minute, capped. Both domains push freely
- * and the NEAREST matches win regardless of origin. */
+/** Order + cut of the upcoming list: dated first (nearest wins), then the undated ones in bracket
+ * order (round, slot), capped. Both domains push freely and the NEAREST matches win regardless of
+ * origin. */
 export function selectUpcomingMatches<T extends UpcomingMatchCandidate>(input: {
   limit: number;
   matches: T[];
 }): T[] {
   return [...input.matches]
-    .sort((a, b) =>
-      a.matchDate === b.matchDate
-        ? a.startMinute - b.startMinute
-        : a.matchDate.localeCompare(b.matchDate)
-    )
+    .sort((a, b) => {
+      if (a.matchDate !== b.matchDate) {
+        if (a.matchDate === null) {
+          return 1;
+        }
+        if (b.matchDate === null) {
+          return -1;
+        }
+        return a.matchDate.localeCompare(b.matchDate);
+      }
+      if (a.matchDate === null) {
+        return a.round - b.round || a.slotInRound - b.slotInRound;
+      }
+      return (a.startMinute ?? 0) - (b.startMinute ?? 0);
+    })
     .slice(0, input.limit);
 }

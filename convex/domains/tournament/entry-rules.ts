@@ -321,3 +321,15 @@ export function selectViewerTournamentEntryIds(input: {
     )
     .map((entry) => entry.id);
 }
+
+/**
+ * Destinatarios do aviso de inscricao cancelada: os gestores, sem quem agiu
+ * (organizador que cancelou nao precisa do aviso do proprio ato). Deduplica
+ * os managers das duas contas.
+ */
+export function resolveEntryCancelledRecipients(
+  managerUserIds: readonly string[],
+  actorUserId: null | string
+): string[] {
+  return [...new Set(managerUserIds)].filter((id) => id !== actorUserId);
+}

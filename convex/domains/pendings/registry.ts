@@ -1,19 +1,33 @@
 import { isActiveActorManager, type ViewerActor } from "../auth/actor-context";
+import { formatMatchScoreLabel, formatMatchSlotLabel } from "../match/labels";
 import { buildPlayerProfileDisplayName } from "../player/identity";
+import {
+  readScheduleProposal,
+  readScoreProposal,
+  resolveReceivedAgreement,
+  toAgreementStateFields,
+} from "../tournament/agreement-rules";
 import {
   canConcludeTournament,
   type TournamentConclusionCategory,
 } from "../tournament/conclusion-rules";
 import {
+  buildOrganizerAgreementPendings,
   buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
+  buildPlayerMatchAgreementPendings,
+  formatOpponentSideLabel,
   type TournamentEntryPendingView,
+  type TournamentMatchAgreementPendingView,
+  type TournamentOrganizerAgreementPendingView,
   type TournamentOrganizerConclusionPendingView,
   type TournamentOrganizerPendingView,
 } from "../tournament/pendings-rules";
 import type { QueryCtx } from "../../functions/generated/server";
 import type { Id } from "../../functions/_generated/dataModel";
+import type { InferSelectModel } from "kitcn/orm";
+import type { tournamentMatchAgreement } from "../tournament/tables";
 import type { AuthenticatedCtx } from "../../lib/crpc";
 import type {
   PendingsListResult,
@@ -49,8 +63,18 @@ const ORG_ENTRY_SCAN_LIMIT = 300;
 const ORG_CONCLUSION_MATCH_SCAN_LIMIT = 300;
 /** Recibos de dispensa lidos por ator/superficie (cap do ator, nao da casa). */
 const PENDING_DISMISSAL_SCAN_LIMIT = 200;
+/** Inscricoes do jogador varridas atras do acerto recebido. */
+const PLAYER_AGREEMENT_ENTRY_LIMIT = 20;
+/** Acertos lidos por inscricao (linhas em que ela e um dos lados). */
+const PLAYER_AGREEMENT_ROW_LIMIT = 50;
+/** Acertos ABERTOS lidos por torneio do organizador (linhas, nao confrontos). */
+const ORG_AGREEMENT_SCAN_LIMIT = 100;
 
 export type PendingsReadCtx = AuthenticatedCtx<QueryCtx>;
+
+type TournamentMatchAgreementRecord = InferSelectModel<
+  typeof tournamentMatchAgreement
+>;
 
 export type PendingsActor =
   | { kind: "organization"; organizationId: Id<"organization"> }
@@ -115,6 +139,14 @@ const ORG_ENTRY_KINDS: readonly PendingKind[] = [
 ];
 const ORG_CONCLUSION_KINDS: readonly PendingKind[] = [
   "organization_tournament_awaiting_conclusion",
+];
+const PLAYER_AGREEMENT_KINDS: readonly PendingKind[] = [
+  "player_tournament_match_schedule_proposed",
+  "player_tournament_match_score_proposed",
+  "player_tournament_match_reschedule_requested",
+];
+const ORG_AGREEMENT_KINDS: readonly PendingKind[] = [
+  "organization_tournament_matches_awaiting_agreement",
 ];
 
 /**
@@ -468,6 +500,359 @@ async function collectOrgConclusionPendings(
   };
 }
 
+/** Acerto RECEBIDO nos confrontos do jogador: horario/placar esperando resposta. */
+async function collectPlayerAgreementPendings(
+  ctx: PendingsReadCtx,
+  actor: PendingsActor
+): Promise<PendingsDerivation> {
+  const saturation = createSaturationCollector();
+
+  if (actor.kind !== "player") {
+    return { items: [], saturations: [] };
+  }
+
+  const [asPlayerA, asPlayerB] = await Promise.all([
+    ctx.orm.query.tournamentEntry.findMany({
+      limit: PLAYER_ENTRY_SCAN_LIMIT,
+      orderBy: { createdAt: "desc" },
+      where: { playerAId: actor.playerProfileId },
+    }),
+    ctx.orm.query.tournamentEntry.findMany({
+      limit: PLAYER_ENTRY_SCAN_LIMIT,
+      orderBy: { createdAt: "desc" },
+      where: { playerBId: actor.playerProfileId },
+    }),
+  ]);
+  const entries = [
+    ...new Map(
+      [...asPlayerA, ...asPlayerB].map((entry) => [entry.id as string, entry])
+    ).values(),
+  ].slice(0, PLAYER_AGREEMENT_ENTRY_LIMIT);
+  saturation.markIfFull(
+    PLAYER_AGREEMENT_KINDS,
+    [...asPlayerA, ...asPlayerB],
+    PLAYER_ENTRY_SCAN_LIMIT
+  );
+  if (entries.length >= PLAYER_AGREEMENT_ENTRY_LIMIT) {
+    saturation.markIfFull(
+      PLAYER_AGREEMENT_KINDS,
+      entries,
+      PLAYER_AGREEMENT_ENTRY_LIMIT
+    );
+  }
+  if (entries.length === 0) {
+    return { items: [], saturations: saturation.saturations };
+  }
+
+  // O autor da proposta e um userId; o jogador ativo e um perfil.
+  const profile = await ctx.orm.query.playerProfile.findFirst({
+    where: { id: actor.playerProfileId },
+  });
+  if (!profile) {
+    return { items: [], saturations: saturation.saturations };
+  }
+
+  const myEntryIds = new Set(entries.map((entry) => entry.id as string));
+  const pending: {
+    channel: "schedule" | "score";
+    kind: "proposal" | "reopened";
+    row: TournamentMatchAgreementRecord;
+  }[] = [];
+
+  for (const entry of entries) {
+    const entryId = entry.id as Id<"tournamentEntry">;
+    const [asSideA, asSideB] = await Promise.all([
+      ctx.orm.query.tournamentMatchAgreement.findMany({
+        limit: PLAYER_AGREEMENT_ROW_LIMIT,
+        where: { entryAId: entryId, state: "negotiating" },
+      }),
+      ctx.orm.query.tournamentMatchAgreement.findMany({
+        limit: PLAYER_AGREEMENT_ROW_LIMIT,
+        where: { entryBId: entryId, state: "negotiating" },
+      }),
+    ]);
+    saturation.markIfFull(
+      PLAYER_AGREEMENT_KINDS,
+      [...asSideA, ...asSideB],
+      PLAYER_AGREEMENT_ROW_LIMIT
+    );
+
+    for (const row of [...asSideA, ...asSideB]) {
+      const received = resolveReceivedAgreement({
+        channel: row.channel === "score" ? "score" : "schedule",
+        current: toAgreementStateFields(row),
+        userId: profile.userId as string,
+      });
+      if (received) {
+        pending.push({ ...received, row });
+      }
+    }
+  }
+
+  // O mesmo acerto pode chegar pelas duas inscricoes: a linha entra uma vez so.
+  const received = [
+    ...new Map(pending.map((item) => [item.row.id as string, item])).values(),
+  ];
+  if (received.length === 0) {
+    return { items: [], saturations: saturation.saturations };
+  }
+
+  const tournamentIds = [
+    ...new Set(received.map((item) => item.row.tournamentId as string)),
+  ] as Id<"tournament">[];
+  const tournaments = await ctx.orm.query.tournament.findMany({
+    limit: tournamentIds.length,
+    where: { id: { in: tournamentIds } },
+  });
+  const tournamentById = new Map(
+    tournaments.map((row) => [row.id as string, row])
+  );
+  const opponentEntryIds = [
+    ...new Set(
+      received.map(
+        (item) =>
+          (myEntryIds.has(item.row.entryAId as string)
+            ? item.row.entryBId
+            : item.row.entryAId) as string
+      )
+    ),
+  ] as Id<"tournamentEntry">[];
+  const opponentEntries =
+    opponentEntryIds.length > 0
+      ? await ctx.orm.query.tournamentEntry.findMany({
+          limit: opponentEntryIds.length,
+          where: { id: { in: opponentEntryIds } },
+        })
+      : [];
+  const opponentProfileIds = [
+    ...new Set(
+      opponentEntries.flatMap((entry) =>
+        [entry.playerAId, entry.playerBId].filter(
+          (id): id is Id<"playerProfile"> => id !== null
+        )
+      )
+    ),
+  ];
+  const profiles =
+    opponentProfileIds.length > 0
+      ? await ctx.orm.query.playerProfile.findMany({
+          limit: opponentProfileIds.length,
+          where: { id: { in: opponentProfileIds } },
+        })
+      : [];
+  const userIds = [
+    ...new Set([
+      ...profiles.map((row) => row.userId as string),
+      ...received
+        .map((item) => item.row.proposedByUserId as string | null)
+        .filter((id): id is string => id !== null),
+    ]),
+  ] as Id<"user">[];
+  const users =
+    userIds.length > 0
+      ? await ctx.orm.query.user.findMany({
+          limit: userIds.length,
+          where: { id: { in: userIds } },
+        })
+      : [];
+  const userById = new Map(users.map((row) => [row.id as string, row]));
+  // Quem propos e um usuario: a copy usa o nome do PERFIL dele (conta sem nome
+  // ainda rende apelido/nome de exibicao, nunca item sem nome).
+  const proposerProfiles =
+    userIds.length > 0
+      ? await ctx.orm.query.playerProfile.findMany({
+          limit: userIds.length,
+          where: { userId: { in: userIds } },
+        })
+      : [];
+  const proposerProfileByUserId = new Map(
+    proposerProfiles.map((row) => [row.userId as string, row])
+  );
+  const nameByProfileId = new Map(
+    profiles.map((row) => [
+      row.id as string,
+      buildPlayerProfileDisplayName({
+        fullName: row.fullName,
+        name: userById.get(row.userId as string)?.name,
+        nickname: row.nickname,
+        userId: row.userId as string,
+      }),
+    ])
+  );
+  const proposerNameByUserId = new Map<string, string>(
+    userIds.map((userId) => [
+      userId,
+      buildPlayerProfileDisplayName({
+        fullName: proposerProfileByUserId.get(userId)?.fullName,
+        name: userById.get(userId)?.name,
+        nickname: proposerProfileByUserId.get(userId)?.nickname,
+        userId,
+      }),
+    ])
+  );
+  const views: TournamentMatchAgreementPendingView[] = [];
+
+  for (const item of received) {
+    const currentTournament = tournamentById.get(
+      item.row.tournamentId as string
+    );
+    if (
+      !currentTournament ||
+      (currentTournament.status !== "drawn" &&
+        currentTournament.status !== "ongoing")
+    ) {
+      continue;
+    }
+
+    const opponentEntryId = (
+      myEntryIds.has(item.row.entryAId as string)
+        ? item.row.entryBId
+        : item.row.entryAId
+    ) as string;
+    const opponentEntry = opponentEntries.find(
+      (entry) => (entry.id as string) === opponentEntryId
+    );
+    const proposerName = item.row.proposedByUserId
+      ? (proposerNameByUserId.get(item.row.proposedByUserId as string) ?? "")
+      : "";
+    // O lado adversario sai SEM quem propos: nomear o autor de novo no fim da
+    // frase lia como "Rafael Salles propos ... com Rafael Salles".
+    const opponentName = opponentEntry
+      ? formatOpponentSideLabel(
+          [
+            nameByProfileId.get(opponentEntry.playerAId as string),
+            opponentEntry.playerBId
+              ? nameByProfileId.get(opponentEntry.playerBId as string)
+              : null,
+          ],
+          proposerName
+        )
+      : "";
+    // O que esta na mesa: a copy so vale com o horario (e a quadra) ou o placar.
+    const scheduleProposal =
+      item.channel === "schedule"
+        ? readScheduleProposal(item.row.proposal)
+        : null;
+    const scoreProposal =
+      item.channel === "score" ? readScoreProposal(item.row.proposal) : null;
+    const courtName = scheduleProposal?.courtId
+      ? ((
+          currentTournament.courts as
+            | { id: string; name: string }[]
+            | null
+            | undefined
+        )?.find((court) => court.id === scheduleProposal.courtId)?.name ?? null)
+      : null;
+    const proposalLabel = scheduleProposal
+      ? [
+          formatMatchSlotLabel(scheduleProposal),
+          courtName ? `na ${courtName}` : null,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : scoreProposal
+        ? formatMatchScoreLabel(scoreProposal.score.sets)
+        : "";
+
+    if (!(proposerName && proposalLabel && item.row.proposedAt)) {
+      continue;
+    }
+
+    views.push({
+      channel: item.channel,
+      matchId: item.row.matchId as string,
+      opponentName,
+      proposalLabel,
+      proposedAt: item.row.proposedAt.getTime(),
+      proposerName,
+      reopened: item.kind === "reopened",
+      tournamentId: currentTournament.id as string,
+      tournamentName: currentTournament.name,
+    });
+  }
+
+  return {
+    items: buildPlayerMatchAgreementPendings({ matches: views }),
+    saturations: saturation.saturations,
+  };
+}
+
+/**
+ * Acerto ABERTO nos torneios do organizador: os jogadores comecaram a combinar e
+ * o outro lado nao respondeu. Uma pendencia por torneio, contando CONFRONTOS
+ * (nunca canais), com o cap declarado por leitura.
+ */
+async function collectOrgAgreementPendings(
+  ctx: PendingsReadCtx,
+  actor: PendingsActor
+): Promise<PendingsDerivation> {
+  const saturation = createSaturationCollector();
+
+  if (actor.kind !== "organization") {
+    return { items: [], saturations: [] };
+  }
+
+  const tournaments = await ctx.orm.query.tournament.findMany({
+    limit: ORG_TOURNAMENT_SCAN_LIMIT,
+    orderBy: { updatedAt: "desc" },
+    where: { organizationId: actor.organizationId },
+  });
+  saturation.markIfFull(
+    ORG_AGREEMENT_KINDS,
+    tournaments,
+    ORG_TOURNAMENT_SCAN_LIMIT
+  );
+  const relevant = tournaments
+    .filter((row) => row.status === "drawn" || row.status === "ongoing")
+    .slice(0, ORG_TOURNAMENT_ENTRY_LIMIT);
+  if (relevant.length >= ORG_TOURNAMENT_ENTRY_LIMIT) {
+    saturation.markIfFull(
+      ORG_AGREEMENT_KINDS,
+      relevant,
+      ORG_TOURNAMENT_ENTRY_LIMIT
+    );
+  }
+
+  const views: TournamentOrganizerAgreementPendingView[] = [];
+
+  for (const currentTournament of relevant) {
+    const rows = await ctx.orm.query.tournamentMatchAgreement.findMany({
+      limit: ORG_AGREEMENT_SCAN_LIMIT,
+      where: {
+        state: "negotiating",
+        tournamentId: currentTournament.id as Id<"tournament">,
+      },
+    });
+    saturation.markIfFull(ORG_AGREEMENT_KINDS, rows, ORG_AGREEMENT_SCAN_LIMIT);
+    const stalledMatchCount = new Set(rows.map((row) => row.matchId as string))
+      .size;
+
+    if (stalledMatchCount > 0) {
+      views.push({
+        proposals: rows.flatMap((row) =>
+          row.proposedAt
+            ? [
+                {
+                  channel: row.channel as "schedule" | "score",
+                  matchId: row.matchId as string,
+                  proposedAt: row.proposedAt.getTime(),
+                },
+              ]
+            : []
+        ),
+        stalledMatchCount,
+        tournamentId: currentTournament.id as string,
+        tournamentName: currentTournament.name,
+      });
+    }
+  }
+
+  return {
+    items: buildOrganizerAgreementPendings({ tournaments: views }),
+    saturations: saturation.saturations,
+  };
+}
+
 /**
  * `kinds` e explicito (nao derivado do contrato): completude e ausencia de
  * duplicata sao auditadas por teste.
@@ -480,6 +865,14 @@ const PLAYER_PENDING_DERIVERS: readonly PendingsDeriver[] = [
       "player_tournament_entry_awaiting_approval",
       "player_tournament_partner_invite_received",
       "player_tournament_partner_invite_sent",
+    ],
+  },
+  {
+    derive: collectPlayerAgreementPendings,
+    kinds: [
+      "player_tournament_match_schedule_proposed",
+      "player_tournament_match_score_proposed",
+      "player_tournament_match_reschedule_requested",
     ],
   },
 ];
@@ -496,6 +889,10 @@ const ORGANIZATION_PENDING_DERIVERS: readonly PendingsDeriver[] = [
   {
     derive: collectOrgConclusionPendings,
     kinds: ["organization_tournament_awaiting_conclusion"],
+  },
+  {
+    derive: collectOrgAgreementPendings,
+    kinds: ["organization_tournament_matches_awaiting_agreement"],
   },
 ];
 

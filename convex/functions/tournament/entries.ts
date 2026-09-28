@@ -22,6 +22,7 @@ import {
   normalizeUsernameLookup,
   registrationClosedMessage,
   resolveCallerEligibility,
+  resolveEntryCancelledRecipients,
   resolveEntryStatusAfterPartnerAccepted,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
@@ -299,7 +300,7 @@ async function removeEntryFromBracket(
 async function scheduleEntryRefund(
   ctx: MutationCtx,
   input: { entry: EntryRecord; tournamentId: Id<"tournament"> }
-) {
+): Promise<boolean> {
   const charges = await ctx.orm.query.paymentCharge.findMany({
     limit: 10,
     where: {
@@ -310,7 +311,7 @@ async function scheduleEntryRefund(
   });
   const refundable = charges.filter((charge) => canRequestRefund(charge));
   if (refundable.length === 0) {
-    return;
+    return false;
   }
   const now = new Date();
   for (const charge of refundable) {
@@ -333,6 +334,76 @@ async function scheduleEntryRefund(
       tournamentId: input.tournamentId,
     });
   }
+
+  return true;
+}
+
+/**
+ * Inscricao cancelada avisa os GESTORES (quem agiu nao precisa do aviso do
+ * proprio ato). O cancelamento tira a vaga da chave: o organizador ve a lista
+ * encolher sem aviso nenhum hoje.
+ */
+async function notifyEntryCancelledForManagers(
+  ctx: MutationCtx,
+  input: {
+    actorUserId: Id<"user"> | null;
+    entry: EntryRecord;
+    refundStarted: boolean;
+    tournament: TournamentRecord;
+  }
+) {
+  const managerIds = await getTournamentManagerUserIds(
+    ctx as unknown as OrmCtx,
+    input.tournament.organizationId
+  );
+  const recipients = resolveEntryCancelledRecipients(
+    managerIds,
+    input.actorUserId
+  ) as Id<"user">[];
+  if (recipients.length === 0) {
+    return;
+  }
+
+  await scheduleTournamentNotification(ctx, {
+    actorUserId: input.actorUserId,
+    eventType: "tournament.entry.cancelled",
+    metadata: { refundStarted: input.refundStarted },
+    recipientUserIds: recipients,
+    sourceEntityId: input.entry.id as string,
+    sourceEntityType: "tournamentEntry",
+    tournamentId: input.tournament.id as Id<"tournament">,
+  });
+}
+
+/**
+ * Convite de dupla RETIRADO (inscricao cancelada antes da resposta): quem foi
+ * convidado e avisado para nao responder a um convite que nao existe mais. Quem
+ * cancela por conta propria nao recebe o aviso do proprio ato.
+ */
+async function notifyPartnerInviteCancelled(
+  ctx: MutationCtx,
+  input: {
+    actorUserId: Id<"user"> | null;
+    entry: EntryRecord;
+    tournament: TournamentRecord;
+  }
+) {
+  if (input.entry.status !== "pending_partner") {
+    return;
+  }
+  const partnerUserId = input.entry.partnerUserId;
+  if (!partnerUserId || partnerUserId === input.actorUserId) {
+    return;
+  }
+
+  await scheduleTournamentNotification(ctx, {
+    actorUserId: input.actorUserId,
+    eventType: "tournament.partner.invite_cancelled",
+    recipientUserIds: [partnerUserId],
+    sourceEntityId: input.entry.id as string,
+    sourceEntityType: "tournamentEntry",
+    tournamentId: input.tournament.id as Id<"tournament">,
+  });
 }
 
 /**
@@ -571,6 +642,12 @@ export const respondPartnerInvite = authMutation
         sourceEntityType: "tournamentEntry",
         tournamentId: tournamentRecord.id as Id<"tournament">,
       });
+      await notifyEntryCancelledForManagers(ctx, {
+        actorUserId: ctx.userId as Id<"user">,
+        entry: updated,
+        refundStarted: false,
+        tournament: tournamentRecord,
+      });
       return serializeEntry(updated);
     }
 
@@ -777,9 +854,20 @@ export const cancel = authMutation
     // EMPTY ("A definir", no automatic bye for the survivor). A paid entry also
     // gets its refund started, with a notice to the creator who paid.
     await removeEntryFromBracket(ctx, { entry: updated });
-    await scheduleEntryRefund(ctx, {
+    const refundStarted = await scheduleEntryRefund(ctx, {
       entry: updated,
       tournamentId: tournamentRecord.id as Id<"tournament">,
+    });
+    await notifyEntryCancelledForManagers(ctx, {
+      actorUserId: (ctx.userId ?? null) as Id<"user"> | null,
+      entry: updated,
+      refundStarted,
+      tournament: tournamentRecord,
+    });
+    await notifyPartnerInviteCancelled(ctx, {
+      actorUserId: (ctx.userId ?? null) as Id<"user"> | null,
+      entry,
+      tournament: tournamentRecord,
     });
 
     // A inscricao cancelada nao pode deixar PIX pagavel: a cobranca PENDING vira

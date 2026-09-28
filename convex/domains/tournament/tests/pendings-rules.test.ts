@@ -1,10 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  buildOrganizerAgreementPendings,
   buildOrganizerConclusionPendings,
   buildOrganizerEntryPendings,
   buildPlayerEntryPendings,
+  buildPlayerMatchAgreementPendings,
+  formatOpponentSideLabel,
   type TournamentEntryPendingView,
+  type TournamentMatchAgreementPendingView,
+  type TournamentOrganizerAgreementPendingView,
   type TournamentOrganizerConclusionPendingView,
   type TournamentOrganizerPendingView,
 } from "../pendings-rules";
@@ -407,6 +412,221 @@ describe("pendencia do organizador: concluir torneio", () => {
   });
 });
 
+describe("pendencia do jogador: acerto recebido", () => {
+  const matchView = (
+    overrides: Partial<TournamentMatchAgreementPendingView> = {}
+  ): TournamentMatchAgreementPendingView => ({
+    channel: "schedule",
+    matchId: "match-1",
+    opponentName: "Rodrigo Bittencourt",
+    proposalLabel: "28/09 às 08:00, na Quadra Central",
+    proposedAt: 1_789_653_600_000,
+    proposerName: "Diego Barros",
+    reopened: false,
+    tournamentId: "tournament-1",
+    tournamentName: "Copa Dracena 8",
+    ...overrides,
+  });
+
+  it("horario proposto gera o item que espera a resposta do outro lado", () => {
+    const [item] = buildPlayerMatchAgreementPendings({
+      matches: [matchView()],
+    });
+
+    expect(item?.kind).toBe("player_tournament_match_schedule_proposed");
+    expect(item?.id).toBe("player_tournament_match_schedule_proposed:match-1");
+    expect(item?.severity).toBe("warning");
+    expect(item?.title).toBe("Horário proposto pelo outro lado");
+    // UM TOQUE aceita a proposta; abrir o confronto é o botão secundário.
+    expect(item?.actionLabel).toBe("Aceitar");
+    expect(item?.action).toEqual({
+      params: { matchId: "match-1" },
+      type: "accept_match_schedule",
+    });
+    // O secundario abre o Combinar jogo (propor outro horario/placar).
+    expect(item?.secondaryActionLabel).toBe("Combinar");
+    expect(item?.secondaryAction).toEqual({ params: null, type: "open_route" });
+    expect(item?.route).toBe("/tournaments/[tournamentId]");
+    expect(item?.params).toEqual({
+      matchId: "match-1",
+      tournamentId: "tournament-1",
+    });
+    expect(item?.source).toEqual({ id: "match-1", type: "tournament_match" });
+    expect(item?.count).toBeNull();
+    expect(item?.deadlineAt).toBeNull();
+    expect(item?.description).toEqual([
+      {
+        parts: [
+          { isHighlighted: true, text: "Diego Barros" },
+          {
+            text: " propôs 28/09 às 08:00, na Quadra Central para o confronto com Rodrigo Bittencourt em Copa Dracena 8.",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("placar proposto e pedido de mudanca saem em kinds proprios", () => {
+    const [score] = buildPlayerMatchAgreementPendings({
+      matches: [matchView({ channel: "score", proposalLabel: "6-3, 6-2" })],
+    });
+    expect(score?.kind).toBe("player_tournament_match_score_proposed");
+    expect(score?.title).toBe("Placar proposto pelo outro lado");
+    expect(score?.actionLabel).toBe("Confirmar");
+    expect(score?.description).toEqual([
+      {
+        parts: [
+          { isHighlighted: true, text: "Diego Barros" },
+          {
+            text: " propôs 6-3, 6-2 para o confronto com Rodrigo Bittencourt em Copa Dracena 8.",
+          },
+        ],
+      },
+    ]);
+    expect(score?.action).toEqual({
+      params: { matchId: "match-1" },
+      type: "confirm_match_score",
+    });
+
+    const [reopened] = buildPlayerMatchAgreementPendings({
+      matches: [matchView({ reopened: true })],
+    });
+    expect(reopened?.kind).toBe("player_tournament_match_reschedule_requested");
+    expect(reopened?.title).toBe("Pedido para mudar o horário");
+    // Pedido de mudança aceita o horário novo pelo mesmo toque.
+    expect(reopened?.action).toEqual({
+      params: { matchId: "match-1" },
+      type: "accept_match_schedule",
+    });
+    expect(reopened?.description).toEqual([
+      {
+        parts: [
+          { isHighlighted: true, text: "Diego Barros" },
+          {
+            text: " sugeriu 28/09 às 08:00, na Quadra Central para o confronto com Rodrigo Bittencourt em Copa Dracena 8.",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("a assinatura acompanha a proposta vigente", () => {
+    const [before] = buildPlayerMatchAgreementPendings({
+      matches: [matchView()],
+    });
+    const [sameTable] = buildPlayerMatchAgreementPendings({
+      matches: [matchView()],
+    });
+    const [nextProposal] = buildPlayerMatchAgreementPendings({
+      matches: [matchView({ proposedAt: 1_789_653_661_000 })],
+    });
+
+    expect(before?.signature).toBeTruthy();
+    expect(sameTable?.signature).toBe(before?.signature);
+    expect(nextProposal?.signature).not.toBe(before?.signature);
+  });
+
+  it("sem acerto recebido nao ha item", () => {
+    expect(buildPlayerMatchAgreementPendings({ matches: [] })).toEqual([]);
+  });
+
+  it("confronto simples nao repete o nome de quem propos no fim da frase", () => {
+    const [item] = buildPlayerMatchAgreementPendings({
+      matches: [matchView({ opponentName: "" })],
+    });
+
+    expect(item?.description).toEqual([
+      {
+        parts: [
+          { isHighlighted: true, text: "Diego Barros" },
+          {
+            text: " propôs 28/09 às 08:00, na Quadra Central para o confronto em Copa Dracena 8.",
+          },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("pendencia do organizador: confrontos sem resposta no acerto", () => {
+  const agreementView = (
+    overrides: Partial<TournamentOrganizerAgreementPendingView> = {}
+  ): TournamentOrganizerAgreementPendingView => ({
+    proposals: [
+      {
+        channel: "schedule",
+        matchId: "match-1",
+        proposedAt: 1_789_653_600_000,
+      },
+    ],
+    stalledMatchCount: 3,
+    tournamentId: "tournament-1",
+    tournamentName: "Copa Dracena 8",
+    ...overrides,
+  });
+
+  it("agrega os confrontos por torneio em UMA pendencia com contagem", () => {
+    const [item] = buildOrganizerAgreementPendings({
+      tournaments: [agreementView()],
+    });
+
+    expect(item?.kind).toBe(
+      "organization_tournament_matches_awaiting_agreement"
+    );
+    expect(item?.id).toBe(
+      "organization_tournament_matches_awaiting_agreement:tournament-1"
+    );
+    expect(item?.count).toBe(3);
+    expect(item?.title).toBe("3 confrontos sem resposta");
+    expect(item?.actionLabel).toBe("Ver");
+    expect(item?.action).toEqual({ params: null, type: "open_route" });
+    expect(item?.route).toBe("/tournaments/[tournamentId]");
+    expect(item?.params).toEqual({ tournamentId: "tournament-1" });
+    expect(item?.source).toEqual({ id: "tournament-1", type: "tournament" });
+    expect(item?.description).toBe(
+      "Você pode agendar ou lançar o resultado direto no confronto, sem esperar o Combinar jogo."
+    );
+  });
+
+  it("qualquer proposta nova do agregado muda a assinatura", () => {
+    const [before] = buildOrganizerAgreementPendings({
+      tournaments: [agreementView()],
+    });
+    const [after] = buildOrganizerAgreementPendings({
+      tournaments: [
+        agreementView({
+          proposals: [
+            {
+              channel: "schedule",
+              matchId: "match-1",
+              proposedAt: 1_789_653_661_000,
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(before?.signature).toBeTruthy();
+    expect(after?.signature).not.toBe(before?.signature);
+  });
+
+  it("singular no titulo quando so um confronto esta parado", () => {
+    const [item] = buildOrganizerAgreementPendings({
+      tournaments: [agreementView({ stalledMatchCount: 1 })],
+    });
+    expect(item?.title).toBe("1 confronto sem resposta");
+  });
+
+  it("torneio sem acerto aberto nao gera item", () => {
+    expect(buildOrganizerAgreementPendings({ tournaments: [] })).toEqual([]);
+    expect(
+      buildOrganizerAgreementPendings({
+        tournaments: [agreementView({ stalledMatchCount: 0 })],
+      })
+    ).toEqual([]);
+  });
+});
+
 describe("pendencias de torneio: CTA de uma palavra", () => {
   it("todo rótulo de acao sai com uma palavra so", () => {
     const items = [
@@ -437,6 +657,37 @@ describe("pendencias de torneio: CTA de uma palavra", () => {
           },
         ],
       }),
+      ...buildPlayerMatchAgreementPendings({
+        matches: [
+          {
+            channel: "schedule",
+            matchId: "match-1",
+            opponentName: "Rodrigo Bittencourt",
+            proposalLabel: "28/09 às 08:00",
+            proposedAt: 1_789_653_600_000,
+            proposerName: "Diego Barros",
+            reopened: false,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
+      ...buildOrganizerAgreementPendings({
+        tournaments: [
+          {
+            proposals: [
+              {
+                channel: "schedule",
+                matchId: "match-1",
+                proposedAt: 1_789_653_600_000,
+              },
+            ],
+            stalledMatchCount: 2,
+            tournamentId: "tournament-1",
+            tournamentName: "Copa Dracena 8",
+          },
+        ],
+      }),
     ];
 
     expect(items.length).toBeGreaterThan(0);
@@ -448,5 +699,36 @@ describe("pendencias de torneio: CTA de uma palavra", () => {
         }
       }
     }
+  });
+});
+
+describe("acerto: nome do lado adversário", () => {
+  it("nomeia a dupla inteira quando os dois lados existem", () => {
+    expect(formatOpponentSideLabel(["Rafael Salles", "Diego Barros"])).toBe(
+      "Rafael Salles e Diego Barros"
+    );
+  });
+
+  it("não repete quem propôs e cai para vazio quando só ele sobra", () => {
+    // Era a leitura do bug: "Rafael Salles propôs ... com Rafael Salles".
+    expect(
+      formatOpponentSideLabel(
+        ["Rafael Salles", "Diego Barros"],
+        "Rafael Salles"
+      )
+    ).toBe("Diego Barros");
+    expect(formatOpponentSideLabel(["Rafael Salles"], "Rafael Salles")).toBe(
+      ""
+    );
+  });
+
+  it("degrada para um nome, ignora vazio e nunca repete o mesmo nome", () => {
+    expect(formatOpponentSideLabel(["Diego Barros", null])).toBe(
+      "Diego Barros"
+    );
+    expect(formatOpponentSideLabel([null, undefined])).toBe("");
+    expect(formatOpponentSideLabel(["  Rafael Salles  ", ""])).toBe(
+      "Rafael Salles"
+    );
   });
 });

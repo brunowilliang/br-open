@@ -9,6 +9,7 @@ import {
   normalizeUsernameLookup,
   registrationClosedMessage,
   resolveCallerEligibility,
+  resolveEntryCancelledRecipients,
   resolveEntryStatusAfterPartnerAccepted,
   resolvePaidActivation,
   resolvePartnerGenderTarget,
@@ -1075,5 +1076,22 @@ describe("rótulo de DISPLAY da inelegibilidade (chip do rodapé)", () => {
         playerAGender: "Feminino",
       })
     ).toBeNull();
+  });
+});
+
+describe("aviso de inscricao cancelada", () => {
+  it("vai para os gestores, sem quem agiu e sem duplicar", () => {
+    expect(
+      resolveEntryCancelledRecipients(["gestor-1", "gestor-2"], "jogador-1")
+    ).toEqual(["gestor-1", "gestor-2"]);
+    // Organizador que cancelou por conta propria nao recebe o aviso do ato.
+    expect(
+      resolveEntryCancelledRecipients(["gestor-1", "gestor-2"], "gestor-1")
+    ).toEqual(["gestor-2"]);
+    // Duas contas de gestao no mesmo dono = um aviso so.
+    expect(
+      resolveEntryCancelledRecipients(["gestor-1", "gestor-1"], "jogador-1")
+    ).toEqual(["gestor-1"]);
+    expect(resolveEntryCancelledRecipients([], "jogador-1")).toEqual([]);
   });
 });

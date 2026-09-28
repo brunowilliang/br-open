@@ -22,6 +22,7 @@ describe("notification presentation", () => {
   it("declares exactly the actionable event types", () => {
     expect([...NOTIFICATION_ACTIONABLE_EVENT_TYPES].sort()).toEqual([
       "tournament.entry.created",
+      "tournament.match.ready",
       "tournament.partner.invited",
     ]);
   });
@@ -71,6 +72,22 @@ describe("notification presentation", () => {
     });
   });
 
+  it("builds the match decision that opens the exact match", () => {
+    expect(
+      buildNotificationPresentation({
+        ...tournamentBase,
+        eventType: "tournament.match.ready",
+        metadata: { matchId: "match-9" },
+      })
+    ).toEqual({
+      action: { params: null, type: "open_route" },
+      actionLabel: "Combinar horário",
+      bodyHighlights: [],
+      secondaryAction: null,
+      secondaryActionLabel: null,
+    });
+  });
+
   it("drops the action when the emitter did not send the id it needs", () => {
     // O botao nao pode nascer sem o dado que a mutation exige: sem id, o item
     // vira informativo em vez de botao morto.
@@ -78,6 +95,13 @@ describe("notification presentation", () => {
       buildNotificationPresentation({
         ...tournamentBase,
         eventType: "tournament.partner.invited",
+      })
+    ).toBeNull();
+    expect(
+      buildNotificationPresentation({
+        ...tournamentBase,
+        eventType: "tournament.match.ready",
+        metadata: { sideALabel: "A", sideBLabel: "B" },
       })
     ).toBeNull();
   });

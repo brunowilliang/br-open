@@ -17,6 +17,7 @@ import {
   withdrawStatusSchema,
   type WithdrawStatus,
 } from "../../domains/payment/contract";
+import { formatCentsBRL } from "../../domains/payment/labels";
 import { maskPixKey } from "../../domains/payment/pix-key";
 import {
   RECOVERY_STATUS_PENDING,
@@ -54,10 +55,6 @@ import {
   isFeeCollectionDue,
   resolveWithdrawalReservation,
 } from "../../domains/payment/withdraw-rules";
-
-function formatBRL(cents: number): string {
-  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
-}
 
 /** RESERVADO da organização: soma das cobranças com estorno EM ABERTO ou com o
  * recolhimento do estorno ainda pendente, pelos índices
@@ -176,7 +173,7 @@ export const requestWithdraw = authAction
     if (input.amountCents < MIN_WITHDRAW_CENTS) {
       throw new CRPCError({
         code: "BAD_REQUEST",
-        message: `O valor mínimo de saque é ${formatBRL(MIN_WITHDRAW_CENTS)}.`,
+        message: `O valor mínimo de saque é ${formatCentsBRL(MIN_WITHDRAW_CENTS)}.`,
       });
     }
 
@@ -205,7 +202,7 @@ export const requestWithdraw = authAction
         code: "BAD_REQUEST",
         message:
           reservedCents > 0
-            ? `O valor não pode ser maior que o disponível para saque. ${formatBRL(
+            ? `O valor não pode ser maior que o disponível para saque. ${formatCentsBRL(
                 reservedCents
               )} está reservado para estornos em andamento.`
             : "O valor não pode ser maior que o saldo disponível na subconta.",
@@ -292,7 +289,7 @@ export const requestWithdraw = authAction
           error instanceof Error && error.message
             ? error.message
             : "erro desconhecido";
-        failureReason = `Saque executado, mas a coleta da taxa (${formatBRL(feeCents)}) para a BR-Open falhou: ${detail}.`;
+        failureReason = `Saque executado, mas a coleta da taxa (${formatCentsBRL(feeCents)}) para a BR-Open falhou: ${detail}.`;
         console.error(
           `[withdraw] coleta de taxa falhou (${idempotencyKey}):`,
           error

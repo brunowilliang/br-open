@@ -35,17 +35,27 @@ export const api: {
             | "tournament.partner.invited"
             | "tournament.partner.responded"
             | "tournament.partner.awaiting_reply"
+            | "tournament.partner.invite_cancelled"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.cancelled"
             | "tournament.entry.refund_requested"
+            | "tournament.entry.refunded"
             | "tournament.bracket.published"
             | "tournament.bracket.placement_failed"
+            | "tournament.match.ready"
             | "tournament.match.reassigned"
+            | "tournament.match.schedule_declined"
+            | "tournament.match.schedule_cancelled"
+            | "tournament.match.schedule_proposed"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
             | "tournament.match.result"
             | "tournament.match.result_edited"
+            | "tournament.match.score_declined"
+            | "tournament.match.score_cancelled"
+            | "tournament.match.score_proposed"
             | "tournament.finished"
             | "tournament.cancelled";
           id: string;
@@ -61,7 +71,9 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             actionLabel: string | null;
             bodyHighlights: Array<string>;
@@ -74,7 +86,9 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             secondaryActionLabel: string | null;
           } | null;
@@ -108,17 +122,27 @@ export const api: {
             | "tournament.partner.invited"
             | "tournament.partner.responded"
             | "tournament.partner.awaiting_reply"
+            | "tournament.partner.invite_cancelled"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.cancelled"
             | "tournament.entry.refund_requested"
+            | "tournament.entry.refunded"
             | "tournament.bracket.published"
             | "tournament.bracket.placement_failed"
+            | "tournament.match.ready"
             | "tournament.match.reassigned"
+            | "tournament.match.schedule_declined"
+            | "tournament.match.schedule_cancelled"
+            | "tournament.match.schedule_proposed"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
             | "tournament.match.result"
             | "tournament.match.result_edited"
+            | "tournament.match.score_declined"
+            | "tournament.match.score_cancelled"
+            | "tournament.match.score_proposed"
             | "tournament.finished"
             | "tournament.cancelled";
           id: string;
@@ -134,7 +158,9 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             actionLabel: string | null;
             bodyHighlights: Array<string>;
@@ -147,7 +173,9 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             secondaryActionLabel: string | null;
           } | null;
@@ -627,7 +655,9 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             actionLabel: string | null;
             count: number | null;
@@ -643,10 +673,14 @@ export const api: {
               | "organization_tournament_entries_awaiting_approval"
               | "organization_tournament_entries_awaiting_payment"
               | "organization_tournament_awaiting_conclusion"
+              | "organization_tournament_matches_awaiting_agreement"
               | "player_tournament_entries_awaiting_payment"
               | "player_tournament_entry_awaiting_approval"
               | "player_tournament_partner_invite_received"
-              | "player_tournament_partner_invite_sent";
+              | "player_tournament_partner_invite_sent"
+              | "player_tournament_match_schedule_proposed"
+              | "player_tournament_match_score_proposed"
+              | "player_tournament_match_reschedule_requested";
             moneyCents: number | null;
             params: Record<string, string> | null;
             route: string | null;
@@ -659,13 +693,20 @@ export const api: {
                 | "decline_partner_invite"
                 | "approve_tournament_entry"
                 | "reject_tournament_entry"
-                | "conclude_tournament";
+                | "conclude_tournament"
+                | "accept_match_schedule"
+                | "confirm_match_score";
             } | null;
             secondaryActionLabel: string | null;
             severity: "danger" | "info" | "warning";
+            signature?: string;
             source: {
               id: string;
-              type: "organization" | "tournament" | "tournament_entry";
+              type:
+                | "organization"
+                | "tournament"
+                | "tournament_entry"
+                | "tournament_match";
             };
             title: string;
           }>;
@@ -674,10 +715,14 @@ export const api: {
               | "organization_tournament_entries_awaiting_approval"
               | "organization_tournament_entries_awaiting_payment"
               | "organization_tournament_awaiting_conclusion"
+              | "organization_tournament_matches_awaiting_agreement"
               | "player_tournament_entries_awaiting_payment"
               | "player_tournament_entry_awaiting_approval"
               | "player_tournament_partner_invite_received"
-              | "player_tournament_partner_invite_sent";
+              | "player_tournament_partner_invite_sent"
+              | "player_tournament_match_schedule_proposed"
+              | "player_tournament_match_score_proposed"
+              | "player_tournament_match_reschedule_requested";
             limit: number;
           }>;
           scope: "organization" | "player";
@@ -721,7 +766,7 @@ export const api: {
             courtName: string | null;
             endMinute: number | null;
             id: string;
-            matchDate: string;
+            matchDate: string | null;
             opponents: Array<{
               avatarUrl: string | null;
               fullName: string;
@@ -735,7 +780,7 @@ export const api: {
               playerProfileId: string;
             } | null;
             round: number;
-            startMinute: number;
+            startMinute: number | null;
             totalRounds: number;
           }>;
         }
@@ -778,6 +823,457 @@ export const api: {
     };
   };
   tournament: {
+    agreements: {
+      acceptSchedule: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      acceptScore: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      cancelSchedule: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      cancelScore: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      declineSchedule: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      declineScore: FunctionReference<
+        "mutation",
+        "public",
+        { matchId: string },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      listAgreementEvents: FunctionReference<
+        "query",
+        "public",
+        { matchId: string },
+        Array<{
+          actorName: string;
+          actorSide: "a" | "b" | "organizer";
+          channel: "schedule" | "score";
+          createdAt: number;
+          id: string;
+          kind:
+            | "proposed"
+            | "accepted"
+            | "declined"
+            | "cancelled"
+            | "reopened"
+            | "overridden"
+            | "closed";
+          schedule: {
+            courtId: string | null;
+            endMinute: number;
+            matchDate: string;
+            startMinute: number;
+          } | null;
+          score: {
+            score: {
+              sets: Array<{
+                aGames: number;
+                bGames: number;
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: { aPoints: number; bPoints: number } | null;
+              }>;
+              winnerEntryId?: string | null;
+            };
+            walkover: boolean;
+          } | null;
+        }>
+      >;
+      listMyMatches: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          agreements: {
+            matchId: string;
+            schedule: {
+              agreedAt: number | null;
+              proposal: {
+                courtId: string | null;
+                endMinute: number;
+                matchDate: string;
+                startMinute: number;
+              } | null;
+              proposedAt: number | null;
+              proposedByMe: boolean;
+              proposedBySide: "a" | "b" | null;
+              state: "idle" | "negotiating" | "agreed";
+            };
+            score: {
+              agreedAt: number | null;
+              proposal: {
+                score: {
+                  sets: Array<{
+                    aGames: number;
+                    bGames: number;
+                    kind: "set" | "tiebreak" | "super_tiebreak";
+                    tieBreak?: { aPoints: number; bPoints: number } | null;
+                  }>;
+                  winnerEntryId?: string | null;
+                };
+                walkover: boolean;
+              } | null;
+              proposedAt: number | null;
+              proposedByMe: boolean;
+              proposedBySide: "a" | "b" | null;
+              state: "idle" | "negotiating" | "agreed";
+            };
+          };
+          match: {
+            categoryId: string;
+            courtId: string | null;
+            createdAt: number;
+            endMinute: number | null;
+            entryAId: string | null;
+            entryBId: string | null;
+            id: string;
+            matchDate: string | null;
+            round: number;
+            rowVersion: number;
+            scheduledById: string | null;
+            score: {
+              sets: Array<{
+                aGames: number;
+                bGames: number;
+                kind: "set" | "tiebreak" | "super_tiebreak";
+                tieBreak?: { aPoints: number; bPoints: number } | null;
+              }>;
+              winnerEntryId?: string | null;
+            } | null;
+            slotInRound: number;
+            startMinute: number | null;
+            status:
+              "pending" | "scheduled" | "finished" | "vacant" | "walkover";
+            updatedAt: number;
+            walkover: boolean;
+            winnerEntryId: string | null;
+          };
+          mySide: "a" | "b";
+          totalRounds: number;
+        }>
+      >;
+      proposeSchedule: FunctionReference<
+        "mutation",
+        "public",
+        {
+          courtId: string | null;
+          endMinute: number;
+          matchDate: string;
+          matchId: string;
+          startMinute: number;
+        },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+      proposeScore: FunctionReference<
+        "mutation",
+        "public",
+        {
+          matchId: string;
+          score: {
+            sets: Array<{
+              aGames: number;
+              bGames: number;
+              kind: "set" | "tiebreak" | "super_tiebreak";
+              tieBreak?: { aPoints: number; bPoints: number } | null;
+            }>;
+            winnerEntryId?: string | null;
+          };
+          walkover?: boolean;
+        },
+        {
+          matchId: string;
+          schedule: {
+            agreedAt: number | null;
+            proposal: {
+              courtId: string | null;
+              endMinute: number;
+              matchDate: string;
+              startMinute: number;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+          score: {
+            agreedAt: number | null;
+            proposal: {
+              score: {
+                sets: Array<{
+                  aGames: number;
+                  bGames: number;
+                  kind: "set" | "tiebreak" | "super_tiebreak";
+                  tieBreak?: { aPoints: number; bPoints: number } | null;
+                }>;
+                winnerEntryId?: string | null;
+              };
+              walkover: boolean;
+            } | null;
+            proposedAt: number | null;
+            proposedByMe: boolean;
+            proposedBySide: "a" | "b" | null;
+            state: "idle" | "negotiating" | "agreed";
+          };
+        }
+      >;
+    };
     bracket: {
       draw: FunctionReference<
         "mutation",
@@ -2181,17 +2677,27 @@ export const internal: {
             | "tournament.partner.invited"
             | "tournament.partner.responded"
             | "tournament.partner.awaiting_reply"
+            | "tournament.partner.invite_cancelled"
             | "tournament.entry.created"
             | "tournament.entry.confirmed"
             | "tournament.entry.rejected"
+            | "tournament.entry.cancelled"
             | "tournament.entry.refund_requested"
+            | "tournament.entry.refunded"
             | "tournament.bracket.published"
             | "tournament.bracket.placement_failed"
+            | "tournament.match.ready"
             | "tournament.match.reassigned"
+            | "tournament.match.schedule_declined"
+            | "tournament.match.schedule_cancelled"
+            | "tournament.match.schedule_proposed"
             | "tournament.match.scheduled"
             | "tournament.match.rescheduled"
             | "tournament.match.result"
             | "tournament.match.result_edited"
+            | "tournament.match.score_declined"
+            | "tournament.match.score_cancelled"
+            | "tournament.match.score_proposed"
             | "tournament.finished"
             | "tournament.cancelled";
           metadata?: Record<string, any>;

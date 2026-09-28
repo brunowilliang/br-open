@@ -99,6 +99,7 @@ async function getActorName(ctx: MutationCtx, actorUserId: Id<"user"> | null) {
  * organization). Everyone else resolves a player actor.
  */
 const ORGANIZER_RECIPIENT_EVENTS: Record<string, true> = {
+  "tournament.entry.cancelled": true,
   "tournament.entry.created": true,
 };
 

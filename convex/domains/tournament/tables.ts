@@ -95,6 +95,9 @@ export const tournamentEntry = convexTable(
     // direta depois disso é privilégio de cabeça de chave, validado no
     // sorteio.
     entryRound: integer(),
+    // Aviso UNICO ao dono quando o prazo fecha com o convite sem resposta: o
+    // cron roda de hora em hora e o campo segura a repeticao.
+    partnerAwaitingReplyNotifiedAt: timestamp(),
     partnerUserId: id("user").references(() => authTables.user.id, {
       onDelete: "set null",
     }),
@@ -202,4 +205,87 @@ export const tournamentMatchEdit = convexTable(
       .references(() => tournamentMatch.id, { onDelete: "cascade" }),
   },
   (tournamentMatchEdit) => [index("matchId").on(tournamentMatchEdit.matchId)]
+);
+
+// Acerto do confronto: UMA linha por confronto + canal (`schedule`/`score`) com a
+// proposta VIGENTE. A linha de estado existe para a leitura e a derivação de
+// pendências não refazerem o log; o histórico completo fica em
+// `tournamentMatchAgreementEvent`.
+export const tournamentMatchAgreement = convexTable(
+  "tournamentMatchAgreement",
+  {
+    agreedAt: timestamp(),
+    categoryId: id("tournamentCategory")
+      .notNull()
+      .references(() => tournamentCategory.id, { onDelete: "cascade" }),
+    channel: text().notNull(),
+    createdAt: timestamp().notNull(),
+    // Lados desnormalizados: a pendência do jogador e o agregado do organizador
+    // chegam por índice, sem varrer o quadro.
+    entryAId: id("tournamentEntry")
+      .notNull()
+      .references(() => tournamentEntry.id, { onDelete: "cascade" }),
+    entryBId: id("tournamentEntry")
+      .notNull()
+      .references(() => tournamentEntry.id, { onDelete: "cascade" }),
+    matchId: id("tournamentMatch")
+      .notNull()
+      .references(() => tournamentMatch.id, { onDelete: "cascade" }),
+    proposal: json<Record<string, unknown>>(),
+    proposedAt: timestamp(),
+    proposedBySide: text(),
+    proposedByUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
+    rowVersion: integer().notNull(),
+    state: text().notNull(),
+    tournamentId: id("tournament")
+      .notNull()
+      .references(() => tournament.id, { onDelete: "cascade" }),
+    updatedAt: timestamp().notNull(),
+  },
+  (tournamentMatchAgreement) => [
+    uniqueIndex("matchId_channel").on(
+      tournamentMatchAgreement.matchId,
+      tournamentMatchAgreement.channel
+    ),
+    index("entryAId_state").on(
+      tournamentMatchAgreement.entryAId,
+      tournamentMatchAgreement.state
+    ),
+    index("entryBId_state").on(
+      tournamentMatchAgreement.entryBId,
+      tournamentMatchAgreement.state
+    ),
+    index("tournamentId_state").on(
+      tournamentMatchAgreement.tournamentId,
+      tournamentMatchAgreement.state
+    ),
+  ]
+);
+
+// Histórico append-only do acerto, no molde de `tournamentMatchEdit`: uma linha
+// por evento, com o snapshot antes/depois do estado do canal.
+export const tournamentMatchAgreementEvent = convexTable(
+  "tournamentMatchAgreementEvent",
+  {
+    actorSide: text().notNull(),
+    actorUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
+    after: json<Record<string, unknown>>().notNull(),
+    before: json<Record<string, unknown>>().notNull(),
+    channel: text().notNull(),
+    createdAt: timestamp().notNull(),
+    kind: text().notNull(),
+    matchId: id("tournamentMatch")
+      .notNull()
+      .references(() => tournamentMatch.id, { onDelete: "cascade" }),
+    tournamentId: id("tournament")
+      .notNull()
+      .references(() => tournament.id, { onDelete: "cascade" }),
+  },
+  (tournamentMatchAgreementEvent) => [
+    index("matchId").on(tournamentMatchAgreementEvent.matchId),
+  ]
 );

@@ -15,10 +15,15 @@ import {
   validateSlotSwap,
   validateSwapCategoryOwnership,
 } from "../../domains/tournament/bracket-rules";
-import { tournament, tournamentMatch } from "../../domains/tournament/tables";
+import {
+  tournament,
+  tournamentEntry,
+  tournamentMatch,
+} from "../../domains/tournament/tables";
 import { resolveTournamentAutoAction } from "../../domains/tournament/scheduling-rules";
 import { authMutation, authQuery, privateMutation } from "../../lib/crpc";
 import { internal } from "../_generated/api";
+import type { MutationCtx } from "../generated/server";
 import {
   getCategoryRecordOrThrow,
   getManagedTournamentOrThrow,
@@ -333,6 +338,49 @@ export const swapSlots = authMutation
   });
 
 /**
+ * Convite de dupla SEM RESPOSTA no fechamento das inscricoes: o dono e avisado
+ * UMA vez por inscricao. O sorteio nao fecha as inscricoes, so o PRAZO fecha —
+ * por isso a varredura roda pelo prazo (cron horario), nao pela transicao de
+ * status; a marca na linha segura a repeticao entre o cron e o start.
+ */
+async function notifyPartnerInvitesAwaitingReply(
+  ctx: MutationCtx,
+  input: { tournamentId: Id<"tournament"> }
+) {
+  const ormCtx = ctx as unknown as OrmCtx;
+  const categories = await getCategories(ormCtx, input.tournamentId);
+  const now = new Date();
+
+  for (const category of categories) {
+    const pending = await ormCtx.orm.query.tournamentEntry.findMany({
+      limit: 300,
+      where: {
+        categoryId: category.id as Id<"tournamentCategory">,
+        status: "pending_partner",
+      },
+    });
+    for (const entry of pending) {
+      // Linha antiga nao tem a coluna: campo ausente conta como NAO avisado (o
+      // Convex omite a chave nunca gravada).
+      if (!entry.createdByUserId || entry.partnerAwaitingReplyNotifiedAt) {
+        continue;
+      }
+      await scheduleTournamentNotification(ctx, {
+        eventType: "tournament.partner.awaiting_reply",
+        recipientUserIds: [entry.createdByUserId as Id<"user">],
+        sourceEntityId: entry.id as string,
+        sourceEntityType: "tournamentEntry",
+        tournamentId: input.tournamentId,
+      });
+      await ctx.orm
+        .update(tournamentEntry)
+        .set({ partnerAwaitingReplyNotifiedAt: now })
+        .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">));
+    }
+  }
+}
+
+/**
  * The start CORE — the manual action and the auto-start cron share ONE path
  * (status → ongoing, public bracket, `tournament.bracket.published` to every
  * active entrant). Same trusted-cron / stated-error contract as the draw core.
@@ -413,30 +461,11 @@ export const performStart = privateMutation
     }
 
     // Unanswered partner invites never reach the bracket (only ACTIVE entries
-    // place), so each creator is told NOW, on both the manual and the auto start.
-    // Birth race: two near-simultaneous activations on an empty board are
-    // serialized by Convex OCC — the loser re-runs and sees the fresh bracket.
-    for (const category of categories) {
-      const pending = await ormCtx.orm.query.tournamentEntry.findMany({
-        limit: 300,
-        where: {
-          categoryId: category.id as Id<"tournamentCategory">,
-          status: "pending_partner",
-        },
-      });
-      for (const entry of pending) {
-        if (!entry.createdByUserId) {
-          continue;
-        }
-        await scheduleTournamentNotification(ctx as never, {
-          eventType: "tournament.partner.awaiting_reply",
-          recipientUserIds: [entry.createdByUserId as Id<"user">],
-          sourceEntityId: entry.id as string,
-          sourceEntityType: "tournamentEntry",
-          tournamentId: record.id as Id<"tournament">,
-        });
-      }
-    }
+    // place): o start repete a varredura do prazo como rede — a marca por
+    // inscricao deixa o aviso unico entre o cron horario e este caminho.
+    await notifyPartnerInvitesAwaitingReply(ctx as never, {
+      tournamentId: record.id as Id<"tournament">,
+    });
 
     return { ok: true };
   });
@@ -489,6 +518,14 @@ export const autoStartTournaments = privateMutation
         startDateMs: record.startDate.getTime(),
         status: record.status,
       });
+
+      // O fechamento das inscricoes nao depende da acao do tick: um torneio ja
+      // sorteado nao muda de status no prazo, mas o convite sem resposta morre.
+      if (record.registrationDeadlineAt.getTime() <= nowMs) {
+        await notifyPartnerInvitesAwaitingReply(ctx as never, {
+          tournamentId: record.id as Id<"tournament">,
+        });
+      }
 
       if (action === null) {
         continue;

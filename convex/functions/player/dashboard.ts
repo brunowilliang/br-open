@@ -12,10 +12,11 @@ import {
   classifyResultOutcome,
   countActiveEntriesByCategory,
   findMostFrequentPartner,
-  resolveCategoryTotalRounds,
+  isUpcomingMatchCandidate,
   selectUpcomingMatches,
   type DashResult,
 } from "../../domains/player/dashboard-rules";
+import { resolveCategoryTotalRounds } from "../../domains/tournament/bracket-rules";
 import {
   buildRecentMonthKeys,
   monthKeyWindowStartMs,
@@ -155,7 +156,11 @@ export const getOverview = authQuery
     const getPlayerCard = createPlayerCardLoader(ctx);
     const getCategoryTotalRounds = createCategoryTotalRoundsLoader(ctx);
     const results: DashResult[] = [];
-    const upcoming: PlayerDashboardUpcomingMatch[] = [];
+    // O corte da lista precisa da coordenada da chave (rodada/vaga) para
+    // ordenar os confrontos sem data; o `.parse` do contrato descarta a chave.
+    const upcoming: (PlayerDashboardUpcomingMatch & {
+      slotInRound: number;
+    })[] = [];
     // --- Tournaments: every non-cancelled entry (playerA or invited
     // playerB), same pattern as tournament.discovery.listParticipating.
     const [asA, asB] = await Promise.all([
@@ -291,10 +296,22 @@ export const getOverview = authQuery
           continue;
         }
 
+        // Próximo jogo: os dois lados definidos e a partida viva, na chave
+        // sorteada (mesmo par de status do gate de agendamento). Sem data o
+        // confronto entra igual: o horário é que ainda não existe.
+        const bracketLive =
+          tournament.status === "drawn" || tournament.status === "ongoing";
         if (
-          match.status !== "scheduled" ||
-          !match.matchDate ||
-          match.matchDate < todayKey
+          !(
+            bracketLive &&
+            isUpcomingMatchCandidate({
+              entryAId: match.entryAId,
+              entryBId: match.entryBId,
+              matchDate: match.matchDate,
+              status: match.status,
+              todayKey,
+            })
+          )
         ) {
           continue;
         }
@@ -332,11 +349,12 @@ export const getOverview = authQuery
           courtName: resolveCourtName(tournament.courts, match.courtId),
           endMinute: match.endMinute ?? null,
           id: match.id,
-          matchDate: match.matchDate,
+          matchDate: match.matchDate ?? null,
           opponents: await Promise.all(opponentIds.map(getPlayerCard)),
           partner: partnerId ? await getPlayerCard(partnerId) : null,
           round: match.round,
-          startMinute: match.startMinute ?? 0,
+          slotInRound: match.slotInRound,
+          startMinute: match.startMinute ?? null,
           totalRounds: await getCategoryTotalRounds(entry.categoryId),
         });
       }
