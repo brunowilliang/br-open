@@ -34,15 +34,15 @@ describe("buildWithdrawInfoContent", () => {
   it("lista cada faixa de taxa do backend", () => {
     const content = buildWithdrawInfoContent(BALANCE);
 
-    expect(content.description).toContain("· até R$ 1.000,00 → R$ 5,00");
-    expect(content.description).toContain("· até R$ 2.000,00 → R$ 3,00");
-    expect(content.description).toContain("· até R$ 3.000,00 → R$ 2,00");
+    expect(content.description).toContain("até R$ 1.000,00 → R$ 5,00");
+    expect(content.description).toContain("até R$ 2.000,00 → R$ 3,00");
+    expect(content.description).toContain("até R$ 3.000,00 → R$ 2,00");
   });
 
   it("mostra a gratuidade a partir do piso do backend", () => {
     const content = buildWithdrawInfoContent(BALANCE);
 
-    expect(content.description).toContain("· a partir de R$ 3.000,00 → Grátis");
+    expect(content.description).toContain("a partir de R$ 3.000,00 → Grátis");
   });
 
   it("reflete faixas e mínimos customizados (sem hardcode)", () => {
@@ -54,8 +54,8 @@ describe("buildWithdrawInfoContent", () => {
     });
 
     expect(content.description).toContain("Mínimo de saque: R$ 10,00.");
-    expect(content.description).toContain("· até R$ 500,00 → R$ 1,00");
-    expect(content.description).toContain("· a partir de R$ 1.000,00 → Grátis");
+    expect(content.description).toContain("até R$ 500,00 → R$ 1,00");
+    expect(content.description).toContain("a partir de R$ 1.000,00 → Grátis");
   });
 
   it("explica a reserva de estorno em aberto quando existe", () => {
@@ -68,7 +68,7 @@ describe("buildWithdrawInfoContent", () => {
       "R$ 1.200,00 está reservado para estornos em andamento e recolhimentos pendentes"
     );
     // A tabela de taxas continua no dialog mesmo com a reserva.
-    expect(content.description).toContain("· a partir de R$ 3.000,00 → Grátis");
+    expect(content.description).toContain("a partir de R$ 3.000,00 → Grátis");
   });
 
   it("sem reserva o dialog não fala de estorno", () => {

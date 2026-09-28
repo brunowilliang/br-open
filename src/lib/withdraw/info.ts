@@ -42,7 +42,7 @@ export function buildWithdrawInfoContent(
   balance: WithdrawBalance
 ): WithdrawInfoContent {
   const feeLines = buildWithdrawFeeLines(balance).map(
-    (line) => `· ${line.label} → ${line.value}`
+    (line) => `${line.label} → ${line.value}`
   );
 
   return {
