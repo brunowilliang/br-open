@@ -2570,3 +2570,147 @@ evento no histórico.
   cada troca (um `matchId` aberto não se perde ao navegar e voltar).
 - **`(private)/_layout.tsx`** monta o `MatchAgreementHost` (um só para o app) e
   mantém `checkout/[chargeId]` como `fullScreenModal`.
+
+## Categorias livres: nome do organizador, teto e a inscrição por tipo (28-09-2026)
+
+A categoria deixou de ser um dos 5 presets fixos do produto: o organizador
+cadastra QUANTAS quiser, cada uma com NOME livre (o rótulo no app inteiro),
+modalidade, gênero, taxa e vagas. O par modalidade+gênero continua governando a
+elegibilidade; o nome é rótulo e chave de unicidade.
+
+### Backend
+
+- **Modelo:** `tournamentCategory` passa a ter `name` (texto obrigatório) +
+  `nameKey` (`normalizeCategoryNameKey` = trim + caixa baixa pt-BR,
+  contract.ts:108) e o índice único `tournamentId_modality_gender_nameKey`
+  (tables.ts:76): dentro do MESMO tipo o nome não se repete — "Simples Masculino
+  A" e "Simples Masculino B" convivem, o mesmo nome em tipos diferentes também —
+  e nada além do teto limita quantas categorias o torneio tem. O `displayName`
+  DERIVADO morreu: `buildCategoryDisplayName` e os mapas de rótulo saíram do
+  backend e o rótulo de tipo ("Simples masculino", "Duplas mistas") passou a ser
+  do app (`buildCategoryTypeLabel`, src/lib/tournaments/category-editor-derived.ts:54).
+- **Teto de 50:** `MAX_TOURNAMENT_CATEGORIES = 50` (contract.ts:47) é o limite do
+  payload E o teto das leituras de categoria — o `limit: 10` antigo truncava a
+  lista em silêncio acima de 10 categorias e foi trocado pela constante em
+  management/discovery/entries/bracket/lifecycle/agreements/match_writes e nos
+  scans das pendências (registry.ts:61).
+- **Diff por `id`, nunca delete+recreate:** o update manda TODAS as categorias
+  vigentes e a edição carrega o `id` de cada uma (`UpdateCategoryInputSchema`,
+  contract.ts:155). `resolveCategorySyncPlan` (category-rules.ts:70) decide: `id`
+  presente = update, ausente = insert, ausente do payload = delete; `id`
+  desconhecido recusa ("Uma das categorias não existe mais nesse torneio."). Os
+  DELETES rodam antes dos inserts (um nome liberado no mesmo payload não bate no
+  índice único) e a colisão que sobrar — troca de nomes entre duas categorias —
+  devolve a mesma frase do refine do contrato ("Já existe uma categoria com esse
+  nome nesse tipo.").
+- **Edição:** nome, taxa e vagas sempre editáveis, com piso de vagas nas
+  inscrições ATIVAS ("A categoria X já tem N inscrições — o limite não pode ser
+  menor que isso."); **modalidade e gênero TRAVAM com inscrição viva** ("A
+  categoria X tem inscrições e o tipo não pode mudar.") e também com a chave já
+  montada ("A categoria X já está na chave e o tipo não pode mudar."); **remover
+  é bloqueado** com inscrição viva ("A categoria X tem inscrições e não pode ser
+  removida.") e com chave montada. Nome repetido no MESMO payload fecha nos TRÊS
+  pontos: o card marca as linhas duplicadas (`collectDuplicateCategoryIds`,
+  category-editor.tsx:90), o diálogo barra no toque (`isCategoryNameTaken`,
+  :154/172) e o SALVAR também — `TournamentSchema.superRefine` (form-schema.ts:69)
+  joga a issue nas linhas duplicadas com a mesma frase do contrato
+  (:80-91; `zodResolver` em tournament-form-controller.tsx:66;
+  form-schema.test.ts:108) — e o servidor fecha pelo refine do contrato.
+- **`allowMultipleEntriesPerType`:** boolean obrigatório no create/update
+  (contract.ts:195/215), gravado na tabela (tables.ts:21), exposto no
+  `tournamentSchema` (:267) e com o default do produto LIGADO
+  (`DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE = true`, contract.ts:40). LIGADO, o
+  jogador pode ter inscrição viva em mais de uma categoria do mesmo tipo;
+  DESLIGADO, o servidor barra a inscrição NOVA — no `create` para o caller
+  (entries.ts:517) e para o PARCEIRO convidado no ramo de duplas (:606), e no
+  aceite do convite (`respondPartnerInvite`, :739) para quem aceita: "Você já tem
+  uma inscrição nesse tipo de categoria." / "Esse jogador já tem uma inscrição
+  nesse tipo de categoria.". Não retroage: desligar não derruba inscrição viva
+  nem trava aprovação/pagamento em voo.
+- **Leitura do organizador:** `management.getById` devolve `categories[]` com
+  `name` + `liveEntryCount` (`tournamentOrganizerCategorySchema`,
+  contract.ts:248; management.ts:199) — o número que sustenta as travas ANTES do
+  toque.
+- **Um só rótulo no app inteiro:** o nome livre viaja para a inscrição, a chave,
+  a lista de inscrições, as pendências (`categoryDisplayName` da view,
+  registry.ts:307), o dashboard do jogador (dashboard.ts:217/344) e o checkout
+  (`sourceLabel`, charge.ts:627; `resolveCheckoutSourceIdentity`,
+  checkout-source.ts:24). A recusa de gênero cita o nome ("Você não pode se
+  inscrever em {nome}. A categoria aceita apenas o gênero masculino/feminino.",
+  entry-rules.ts:69); o chip curto ("Homens"/"Mulheres") segue igual.
+- **Cascata:** o ORM exige índice na coluna FK filha para apagar em cascata —
+  `tournamentMatchAgreement` ganhou índice `categoryId` e
+  `tournamentMatchAgreementEvent` ganhou `tournamentId` (tables.ts:262/302); sem
+  eles, apagar categoria/torneio com acerto gravado estourava a FK.
+- **Seed de DEV:** os cenários plantam categorias com nome de fixture
+  (`PENDENCY_SEED_CATEGORY_NAME_BY_TYPE`, pendency-plan.ts:15;
+  `DOUBLES_SEED_CATEGORIES`, doubles-plan.ts:29) e a busca idempotente passou a
+  ser por (modalidade, gênero, nameKey) — repetir o cenário não duplica categoria.
+
+### Telas
+
+- **Aba Categorias do wizard = lista editável** (`CategoryEditor`,
+  src/components/ui/category-editor.tsx) no MOLDE da tela de quadras
+  (`CourtEditor`): um card por categoria num accordion com vários abertos
+  (`selectionMode="multiple"`), trigger com o NOME e o resumo "tipo | taxa |
+  vagas" ("Grátis"/"Sem limite" quando for o caso; `buildCategoryCardSummary`,
+  category-editor-derived.ts:86), lápis abrindo o diálogo, e o conteúdo com
+  Modalidade (Simples/Duplas), Gênero (Masculino/Feminino/Misto, com Misto
+  desabilitado em simples), taxa (NumberField em BRL com "Deixe em R$ 0,00 para
+  inscrição gratuita.") e "Limitar vagas" (Switch + NumberStepper 2..128). Sem
+  categoria, o empty state "Nenhuma categoria cadastrada" com "Adicionar
+  Categoria"; no rodapé, "Adicionar Nova Categoria" desabilita no teto com
+  "Limite de 50 categorias atingido." (category-editor.tsx:423-433).
+- **Diálogo Cria/Edita:** "Nome da categoria" (placeholder "Ex.: Categoria A" e,
+  na edição, "Atualize o nome. Ele é o rótulo da categoria no app inteiro."),
+  validando no toque com as MESMAS frases do servidor ("Informe o nome da
+  categoria." e "Já existe uma categoria com esse nome nesse tipo.",
+  category-editor-derived.ts:22/25); "Remover" (danger-soft) só na edição.
+- **As travas aparecem ANTES do erro:** com `liveEntryCount > 0`, Modalidade e
+  Gênero ficam desabilitados com "Essa categoria tem 1 inscrição: modalidade e
+  gênero ficam travados." e o "Remover" nasce desabilitado com "Essa categoria
+  tem 1 inscrição e não pode ser removida."
+  (`buildLiveEntryCountLabel`/`buildRemoveBlockedReason`/`buildLockedFieldsReason`,
+  category-editor-derived.ts:159-172). O nome
+  duplicado marca as DUAS linhas do card (`collectDuplicateCategoryIds`) e a
+  troca de Modalidade acontece no CARD (Segment, category-editor.tsx:266-280):
+  passar para simples com "Misto" escolhido cai para masculino
+  (`resolveCategoryGender`, :273) — o diálogo só edita o nome.
+- **O `id` do update é decidido pelo DISCRIMINADOR, não pelo id do card:** toda
+  linha do editor tem um `id` (o das persistidas é o do servidor; o das novas é
+  local, `buildCategoryId`, category-editor-derived.ts:45), mas só a categoria que
+  VEIO do servidor pode mandá-lo: `isPersistedCategory` (:188) usa
+  `liveEntryCount !== undefined` — campo que só o `management.getById` devolve —
+  e `buildCategoryUpdatePayload` (:196) anexa o `id` só nesse caso; a
+  recém-criada sai SEM `id` (= insert) e a persistida manda o id do servidor. É
+  esse recorte que evita o "Uma das categorias não existe mais nesse torneio."
+  (o diff do servidor trata id desconhecido como NOT_FOUND); o mapeamento do
+  update usa o helper (settings/tournaments/[mode]/_layout.tsx:169).
+- **Aba Ajustes:** linha nova "Permitir mais de uma inscrição no mesmo tipo" com
+  Switch e a explicação "Ligado, o jogador pode se inscrever em mais de uma
+  categoria do mesmo tipo. Desligado, vale uma inscrição por tipo."
+  (settings.tsx:228), nascendo do default do contrato (form-defaults.ts:10) e indo
+  no payload de create/update.
+- **O form do wizard** trocou os presets por `UpdateCategoryInputSchema`
+  (`TournamentCategoryFormSchema`, form-schema.ts:38, com `id` obrigatório e
+  `liveEntryCount` opcional) e a lista mínima fala "Crie pelo menos uma
+  categoria."; `TOURNAMENT_CATEGORY_PRESETS`, `getTournamentCategoryPreset` e
+  `buildCategoryDisplayNameFromKey` MORRERAM. O mapeamento carrega o `id` no
+  update ("o diff do servidor casa a categoria pelo `id`: o update NÃO pode
+  perder", settings/tournaments/[mode]/_layout.tsx:165/169) e repassa
+  `liveEntryCount` na edição (:138).
+- **Nome livre nas superfícies do jogador:** o rodapé de inscrição mostra o nome
+  e, embaixo, o tipo técnico (`typeLabel` = `buildCategoryTypeLabel`,
+  tournaments/[tournamentId]/index.tsx:348); a casa do torneio, a aba Inscrições
+  e as tabs da chave leem `category.name` (index.tsx:275/338, entries.tsx:471/485,
+  bracket.tsx:689).
+- **Painel de inscrição:** tocar na categoria JÁ selecionada desmarca (sem
+  seleção o CTA do painel fica desabilitado) e o "Voltar" fecha o painel ZERANDO
+  seleção, parceiro e termo de busca — reabrir começa do zero
+  (join-footer.tsx:232-240 e :435).
+
+### Fora desta fatia
+
+- A janela de datas do torneio (data de fim + remanejamento por chuva) e a
+  biblioteca de categorias reutilizável da organização seguem fora: o cadastro
+  livre desta fatia é POR TORNEIO.
