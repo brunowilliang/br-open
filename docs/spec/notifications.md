@@ -1,19 +1,25 @@
 # Notificações — Estado atual
 
-> Verificado em 25-09-2026 contra o código do repo (`convex/`, `src/`).
+> Verificado em 28-09-2026 contra o código do repo (`convex/`, `src/`).
 >
 > As referências abaixo citam o **símbolo** sempre que o arquivo é do domínio de
 > notificação (o número da linha acompanha como atalho): este é o corte que mais
 > mexe nesses arquivos, e o símbolo não drifta.
+>
+> **28-09-2026:** o catálogo vai a 26 tipos — a família do acerto do confronto
+> (proposta, recusa e retirada de horário/placar), o aviso de "próximo jogo"
+> acionável (`?matchId=`) e os eventos de inscrição/convite do ciclo — e as
+> copies do feed passam a citar o horário/placar no corpo e a dizer o próximo
+> passo.
 
 ## Visão geral
 
 Um subsistema único de notificação para o app inteiro, com três peças:
 
-1. **O evento** (`eventType`): 16 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
-   (`convex/shared/notifications/protocol.ts:1-18`), cada um com template pt-BR
+1. **O evento** (`eventType`): 26 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
+   (`convex/shared/notifications/protocol.ts:1-28`), cada um com template pt-BR
    próprio no mapa `definitions`
-   (`convex/domains/notification/definitions.ts:41-158`).
+   (`convex/domains/notification/definitions.ts`).
 2. **A central** (`notificationFeed`): uma linha por destinatário, criada no
    servidor com título, corpo, `data` (ids + url de destino) e a apresentação
    acionável (`presentation`). O app lista e renderiza; não decide nada.
@@ -42,7 +48,8 @@ escreve na tabela direto.
   template cai no genérico `Um jogador`.
 - **Destinatário:** `resolveRecipientActor` (`orchestrator.ts:131`). O evento
   decide o KIND do ator: `ORGANIZER_RECIPIENT_EVENTS` (`orchestrator.ts:101`) tem
-  **um** evento (`tournament.entry.created`), que nasce no ator **organização**;
+  **dois** eventos (`tournament.entry.created` e `tournament.entry.cancelled`),
+  que nascem no ator **organização**;
   todo o resto nasce no ator **jogador** e é **descartado em silêncio** quando o
   usuário destinatário não tem `playerProfile` (`orchestrator.ts:150` devolve
   `null` → `:254-256` pula o destinatário).
@@ -101,21 +108,63 @@ os rótulos reais, sem copiar copy.
 **Sem o id, sem botão:** quando o emissor não manda o id que a mutation exige, o
 builder devolve `null` (item vira informativo). Nunca nasce botão morto.
 
-### Mapa evento → ação (2 tipos)
+### Mapa evento → ação (3 tipos)
 
 | `eventType` | Papel | Botões | `action.type` | `action.params` |
 |---|---|---|---|---|
 | `tournament.entry.created` | organizador | Aprovar · Recusar | `approve_tournament_entry` · `reject_tournament_entry` | `{ entryId }` |
 | `tournament.partner.invited` | jogador | Aceitar · Recusar | `accept_partner_invite` · `decline_partner_invite` | `{ entryId }` |
+| `tournament.match.ready` | jogador | Combinar horário | `open_route` | `null` (o destino é a url do item) |
 
-Os outros 14 eventos são **informativos** (`presentation: null`).
+Os outros 23 eventos são **informativos** (`presentation: null`).
+
+O aviso de "próximo jogo" é o único ACIONÁVEL POR NAVEGAÇÃO: a url do item leva
+`?matchId=` (`getMatchReadyUrl`, `definitions.ts`) e o item abre o Combinar jogo
+do confronto exato — sem o `matchId` no `metadata` o builder devolve `null` e o
+item vira informativo, como qualquer ação sem alvo.
 
 **Enum de ação:** `PENDING_ACTION_TYPE_OPTIONS`
-(`convex/domains/pendings/contract.ts:58-65`) — FECHADO e **crescente por
-adição**, 6 tipos: `open_route`, `pay_tournament_entry`, `accept_partner_invite`,
-`decline_partner_invite`, `approve_tournament_entry`, `reject_tournament_entry`.
-A notificação usa os quatro últimos. Pares de ida e volta são tipos SEPARADOS,
+(`convex/domains/pendings/contract.ts:64-74`) — FECHADO e **crescente por
+adição**, 9 tipos: `open_route`, `pay_tournament_entry`, `accept_partner_invite`,
+`decline_partner_invite`, `approve_tournament_entry`, `reject_tournament_entry`,
+`conclude_tournament`, `accept_match_schedule`, `confirm_match_score`. A
+notificação usa o `open_route` (no aviso de próximo jogo) e os quatro de decisão;
+os tipos do acerto são das pendências. Pares de ida e volta são tipos SEPARADOS,
 nunca um booleano em `params` (que é `Record<string, string>`).
+
+### Avisos do acerto do confronto e do ciclo da inscrição
+
+O Combinar jogo tem um evento por passo e o aviso vai **só para o lado que NÃO
+agiu** (quem agiu vê o estado no próprio card), pelo mesmo caminho dos demais
+(`notifyAgreementSide`, `convex/functions/tournament/agreements.ts`):
+
+| `eventType` | Quando nasce | `metadata` |
+|---|---|---|
+| `tournament.match.schedule_proposed` | o outro lado propõe horário; título e tom mudam com `reopened` (proposta por cima de acerto já fechado = pedido de mudança) | `matchDate`, `startMinute`, `courtName`, `matchId`, `reopened` |
+| `tournament.match.schedule_declined` | o outro lado recusa o horário na mesa | o horário derrubado + `matchId` |
+| `tournament.match.schedule_cancelled` | o AUTOR retira a própria proposta | o horário retirado + `matchId` |
+| `tournament.match.score_proposed` | o outro lado propõe placar (ou W.O.) | `sets`, `walkover`, `matchId` |
+| `tournament.match.score_declined` | o outro lado recusa o placar | idem |
+| `tournament.match.score_cancelled` | o AUTOR retira a proposta de placar | idem |
+| `tournament.match.ready` | o confronto GANHA o lado que faltava (avanço ou encaixe manual); a chave publicada avisa todo mundo de uma vez e não repete este aviso | `sideALabel`, `sideBLabel`, `stageLabel`, `matchId` |
+
+Os desfechos do ciclo da inscrição seguem a mesma régua: `tournament.entry.cancelled`
+vai aos GESTORES (quem cancelou não recebe o aviso do próprio ato) com
+`refundStarted` no `metadata`; `tournament.partner.invite_cancelled` avisa quem
+foi convidado quando o dono cancela o convite sem resposta; `tournament.entry.refunded`
+avisa quem pagou, com o valor (`amountLabel`); `tournament.partner.awaiting_reply`
+sai **uma vez por inscrição** no fechamento do prazo de inscrições (a coluna
+`tournamentEntry.partnerAwaitingReplyNotifiedAt` segura a repetição do cron
+horário, e o start repete a varredura como rede).
+
+As copies do feed passam a citar o horário/placar dentro do corpo quando o
+`metadata` traz o dado (`matchScheduleTail`/`matchScoreTail`,
+`convex/domains/notification/definitions.ts`) e voltam ao texto base quando o
+dado não vem; os rótulos saem de `convex/domains/match/labels.ts`
+(`formatMatchSlotLabel` = "28/09 às 08:00", `formatMatchScoreLabel` = "6-3, 6-2")
+e de `convex/domains/payment/labels.ts` (`formatCentsBRL` = "R$ 120,00") — um
+formato só para pendência, notificação, saque e estorno, sem `Intl` e sem fuso
+(o `matchDate` já é a data local do torneio).
 
 ### Destaque (`bodyHighlights`)
 
@@ -141,6 +190,11 @@ O caminho pago do torneio (`pay_tournament_entry`) tem o mesmo desenho:
 `resolveSourceForCharge` (`convex/functions/payment/charge.ts:433`) delega a
 `resolveTournamentEntrySource` (`:468`), que exige `status === "awaiting_payment"`
 (gate em `:493`) e o dono da cobrança (`:482-492`).
+
+O botão do aviso de próximo jogo ("Combinar horário") não é gate de mutation: ele
+NAVEGA para o Combinar jogo do confronto (`open_route` + `?matchId=`), onde
+aceitar/recusar/propor já têm os gates do acerto. O item só nasce com o `matchId`
+no `metadata`, então nunca existe botão sem alvo.
 
 **Decisão de produto:** `tournament.entry.confirmed` sai **informativo** mesmo
 quando o `metadata` traz `chargeId`. Esse evento é pós-pagamento — o emissor
@@ -228,11 +282,12 @@ pagar do torneio segue na pendência `player_tournament_entries_awaiting_payment
 - **A ação mora no servidor.** O cliente não tem mapa `eventType` → handler; ele
   traduz `action.type` (o MESMO enum das pendências) para a mutation viva, no
   tradutor único `resolvePendingAction`
-  (`src/lib/pendings/pendings-view.ts:51-101`) e executa pelo runner
+  (`src/lib/pendings/pendings-view.ts:54-129`) e executa pelo runner
   `src/lib/pendings/use-pending-action-runner.ts`. Evidência de que isso já
-  funciona: o tradutor cobre os 6 tipos do enum.
+  funciona: o tradutor cobre os 9 tipos do enum.
 - **Botão só onde há gate**: o critério de entrada de um tipo no mapa é existir
-  mutation viva + recusa do estado já resolvido. Desfecho não ganha botão.
+  mutation viva + recusa do estado já resolvido (ou, no aviso de próximo jogo,
+  navegação viva para o Combinar jogo com o `matchId`). Desfecho não ganha botão.
 - **`tournament.entry.confirmed` informativo** (ver "Gates de estado").
 - **O `presentation` é derivado, não editado à mão:** nasce no ponto único de
   criação. Nenhum outro caminho escreve o campo.

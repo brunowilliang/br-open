@@ -938,10 +938,22 @@
   — R10): agrupamento por categoria, layout com midpoint dos filhos,
   clamp anti-overlap, conectores child→parent `{from, to}`; desde a abertura
   por rodada, `bracketOpeningColumn` (a rodada ainda aberta: menos avançada
-  com partida `pending`/`scheduled`, bye e `vacant` fora) e
-  `bracketOpeningTransform` (coluna na margem esquerda, centrada na vertical
-  quando cabe, fit centrado quando a chave inteira já cabe no zoom de
-  abertura).
+  com partida `pending`/`scheduled`, bye e `vacant` fora), `bracketOpeningZoom`
+  (uma COLUNA: nunca abaixo do fit da chave inteira e nunca acima de 1) e
+  `bracketOpeningTransform` (coluna centrada na horizontal e no meio da FAIXA
+  ÚTIL, medida entre o header flutuante e a barra de baixo).
+- `src/lib/tournaments/match-agreement-view.ts` +
+  `match-agreement-actions.ts` + `match-agreement-copy.ts` (+ testes): o chip e
+  o rodapé do acerto no card, a tabela estado×canal → verbos do menu (um canal
+  por vez) e a copy ÚNICA dos diálogos e toasts do Combinar jogo.
+- `src/lib/matches/score-draft.ts` + `src/lib/scheduling/slot-equality.ts` (+
+  testes): o rascunho do placar (linhas livres, tie-break anexo, W.O.) e a
+  igualdade de horário (data + início + quadra) — o gate de "mesma proposta" do
+  CLIENTE, espelho do gate do servidor.
+- `src/lib/tournaments/player-overview-derived.ts` + `match-focus.ts` (+
+  testes): o próximo jogo do jogador (com ou sem horário) e o alvo único do
+  deep-link `matchId` (o card do "Próximo jogo" OU um card do painel, nunca os
+  dois).
 - ~~`src/lib/tournaments/match-config-presets.ts` (+ teste, 10 testes —
   R10)~~ — REMOVIDO no R12: presets de formato extintos junto com o seletor
   da aba Regras (organizador personaliza campo a campo).
@@ -1061,7 +1073,16 @@
   derivação e refine neutros (super TB vivo = 10 em 100% dos docs). Docs
   antigos com a chave extra: Zod stripa (testado). Sem migration. Deployado
   dev+prod em 22-08. UI do form ENTREGUE no mesmo round (campo de placar do
-  TB removido, segmentos 7|10).
+  TB removido, segmentos 7|10). **28-09-2026:** o contrato ganha o bloco do
+  ACERTO — `MatchAgreementChannelOptions` (`schedule|score`),
+  `MatchAgreementStateOptions` (`idle|negotiating|agreed`),
+  `MatchAgreementSideOptions` (`a|b`), `MatchAgreementActorSideOptions`
+  (`a|b|organizer`), `MatchAgreementEventKindOptions`
+  (`proposed|accepted|declined|cancelled|reopened|overridden|closed`),
+  `ProposeMatchScheduleSchema`, `matchScheduleProposalSchema`/
+  `matchScoreProposalSchema`, `matchAgreementsSchema` (por canal: `state`,
+  `proposal`, `proposedBySide`, `proposedByMe`, `proposedAt`, `agreedAt`) e
+  `playerMatchSchema` (`{ match, agreements, mySide, totalRounds }`).
 - **DEC-0004 (15-09, opção A): grupo do último set REMOVIDO do
   `MatchConfigSchema`** — último set = formato dos demais sets; super TB
   segue coberto por
@@ -1148,11 +1169,26 @@
   categoria sem chave não bloqueia) e `resolveTournamentConclusionError`
   (a recusa em pt-BR). É a fonte única das duas pontas do encerramento: a
   pendência do organizador e a guarda da `lifecycle.conclude`.
+- **agreement-rules.ts** (28-09-2026, puro, testado — `tests/agreement-rules.test.ts`)
+  — o ACERTO do confronto entre os dois lados: `resolveMatchSideAccess` (porta das
+  escritas: só quem tem perfil em um dos lados), `resolveScheduleProposal`/
+  `resolveScoreProposal` (os MESMOS gates e validadores do organizador, janela
+  ocupada inclusive), `resolveIdenticalProposalGate` (proposta igual à que está na
+  mesa é recusada SEM evento), `resolveProposalTransition` (proposta nova supera a
+  vigente, inclusive a do próprio lado; canal fechado ⇒ evento `reopened`),
+  `resolveAcceptanceTransition`/`resolveDeclineTransition`/
+  `resolveCancellationTransition` (o aceite fecha o canal, a recusa e a retirada
+  voltam a `idle` preservando `agreedAt`), `resolveAgreementSweep` (`overridden`
+  quando o organizador escreve por cima, `closed` quando o confronto é decidido),
+  `buildAgreementChannelView` (leitura de UMA das partes: `proposedByMe`, nunca
+  um espectador) e `resolveReceivedAgreement` (o que vira pendência do OUTRO
+  lado).
 - **tests/** — `bracket-rules.test.ts` + `entry-rules.test.ts` (55 testes:
   potências, seeding, byes p/ seeds, propagação, swap bloqueado por placar,
   gênero misto, placares válidos/inválidos, **H1: 5/6/7/9/12 inscrições
   com/sem seeds sempre completáveis (1 bye por par)**, **M4: walkover
-  arbitrário rejeitado + refine do contract**).
+  arbitrário rejeitado + refine do contract**) + `agreement-rules.test.ts`
+  (transições do acerto, proposta idêntica, gates de resposta/retirada).
 - **management.ts** — `create/update/remove/getById/listMine/generateUploadUrl/publish`
   (edit travado fora draft/published; remove só draft). **Edição de categorias
   é por DIFF desde o review do slice 2** — pares mantidos são atualizados
@@ -1189,6 +1225,11 @@
   `setSeed`, `listForTournament`. TODA transição terminal (cancel, reject,
   recusa de convite, estouro de pagamento no `charge`, cancelamento do
   torneio no `lifecycle`) libera os slots ativos (`unsetToken`) — IBX-0074 r19.
+  **Avisos de 28-09:** a recusa do convite e o `cancel` notificam os GESTORES com
+  `tournament.entry.cancelled` (`refundStarted` no metadata) e o cancelamento de
+  uma inscrição `pending_partner` avisa o CONVIDADO com
+  `tournament.partner.invite_cancelled` — quem age não recebe o aviso do próprio
+  ato.
 - **bracket.ts** — `draw` (shuffle Fisher-Yates + `buildBracket` por categoria;
   status→drawn), `swapSlots` (**IBX-0053: move cross-round; IBX-0068: só
   `drawn`, iniciar congela** — o input são
@@ -1211,7 +1252,11 @@
   regra pura `shouldAutoStartTournament` em `scheduling-rules.ts` —
   calendário do Brasil, `BRAZIL_UTC_OFFSET_MS` do payment; idempotente por
   status), e `draw` com o corpo em **`performDraw` (internal, IBX-0069)
-  compartilhado pelo sorteio automático**; `listBracket`
+  compartilhado pelo sorteio automático**; o MESMO cron varre, no fechamento do
+  prazo (`registrationDeadlineAt` vencido), os convites `pending_partner` e avisa
+  UMA vez cada dono (`notifyPartnerInvitesAwaitingReply` — a marca
+  `partnerAwaitingReplyNotifiedAt` na linha segura a repetição e o `performStart`
+  repete a varredura como rede); `listBracket`
   (organizador).
 - **matches.ts** — `publishResult` (valida resultado via score-rules ou walkover;
   trava com `publishedAt`; **avança vencedor** na rodada seguinte; notifica os
@@ -1227,7 +1272,28 @@
   em `tournamentMatchEdit` before/after + editor; notifica
   `tournament.match.result_edited`),
   `scheduleMatch` (data/hora/quadra; reschedule distinto),
-  `listForTournament`.
+  `listForTournament`. As duas escritas do organizador fecham o acerto VIGENTE
+  por cima (`sweepMatchAgreements` com kind `overridden` no histórico — agendar
+  fecha só o canal de horário, o placar combinado depois do jogo continua
+  valendo) e o corpo compartilhado mora em `_shared/match_writes.ts`
+  (serialização/resolução do resultado, agendamento com janela revalidada,
+  destinatários por inscrição).
+- **agreements.ts (28-09-2026) — o ACERTO do confronto** (`proposeSchedule`,
+  `acceptSchedule`, `declineSchedule`, `cancelSchedule`, `proposeScore`,
+  `acceptScore`, `declineScore`, `cancelScore`, `listMyMatches`,
+  `listAgreementEvents`): um lado PROPÕE, o outro aceita, recusa ou propõe
+  outro; o aceite aplica o efeito pela MESMA via do organizador
+  (`applyMatchSchedule`/`applyMatchResult`) — agenda o confronto ou publica o
+  resultado, avisa os dois lados e fecha o acerto que perdeu sentido
+  (`sweepMatchAgreements`, kind `closed`, quando o resultado é publicado). Gates:
+  escrita só pelas partes (`requireMatchSide`), resposta só pelo lado oposto à
+  proposta vigente, retirada só pelo AUTOR (`proposedByUserId` — numa dupla o
+  parceiro não retira a proposta do colega), proposta IDÊNTICA à mesa recusada
+  SEM evento e proposta nova sobre canal fechado é REABERTURA
+  (`kind: "reopened"`, o `agreedAt` fica). `listMyMatches` é a porta que abre os
+  confrontos do jogador antes do início (a chave sorteada segue privada em
+  `listForTournament`) e `listAgreementEvents` devolve o histórico (hoje sem
+  consumidor no app).
 - **lifecycle.ts** — `conclude` (o ato do organizador que encerra: guarda a
   regra pura `resolveTournamentConclusionError` — `ongoing` + campeão em toda
   categoria sorteada —, vira o status em `finished` e notifica
@@ -1238,7 +1304,8 @@
   IBX-0137), `processRefunds`
   (action: chama provider por charge, idempotente), `listRefundableCharges`,
   `applyRefundOutcome` (`refunded|failed`), `sweepPendingRefunds` (cron 15min,
-  padrão sweep dos withdraws).
+  padrão sweep dos withdraws). `applyRefundOutcome` avisa quem PAGOU com
+  `tournament.entry.refunded` (valor no `metadata`) quando o estorno fecha.
 - **players.ts** (despacho do slice 3, 22-08; **r18-A 20-09: busca por PREFIXO**;
   **r25 20-09: filtro de GÊNERO server-side**) — `searchByUsername({categoryId,
   username})` (authQuery; input ganhou `categoryId` obrigatório; normaliza com a
@@ -1282,13 +1349,19 @@
   determinístico `refund-<charge>` (idempotente), IN_PROCESSING tratado como ok.
 
 ### Notificações
-- `protocol.ts`: 13 eventos `tournament.*` no catálogo (IBX-0028:
-  `tournament.match.result_edited`).
-- `definitions.ts`: templates pt-BR + deep-links `/tournaments/:id`; input
-  com `tournamentId`.
+- `protocol.ts`: **26 eventos** `tournament.*` no catálogo — a família do acerto
+  do confronto (proposta/recusa/retirada de horário e placar), o aviso de
+  "próximo jogo" (`tournament.match.ready`), os desfechos de inscrição/convite
+  (`entry.cancelled`, `entry.refunded`, `partner.invite_cancelled`) e o resto do
+  ciclo (ver `docs/spec/notifications.md`).
+- `definitions.ts`: templates pt-BR + deep-links `/tournaments/:id` (o aviso de
+  próximo jogo leva `?matchId=` e abre o Combinar jogo do confronto); input
+  com `tournamentId`; o horário/placar dentro da copy sai dos rótulos de
+  `domains/match/labels.ts`.
 - `orchestrator.ts`: `resolveNotificationSource` resolve a origem (nome +
   organização) pelo torneio; recipientas organizer via mapa
-  `ORGANIZER_RECIPIENT_EVENTS` (`tournament.entry.created` incluído).
+  `ORGANIZER_RECIPIENT_EVENTS` (`tournament.entry.created` e
+  `tournament.entry.cancelled`).
 
 ### Ambientes
 - Deploy DEV (kindred-yak-142) + PROD (amiable-albatross-845) alinhados
@@ -1635,6 +1708,22 @@ Vocabulário de produto: **torneio** (nunca "evento").
   publicado: `matchId` (cascade), `before`/`after` (JSON: score, status,
   walkover, winnerEntryId), `editedByUserId`, `createdAt`; índice `matchId`.
   Tabela additive — sem migration.
+- **`tournamentMatchAgreement`** — UMA linha por confronto + CANAL
+  (`schedule`/`score`) com a proposta VIGENTE do acerto: `matchId`, `channel`,
+  `state` (`idle|negotiating|agreed`), `proposal` (JSON validado pelo contrato),
+  `proposedBySide`/`proposedByUserId`, `proposedAt`, `agreedAt`,
+  `tournamentId`/`categoryId`/`entryAId`/`entryBId` desnormalizados (a
+  pendência do jogador e o agregado do organizador chegam por índice, sem varrer
+  o quadro), `rowVersion`, `createdAt`/`updatedAt`. Índice único
+  `matchId_channel` + `entryAId_state`/`entryBId_state`/`tournamentId_state`.
+- **`tournamentMatchAgreementEvent`** — histórico append-only do acerto (molde
+  do `tournamentMatchEdit`): `matchId`, `channel`, `kind`
+  (`proposed|accepted|declined|cancelled|reopened|overridden|closed`),
+  `actorSide` (`a|b|organizer`), `actorUserId`, `before`/`after` (snapshot do
+  canal), `createdAt`; índice `matchId`.
+- **`tournamentEntry.partnerAwaitingReplyNotifiedAt`** — marca do aviso ÚNICO de
+  "convite sem resposta" ao dono: o cron horário e o início do torneio varrem a
+  mesma condição e a marca segura a repetição (campo opcional, sem migration).
 
 ### Lifecycle
 
@@ -1985,10 +2074,10 @@ O usuário marcou a lista de dashboards item a item e fechou o conteúdo das tel
 - **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
 - **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
 - **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
-- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (primeiro match `scheduled` com data/hora envolvendo entry do viewer; adversário via `formatEntrySideLabel`).
+- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (até 28-09 era "o primeiro `scheduled` com data/hora"; hoje é o primeiro confronto com os DOIS lados definidos e sem vencedor, com ou sem horário, ao lado do painel "Seu confronto" da chave privada; adversário via `formatEntrySideLabel`).
 - **Casa guest:** só a descrição.
 - **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
-- **Invariável:** pendências NUNCA pro jogador (aba Inscrições sem segmento Pendências para não-organizador — mantido); privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.
+- **Invariável:** o PAINEL de pendências da aba Inscrições segue só do organizador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`) — o jogador recebe os ALERTAS do servidor na casa do torneio (`PendingAlerts`, escopo player) e no painel do próprio confronto; privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.
 
 ## IBX-0074 · CUTOVER DO RODAPÉ NO TORNEIO — JoinFooter global (20-09, sem commit)
 
@@ -2208,14 +2297,21 @@ de uma superfície para outra é o dado que ela tem.
 ### Superfícies
 
 - `MatchCard`: a agenda do torneio
-  (`tournaments/[tournamentId]/schedule.tsx:174`), o "Próximo jogo" da casa
-  do jogador (`pages/tournaments/player-overview.tsx:114`) e o NÓ do
-  chaveamento (via `BracketMatchCard`, bracket.tsx:488). Quem manda
+  (`tournaments/[tournamentId]/schedule.tsx`), o "Próximo jogo" da casa
+  do jogador (`pages/tournaments/player-overview.tsx`), a lista "Próximos jogos"
+  da home (`pages/home/player-dashboard.tsx`), os cards do painel "Seu
+  confronto" (`player-match-panel.tsx`) e o NÓ do chaveamento (via
+  `BracketMatchCard`, bracket.tsx:488). Nas superfícies do ACERTO quem hospeda o
+  card é o `AgreementMatchCard`, que injeta o `agreement` (chip, rodapé e menu
+  do Combinar jogo) e a ordem dos lados (`sideOrder="viewer"`; a agenda usa
+  `sideOrder="match"`). Quem manda
   o `walkoverWinner` do W.O. é a agenda do torneio, pelo item
-  (`schedule.tsx:190`, derivado em `lib/tournaments/schedule-items.ts:82`), e
+  (`lib/tournaments/schedule-items.ts:82`), e
   o nó, pela casca (:87).
-- O "Próximo jogo" da casa do jogador não tem W.O. a pintar: a lista filtra
-  `status === "scheduled"`.
+- O "Próximo jogo" da casa do jogador e a lista da home NÃO filtram por
+  agendamento: entram os confrontos com os dois lados definidos e sem vencedor,
+  com OU sem horário — sem data o card sai com o chip "A definir" e o rodapé de
+  proposta/agendamento não desenha.
 - `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:470`, o
   `<EntryCard>` do map) nos seus segmentos; as AÇÕES de cada segmento saem do
   componente local `EntryRowActions` (`entries.tsx:49`) e a nota do convite de
@@ -2279,19 +2375,25 @@ de uma superfície para outra é o dado que ela tem.
 - A abertura do canvas enquadra a RODADA AINDA ABERTA — a menos avançada com
   partida `pending`/`scheduled`; bye (`walkover`) e vaga podada (`vacant`) não
   seguram rodada, então nada lançado abre na PRIMEIRA e tudo decidido centra a
-  ÚLTIMA (a final) — `bracketOpeningColumn` (bracket-tree.ts:135), lida da
-  árvore ATIVA (a categoria remonta o canvas por key). Com o
-  `bracketOpeningZoom` do card aprovado, a coluna encosta na margem esquerda e
-  centra na vertical quando cabe na tela (mais alta que o viewport ancora no
-  topo); com a chave inteira já no zoom de abertura não há o que deslocar e o
-  estado cai no fit centrado (`bracketOpeningTransform`, :171). O piso do gesto
-  continua a chave inteira (`bracketFitZoom`, :38) e o estado inicial e cada
+  ÚLTIMA (a final) — `bracketOpeningColumn` (bracket-tree.ts), lida da
+  árvore ATIVA (a categoria remonta o canvas por key). O enquadramento abre UMA
+  COLUNA grande (28-09-2026): `bracketOpeningZoom` = `max(fitZoom, min(1,
+  oneColumn, columnCeiling))` — cabe uma coluna no viewport com o respiro de 24
+  de cada lado, o teto é a faixa útil e nunca há upscale — e a coluna sai
+  CENTRADA na horizontal e no meio da FAIXA ÚTIL: o vão entre o header flutuante
+  medido (`headerInset`, o tab das categorias) e a barra flutuante de baixo
+  (`bottomInset` = altura da barra + safe area + folga de 12), nunca o viewport
+  cru; com a chave inteira já no zoom de abertura não há o que deslocar e o
+  estado cai no fit centrado (`bracketOpeningTransform`). O piso do gesto
+  continua a chave inteira (`bracketFitZoom`) e o estado inicial e cada
   re-enquadramento saem do MESMO `bracketOpeningTransform` — a caixa da coluna
   entra nas deps por VALOR (`top`/`bottom`/`x`), nunca pela identidade do
   layout, que é recriado a cada medida de card e re-enquadraria à toa (o pan do
-  usuário sendo resetado enquanto a chave se mede). A largura do card e o vão do
-  cotovelo são constantes da rota (`CARD_WIDTH = 320` e `CONNECTOR_WIDTH = 32`,
-  bracket.tsx:52-53) — o card na tela nasce ~1:1.
+  usuário sendo resetado enquanto a chave se mede). O canvas NÃO remonta quando
+  a aba volta a ganhar foco: a tela incrementa um `focusSeed` monotônico e o
+  canvas re-enquadra a MESMA instância (sem o pisca do remount). A largura do
+  card e o vão do cotovelo são constantes da rota (`CARD_WIDTH = 320` e
+  `CONNECTOR_WIDTH = 32`, bracket.tsx:52-53) — o card na tela nasce ~1:1.
 
 ### Fora desta fatia (delta acumulado do domínio)
 
@@ -2312,3 +2414,146 @@ de uma superfície para outra é o dado que ela tem.
   `selectDoublesSeedPairs` :229); `seed:doublesAgendaScenario` (seed.ts:1287)
   fecha os convites, cadastra as quadras e agenda a 1ª rodada por
   `resolveDoublesSeedAgendaSlot` (`convex/domains/seed/doubles-agenda-plan.ts:38`).
+
+## Combinar jogo — o acerto do confronto entre os dois lados (28-09-2026)
+
+Um lado PROPÕE, o outro ACEITA, RECUSA ou PROPÕE OUTRO; o aceite dos dois fecha o
+canal e o efeito é idêntico ao da mão do organizador (agendar/publicar). O
+organizador continua por cima e não passa por aqui — o que ele atropela vira
+evento no histórico.
+
+### Backend
+
+- **Estado:** UMA linha por confronto + CANAL (`schedule`/`score`) em
+  `tournamentMatchAgreement`, com a proposta VIGENTE (`proposal` JSON validado
+  pelo contrato), `proposedBySide`/`proposedByUserId`, `proposedAt`, `agreedAt` e
+  `state` FECHADO: `idle` (sem proposta), `negotiating` (esperando o outro lado)
+  e `agreed` (fechado pelos dois). Recusa e retirada voltam a `idle` PRESERVANDO
+  `agreedAt` — é o que faz a próxima proposta ser reabertura. O histórico
+  append-only fica em `tournamentMatchAgreementEvent` (`before`/`after` do canal,
+  `actorSide` `a|b|organizer`, kinds `proposed|accepted|declined|cancelled|reopened|overridden|closed`).
+- **Procedures** (`convex/functions/tournament/agreements.ts`):
+  `proposeSchedule`/`acceptSchedule`/`declineSchedule`/`cancelSchedule`,
+  `proposeScore`/`acceptScore`/`declineScore`/`cancelScore`, `listMyMatches`
+  (authQuery) e `listAgreementEvents` (authQuery). As mutações devolvem o canal
+  lido para o PRÓPRIO usuário (`proposedByMe`, nunca um espectador).
+- **Gates (o servidor decide, o card só desenha):** escrita só pelas partes
+  (`requireMatchSide` → "Só quem joga esse confronto pode combinar horário e
+  placar."); resposta só pelo lado OPOSTO à proposta vigente ("Você fez essa
+  proposta. Espere o outro lado responder.", e `agreed` → "Esse acerto já está
+  fechado. Proponha outro para mudar."); retirada só pelo AUTOR da proposta
+  ("Só quem propôs pode retirar a proposta." — é o `userId`, então numa dupla o
+  parceiro não retira a proposta do colega); e proposta IDÊNTICA à que está na
+  mesa é recusada SEM evento ("Esse horário é o mesmo que já está na mesa." /
+  "Esse placar é o mesmo que já está na mesa." — comparação canônica, insensível
+  à ordem das chaves).
+- **Horário:** os MESMOS gates do agendamento do organizador (chave sorteada ou
+  torneio em andamento; confronto encerrado não reagenda; vaga vazia e lado em
+  aberto recusam; início antes do fim; quadra do torneio — sem quadras
+  cadastradas o acerto é data + hora com `courtId: null`) e a MESMA janela
+  ocupada: a duração vem da configuração padrão do torneio
+  (`resolveMatchOccupiedEndMinute`) e o confronto ignora a si mesmo — "Esse
+  horário já está reservado para outro confronto." Aceitar revalida a janela na
+  hora e aplica por `applyMatchSchedule`.
+- **Placar:** os MESMOS validadores do lançamento (placar por sets, W.O. com
+  vencedor de um dos lados, vencedor explícito só quando as linhas empatam);
+  aceitar publica por `applyMatchResult` (trava `publishedAt`, avança o vencedor,
+  avisa os dois lados) e FECHA a proposta de horário pendente (`sweepMatchAgreements`,
+  kind `closed`). Se o organizador agendar/lançar por cima, o acerto vigente é
+  fechado com kind `overridden` — os dois caminhos ficam no histórico.
+- **Leituras:** `listMyMatches` devolve `playerMatchSchema` (o confronto, os dois
+  canais, `mySide` e `totalRounds`) SÓ para o jogador ativo — é a porta que abre
+  o confronto antes do início; a chave sorteada segue privada em
+  `listForTournament` (organizador, ou `ongoing`/`finished`). `listAgreementEvents`
+  é o histórico (sem consumidor no app hoje).
+- **Avisos:** cada passo notifica o lado que NÃO agiu (`schedule_proposed`/
+  `score_proposed`/`schedule_declined`/`score_declined`/`schedule_cancelled`/
+  `score_cancelled`) e o aceite do placar usa o mesmo aviso de resultado do
+  organizador; detalhes em `docs/spec/notifications.md`.
+- **Pendências:** a proposta recebida vira pendência do outro lado (3 kinds do
+  jogador) e o torneio com acerto aberto vira agregado do organizador — o CTA
+  `Aceitar`/`Confirmar` executa o aceite em um toque, o secundário `Combinar`
+  abre o confronto, e os quatro kinds aceitam o gesto de esconder da home (a
+  assinatura do item mata o recibo quando chega proposta nova); detalhes em
+  `docs/spec/pendings.md`.
+
+### Telas
+
+- **Um só casco para o app:** `MatchAgreementHost` envolve o Stack privado
+  (`src/app/(private)/_layout.tsx`) — as mutações, os toasts, as invalidações e
+  o controller dos DOIS diálogos vivem ali
+  (`match-agreement-provider.tsx`); as telas leem o estado pelo
+  `useMatchAgreementCard` via `AgreementMatchCard`, que só repassa a prop
+  `agreement` ao `MatchCard` global.
+- **O card** mostra o estado do acerto no lugar do chip de status quando existe
+  (sempre `soft`): proposta do MEU lado → `warning` ("Proposta enviada",
+  "Resultado enviado", "Aguardando reaprovação" depois de reaberto); proposta do
+  OUTRO lado → `accent` ("Confirmar horário", "Confirmar resultado"); horário
+  fechado e placar em aberto → "Pendente de resultado". A proposta vigente ocupa
+  o RODAPÉ no lugar do agendamento ("12 de set.   |   14:00", a quadra só quando
+  escolhida) e o placar na mesa ocupa o lugar do placar publicado. Confronto
+  decidido, encerrado ou torneio cancelado = card travado, sem menu de acerto.
+- **Menu ⋮ do jogador** (por linha do canal — `idle`/`mine`/`theirs`/`agreed`):
+  "Propor horário"/"Enviar resultado" (`idle`), "Propor outro horário"/"Enviar
+  outro resultado" + "Cancelar proposta"/"Cancelar resultado" (retirada, em
+  vermelho, na linha `mine`), "Aprovar horário"/"Aprovar resultado" + "Recusar
+  horário"/"Recusar resultado" (`theirs`), e propor outro também sobre `agreed`.
+  UM CANAL POR VEZ: placar na mesa manda; senão, enquanto o horário não estiver
+  combinado, só existem verbos de horário; os dois convivem apenas com horário
+  combinado e placar sem nada na mesa.
+- **Diálogo de horário** (`schedule-proposal-dialog.tsx`): data, quadra
+  (filtrada pela disponibilidade do dia) e horário (slots livres pelo
+  `listOccupiedSlots`), com os empty states "Nenhuma quadra disponível nesse
+  dia"/"Nenhum horário disponível" e o `endMinute` derivado da duração — a tela
+  nunca manda fim. **Proposta idêntica bloqueia no cliente**: aviso "Essa
+  proposta está igual à atual. Mude a data, a quadra ou o horário." e botão
+  desabilitado saem da MESMA derivação, recalculada a cada render.
+- **Diálogo de placar** (`score-result-dialog.tsx` + `score-draft.ts`): lista
+  LIVRE de linhas na ordem do jogo (sem regra de tênis imposta), tie-break anexo
+  quando a linha empata (o anexo morre se a linha mudar de estado), "Registrar
+  W.O." com a escolha do vencedor e "Quem venceu?" quando as linhas empatam; a
+  proposta idêntica bloqueia igual ("Esse placar está igual ao atual. Mude o
+  resultado." / "Esse W.O. está igual ao atual. Mude o vencedor.").
+- **Aprovar/recusar/retirar executam no toque** (sem diálogo de confirmação) e
+  nada é otimista: quem tira o item/card do estado antigo é a releitura; a toasts
+  de sucesso dizem o próximo passo ("O outro lado precisa aprovar para o
+  confronto ficar agendado.", "A proposta saiu da mesa: dá para enviar outro
+  horário quando quiser."). O texto de erro do SERVIDOR vence o fallback do
+  toast.
+- **Casa do jogador (torneio), com a chave ainda privada:** a tela monta
+  `PendingAlerts` (pendências do servidor, escopo player) + o painel "Seu
+  confronto" (`player-match-panel.tsx` — um `MatchCard` por confronto
+  negociável, com a nota "A chave completa abre quando o torneio começar.") + a
+  seção "Próximo jogo"; sem próximo jogo, sem pendência e sem painel o bloco não
+  existe.
+- **Deep-link `?matchId=`:** o aviso de "próximo jogo" e as pendências levam a
+  casa do torneio com o id; `resolveMatchFocus` decide UM alvo (o card do
+  "Próximo jogo" OU o card do painel dos próprios jogos) e a página rola até ele
+  (`measureLayout` e `y - (insets.top + 72)`).
+- **Apontamento:** o aceite do horário usa os MESMOS ids de toast no card
+  (`accept-match-schedule-*`) e no CTA da pendência, com copy diferente — quem
+  usa os dois caminhos na mesma sessão vê a mensagem do último.
+
+## Enquadramento da chave e o espaço da barra flutuante (28-09-2026)
+
+- **A barra flutuante é a fonte única do próprio espaço**
+  (`src/lib/navigation/floating-tab-bar-layout.ts`):
+  `FLOATING_TAB_BAR_BOTTOM_GAP = 12`, o observable `floatingTabBarHeight$` com a
+  altura MEDIDA da barra e `getFloatingTabBarSpacing` = altura + safe area + a
+  folga. A própria `FloatingTabBar` mede-se no `onLayout`, publica no store e
+  escreve as CSS vars `--floating-tab-bar-height/-bottom-offset/-spacing-*` nos
+  temas light/dark — são elas que sustentam as utilities
+  `pb-floating-tab-bar[-offset-*]` das telas.
+- **A chave é a única que precisa do número em JS:** a tela do chaveamento mede o
+  header (o tab das categorias é `Page.Header` overlay) e lê a altura da barra,
+  entregando `headerInset`/`bottomInset` ao `BracketCanvas`; a faixa útil da
+  abertura é `[headerInset + 16, viewportHeight − bottomInset − 24]` — o
+  enquadramento nunca esconde o card atrás do tab de cima nem da barra de baixo.
+- **Tabs dos layouts:** o cluster privado usa `FloatingTabBar` com 2 itens
+  ("Início"/"Dashboard" no modo jogador/organização e "Minhas Competições",
+  `detachInactiveScreens={false}`); o torneio tem as tabs
+  `overview|Chave|Agenda|Inscrições` filtradas por acesso e o
+  `getNavigationParams` PRESERVA os params da aba e injeta o `tournamentId` a
+  cada troca (um `matchId` aberto não se perde ao navegar e voltar).
+- **`(private)/_layout.tsx`** monta o `MatchAgreementHost` (um só para o app) e
+  mantém `checkout/[chargeId]` como `fullScreenModal`.

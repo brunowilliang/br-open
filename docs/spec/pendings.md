@@ -16,6 +16,12 @@
 > **26-09-2026:** entra o sétimo kind, `organization_tournament_awaiting_conclusion`
 > (a conclusão do torneio é ato do organizador) — o primeiro kind de ESTADO, sem
 > dispensa — e o app passa a ter paridade de CONSUMO com o catálogo do servidor.
+>
+> **28-09-2026:** o acerto do confronto entra no catálogo com QUATRO kinds
+> (horário e placar propostos pelo outro lado, pedido de mudança e o agregado do
+> organizador), todos DISPENSÁVEIS (só a conclusão do torneio segue sem gesto);
+> o recibo de dispensa ganha a **assinatura** do payload — proposta nova muda a
+> assinatura e o item VOLTA.
 
 ## Visão geral
 
@@ -31,7 +37,8 @@ A Etapa 1 cobre o contrato (uma query por escopo) e é a fonte da verdade do
 shape. O **shape visual está aprovado pelo usuário** na galeria dev do app
 (`AlertsVariantsSection`, 9 cartões, IBX-0076 r1–r6): os kinds com cartão na
 galeria são 1:1 com os Alertas 4 a 7, 11, 12 e 19, e a copy é literal deles (o 19
-usa o BUILDER real do servidor, não texto digitado).
+usa o BUILDER real do servidor, não texto digitado). Os quatro kinds do acerto
+(28-09-2026, abaixo) entraram no catálogo **sem** cartão na galeria.
 
 ## Contrato — `pendings.list`
 
@@ -50,20 +57,21 @@ usa o BUILDER real do servidor, não texto digitado).
 | Campo | Regra |
 |---|---|
 | `id` | Determinístico: `<kind>:<sourceId>` (`buildPendingItemId`). É a identidade/key do item na lista. |
-| `kind` | Enum FECHADO que cresce por ADIÇÃO (7 kinds na v1, todos com cartão na galeria: 4 a 7, 11, 12 e 19). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
+| `kind` | Enum FECHADO que cresce por ADIÇÃO (11 kinds na v1: 7 com cartão na galeria — 4 a 7, 11, 12 e 19 — e os 4 do acerto). Primeiro segmento = quem deve a ação (`player`/`organization`), depois domínio + pendência. `PENDING_KIND_SCOPES` (contrato) é o único lugar que decide o escopo de cada kind. |
 | `domain` | Domínio dono da REGRA: `payment`, `tournament` — `player` existe no enum (shape aprovado) e não tem kind na v1. |
 | `severity` | `danger` \| `warning` \| `info`. O componente do app não tem `info`: o cliente mapeia `info` para `accent` do alerta, como na galeria (cartões 5, 6, 7 e 11). |
 | `title` | Sempre presente (regra aprovada: todo alerta tem título E descrição). Frase única, com a contagem no plural quando agrega. |
 | `description` | `string` (quando a copy real do app já é uma frase) OU **LINHAS de PARTES**: `{ parts: { text, isHighlighted? }[] }[]`. Quem decide o destaque e a quebra por linha é o SERVIDOR. Agregado usa UMA LINHA POR TIPO — nunca separador no meio da frase. |
 | `actionLabel` | CTA principal, **UMA palavra**, ou `null` (pendência sem ação). É a COPY do botão. |
-| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`, `approve_tournament_entry`, `reject_tournament_entry`, `conclude_tournament`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
-| `secondaryActionLabel` | Rótulo da ação de menor hierarquia (rodapé do alerta, antes da principal), também de uma palavra. Só o convite recebido tem duas ações (`Recusar` + `Aceitar`). |
+| `action` | **Como o cliente EXECUTA o CTA**: `{ type, params }` ou `null`. `type` é enum FECHADO que cresce por adição (`open_route`, `pay_tournament_entry`, `accept_partner_invite`, `decline_partner_invite`, `approve_tournament_entry`, `reject_tournament_entry`, `conclude_tournament`, `accept_match_schedule`, `confirm_match_score`); `params` carrega o que a ação precisa além do `source`/`route`. Ver "Ação executável" abaixo. |
+| `secondaryActionLabel` | Rótulo da ação de menor hierarquia (rodapé do alerta, antes da principal), também de uma palavra. Duas ações têm hoje o convite recebido (`Recusar` + `Aceitar`) e os itens do acerto (`Aceitar`/`Confirmar` + `Combinar`). |
 | `secondaryAction` | Ação executável do CTA secundário (mesmo shape de `action`); `null` quando não há segundo botão. |
 | `route` + `params` | Deep-link no molde dos CTAs vivos dos alertas (`router.navigate({ pathname, params })`): o pathname do expo-router (`/tournaments/[tournamentId]`, `/tournaments/[tournamentId]/entries`) + os params (`{ tournamentId }`, `{ initialTab: "pending", tournamentId }`). Eles são o **destino** quando `action.type = "open_route"` (aí são obrigatórios) e podem ser **contexto da entidade** nos demais casos (o recorte da casa lê o `params`, ex.: `tournamentId`); o **alvo** de uma mutação nunca mora aqui — mora em `action.params` ou no `source`. |
 | `count` | Quantos casos o item agrega (`null` quando é um caso só). O título usa a MESMA contagem. |
 | `deadlineAt` | Epoch ms do prazo que decide a ação (vencimento, fim de inscrição, instante da penalidade) ou `null`. |
 | `moneyCents` | Dinheiro envolvido em centavos ou `null`. |
-| `source` | Entidade de origem (`{ type, id }`): `organization`, `tournament`, `tournament_entry`. `payment_charge` NÃO está no enum hoje: entra quando o kind que aponta para uma cobrança existir (é o caso do PIX/charge pendente ou expirado do jogador, em "O que NÃO entra na v1"), no mesmo passo tipo → enum → registro. |
+| `source` | Entidade de origem (`{ type, id }`): `organization`, `tournament`, `tournament_entry`, `tournament_match`. `payment_charge` NÃO está no enum hoje: entra quando o kind que aponta para uma cobrança existir (é o caso do PIX/charge pendente ou expirado do jogador, em "O que NÃO entra na v1"), no mesmo passo tipo → enum → registro. |
+| `signature` | Impressão do dado que sustenta o item, só nos kinds de payload MUTÁVEL (hoje: o acerto). Entra no snapshot do recibo de dispensa: proposta nova muda a assinatura, o recibo morre e o item volta — o mesmo efeito do "se piorar, reaparece", agora também quando o texto reescrito muda. |
 
 **Destaque (regra aprovada):** no máximo UM por linha, sempre a palavra-chave
 que identifica a pendência (nome de pessoa, categoria, competição, valor,
@@ -77,10 +85,12 @@ mapa `kind` → handler espalhado nas telas e sem adivinhar:
 
 | `action.type` | O que o cliente executa | Kinds |
 |---|---|---|
-| `open_route` | `router.navigate({ pathname: route, params })` (destino no item) | 11, 12 e o agregado de 4 com mais de uma inscrição |
+| `open_route` | `router.navigate({ pathname: route, params })` (destino no item) | 11, 12, o agregado de 4 com mais de uma inscrição, o secundário dos kinds do acerto e o agregado do organizador |
 | `pay_tournament_entry` | `createCharge({ sourceType: "tournament_entry", sourceId: action.params.entryId })` e abrir o checkout | 4 com **uma** inscrição (`action.params.entryId`) |
 | `accept_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: true })` | 5 (`Aceitar`) |
 | `decline_partner_invite` | `respondPartnerInvite({ entryId: action.params.entryId, accept: false })` | 5 (`Recusar`, no `secondaryAction`) |
+| `accept_match_schedule` | `agreements.acceptSchedule({ matchId: action.params.matchId })` (no cliente, `crpcClient.tournament.agreements.acceptSchedule` — `src/lib/pendings/use-pending-action-runner.ts`) — aceita o horário na mesa e o confronto fica agendado pela MESMA via do organizador | os dois kinds de horário recebido |
+| `confirm_match_score` | `agreements.acceptScore({ matchId: action.params.matchId })` — confirma o placar na mesa e o resultado é publicado | o kind de placar recebido |
 | `approve_tournament_entry` | `entries.approve({ entryId: action.params.entryId })` (`convex/functions/tournament/entries.ts:622`; no cliente, `crpcClient.tournament.entries.approve` — `src/lib/pendings/use-pending-action-runner.ts:52`) — decisão da inscrição pelo organizador | NENHUM kind de pendência emite hoje: quem desenha é o cartão de NOTIFICAÇÃO de decisão de inscrição (agrupa "Aprovar" + "Recusar", `convex/domains/notification/presentation.ts:67`), e o app resolve os dois pelo MESMO `resolvePendingAction` (`src/lib/notifications/notification-view.ts:160`) |
 | `reject_tournament_entry` | `entries.reject({ entryId: action.params.entryId })` (`entries.ts:671`; no cliente `:77`) — recusa, e as vagas da categoria voltam | idem (o `secondaryAction` "Recusar" do mesmo cartão) |
 | `conclude_tournament` | `tournament.lifecycle.conclude({ tournamentId: action.params.tournamentId })` — no cliente `crpcClient.tournament.lifecycle.conclude` (`:104`); a conclusão é do DONO e o cliente não navega: o CTA É a mutação | 19 |
@@ -132,28 +142,31 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
   `(ator, superfície, item)`: `actorKind` (`organization`/`player`), `actorId`
   (id do ator dono da pendência), `surface`, `itemId` (o id determinístico
   `<kind>:<sourceId>`), `dismissedAt` e o **snapshot**
-  `severity`/`count`/`deadlineAt` do item no momento da dispensa. Índice único
-  `actor_surface_item` — serve o upsert da dispensa e a leitura.
+  `severity`/`count`/`deadlineAt`/`signature` do item no momento da dispensa.
+  Índice único `actor_surface_item` — serve o upsert da dispensa e a leitura.
 - **Mutation `pendings.dismiss`** (`functions/pendings/dismiss.ts`,
   `authMutation`, input `{ itemId, surface }`): o dono do recibo é o ATOR ATIVO
   resolvido no servidor (o cliente não manda ator), e o snapshot é
   **re-derivado** pelo mesmo caminho da leitura — o cliente não escolhe o que
-  congela, então não consegue manter escondido um item que já piorou. Só o que
+  congela, então não consegue manter escondido um item que já piorou (nem um
+  item cujo payload foi reescrito). Só o que
   a leitura daquele ator mostra é dispensável: item de outro ator/escopo (ou id
-  sem kind registrado) devolve `NOT_FOUND` (o código diz `"Pendencia nao encontrada."`, sem acento — `convex/functions/pendings/dismiss.ts:32` e `:49`).
+  sem kind registrado) devolve `NOT_FOUND` (o código diz `"Pendencia nao encontrada."`, sem acento — `convex/functions/pendings/dismiss.ts:36` e `:61`).
   Dispensar de novo o mesmo item regrava o recibo (upsert) — é o passo em que o
   recibo morto é substituído.
 - **Recibo na casa é aceito e INERTE** (`surface: "house"`): a mutation grava,
   mas a leitura da casa nunca filtra — por isso o botão de esconder não pode
   existir na casa (o gesto é só da home).
 - **Regra do recibo vivo** (`filterDismissedPendingItems`, `pendings-rules.ts`):
-  o item fica escondido **enquanto o recibo casar com o item atual nos três
-  campos do snapshot** — severidade igual, contagem igual (caso único, `count`
-  nulo, conta 1) e prazo igual. Qualquer diferença (severidade que sobe, ex.:
-  `warning` → `danger` no MESMO id; contagem que cresce; `deadlineAt` novo ou
-  diferente) mata o recibo e o item **VOLTA** para a tela — "se piorar,
-  reaparece" (DEC-0008, opção A). Recibo morto é ignorado na leitura, nunca
-  bloqueia.
+  o item fica escondido **enquanto o recibo casar com o item atual nos campos do
+  snapshot** — severidade igual, contagem igual (caso único, `count` nulo, conta
+  1), prazo igual e **assinatura igual** (só nos kinds que a emitem, hoje o
+  acerto; nos demais é `null` dos dois lados). Qualquer diferença (severidade que
+  sobe, ex.: `warning` → `danger` no MESMO id; contagem que cresce; `deadlineAt`
+  novo ou diferente; proposta reescrita no acerto) mata o recibo e o item
+  **VOLTA** para a tela — "se piorar, reaparece" (DEC-0008, opção A), agora
+  valendo também para payload reescrito sem piorar. Recibo morto é ignorado na
+  leitura, nunca bloqueia.
 - **Efeito no resultado:** o filtro acontece ANTES do cap e das contagens
   (`buildPendingsResult`), então item escondido não ocupa vaga no cap de 20 nem
   entra em `counts` (a home nunca anuncia mais do que mostra) e `truncated`
@@ -184,14 +197,15 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
   acompanhar a mudança de schema (aplicada no DEV em 21-09).
 
 - **Kind de ESTADO não tem dispensa** (`PENDING_NON_DISMISSIBLE_KINDS`,
-  `convex/domains/pendings/contract.ts:86`): o GESTO não existe para ele — a
+  `convex/domains/pendings/contract.ts:95`): o GESTO não existe para ele — a
   `pendings.dismiss` recusa com `BAD_REQUEST` ("Essa pendência não pode ser
   dispensada.", `convex/functions/pendings/dismiss.ts:44`) e a leitura nunca
   esconde (`isPendingItemDismissible` entra na classificação dos recibos,
-  `pendings-rules.ts:139` e `:191`), então um recibo gravado antes da regra morre
+  `pendings-rules.ts:160` e `:212`), então um recibo gravado antes da regra morre
   em vez de sumir com o item. O critério é o mesmo do resto: o item sai quando o
   PROBLEMA acaba, não quando o ator o esconde. Hoje a lista tem um único kind,
-  `organization_tournament_awaiting_conclusion` (abaixo).
+  `organization_tournament_awaiting_conclusion` (abaixo) — o acerto (proposta
+  recebida e agregado do organizador) é lembrete válido e ACEITA o gesto da home.
 
 ### Autorização (invariante)
 
@@ -220,6 +234,10 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 | 11 | `organization_tournament_entries_awaiting_approval` | organization | tournament | info | N inscrição(ões) aguardando aprovação | Ver | `/tournaments/[tournamentId]/entries` + `initialTab: "pending"`, `tournamentId` |
 | 12 | `organization_tournament_entries_awaiting_payment` | organization | tournament | warning | N inscrição(ões) aguardando pagamento | Ver | idem 11 |
 | 19 | `organization_tournament_awaiting_conclusion` | organization | tournament | warning | Concluir torneio | Concluir | — (o CTA não navega: ele conclui) |
+| — | `player_tournament_match_schedule_proposed` | player | tournament | warning | Horário proposto pelo outro lado | Aceitar (+ Combinar) | `/tournaments/[tournamentId]` + `tournamentId` (contexto; o alvo do aceite é o confronto) |
+| — | `player_tournament_match_reschedule_requested` | player | tournament | warning | Pedido para mudar o horário | Aceitar (+ Combinar) | idem |
+| — | `player_tournament_match_score_proposed` | player | tournament | warning | Placar proposto pelo outro lado | Confirmar (+ Combinar) | idem |
+| — | `organization_tournament_matches_awaiting_agreement` | organization | tournament | warning | N confronto(s) sem resposta | Ver | `/tournaments/[tournamentId]` + `tournamentId` (contexto) |
 
 **Como cada item agrega (e por quê):**
 
@@ -233,6 +251,10 @@ home. A superfície viaja no input da leitura (`surface`) e a casa NUNCA esconde
 - **19 — por TORNEIO concluível** (um item por torneio): o item é do TORNEIO, não
   de uma categoria, e não agrega contagem — a frase diz que ele já tem campeão em
   todas as categorias.
+- **Acerto (os quatro kinds) — por CONFRONTO**, menos o agregado do organizador:
+  cada item nomeia quem propôs e o que está na mesa (horário/placar), dados do
+  confronto; o agregado do organizador conta CONFRONTOS sem resposta por torneio
+  (nunca canais).
 
 ### Kind 19 · `organization_tournament_awaiting_conclusion` (ESTADO, sem dispensa)
 
@@ -271,25 +293,64 @@ do próprio cartão registra a única diferença dele: é o kind sem gesto de es
 - **Paridade de consumo:** o app tem um teste que monta os itens de TODOS os
   kinds pelos builders do SERVIDOR e passa cada um por `resolvePendingAction`
   (`src/lib/pendings/pendings-action-parity.test.ts`: o array de itens tem um por
-  kind do catálogo em `:99-112` e cada CTA desenhado precisa resolver em `:115`).
+  kind do catálogo em `:154` e cada CTA desenhado precisa resolver em `:168`).
   É CONTRATO de consumo: o catálogo pinado é o `PENDING_KINDS_BY_SCOPE` do
   backend, então um kind novo quebra o teste até o app saber executá-lo — foi o
   que este kind exigiu do lado do cliente.
+
+### Kinds do acerto · proposta recebida e agregado do organizador
+
+O acerto do confronto (o "Combinar jogo", `docs/spec/tournaments.md`) deriva
+pendências dos DOIS lados: o jogador vê a proposta que recebeu, o organizador vê
+o torneio com acerto aberto.
+
+- **Quem recebe (jogador):** só o lado que NÃO propôs (`resolveReceivedAgreement`,
+  `convex/domains/tournament/agreement-rules.ts`) e só com o canal `negotiating` —
+  proposta do próprio ator não é pendência dele. Proposta por cima de acerto já
+  fechado (`agreedAt` não nulo) vira o kind de PEDIDO DE MUDANÇA
+  (`..._reschedule_requested`), com a copy "sugeriu"; os demais são
+  `..._schedule_proposed`/`..._score_proposed`.
+- **Copy:** linha de partes com o NOME de quem propôs destacado e o que está na
+  mesa — `proposalLabel` = "28/09 às 08:00, na Quadra Central" ou "6-3, 6-2"
+  (rótulos de `convex/domains/match/labels.ts`); o lado adversário entra como "com
+  {dupla}" e some quando não sobrou nome além do autor (confronto simples). Item
+  sem proposta LIDA (horário/placar ilegível, autor sem nome) não nasce.
+- **CTA:** `Aceitar` (horário) e `Confirmar` (placar) executam a mutation do
+  acerto em UM toque (`accept_match_schedule`/`confirm_match_score`) — o
+  secundário `Combinar` abre o confronto (`open_route` com `matchId`), onde dá
+  para propor outro em vez de aceitar. Nada é otimista: quem tira o item da tela
+  é a releitura, e a recusa do servidor (quadra ocupada na hora, acerto já
+  fechado, torneio encerrado) chega no toast.
+- **Agregado do organizador:** um item por TORNEIO com acerto aberto, título
+  pluralizado pela contagem de CONFRONTOS sem resposta e descrição "Você pode
+  agendar ou lançar o resultado direto no confronto, sem esperar o Combinar
+  jogo." — é convite para agir, não cobrança: some quando o acerto fecha ou
+  quando o organizador escreve por cima.
+- **Dispensa:** os quatro kinds aceitam o gesto da home (só a conclusão do
+  torneio segue sem dispensa) e o item **volta** quando chega proposta nova: a
+  assinatura do item é derivada do `proposedAt` da proposta vigente
+  (`{canal}:{proposedAt}` no jogador; `{canal}:{matchId}:{proposedAt}` de todas
+  as propostas no agregado), então o recibo morre na reescrita.
 
 ## Como é derivado
 
 - **Regras puras por domínio** (dado → item, sem ctx, testáveis isoladas):
   - `convex/domains/tournament/pendings-rules.ts` — inscrições do jogador (4, 5,
-    6, 7) e do organizador (11, 12).
+    6, 7), do organizador (11, 12), a conclusão (19) e os kinds do acerto
+    (`buildPlayerMatchAgreementPendings`/`buildOrganizerAgreementPendings`).
   - `convex/domains/pendings/pendings-rules.ts` — o que é comum: identidade,
-    ordem, cap, contagens, concordância de número, partes/linhas.
+    ordem, cap, contagens, concordância de número, partes/linhas e a assinatura
+    do item (`pendingItemSignature`).
 - **Registro + leitura:** `convex/domains/pendings/registry.ts` monta os
   derivadores por escopo (`PENDING_DERIVERS`), lê o mínimo com `ctx.orm` e
-  fecha o resultado em `collectPendings`. Todo kind é declarado pelo derivador
-  que o emite e a **completude é auditada por teste** (união dos declarados =
-  kinds do escopo, sem duplicata; cada kind no escopo que o contrato registrou).
-  Se um item sair no escopo errado, a query **falha** (erro explícito) em vez de
-  mostrar pendência no escopo errado.
+  fecha o resultado em `collectPendings` — os acertos RECEBIDOS
+  (`collectPlayerAgreementPendings`, por inscrição do jogador e índice
+  `entryAId_state`/`entryBId_state`) e o agregado do organizador
+  (`collectOrgAgreementPendings`, por torneio `drawn`/`ongoing`). Todo kind é
+  declarado pelo derivador que o emite e a **completude é auditada por teste**
+  (união dos declarados = kinds do escopo, sem duplicata; cada kind no escopo que
+  o contrato registrou). Se um item sair no escopo errado, a query **falha** (erro
+  explícito) em vez de mostrar pendência no escopo errado.
 
 ## Limites e caps declarados
 
@@ -306,6 +367,9 @@ linha fica de fora depende da ordem interna do índice.
 | Torneios da organização lidos / varridos por inscrição e por conclusão | 50 / 20 (mais recentes) | 11, 12 e 19 |
 | Categorias por torneio / inscrições por categoria | 10 / 300 | 11, 12 e 19 |
 | Partidas por categoria (leitura da conclusão) | 300 | 19 |
+| Inscrições do jogador varridas atrás do acerto (`PLAYER_AGREEMENT_ENTRY_LIMIT`) | 20 (sobre o scan de 100 por lado) | os 3 kinds do acerto (jogador) |
+| Acertos lidos por inscrição (`PLAYER_AGREEMENT_ROW_LIMIT`) | 50 | os 3 kinds do acerto (jogador) |
+| Acertos abertos por torneio do organizador (`ORG_AGREEMENT_SCAN_LIMIT`) | 100 | `organization_tournament_matches_awaiting_agreement` |
 | Itens devolvidos (`PENDING_ITEM_CAP`) | 20 | `truncated` |
 | Recibos de dispensa por ator/superfície (`PENDING_DISMISSAL_SCAN_LIMIT`) | 200 | não emite `saturation`: é estado do próprio ator (e a casa nem lê). A poda do dismiss compara com a derivação COMPLETA e mantém a tabela só com recibo vivo, então na prática o corte não é alcançável (os vivos são no máximo os itens distintos que aquele ator vê) |
 
@@ -337,7 +401,8 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   frase por analogia.
 - **Cartão 15 ("4 confrontos sem agendamento")**: a própria galeria registra
   que "qual confronto conta como pendência ainda não tem regra" — sem regra, sem
-  kind.
+  kind. É caso diferente do acerto ABERTO (alguém propôs e ninguém respondeu),
+  que tem kind próprio; aqui é o confronto sem NENHUM horário em jogo.
 - **Receita da organização, estornos e saques** como pendência: não existem
   cartões aprovados para eles.
 - **Índice novo de `tournamentEntry` por jogador** (follow-up declarado).
@@ -404,6 +469,18 @@ próprio é trabalho futuro (exige migration, fora deste corte).
   mandasse `severity`/`count`/`deadlineAt`, uma tela desonesta poderia congelar
   um snapshot à frente do item real e furar o "se piorar, reaparece"; a mutation
   deriva o item pelo MESMO caminho da leitura e congela o que ela mostra.
+- **A assinatura fecha o buraco do payload REESCRITO (28-09-2026).** Nos kinds
+  de dado mutável (o acerto), severidade/contagem/prazo podem ficar idênticos e
+  o texto mudar inteiro — o recibo esconderia uma pendência NOVA. O item passa a
+  carregar `signature` (impressão do payload, `pendingItemSignature`,
+  `pendings-rules.ts:54`) e o recibo a congela junto do resto: proposta nova
+  reescreve a assinatura e o item volta. A comparação é
+  `(receipt.signature ?? null) === (item.signature ?? null)`, então os kinds sem
+  assinatura seguem valendo `null == null`.
+- **O acerto é dispensável por decisão (28-09-2026).** `PENDING_NON_DISMISSIBLE_KINDS`
+  ficou só com a conclusão do torneio: proposta recebida e acerto aberto do
+  organizador são LEMBRETE (o problema segue no servidor de qualquer forma) e
+  aceitam o gesto da home — o recibo é que não sobrevive à próxima proposta.
 - **Sem `surface` a leitura vale a CASA.** É a única superfície que nunca
   esconde, então quem esquece o parâmetro recebe a lista completa — o default
   nunca faz uma pendência SUMIR por engano. As chamadas da casa (o `_layout.tsx`
