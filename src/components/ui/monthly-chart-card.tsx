@@ -84,7 +84,7 @@ export function MonthlyChartCard(props: {
   // pro degradê do Skia.
   const accentColor = useThemeColorPro("chart-3");
   const pillLabels = useMemo(
-    () => data.map((point) => `${point.label} · ${formatValue(point.value)}`),
+    () => data.map((point) => `${point.label} | ${formatValue(point.value)}`),
     [data, formatValue]
   );
   // O `matchedIndex` é a API pública do press state (`useChartPressState.js:34`)

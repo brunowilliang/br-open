@@ -111,14 +111,14 @@ describe("buildNotificationDescription", () => {
   it("highlights every occurrence of the keyword", () => {
     expect(
       buildNotificationDescription({
-        body: "Copa Dracena 8 · a Copa Dracena 8 começou.",
+        body: "Copa Dracena 8 | a Copa Dracena 8 começou.",
         bodyHighlights: ["Copa Dracena 8"],
       })
     ).toEqual([
       {
         parts: [
           { isHighlighted: true, text: "Copa Dracena 8" },
-          { text: " · a " },
+          { text: " | a " },
           { isHighlighted: true, text: "Copa Dracena 8" },
           { text: " começou." },
         ],

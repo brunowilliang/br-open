@@ -60,5 +60,5 @@ export function buildTournamentDatesSummary(input: {
     );
   }
 
-  return parts.length > 0 ? parts.join(" · ") : null;
+  return parts.length > 0 ? parts.join(" | ") : null;
 }

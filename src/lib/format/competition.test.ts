@@ -21,7 +21,7 @@ describe("formatPriceParts", () => {
 
 describe("formatCompetitionMeta", () => {
   it("joins city and state, and falls back to whichever exists", () => {
-    expect(formatCompetitionMeta("Dracena", "SP")).toBe("Dracena · SP");
+    expect(formatCompetitionMeta("Dracena", "SP")).toBe("Dracena | SP");
     expect(formatCompetitionMeta("Dracena", null)).toBe("Dracena");
     expect(formatCompetitionMeta(null, "SP")).toBe("SP");
     expect(formatCompetitionMeta(null, null)).toBe("Sem local definido");

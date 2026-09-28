@@ -170,7 +170,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
     : TIME_OPTIONS;
   const rangeDialogTitle =
     isEditingRange && rangeDay !== null
-      ? `${rangeActionLabel} Horário · ${getDayLabel(rangeDay)}`
+      ? `${rangeActionLabel} Horário | ${getDayLabel(rangeDay)}`
       : `${rangeActionLabel} Horário`;
 
   function onChange(nextValue: Court[]) {
@@ -523,7 +523,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                                             {formatMinuteToHHMM(
                                               range.startMinute
                                             )}{" "}
-                                            ·{" "}
+                                            |{" "}
                                             {formatMinuteToHHMM(
                                               range.endMinute
                                             )}

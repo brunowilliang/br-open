@@ -106,7 +106,7 @@ describe("tournament organizer overview dates line", () => {
         registrationDeadlineAt: deadline,
         startDate,
       })
-    ).toBe("Início 25 de set. de 2026 · Inscrições até 22 de set. de 2026");
+    ).toBe("Início 25 de set. de 2026 | Inscrições até 22 de set. de 2026");
   });
 
   test("campo ausente sai da linha", () => {

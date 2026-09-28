@@ -32,7 +32,7 @@ export function formatCompetitionMeta(
   state?: string | null
 ) {
   if (city && state) {
-    return `${city} · ${state}`;
+    return `${city} | ${state}`;
   }
 
   return city || state || "Sem local definido";

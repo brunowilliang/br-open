@@ -33,11 +33,11 @@ export const GALLERY_ACTION_NOTES: Partial<
   Record<NotificationEventType, string>
 > = {
   "tournament.entry.created":
-    "Aprovar/Recusar · tournament.entries.approve|reject (gate: pending_approval)",
+    "Aprovar/Recusar | tournament.entries.approve|reject (gate: pending_approval)",
   "tournament.match.ready":
-    "Combinar horário · abre o Combinar jogo do confronto (open_route, sem mutation)",
+    "Combinar horário | abre o Combinar jogo do confronto (open_route, sem mutation)",
   "tournament.partner.invited":
-    "Aceitar/Recusar · tournament.entries.respondPartnerInvite (gate: pending_partner)",
+    "Aceitar/Recusar | tournament.entries.respondPartnerInvite (gate: pending_partner)",
 };
 
 /** Linha do template em `convex/domains/notification/definitions.ts`. */
@@ -199,7 +199,7 @@ export function buildGalleryNotificationNote(
     `Copy do servidor (definitions.ts:${GALLERY_TEMPLATE_LINES[eventType]})`,
     `papel ${role}`,
     action
-      ? `ACIONÁVEL · ${action} · rótulos do builder de apresentação`
+      ? `ACIONÁVEL | ${action} | rótulos do builder de apresentação`
       : "INFORMATIVO (sem ação no builder de apresentação)",
   ];
 
@@ -207,7 +207,7 @@ export function buildGalleryNotificationNote(
     parts.push(GALLERY_EXTRA_NOTES[eventType] as string);
   }
 
-  return parts.join(" · ");
+  return parts.join(" | ");
 }
 
 /** Os 5 grupos na ordem da galeria — que NÃO é a ordem do catálogo. */
@@ -222,11 +222,11 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.entry.refund_requested",
       "tournament.entry.refunded",
     ],
-    title: "Torneio · inscrição (jogador)",
+    title: "Torneio | inscrição (jogador)",
   },
   {
     eventTypes: ["tournament.entry.created", "tournament.entry.cancelled"],
-    title: "Torneio · inscrição (organizador)",
+    title: "Torneio | inscrição (organizador)",
   },
   {
     eventTypes: [
@@ -235,7 +235,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.partner.awaiting_reply",
       "tournament.partner.invite_cancelled",
     ],
-    title: "Torneio · dupla e convite (jogador)",
+    title: "Torneio | dupla e convite (jogador)",
   },
   {
     eventTypes: [
@@ -254,11 +254,11 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.match.result",
       "tournament.match.result_edited",
     ],
-    title: "Torneio · chave e partidas (jogador)",
+    title: "Torneio | chave e partidas (jogador)",
   },
   {
     eventTypes: ["tournament.finished", "tournament.cancelled"],
-    title: "Torneio · ciclo (jogador)",
+    title: "Torneio | ciclo (jogador)",
   },
 ];
 
