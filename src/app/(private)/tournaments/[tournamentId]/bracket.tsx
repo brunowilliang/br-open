@@ -1,6 +1,6 @@
 import { MoreVerticalIcon, ShuffleIcon } from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Dialog, Menu, Tabs, useToast } from "heroui-native";
@@ -14,7 +14,6 @@ import {
   getFloatingTabBarSpacing,
 } from "@/lib/navigation/floating-tab-bar-layout";
 
-import { ScheduleProposalDialog } from "@/components/ui/schedule-proposal-dialog";
 import { BracketCanvas } from "@/components/pages/tournaments/bracket-canvas";
 import { BracketMatchCard } from "@/components/pages/tournaments/bracket-match-card";
 import {
@@ -24,13 +23,17 @@ import {
   useNegotiablePlayerMatches,
   type RunMatchAgreementAction,
 } from "@/components/pages/tournaments/match-agreement-provider";
+import {
+  buildOrganizerMatchActionRequest,
+  useOrganizerActions,
+  useTournamentContextInvalidation,
+} from "@/components/pages/tournaments/organizer-actions";
 import { PlayerMatchPanel } from "@/components/pages/tournaments/player-match-panel";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
-import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import {
@@ -55,9 +58,13 @@ import {
 import {
   buildBracketPlaceholder,
   formatBracketStage,
-  formatEntrySideLabel,
 } from "@/lib/tournaments/tournament-details-derived";
 import { isMatchAgreementLocked } from "@/lib/tournaments/match-agreement-view";
+import {
+  buildMatchSlotKey,
+  canReserveUnreadySlot,
+  type OrganizerMatchMenuKind,
+} from "@/lib/tournaments/organizer-match-menu";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 /** Card da chave + espaço do cotovelo entre rodadas (uniwind rem = 16). O card
@@ -67,21 +74,12 @@ const CARD_WIDTH = 320;
 const CONNECTOR_WIDTH = 32;
 const CARD_GAP_Y = 12;
 
-/** W.O. — vencedor escolhido, placar vazio (mesma semântica do backend). */
-const WALKOVER_SET = {
-  aGames: 0,
-  bGames: 0,
-  kind: "set",
-} as const;
-
-type ResultTarget = { match: TournamentMatchWithSides };
 type BracketTreeCardEntry = BracketTreeLayout["cards"][number];
 
 export default function TournamentBracketRoute() {
   const { tournamentId } = useLocalSearchParams<{ tournamentId: string }>();
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   // Alturas flutuantes que a abertura da chave desconta (o header com a tab das
   // categorias e a barra de navegação de baixo): o header se mede aqui porque o
@@ -103,6 +101,7 @@ export default function TournamentBracketRoute() {
   const categoriesById = useValue(bucket$.derived.categoriesById);
 
   const { runAction } = useMatchAgreement();
+  const { run } = useOrganizerActions();
   const { byMatchId: myMatchesByMatchId } = useMatchAgreementView(tournamentId);
   const myMatches = useNegotiablePlayerMatches(tournamentId);
   // O host do acerto vive no casco privado e não conhece a tela: quem sabe o
@@ -113,13 +112,7 @@ export default function TournamentBracketRoute() {
     },
     [runAction, tournamentId]
   );
-  const [resultTarget, setResultTarget] = useState<ResultTarget | null>(null);
-  const [scheduleTarget, setScheduleTarget] =
-    useState<TournamentMatchWithSides | null>(null);
   const [swapTarget, setSwapTarget] = useState<BracketSwapTarget | null>(null);
-  const [editTarget, setEditTarget] = useState<TournamentMatchWithSides | null>(
-    null
-  );
   const [cardHeights, setCardHeights] = useState<BracketCardHeights>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isRedrawDialogOpen, setIsRedrawDialogOpen] = useState(false);
@@ -156,143 +149,8 @@ export default function TournamentBracketRoute() {
     bucket$.actions.setActiveRoute("bracket");
   }, [bucket$]);
 
-  // Slots ocupados pros horários do dialog de agendamento (padrão da liga,
-  // ranking.tsx:66) — só o organizador agenda, mesma audiência do dialog.
-  const occupiedSlotsQuery = useQuery({
-    ...crpc.tournament.matches.listOccupiedSlots.staticQueryOptions({
-      tournamentId,
-    }),
-    enabled: isOrganizer,
-  });
-  const occupiedSlots = (occupiedSlotsQuery.data ?? []).map(
-    ({ matchId, ...slot }) => ({ ...slot, slotId: matchId })
-  );
-
-  async function invalidateTournamentContext() {
-    await Promise.all([
-      queryClient.invalidateQueries(
-        crpc.tournament.discovery.getById.queryFilter({ tournamentId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.tournament.matches.listForTournament.queryFilter({ tournamentId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.tournament.entries.listForTournament.queryFilter({ tournamentId })
-      ),
-      queryClient.invalidateQueries(
-        crpc.tournament.matches.listOccupiedSlots.queryFilter({
-          tournamentId,
-        })
-      ),
-      // A chave mexe no que o servidor deriva de pendência: o último resultado de
-      // categoria faz nascer a de concluir, e concluir a apaga.
-      queryClient.invalidateQueries(crpc.pendings.list.list.queryFilter()),
-    ]);
-  }
-
-  const publishResult = useMutation({
-    mutationFn: crpcClient.tournament.matches.publishResult.mutate,
-    mutationKey: crpc.tournament.matches.publishResult.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível salvar o resultado. Tente novamente."
-        ),
-        id: "tournament-result-error",
-        label: "Falha ao salvar resultado",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      setResultTarget(null);
-      toast.show({
-        description: "O vencedor avançou na chave.",
-        id: "tournament-result-success",
-        label: "Resultado salvo",
-        variant: "success",
-      });
-    },
-  });
-  // Edição de resultado JÁ publicado: o CONFLICT do servidor (partida seguinte
-  // já jogada) chega com a mensagem pronta — o toast só a exibe.
-  const editResult = useMutation({
-    mutationFn: crpcClient.tournament.matches.editResult.mutate,
-    mutationKey: crpc.tournament.matches.editResult.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível salvar o resultado. Tente novamente."
-        ),
-        id: "tournament-edit-result-error",
-        label: "Falha ao salvar resultado",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      setEditTarget(null);
-      toast.show({
-        description: "O resultado foi atualizado na chave.",
-        id: "tournament-edit-result-success",
-        label: "Resultado atualizado",
-        variant: "success",
-      });
-    },
-  });
-  // O ato do organizador que ENCERRA o torneio (a pendência só existe enquanto
-  // ele não concluir; quem tira o item da tela é a releitura, nada otimista).
-  const concludeTournament = useMutation({
-    mutationFn: crpcClient.tournament.lifecycle.conclude.mutate,
-    mutationKey: crpc.tournament.lifecycle.conclude.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível concluir o torneio. Tente novamente."
-        ),
-        id: "conclude-tournament-error",
-        label: "Falha ao concluir",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      toast.show({
-        description: "Torneio encerrado.",
-        id: "conclude-tournament-success",
-        label: "Torneio concluído",
-        variant: "success",
-      });
-    },
-  });
-  const scheduleMatch = useMutation({
-    mutationFn: crpcClient.tournament.matches.scheduleMatch.mutate,
-    mutationKey: crpc.tournament.matches.scheduleMatch.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível agendar o confronto. Tente novamente."
-        ),
-        id: "tournament-schedule-error",
-        label: "Falha ao agendar",
-        variant: "danger",
-      });
-    },
-    onSuccess: async () => {
-      await invalidateTournamentContext();
-      setScheduleTarget(null);
-      toast.show({
-        description: "Os jogadores foram notificados do agendamento.",
-        id: "tournament-schedule-success",
-        label: "Confronto agendado",
-        variant: "success",
-      });
-    },
-  });
+  const invalidateTournamentContext =
+    useTournamentContextInvalidation(tournamentId);
 
   const { mutate: swapSlotsMutate, isPending: isSwapPending } = useMutation({
     mutationFn: crpcClient.tournament.bracket.swapSlots.mutate,
@@ -349,6 +207,22 @@ export default function TournamentBracketRoute() {
   const matchesWithSides = useMemo(
     () => buildMatchSides({ entriesById, matches }),
     [entriesById, matches]
+  );
+
+  // Chave de toda vaga da chave: é dela que sai o "reservar" da semi/final
+  // (mesmo predicado da agenda, sobre o MESMO conjunto de partidas).
+  const bracketSlotKeys = useMemo(
+    () =>
+      new Set(
+        matchesWithSides.map((match) =>
+          buildMatchSlotKey({
+            categoryId: match.categoryId,
+            round: match.round,
+            slotInRound: match.slotInRound,
+          })
+        )
+      ),
+    [matchesWithSides]
   );
 
   // O nome da quadra RESOLVIDO é o mesmo valor nos dois lados: a estimativa
@@ -500,11 +374,16 @@ export default function TournamentBracketRoute() {
     [swapSlotsMutate, swapTarget, tournamentId, tournamentStatus]
   );
 
-  // `mutate` é estável no TanStack: o handler entra na lista do `renderCard` sem
-  // trocar a identidade dele a cada render (o canvas depende disso).
-  const handleConcludePress = useCallback(() => {
-    concludeTournament.mutate({ tournamentId });
-  }, [concludeTournament.mutate, tournamentId]);
+  // `run` é estável (mutate do TanStack e tournamentId não trocam): os handlers
+  // entram na lista do `renderCard` sem mudar de identidade a cada render (o
+  // canvas depende disso). O VERBO do menu vem do builder por papel: a tela só
+  // leva o kind até o host, exatamente como a agenda.
+  const handleMenuAction = useCallback(
+    (kind: OrganizerMatchMenuKind, match: TournamentMatchWithSides) => {
+      run(buildOrganizerMatchActionRequest({ kind, matchId: match.id }));
+    },
+    [run]
+  );
 
   // Stable identity across gesture-end canvas re-renders: the canvas only
   // re-renders its edges then, so cards skip reconciliation entirely.
@@ -523,6 +402,15 @@ export default function TournamentBracketRoute() {
       });
 
       const playerMatch = myMatchesByMatchId[match.id] ?? null;
+      // Acima da 1ª rodada com as DUAS filhas na chave: é a vaga que o
+      // organizador reserva antes de saber quem joga (regra compartilhada com o
+      // servidor e com a agenda).
+      const canReserveSlot = canReserveUnreadySlot({
+        categoryId: match.categoryId,
+        matchRound: match.round,
+        slotInRound: match.slotInRound,
+        slotKeys: bracketSlotKeys,
+      });
 
       return (
         <BracketMatchCard
@@ -542,6 +430,7 @@ export default function TournamentBracketRoute() {
                 })
               : null
           }
+          canReserveSlot={canReserveSlot}
           courtName={courtName}
           isConclusionPending={isConclusionPending}
           isFinal={match.round === activeTreeLayout?.tree.columns.length}
@@ -549,8 +438,6 @@ export default function TournamentBracketRoute() {
           isTournamentClosed={isTournamentClosed}
           match={match}
           modality={modality}
-          onConcludePress={handleConcludePress}
-          onEditResultPress={setEditTarget}
           onHeightChange={(height) => {
             // Card de bye: altura FIXA na constante do layout (o próprio card a
             // fixa), então a medida é sempre a mesma do retângulo e não entra no
@@ -564,10 +451,9 @@ export default function TournamentBracketRoute() {
               matchId: match.id,
             });
           }}
-          onResultPress={(target) => {
-            setResultTarget({ match: target });
+          onMenuAction={(kind) => {
+            handleMenuAction(kind, match);
           }}
-          onSchedulePress={setScheduleTarget}
           onSidePress={handleSidePress}
           selectedSide={
             swapTarget?.match.id === match.id ? swapTarget.side : null
@@ -595,10 +481,11 @@ export default function TournamentBracketRoute() {
     [
       activeTreeLayout,
       bracketCourts,
+      bracketSlotKeys,
       courtNameOf,
       feedBySlot,
-      handleConcludePress,
       handleHeightChange,
+      handleMenuAction,
       handleSidePress,
       isConclusionPending,
       isOrganizer,
@@ -741,110 +628,6 @@ export default function TournamentBracketRoute() {
           />
         </Page.ScrollView>
       )}
-
-      {resultTarget && tournament ? (
-        <ScoreResultDialog
-          initialSets={resultTarget.match.score?.sets}
-          isOpen
-          isPending={publishResult.isPending}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setResultTarget(null);
-            }
-          }}
-          onSubmit={async (value) => {
-            await publishResult.mutateAsync({
-              matchId: resultTarget.match.id,
-              score: {
-                sets: value.walkover ? [WALKOVER_SET] : value.sets,
-                winnerEntryId: value.explicitWinnerId,
-              },
-              walkover: value.walkover,
-            });
-          }}
-          sideAId={resultTarget.match.entryAId ?? ""}
-          sideAName={formatEntrySideLabel(resultTarget.match.entryA)}
-          sideBId={resultTarget.match.entryBId ?? ""}
-          sideBName={formatEntrySideLabel(resultTarget.match.entryB)}
-          title="Lançar resultado"
-          walkoverEnabled
-        />
-      ) : null}
-
-      {editTarget && tournament ? (
-        <ScoreResultDialog
-          initialSets={editTarget.score?.sets}
-          isOpen
-          isPending={editResult.isPending}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setEditTarget(null);
-            }
-          }}
-          onSubmit={async (value) => {
-            await editResult.mutateAsync({
-              matchId: editTarget.id,
-              score: {
-                sets: value.walkover ? [WALKOVER_SET] : value.sets,
-                winnerEntryId: value.explicitWinnerId,
-              },
-              walkover: value.walkover,
-            });
-          }}
-          sideAId={editTarget.entryAId ?? ""}
-          sideAName={formatEntrySideLabel(editTarget.entryA)}
-          sideBId={editTarget.entryBId ?? ""}
-          sideBName={formatEntrySideLabel(editTarget.entryB)}
-          title="Editar resultado"
-          walkoverEnabled
-        />
-      ) : null}
-
-      {scheduleTarget && tournament ? (
-        <ScheduleProposalDialog
-          actionLabel="Salvar agendamento"
-          courts={tournament.courts}
-          defaultDurationMinutes={tournament.matchConfig.defaultDurationMinutes}
-          description={`${formatEntrySideLabel(scheduleTarget.entryA)} contra ${formatEntrySideLabel(scheduleTarget.entryB)}.`}
-          initialValue={
-            scheduleTarget.matchDate
-              ? {
-                  courtId: scheduleTarget.courtId ?? "",
-                  endMinute:
-                    (scheduleTarget.startMinute ?? 0) +
-                    tournament.matchConfig.defaultDurationMinutes,
-                  matchDate: scheduleTarget.matchDate,
-                  startMinute: scheduleTarget.startMinute ?? 0,
-                }
-              : undefined
-          }
-          isOpen
-          isPending={scheduleMatch.isPending}
-          occupiedSlots={occupiedSlots}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setScheduleTarget(null);
-            }
-          }}
-          onSubmit={async (value) => {
-            await scheduleMatch.mutateAsync({
-              courtId: value.courtId,
-              // Ghost minute: a UI do torneio não tem campo de duração, mas
-              // ScheduleTournamentMatchSchema (deployado) exige `endMinute`.
-              endMinute: value.endMinute,
-              matchDate: value.matchDate,
-              matchId: scheduleTarget.id,
-              startMinute: value.startMinute,
-            });
-          }}
-          slotIdToIgnore={scheduleTarget.id}
-          title={
-            scheduleTarget.matchDate
-              ? "Reagendar confronto"
-              : "Agendar confronto"
-          }
-        />
-      ) : null}
 
       <Dialog isOpen={isRedrawDialogOpen} onOpenChange={setIsRedrawDialogOpen}>
         <Dialog.Portal>

@@ -304,10 +304,15 @@ O acerto do confronto (o "Combinar jogo", `docs/spec/tournaments.md`) deriva
 pendências dos DOIS lados: o jogador vê a proposta que recebeu, o organizador vê
 o torneio com acerto aberto.
 
-- **Quem recebe (jogador):** só o lado que NÃO propôs (`resolveReceivedAgreement`,
+- **Quem recebe (jogador):** só o LADO que NÃO propôs (`resolveReceivedAgreement`,
   `convex/domains/tournament/agreement-rules.ts`) e só com o canal `negotiating` —
-  proposta do próprio ator não é pendência dele. Proposta por cima de acerto já
-  fechado (`agreedAt` não nulo) vira o kind de PEDIDO DE MUDANÇA
+  a leitura é por LADO, não por usuário: numa dupla o PARCEIRO de quem propôs é o
+  mesmo lado e NÃO recebe a pendência nem os verbos de resposta que ela carrega
+  (a escrita do acerto já era por lado, `resolveResponseGate`), enquanto o lado
+  oposto recebe o item com `Aceitar`/`Confirmar`. `proposedByMe` continua no
+  payload porque "Cancelar proposta/resultado" é do AUTOR (usuário), não do lado
+  (`resolveCancellationTransition`). Proposta por cima de acerto já fechado
+  (`agreedAt` não nulo) vira o kind de PEDIDO DE MUDANÇA
   (`..._reschedule_requested`), com a copy "sugeriu"; os demais são
   `..._schedule_proposed`/`..._score_proposed`.
 - **Copy:** linha de partes com o NOME de quem propôs destacado e o que está na
@@ -326,6 +331,17 @@ o torneio com acerto aberto.
   agendar ou lançar o resultado direto no confronto, sem esperar o Combinar
   jogo." — é convite para agir, não cobrança: some quando o acerto fecha ou
   quando o organizador escreve por cima.
+- **Organizador por cima (inclusive o encaixe manual):** o acerto vigente do
+  confronto fecha quando o organizador age em cima dele: agendar e o
+  cancelamento em lote fecham só o canal de HORÁRIO (o confronto remarcado
+  mantém o placar combinado), publicar/editar resultado fecha os dois (o
+  confronto foi decidido) e o ENCAIXE MANUAL da chave fecha os dois canais de
+  TODAS as partidas que o move reescreveu (`sweepMatchAgreements` no próprio
+  swap, `convex/functions/tournament/bracket.ts`): a proposta sai da mesa, o
+  `agreedAt` FICA e o histórico registra `overridden` com `actorSide:
+  organizer`. Efeito na pendência: o jogador que saiu do confronto deixa de ser
+  lido (a inscrição não é mais um lado da linha) e o lado novo não vê a proposta
+  antiga, porque o canal não está mais vivo.
 - **Dispensa:** os quatro kinds aceitam o gesto da home (só a conclusão do
   torneio segue sem dispensa) e o item **volta** quando chega proposta nova: a
   assinatura do item é derivada do `proposedAt` da proposta vigente

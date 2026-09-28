@@ -12,6 +12,10 @@ const EVENING_START_MINUTE = 18 * MINUTES_PER_HOUR; // 1080
 
 export type ScheduleWindowDays = 7 | 15;
 
+/** Teto dos dias da janela (ano digitado errado no Fim não vira mil tabs): dia
+ * com jogo agendado entra sempre, o teto só corta dia vazio. */
+const MAX_WINDOW_DAY_TABS = 180;
+
 export type ScheduleDateTab = {
   matchDate: string;
   label: string;
@@ -87,6 +91,74 @@ function buildDateTabLabel(input: {
   }
 
   return formatDayLabel(input.date);
+}
+
+function addDaysToDayKey(dayKey: string, days: number): string {
+  const date = new Date(`${dayKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return formatDateToUtcKey(date);
+}
+
+/**
+ * Tabs ancoradas na JANELA do torneio: do início ao fim, mais os dias com jogo
+ * agendado fora dela (o servidor só barra depois do fim, então um confronto
+ * pode ter sobrado de antes do início — nunca esconder jogo da agenda).
+ */
+export function buildScheduleWindowTabs(input: {
+  endDayKey: string;
+  extraDayKeys?: readonly string[];
+  startDayKey: string;
+  todayDayKey: string;
+}): ScheduleDateTab[] {
+  const dayKeys = new Set<string>(input.extraDayKeys ?? []);
+  const tomorrowDayKey = addDaysToDayKey(input.todayDayKey, 1);
+  let dayKey = input.startDayKey;
+
+  for (
+    let index = 0;
+    dayKey <= input.endDayKey && index < MAX_WINDOW_DAY_TABS;
+    index += 1
+  ) {
+    dayKeys.add(dayKey);
+    dayKey = addDaysToDayKey(dayKey, 1);
+  }
+
+  return [...dayKeys].sort().map((matchDate) => ({
+    isToday: matchDate === input.todayDayKey,
+    isTomorrow: matchDate === tomorrowDayKey,
+    label:
+      matchDate === input.todayDayKey
+        ? "Hoje"
+        : matchDate === tomorrowDayKey
+          ? "Amanhã"
+          : formatDayLabel(new Date(`${matchDate}T00:00:00.000Z`)),
+    matchDate,
+  }));
+}
+
+/**
+ * Limites do seletor de data do agendamento: o dia de hoje nunca fica atrás e a
+ * janela vencida não vira max menor que min (aí o servidor explica pelo toast).
+ * Sem fim não existe janela (o servidor não barra nada em torneio legado): o
+ * limite é o de sempre, sem olhar o início.
+ */
+export function resolveScheduleDateBounds(input: {
+  endDayKey?: null | string;
+  startDayKey?: null | string;
+  todayDayKey: string;
+}): { maxDayKey: null | string; minDayKey: string } {
+  if (!input.endDayKey) {
+    return { maxDayKey: null, minDayKey: input.todayDayKey };
+  }
+
+  const minDayKey =
+    input.startDayKey && input.startDayKey > input.todayDayKey
+      ? input.startDayKey
+      : input.todayDayKey;
+  const maxDayKey = input.endDayKey >= minDayKey ? input.endDayKey : null;
+
+  return { maxDayKey, minDayKey };
 }
 
 /**

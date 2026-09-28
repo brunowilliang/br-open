@@ -136,6 +136,7 @@ export async function serializeTournament(
     coverUrl,
     createdAt: record.createdAt.getTime(),
     description: record.description ?? null,
+    endDate: record.endDate?.getTime() ?? null,
     locationNotes: record.locationNotes ?? null,
     registrationDeadlineAt: record.registrationDeadlineAt.getTime(),
     startDate: record.startDate.getTime(),
@@ -152,6 +153,31 @@ export function serializeCategory(record: TournamentCategoryRecord) {
     modality: record.modality,
     name: record.name,
     tournamentId: record.tournamentId,
+  });
+}
+
+/** Nome da quadra para copy e leitura; quadra removida do torneio cai no rotulo generico. */
+export function resolveTournamentCourtName(input: {
+  courtId: null | string | undefined;
+  courts: Record<string, unknown>[] | null | undefined;
+}): null | string {
+  if (typeof input.courtId !== "string") {
+    return null;
+  }
+  const court = (input.courts ?? []).find((row) => row.id === input.courtId);
+  return typeof court?.name === "string" ? court.name : null;
+}
+
+/** Bloqueios do torneio: por dia na porta de agendamento, todos na listagem. */
+export function listTournamentUnavailability(
+  ctx: OrmCtx,
+  input: { date?: string; tournamentId: Id<"tournament"> }
+) {
+  return ctx.orm.query.tournamentUnavailability.findMany({
+    limit: input.date ? 50 : 200,
+    where: input.date
+      ? { date: input.date, tournamentId: input.tournamentId }
+      : { tournamentId: input.tournamentId },
   });
 }
 

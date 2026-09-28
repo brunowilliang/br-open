@@ -26,6 +26,9 @@ export const tournament = convexTable(
     coverStorageId: text(),
     createdAt: timestamp().notNull(),
     description: text(),
+    // Último dia do torneio: com fim, marcar jogo fora do intervalo é recusado
+    // (a comparação é por dia). Sem fim, o torneio segue sem teto.
+    endDate: timestamp(),
     locationNotes: text(),
     // Format of the matches (same shape as the `domains/match` config).
     matchConfig: json<Record<string, unknown>>().notNull(),
@@ -45,6 +48,9 @@ export const tournament = convexTable(
     status: text().notNull(),
     updatedAt: timestamp().notNull(),
     visibility: text().notNull(),
+    // Dia do último aviso "a janela venceu e tem jogo sem horário": o cron avisa
+    // uma vez por dia enquanto o torneio não terminar.
+    windowNoticeSentAt: timestamp(),
   },
   (tournament) => [
     index("organizationId").on(tournament.organizationId),
@@ -300,5 +306,34 @@ export const tournamentMatchAgreementEvent = convexTable(
     index("matchId").on(tournamentMatchAgreementEvent.matchId),
     // Indice da CASCATA (mesmo motivo do `categoryId` do acordo).
     index("tournamentId").on(tournamentMatchAgreementEvent.tournamentId),
+  ]
+);
+
+// Indisponibilidade da agenda (chuva, luz, quadra fechada): fecha o dia
+// inteiro, um pedaço dele ou uma quadra específica. `courtId` e
+// `startMinute`/`endMinute` são OPCIONAIS de propósito: chave ausente = dia
+// inteiro / todas as quadras.
+export const tournamentUnavailability = convexTable(
+  "tournamentUnavailability",
+  {
+    courtId: text(),
+    createdAt: timestamp().notNull(),
+    createdByUserId: id("user").references(() => authTables.user.id, {
+      onDelete: "set null",
+    }),
+    date: text().notNull(),
+    endMinute: integer(),
+    reason: text().notNull(),
+    startMinute: integer(),
+    tournamentId: id("tournament")
+      .notNull()
+      .references(() => tournament.id, { onDelete: "cascade" }),
+  },
+  (tournamentUnavailability) => [
+    // Leitura por (torneio, dia) na porta de agendamento e no gerenciador.
+    index("tournamentId_date").on(
+      tournamentUnavailability.tournamentId,
+      tournamentUnavailability.date
+    ),
   ]
 );

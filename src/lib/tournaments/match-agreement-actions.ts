@@ -123,18 +123,21 @@ const MATCH_AGREEMENT_ACTION_CATALOG = {
 } as const satisfies Record<MatchAgreementActionKind, MatchAgreementAction>;
 
 /**
- * Linha do canal: `idle` = nada na mesa, `mine` = proposta minha, `theirs` =
- * proposta do outro lado e `agreed` = já combinado. Fora do `idle` o canal tem
- * UMA coisa na mesa e os dois lados usam o MESMO verbo de colocar outra no
- * lugar (`counter`): o servidor aceita proposta por cima sem olhar a autoria.
+ * Linha do canal: `idle` = nada na mesa, `mine` = proposta do MEU LADO, `theirs`
+ * = proposta do outro lado e `agreed` = já combinado. A autoria é do LADO, não
+ * do perfil: numa dupla o parceiro de quem propôs cai na MESMA linha `mine`
+ * (quem responde é o lado oposto). Fora do `idle` o canal tem UMA coisa na mesa
+ * e os dois lados usam o MESMO verbo de colocar outra no lugar (`counter`): o
+ * servidor aceita proposta por cima sem olhar a autoria.
  */
 export type MatchAgreementChannelRow = "agreed" | "idle" | "mine" | "theirs";
 
 /**
  * Estado do canal -> verbos: aceite e recusa só com proposta do OUTRO lado em
  * canal negociando (o resto devolve "Você fez essa proposta" ou "Esse acerto já
- * está fechado"); propor (de novo) é a MESMA proposta por cima e só quem
- * propôs retira a dele.
+ * está fechado"); propor (de novo) é a MESMA proposta por cima e a retirada
+ * (`withdraw`) é do AUTOR — o parceiro de dupla divide o lado, não a autoria
+ * (`listMatchAgreementActions` filtra pelo `canWithdraw`).
  */
 const MATCH_AGREEMENT_ACTION_TABLE = {
   agreed: {
@@ -158,12 +161,23 @@ const MATCH_AGREEMENT_ACTION_TABLE = {
   Record<MatchAgreementChannel, readonly MatchAgreementActionKind[]>
 >;
 
-/** O que o payload diz de UM canal: estado, se há proposta e de que lado. */
+/** O que o payload diz de UM canal: estado, se há proposta e de quem ela é. */
 export type MatchAgreementChannelFacts = {
   hasProposal: boolean;
+  /** Proposta do meu PERFIL: só o autor retira (o parceiro de dupla não). */
   proposedByMe: boolean;
+  /** Proposta do MEU LADO: o verbo de resposta é do lado OPOSTO a ela. */
+  proposedByMySide: boolean;
   state: string;
 };
+
+/** A proposta vigente saiu do MEU LADO (`proposedBySide` + `mySide` do payload). */
+export function isProposalFromMySide(input: {
+  mySide: "a" | "b";
+  proposedBySide: null | "a" | "b";
+}): boolean {
+  return input.proposedBySide !== null && input.proposedBySide === input.mySide;
+}
 
 /** Linha do canal a partir do que o payload diz (`state`, proposta e o lado). */
 export function resolveMatchAgreementChannelRow(
@@ -174,20 +188,27 @@ export function resolveMatchAgreementChannelRow(
   }
 
   if (input.state === "negotiating" && input.hasProposal) {
-    return input.proposedByMe ? "mine" : "theirs";
+    return input.proposedByMySide ? "mine" : "theirs";
   }
 
   return "idle";
 }
 
-/** Verbos de UM canal no estado dele, na ordem da tabela. */
+function isWithdrawAction(kind: MatchAgreementActionKind): boolean {
+  return MATCH_AGREEMENT_ACTION_CATALOG[kind].effect === "withdraw";
+}
+
+/** Verbos de UM canal no estado dele, na ordem da tabela. A retirada só entra
+ * para o AUTOR da proposta (`canWithdraw`): o parceiro de dupla vê o canal do
+ * próprio lado e propõe outro horário, mas não cancela a proposta do colega. */
 export function listMatchAgreementActions(input: {
+  canWithdraw: boolean;
   channel: MatchAgreementChannel;
   row: MatchAgreementChannelRow;
 }): MatchAgreementAction[] {
-  return MATCH_AGREEMENT_ACTION_TABLE[input.row][input.channel].map(
-    (kind) => MATCH_AGREEMENT_ACTION_CATALOG[kind]
-  );
+  return MATCH_AGREEMENT_ACTION_TABLE[input.row][input.channel]
+    .filter((kind) => input.canWithdraw || !isWithdrawAction(kind))
+    .map((kind) => MATCH_AGREEMENT_ACTION_CATALOG[kind]);
 }
 
 /** A proposta do canal está na mesa sem resposta (é o que pede Aprovar/Recusar). */
@@ -223,6 +244,7 @@ export function resolveMatchAgreementMenuActions(input: {
     // Proposta de placar já na mesa: os verbos de resposta ficam mesmo com o
     // gate de torneio fechado, senão a proposta do outro lado ficaria sem saída.
     return listMatchAgreementActions({
+      canWithdraw: input.score.proposedByMe,
       channel: "score",
       row: resolveMatchAgreementChannelRow(input.score),
     });
@@ -230,6 +252,7 @@ export function resolveMatchAgreementMenuActions(input: {
 
   if (input.schedule.state !== "agreed") {
     return listMatchAgreementActions({
+      canWithdraw: input.schedule.proposedByMe,
       channel: "schedule",
       row: resolveMatchAgreementChannelRow(input.schedule),
     });

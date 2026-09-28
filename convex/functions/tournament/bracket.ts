@@ -38,6 +38,7 @@ import {
   toSwapBoard,
   type MatchRecord,
 } from "./_shared/board";
+import { sweepMatchAgreements } from "./_shared/match_writes";
 
 function serializeMatch(record: MatchRecord) {
   return tournamentMatchSchema.parse({
@@ -307,6 +308,17 @@ export const swapSlots = authMutation
           winnerEntryId: update.winnerEntryId as Id<"tournamentEntry"> | null,
         })
         .where(eq(tournamentMatch.id, update.id as never));
+    }
+
+    // O acerto vigente morre com o par reescrito: quem saiu do confronto nao
+    // responde mais, e a proposta que ficasse na mesa apontaria pro lado errado.
+    for (const update of updates) {
+      await sweepMatchAgreements(ctx, {
+        actorSide: "organizer",
+        kind: "overridden",
+        matchId: update.id as Id<"tournamentMatch">,
+        tournamentId: record.id as Id<"tournament">,
+      });
     }
 
     if (affectedEntryIds.length > 0) {

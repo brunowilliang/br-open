@@ -60,6 +60,38 @@ describe("buildSlotTimeOptions", () => {
     ]);
   });
 
+  it("offers the whole day and blocks nothing without a court", () => {
+    const options = buildSlotTimeOptions({
+      courtId: null,
+      durationMinutes: 90,
+      matchDate: "2026-05-26",
+      occupiedSlots: [
+        {
+          courtId: "court-1",
+          endMinute: 1170,
+          matchDate: "2026-05-26",
+          slotId: "match-1",
+          startMinute: 1080,
+        },
+      ],
+      ranges: [{ endMinute: 1440, startMinute: 0 }],
+    });
+
+    expect(options[0]).toEqual({
+      description: undefined,
+      isDisabled: false,
+      label: "00:00",
+      value: "0",
+    });
+    expect(options.at(-1)).toEqual({
+      description: undefined,
+      isDisabled: false,
+      label: "22:30",
+      value: "1350",
+    });
+    expect(options.every((option) => !option.isDisabled)).toBe(true);
+  });
+
   it("ignores the current slot id when rescheduling the same row", () => {
     const options = buildSlotTimeOptions({
       courtId: "court-1",

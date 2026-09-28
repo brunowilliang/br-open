@@ -424,3 +424,71 @@ describe("avisos novos do ciclo da partida", () => {
     ).toBe("Rafa cancelou a inscrição em Copa Verão. A vaga está livre.");
   });
 });
+
+describe("avisos de janela e cancelamento", () => {
+  const base = {
+    actorName: "Bruno Garcia",
+    recipientRole: "player" as const,
+    tournamentId: "tournament-1",
+    tournamentName: "Copa Verão",
+  };
+
+  it("cancelamento leva o horário que saiu, o motivo e o confronto exato", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.match.suspended",
+      metadata: {
+        matchDate: "2026-10-13",
+        matchId: "match-9",
+        reason: "Chuva",
+        startMinute: 960,
+      },
+    });
+
+    expect(content.body).toBe(
+      "Seu jogo do dia 13/10 às 16:00 em Copa Verão foi suspenso (motivo: Chuva). Combinem um novo horário com o outro lado."
+    );
+    expect(content.title).toBe("Jogo suspenso");
+    expect(content.data.url).toBe("/tournaments/tournament-1?matchId=match-9");
+  });
+
+  it("cancelamento sem motivo no metadata não inventa motivo", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.match.suspended",
+      metadata: { matchId: "match-9" },
+    });
+
+    expect(content.body).toBe(
+      "Seu jogo em Copa Verão foi suspenso. Combinem um novo horário com o outro lado."
+    );
+  });
+
+  it("torneio estendido cita o novo último dia", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.window_extended",
+      metadata: { endDate: "2026-10-22" },
+    });
+
+    expect(content).toMatchObject({
+      body: "O torneio foi estendido até 22/10. Os dias do novo período já podem receber jogos.",
+      title: "Torneio estendido",
+    });
+  });
+
+  it("janela vencida avisa o organizador com o fim e o próximo passo", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.window_expired",
+      metadata: { endDate: "2026-10-20" },
+      recipientRole: "organizer",
+    });
+
+    expect(content).toMatchObject({
+      body: "A janela de Copa Verão vai até 20/10 e ainda tem confronto sem horário. Estenda a janela no Editar torneio.",
+      title: "Fim da janela",
+    });
+    expect(content.data.url).toBe("/tournaments/tournament-1");
+  });
+});

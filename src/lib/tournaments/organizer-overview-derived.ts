@@ -45,13 +45,19 @@ export function buildTournamentMatchesKpi(input: {
  * do DatePicker), então o formatador LOCAL devolve o MESMO dia; em UTC só
  * quebraria num fuso a leste de Greenwich. Ausente (0) sai da linha. */
 export function buildTournamentDatesSummary(input: {
+  endDate?: null | number;
   registrationDeadlineAt: number;
   startDate: number;
 }): null | string {
   const parts: string[] = [];
 
   if (input.startDate > 0) {
-    parts.push(`Início ${formatShortDate(new Date(input.startDate))}`);
+    const start = formatShortDate(new Date(input.startDate));
+    // Janela de UM dia (o create manda o fim igual ao início): repetir a mesma
+    // data duas vezes só gera ruído, então vale o rótulo curto.
+    const end = input.endDate ? formatShortDate(new Date(input.endDate)) : null;
+
+    parts.push(end && end !== start ? `${start} a ${end}` : `Início ${start}`);
   }
 
   if (input.registrationDeadlineAt > 0) {

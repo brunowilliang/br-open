@@ -18,6 +18,15 @@ import {
   validateTournamentMatchScore,
   validateWalkoverWinner,
 } from "./score-rules";
+import {
+  findUnavailabilityConflict,
+  formatUnavailabilityConflict,
+  type TournamentUnavailability,
+} from "./unavailability-rules";
+import {
+  type TournamentWindow,
+  validateMatchDayInWindow,
+} from "./window-rules";
 
 // ---------------------------------------------------------------------------
 // Acerto do confronto: regras PURAS (dado -> dado, sem ctx e sem tabela)
@@ -125,9 +134,10 @@ export function resolveAgreementNoticeEntryId(input: {
 }
 
 /**
- * Proposta de horário: mesmos gates do agendamento do organizador e a MESMA
- * janela ocupada (duração padrão do torneio). A quadra só entra quando o torneio
- * tem quadra cadastrada; sem quadra, o acerto é data + horário.
+ * Proposta de horário: mesmos gates do agendamento do organizador, a MESMA
+ * janela ocupada (duração padrão do torneio), a janela do torneio e os
+ * bloqueios da agenda. A quadra só entra quando o torneio tem quadra cadastrada;
+ * sem quadra, o acerto é data + horário.
  */
 export function resolveScheduleProposal(input: {
   match: {
@@ -145,9 +155,11 @@ export function resolveScheduleProposal(input: {
   };
   scheduledMatches: TournamentScheduledMatch[];
   tournament: {
-    courts: readonly { id: string }[] | null | undefined;
+    blocks: readonly TournamentUnavailability[];
+    courts: readonly { id: string; name?: string }[] | null | undefined;
     matchConfig: MatchConfig;
     status: string;
+    window: TournamentWindow;
   };
 }): { error: string | null; plan: ScheduleProposalPlan | null } {
   const { match, tournament } = input;
@@ -175,6 +187,13 @@ export function resolveScheduleProposal(input: {
       error: "Esse confronto ainda não tem os dois lados definidos.",
       plan: null,
     };
+  }
+  const windowError = validateMatchDayInWindow({
+    dayKey: input.proposal.matchDate,
+    window: tournament.window,
+  });
+  if (windowError) {
+    return { error: windowError, plan: null };
   }
   if (input.proposal.startMinute >= input.proposal.endMinute) {
     return {
@@ -206,6 +225,24 @@ export function resolveScheduleProposal(input: {
     matchConfig: tournament.matchConfig,
     startMinute: input.proposal.startMinute,
   });
+
+  const block = findUnavailabilityConflict({
+    blocks: tournament.blocks,
+    courtId: input.proposal.courtId,
+    dayKey: input.proposal.matchDate,
+    endMinute,
+    startMinute: input.proposal.startMinute,
+  });
+  if (block) {
+    const court =
+      typeof block.courtId === "string"
+        ? (courts.find((row) => row.id === block.courtId)?.name ?? null)
+        : null;
+    return {
+      error: formatUnavailabilityConflict({ block, courtName: court }),
+      plan: null,
+    };
+  }
 
   if (input.proposal.courtId !== null) {
     const conflict = findCourtSlotConflict({
@@ -649,13 +686,15 @@ export function buildAgreementChannelView(input: {
 
 /**
  * Proposta RECEBIDA e ainda sem resposta: é o que vira pendência do outro lado.
- * Proposta do próprio ator não é pendência dele. Canal já fechado antes
- * (`agreedAt`) faz o evento ser um pedido de mudança, não uma proposta nova.
+ * Quem lê é o LADO, não o usuário: numa dupla os dois perfis dividem o lado, logo
+ * o parceiro de quem propôs também não responde (a escrita já é por lado). Canal
+ * já fechado antes (`agreedAt`) faz o evento ser um pedido de mudança, não uma
+ * proposta nova.
  */
 export function resolveReceivedAgreement(input: {
   channel: MatchAgreementChannel;
   current: MatchAgreementStateFields | null;
-  userId: string;
+  side: MatchAgreementSide;
 }): ReceivedAgreement | null {
   const current = input.current;
 
@@ -665,7 +704,7 @@ export function resolveReceivedAgreement(input: {
   if (current.state !== "negotiating") {
     return null;
   }
-  if (current.proposedByUserId === input.userId) {
+  if (current.proposedBySide === input.side) {
     return null;
   }
 

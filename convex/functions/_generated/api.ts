@@ -56,6 +56,9 @@ export const api: {
             | "tournament.match.score_declined"
             | "tournament.match.score_cancelled"
             | "tournament.match.score_proposed"
+            | "tournament.match.suspended"
+            | "tournament.window_extended"
+            | "tournament.window_expired"
             | "tournament.finished"
             | "tournament.cancelled";
           id: string;
@@ -143,6 +146,9 @@ export const api: {
             | "tournament.match.score_declined"
             | "tournament.match.score_cancelled"
             | "tournament.match.score_proposed"
+            | "tournament.match.suspended"
+            | "tournament.window_extended"
+            | "tournament.window_expired"
             | "tournament.finished"
             | "tournament.cancelled";
           id: string;
@@ -1376,6 +1382,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           isTournamentOrganizer: boolean;
           locationNotes?: string | null;
@@ -1432,6 +1439,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -1486,6 +1494,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -1756,6 +1765,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -1815,6 +1825,7 @@ export const api: {
           }>;
           coverStorageId: string | null;
           description?: string;
+          endDate?: number | null;
           locationNotes?: string;
           matchConfig: {
             bestOfSets: number;
@@ -1855,6 +1866,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -1921,6 +1933,7 @@ export const api: {
             coverUrl?: string | null;
             createdAt: number;
             description?: string | null;
+            endDate: number | null;
             id: string;
             locationNotes?: string | null;
             matchConfig: {
@@ -1976,6 +1989,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -2030,6 +2044,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -2094,6 +2109,7 @@ export const api: {
           }>;
           coverStorageId: string | null;
           description?: string;
+          endDate?: number | null;
           locationNotes?: string;
           matchConfig: {
             bestOfSets: number;
@@ -2135,6 +2151,7 @@ export const api: {
           coverUrl?: string | null;
           createdAt: number;
           description?: string | null;
+          endDate: number | null;
           id: string;
           locationNotes?: string | null;
           matchConfig: {
@@ -2164,6 +2181,12 @@ export const api: {
       >;
     };
     matches: {
+      cancelMatches: FunctionReference<
+        "mutation",
+        "public",
+        { matchIds: Array<string>; reason: string; tournamentId: string },
+        { cancelled: number; skipped: number }
+      >;
       editResult: FunctionReference<
         "mutation",
         "public",
@@ -2351,6 +2374,51 @@ export const api: {
           playerProfileId: string;
           username: string | null;
         }>
+      >;
+    };
+    unavailability: {
+      list: FunctionReference<
+        "query",
+        "public",
+        { tournamentId: string },
+        Array<{
+          courtId: string | null;
+          courtName: string | null;
+          createdAt: number;
+          date: string;
+          endMinute: number | null;
+          id: string;
+          reason: string;
+          startMinute: number | null;
+        }>
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "public",
+        { unavailabilityId: string },
+        { success: true }
+      >;
+      set: FunctionReference<
+        "mutation",
+        "public",
+        {
+          courtId: string | null;
+          date: string;
+          endMinute: number | null;
+          reason: string;
+          startMinute: number | null;
+          tournamentId: string;
+        },
+        {
+          courtId: string | null;
+          courtName: string | null;
+          createdAt: number;
+          date: string;
+          endMinute: number | null;
+          id: string;
+          reason: string;
+          startMinute: number | null;
+        }
       >;
     };
   };
@@ -2713,6 +2781,9 @@ export const internal: {
             | "tournament.match.score_declined"
             | "tournament.match.score_cancelled"
             | "tournament.match.score_proposed"
+            | "tournament.match.suspended"
+            | "tournament.window_extended"
+            | "tournament.window_expired"
             | "tournament.finished"
             | "tournament.cancelled";
           metadata?: Record<string, any>;
@@ -3278,6 +3349,14 @@ export const internal: {
         "internal",
         { categoryId: string; entryId: string },
         { removed: boolean }
+      >;
+    };
+    window: {
+      notifyWindowOverflow: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        { notified: number }
       >;
     };
   };

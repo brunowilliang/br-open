@@ -23,6 +23,9 @@ export const NOTIFICATION_EVENT_TYPES = [
   "tournament.match.score_declined",
   "tournament.match.score_cancelled",
   "tournament.match.score_proposed",
+  "tournament.match.suspended",
+  "tournament.window_extended",
+  "tournament.window_expired",
   "tournament.finished",
   "tournament.cancelled",
 ] as const;

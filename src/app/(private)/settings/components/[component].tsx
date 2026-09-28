@@ -28,6 +28,8 @@ import {
   type LinkedAccountStatus,
 } from "@/components/pages/player/linked-account-row";
 import { buildPlayerAgreementCard } from "@/components/pages/tournaments/match-agreement-provider";
+import { BlockCourtDialog } from "@/components/pages/tournaments/block-court-dialog";
+import { CancelMatchesDialog } from "@/components/pages/tournaments/cancel-matches-dialog";
 import { CategoryEditor } from "@/components/ui/category-editor";
 import { CompetitionCard } from "@/components/ui/competition-card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,6 +59,10 @@ import {
 } from "@/components/ui/widget-alert";
 import { isComponentGalleryEnabled } from "@/lib/dev/component-gallery-flag";
 import { findComponentGalleryEntry } from "@/lib/dev/component-registry";
+import {
+  bindOrganizerMatchMenu,
+  buildOrganizerMatchMenu,
+} from "@/lib/tournaments/organizer-match-menu";
 import {
   MATCH_AGREEMENT_GALLERY_CASES,
   MATCH_AGREEMENT_GALLERY_COURTS,
@@ -593,6 +599,38 @@ function AlertsVariantsSection() {
         />
       </VariantSection>
 
+      <VariantSection
+        note="REAL (tournaments/[tournamentId]/schedule.tsx:400-425): o alerta substituiu o chip do bloqueio na agenda. O título diz PERÍODO fechado, não o dia inteiro: o bloqueio pode ser só um pedaço do dia (o rótulo inteiro que existia antes afirmava o dia e dava impressão errada). A descrição é o rótulo do bloqueio montado a partir do contrato (lib/tournaments/unavailability-derived.ts): com hora, é a faixa (16:00 às 20:00); sem hora, o Dia todo. A ação Reabrir abre a confirmação Reabrir a agenda, que roda unavailability.remove. O jogador vê o MESMO alerta, sem botão (sem ação não há CTA no molde). Bloqueio TOTALMENTE coberto por outro (mesma quadra ou Todas as quadras, período dentro do outro) não vira alerta: a regra é selectVisibleUnavailabilityBlocks, lib/tournaments/unavailability-derived.ts."
+        title="Alerta 20 | REAL | Agenda: período fechado (organizador com ação, jogador sem)"
+      >
+        <View className="gap-4">
+          <LabeledBlock label="Organizador">
+            <WidgetAlert
+              action={{ label: "Reabrir", onPress: noop }}
+              description="Chuva | Todas as quadras | 19:00 às 20:30"
+              status="warning"
+              title="Período fechado"
+            />
+          </LabeledBlock>
+
+          <LabeledBlock label="Jogador">
+            <WidgetAlert
+              description="Chuva | Todas as quadras | 19:00 às 20:30"
+              status="warning"
+              title="Período fechado"
+            />
+          </LabeledBlock>
+
+          <LabeledBlock label="Jogador, dia inteiro (sem hora no bloqueio)">
+            <WidgetAlert
+              description="Chuva | Todas as quadras | Dia todo"
+              status="warning"
+              title="Período fechado"
+            />
+          </LabeledBlock>
+        </View>
+      </VariantSection>
+
       <NoticeMoldsVariants />
     </View>
   );
@@ -749,8 +787,17 @@ const galleryMatchCardCases: {
   challengerPartnerName?: null | string;
   courtName: string;
   id: string;
+  /** A vaga acima da 1ª rodada que espera os vencedores (caso do "Reservar
+   * horário"). */
+  canReserveSlot?: boolean;
+  /** A pendência de concluir o torneio está viva e o caso é a FINAL. */
+  conclusionPending?: boolean;
+  /** Card marcado no modo seleção da agenda (borda accent). */
+  isSelected?: boolean;
   matchDate?: null | string;
   matchStatus?: null | string;
+  /** O card entra com o menu do ORGANIZADOR (o mesmo builder de todas as
+   * telas). */
   menuActions?: boolean;
   /** Modalidade do caso, como a tela do chaveamento manda: a vaga em aberto não
    * tem parceiro para denunciar que a partida é de duplas. */
@@ -759,6 +806,9 @@ const galleryMatchCardCases: {
   nodeWidth?: boolean;
   note: string;
   scoreSets?: null | ScoreSet[];
+  /** Modo seleção da agenda: o card ganha a superfície de toque (toque longo e
+   * toque de marcação), como a tela o monta. */
+  selectable?: boolean;
   selectedSide?: "a" | "b" | null;
   stageLabel?: null | string;
   startMinute: number;
@@ -913,7 +963,7 @@ const galleryMatchCardCases: {
     menuActions: true,
     modality: "doubles",
     nodeWidth: true,
-    note: "Menu do organizador no nó da chave, com os dois lados preenchidos: Agendar e Resultado. O menu é do CARD e só é desenhado onde há ação — nas agendas e no Próximo jogo nenhum card mostra menu.",
+    note: "Menu do organizador no nó da chave, com os dois lados preenchidos: Agendar e Resultado. O menu é do CARD e só é desenhado onde há ação — no Próximo jogo nenhum card mostra menu.",
     stageLabel: "Quartas de final",
     startMinute: 840,
     title: "Partida 8 | chave | menu do organizador (Agendar + Resultado)",
@@ -981,6 +1031,62 @@ const galleryMatchCardCases: {
     startMinute: 1080,
     title: "Partida 12 | simples | adversário a definir",
   },
+  {
+    challengedName: "Marina Costa",
+    challengedPartnerName: "Diego Nakamura Alves",
+    challengerName: "Bruno William Garcia",
+    challengerPartnerName: "Rafael de Souza Lima",
+    courtName: "Quadra 2",
+    id: "agenda-selecionado",
+    isSelected: true,
+    matchDate: "2026-09-12",
+    matchStatus: "scheduled",
+    menuActions: true,
+    modality: "doubles",
+    note: "Modo seleção da agenda: o toque longo entra na seleção, o card marcado ganha a borda accent e o topo da tela vira Cancelar jogos. O menu do card segue ali, com o Cancelar jogo por último.",
+    selectable: true,
+    stageLabel: "Quartas de final",
+    startMinute: 840,
+    title: "Partida 13 | agenda | selecionado no modo seleção",
+  },
+  {
+    canReserveSlot: true,
+    challengedDefined: false,
+    challengedName: "A definir",
+    challengerDefined: false,
+    challengerName: "A definir",
+    courtName: "",
+    id: "chave-reservar-horario",
+    matchStatus: "pending",
+    menuActions: true,
+    modality: "singles",
+    nodeWidth: true,
+    note: "Semifinal que espera os vencedores: o organizador reserva dia, horário e quadra com o MESMO agendamento, e o item se chama Reservar horário. O menu não muda de tela para tela.",
+    stageLabel: "Semifinal",
+    startMinute: 840,
+    title:
+      "Partida 14 | chave | vaga que espera os vencedores (Reservar horário)",
+  },
+  {
+    challengedName: "Jose Almeida Prado",
+    challengerName: "Bruno William Garcia",
+    conclusionPending: true,
+    courtName: "Quadra Central",
+    id: "chave-concluir",
+    matchDate: "2026-09-13",
+    matchStatus: "finished",
+    menuActions: true,
+    modality: "singles",
+    nodeWidth: true,
+    note: "Final decidida com a pendência de conclusão viva: Concluir torneio vem PRIMEIRO (é o ato do torneio) e Editar resultado fecha o menu.",
+    scoreSets: [
+      { aGames: 6, bGames: 4, kind: "set" },
+      { aGames: 6, bGames: 3, kind: "set" },
+    ],
+    stageLabel: "Final",
+    startMinute: 1080,
+    title: "Partida 15 | chave | final decidida com a pendência de concluir",
+  },
 ];
 
 function MatchCardVariantsSection() {
@@ -988,6 +1094,10 @@ function MatchCardVariantsSection() {
     action: MatchAgreementActionKind;
     galleryCase: MatchAgreementGalleryCase;
   }>(null);
+  const [cancelDialogCount, setCancelDialogCount] = useState<null | number>(
+    null
+  );
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const galleryCase = request?.galleryCase ?? null;
   const scheduleProposal =
     galleryCase?.playerMatch.agreements.schedule.proposal ?? null;
@@ -1017,12 +1127,30 @@ function MatchCardVariantsSection() {
               challengerName={item.challengerName}
               challengerPartnerName={item.challengerPartnerName}
               courtName={item.courtName}
+              isSelected={item.isSelected}
               matchDate={item.matchDate}
               matchStatus={item.matchStatus}
+              menu={
+                item.menuActions
+                  ? bindOrganizerMatchMenu({
+                      entries: buildOrganizerMatchMenu({
+                        canReserveSlot: item.canReserveSlot === true,
+                        isConclusionPending: item.conclusionPending === true,
+                        isFinal: item.conclusionPending === true,
+                        isTournamentClosed: false,
+                        matchDate: item.matchDate ?? null,
+                        matchStatus: item.matchStatus ?? "pending",
+                        sidesDefined:
+                          (item.challengerDefined ?? true) &&
+                          (item.challengedDefined ?? true),
+                      }),
+                      onAction: noop,
+                    })
+                  : undefined
+              }
               modality={item.modality}
-              onEditResultPress={item.menuActions ? noop : undefined}
-              onResultPress={item.menuActions ? noop : undefined}
-              onSchedulePress={item.menuActions ? noop : undefined}
+              onCardLongPress={item.selectable ? noop : undefined}
+              onCardPress={item.selectable ? noop : undefined}
               scoreSets={item.scoreSets}
               selectedSide={item.selectedSide}
               stageLabel={item.stageLabel}
@@ -1066,7 +1194,7 @@ function MatchCardVariantsSection() {
           initialValue={
             scheduleProposal
               ? {
-                  courtId: scheduleProposal.courtId ?? "",
+                  courtId: scheduleProposal.courtId ?? null,
                   endMinute:
                     scheduleProposal.startMinute +
                     MATCH_AGREEMENT_GALLERY_DURATION_MINUTES,
@@ -1115,6 +1243,75 @@ function MatchCardVariantsSection() {
             MATCH_AGREEMENT_MESSAGE.sameWalkoverProposal
           }
           walkoverEnabled
+        />
+      ) : null}
+
+      <VariantSection
+        note="Diálogo único do cancelamento: motivo pronto (ou escrito) e o check que fecha o MESMO período dos jogos cancelados. O check vem ligado; o lote muda a copy e o botão."
+        title="Diálogo | Cancelar jogo (um) e Cancelar jogos (lote)"
+      >
+        <View className="flex-row gap-2">
+          <Button
+            onPress={() => {
+              setCancelDialogCount(1);
+            }}
+            size="sm"
+          >
+            <Button.Label>Um jogo</Button.Label>
+          </Button>
+          <Button
+            onPress={() => {
+              setCancelDialogCount(3);
+            }}
+            size="sm"
+            variant="secondary"
+          >
+            <Button.Label>Lote de três</Button.Label>
+          </Button>
+        </View>
+      </VariantSection>
+
+      <VariantSection
+        note="Fechar quadra: dia, período (ou o dia todo) de UMA quadra ou de todas. A lista de bloqueios do dia, na agenda, reabre pelo mesmo motivo."
+        title="Diálogo | Fechar quadra"
+      >
+        <Button
+          onPress={() => {
+            setIsBlockDialogOpen(true);
+          }}
+          size="sm"
+        >
+          <Button.Label>Abrir fechar quadra</Button.Label>
+        </Button>
+      </VariantSection>
+
+      {cancelDialogCount === null ? null : (
+        <CancelMatchesDialog
+          isPending={false}
+          matchCount={cancelDialogCount}
+          onClose={() => {
+            setCancelDialogCount(null);
+          }}
+          onSubmit={() => {
+            setCancelDialogCount(null);
+          }}
+          spans={[
+            { date: "2026-09-12", endMinute: 1200, startMinute: 960 },
+            { date: "2026-09-13", endMinute: 720, startMinute: 600 },
+          ].slice(0, cancelDialogCount === 1 ? 1 : 2)}
+        />
+      )}
+
+      {isBlockDialogOpen ? (
+        <BlockCourtDialog
+          courts={MATCH_AGREEMENT_GALLERY_COURTS}
+          isPending={false}
+          onClose={() => {
+            setIsBlockDialogOpen(false);
+          }}
+          onSubmit={() => {
+            setIsBlockDialogOpen(false);
+          }}
         />
       ) : null}
     </View>

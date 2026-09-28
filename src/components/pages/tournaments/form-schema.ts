@@ -58,6 +58,9 @@ export const TournamentSchema = z
     courts: CreateTournamentSchema.shape.courts,
     coverStorageId: CreateTournamentSchema.shape.coverStorageId,
     description: CreateTournamentSchema.shape.description,
+    // Opcional no formulário: sem escolha o create manda o MESMO dia do início
+    // e a edição sem fim remove o teto (torneio de sempre).
+    endDate: tournamentFormDateSchema.optional(),
     locationNotes: CreateTournamentSchema.shape.locationNotes,
     matchConfig: TournamentMatchConfigFormSchema,
     name: CreateTournamentSchema.shape.name,
@@ -72,6 +75,14 @@ export const TournamentSchema = z
         code: z.ZodIssueCode.custom,
         message: "O prazo de inscrições deve ser anterior à data de início.",
         path: ["registrationDeadlineAt"],
+      });
+    }
+
+    if (value.endDate && value.endDate < value.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "O fim do torneio não pode ser antes do início.",
+        path: ["endDate"],
       });
     }
 
@@ -109,4 +120,63 @@ export function epochMsToTournamentDate(ms: number): TournamentFormDate {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+/** Opção do DateRangePicker (wire do pacote: JSON com `start`/`end` ISO). */
+export type TournamentRangeOption = { label: string; value: string };
+
+/** "13/10/2026" a partir do dia ISO do formulário. */
+function formatTournamentDateLabel(date: string): string {
+  const [year, month, day] = date.split("-");
+
+  return `${day}/${month}/${year}`;
+}
+
+/** "13/10/2026 a 20/10/2026": o rótulo do período no mesmo padrão dos campos. */
+export function formatTournamentDateRangeLabel(
+  startDate: string,
+  endDate: string
+): string {
+  return `${formatTournamentDateLabel(startDate)} a ${formatTournamentDateLabel(endDate)}`;
+}
+
+/** Com as duas datas, o rótulo é o período; só com o início (torneio legado,
+ * sem fim) o campo mostra o que existe, sem inventar um fim. */
+export function buildTournamentRangeOption(input: {
+  endDate?: string;
+  startDate?: string;
+}): TournamentRangeOption | undefined {
+  if (!input.startDate) {
+    return undefined;
+  }
+
+  if (!input.endDate) {
+    return {
+      label: `Início ${formatTournamentDateLabel(input.startDate)}`,
+      value: JSON.stringify({ end: input.startDate, start: input.startDate }),
+    };
+  }
+
+  return {
+    label: formatTournamentDateRangeLabel(input.startDate, input.endDate),
+    value: JSON.stringify({ end: input.endDate, start: input.startDate }),
+  };
+}
+
+/** Volta do wire do picker para as duas datas do formulário. */
+export function parseTournamentRangeValue(value: string): null | {
+  endDate: string;
+  startDate: string;
+} {
+  try {
+    const parsed = JSON.parse(value) as { end?: unknown; start?: unknown };
+
+    if (typeof parsed.start === "string" && typeof parsed.end === "string") {
+      return { endDate: parsed.end, startDate: parsed.start };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }

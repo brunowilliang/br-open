@@ -15,6 +15,7 @@ export function buildCreateTournamentDefaultValues(): TournamentScreenValues {
     courts: [],
     coverStorageId: null,
     description: "",
+    endDate: "",
     locationNotes: "",
     matchConfig: {
       ...DEFAULT_MATCH_CONFIG,

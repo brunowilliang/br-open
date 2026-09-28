@@ -21,6 +21,7 @@ import { ScheduleProposalDialog } from "@/components/ui/schedule-proposal-dialog
 import { ScoreResultDialog } from "@/components/ui/score-result-dialog";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { resolveTournamentWindow } from "@convex/domains/tournament/window-rules";
 import {
   MATCH_AGREEMENT_COPY,
   MATCH_AGREEMENT_MESSAGE,
@@ -675,6 +676,11 @@ function MatchAgreementController(props: {
       : null);
 
   if (isScheduleAction) {
+    const window = resolveTournamentWindow({
+      endDateMs: tournament.endDate,
+      startDateMs: tournament.startDate,
+    });
+
     return (
       <ScheduleProposalDialog
         actionLabel={actionLabel}
@@ -686,7 +692,7 @@ function MatchAgreementController(props: {
         initialValue={
           scheduleInitialValue
             ? {
-                courtId: scheduleInitialValue.courtId ?? "",
+                courtId: scheduleInitialValue.courtId ?? null,
                 endMinute:
                   scheduleInitialValue.startMinute +
                   tournament.matchConfig.defaultDurationMinutes,
@@ -695,6 +701,7 @@ function MatchAgreementController(props: {
               }
             : undefined
         }
+        isCourtRequired={tournament.courts.length > 0}
         isOpen
         isPending={proposeSchedule.isPending}
         occupiedSlots={occupiedSlots}
@@ -715,6 +722,8 @@ function MatchAgreementController(props: {
         slotIdToIgnore={playerMatch.match.id}
         title={actionLabel}
         unchangedMessage={MATCH_AGREEMENT_MESSAGE.sameScheduleProposal}
+        windowEndDayKey={window.endDayKey}
+        windowStartDayKey={window.startDayKey}
       />
     );
   }

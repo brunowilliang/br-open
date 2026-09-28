@@ -29,19 +29,28 @@ mock.module("heroui-native", () => {
 mock.module("@/components/core/image", () => ({
   Image: (props: unknown) => props,
 }));
+mock.module("react-native-reanimated", () => ({
+  default: { View: (props: unknown) => props },
+  useAnimatedStyle: () => ({}),
+  useSharedValue: () => ({ value: 0 }),
+  withTiming: (value: number) => value,
+}));
 mock.module("@/components/core/text", () => ({
   Text: (props: unknown) => props,
 }));
 mock.module("./huge-icons", () => ({ HugeIcons: () => null }));
 mock.module("@hugeicons/core-free-icons", () => ({
   Calendar03Icon: "calendar",
+  Cancel01Icon: "cancel",
   Edit02Icon: "edit",
   ExchangeIcon: "exchange",
   MoreVerticalIcon: "more",
   Tick02Icon: "tick",
 }));
 
-const { MatchCard } = await import("@/components/ui/match-card");
+const { MatchCard, MatchSelectionRing } = await import(
+  "@/components/ui/match-card"
+);
 const { Chip } = await import("heroui-native");
 const { Text } = await import("@/components/core/text");
 
@@ -263,42 +272,123 @@ function menuEntry(nodes: Node[], handler: () => void) {
   };
 }
 
-describe("MatchCard no menu do organizador", () => {
-  it("põe Concluir torneio ANTES de Editar resultado e chama o handler", () => {
+const noop = () => undefined;
+
+describe("MatchCard no menu do papel", () => {
+  it("desenha os itens na ordem que chegam e chama o handler de cada um", () => {
     const onConcludePress = mock(() => undefined);
-    const onEditResultPress = mock(() => undefined);
+    const onCancelPress = mock(() => undefined);
     const nodes = walk(
       MatchCardImpl(
         buildProps({
-          matchStatus: "finished",
-          onConcludePress,
-          onEditResultPress,
+          menu: [
+            {
+              icon: "tick",
+              label: "Concluir torneio",
+              onPress: onConcludePress,
+            },
+            {
+              icon: "cancel",
+              isDanger: true,
+              label: "Cancelar jogo",
+              onPress: onCancelPress,
+            },
+          ],
         })
       )
     );
     const conclusion = menuEntry(nodes, onConcludePress);
+    const cancel = menuEntry(nodes, onCancelPress);
 
     expect(conclusion.label).toBe("Concluir torneio");
-    expect(menuEntry(nodes, onEditResultPress).label).toBe("Editar resultado");
-    // A ordem da árvore é a ordem do menu: a pendência vem primeiro.
-    expect(conclusion.index).toBeLessThan(
-      menuEntry(nodes, onEditResultPress).index
-    );
+    expect(cancel.label).toBe("Cancelar jogo");
+    // A ordem da árvore é a ordem do menu: quem monta o menu manda (o builder
+    // por papel), o card não reordena nada.
+    expect(conclusion.index).toBeLessThan(cancel.index);
 
     conclusion.press();
+    cancel.press();
 
     expect(onConcludePress).toHaveBeenCalledTimes(1);
+    expect(onCancelPress).toHaveBeenCalledTimes(1);
   });
 
-  it("sem a pendência o menu não oferece concluir", () => {
-    const nodes = walk(MatchCardImpl(buildProps({ matchStatus: "finished" })));
-    const labels = nodes.flatMap((node) =>
-      walk(node)
-        .filter((child) => typeof child.props?.children === "string")
-        .map((child) => child.props?.children)
+  it("sem item nenhum o ⋮ não é desenhado", () => {
+    const nodes = walk(MatchCardImpl(buildProps()));
+
+    expect(nodes.some((node) => node.props?.icon === "more")).toBeFalse();
+  });
+
+  it("o ⋮ aparece quando o menu do papel ou o acerto trazem item", () => {
+    const withMenu = walk(
+      MatchCardImpl(
+        buildProps({
+          menu: [{ icon: "edit", label: "Resultado", onPress: noop }],
+        })
+      )
+    );
+    const withAgreement = walk(
+      MatchCardImpl(
+        buildProps({
+          agreement: {
+            chip: null,
+            menuItems: [
+              { icon: "edit", label: "Propor horário", onPress: noop },
+            ],
+            scheduleProposal: null,
+            scoreProposal: null,
+          },
+        })
+      )
     );
 
-    expect(labels).not.toContain("Concluir torneio");
+    expect(withMenu.some((node) => node.props?.icon === "more")).toBeTrue();
+    expect(
+      withAgreement.some((node) => node.props?.icon === "more")
+    ).toBeTrue();
+  });
+});
+
+describe("MatchCard no modo seleção da agenda", () => {
+  it("liga o anel de seleção e os toques, sem borda no card", () => {
+    const onCardLongPress = mock(() => undefined);
+    const onCardPress = mock(() => undefined);
+    const nodes = walk(
+      MatchCardImpl(
+        buildProps({ isSelected: true, onCardLongPress, onCardPress })
+      )
+    );
+    const cardIndex = nodes.findIndex((node) =>
+      String(node.props?.className ?? "").includes("gap-3 p-3")
+    );
+    const card = nodes[cardIndex];
+    const ringIndex = nodes.findIndex(
+      (node) => node.type === MatchSelectionRing
+    );
+    const ring = nodes[ringIndex];
+    const pressable = nodes.find(
+      (node) => node.props?.onLongPress === onCardLongPress
+    );
+
+    // A borda vive DENTRO do card (o pressable e o próprio card cortam o que
+    // passa das bordas — por fora ela saía cortada) e o card não muda de classe.
+    expect(ring?.props?.isSelected).toBeTrue();
+    expect(ringIndex).toBeGreaterThan(cardIndex);
+    expect(card?.props?.className).toBe("gap-3 p-3");
+    expect(pressable?.props?.onPress).toBe(onCardPress);
+  });
+
+  it("sem long press não existe superfície de toque própria", () => {
+    const nodes = walk(MatchCardImpl(buildProps()));
+    const card = nodes.find((node) =>
+      String(node.props?.className ?? "").includes("gap-3 p-3")
+    );
+
+    expect(
+      nodes.some((node) => node.props?.onLongPress !== undefined)
+    ).toBeFalse();
+    expect(nodes.some((node) => node.type === MatchSelectionRing)).toBeFalse();
+    expect(card?.props?.className).toBe("gap-3 p-3");
   });
 });
 

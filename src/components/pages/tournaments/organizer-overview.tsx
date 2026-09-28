@@ -33,6 +33,7 @@ export function OrganizerOverview(props: {
   const confirmed = buildTournamentEntriesKpi({ entries });
   const datesSummary = tournament
     ? buildTournamentDatesSummary({
+        endDate: tournament.endDate,
         registrationDeadlineAt: tournament.registrationDeadlineAt,
         startDate: tournament.startDate,
       })

@@ -3,8 +3,10 @@ import { describe, expect, it } from "bun:test";
 import type { MatchConfig } from "../../match/contract";
 import { resolveMatchOccupiedEndMinute } from "../../match/scheduling";
 import {
+  canReserveUnreadySlot,
   findCourtSlotConflict,
   isScheduledTournamentMatch,
+  resolveBulkCancelPlan,
   resolveTournamentAutoAction,
   shouldAutoDrawTournament,
   shouldAutoStartTournament,
@@ -332,5 +334,75 @@ describe("absent scheduling keys (BUG-0030)", () => {
         startMinute: 540,
       })
     ).toBe(true);
+  });
+});
+
+describe("resolveBulkCancelPlan", () => {
+  const base = { publishedAt: null, status: "scheduled" };
+
+  it("cancela quem tem horário e pula o resto", () => {
+    const plan = resolveBulkCancelPlan([
+      { ...base, id: "match-1", matchDate: "2026-10-12" },
+      { ...base, id: "match-2", matchDate: "2026-10-13" },
+      // Já jogado: a agenda dele é histórica.
+      {
+        ...base,
+        id: "match-3",
+        matchDate: "2026-10-11",
+        publishedAt: new Date(),
+      },
+      // Vaga morta: não há o que cancelar.
+      { ...base, id: "match-4", matchDate: "2026-10-14", status: "vacant" },
+      // Já está a definir: nada muda.
+      { ...base, id: "match-5", matchDate: null, status: "pending" },
+    ]);
+
+    expect(plan.cancels.map((match) => match.id)).toEqual([
+      "match-1",
+      "match-2",
+    ]);
+    expect(plan.skipped).toBe(3);
+  });
+
+  it("confronto reservado (sem os dois lados, com horário) é cancelável", () => {
+    const plan = resolveBulkCancelPlan([
+      { ...base, id: "match-1", matchDate: "2026-10-18" },
+    ]);
+
+    expect(plan.cancels).toHaveLength(1);
+    expect(plan.skipped).toBe(0);
+  });
+});
+
+describe("canReserveUnreadySlot", () => {
+  it("só o organizador reserva, e só acima da 1ª rodada com feeders", () => {
+    expect(
+      canReserveUnreadySlot({
+        actor: "organizer",
+        feederMatchesExist: true,
+        round: 2,
+      })
+    ).toBeTrue();
+    expect(
+      canReserveUnreadySlot({
+        actor: "player",
+        feederMatchesExist: true,
+        round: 2,
+      })
+    ).toBeFalse();
+    expect(
+      canReserveUnreadySlot({
+        actor: "organizer",
+        feederMatchesExist: true,
+        round: 1,
+      })
+    ).toBeFalse();
+    expect(
+      canReserveUnreadySlot({
+        actor: "organizer",
+        feederMatchesExist: false,
+        round: 2,
+      })
+    ).toBeFalse();
   });
 });

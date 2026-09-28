@@ -15,7 +15,7 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
  * digitada aqui — texto alterado no servidor aparece na galeria sem tocar neste
  * arquivo. Fixture é só o INPUT (ator, competição e os ids do emissor).
  *
- * `NOTIFICATION_GALLERY_GROUPS` cobre os 26 tipos do catálogo, um a um; um teste
+ * `NOTIFICATION_GALLERY_GROUPS` cobre os 29 tipos do catálogo, um a um; um teste
  * co-localizado garante que o conjunto é EXATAMENTE o catálogo.
  */
 
@@ -24,9 +24,10 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
 const ORGANIZER_EVENT_TYPES: readonly NotificationEventType[] = [
   "tournament.entry.created",
   "tournament.entry.cancelled",
+  "tournament.window_expired",
 ];
 
-/** Ação real de hoje por evento acionável (3 dos 26): rótulo do builder de
+/** Ação real de hoje por evento acionável (3 dos 29): rótulo do builder de
  * apresentação, mutation executada pelo runner de pendências. Evento fora do
  * mapa é INFORMATIVO (`buildNotificationPresentation` devolve `null`). */
 export const GALLERY_ACTION_NOTES: Partial<
@@ -42,32 +43,35 @@ export const GALLERY_ACTION_NOTES: Partial<
 
 /** Linha do template em `convex/domains/notification/definitions.ts`. */
 export const GALLERY_TEMPLATE_LINES: Record<NotificationEventType, number> = {
-  "tournament.bracket.placement_failed": 55,
-  "tournament.bracket.published": 62,
-  "tournament.cancelled": 69,
-  "tournament.entry.cancelled": 76,
-  "tournament.entry.confirmed": 85,
-  "tournament.entry.created": 92,
-  "tournament.entry.refund_requested": 99,
-  "tournament.entry.refunded": 109,
-  "tournament.entry.rejected": 116,
-  "tournament.finished": 123,
-  "tournament.match.ready": 130,
-  "tournament.match.reassigned": 139,
-  "tournament.match.rescheduled": 146,
-  "tournament.match.result": 153,
-  "tournament.match.result_edited": 160,
-  "tournament.match.schedule_cancelled": 167,
-  "tournament.match.schedule_declined": 174,
-  "tournament.match.schedule_proposed": 181,
-  "tournament.match.scheduled": 192,
-  "tournament.match.score_cancelled": 199,
-  "tournament.match.score_declined": 208,
-  "tournament.match.score_proposed": 217,
-  "tournament.partner.awaiting_reply": 226,
-  "tournament.partner.invite_cancelled": 233,
-  "tournament.partner.invited": 240,
-  "tournament.partner.responded": 247,
+  "tournament.bracket.placement_failed": 59,
+  "tournament.bracket.published": 66,
+  "tournament.cancelled": 73,
+  "tournament.entry.cancelled": 80,
+  "tournament.entry.confirmed": 89,
+  "tournament.entry.created": 96,
+  "tournament.entry.refund_requested": 103,
+  "tournament.entry.refunded": 113,
+  "tournament.entry.rejected": 120,
+  "tournament.finished": 127,
+  "tournament.match.ready": 134,
+  "tournament.match.reassigned": 143,
+  "tournament.match.rescheduled": 150,
+  "tournament.match.result": 157,
+  "tournament.match.result_edited": 164,
+  "tournament.match.schedule_cancelled": 171,
+  "tournament.match.schedule_declined": 178,
+  "tournament.match.schedule_proposed": 185,
+  "tournament.match.scheduled": 196,
+  "tournament.match.score_cancelled": 203,
+  "tournament.match.score_declined": 212,
+  "tournament.match.score_proposed": 221,
+  "tournament.match.suspended": 230,
+  "tournament.partner.awaiting_reply": 237,
+  "tournament.partner.invite_cancelled": 244,
+  "tournament.partner.invited": 251,
+  "tournament.partner.responded": 258,
+  "tournament.window_expired": 269,
+  "tournament.window_extended": 278,
 };
 
 const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
@@ -125,8 +129,16 @@ const GALLERY_METADATA: Partial<
     sets: [{ aGames: 6, bGames: 3, kind: "set" }],
     walkover: false,
   },
+  "tournament.match.suspended": {
+    matchDate: "2026-09-29",
+    matchId: "gallery-match-1",
+    reason: "Chuva",
+    startMinute: 1140,
+  },
   "tournament.partner.invited": { entryId: "gallery-entry-1" },
   "tournament.partner.responded": { accepted: true },
+  "tournament.window_expired": { endDate: "2026-10-20" },
+  "tournament.window_extended": { endDate: "2026-10-22" },
 };
 
 const GALLERY_TOURNAMENT = {
@@ -225,7 +237,11 @@ export const NOTIFICATION_GALLERY_GROUPS: {
     title: "Torneio | inscrição (jogador)",
   },
   {
-    eventTypes: ["tournament.entry.created", "tournament.entry.cancelled"],
+    eventTypes: [
+      "tournament.entry.created",
+      "tournament.entry.cancelled",
+      "tournament.window_expired",
+    ],
     title: "Torneio | inscrição (organizador)",
   },
   {
@@ -251,18 +267,23 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.match.score_cancelled",
       "tournament.match.rescheduled",
       "tournament.match.reassigned",
+      "tournament.match.suspended",
       "tournament.match.result",
       "tournament.match.result_edited",
     ],
     title: "Torneio | chave e partidas (jogador)",
   },
   {
-    eventTypes: ["tournament.finished", "tournament.cancelled"],
+    eventTypes: [
+      "tournament.window_extended",
+      "tournament.finished",
+      "tournament.cancelled",
+    ],
     title: "Torneio | ciclo (jogador)",
   },
 ];
 
-/** Os 26 tipos na ordem em que a galeria desenha (numeração dos títulos). */
+/** Os 29 tipos na ordem em que a galeria desenha (numeração dos títulos). */
 export const NOTIFICATION_GALLERY_EVENT_TYPES: readonly NotificationEventType[] =
   NOTIFICATION_GALLERY_GROUPS.flatMap((group) => group.eventTypes);
 

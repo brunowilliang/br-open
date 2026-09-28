@@ -92,4 +92,14 @@ crons.interval(
   {}
 );
 
+// Janela vencida com confronto sem horario: avisa o organizador no dia do fim e
+// uma vez por dia enquanto persistir. NAO encerra o torneio (conclusao e ato
+// dele); o marcador por dia em `windowNoticeSentAt` segura a repeticao.
+crons.interval(
+  "notify-tournament-window-overflow",
+  { hours: 1 },
+  internal.tournament.window.notifyWindowOverflow,
+  {}
+);
+
 export default crons;

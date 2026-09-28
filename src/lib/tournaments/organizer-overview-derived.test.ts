@@ -109,6 +109,28 @@ describe("tournament organizer overview dates line", () => {
     ).toBe("Início 25 de set. de 2026 | Inscrições até 22 de set. de 2026");
   });
 
+  test("com fim a linha vira a janela inteira", () => {
+    expect(
+      buildTournamentDatesSummary({
+        endDate: new Date(2026, 9, 20).getTime(),
+        registrationDeadlineAt: deadline,
+        startDate,
+      })
+    ).toBe(
+      "25 de set. de 2026 a 20 de out. de 2026 | Inscrições até 22 de set. de 2026"
+    );
+  });
+
+  test("fim igual ao início (torneio de um dia) não repete a data", () => {
+    expect(
+      buildTournamentDatesSummary({
+        endDate: new Date(2026, 8, 25).getTime(),
+        registrationDeadlineAt: deadline,
+        startDate,
+      })
+    ).toBe("Início 25 de set. de 2026 | Inscrições até 22 de set. de 2026");
+  });
+
   test("campo ausente sai da linha", () => {
     expect(
       buildTournamentDatesSummary({ registrationDeadlineAt: 0, startDate })

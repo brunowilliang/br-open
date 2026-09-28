@@ -41,6 +41,7 @@ import {
   tournamentMatchAgreement,
   tournamentMatchAgreementEvent,
 } from "../../domains/tournament/tables";
+import { resolveTournamentWindow } from "../../domains/tournament/window-rules";
 import { authMutation, authQuery } from "../../lib/crpc";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 import {
@@ -50,6 +51,7 @@ import {
 import { getCategoryMatches } from "./_shared/board";
 import {
   getTournamentRecordOrThrow,
+  listTournamentUnavailability,
   scheduleTournamentNotification,
   type OrmCtx,
   type OrmMutationCtx,
@@ -298,8 +300,8 @@ export const proposeSchedule = authMutation
     const { access } = await requireMatchSide(ctx, match);
     const rows = await findAgreementRows(ctx, matchId);
 
-    // A proposta passa pela MESMA validação do agendamento (janela ocupada
-    // inclusive): se conflitar, ela nem entra.
+    // A proposta passa pela MESMA validação do agendamento (janela do torneio,
+    // bloqueios e janela ocupada inclusive): se conflitar, ela nem entra.
     const proposal = resolveScheduleProposal({
       match: {
         entryAId: match.entryAId ?? null,
@@ -319,9 +321,19 @@ export const proposeSchedule = authMutation
         tournament.id as Id<"tournament">
       ),
       tournament: {
-        courts: tournament.courts as readonly { id: string }[] | null,
+        blocks: await listTournamentUnavailability(ctx, {
+          date: input.matchDate,
+          tournamentId: tournament.id as Id<"tournament">,
+        }),
+        courts: tournament.courts as
+          | readonly { id: string; name?: string }[]
+          | null,
         matchConfig: tournament.matchConfig as MatchConfig,
         status: tournament.status,
+        window: resolveTournamentWindow({
+          endDateMs: tournament.endDate?.getTime() ?? null,
+          startDateMs: tournament.startDate.getTime(),
+        }),
       },
     });
 
@@ -409,6 +421,7 @@ export const acceptSchedule = authMutation
     // Efeito igual ao agendamento do organizador: a janela é revalidada na hora
     // e os dois lados são avisados pelo mesmo caminho.
     await applyMatchSchedule(ctx, {
+      actor: "player",
       courtId: plan.courtId,
       endMinute: plan.endMinute,
       match,

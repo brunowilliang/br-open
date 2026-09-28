@@ -39,8 +39,8 @@ describe("NOTIFICATION_GALLERY_GROUPS", () => {
 
   it("keeps the organizer event in its own group", () => {
     // O papel é do MAPA do servidor (ORGANIZER_RECIPIENT_EVENTS,
-    // orchestrator.ts:101-104): inscrição nova e cancelamento chegam ao ator
-    // organização.
+    // orchestrator.ts:101-105): inscrição nova, cancelamento e janela vencida
+    // chegam ao ator organização.
     const organizerGroups = NOTIFICATION_GALLERY_GROUPS.filter((group) =>
       group.title.includes("(organizador)")
     );
@@ -48,6 +48,7 @@ describe("NOTIFICATION_GALLERY_GROUPS", () => {
     expect(organizerGroups.flatMap((group) => group.eventTypes)).toEqual([
       "tournament.entry.created",
       "tournament.entry.cancelled",
+      "tournament.window_expired",
     ]);
   });
 });
@@ -58,32 +59,35 @@ describe("galeria de notificações", () => {
     // servidor) e é conferido contra o arquivo REAL abaixo: um deslocamento
     // lá reprova aqui.
     expect(GALLERY_TEMPLATE_LINES).toEqual({
-      "tournament.bracket.placement_failed": 55,
-      "tournament.bracket.published": 62,
-      "tournament.cancelled": 69,
-      "tournament.entry.cancelled": 76,
-      "tournament.entry.confirmed": 85,
-      "tournament.entry.created": 92,
-      "tournament.entry.refund_requested": 99,
-      "tournament.entry.refunded": 109,
-      "tournament.entry.rejected": 116,
-      "tournament.finished": 123,
-      "tournament.match.ready": 130,
-      "tournament.match.reassigned": 139,
-      "tournament.match.rescheduled": 146,
-      "tournament.match.result": 153,
-      "tournament.match.result_edited": 160,
-      "tournament.match.schedule_cancelled": 167,
-      "tournament.match.schedule_declined": 174,
-      "tournament.match.schedule_proposed": 181,
-      "tournament.match.scheduled": 192,
-      "tournament.match.score_cancelled": 199,
-      "tournament.match.score_declined": 208,
-      "tournament.match.score_proposed": 217,
-      "tournament.partner.awaiting_reply": 226,
-      "tournament.partner.invite_cancelled": 233,
-      "tournament.partner.invited": 240,
-      "tournament.partner.responded": 247,
+      "tournament.bracket.placement_failed": 59,
+      "tournament.bracket.published": 66,
+      "tournament.cancelled": 73,
+      "tournament.entry.cancelled": 80,
+      "tournament.entry.confirmed": 89,
+      "tournament.entry.created": 96,
+      "tournament.entry.refund_requested": 103,
+      "tournament.entry.refunded": 113,
+      "tournament.entry.rejected": 120,
+      "tournament.finished": 127,
+      "tournament.match.ready": 134,
+      "tournament.match.reassigned": 143,
+      "tournament.match.rescheduled": 150,
+      "tournament.match.result": 157,
+      "tournament.match.result_edited": 164,
+      "tournament.match.schedule_cancelled": 171,
+      "tournament.match.schedule_declined": 178,
+      "tournament.match.schedule_proposed": 185,
+      "tournament.match.scheduled": 196,
+      "tournament.match.score_cancelled": 203,
+      "tournament.match.score_declined": 212,
+      "tournament.match.score_proposed": 221,
+      "tournament.match.suspended": 230,
+      "tournament.partner.awaiting_reply": 237,
+      "tournament.partner.invite_cancelled": 244,
+      "tournament.partner.invited": 251,
+      "tournament.partner.responded": 258,
+      "tournament.window_expired": 269,
+      "tournament.window_extended": 278,
     });
 
     const lines = (await readFile(DEFINITIONS_FILE, "utf8")).split("\n");
@@ -138,7 +142,7 @@ describe("galeria de notificações", () => {
   it("cites the template and the action in the card note", () => {
     const note = buildGalleryNotificationNote("tournament.entry.created");
 
-    expect(note).toContain("definitions.ts:92");
+    expect(note).toContain("definitions.ts:96");
     expect(note).toContain("papel organizador");
     expect(note).toContain("Aprovar/Recusar");
   });
@@ -148,7 +152,7 @@ describe("galeria de notificações", () => {
     // da inscrição chega ao ator organização, não ao jogador.
     const note = buildGalleryNotificationNote("tournament.entry.cancelled");
 
-    expect(note).toContain("definitions.ts:76");
+    expect(note).toContain("definitions.ts:80");
     expect(note).toContain("papel organizador");
   });
 });

@@ -22,6 +22,17 @@ export const DOUBLES_SEED_AGENDA_DAYS = [
   { offsetDays: 1, startMinute: 20 * 60 },
 ] as const;
 
+/**
+ * JANELA do torneio do cenario de agenda: comeca hoje (os confrontos do plantio
+ * caem hoje e amanha) e fecha alguns dias depois. O prazo de inscricao fica
+ * para tras, coerente com a chave ja sorteada.
+ */
+export const DOUBLES_SEED_AGENDA_WINDOW = {
+  endDateOffsetDays: 7,
+  registrationDeadlineOffsetDays: -1,
+  startDateOffsetDays: 0,
+} as const;
+
 export type DoublesSeedAgendaSlot = {
   courtId: string;
   courtName: string;

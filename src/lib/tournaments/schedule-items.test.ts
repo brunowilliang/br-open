@@ -142,6 +142,13 @@ describe("buildScheduledMatchItems", () => {
       ["final", "Final"],
       ["final-curta", "Final"],
     ]);
+    // A final é a última rodada da PRÓPRIA categoria: o menu dela leva o
+    // "Concluir torneio", então o item precisa saber quem é quem.
+    expect(items.map((item) => [item.id, item.isFinal])).toEqual([
+      ["oitavas", false],
+      ["final", true],
+      ["final-curta", true],
+    ]);
   });
 
   test("status e placar do confronto viajam para o item", () => {

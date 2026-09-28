@@ -19,6 +19,9 @@ export type DoublesSeedProfile = {
 
 export const DOUBLES_SEED_TOURNAMENT = {
   city: "São Paulo",
+  // Sete dias de janela a partir do início: o organizador vê o torneio com fim
+  // definido e a agenda travada no intervalo.
+  endDateDays: 28,
   name: "SEED | Torneio de Duplas",
   registrationDeadlineDays: 14,
   startDateDays: 21,

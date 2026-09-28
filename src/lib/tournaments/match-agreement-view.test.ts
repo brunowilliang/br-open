@@ -334,6 +334,65 @@ describe("buildPlayerAgreementMenu", () => {
     ]);
   });
 
+  test("a dupla de quem propôs só propõe de novo; o autor retira", () => {
+    const partnerMenu = buildPlayerAgreementMenu({
+      isMatchLocked: false,
+      playerMatch: buildPlayerMatch({
+        agreements: {
+          schedule: buildChannel({
+            proposal: SCHEDULE_PROPOSAL,
+            proposedByMe: false,
+            proposedBySide: "a",
+            state: "negotiating",
+          }),
+        },
+        mySide: "a",
+      }),
+      tournamentStatus: "ongoing",
+    });
+
+    // Lado propôs (`proposedBySide` == `mySide`), perfil não: sem Aprovar/Recusar
+    // e sem Cancelar — o servidor recusa a resposta e a retirada do parceiro.
+    expect(partnerMenu.map((item) => item.label)).toEqual([
+      "Propor outro horário",
+    ]);
+
+    expect(
+      buildPlayerAgreementMenu({
+        isMatchLocked: false,
+        playerMatch: buildPlayerMatch({
+          agreements: {
+            schedule: buildChannel({
+              proposal: SCHEDULE_PROPOSAL,
+              proposedByMe: true,
+              proposedBySide: "a",
+              state: "negotiating",
+            }),
+          },
+          mySide: "a",
+        }),
+        tournamentStatus: "ongoing",
+      }).map((item) => item.label)
+    ).toEqual(["Propor outro horário", "Cancelar proposta"]);
+
+    expect(
+      buildPlayerAgreementMenu({
+        isMatchLocked: false,
+        playerMatch: buildPlayerMatch({
+          agreements: {
+            schedule: buildChannel({
+              proposal: SCHEDULE_PROPOSAL,
+              proposedBySide: "b",
+              state: "negotiating",
+            }),
+          },
+          mySide: "a",
+        }),
+        tournamentStatus: "ongoing",
+      }).map((item) => item.label)
+    ).toEqual(["Aprovar horário", "Recusar horário", "Propor outro horário"]);
+  });
+
   test("decided match or closed tournament: no menu at all", () => {
     expect(
       buildPlayerAgreementMenu({
@@ -391,6 +450,26 @@ describe("buildPlayerAgreementChip", () => {
         }),
       })
     ).toEqual({ color: "accent", label: "Confirmar horário", variant: "soft" });
+  });
+
+  test("a dupla de quem propôs lê a proposta do lado como enviada", () => {
+    // `proposedByMe` é do PERFIL; o chip segue o LADO (`proposedBySide`), senão
+    // o parceiro veria "Confirmar horário" num canal que o lado dele já propôs.
+    expect(
+      buildPlayerAgreementChip({
+        playerMatch: buildPlayerMatch({
+          agreements: {
+            schedule: buildChannel({
+              proposal: SCHEDULE_PROPOSAL,
+              proposedByMe: false,
+              proposedBySide: "a",
+              state: "negotiating",
+            }),
+          },
+          mySide: "a",
+        }),
+      })
+    ).toEqual({ color: "warning", label: "Proposta enviada", variant: "soft" });
   });
 
   test("schedule agreed without a result: pending result", () => {

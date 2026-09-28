@@ -8,6 +8,12 @@ import { describe, expect, it, mock } from "bun:test";
 // molde de `src/components/ui/match-card.test.tsx`.
 
 mock.module("react-native", () => ({ View: () => null }));
+mock.module("react-native-reanimated", () => ({
+  default: { View: (props: unknown) => props },
+  useAnimatedStyle: () => ({}),
+  useSharedValue: () => ({ value: 0 }),
+  withTiming: (value: number) => value,
+}));
 mock.module("heroui-native", () => {
   const passthrough = (props: unknown) => props;
 

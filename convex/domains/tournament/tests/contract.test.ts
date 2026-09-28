@@ -2,8 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
 import {
+  CancelTournamentMatchesSchema,
   CreateTournamentSchema,
   MAX_TOURNAMENT_CATEGORIES,
+  MAX_TOURNAMENT_MATCH_CANCEL_BATCH,
+  SetTournamentUnavailabilitySchema,
   UpdateTournamentSchema,
 } from "../contract";
 
@@ -216,5 +219,176 @@ describe("CreateTournamentSchema categorias", () => {
       expect(result.data.categories[0]?.id).toBe("category-1");
       expect(result.data.categories[1]?.id).toBeUndefined();
     }
+  });
+});
+
+describe("CreateTournamentSchema janela de datas", () => {
+  it("aceita o fim no MESMO dia do início, mesmo com horas diferentes", () => {
+    const input = buildTournamentInput(3);
+    const result = CreateTournamentSchema.safeParse({
+      ...input,
+      // 6h antes do início ainda é o mesmo dia brasileiro do início.
+      endDate: input.startDate - 6 * 60 * 60 * 1000,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("recusa o fim antes do dia do início", () => {
+    const input = buildTournamentInput(3);
+    const result = CreateTournamentSchema.safeParse({
+      ...input,
+      endDate: input.startDate - DAY_MS,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path.join(".") === "endDate"
+      );
+      expect(issue?.message).toBe(
+        "O fim do torneio não pode ser antes do início."
+      );
+    }
+  });
+
+  it("sem fim informado o torneio segue sem teto", () => {
+    const result = CreateTournamentSchema.safeParse(buildTournamentInput(3));
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.endDate).toBeUndefined();
+    }
+
+    const explicitNull = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      endDate: null,
+    });
+    expect(explicitNull.success).toBe(true);
+  });
+
+  it("update aceita fim, nulo (sem teto) e ausente (intocado)", () => {
+    const input = buildTournamentInput(3);
+    const base = { ...input, tournamentId: "tournament-1" };
+
+    const withEnd = UpdateTournamentSchema.safeParse({
+      ...base,
+      endDate: input.startDate + DAY_MS,
+    });
+    expect(withEnd.success).toBe(true);
+    if (withEnd.success) {
+      expect(withEnd.data.endDate).toBe(input.startDate + DAY_MS);
+    }
+
+    const cleared = UpdateTournamentSchema.safeParse({
+      ...base,
+      endDate: null,
+    });
+    expect(cleared.success).toBe(true);
+    if (cleared.success) {
+      expect(cleared.data.endDate).toBeNull();
+    }
+
+    const untouched = UpdateTournamentSchema.safeParse(base);
+    expect(untouched.success).toBe(true);
+    if (untouched.success) {
+      expect(untouched.data.endDate).toBeUndefined();
+    }
+  });
+});
+
+describe("SetTournamentUnavailabilitySchema", () => {
+  const base = {
+    courtId: null,
+    date: "2026-10-12",
+    endMinute: null,
+    reason: "Chuva",
+    startMinute: null,
+    tournamentId: "tournament-1",
+  };
+
+  it("os dois horários nulos fecham o dia inteiro", () => {
+    expect(SetTournamentUnavailabilitySchema.safeParse(base).success).toBe(
+      true
+    );
+  });
+
+  it("aceita um pedaço do dia com a quadra", () => {
+    const result = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      courtId: "court-3",
+      endMinute: 1200,
+      startMinute: 960,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("recusa só um dos horários e um período invertido", () => {
+    const halfFilled = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      startMinute: 960,
+    });
+    expect(halfFilled.success).toBe(false);
+    if (!halfFilled.success) {
+      const issue = halfFilled.error.issues.find(
+        (item) => item.message === "Informe o início e o fim do período."
+      );
+      expect(issue?.path.join(".")).toBe("startMinute");
+    }
+
+    const inverted = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      endMinute: 960,
+      startMinute: 1200,
+    });
+    expect(inverted.success).toBe(false);
+    if (!inverted.success) {
+      const issue = inverted.error.issues.find(
+        (item) =>
+          item.message === "O horário de início deve ser antes do término."
+      );
+      expect(issue?.path.join(".")).toBe("startMinute");
+    }
+  });
+
+  it("recusa data fora do formato de dia e motivo curto demais", () => {
+    expect(
+      SetTournamentUnavailabilitySchema.safeParse({
+        ...base,
+        date: "12/10/2026",
+      }).success
+    ).toBe(false);
+    expect(
+      SetTournamentUnavailabilitySchema.safeParse({ ...base, reason: "Ch" })
+        .success
+    ).toBe(false);
+  });
+});
+
+describe("CancelTournamentMatchesSchema", () => {
+  const base = {
+    matchIds: ["match-1"],
+    reason: "Chuva",
+    tournamentId: "tournament-1",
+  };
+
+  it("aceita um lote com motivo", () => {
+    expect(CancelTournamentMatchesSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("recusa lote vazio e acima do teto", () => {
+    expect(
+      CancelTournamentMatchesSchema.safeParse({ ...base, matchIds: [] }).success
+    ).toBe(false);
+    expect(
+      CancelTournamentMatchesSchema.safeParse({
+        ...base,
+        matchIds: Array.from(
+          { length: MAX_TOURNAMENT_MATCH_CANCEL_BATCH + 1 },
+          (_, i) => `match-${i + 1}`
+        ),
+      }).success
+    ).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import type { ScoreSet } from "@/lib/matches/score-display";
 
 import {
   canProposeMatchAgreementScore,
+  isProposalFromMySide,
   resolveMatchAgreementMenuActions,
   type MatchAgreementAction,
   type MatchAgreementChannelFacts,
@@ -14,8 +15,8 @@ import { walkoverWinnerSide } from "./tournament-details-derived";
 // ---------------------------------------------------------------------------
 // Acerto do confronto: o que o CARD mostra (dado -> dado)
 // ---------------------------------------------------------------------------
-// O servidor manda a leitura do lado do viewer (`proposedByMe`, `state`): aqui
-// só entra a decisão de o que mostrar.
+// O servidor manda a leitura do viewer (`proposedByMe`, `proposedBySide`) e o
+// lado dele (`mySide`): a autoria da tela é do LADO, nunca de id de usuário.
 
 export type PlayerMatch =
   ApiOutputs["tournament"]["agreements"]["listMyMatches"][number];
@@ -49,11 +50,22 @@ export function buildPlayerAgreementChip(input: {
     return null;
   }
 
+  // Autoria do LADO: a dupla de quem propôs lê "enviada", não "confirmar".
+  const mySide = input.playerMatch.mySide;
+  const scoreFromMySide = isProposalFromMySide({
+    mySide,
+    proposedBySide: agreements.score.proposedBySide,
+  });
+  const scheduleFromMySide = isProposalFromMySide({
+    mySide,
+    proposedBySide: agreements.schedule.proposedBySide,
+  });
+
   if (agreements.score.proposal !== null) {
     // `agreedAt` preenchido com o canal negociando de novo é pedido de mudança
     // do combinado (o servidor chama de reaberto), não proposta nova.
     if (agreements.score.agreedAt !== null) {
-      return agreements.score.proposedByMe
+      return scoreFromMySide
         ? {
             color: "warning",
             label: MATCH_AGREEMENT_COPY.chipReapproval,
@@ -66,7 +78,7 @@ export function buildPlayerAgreementChip(input: {
           };
     }
 
-    return agreements.score.proposedByMe
+    return scoreFromMySide
       ? {
           color: "warning",
           label: MATCH_AGREEMENT_COPY.chipResultSent,
@@ -89,7 +101,7 @@ export function buildPlayerAgreementChip(input: {
 
   if (agreements.schedule.proposal !== null) {
     if (agreements.schedule.agreedAt !== null) {
-      return agreements.schedule.proposedByMe
+      return scheduleFromMySide
         ? {
             color: "warning",
             label: MATCH_AGREEMENT_COPY.chipReapproval,
@@ -102,7 +114,7 @@ export function buildPlayerAgreementChip(input: {
           };
     }
 
-    return agreements.schedule.proposedByMe
+    return scheduleFromMySide
       ? {
           color: "warning",
           label: MATCH_AGREEMENT_COPY.chipProposalSent,
@@ -291,10 +303,10 @@ export function isMatchAgreementLocked(input: {
 }
 
 /**
- * Verbos do menu do jogador no card, direto da tabela verbo -> ícone. O menu
- * mostra UMA coisa por vez (o canal ativo, ver `resolveMatchAgreementMenuActions`):
- * confronto decidido ou torneio encerrado não deixa menu nenhum (o card fica
- * sem o ⋮).
+ * Verbos do menu do jogador, por LADO (`mySide` + `proposedBySide`): a dupla de
+ * quem propôs não responde e a retirada fica com o AUTOR. O menu mostra UMA
+ * coisa por vez (o canal ativo, ver `resolveMatchAgreementMenuActions`) e sem
+ * item nenhum o card fica sem o ⋮.
  */
 export function buildPlayerAgreementMenu(input: {
   isMatchLocked: boolean;
@@ -305,23 +317,31 @@ export function buildPlayerAgreementMenu(input: {
     return [];
   }
 
-  const { agreements } = input.playerMatch;
+  const { agreements, mySide } = input.playerMatch;
 
   return resolveMatchAgreementMenuActions({
     canProposeScore: canProposeMatchAgreementScore(input.tournamentStatus),
-    schedule: toChannelFacts(agreements.schedule),
-    score: toChannelFacts(agreements.score),
+    schedule: toChannelFacts(agreements.schedule, mySide),
+    score: toChannelFacts(agreements.score, mySide),
   });
 }
 
-function toChannelFacts(view: {
-  proposal: unknown;
-  proposedByMe: boolean;
-  state: string;
-}): MatchAgreementChannelFacts {
+function toChannelFacts(
+  view: {
+    proposal: unknown;
+    proposedByMe: boolean;
+    proposedBySide: null | "a" | "b";
+    state: string;
+  },
+  mySide: "a" | "b"
+): MatchAgreementChannelFacts {
   return {
     hasProposal: view.proposal !== null,
     proposedByMe: view.proposedByMe,
+    proposedByMySide: isProposalFromMySide({
+      mySide,
+      proposedBySide: view.proposedBySide,
+    }),
     state: view.state,
   };
 }

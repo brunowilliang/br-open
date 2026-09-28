@@ -23,6 +23,7 @@ import {
 import { defaultSeedRuleConfig, seedPlayers } from "../domains/seed/data";
 import {
   DOUBLES_SEED_AGENDA_ACTIVE_TARGET,
+  DOUBLES_SEED_AGENDA_WINDOW,
   DOUBLES_SEED_COURTS,
   resolveDoublesSeedAgendaSlot,
 } from "../domains/seed/doubles-agenda-plan";
@@ -951,6 +952,7 @@ async function ensureDoublesSeedTournament(
     DOUBLES_SEED_TOURNAMENT.registrationDeadlineDays
   );
   const startDate = addDays(now, DOUBLES_SEED_TOURNAMENT.startDateDays);
+  const endDate = addDays(now, DOUBLES_SEED_TOURNAMENT.endDateDays);
   const existing = await ctx.orm.query.tournament.findFirst({
     where: {
       name: DOUBLES_SEED_TOURNAMENT.name,
@@ -960,6 +962,7 @@ async function ensureDoublesSeedTournament(
 
   if (existing) {
     await ctx.db.patch(existing.id as Id<"tournament">, {
+      endDate: endDate.getTime(),
       registrationDeadlineAt: registrationDeadlineAt.getTime(),
       startDate: startDate.getTime(),
       ...(existing.status === "draft" ? { status: "published" } : {}),
@@ -978,6 +981,7 @@ async function ensureDoublesSeedTournament(
       courts: [],
       createdAt: now,
       description: "Torneio de duplas do plantio de conferencia (seed).",
+      endDate,
       locationNotes: "",
       matchConfig: defaultSeedRuleConfig.matchConfig,
       name: DOUBLES_SEED_TOURNAMENT.name,
@@ -1384,6 +1388,25 @@ export const doublesAgendaScenario = privateMutation
 
     const now = new Date();
     const nowMs = now.getTime();
+
+    // A JANELA precisa cobrir os dias da agenda plantada (hoje e amanha): sem
+    // ela o produto recusaria os horarios que o proprio plantio escreve. O
+    // prazo fica para tras, coerente com a chave ja sorteada.
+    await ctx.db.patch(tournamentId, {
+      endDate: addDays(
+        now,
+        DOUBLES_SEED_AGENDA_WINDOW.endDateOffsetDays
+      ).getTime(),
+      registrationDeadlineAt: addDays(
+        now,
+        DOUBLES_SEED_AGENDA_WINDOW.registrationDeadlineOffsetDays
+      ).getTime(),
+      startDate: addDays(
+        now,
+        DOUBLES_SEED_AGENDA_WINDOW.startDateOffsetDays
+      ).getTime(),
+    });
+
     const matchConfig = currentTournament.matchConfig as MatchConfig;
     const categories = await ctx.orm.query.tournamentCategory.findMany({
       limit: DOUBLES_SEED_CATEGORY_SCAN_LIMIT,

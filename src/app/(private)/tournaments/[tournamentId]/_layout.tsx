@@ -14,6 +14,7 @@ import {
   FloatingTabBar,
   type FloatingTabBarItem,
 } from "@/components/navigation/floating-tab-bar";
+import { OrganizerActionsHost } from "@/components/pages/tournaments/organizer-actions";
 import { getViewerActorKey } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
@@ -213,7 +214,11 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
     playerPendingsQuery.isPending,
   ]);
 
-  return <TournamentDetailsTabs tournamentId={tournamentId} />;
+  return (
+    <OrganizerActionsHost tournamentId={tournamentId}>
+      <TournamentDetailsTabs tournamentId={tournamentId} />
+    </OrganizerActionsHost>
+  );
 }
 
 function TournamentDetailsTabs(props: { tournamentId?: string }) {

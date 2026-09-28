@@ -1,4 +1,4 @@
-import { and, eq } from "kitcn/orm";
+import { and, eq, unsetToken } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
@@ -15,7 +15,11 @@ import {
   findRemovedScheduledCourt,
   validateTournamentEditStatus,
 } from "../../domains/tournament/management-rules";
-import type { TournamentScheduledMatch } from "../../domains/tournament/scheduling-rules";
+import {
+  brazilDayKey,
+  findScheduledMatchesBeyondWindowEnd,
+  formatShortenWindowError,
+} from "../../domains/tournament/window-rules";
 import {
   CreateTournamentSchema,
   DeleteTournamentSchema,
@@ -36,11 +40,13 @@ import { requireActiveManager } from "../viewer/context";
 import {
   getManagedTournamentOrThrow,
   isUniqueIndexViolation,
+  scheduleTournamentNotification,
   serializeCategory,
   serializeTournament,
   type OrmCtx,
   type OrmMutationCtx,
 } from "./_shared/guards";
+import { listTournamentMatchRecords } from "./_shared/match_writes";
 
 type CategoryInput = z.infer<typeof CreateTournamentSchema>["categories"];
 
@@ -226,13 +232,17 @@ export const create = authMutation
   .mutation(async ({ ctx, input }) => {
     const organizationId = await requireActiveManager(ctx);
     const now = new Date();
-    const { categories, ...tournamentInput } = input;
+    const { categories, endDate, ...tournamentInput } = input;
 
     const [created] = await ctx.orm
       .insert(tournament)
       .values({
         ...tournamentInput,
         createdAt: now,
+        // Sem fim informado o torneio nasce sem teto (comportamento de hoje).
+        ...(endDate === null || endDate === undefined
+          ? {}
+          : { endDate: new Date(endDate) }),
         organizationId,
         registrationDeadlineAt: new Date(
           tournamentInput.registrationDeadlineAt
@@ -274,23 +284,48 @@ export const update = authMutation
         .map((court) => court.id)
         .filter((courtId) => !nextCourtIds.has(courtId))
     );
-    if (removedCourtIds.size > 0) {
-      const scheduledMatches: TournamentScheduledMatch[] = [];
-      const tournamentCategories =
-        await ctx.orm.query.tournamentCategory.findMany({
-          limit: MAX_TOURNAMENT_CATEGORIES,
-          where: { tournamentId: current.id as Id<"tournament"> },
+
+    // Janela: definir/encurtar o fim só passa sem confronto agendado além dele
+    // que ainda dê pra remarcar (publicado não volta pra agenda); estender (ou
+    // tirar o fim) avisa quem está no torneio.
+    const nextEndDayKey =
+      input.endDate === null || input.endDate === undefined
+        ? null
+        : brazilDayKey(input.endDate);
+    const currentEndDayKey = current.endDate
+      ? brazilDayKey(current.endDate.getTime())
+      : null;
+    const shortensWindow =
+      nextEndDayKey !== null &&
+      (currentEndDayKey === null || nextEndDayKey < currentEndDayKey);
+    const extendsWindow =
+      nextEndDayKey !== null &&
+      currentEndDayKey !== null &&
+      nextEndDayKey > currentEndDayKey;
+
+    const tournamentMatches =
+      removedCourtIds.size > 0 || shortensWindow
+        ? await listTournamentMatchRecords(ctx, current.id as Id<"tournament">)
+        : [];
+    if (shortensWindow) {
+      const beyond = findScheduledMatchesBeyondWindowEnd({
+        endDayKey: nextEndDayKey,
+        matches: tournamentMatches,
+      });
+      if (beyond) {
+        throw new CRPCError({
+          code: "CONFLICT",
+          message: formatShortenWindowError({
+            count: beyond.count,
+            endDayKey: nextEndDayKey,
+          }),
         });
-      for (const category of tournamentCategories) {
-        const rows = await ctx.orm.query.tournamentMatch.findMany({
-          limit: 300,
-          where: { categoryId: category.id as Id<"tournamentCategory"> },
-        });
-        scheduledMatches.push(...rows);
       }
+    }
+    if (removedCourtIds.size > 0) {
       const removedCourtId = findRemovedScheduledCourt({
         removedCourtIds,
-        scheduledMatches,
+        scheduledMatches: tournamentMatches,
       });
       if (removedCourtId) {
         const removedCourt = (
@@ -317,11 +352,15 @@ export const update = authMutation
     );
 
     const now = new Date();
-    const { categories, tournamentId, ...rest } = input;
+    const { categories, endDate, tournamentId, ...rest } = input;
     const [updated] = await ctx.orm
       .update(tournament)
       .set({
         ...rest,
+        // Ausente = janela intocada; nulo = volta a ficar sem teto.
+        ...(endDate === undefined
+          ? {}
+          : { endDate: endDate === null ? unsetToken : new Date(endDate) }),
         registrationDeadlineAt: new Date(rest.registrationDeadlineAt),
         startDate: new Date(rest.startDate),
         updatedAt: now,
@@ -336,6 +375,43 @@ export const update = authMutation
 
     await syncCategories(ctx, updated.id as Id<"tournament">, categories);
     await deleteStorageIds(ctx, replacedStorageIds);
+
+    // Estender a janela muda a vida de quem está no torneio: o aviso sai só
+    // quando o fim ANDA para frente.
+    if (extendsWindow && nextEndDayKey !== null) {
+      const recipients = new Set<Id<"user">>();
+      const tournamentCategories =
+        await ctx.orm.query.tournamentCategory.findMany({
+          limit: MAX_TOURNAMENT_CATEGORIES,
+          where: { tournamentId: updated.id as Id<"tournament"> },
+        });
+      for (const category of tournamentCategories) {
+        const entries = await ctx.orm.query.tournamentEntry.findMany({
+          limit: 300,
+          where: {
+            categoryId: category.id as Id<"tournamentCategory">,
+            status: "active",
+          },
+        });
+        for (const entry of entries) {
+          if (entry.createdByUserId) {
+            recipients.add(entry.createdByUserId as Id<"user">);
+          }
+          if (entry.partnerUserId) {
+            recipients.add(entry.partnerUserId as Id<"user">);
+          }
+        }
+      }
+      if (recipients.size > 0) {
+        await scheduleTournamentNotification(ctx, {
+          eventType: "tournament.window_extended",
+          metadata: { endDate: nextEndDayKey },
+          recipientUserIds: [...recipients],
+          tournamentId: updated.id as Id<"tournament">,
+        });
+      }
+    }
+
     return serializeTournament(ctx, updated);
   });
 

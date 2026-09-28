@@ -6,7 +6,12 @@ import {
   PressableFeedback,
   Separator,
 } from "heroui-native";
-import { memo } from "react";
+import { memo, useEffect } from "react";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { View } from "react-native";
 
 import { Image } from "@/components/core/image";
@@ -21,13 +26,7 @@ import {
   buildBracketScoreTokens,
   type ScoreSet,
 } from "@/lib/matches/score-display";
-import {
-  Calendar03Icon,
-  Edit02Icon,
-  ExchangeIcon,
-  MoreVerticalIcon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
+import { ExchangeIcon, MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeIcons, type HugeIconGlyph } from "./huge-icons";
 
 /** Avatar do jogador indefinido: sem foto, o placeholder marca a vaga (o core
@@ -77,12 +76,12 @@ function buildSideLines(input: {
     : [line, { color: "muted", name: UNDEFINED_PLAYER_NAME, weight: "normal" }];
 }
 
-/** Com o COMBINAR JOGO, o card ganha a linha do que está na mesa e os itens do
- * jogador no menu (o mesmo molde do menu do organizador: sem item, sem menu). */
-export type MatchCardAgreementItem = {
+/** Item do menu ⋮ do card: a MESMA peça para o menu do PAPEL (organizador) e
+ * para os verbos do acerto (jogador). Quem decide o que entra é o builder do
+ * papel; o card só desenha. */
+export type MatchCardMenuItem = {
   icon: HugeIconGlyph;
-  /** Verbo destrutivo (Recusar, Cancelar): rótulo e ícone em vermelho, como o
-   * `variant="danger"` dos outros menus. */
+  /** Verbo destrutivo (Cancelar jogo, Recusar): rótulo e ícone em vermelho. */
   isDanger?: boolean;
   label: string;
   onPress: () => void;
@@ -97,7 +96,7 @@ export type MatchCardAgreementChip = {
 
 export type MatchCardAgreement = {
   chip: MatchCardAgreementChip | null;
-  menuItems: readonly MatchCardAgreementItem[];
+  menuItems: readonly MatchCardMenuItem[];
   /** Horário NA MESA (proposta ainda não confirmada): ocupa o rodapé de
    * agendamento com a cor de atenção. */
   scheduleProposal: null | {
@@ -139,18 +138,23 @@ export type MatchCardProps = {
   /** Abre o menu já na montagem (a galeria de componentes mostra o menu de cada
    * estado sem toque). */
   isMenuDefaultOpen?: boolean;
+  /** Modo seleção da agenda: o toque no card alterna a marcação e o card nasce
+   * com a borda de selecionado. Sem `onCardLongPress` não existe superfície de
+   * toque própria (o card segue como sempre foi). */
+  isSelected?: boolean;
+  /** Menu do PAPEL, montado pelo builder dele (`buildOrganizerMatchMenu` no
+   * organizador, o acerto no jogador): o card só desenha o que chega. Sem item
+   * nenhum o ⋮ não aparece. */
+  menu?: readonly MatchCardMenuItem[] | null;
+  /** Toque longo: o card entra no modo seleção da agenda. */
+  onCardLongPress?: () => void;
+  /** Toque no card DURANTE o modo seleção (marca/desmarca). */
+  onCardPress?: () => void;
   /** Modalidade do LADO, que o card não consegue ver sozinho no lado vazio (a
    * vaga em aberto não tem parceiro para denunciar a dupla). Sem a prop vale a
    * inferência pelo parceiro, como antes; `singles` força um avatar e uma
    * linha, `doubles` força o par de avatares em TODA ponta. */
   modality?: "doubles" | "singles";
-  /** Menu do organizador: ele só é DESENHADO onde há ação — sem nenhum destes
-   * handlers (agendas e "Próximo jogo") o menu não aparece, e a partida
-   * encerrada troca Agendar/Resultado por "Editar resultado". */
-  onConcludePress?: () => void;
-  onEditResultPress?: () => void;
-  onResultPress?: () => void;
-  onSchedulePress?: () => void;
   /** Toque no LADO: só chega com o lado habilitado na troca de oponente. */
   onSidePress?: (side: "a" | "b") => void;
   /** Sets do confronto (challenger = lado A, challenged = lado B); ausente ou
@@ -210,22 +214,12 @@ function MatchCardImpl(props: MatchCardProps) {
   const statusLabelClassName =
     props.matchStatus === "pending" ? "text-muted" : undefined;
 
-  // O menu é do CARD e só é DESENHADO onde há ação: sem handler nenhum (agendas
-  // e "Próximo jogo") ele não aparece. Encerrada, a ação é editar o resultado
-  // já publicado; antes disso são agendar (ou reagendar) e publicar. O
-  // `champion` da final decidida conta como encerrada: o wire só diz `finished`.
-  const isDecided =
-    props.matchStatus === "finished" || props.matchStatus === "champion";
-  const editResultAction = isDecided ? props.onEditResultPress : undefined;
-  const resultAction = isDecided ? undefined : props.onResultPress;
-  const scheduleAction = isDecided ? undefined : props.onSchedulePress;
-  const concludeAction = props.onConcludePress;
+  // O card não decide item nenhum: ele desenha o menu do PAPEL (organizador ou
+  // jogador) que chega pronto e, sem item, não desenha o ⋮.
+  const menuItems = props.menu ?? [];
   const agreementItems = props.agreement?.menuItems ?? [];
   const agreementChip = props.agreement?.chip ?? null;
-  const hasMenuActions =
-    Boolean(
-      concludeAction || editResultAction || resultAction || scheduleAction
-    ) || agreementItems.length > 0;
+  const hasMenuActions = menuItems.length > 0 || agreementItems.length > 0;
 
   // Challenger é o lado A e challenged o lado B (mesma convenção das agendas);
   // o vencedor de cada set sai do próprio placar, com o tie-break desempatando.
@@ -326,8 +320,10 @@ function MatchCardImpl(props: MatchCardProps) {
   const challengedPartnerAvatarFallback = challengedPartnerOpen
     ? UNDEFINED_AVATAR_FALLBACK
     : "blue";
-
-  return (
+  // A seleção da agenda é um ANEL por FORA do card, animado: nasce e some
+  // suave, sem mexer no layout (entrar/sair não desloca nada).
+  const isSelectable = Boolean(props.onCardLongPress);
+  const card = (
     <Card className="gap-3 p-3">
       <View className="flex-row items-center justify-between">
         {props.stageLabel ? (
@@ -363,32 +359,21 @@ function MatchCardImpl(props: MatchCardProps) {
               <Menu.Portal>
                 <Menu.Overlay className="bg-backdrop" />
                 <Menu.Content presentation="popover" width={240}>
-                  {concludeAction ? (
-                    <Menu.Item onPress={concludeAction}>
-                      <Menu.ItemTitle>Concluir torneio</Menu.ItemTitle>
-                      <HugeIcons className="size-4.5" icon={Tick02Icon} />
-                    </Menu.Item>
-                  ) : null}
-                  {scheduleAction ? (
-                    <Menu.Item onPress={scheduleAction}>
-                      <Menu.ItemTitle>
-                        {props.matchDate ? "Reagendar" : "Agendar"}
+                  {menuItems.map((item) => (
+                    <Menu.Item key={item.label} onPress={item.onPress}>
+                      <Menu.ItemTitle
+                        className={item.isDanger ? "text-danger" : undefined}
+                      >
+                        {item.label}
                       </Menu.ItemTitle>
-                      <HugeIcons className="size-4.5" icon={Calendar03Icon} />
+                      <HugeIcons
+                        className={
+                          item.isDanger ? "size-4.5 text-danger" : "size-4.5"
+                        }
+                        icon={item.icon}
+                      />
                     </Menu.Item>
-                  ) : null}
-                  {resultAction ? (
-                    <Menu.Item onPress={resultAction}>
-                      <Menu.ItemTitle>Resultado</Menu.ItemTitle>
-                      <HugeIcons className="size-4.5" icon={Edit02Icon} />
-                    </Menu.Item>
-                  ) : null}
-                  {editResultAction ? (
-                    <Menu.Item onPress={editResultAction}>
-                      <Menu.ItemTitle>Editar resultado</Menu.ItemTitle>
-                      <HugeIcons className="size-4.5" icon={Edit02Icon} />
-                    </Menu.Item>
-                  ) : null}
+                  ))}
                   {agreementItems.map((item) => (
                     <Menu.Item key={item.label} onPress={item.onPress}>
                       <Menu.ItemTitle
@@ -590,7 +575,46 @@ function MatchCardImpl(props: MatchCardProps) {
           </Chip>
         </View>
       ) : null}
+      {isSelectable ? (
+        <MatchSelectionRing isSelected={Boolean(props.isSelected)} />
+      ) : null}
+      {isSelectable ? <PressableFeedback.Highlight /> : null}
     </Card>
+  );
+
+  if (!isSelectable) {
+    return card;
+  }
+
+  return (
+    <PressableFeedback
+      onLongPress={props.onCardLongPress}
+      onPress={props.onCardPress}
+    >
+      {card}
+    </PressableFeedback>
+  );
+}
+
+/**
+ * Borda de seleção da agenda: um contorno accent POR DENTRO do card (o card e o
+ * pressable cortam o que passa das bordas, então anel por fora aparecia
+ * cortado), com opacidade animada pra entrar e sair suave. Não ocupa layout.
+ */
+export function MatchSelectionRing(props: { isSelected: boolean }) {
+  const progress = useSharedValue(0);
+  const ringStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+
+  useEffect(() => {
+    progress.value = withTiming(props.isSelected ? 1 : 0, { duration: 180 });
+  }, [props.isSelected, progress]);
+
+  return (
+    <Animated.View
+      className="absolute inset-0 rounded-3xl border-2 border-accent"
+      pointerEvents="none"
+      style={ringStyle}
+    />
   );
 }
 

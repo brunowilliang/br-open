@@ -14,6 +14,7 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "cancelMatches": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../tournament/matches").cancelMatches>("tournament/matches:cancelMatches"), () => (require("../../tournament/matches") as Record<string, unknown>)["cancelMatches"])],
   "editResult": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "public", typeof import("../../tournament/matches").editResult>("tournament/matches:editResult"), () => (require("../../tournament/matches") as Record<string, unknown>)["editResult"])],
   "listForTournament": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../tournament/matches").listForTournament>("tournament/matches:listForTournament"), () => (require("../../tournament/matches") as Record<string, unknown>)["listForTournament"])],
   "listOccupiedSlots": ["query", typedProcedureResolver(createGeneratedFunctionReference<"query", "public", typeof import("../../tournament/matches").listOccupiedSlots>("tournament/matches:listOccupiedSlots"), () => (require("../../tournament/matches") as Record<string, unknown>)["listOccupiedSlots"])],

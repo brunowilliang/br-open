@@ -101,6 +101,7 @@ async function getActorName(ctx: MutationCtx, actorUserId: Id<"user"> | null) {
 const ORGANIZER_RECIPIENT_EVENTS: Record<string, true> = {
   "tournament.entry.cancelled": true,
   "tournament.entry.created": true,
+  "tournament.window_expired": true,
 };
 
 function eventTypeAppliesToOrganizer(

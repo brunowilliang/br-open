@@ -19,6 +19,21 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
   const router = useRouter();
   const { toast } = useToast();
 
+  /** O aceite muda o confronto e a home junto com a pendência: sem as três
+   * releituras o card do jogo segue velho e o toque nele cai em "Esse acerto já
+   * está fechado". Sem args, o filtro pega todas as variantes da query. */
+  const invalidateAcceptedAgreementContext = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(crpc.pendings.list.list.queryFilter()),
+      queryClient.invalidateQueries(
+        crpc.tournament.agreements.listMyMatches.queryFilter()
+      ),
+      queryClient.invalidateQueries(
+        crpc.player.dashboard.getOverview.queryFilter()
+      ),
+    ]);
+  };
+
   const respondPartnerInvite = useMutation({
     mutationFn: crpcClient.tournament.entries.respondPartnerInvite.mutate,
     mutationKey: crpc.tournament.entries.respondPartnerInvite.mutationKey(),
@@ -147,9 +162,7 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries(
-        crpc.pendings.list.list.queryFilter()
-      );
+      await invalidateAcceptedAgreementContext();
       await input?.onPerformed?.();
       toast.show({
         description: "Horário aceito, o confronto está agendado.",
@@ -176,9 +189,7 @@ export function usePendingActionRunner(input?: UsePendingActionRunnerInput) {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries(
-        crpc.pendings.list.list.queryFilter()
-      );
+      await invalidateAcceptedAgreementContext();
       await input?.onPerformed?.();
       toast.show({
         description: "Placar confirmado, o resultado foi publicado.",

@@ -111,6 +111,9 @@ function toCreateTournamentInput(
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
+    // Sem Fim escolhido o torneio nasce com a janela de UM dia (o mesmo do
+    // início): é o default combinado, e o servidor só põe teto com ele.
+    endDate: tournamentDateToEpochMs(values.endDate || values.startDate),
     locationNotes: values.locationNotes,
     matchConfig: values.matchConfig,
     name: values.name,
@@ -145,6 +148,10 @@ function toTournamentScreenValues(
     courts: tournament.courts,
     coverStorageId: tournament.coverStorageId,
     description: tournament.description ?? "",
+    endDate:
+      tournament.endDate === null
+        ? ""
+        : epochMsToTournamentDate(tournament.endDate),
     locationNotes: tournament.locationNotes ?? "",
     matchConfig: tournament.matchConfig,
     name: tournament.name,
@@ -168,6 +175,9 @@ function toUpdateTournamentInput(
     categories: values.categories.map((category) =>
       buildCategoryUpdatePayload(category)
     ),
+    // No update o Fim vazio vale "sem teto" de verdade: o create tem o default
+    // do dia do início, a edição NUNCA inventa um fim que o organizador não deu.
+    endDate: values.endDate ? tournamentDateToEpochMs(values.endDate) : null,
     tournamentId,
   };
 }

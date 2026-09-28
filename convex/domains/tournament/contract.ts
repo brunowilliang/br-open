@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { CourtsSchema, MatchConfigSchema } from "../match/contract";
 import { enumField, requiredString } from "../../utils/contract.zod";
+import { brazilDayKey } from "./window-rules";
 
 // ---------------------------------------------------------------------------
 // Status enums
@@ -77,6 +78,16 @@ const tournamentStartDateSchema = z
   })
   .int();
 
+// Opcional de propósito: torneio sem fim (legado) segue sem teto de agenda.
+const tournamentEndDateSchema = z
+  .number({
+    error: (issue) =>
+      issue.input === undefined ? undefined : "Data de fim inválida.",
+  })
+  .int("Data de fim inválida.")
+  .nullable()
+  .optional();
+
 export const TournamentSchemaBase = {
   approvalMode: enumField(
     TournamentApprovalModeOptions,
@@ -87,6 +98,7 @@ export const TournamentSchemaBase = {
   courts: CourtsSchema,
   coverStorageId: tournamentMediaStorageIdSchema,
   description: z.string().trim().optional(),
+  endDate: tournamentEndDateSchema,
   locationNotes: z.string().trim().optional(),
   matchConfig: MatchConfigSchema,
   name: tournamentNameSchema,
@@ -177,7 +189,11 @@ function refineCategoryNames(value: CategoryNameInput, ctx: z.RefinementCtx) {
 }
 
 function refineTournamentWindow(
-  value: { registrationDeadlineAt: number; startDate: number },
+  value: {
+    endDate?: null | number;
+    registrationDeadlineAt: number;
+    startDate: number;
+  },
   ctx: z.RefinementCtx
 ) {
   if (value.registrationDeadlineAt >= value.startDate) {
@@ -185,6 +201,19 @@ function refineTournamentWindow(
       code: z.ZodIssueCode.custom,
       message: "O prazo de inscrições deve ser anterior à data de início.",
       path: ["registrationDeadlineAt"],
+    });
+  }
+  // Comparação por DIA (calendário brasileiro): fim e início no mesmo dia são
+  // a janela de um dia, mesmo com horas diferentes.
+  if (
+    value.endDate !== null &&
+    value.endDate !== undefined &&
+    brazilDayKey(value.endDate) < brazilDayKey(value.startDate)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "O fim do torneio não pode ser antes do início.",
+      path: ["endDate"],
     });
   }
 }
@@ -223,6 +252,72 @@ export const UpdateTournamentSchema = z
   .superRefine(refineCategoryNames);
 
 export const DeleteTournamentSchema = z.object({
+  tournamentId: tournamentIdSchema,
+});
+
+// ---------------------------------------------------------------------------
+// Indisponibilidade da agenda e cancelamento em lote
+// ---------------------------------------------------------------------------
+
+const unavailabilityDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
+
+const unavailabilityReasonSchema = requiredString("Informe o motivo.").pipe(
+  z.string().min(3, "Informe o motivo.").max(80, "Use um motivo mais curto.")
+);
+
+const unavailabilityMinuteSchema = z
+  .number()
+  .int("Horário inválido.")
+  .min(0, "Horário inválido.")
+  .max(1440, "Horário inválido.")
+  .nullable();
+
+export const SetTournamentUnavailabilitySchema = z
+  .object({
+    // Nulo = todas as quadras; a quadra informada precisa existir no torneio.
+    courtId: z.string().min(1, "Quadra inválida.").nullable(),
+    date: unavailabilityDateSchema,
+    // Os dois nulos = dia inteiro; só um deles = recusado.
+    endMinute: unavailabilityMinuteSchema,
+    reason: unavailabilityReasonSchema,
+    startMinute: unavailabilityMinuteSchema,
+    tournamentId: tournamentIdSchema,
+  })
+  .superRefine((value, ctx) => {
+    if (value.startMinute === null && value.endMinute === null) {
+      return;
+    }
+    if (value.startMinute === null || value.endMinute === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o início e o fim do período.",
+        path: ["startMinute"],
+      });
+      return;
+    }
+    if (value.startMinute >= value.endMinute) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "O horário de início deve ser antes do término.",
+        path: ["startMinute"],
+      });
+    }
+  });
+
+export const RemoveTournamentUnavailabilitySchema = z.object({
+  unavailabilityId: z.string().min(1, "Bloqueio inválido."),
+});
+
+export const MAX_TOURNAMENT_MATCH_CANCEL_BATCH = 100;
+
+export const CancelTournamentMatchesSchema = z.object({
+  matchIds: z
+    .array(z.string().min(1, "Confronto inválido."))
+    .min(1, "Selecione ao menos um confronto.")
+    .max(MAX_TOURNAMENT_MATCH_CANCEL_BATCH, "Selecione menos confrontos."),
+  reason: unavailabilityReasonSchema,
   tournamentId: tournamentIdSchema,
 });
 
@@ -274,6 +369,8 @@ export const tournamentSchema = z.object({
   coverUrl: z.string().nullable().optional(),
   createdAt: z.number(),
   description: z.string().nullable().optional(),
+  // Nulo = torneio sem fim definido (sem teto de agenda).
+  endDate: z.number().nullable(),
   id: z.string(),
   locationNotes: z.string().nullable().optional(),
   matchConfig: MatchConfigSchema,
@@ -416,6 +513,22 @@ export const tournamentMatchOccupiedSlotSchema = z.object({
   matchId: z.string().min(1, "Confronto inválido."),
   startMinute: z.number().int().min(0).max(1440),
 });
+
+export const tournamentUnavailabilitySchema = z.object({
+  // Nulo = todas as quadras; o nome vem resolvido da lista de quadras.
+  courtId: z.string().nullable(),
+  courtName: z.string().nullable(),
+  createdAt: z.number(),
+  date: z.string(),
+  endMinute: z.number().int().nullable(),
+  id: z.string(),
+  reason: z.string(),
+  startMinute: z.number().int().nullable(),
+});
+
+export type TournamentUnavailabilityView = z.infer<
+  typeof tournamentUnavailabilitySchema
+>;
 
 export type TournamentPlayerCard = z.infer<typeof tournamentPlayerCardSchema>;
 export type TournamentEntryWithPlayers = z.infer<

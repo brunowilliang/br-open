@@ -4,7 +4,9 @@ import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
 import type { MatchConfig } from "../../domains/match/contract";
 import {
+  CancelTournamentMatchesSchema,
   EditMatchResultSchema,
+  MAX_TOURNAMENT_CATEGORIES,
   PublishMatchResultSchema,
   ScheduleTournamentMatchSchema,
   TournamentByIdSchema,
@@ -14,7 +16,10 @@ import {
 import { resolveResultEditReverb } from "../../domains/tournament/score-rules";
 import { resolveMatchOccupiedEndMinute } from "../../domains/match/scheduling";
 import { isTournamentClosed } from "../../domains/tournament/management-rules";
-import { isScheduledTournamentMatch } from "../../domains/tournament/scheduling-rules";
+import {
+  isScheduledTournamentMatch,
+  resolveBulkCancelPlan,
+} from "../../domains/tournament/scheduling-rules";
 import {
   tournamentMatch,
   tournamentMatchEdit,
@@ -26,10 +31,10 @@ import {
   getTournamentRecordOrThrow,
   scheduleTournamentNotification,
 } from "./_shared/guards";
-import { notifyMatchReady } from "./_shared/match_notices";
 import {
   applyMatchResult,
   applyMatchSchedule,
+  applyMatchSuspension,
   entryRecipientUserIds,
   getMatchOrThrow,
   listTournamentMatchRecords,
@@ -172,10 +177,6 @@ export const editResult = authMutation
 
     if (reverb.action === "swap" && next) {
       const side = match.slotInRound % 2 === 0 ? "entryAId" : "entryBId";
-      const nextSides = {
-        entryAId: (next.entryAId ?? null) as null | string,
-        entryBId: (next.entryBId ?? null) as null | string,
-      };
       await ctx.orm
         .update(tournamentMatch)
         .set({
@@ -184,14 +185,8 @@ export const editResult = authMutation
           updatedAt: now,
         })
         .where(eq(tournamentMatch.id, next.id as never));
-      await notifyMatchReady(ctx, {
-        after: { ...nextSides, [side]: newWinnerEntryId as string },
-        before: nextSides,
-        categoryId: match.categoryId as Id<"tournamentCategory">,
-        matchId: next.id as string,
-        round: next.round,
-        tournament: tournamentRecord,
-      });
+      // Sem aviso de "proximo jogo": a vaga ja tinha dono (o vencedor que a
+      // edicao troca), logo a prontidao nao muda e nao ha lado novo entrando.
     }
 
     await ctx.orm.insert(tournamentMatchEdit).values({
@@ -250,6 +245,7 @@ export const scheduleMatch = authMutation
     );
 
     const updated = await applyMatchSchedule(ctx, {
+      actor: "organizer",
       courtId: input.courtId,
       endMinute: input.endMinute,
       match,
@@ -269,6 +265,87 @@ export const scheduleMatch = authMutation
     });
 
     return serializeMatch(updated);
+  });
+
+/**
+ * Cancelamento em LOTE (chuva, luz, quadra): tira a agenda dos confrontos
+ * escolhidos e devolve cada um ao "a definir", avisando os dois lados com o
+ * motivo. Confronto com resultado publicado e vaga vazia são PULADOS (o
+ * confronto nunca morre aqui); quem estava sem horário também não muda.
+ */
+export const cancelMatches = authMutation
+  .input(CancelTournamentMatchesSchema)
+  .output(
+    z.object({
+      cancelled: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const matches = await ctx.orm.query.tournamentMatch.findMany({
+      limit: input.matchIds.length,
+      where: { id: { in: input.matchIds as Id<"tournamentMatch">[] } },
+    });
+    if (matches.length !== new Set(input.matchIds).size) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Confronto não encontrado.",
+      });
+    }
+
+    const [first] = matches;
+    if (!first) {
+      throw new CRPCError({
+        code: "NOT_FOUND",
+        message: "Confronto não encontrado.",
+      });
+    }
+    const { tournament: tournamentRecord } = await resolveMatchContext(
+      ctx,
+      first
+    );
+    if (tournamentRecord.id !== input.tournamentId) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Selecione confrontos do mesmo torneio.",
+      });
+    }
+    await getManagedTournamentOrThrow(
+      ctx,
+      tournamentRecord.id as Id<"tournament">
+    );
+    if (
+      tournamentRecord.status !== "drawn" &&
+      tournamentRecord.status !== "ongoing"
+    ) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Cancelar jogos exige chave sorteada ou torneio em andamento.",
+      });
+    }
+
+    const categories = await ctx.orm.query.tournamentCategory.findMany({
+      limit: MAX_TOURNAMENT_CATEGORIES,
+      where: { tournamentId: tournamentRecord.id as Id<"tournament"> },
+    });
+    const categoryIds = new Set(categories.map((category) => category.id));
+    if (matches.some((match) => !categoryIds.has(match.categoryId))) {
+      throw new CRPCError({
+        code: "BAD_REQUEST",
+        message: "Selecione confrontos do mesmo torneio.",
+      });
+    }
+
+    const plan = resolveBulkCancelPlan(matches);
+    for (const target of plan.cancels) {
+      await applyMatchSuspension(ctx, {
+        match: target,
+        reason: input.reason,
+        tournament: tournamentRecord,
+      });
+    }
+
+    return { cancelled: plan.cancels.length, skipped: plan.skipped };
   });
 
 export const listForTournament = authQuery

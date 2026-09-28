@@ -35,9 +35,14 @@ const openMatch = {
 };
 
 const tournamentWithCourts = {
-  courts: [{ id: "court-1" }, { id: "court-2" }],
+  blocks: [],
+  courts: [
+    { id: "court-1", name: "Quadra Central" },
+    { id: "court-2", name: "Quadra 2" },
+  ],
   matchConfig,
   status: "drawn",
+  window: { endDayKey: null, startDayKey: "2026-09-01" },
 };
 
 const scheduledMatch: TournamentScheduledMatch = {
@@ -716,6 +721,17 @@ describe("acerto: transições de estado", () => {
     });
     expect(decided?.event.kind).toBe("closed");
 
+    // Encaixe manual da chave: o par foi reescrito, entao o canal FECHADO
+    // (agreed) tambem cai, preservando o `agreedAt` do historico.
+    const rewritten = resolveAgreementSweep({
+      current: stateFields({ agreedAt: proposedAt, state: "agreed" }),
+      kind: "overridden",
+      nowMs: proposedAt + 9000,
+    });
+    expect(rewritten?.event.kind).toBe("overridden");
+    expect(rewritten?.next.state).toBe("idle");
+    expect(rewritten?.next.agreedAt).toBe(proposedAt);
+
     expect(
       resolveAgreementSweep({
         current: stateFields({
@@ -762,42 +778,63 @@ describe("acerto: leitura e pendência", () => {
     ).toBe(false);
   });
 
-  it("turns a received proposal into the pending signal, never the own one", () => {
+  it("turns a received proposal into the pending signal, never the own side", () => {
     expect(
       resolveReceivedAgreement({
         channel: "schedule",
         current: stateFields({}),
-        userId: "user-b",
+        side: "b",
       })
     ).toEqual({ channel: "schedule", kind: "proposal" });
     expect(
       resolveReceivedAgreement({
         channel: "schedule",
         current: stateFields({ agreedAt: proposedAt }),
-        userId: "user-b",
+        side: "b",
       })
     ).toEqual({ channel: "schedule", kind: "reopened" });
     expect(
       resolveReceivedAgreement({
         channel: "score",
         current: stateFields({}),
-        userId: "user-a",
+        side: "a",
       })
     ).toBeNull();
     expect(
       resolveReceivedAgreement({
         channel: "score",
         current: stateFields({ agreedAt: proposedAt, state: "agreed" }),
-        userId: "user-b",
+        side: "b",
       })
     ).toBeNull();
     expect(
       resolveReceivedAgreement({
         channel: "score",
         current: stateFields({ proposal: null, state: "idle" }),
-        userId: "user-b",
+        side: "b",
       })
     ).toBeNull();
+  });
+
+  it("leaves the doubles partner of the proposer out of the pending signal", () => {
+    // O parceiro é outro usuario do MESMO lado: a escrita já é por lado, entao
+    // ele nao recebe a pendencia (nem o verbo de resposta que vem dentro dela).
+    const proposedByPartner = stateFields({ proposedByUserId: "user-a2" });
+
+    expect(
+      resolveReceivedAgreement({
+        channel: "schedule",
+        current: proposedByPartner,
+        side: "a",
+      })
+    ).toBeNull();
+    expect(
+      resolveReceivedAgreement({
+        channel: "schedule",
+        current: proposedByPartner,
+        side: "b",
+      })
+    ).toEqual({ channel: "schedule", kind: "proposal" });
   });
 
   it("keeps the declined proposal readable in the history", () => {
@@ -876,5 +913,97 @@ describe("acerto: configuração padrão do torneio", () => {
   it("uses the shared default match config shape", () => {
     // Trava o formato do fixture de placar/horário usado acima.
     expect(DEFAULT_MATCH_CONFIG.defaultDurationMinutes).toBe(90);
+  });
+});
+
+describe("acerto: janela do torneio e bloqueios", () => {
+  const proposal = {
+    courtId: "court-1",
+    endMinute: 600,
+    matchDate: "2026-10-21",
+    startMinute: 480,
+  };
+
+  it("recusa proposta fora da janela com a mensagem do Editar torneio", () => {
+    const result = resolveScheduleProposal({
+      match: openMatch,
+      proposal,
+      scheduledMatches: [],
+      tournament: {
+        ...tournamentWithCourts,
+        window: { endDayKey: "2026-10-20", startDayKey: "2026-10-10" },
+      },
+    });
+
+    expect(result.plan).toBeNull();
+    expect(result.error).toBe(
+      "O torneio vai de 10/10 a 20/10. Estenda a janela no Editar torneio para agendar fora dela."
+    );
+  });
+
+  it("aceita proposta dentro da janela", () => {
+    const result = resolveScheduleProposal({
+      match: openMatch,
+      proposal: { ...proposal, matchDate: "2026-10-15" },
+      scheduledMatches: [],
+      tournament: {
+        ...tournamentWithCourts,
+        window: { endDayKey: "2026-10-20", startDayKey: "2026-10-10" },
+      },
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.plan?.matchDate).toBe("2026-10-15");
+  });
+
+  it("recusa proposta dentro de um bloqueio, com o motivo", () => {
+    const result = resolveScheduleProposal({
+      match: openMatch,
+      proposal: {
+        ...proposal,
+        endMinute: 1050,
+        matchDate: "2026-10-12",
+        startMinute: 960,
+      },
+      scheduledMatches: [],
+      tournament: {
+        ...tournamentWithCourts,
+        blocks: [
+          {
+            date: "2026-10-12",
+            endMinute: 1200,
+            id: "block-1",
+            reason: "Chuva",
+            startMinute: 960,
+          },
+        ],
+      },
+    });
+
+    expect(result.plan).toBeNull();
+    expect(result.error).toBe(
+      "O período de 12/10 das 16:00 às 20:00 está indisponível (Chuva)."
+    );
+  });
+
+  it("bloqueio de outra quadra não barra a proposta", () => {
+    const result = resolveScheduleProposal({
+      match: openMatch,
+      proposal: { ...proposal, matchDate: "2026-10-12" },
+      scheduledMatches: [],
+      tournament: {
+        ...tournamentWithCourts,
+        blocks: [
+          {
+            courtId: "court-2",
+            date: "2026-10-12",
+            id: "block-1",
+            reason: "Quadra alagada",
+          },
+        ],
+      },
+    });
+
+    expect(result.error).toBeNull();
   });
 });

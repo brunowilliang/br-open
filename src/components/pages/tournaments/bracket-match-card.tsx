@@ -1,8 +1,14 @@
 import { Card } from "heroui-native";
+import { useMemo } from "react";
 import { View } from "react-native";
 
 import { MatchCard, type MatchCardAgreement } from "@/components/ui/match-card";
 import { BRACKET_BYE_CARD_HEIGHT } from "@/lib/tournaments/bracket-tree";
+import {
+  bindOrganizerMatchMenu,
+  buildOrganizerMatchMenu,
+  type OrganizerMatchMenuKind,
+} from "@/lib/tournaments/organizer-match-menu";
 import {
   isByeMatch,
   type BracketSwapTarget,
@@ -18,6 +24,9 @@ type BracketMatchCardProps = {
    * com o menu dele). */
   agreement?: MatchCardAgreement | null;
   courtName: null | string;
+  /** Estrutura que a RESERVA exige (acima da 1ª rodada com as duas filhas na
+   * chave): quem combina com organizador/torneio aberto/lados ausentes é o card. */
+  canReserveSlot: boolean;
   isFinal: boolean;
   /** A pendência do organizador de concluir o torneio está viva (toda categoria
    * com campeão): só a FINAL oferece o item, e o menu dela é do torneio. */
@@ -28,11 +37,10 @@ type BracketMatchCardProps = {
   isTournamentClosed: boolean;
   match: TournamentMatchWithSides;
   modality?: "doubles" | "singles";
-  onConcludePress: () => void;
-  onEditResultPress: (match: TournamentMatchWithSides) => void;
   onHeightChange: (height: number) => void;
-  onResultPress: (match: TournamentMatchWithSides) => void;
-  onSchedulePress: (match: TournamentMatchWithSides) => void;
+  /** Canal do menu do papel: o card monta o menu com o builder (fonte única) e
+   * o verbo volta pelo mesmo fio que a agenda usa. */
+  onMenuAction: (kind: OrganizerMatchMenuKind) => void;
   onSidePress: (target: BracketSwapTarget) => void;
   selectedSide: "a" | "b" | null;
   stageLabel: string;
@@ -47,6 +55,7 @@ type BracketMatchCardProps = {
  * preenchidos). */
 export function BracketMatchCard({
   agreement,
+  canReserveSlot,
   courtName,
   isConclusionPending,
   isFinal,
@@ -54,17 +63,48 @@ export function BracketMatchCard({
   isTournamentClosed,
   match,
   modality,
-  onConcludePress,
-  onEditResultPress,
   onHeightChange,
-  onResultPress,
-  onSchedulePress,
+  onMenuAction,
   onSidePress,
   selectedSide,
   stageLabel,
   swapDisabled,
   swapPickEnabled,
 }: BracketMatchCardProps) {
+  // A FINAL decidida fala "Campeão" pelo vocabulário do chip (o status do wire
+  // não distingue a final); a vaga podada é a única que não desenha chip.
+  const matchStatus =
+    isFinal && match.winnerEntryId !== null ? "champion" : match.status;
+  const menu = useMemo(
+    () =>
+      isOrganizer
+        ? bindOrganizerMatchMenu({
+            entries: buildOrganizerMatchMenu({
+              canReserveSlot,
+              isConclusionPending,
+              isFinal,
+              isTournamentClosed,
+              matchDate: match.matchDate,
+              matchStatus,
+              sidesDefined: match.entryAId !== null && match.entryBId !== null,
+            }),
+            onAction: onMenuAction,
+          })
+        : [],
+    [
+      canReserveSlot,
+      isConclusionPending,
+      isFinal,
+      isOrganizer,
+      isTournamentClosed,
+      match.entryAId,
+      match.entryBId,
+      match.matchDate,
+      matchStatus,
+      onMenuAction,
+    ]
+  );
+
   // Vaga DERIVADA do sorteio (bye): o card existe VAZIO — nenhum filho, sem
   // fase, sem chip (o "W.O." leria como W.O. jogado e o "A definir" como
   // adversário que não existe), sem lado fantasma, sem seta e sem identidade.
@@ -89,19 +129,10 @@ export function BracketMatchCard({
 
   const sideANames = formatEntryPlayerNames(match.entryA);
   const sideBNames = formatEntryPlayerNames(match.entryB);
-  // A FINAL decidida fala "Campeão" pelo vocabulário do chip (o status do wire
-  // não distingue a final); a vaga podada é a única que não desenha chip.
-  const matchStatus =
-    isFinal && match.winnerEntryId !== null ? "champion" : match.status;
   // A regra de quem pode ser origem ou destino mora na tela (bracket.tsx, via o
   // modelo puro de bracket-view): aqui só a apresentação do que ela decidiu,
   // LADO a LADO. Lado bloqueado não mostra a seta de troca.
   const swapEnabled = isOrganizer && !swapDisabled;
-  const canAct =
-    isOrganizer &&
-    !isTournamentClosed &&
-    match.entryAId !== null &&
-    match.entryBId !== null;
   const walkoverWinner = walkoverWinnerSide(match);
 
   return (
@@ -125,35 +156,8 @@ export function BracketMatchCard({
         courtName={courtName ?? ""}
         matchDate={match.matchDate}
         matchStatus={matchStatus}
+        menu={menu}
         modality={modality}
-        onConcludePress={
-          isOrganizer && !isTournamentClosed && isFinal && isConclusionPending
-            ? () => {
-                onConcludePress();
-              }
-            : undefined
-        }
-        onEditResultPress={
-          canAct
-            ? () => {
-                onEditResultPress(match);
-              }
-            : undefined
-        }
-        onResultPress={
-          canAct
-            ? () => {
-                onResultPress(match);
-              }
-            : undefined
-        }
-        onSchedulePress={
-          canAct
-            ? () => {
-                onSchedulePress(match);
-              }
-            : undefined
-        }
         onSidePress={(side) => {
           onSidePress({ match, side });
         }}

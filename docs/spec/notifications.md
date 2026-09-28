@@ -6,18 +6,19 @@
 > notificação (o número da linha acompanha como atalho): este é o corte que mais
 > mexe nesses arquivos, e o símbolo não drifta.
 >
-> **28-09-2026:** o catálogo vai a 26 tipos — a família do acerto do confronto
+> **28-09-2026:** o catálogo vai a 29 tipos — a família do acerto do confronto
 > (proposta, recusa e retirada de horário/placar), o aviso de "próximo jogo"
-> acionável (`?matchId=`) e os eventos de inscrição/convite do ciclo — e as
-> copies do feed passam a citar o horário/placar no corpo e a dizer o próximo
-> passo.
+> acionável (`?matchId=`), os eventos de inscrição/convite do ciclo e a família
+> do cancelamento em lote mais a janela do torneio (`match.suspended`,
+> `window_extended`, `window_expired`) — e as copies do feed passam a citar o
+> horário/placar no corpo e a dizer o próximo passo.
 
 ## Visão geral
 
 Um subsistema único de notificação para o app inteiro, com três peças:
 
-1. **O evento** (`eventType`): 26 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
-   (`convex/shared/notifications/protocol.ts:1-28`), cada um com template pt-BR
+1. **O evento** (`eventType`): 29 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
+   (`convex/shared/notifications/protocol.ts:1-30`), cada um com template pt-BR
    próprio no mapa `definitions`
    (`convex/domains/notification/definitions.ts`).
 2. **A central** (`notificationFeed`): uma linha por destinatário, criada no
@@ -116,7 +117,7 @@ builder devolve `null` (item vira informativo). Nunca nasce botão morto.
 | `tournament.partner.invited` | jogador | Aceitar · Recusar | `accept_partner_invite` · `decline_partner_invite` | `{ entryId }` |
 | `tournament.match.ready` | jogador | Combinar horário | `open_route` | `null` (o destino é a url do item) |
 
-Os outros 23 eventos são **informativos** (`presentation: null`).
+Os outros 26 eventos são **informativos** (`presentation: null`).
 
 O aviso de "próximo jogo" é o único ACIONÁVEL POR NAVEGAÇÃO: a url do item leva
 `?matchId=` (`getMatchReadyUrl`, `definitions.ts`) e o item abre o Combinar jogo
@@ -165,6 +166,37 @@ dado não vem; os rótulos saem de `convex/domains/match/labels.ts`
 e de `convex/domains/payment/labels.ts` (`formatCentsBRL` = "R$ 120,00") — um
 formato só para pendência, notificação, saque e estorno, sem `Intl` e sem fuso
 (o `matchDate` já é a data local do torneio).
+
+### Avisos do cancelamento em lote e da janela do torneio
+
+O Cancelar jogos (chuva, luz, quadra) e a janela do torneio (`tournament.endDate`)
+têm três avisos informativos:
+
+| `eventType` | Quando nasce | Quem recebe | `metadata` |
+|---|---|---|---|
+| `tournament.match.suspended` | o organizador cancela em LOTE os confrontos que têm horário (`Cancelar jogos` → `applyMatchSuspension`, `convex/functions/tournament/_shared/match_writes.ts`): o confronto volta a "a definir" e segue VIVO | os DOIS lados do confronto (criador + parceiro de cada inscrição) | `matchId`, `reason` e o horário que SAIU da agenda (`matchDate` + `startMinute`: o lote só cancela confronto COM horário, então os dois vêm sempre) |
+| `tournament.window_expired` | a janela venceu e ficou confronto SEM horário: o cron de hora em hora (`notifyWindowOverflow`, `convex/functions/tournament/window.ts`) avisa no dia do fim e de novo a cada dia enquanto persistir, sem encerrar nada; o marcador `tournament.windowNoticeSentAt` segura a repetição no mesmo dia | os GESTORES da organização (único evento desta família na allowlist `ORGANIZER_RECIPIENT_EVENTS`, `convex/functions/notification/orchestrator.ts:101-105`) | `endDate` (dia de fim da janela) |
+| `tournament.window_extended` | o organizador salva o torneio com o fim ANDANDO para frente (`management.update`); editar qualquer outro campo não emite | os inscritos ATIVOS (criador + parceiro de cada inscrição) | `endDate` (novo dia de fim) |
+
+Copies, com o dado no corpo: "Seu jogo do dia 13/10 às 16:00 em Copa Verão foi
+suspenso (motivo: Chuva). Combinem um novo horário com o outro lado."; "A janela
+de Copa Verão vai até 20/10 e ainda tem confronto sem horário. Estenda a janela
+no Editar torneio."; "O torneio foi estendido até 22/10. Os dias do novo período
+já podem receber jogos." Os três emissores sempre mandam o dado da cauda
+(horário, motivo, dia de fim); o fallback para o texto base que existe no
+template (`suspensionReasonTail`, `windowEndLabel`) fica como rede, sem estado
+que o alcance hoje. As copies ficam pinadas em `tests/content.test.ts:439-491`.
+O aviso de suspensão abre o CONFRONTO (`getMatchUrl` com `?matchId=`,
+`definitions.ts`): é por lá que os dois lados combinam o novo horário.
+
+**Regras de copy que todo texto visível segue** (notificação, pendência e tela):
+sem travessão nem hífen separador (RUL-0014), resolvendo com vírgula, parênteses
+ou o separador " | " do app; hora sempre "DD/MM às HH:MM"
+(`formatMatchSlotLabel`) e dia curto "DD/MM" (`formatMatchMonthDay`), ambos de
+`convex/domains/match/labels.ts`; a quadra entra como ", na {quadra}" e só quando
+é do torneio; bloqueio de agenda de DIA INTEIRO é "Dia todo", nunca "00:00 às
+23:59" (`src/lib/tournaments/unavailability-derived.ts:73-79`); cauda sem dado sai
+da frase em vez de virar placeholder.
 
 ### Destaque (`bodyHighlights`)
 

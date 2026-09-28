@@ -19,13 +19,23 @@ import {
   TextArea,
   TextField,
 } from "heroui-native";
-import { Calendar, DatePicker } from "heroui-native-pro";
-import { useState } from "react";
+import {
+  Calendar,
+  DatePicker,
+  DateRangePicker,
+  RangeCalendar,
+} from "heroui-native-pro";
+import { useMemo, useState } from "react";
 import { useController, useFormContext, useWatch } from "react-hook-form";
 
 import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
-import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
+import {
+  buildTournamentRangeOption,
+  formatTournamentDateRangeLabel,
+  parseTournamentRangeValue,
+  type TournamentScreenValues,
+} from "@/components/pages/tournaments/form-schema";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";
@@ -52,7 +62,7 @@ type TournamentDatePickerFieldProps = {
   label: string;
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
-  name: "registrationDeadlineAt" | "startDate";
+  name: "registrationDeadlineAt";
 };
 
 function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
@@ -129,6 +139,109 @@ function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
   );
 }
 
+type TournamentRangePickerFieldProps = {
+  endError?: string;
+  isDisabled: boolean;
+  /** No create o fim vazio vira o MESMO dia do início; na edição o vazio
+   * preserva o torneio sem teto (legado). */
+  mode: "create" | "edit";
+  startError?: string;
+};
+
+/** Início e fim num campo SÓ: o DateRangePicker do pro fecha a janela do
+ * torneio numa seleção (dois toques), e o form guarda as duas datas como
+ * sempre. */
+function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
+  const { control, setValue } = useFormContext<TournamentScreenValues>();
+  const startDateValue = useWatch({ control, name: "startDate" });
+  const endDateValue = useWatch({ control, name: "endDate" });
+  const rangeOption = useMemo(
+    () =>
+      buildTournamentRangeOption({
+        endDate: endDateValue,
+        startDate: startDateValue,
+      }),
+    [endDateValue, startDateValue]
+  );
+  const error = props.startError ?? props.endError;
+
+  return (
+    <DateRangePicker
+      formatDateRange={(start, end) =>
+        formatTournamentDateRangeLabel(String(start), String(end))
+      }
+      isDisabled={props.isDisabled}
+      isInvalid={Boolean(error)}
+      isRequired
+      locale={DATE_LOCALE}
+      onValueChange={(nextValue) => {
+        const next = nextValue
+          ? parseTournamentRangeValue(nextValue.value)
+          : null;
+
+        if (!next) {
+          return;
+        }
+
+        setValue("startDate", next.startDate, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        setValue("endDate", next.endDate, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }}
+      value={rangeOption}
+    >
+      <Label>Início e fim do torneio</Label>
+      <DateRangePicker.Select
+        isDisabled={props.isDisabled}
+        presentation="popover"
+      >
+        <DateRangePicker.Trigger className="bg-surface-secondary">
+          <DateRangePicker.Value
+            className="font-normal"
+            placeholder="Selecione o período"
+          />
+          <DateRangePicker.TriggerIndicator />
+        </DateRangePicker.Trigger>
+        <DateRangePicker.Portal>
+          <DateRangePicker.Overlay />
+          <DateRangePicker.Content presentation="popover" width="trigger">
+            <DateRangePicker.Calendar
+              locale={DATE_LOCALE}
+              minValue={today(getLocalTimeZone())}
+            >
+              <RangeCalendar.Header>
+                <RangeCalendar.Heading />
+                <RangeCalendar.NavButton slot="previous" />
+                <RangeCalendar.NavButton slot="next" />
+              </RangeCalendar.Header>
+              <RangeCalendar.Grid>
+                <RangeCalendar.GridHeader>
+                  {(day) => <RangeCalendar.HeaderCell day={day} />}
+                </RangeCalendar.GridHeader>
+                <RangeCalendar.GridBody>
+                  {(date) => <RangeCalendar.Cell date={date} />}
+                </RangeCalendar.GridBody>
+              </RangeCalendar.Grid>
+            </DateRangePicker.Calendar>
+          </DateRangePicker.Content>
+        </DateRangePicker.Portal>
+      </DateRangePicker.Select>
+      <Description>
+        {`Toque no dia de início e depois no dia do fim. Fora da janela ninguém agenda, nem você.${
+          props.mode === "create"
+            ? " Sem escolher o fim, o torneio termina no mesmo dia do início."
+            : ""
+        }`}
+      </Description>
+      <FieldError>{error ?? ""}</FieldError>
+    </DateRangePicker>
+  );
+}
+
 export default function TournamentDetailsRoute() {
   const {
     avatarUrl,
@@ -164,6 +277,7 @@ export default function TournamentDetailsRoute() {
       name: "description",
     });
   const startDateState = getFieldState("startDate", control._formState);
+  const endDateState = getFieldState("endDate", control._formState);
   const deadlineState = getFieldState(
     "registrationDeadlineAt",
     control._formState
@@ -254,13 +368,11 @@ export default function TournamentDetailsRoute() {
           <FieldError>{descriptionState.error?.message ?? ""}</FieldError>
         </TextField>
 
-        <TournamentDatePickerField
-          description="O torneio começa nesse dia. A chave fica pública quando você iniciar."
-          error={startDateState.error?.message}
+        <TournamentRangePickerField
+          endError={endDateState.error?.message}
           isDisabled={isDisabled}
-          label="Data de início"
-          minValue={today(getLocalTimeZone())}
-          name="startDate"
+          mode={mode}
+          startError={startDateState.error?.message}
         />
 
         <TournamentDatePickerField

@@ -33,7 +33,9 @@ function rangesOverlap(input: {
 }
 
 export function buildSlotTimeOptions(input: {
-  courtId: string;
+  /** Nulo no torneio sem quadra cadastrada: nenhum slot bloqueia (o servidor
+   * ignora conflito de quadra nesse caso). */
+  courtId: null | string;
   durationMinutes: number;
   matchDate: string;
   occupiedSlots: ScheduleSlot[];
@@ -42,12 +44,15 @@ export function buildSlotTimeOptions(input: {
   slotIdToIgnore?: string | null;
 }): SlotTimeOption[] {
   const options: SlotTimeOption[] = [];
-  const relevantSlots = input.occupiedSlots.filter(
-    (slot) =>
-      slot.courtId === input.courtId &&
-      slot.matchDate === input.matchDate &&
-      slot.slotId !== input.slotIdToIgnore
-  );
+  const relevantSlots =
+    input.courtId === null
+      ? []
+      : input.occupiedSlots.filter(
+          (slot) =>
+            slot.courtId === input.courtId &&
+            slot.matchDate === input.matchDate &&
+            slot.slotId !== input.slotIdToIgnore
+        );
 
   for (const range of input.ranges) {
     for (

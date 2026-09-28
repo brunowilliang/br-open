@@ -6,6 +6,10 @@ import type {
 import type { ScoreSet } from "@/lib/matches/score-display";
 import { buildMatchSides } from "./bracket-view";
 import {
+  buildMatchSlotKey,
+  canReserveUnreadySlot,
+} from "./organizer-match-menu";
+import {
   formatBracketStage,
   formatEntryPlayerNames,
   walkoverWinnerSide,
@@ -14,8 +18,18 @@ import {
 /** Item do card da agenda do torneio: os dois lados já resolvidos (nome e avatar
  * do jogador e do parceiro) e o estágio nomeado pelo tamanho do quadro. */
 export type ScheduledMatchItem = {
+  /** Vaga acima da 1ª rodada com as duas filhas na chave: o MENU do organizador
+   * é o mesmo do chaveamento (mesmo predicado, mesmo builder). */
+  canReserveSlot: boolean;
   courtName: string;
+  /** Inscrição de cada lado no wire: só com as duas preenchidas o card da
+   * agenda oferece o menu do organizador (mesma regra do nó da chave). */
+  entryAId: null | string;
+  entryBId: null | string;
   id: string;
+  /** Última rodada da categoria: é a final, e o menu DELA leva o "Concluir
+   * torneio" (a pendência é do torneio). */
+  isFinal: boolean;
   matchDate: string;
   matchStatus: string;
   scoreSets: null | ScoreSet[];
@@ -42,6 +56,15 @@ export function buildScheduledMatchItems(input: {
 }): ScheduledMatchItem[] {
   const withSides = buildMatchSides(input);
   const lastRoundByCategory: Record<string, number> = {};
+  const slotKeys = new Set(
+    withSides.map((match) =>
+      buildMatchSlotKey({
+        categoryId: match.categoryId,
+        round: match.round,
+        slotInRound: match.slotInRound,
+      })
+    )
+  );
 
   for (const match of withSides) {
     const lastRound = lastRoundByCategory[match.categoryId] ?? 0;
@@ -60,9 +83,18 @@ export function buildScheduledMatchItems(input: {
       const sideBNames = formatEntryPlayerNames(match.entryB);
 
       return {
+        canReserveSlot: canReserveUnreadySlot({
+          categoryId: match.categoryId,
+          matchRound: match.round,
+          slotInRound: match.slotInRound,
+          slotKeys,
+        }),
         courtName:
           input.courts.find((court) => court.id === match.courtId)?.name ?? "",
+        entryAId: match.entryAId,
+        entryBId: match.entryBId,
         id: match.id,
+        isFinal: match.round === lastRoundByCategory[match.categoryId],
         matchDate: match.matchDate ?? "",
         matchStatus: match.status,
         scoreSets: match.score?.sets ?? null,

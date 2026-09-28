@@ -968,6 +968,7 @@ export type DataModel = {
       coverStorageId?: null | string;
       createdAt: number;
       description?: null | string;
+      endDate?: null | number;
       locationNotes?: null | string;
       matchConfig: any;
       maxEntriesHint?: null | number;
@@ -980,6 +981,7 @@ export type DataModel = {
       status: string;
       updatedAt: number;
       visibility: string;
+      windowNoticeSentAt?: null | number;
       _id: Id<"tournament">;
       _creationTime: number;
     };
@@ -994,6 +996,7 @@ export type DataModel = {
       | "coverStorageId"
       | "createdAt"
       | "description"
+      | "endDate"
       | "locationNotes"
       | "matchConfig"
       | "maxEntriesHint"
@@ -1005,7 +1008,8 @@ export type DataModel = {
       | "state"
       | "status"
       | "updatedAt"
-      | "visibility";
+      | "visibility"
+      | "windowNoticeSentAt";
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
@@ -1269,6 +1273,38 @@ export type DataModel = {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       matchId: ["matchId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  tournamentUnavailability: {
+    document: {
+      courtId?: null | string;
+      createdAt: number;
+      createdByUserId?: null | Id<"user">;
+      date: string;
+      endMinute?: null | number;
+      reason: string;
+      startMinute?: null | number;
+      tournamentId: Id<"tournament">;
+      _id: Id<"tournamentUnavailability">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "courtId"
+      | "createdAt"
+      | "createdByUserId"
+      | "date"
+      | "endMinute"
+      | "reason"
+      | "startMinute"
+      | "tournamentId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      tournamentId_date: ["tournamentId", "date", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

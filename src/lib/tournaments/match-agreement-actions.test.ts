@@ -23,6 +23,7 @@ describe("resolveMatchAgreementChannelRow", () => {
       resolveMatchAgreementChannelRow({
         hasProposal: false,
         proposedByMe: false,
+        proposedByMySide: false,
         state: "negotiating",
       })
     ).toBe("idle");
@@ -33,6 +34,7 @@ describe("resolveMatchAgreementChannelRow", () => {
       resolveMatchAgreementChannelRow({
         hasProposal: true,
         proposedByMe: true,
+        proposedByMySide: true,
         state: "negotiating",
       })
     ).toBe("mine");
@@ -40,9 +42,23 @@ describe("resolveMatchAgreementChannelRow", () => {
       resolveMatchAgreementChannelRow({
         hasProposal: true,
         proposedByMe: false,
+        proposedByMySide: false,
         state: "negotiating",
       })
     ).toBe("theirs");
+  });
+
+  test("a dupla do autor lê o canal como do PRÓPRIO lado", () => {
+    // Autoria do lado, não do perfil: o parceiro de quem propôs não responde
+    // (o servidor recusa por lado), então a linha dele é `mine`.
+    expect(
+      resolveMatchAgreementChannelRow({
+        hasProposal: true,
+        proposedByMe: false,
+        proposedByMySide: true,
+        state: "negotiating",
+      })
+    ).toBe("mine");
   });
 
   test("agreed channel is its own row, with or without a proposal", () => {
@@ -50,6 +66,7 @@ describe("resolveMatchAgreementChannelRow", () => {
       resolveMatchAgreementChannelRow({
         hasProposal: true,
         proposedByMe: false,
+        proposedByMySide: false,
         state: "agreed",
       })
     ).toBe("agreed");
@@ -59,46 +76,64 @@ describe("resolveMatchAgreementChannelRow", () => {
 describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
   test("idle opens the channel, todo o resto coloca outra coisa na mesa", () => {
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "idle" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "idle",
+      }).map((action) => action.kind)
     ).toEqual(["propose_schedule"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "idle" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "idle",
+      }).map((action) => action.kind)
     ).toEqual(["send_score"]);
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "mine" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "mine",
+      }).map((action) => action.kind)
     ).toEqual(["counter_schedule", "cancel_schedule"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "mine" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "mine",
+      }).map((action) => action.kind)
     ).toEqual(["counter_score", "cancel_score"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "agreed" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "agreed",
+      }).map((action) => action.kind)
     ).toEqual(["counter_score"]);
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "theirs" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "theirs",
+      }).map((action) => action.kind)
     ).toEqual(["approve_schedule", "decline_schedule", "counter_schedule"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "theirs" }).map(
-        (action) => action.kind
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "theirs",
+      }).map((action) => action.kind)
     ).toEqual(["approve_score", "decline_score", "counter_score"]);
   });
 
   test("approving or declining only shows where the server accepts it", () => {
     for (const row of ROWS) {
       for (const channel of ["schedule", "score"] as const) {
-        const actions = listMatchAgreementActions({ channel, row });
+        const actions = listMatchAgreementActions({
+          canWithdraw: true,
+          channel,
+          row,
+        });
         const responds = actions.some(
           (action) => action.effect === "accept" || action.effect === "decline"
         );
@@ -114,7 +149,11 @@ describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
   test("a retirada é da PRÓPRIA proposta: por último, em vermelho", () => {
     for (const row of ROWS) {
       for (const channel of ["schedule", "score"] as const) {
-        const actions = listMatchAgreementActions({ channel, row });
+        const actions = listMatchAgreementActions({
+          canWithdraw: true,
+          channel,
+          row,
+        });
         const withdraws = actions.filter(
           (action) => action.effect === "withdraw"
         );
@@ -138,15 +177,19 @@ describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
       const first = channel === "schedule" ? "propose_schedule" : "send_score";
 
       expect(
-        listMatchAgreementActions({ channel, row: "idle" }).map(
-          (action) => action.kind
-        )
+        listMatchAgreementActions({
+          canWithdraw: true,
+          channel,
+          row: "idle",
+        }).map((action) => action.kind)
       ).toEqual([first]);
 
       for (const row of ["agreed", "mine", "theirs"] as const) {
-        const kinds = listMatchAgreementActions({ channel, row }).map(
-          (action) => action.kind
-        );
+        const kinds = listMatchAgreementActions({
+          canWithdraw: true,
+          channel,
+          row,
+        }).map((action) => action.kind);
 
         // Havia proposta na mesa (ou já combinado): o verbo é propor OUTRA.
         expect(kinds).toContain(`counter_${channel}`);
@@ -157,45 +200,69 @@ describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
 
   test("a família dos rótulos por canal e por estado", () => {
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "idle" })[0].label
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "idle",
+      })[0].label
     ).toBe("Propor horário");
     expect(
-      listMatchAgreementActions({ channel: "score", row: "idle" })[0].label
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "idle",
+      })[0].label
     ).toBe("Enviar resultado");
 
     for (const row of ["agreed", "mine", "theirs"] as const) {
       expect(
-        listMatchAgreementActions({ channel: "schedule", row }).map(
-          (action) => action.label
-        )
+        listMatchAgreementActions({
+          canWithdraw: true,
+          channel: "schedule",
+          row,
+        }).map((action) => action.label)
       ).toContain("Propor outro horário");
       expect(
-        listMatchAgreementActions({ channel: "score", row }).map(
-          (action) => action.label
-        )
+        listMatchAgreementActions({
+          canWithdraw: true,
+          channel: "score",
+          row,
+        }).map((action) => action.label)
       ).toContain("Enviar outro resultado");
     }
 
     // A retirada nomeia o objeto na frente, como os outros verbos do canal.
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "mine" }).map(
-        (action) => action.label
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "mine",
+      }).map((action) => action.label)
     ).toEqual(["Propor outro horário", "Cancelar proposta"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "mine" }).map(
-        (action) => action.label
-      )
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "mine",
+      }).map((action) => action.label)
     ).toEqual(["Enviar outro resultado", "Cancelar resultado"]);
 
     // Aprovar e recusar sempre com o objeto do canal na frente.
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "theirs" })
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "theirs",
+      })
         .slice(0, 2)
         .map((action) => action.label)
     ).toEqual(["Aprovar horário", "Recusar horário"]);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "theirs" })
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "theirs",
+      })
         .slice(0, 2)
         .map((action) => action.label)
     ).toEqual(["Aprovar resultado", "Recusar resultado"]);
@@ -203,12 +270,28 @@ describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
 
   test("approve is a check and decline is a red X, one per channel", () => {
     const approve = [
-      listMatchAgreementActions({ channel: "schedule", row: "theirs" })[0],
-      listMatchAgreementActions({ channel: "score", row: "theirs" })[0],
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "theirs",
+      })[0],
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "theirs",
+      })[0],
     ];
     const decline = [
-      listMatchAgreementActions({ channel: "schedule", row: "theirs" })[1],
-      listMatchAgreementActions({ channel: "score", row: "theirs" })[1],
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "theirs",
+      })[1],
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "theirs",
+      })[1],
     ];
 
     for (const action of approve) {
@@ -223,25 +306,49 @@ describe("MATCH_AGREEMENT_ACTION_TABLE", () => {
 
   test("the counter proposal follows its channel icon", () => {
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "mine" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "mine",
+      })[0].icon
     ).toBe(Calendar03Icon);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "mine" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "mine",
+      })[0].icon
     ).toBe(Edit02Icon);
   });
 
   test("time verbs carry the agenda icon and score verbs the result one", () => {
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "idle" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "idle",
+      })[0].icon
     ).toBe(Calendar03Icon);
     expect(
-      listMatchAgreementActions({ channel: "schedule", row: "mine" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "schedule",
+        row: "mine",
+      })[0].icon
     ).toBe(Calendar03Icon);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "idle" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "idle",
+      })[0].icon
     ).toBe(Edit02Icon);
     expect(
-      listMatchAgreementActions({ channel: "score", row: "agreed" })[0].icon
+      listMatchAgreementActions({
+        canWithdraw: true,
+        channel: "score",
+        row: "agreed",
+      })[0].icon
     ).toBe(Edit02Icon);
   });
 });
@@ -252,6 +359,7 @@ function buildFacts(
   return {
     hasProposal: false,
     proposedByMe: false,
+    proposedByMySide: false,
     state: "idle",
     ...overrides,
   };
@@ -261,16 +369,26 @@ const IDLE_FACTS = buildFacts();
 const MINE_FACTS = buildFacts({
   hasProposal: true,
   proposedByMe: true,
+  proposedByMySide: true,
   state: "negotiating",
 });
 const THEIRS_FACTS = buildFacts({
   hasProposal: true,
   proposedByMe: false,
+  proposedByMySide: false,
+  state: "negotiating",
+});
+/** Proposta do MEU lado que o parceiro de dupla vê: lado propôs, perfil não. */
+const PARTNER_FACTS = buildFacts({
+  hasProposal: true,
+  proposedByMe: false,
+  proposedByMySide: true,
   state: "negotiating",
 });
 const AGREED_FACTS = buildFacts({
   hasProposal: true,
   proposedByMe: false,
+  proposedByMySide: false,
   state: "agreed",
 });
 
@@ -302,6 +420,7 @@ describe("resolveMatchAgreementMenuActions", () => {
       expect(kindsOfScore(plan)).toEqual([]);
       expect(kindsOfSchedule(plan)).toEqual(
         listMatchAgreementActions({
+          canWithdraw: true,
           channel: "schedule",
           row: resolveMatchAgreementChannelRow(schedule),
         }).map((action) => action.kind)
@@ -320,6 +439,7 @@ describe("resolveMatchAgreementMenuActions", () => {
       expect(kindsOfSchedule(plan)).toEqual([]);
       expect(kindsOfScore(plan)).toEqual(
         listMatchAgreementActions({
+          canWithdraw: true,
           channel: "score",
           row: resolveMatchAgreementChannelRow(score),
         }).map((action) => action.kind)
@@ -357,6 +477,52 @@ describe("resolveMatchAgreementMenuActions", () => {
         score: THEIRS_FACTS,
       }).map((action) => action.kind)
     ).toEqual(["approve_score", "decline_score", "counter_score"]);
+  });
+
+  test("a dupla de quem propôs não recebe verbo de resposta", () => {
+    // O parceiro divide o LADO: o servidor recusa a resposta dele, então o menu
+    // só oferece colocar outra proposta na mesa — sem Aprovar/Recusar e sem a
+    // retirada, que é do autor.
+    const schedulePlan = resolveMatchAgreementMenuActions({
+      canProposeScore: true,
+      schedule: PARTNER_FACTS,
+      score: IDLE_FACTS,
+    });
+
+    expect(schedulePlan.map((action) => action.kind)).toEqual([
+      "counter_schedule",
+    ]);
+    expect(
+      schedulePlan.some(
+        (action) => action.effect === "accept" || action.effect === "decline"
+      )
+    ).toBe(false);
+
+    expect(
+      resolveMatchAgreementMenuActions({
+        canProposeScore: true,
+        schedule: AGREED_FACTS,
+        score: PARTNER_FACTS,
+      }).map((action) => action.kind)
+    ).toEqual(["counter_score"]);
+  });
+
+  test("o autor da proposta retira; o lado oposto responde", () => {
+    expect(
+      resolveMatchAgreementMenuActions({
+        canProposeScore: true,
+        schedule: MINE_FACTS,
+        score: IDLE_FACTS,
+      }).map((action) => action.kind)
+    ).toEqual(["counter_schedule", "cancel_schedule"]);
+
+    expect(
+      resolveMatchAgreementMenuActions({
+        canProposeScore: true,
+        schedule: THEIRS_FACTS,
+        score: IDLE_FACTS,
+      }).map((action) => action.kind)
+    ).toEqual(["approve_schedule", "decline_schedule", "counter_schedule"]);
   });
 
   test("nenhum estado mistura os dois canais, fora o horário combinado", () => {

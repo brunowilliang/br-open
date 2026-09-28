@@ -545,14 +545,6 @@ async function collectPlayerAgreementPendings(
     return { items: [], saturations: saturation.saturations };
   }
 
-  // O autor da proposta e um userId; o jogador ativo e um perfil.
-  const profile = await ctx.orm.query.playerProfile.findFirst({
-    where: { id: actor.playerProfileId },
-  });
-  if (!profile) {
-    return { items: [], saturations: saturation.saturations };
-  }
-
   const myEntryIds = new Set(entries.map((entry) => entry.id as string));
   const pending: {
     channel: "schedule" | "score";
@@ -578,11 +570,16 @@ async function collectPlayerAgreementPendings(
       PLAYER_AGREEMENT_ROW_LIMIT
     );
 
-    for (const row of [...asSideA, ...asSideB]) {
+    // A inscricao do jogador diz de que LADO da linha ele le: a consulta ja
+    // separa as linhas por entryAId/entryBId.
+    for (const { row, side } of [
+      ...asSideA.map((row) => ({ row, side: "a" as const })),
+      ...asSideB.map((row) => ({ row, side: "b" as const })),
+    ]) {
       const received = resolveReceivedAgreement({
         channel: row.channel === "score" ? "score" : "schedule",
         current: toAgreementStateFields(row),
-        userId: profile.userId as string,
+        side,
       });
       if (received) {
         pending.push({ ...received, row });

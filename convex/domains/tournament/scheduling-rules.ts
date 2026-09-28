@@ -145,3 +145,57 @@ export function findCourtSlotConflict(input: {
 
   return null;
 }
+
+/** Confronto que o cancelamento PULA: decidido (publicado ou vaga morta) ou sem nada a tirar. */
+export function shouldSkipMatchCancel(match: {
+  matchDate: null | string | undefined;
+  publishedAt: Date | null | undefined;
+  status: string;
+}): boolean {
+  if (match.publishedAt) {
+    return true;
+  }
+  if (match.status === "vacant") {
+    return true;
+  }
+  return typeof match.matchDate !== "string";
+}
+
+/**
+ * Plano do cancelamento em LOTE: quem perde a agenda e quem e apenas contado
+ * como pulado. Resultado publicado e vaga vazia nao se tocam; confronto sem
+ * data nao tem o que tirar.
+ */
+export function resolveBulkCancelPlan<
+  T extends {
+    matchDate: null | string | undefined;
+    publishedAt: Date | null | undefined;
+    status: string;
+  },
+>(matches: readonly T[]): { cancels: T[]; skipped: number } {
+  const cancels: T[] = [];
+  let skipped = 0;
+  for (const match of matches) {
+    if (shouldSkipMatchCancel(match)) {
+      skipped += 1;
+      continue;
+    }
+    cancels.push(match);
+  }
+  return { cancels, skipped };
+}
+
+/**
+ * Vaga vazia ou sem os dois lados so o ORGANIZADOR reserva, e SO acima da 1a
+ * rodada: semi/final espera os vencedores dos confrontos de baixo. A 1a rodada
+ * espera a inscricao e continua exigindo os dois lados.
+ */
+export function canReserveUnreadySlot(input: {
+  actor: "organizer" | "player";
+  feederMatchesExist: boolean;
+  round: number;
+}): boolean {
+  return (
+    input.actor === "organizer" && input.round > 1 && input.feederMatchesExist
+  );
+}

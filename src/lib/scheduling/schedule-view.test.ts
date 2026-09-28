@@ -3,8 +3,10 @@ import { describe, expect, it } from "bun:test";
 import {
   buildScheduleDateTabs,
   buildScheduleDayView,
+  buildScheduleWindowTabs,
   formatDateToUtcKey,
   formatScheduleMinute,
+  resolveScheduleDateBounds,
 } from "./schedule-view";
 
 describe("buildScheduleDateTabs", () => {
@@ -32,6 +34,85 @@ describe("buildScheduleDateTabs", () => {
     const today = new Date(Date.UTC(2026, 5, 26));
     const tabs = buildScheduleDateTabs({ today, windowDays: 15 });
     expect(tabs).toHaveLength(15);
+  });
+});
+
+describe("buildScheduleWindowTabs", () => {
+  it("covers every day of the window, labelling today and tomorrow", () => {
+    // 2026-10-11 é domingo.
+    const tabs = buildScheduleWindowTabs({
+      endDayKey: "2026-10-13",
+      startDayKey: "2026-10-11",
+      todayDayKey: "2026-10-12",
+    });
+
+    expect(tabs.map((tab) => tab.matchDate)).toEqual([
+      "2026-10-11",
+      "2026-10-12",
+      "2026-10-13",
+    ]);
+    expect(tabs[0].label).toBe("dom, 11");
+    expect(tabs[1]).toMatchObject({ isToday: true, label: "Hoje" });
+    expect(tabs[2]).toMatchObject({ isTomorrow: true, label: "Amanhã" });
+  });
+
+  it("keeps days with a game outside the window, in order and deduplicated", () => {
+    const tabs = buildScheduleWindowTabs({
+      endDayKey: "2026-10-12",
+      extraDayKeys: ["2026-10-05", "2026-10-12"],
+      startDayKey: "2026-10-11",
+      todayDayKey: "2026-10-11",
+    });
+
+    expect(tabs.map((tab) => tab.matchDate)).toEqual([
+      "2026-10-05",
+      "2026-10-11",
+      "2026-10-12",
+    ]);
+  });
+});
+
+describe("resolveScheduleDateBounds", () => {
+  it("never leaves today behind and clamps the max to the window end", () => {
+    expect(
+      resolveScheduleDateBounds({
+        endDayKey: "2026-10-20",
+        startDayKey: "2026-10-10",
+        todayDayKey: "2026-10-15",
+      })
+    ).toEqual({ maxDayKey: "2026-10-20", minDayKey: "2026-10-15" });
+    expect(
+      resolveScheduleDateBounds({
+        endDayKey: "2026-10-20",
+        startDayKey: "2026-10-18",
+        todayDayKey: "2026-10-15",
+      })
+    ).toEqual({ maxDayKey: "2026-10-20", minDayKey: "2026-10-18" });
+  });
+
+  it("drops a window already ended and keeps today without a window", () => {
+    expect(
+      resolveScheduleDateBounds({
+        endDayKey: "2026-10-12",
+        startDayKey: "2026-10-10",
+        todayDayKey: "2026-10-15",
+      })
+    ).toEqual({ maxDayKey: null, minDayKey: "2026-10-15" });
+    // Sem fim o início não virou limite: o torneio legado agenda como sempre.
+    expect(
+      resolveScheduleDateBounds({
+        endDayKey: null,
+        startDayKey: "2026-10-20",
+        todayDayKey: "2026-10-15",
+      })
+    ).toEqual({ maxDayKey: null, minDayKey: "2026-10-15" });
+    expect(
+      resolveScheduleDateBounds({
+        endDayKey: null,
+        startDayKey: null,
+        todayDayKey: "2026-10-15",
+      })
+    ).toEqual({ maxDayKey: null, minDayKey: "2026-10-15" });
   });
 });
 

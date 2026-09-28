@@ -2,7 +2,9 @@ import { DEFAULT_MATCH_CONFIG } from "@convex/domains/match/contract";
 import { describe, expect, test } from "bun:test";
 
 import {
+  buildTournamentRangeOption,
   epochMsToTournamentDate,
+  parseTournamentRangeValue,
   TournamentSchema,
   tournamentDateToEpochMs,
 } from "./form-schema";
@@ -68,6 +70,41 @@ describe("TournamentSchema registration window", () => {
     });
 
     expect(result.success).toBeFalse();
+  });
+});
+
+describe("TournamentSchema tournament window", () => {
+  test("end on the start day and later passes", () => {
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        endDate: "2026-09-15",
+      }).success
+    ).toBeTrue();
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        endDate: "2026-09-30",
+      }).success
+    ).toBeTrue();
+  });
+
+  test("end before the start is rejected on the end field", () => {
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      endDate: "2026-09-14",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "endDate")
+      ).toBeTrue();
+    }
+  });
+
+  test("without an end the window stays open", () => {
+    expect(TournamentSchema.safeParse(buildValidValues()).success).toBeTrue();
   });
 });
 
@@ -148,5 +185,44 @@ describe("tournament date conversion", () => {
     const epochMs = tournamentDateToEpochMs("2026-09-15");
 
     expect(epochMsToTournamentDate(epochMs)).toBe("2026-09-15");
+  });
+});
+
+describe("opção do DateRangePicker", () => {
+  test("monta rótulo e wire com as duas datas", () => {
+    expect(
+      buildTournamentRangeOption({
+        endDate: "2026-10-20",
+        startDate: "2026-10-13",
+      })
+    ).toEqual({
+      label: "13/10/2026 a 20/10/2026",
+      value: '{"end":"2026-10-20","start":"2026-10-13"}',
+    });
+  });
+
+  test("sem o fim o campo mostra só o início (torneio legado)", () => {
+    expect(buildTournamentRangeOption({ startDate: "2026-10-13" })).toEqual({
+      label: "Início 13/10/2026",
+      value: '{"end":"2026-10-13","start":"2026-10-13"}',
+    });
+  });
+
+  test("sem início não há opção", () => {
+    expect(buildTournamentRangeOption({})).toBe(undefined);
+    expect(buildTournamentRangeOption({ endDate: "2026-10-20" })).toBe(
+      undefined
+    );
+  });
+
+  test("lê a opção de volta para as datas do formulário", () => {
+    expect(
+      parseTournamentRangeValue('{"start":"2026-10-13","end":"2026-10-20"}')
+    ).toEqual({ endDate: "2026-10-20", startDate: "2026-10-13" });
+  });
+
+  test("wire inválido não vira data", () => {
+    expect(parseTournamentRangeValue("nao-e-json")).toBeNull();
+    expect(parseTournamentRangeValue('{"start":"2026-10-13"}')).toBeNull();
   });
 });

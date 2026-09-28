@@ -1,4 +1,4 @@
-import { eq } from "kitcn/orm";
+import { eq, unsetToken } from "kitcn/orm";
 import type { InferSelectModel } from "kitcn/orm";
 import { CRPCError } from "kitcn/server";
 import type { Id } from "../../_generated/dataModel";
@@ -13,7 +13,10 @@ import type {
   MatchAgreementChannel,
   TournamentMatchScore,
 } from "../../../domains/tournament/contract";
-import { findCourtSlotConflict } from "../../../domains/tournament/scheduling-rules";
+import {
+  canReserveUnreadySlot,
+  findCourtSlotConflict,
+} from "../../../domains/tournament/scheduling-rules";
 import {
   validateTournamentMatchScore,
   validateWalkoverWinner,
@@ -24,12 +27,22 @@ import {
   tournamentMatchAgreementEvent,
 } from "../../../domains/tournament/tables";
 import {
+  findUnavailabilityConflict,
+  formatUnavailabilityConflict,
+} from "../../../domains/tournament/unavailability-rules";
+import {
+  resolveTournamentWindow,
+  validateMatchDayInWindow,
+} from "../../../domains/tournament/window-rules";
+import {
   MAX_TOURNAMENT_CATEGORIES,
   tournamentMatchSchema,
 } from "../../../domains/tournament/contract";
 import {
   getCategoryRecordOrThrow,
   getTournamentRecordOrThrow,
+  listTournamentUnavailability,
+  resolveTournamentCourtName,
   scheduleTournamentNotification,
   type OrmCtx,
   type OrmMutationCtx,
@@ -182,16 +195,49 @@ export function resolveMatchResultWinner(input: {
 }
 
 /**
+ * Confronto acima da 1a rodada e alimentado pelos dois confrontos de baixo: e
+ * essa a vaga que o organizador reserva antes dos vencedores aparecerem.
+ */
+async function matchFeederMatchesExist(
+  ctx: OrmCtx,
+  match: MatchRecord
+): Promise<boolean> {
+  if (match.round <= 1) {
+    return false;
+  }
+  const [feederA, feederB] = await Promise.all([
+    ctx.orm.query.tournamentMatch.findFirst({
+      where: {
+        categoryId: match.categoryId as Id<"tournamentCategory">,
+        round: match.round - 1,
+        slotInRound: match.slotInRound * 2,
+      },
+    }),
+    ctx.orm.query.tournamentMatch.findFirst({
+      where: {
+        categoryId: match.categoryId as Id<"tournamentCategory">,
+        round: match.round - 1,
+        slotInRound: match.slotInRound * 2 + 1,
+      },
+    }),
+  ]);
+  return Boolean(feederA && feederB);
+}
+
+/**
  * Agendamento (organizador ou acerto dos dois lados): exige chave sorteada ou
- * torneio em andamento, quadra do torneio e janela livre. A ocupação vem da
- * duração padrão, nunca do endMinute do cliente, e a partida ignora a si mesma.
- * Torneio SEM quadra cadastrada aceita `courtId: null`: aí o acerto é data e
- * horário, e não existe janela para conflitar.
+ * torneio em andamento, quadra do torneio, janela do torneio, agenda livre e
+ * sem bloqueio. A ocupação vem da duração padrão, nunca do endMinute do
+ * cliente, e a partida ignora a si mesma. Torneio SEM quadra cadastrada aceita
+ * `courtId: null`: aí o acerto é data e horário, e não existe janela para
+ * conflitar. `actor` só relaxa os dois lados para o ORGANIZADOR reservar
+ * semi/final que ainda espera os vencedores.
  */
 export async function applyMatchSchedule(
   ctx: OrmMutationCtx,
   input: {
-    courtId: string | null;
+    actor: "organizer" | "player";
+    courtId: null | string;
     endMinute: number;
     match: MatchRecord;
     matchDate: string;
@@ -213,17 +259,32 @@ export async function applyMatchSchedule(
       message: "Confronto encerrado não pode ser reagendado.",
     });
   }
-  if (match.status === "vacant") {
+  const reservable = canReserveUnreadySlot({
+    actor: input.actor,
+    feederMatchesExist: await matchFeederMatchesExist(ctx, match),
+    round: match.round,
+  });
+  if (match.status === "vacant" && !reservable) {
     throw new CRPCError({
       code: "BAD_REQUEST",
       message: "Essa vaga da chave está vazia e não pode ser agendada.",
     });
   }
-  if (!(match.entryAId && match.entryBId)) {
+  if (!(reservable || (match.entryAId && match.entryBId))) {
     throw new CRPCError({
       code: "BAD_REQUEST",
       message: "Esse confronto ainda não tem os dois lados definidos.",
     });
+  }
+  const windowError = validateMatchDayInWindow({
+    dayKey: input.matchDate,
+    window: resolveTournamentWindow({
+      endDateMs: tournament.endDate?.getTime() ?? null,
+      startDateMs: tournament.startDate.getTime(),
+    }),
+  });
+  if (windowError) {
+    throw new CRPCError({ code: "BAD_REQUEST", message: windowError });
   }
   if (input.startMinute >= input.endMinute) {
     throw new CRPCError({
@@ -250,6 +311,28 @@ export async function applyMatchSchedule(
     matchConfig,
     startMinute: input.startMinute,
   });
+  const block = findUnavailabilityConflict({
+    blocks: await listTournamentUnavailability(ctx, {
+      date: input.matchDate,
+      tournamentId: tournament.id as Id<"tournament">,
+    }),
+    courtId: input.courtId,
+    dayKey: input.matchDate,
+    endMinute: occupiedEndMinute,
+    startMinute: input.startMinute,
+  });
+  if (block) {
+    throw new CRPCError({
+      code: "BAD_REQUEST",
+      message: formatUnavailabilityConflict({
+        block,
+        courtName: resolveTournamentCourtName({
+          courtId: block.courtId,
+          courts: tournament.courts,
+        }),
+      }),
+    });
+  }
   if (input.courtId !== null) {
     const conflict = findCourtSlotConflict({
       courtId: input.courtId,
@@ -309,6 +392,75 @@ export async function applyMatchSchedule(
         matchDate: input.matchDate,
         matchId: match.id,
         startMinute: input.startMinute,
+      },
+      recipientUserIds: recipients,
+      sourceEntityId: match.id as string,
+      sourceEntityType: "tournamentMatch",
+      tournamentId: tournament.id as Id<"tournament">,
+    });
+  }
+
+  return updated;
+}
+
+/**
+ * Cancelamento de um confronto: tira a agenda e avisa os dois lados com o
+ * motivo; o confronto segue VIVO e volta a "a definir", pronto para os dois
+ * remarcarem. Resultado publicado e vaga vazia quem decide é o plano do
+ * cancelamento em lote, não esta função.
+ */
+export async function applyMatchSuspension(
+  ctx: OrmMutationCtx,
+  input: { match: MatchRecord; reason: string; tournament: TournamentRecord }
+): Promise<MatchRecord> {
+  const { match, tournament } = input;
+  // O aviso carrega o horário que SAIU da agenda: depois do update ele some.
+  const suspendedSlot = {
+    matchDate: match.matchDate ?? null,
+    startMinute: match.startMinute ?? null,
+  };
+  const now = new Date();
+  const [updated] = await ctx.orm
+    .update(tournamentMatch)
+    .set({
+      courtId: unsetToken,
+      endMinute: unsetToken,
+      matchDate: unsetToken,
+      rowVersion: match.rowVersion + 1,
+      scheduledById: unsetToken,
+      startMinute: unsetToken,
+      status: match.status === "scheduled" ? "pending" : match.status,
+      updatedAt: now,
+    })
+    .where(eq(tournamentMatch.id, match.id as never))
+    .returning();
+
+  // O acerto de horário vigente perdeu efeito junto com a agenda: fecha o canal
+  // de agendamento (o de placar continua valendo para o confronto remarcado).
+  await sweepMatchAgreements(ctx, {
+    actorSide: "organizer",
+    channel: "schedule",
+    kind: "overridden",
+    matchId: match.id as Id<"tournamentMatch">,
+    tournamentId: tournament.id as Id<"tournament">,
+  });
+
+  const recipients = await entryRecipientUserIds(ctx, [
+    match.entryAId,
+    match.entryBId,
+  ]);
+  if (recipients.length > 0) {
+    await scheduleTournamentNotification(ctx, {
+      eventType: "tournament.match.suspended",
+      metadata: {
+        ...(suspendedSlot.matchDate
+          ? { matchDate: suspendedSlot.matchDate }
+          : {}),
+        matchId: match.id,
+        reason: input.reason,
+        ...(suspendedSlot.startMinute === null
+          ? {}
+          : { startMinute: suspendedSlot.startMinute }),
       },
       recipientUserIds: recipients,
       sourceEntityId: match.id as string,

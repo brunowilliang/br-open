@@ -1,4 +1,8 @@
-import { formatMatchScoreLabel, formatMatchSlotLabel } from "../match/labels";
+import {
+  formatMatchMonthDay,
+  formatMatchScoreLabel,
+  formatMatchSlotLabel,
+} from "../match/labels";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 
 export type { NotificationEventType } from "../../shared/notifications/protocol";
@@ -40,10 +44,10 @@ const getTournamentUrl = (input: NotificationContentInput) =>
   `/tournaments/${input.tournamentId}`;
 
 /**
- * O aviso de confronto definido leva o id DELE na url: o toque cai no confronto
- * exato, nao na casa do torneio. Sem o id, a url base continua valendo.
+ * O aviso de confronto leva o id DELE na url: o toque cai no confronto exato,
+ * nao na casa do torneio. Sem o id, a url base continua valendo.
  */
-const getMatchReadyUrl = (input: NotificationContentInput) => {
+const getMatchUrl = (input: NotificationContentInput) => {
   const matchId = input.metadata?.matchId;
 
   return typeof matchId === "string" && matchId.length > 0
@@ -128,7 +132,7 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
     }),
   },
   "tournament.match.ready": {
-    getUrl: getMatchReadyUrl,
+    getUrl: getMatchUrl,
     template: (input) => ({
       body: `Os dois lados estão definidos: ${input.metadata?.sideALabel ?? "um lado"} contra ${input.metadata?.sideBLabel ?? "o outro"}, ${
         input.metadata?.stageLabel ?? "no confronto"
@@ -223,6 +227,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       title: "Placar proposto pelo adversário",
     }),
   },
+  "tournament.match.suspended": {
+    getUrl: getMatchUrl,
+    template: (input) => ({
+      body: `Seu jogo${matchSuspensionSlotTail(input.metadata)} em ${input.tournamentName} foi suspenso${suspensionReasonTail(input.metadata)}. Combinem um novo horário com o outro lado.`,
+      title: "Jogo suspenso",
+    }),
+  },
   "tournament.partner.awaiting_reply": {
     getUrl: getTournamentUrl,
     template: (input) => ({
@@ -253,6 +264,24 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
           : "recusou o convite: a inscrição foi cancelada e as vagas voltaram."
       }`,
       title: "Convite respondido",
+    }),
+  },
+  "tournament.window_expired": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body: windowEndLabel(input.metadata)
+        ? `A janela de ${input.tournamentName} vai até ${windowEndLabel(input.metadata)} e ainda tem confronto sem horário. Estenda a janela no Editar torneio.`
+        : `A janela de ${input.tournamentName} acabou e ainda tem confronto sem horário. Estenda a janela no Editar torneio.`,
+      title: "Fim da janela",
+    }),
+  },
+  "tournament.window_extended": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body: windowEndLabel(input.metadata)
+        ? `O torneio foi estendido até ${windowEndLabel(input.metadata)}. Os dias do novo período já podem receber jogos.`
+        : "O torneio foi estendido. Os dias do novo período já podem receber jogos.",
+      title: "Torneio estendido",
     }),
   },
 };
@@ -320,4 +349,28 @@ function matchScoreTail(metadata?: Record<string, unknown>) {
   );
 
   return label ? `: ${label}` : "";
+}
+
+/** " do dia 13/10 às 16:00" no cancelamento; vazio sem data/hora no metadata. */
+function matchSuspensionSlotTail(metadata?: Record<string, unknown>) {
+  const label = matchSlotLabel(metadata);
+
+  return label ? ` do dia ${label}` : "";
+}
+
+/** " (motivo: Chuva)" no aviso de cancelamento; vazio sem motivo. */
+function suspensionReasonTail(metadata?: Record<string, unknown>) {
+  const reason =
+    typeof metadata?.reason === "string" ? metadata.reason.trim() : "";
+
+  return reason ? ` (motivo: ${reason})` : "";
+}
+
+/** "22/10" a partir do dia de fim no metadata; nulo sem a data. */
+function windowEndLabel(metadata?: Record<string, unknown>) {
+  const endDate = metadata?.endDate;
+
+  return typeof endDate === "string" && endDate
+    ? formatMatchMonthDay(endDate)
+    : null;
 }
