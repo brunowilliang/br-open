@@ -310,9 +310,9 @@ export const tournamentMatchAgreementEvent = convexTable(
 );
 
 // Indisponibilidade da agenda (chuva, luz, quadra fechada): fecha o dia
-// inteiro, um pedaço dele ou uma quadra específica. `courtId` e
+// inteiro, um pedaço dele ou uma quadra específica. `courtId`, `reason` e
 // `startMinute`/`endMinute` são OPCIONAIS de propósito: chave ausente = dia
-// inteiro / todas as quadras.
+// inteiro / todas as quadras / sem motivo.
 export const tournamentUnavailability = convexTable(
   "tournamentUnavailability",
   {
@@ -323,7 +323,7 @@ export const tournamentUnavailability = convexTable(
     }),
     date: text().notNull(),
     endMinute: integer(),
-    reason: text().notNull(),
+    reason: text(),
     startMinute: integer(),
     tournamentId: id("tournament")
       .notNull()

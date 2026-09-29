@@ -26,10 +26,12 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
+import { useBrazilTodayDayKey } from "@/lib/scheduling/brazil-today";
 import {
   buildScheduleDateTabs,
   buildScheduleDayView,
   buildScheduleWindowTabs,
+  resolveInitialScheduleDayKey,
   SCHEDULE_PERIOD_META,
   SCHEDULE_WINDOW_OPTIONS,
   type ScheduleDateTab,
@@ -52,10 +54,7 @@ import {
   selectVisibleUnavailabilityBlocks,
 } from "@/lib/tournaments/unavailability-derived";
 import type { TournamentUnavailabilityView } from "@convex/domains/tournament/contract";
-import {
-  brazilDayKey,
-  resolveTournamentWindow,
-} from "@convex/domains/tournament/window-rules";
+import { resolveTournamentWindow } from "@convex/domains/tournament/window-rules";
 
 const PERIOD_ORDER: SchedulePeriodKey[] = ["morning", "afternoon", "evening"];
 
@@ -98,7 +97,7 @@ export default function TournamentScheduleRoute() {
   const [blockToReopen, setBlockToReopen] =
     useState<null | TournamentUnavailabilityView>(null);
 
-  const today = useMemo(() => new Date(), []);
+  const todayDayKey = useBrazilTodayDayKey();
   const scheduleWindow = useMemo(
     () =>
       tournament
@@ -128,21 +127,26 @@ export default function TournamentScheduleRoute() {
         // visível: nenhum confronto pode sumir da agenda.
         extraDayKeys: scheduledItems.map((item) => item.matchDate),
         startDayKey: scheduleWindow.startDayKey,
-        todayDayKey: brazilDayKey(Date.now()),
+        todayDayKey,
       });
     }
 
-    return buildScheduleDateTabs({ today, windowDays: legacyWindowDays });
-  }, [legacyWindowDays, scheduleWindow, scheduledItems, today]);
+    return buildScheduleDateTabs({ todayDayKey, windowDays: legacyWindowDays });
+  }, [legacyWindowDays, scheduleWindow, scheduledItems, todayDayKey]);
 
-  const [activeDate, setActiveDate] = useState<string>(
-    () => dateTabs[0]?.matchDate ?? ""
+  const dateTabKeys = useMemo(
+    () => dateTabs.map((tab) => tab.matchDate),
+    [dateTabs]
+  );
+  const [activeDate, setActiveDate] = useState<string>(() =>
+    resolveInitialScheduleDayKey({ dayKeys: dateTabKeys, todayDayKey })
   );
   // O Tabs controlado nunca pode receber um value fora dos triggers: um dia que
-  // saiu da lista cai no primeiro ANTES do render, não depois pelo efeito.
+  // saiu da lista cai no dia inicial (hoje com clamp) ANTES do render, não
+  // depois pelo efeito.
   const activeTabValue = dateTabs.some((tab) => tab.matchDate === activeDate)
     ? activeDate
-    : (dateTabs[0]?.matchDate ?? "");
+    : resolveInitialScheduleDayKey({ dayKeys: dateTabKeys, todayDayKey });
 
   useEffect(() => {
     if (activeTabValue !== activeDate) {

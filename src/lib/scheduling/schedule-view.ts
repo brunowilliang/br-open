@@ -21,6 +21,7 @@ export type ScheduleDateTab = {
   label: string;
   isToday: boolean;
   isTomorrow: boolean;
+  isYesterday: boolean;
 };
 
 export type ScheduleDayView<TItem extends ScheduleDayItem = ScheduleDayItem> = {
@@ -49,48 +50,60 @@ export const SCHEDULE_WINDOW_OPTIONS: Array<{
 ];
 
 /**
- * Constrói a lista de tabs de data, de "Hoje" até `windowDays - 1` dias à
- * frente. Cada tab carrega o `matchDate` no formato `YYYY-MM-DD` (UTC) usado
- * pela API, mais um rótulo amigável.
+ * Constrói a lista de tabs de data do torneio SEM fim, do "hoje" do CALENDÁRIO
+ * DO BRASIL (o dia do torneio, nunca UTC nem o relógio do aparelho) até
+ * `windowDays - 1` dias à frente. Cada tab carrega o `matchDate` no formato
+ * `YYYY-MM-DD` usado pela API, mais um rótulo amigável.
  */
 export function buildScheduleDateTabs(input: {
-  today: Date;
+  todayDayKey: string;
   windowDays: ScheduleWindowDays;
 }): ScheduleDateTab[] {
+  const tomorrowDayKey = addDaysToDayKey(input.todayDayKey, 1);
+  const yesterdayDayKey = addDaysToDayKey(input.todayDayKey, -1);
   const tabs: ScheduleDateTab[] = [];
+  let dayKey = input.todayDayKey;
 
   for (let offset = 0; offset < input.windowDays; offset += 1) {
-    const date = new Date(input.today);
-    date.setUTCDate(date.getUTCDate() + offset);
-
-    const isToday = offset === 0;
-    const isTomorrow = offset === 1;
-
-    tabs.push({
-      isToday,
-      isTomorrow,
-      label: buildDateTabLabel({ date, isToday, isTomorrow }),
-      matchDate: formatDateToUtcKey(date),
-    });
+    tabs.push(
+      buildDateTab({
+        dayKey,
+        todayDayKey: input.todayDayKey,
+        tomorrowDayKey,
+        yesterdayDayKey,
+      })
+    );
+    dayKey = addDaysToDayKey(dayKey, 1);
   }
 
   return tabs;
 }
 
-function buildDateTabLabel(input: {
-  date: Date;
-  isToday: boolean;
-  isTomorrow: boolean;
-}): string {
-  if (input.isToday) {
-    return "Hoje";
-  }
+/** Uma tab de dia: os relativos do calendário do Brasil ("Hoje", "Amanhã",
+ * "Ontem") e, fora deles, o rótulo curto do próprio dia. */
+function buildDateTab(input: {
+  dayKey: string;
+  todayDayKey: string;
+  tomorrowDayKey: string;
+  yesterdayDayKey: string;
+}): ScheduleDateTab {
+  const isToday = input.dayKey === input.todayDayKey;
+  const isTomorrow = input.dayKey === input.tomorrowDayKey;
+  const isYesterday = input.dayKey === input.yesterdayDayKey;
 
-  if (input.isTomorrow) {
-    return "Amanhã";
-  }
-
-  return formatDayLabel(input.date);
+  return {
+    isToday,
+    isTomorrow,
+    isYesterday,
+    label: isToday
+      ? "Hoje"
+      : isTomorrow
+        ? "Amanhã"
+        : isYesterday
+          ? "Ontem"
+          : formatDayLabel(new Date(`${input.dayKey}T00:00:00.000Z`)),
+    matchDate: input.dayKey,
+  };
 }
 
 function addDaysToDayKey(dayKey: string, days: number): string {
@@ -113,6 +126,7 @@ export function buildScheduleWindowTabs(input: {
 }): ScheduleDateTab[] {
   const dayKeys = new Set<string>(input.extraDayKeys ?? []);
   const tomorrowDayKey = addDaysToDayKey(input.todayDayKey, 1);
+  const yesterdayDayKey = addDaysToDayKey(input.todayDayKey, -1);
   let dayKey = input.startDayKey;
 
   for (
@@ -124,17 +138,31 @@ export function buildScheduleWindowTabs(input: {
     dayKey = addDaysToDayKey(dayKey, 1);
   }
 
-  return [...dayKeys].sort().map((matchDate) => ({
-    isToday: matchDate === input.todayDayKey,
-    isTomorrow: matchDate === tomorrowDayKey,
-    label:
-      matchDate === input.todayDayKey
-        ? "Hoje"
-        : matchDate === tomorrowDayKey
-          ? "Amanhã"
-          : formatDayLabel(new Date(`${matchDate}T00:00:00.000Z`)),
-    matchDate,
-  }));
+  return [...dayKeys].sort().map((matchDate) =>
+    buildDateTab({
+      dayKey: matchDate,
+      todayDayKey: input.todayDayKey,
+      tomorrowDayKey,
+      yesterdayDayKey,
+    })
+  );
+}
+
+/**
+ * Dia aberto ao entrar na agenda: o "hoje" do calendário do Brasil quando ele
+ * está na lista ou, se cair num buraco (dia extra antes do início, janela maior
+ * que o teto), o PRÓXIMO dia da lista; antes do primeiro o clamp pega o
+ * primeiro e depois do último pega o último — a agenda nunca abre num dia fora
+ * da lista.
+ */
+export function resolveInitialScheduleDayKey(input: {
+  dayKeys: readonly string[];
+  todayDayKey: string;
+}): string {
+  const dayKeys = [...input.dayKeys].sort();
+  const next = dayKeys.find((key) => key >= input.todayDayKey);
+
+  return next ?? dayKeys.at(-1) ?? "";
 }
 
 /**

@@ -2184,7 +2184,11 @@ export const api: {
       cancelMatches: FunctionReference<
         "mutation",
         "public",
-        { matchIds: Array<string>; reason: string; tournamentId: string },
+        {
+          matchIds: Array<string>;
+          reason?: string | null;
+          tournamentId: string;
+        },
         { cancelled: number; skipped: number }
       >;
       editResult: FunctionReference<
@@ -2388,7 +2392,7 @@ export const api: {
           date: string;
           endMinute: number | null;
           id: string;
-          reason: string;
+          reason: string | null;
           startMinute: number | null;
         }>
       >;
@@ -2405,7 +2409,7 @@ export const api: {
           courtId: string | null;
           date: string;
           endMinute: number | null;
-          reason: string;
+          reason?: string | null;
           startMinute: number | null;
           tournamentId: string;
         },
@@ -2416,7 +2420,7 @@ export const api: {
           date: string;
           endMinute: number | null;
           id: string;
-          reason: string;
+          reason: string | null;
           startMinute: number | null;
         }
       >;

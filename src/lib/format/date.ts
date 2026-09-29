@@ -20,6 +20,7 @@ const dateTimeShortFormatter = new Intl.DateTimeFormat("pt-BR", {
 
 const dayLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
+  timeZone: "UTC",
   weekday: "short",
 });
 
@@ -46,12 +47,11 @@ export function formatDateTimeShort(date: Date): string {
   return dateTimeShortFormatter.format(date);
 }
 
+/** Rótulo curto do dia ("seg, 28") de uma data de CALENDÁRIO. Formata em UTC
+ * porque o dia chega como chave `YYYY-MM-DD` lida em meia-noite UTC: em fuso a
+ * oeste de Greenwich o rótulo andaria um dia para trás. */
 export function formatDayLabel(date: Date): string {
-  return dayLabelFormatter
-    .format(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-    )
-    .replace(".", "");
+  return dayLabelFormatter.format(date).replace(".", "");
 }
 
 export function formatMonthDay(date: Date): string {

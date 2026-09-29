@@ -38,7 +38,7 @@ function serializeUnavailability(
     date: record.date,
     endMinute: record.endMinute ?? null,
     id: record.id,
-    reason: record.reason,
+    reason: record.reason ?? null,
     startMinute: record.startMinute ?? null,
   });
 }

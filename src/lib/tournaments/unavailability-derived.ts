@@ -34,6 +34,17 @@ export function resolveReasonPreset(
   );
 }
 
+/** Toque no chip do motivo: marca o preset e, no mesmo chip de novo, desmarca.
+ * O valor fica vazio, então o texto do campo "Outro" também sai. */
+export function toggleReasonPreset(input: {
+  current: string;
+  preset: UnavailabilityReasonPreset;
+}): string {
+  return resolveReasonPreset(input.current) === input.preset
+    ? ""
+    : input.preset;
+}
+
 export type UnavailabilitySpan = {
   date: string;
   endMinute: number;
@@ -82,15 +93,18 @@ export function formatUnavailabilityPeriod(input: {
   return `${formatMinuteToHHMM(input.startMinute)} às ${formatMinuteToHHMM(input.endMinute)}`;
 }
 
-/** Chip do bloqueio do dia: motivo | quadra | faixa. */
+/** Chip do bloqueio do dia: motivo | quadra | faixa. Sem motivo o rótulo começa
+ * na quadra: nunca sobra separador solto. */
 export function buildUnavailabilityChipLabel(block: {
   courtName: null | string;
   endMinute: null | number;
-  reason: string;
+  reason: null | string;
   startMinute: null | number;
 }): string {
+  const reason = block.reason?.trim() ?? "";
+
   return [
-    block.reason,
+    ...(reason.length > 0 ? [reason] : []),
     block.courtName ?? "Todas as quadras",
     formatUnavailabilityPeriod(block),
   ].join(" | ");

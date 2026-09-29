@@ -14,7 +14,7 @@ import {
 export type CancelMatchesDialogInput = {
   /** Fecha o período dos jogos cancelados junto (o check vem LIGADO). */
   blockPeriod: boolean;
-  reason: string;
+  reason: null | string;
 };
 
 type CancelMatchesDialogProps = {
@@ -35,20 +35,16 @@ type CancelMatchesDialogProps = {
 export function CancelMatchesDialog(props: CancelMatchesDialogProps) {
   const [reason, setReason] = useState("");
   const [blockPeriod, setBlockPeriod] = useState(true);
-  const [error, setError] = useState("");
   const isBatch = props.matchCount > 1;
   const spansLabel = props.spans
     .map((span) => formatUnavailabilitySpanLabel(span))
     .join("; ");
 
   async function handleSubmit() {
-    if (reason.trim().length < 3) {
-      setError("Informe o motivo.");
-      return;
-    }
-
-    setError("");
-    await props.onSubmit({ blockPeriod, reason: reason.trim() });
+    await props.onSubmit({
+      blockPeriod,
+      reason: reason.trim().length > 0 ? reason.trim() : null,
+    });
   }
 
   return (
@@ -70,12 +66,11 @@ export function CancelMatchesDialog(props: CancelMatchesDialogProps) {
             </Dialog.Title>
             <Text color="muted" variant="description">
               {isBatch
-                ? `Os ${props.matchCount} jogos voltam para A definir e os jogadores recebem o aviso com o motivo.`
-                : "O jogo volta para A definir e os dois jogadores recebem o aviso com o motivo."}
+                ? `Os ${props.matchCount} jogos voltam para A definir e os jogadores recebem o aviso.`
+                : "O jogo volta para A definir e os dois jogadores recebem o aviso."}
             </Text>
 
             <ReasonField
-              error={error}
               isDisabled={props.isPending}
               onChange={setReason}
               value={reason}

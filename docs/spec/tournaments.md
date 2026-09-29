@@ -971,7 +971,7 @@
 
 ### Pendências conhecidas
 - ~~`tournamentPlayerCardSchema` incompleto~~ — ✔ resolvido e deployado
-  22-08 (contract.ts:249-255 declara os 5 campos; view type paliativo
+  22-08 (contract.ts:441-447 declara os 5 campos; view type paliativo
   removido do frontend).
 - Deep-link `/tournaments/:id` das notificações resolve para o cluster
   (rota existe); falta registrar o prefixo no mapa de deep-links do app se
@@ -1736,7 +1736,7 @@ Vocabulário de produto: **torneio** (nunca "evento").
   do `tournamentMatchEdit`): `matchId`, `channel`, `kind`
   (`proposed|accepted|declined|cancelled|reopened|overridden|closed`),
   `actorSide` (`a|b|organizer`), `actorUserId`, `tournamentId` (desnormalizado,
-  `tables.ts:284`; gravado em `match_writes.ts:499`), `before`/`after`
+  `tables.ts:284`; gravado em `match_writes.ts:649`), `before`/`after`
   (snapshot do canal), `createdAt`; índice `matchId`.
 - **`tournamentEntry.partnerAwaitingReplyNotifiedAt`** — marca do aviso ÚNICO de
   "convite sem resposta" ao dono: o cron horário e o início do torneio varrem a
@@ -2754,14 +2754,14 @@ menu do card por papel.
   encurtar o fim do torneio." (window-rules.ts:78-87).
 - **Agenda:** as tabs de dia saem da janela, do início ao fim, com TETO de 180
   dias e o dia com jogo agendado SEMPRE entrando (jogo fora da janela nunca é
-  escondido: `buildScheduleWindowTabs`, schedule-view.ts:108-135, teto em :17); o
+  escondido: `buildScheduleWindowTabs`, schedule-view.ts:121-149, teto em :17); o
   calendário do agendamento e do fechamento recebe os limites por
-  `resolveScheduleDateBounds` (schedule-view.ts:146-163 — hoje nunca fica atrás)
+  `resolveScheduleDateBounds` (schedule-view.ts:174-190 — hoje nunca fica atrás)
   no par minValue/maxValue do `Calendar` (schedule-date-field.tsx:75-80, consumido
-  por schedule-proposal-dialog.tsx:305-308 e block-court-dialog.tsx:142-146).
+  por schedule-proposal-dialog.tsx:313-319 e block-court-dialog.tsx:136-146).
 - **O seletor 7/15 é do torneio SEM fim:** `SCHEDULE_WINDOW_OPTIONS` ("7
-  dias"/"15 dias", schedule-view.ts:43-51) com `buildScheduleDateTabs` (:56-77)
-  só aparece quando não há `endDayKey` (tournaments/[tournamentId]/schedule.tsx:274);
+  dias"/"15 dias", schedule-view.ts:44-50) com `buildScheduleDateTabs` (:58-80)
+  só aparece quando não há `endDayKey` (tournaments/[tournamentId]/schedule.tsx:278);
   com janela o menu sai e as tabs passam a ser as do início ao fim.
 - **Fora do intervalo é recusa do SERVIDOR:** `validateMatchDayInWindow`
   (window-rules.ts:52) responde "O torneio vai de X a Y. Estenda a janela no
@@ -2782,52 +2782,53 @@ menu do card por papel.
 ### Fechamento de quadra/período e cancelamento de jogos
 
 - **Fechar quadra** (`BlockCourtDialog`,
-  components/pages/tournaments/block-court-dialog.tsx:53-311): dia (nasce no dia
+  components/pages/tournaments/block-court-dialog.tsx:53-326): dia (nasce no dia
   aberto da agenda), quadra ("Todas as quadras" = `ALL_COURTS_VALUE`, :28), "Dia
   todo" (zera início e fim; o fim só habilita depois do início) e o motivo. O
-  motivo é o `ReasonField` (reason-field.tsx:23-63): chips
+  motivo é o `ReasonField` (reason-field.tsx:23-73): chips
   `UNAVAILABILITY_REASON_PRESETS` = "Chuva"/"Calor"/"Falta de luz"/"Quadra"
   (unavailability-derived.ts:6-10) mais o campo "Outro" (80 chars) — texto fora
   dos prontos vive no "Outro" e não marca chip (`resolveReasonPreset`, :21-35).
 - **Recusas do contrato:** os dois horários nulos = dia inteiro; só UM deles
   preenchido = "Informe o início e o fim do período."; início >= fim = "O horário
-  de início deve ser antes do término."; motivo de 3 a 80 chars; `courtId` não
-  nulo precisa existir no torneio ("Quadra inválida.")
-  (contract.ts:262-307 + functions/tournament/unavailability.ts:59-70).
+  de início deve ser antes do término."; motivo de até 80 chars e OPCIONAL
+  (vazio vira nulo — o mínimo de 3 morreu no lote de 29-09); `courtId` não nulo
+  precisa existir no torneio ("Quadra inválida.")
+  (contract.ts:262-311 + functions/tournament/unavailability.ts:65-70).
 - **Cancelar jogo(s):** o item `cancel_matches` do menu do card vale para UM jogo
   (organizer-match-menu.ts:83-96) e o MODO SELEÇÃO da agenda para o lote
   (long-press marca o primeiro, toque alterna; o botão "Cancelar jogos" do topo
-  nasce desabilitado sem seleção — schedule.tsx:97/218/332-351/476-497). O
+  nasce desabilitado sem seleção — schedule.tsx:96/222/335-352/480-501). O
   diálogo é UM para os dois casos (`CancelMatchesDialog`,
-  cancel-matches-dialog.tsx:35-127): motivo + o check "Deixar o período
+  cancel-matches-dialog.tsx:35-125): motivo + o check "Deixar o período
   indisponível" que vem LIGADO, com as faixas por dia do lote ("13 de out., das
   16:00 às 20:00", `buildUnavailabilitySpans`/`formatUnavailabilitySpanLabel`,
-  unavailability-derived.ts:47-71 e :166).
+  unavailability-derived.ts:58-82 e :180).
 - **O que o servidor faz:** `cancelMatches` monta o plano (pula publicado, vaga
   vazia e confronto sem data — `resolveBulkCancelPlan`/`shouldSkipMatchCancel`,
   scheduling-rules.ts:150-192) e cada alvo passa por `applyMatchSuspension`
-  (match_writes.ts:411-478): data, hora, quadra e quem agendou saem, `scheduled`
+  (match_writes.ts:411-477): data, hora, quadra e quem agendou saem, `scheduled`
   volta a `pending` e os dois lados recebem `tournament.match.suspended` com o
   motivo. No app o confronto fica com o chip "A definir" (match-display.ts:28) e o
   toast fecha "N confrontos voltaram para A definir. Os jogadores receberam o
-  aviso." (organizer-actions.tsx:322-331).
+  aviso." (organizer-actions.tsx:335-344).
 - **Reabrir:** `unavailability.remove`
   (functions/tournament/unavailability.ts:117-153) atrás do botão "Reabrir" do
-  alerta e do diálogo "Reabrir a agenda" (schedule.tsx:411-419/526-559) — só o
+  alerta e do diálogo "Reabrir a agenda" (schedule.tsx:415-423/529-563) — só o
   organizador tem a ação.
 - **Alerta do dia:** `WidgetAlert` status `warning`, título "Período fechado" e a
   descrição no formato "motivo | quadra | faixa" ("Chuva | Todas as quadras | Dia
-  todo"; `buildUnavailabilityChipLabel`, unavailability-derived.ts:86-97), um por
-  bloqueio VISÍVEL do dia (schedule.tsx:407-427). O jogador vê o MESMO alerta sem
+  todo"; `buildUnavailabilityChipLabel`, unavailability-derived.ts:98-111), um por
+  bloqueio VISÍVEL do dia (schedule.tsx:411-431). O jogador vê o MESMO alerta sem
   botão (sem ação não há CTA no molde).
 - **Bloqueio totalmente coberto não vira alerta próprio:**
-  `selectVisibleUnavailabilityBlocks` (unavailability-derived.ts:135-163) mostra
+  `selectVisibleUnavailabilityBlocks` (unavailability-derived.ts:149-177) mostra
   só os MÁXIMOS do dia — quadra contida (a específica dentro de "Todas as
   quadras") E período contido ("Dia todo" cobre qualquer faixa), com empate
   resolvido pelo mais recente e o `id` fechando o desempate (lista não pisca); um
   bloqueio sem as duas horas vale como dia inteiro, igual ao servidor
-  (`coversUnavailability`, :108-133; testes em
-  unavailability-derived.test.ts:83-239). O COBERTO continua valendo no servidor
+  (`coversUnavailability`, :122-141; testes em
+  unavailability-derived.test.ts:132-283). O COBERTO continua valendo no servidor
   (`findUnavailabilityConflict` itera TODOS os blocos do dia e o `list` não
   deduplica — unavailability-rules.ts:24-57,
   functions/tournament/unavailability.ts:155-182): ele volta a aparecer quando o
@@ -2854,13 +2855,13 @@ menu do card por papel.
 - **No diálogo:** `isReserving = !(match.entryAId && match.entryBId)` decide o
   título "Reservar horário" (sem data) / "Reagendar confronto" (com data) e a
   descrição avisa "A vaga já fica com este horário quando os vencedores
-  aparecerem." (organizer-actions.tsx:551-565/599-605).
+  aparecerem." (organizer-actions.tsx:570-583/617-623).
 - **Só o chaveamento oferece a reserva:** a agenda só lista confronto que já tem
   data + hora + quadra (schedule-items.ts:71-77), então a vaga reservada aparece
   nela depois de ganhar horário.
 - **A reserva sobrevive à chegada dos jogadores:** ao publicar o resultado o
   servidor grava APENAS o lado no confronto seguinte — não limpa
-  `matchDate`/`startMinute`/`courtId` (match_writes.ts:540-560), então o horário
+  `matchDate`/`startMinute`/`courtId` (match_writes.ts:544-564), então o horário
   reservado passa a valer para quem chega e o confronto já aparece agendado.
 
 ### Acerto do confronto lido por LADO
@@ -2896,17 +2897,17 @@ menu do card por papel.
   segue a MESMA leitura de lado — a dupla de quem propôs lê "Proposta enviada",
   não "Confirmar horário" (`buildPlayerAgreementChip`, match-agreement-view.ts:44-129;
   os facts e o menu em :313-347). O cliente continua sem comparar id de usuário,
-  como o contrato promete (contract.ts:633-641).
+  como o contrato promete (contract.ts:637-645).
 - **Sweep no encaixe manual da chave:** trocar inscrições de lugar (`swapSlots`)
   reescreve os lados e chama `sweepMatchAgreements` com `actorSide: "organizer"` e
   kind `overridden` nos DOIS canais do confronto reescrito
   (functions/tournament/bracket.ts:313-321). O sweep zera a proposta
   (`proposal`/`proposedAt`/`proposedBySide`/`proposedByUserId` nulos e `state`
   `idle`) e PRESERVA `agreedAt` — o que já estava combinado continua combinado e a
-  próxima proposta é reabertura (match_writes.ts:601-660 e `resolveAgreementSweep`
+  próxima proposta é reabertura (match_writes.ts:605-664 e `resolveAgreementSweep`
   :611-643; testes agreement-rules.test.ts:706-753). Os outros callers do mesmo
   sweep: suspender o confronto fecha só o canal de horário
-  (match_writes.ts:440-446); publicar/editar resultado fecha tudo como
+  (match_writes.ts:444-450); publicar/editar resultado fecha tudo como
   `overridden` (matches.ts:74/220) e AGENDAR fecha só o canal de horário
   (`scheduleMatch`, matches.ts:259 — o placar combinado depois do jogo continua
   valendo); o aceite do placar fecha o horário como `closed` (agreements.ts:693).
@@ -2922,7 +2923,7 @@ menu do card por papel.
   organizer-match-menu.test.ts:33-134 (inclui "o MESMO menu vale no chaveamento e
   na agenda").
 - **Quem desenha:** o CHAVEAMENTO (bracket-match-card.tsx:78-97/159) e a AGENDA
-  (schedule.tsx:224-243/473-486) passam `menu`; a galeria de componentes usa o
+  (schedule.tsx:228-247/477-490) passam `menu`; a galeria de componentes usa o
   mesmo builder em dev ([component].tsx:1122-1152). O `MatchCard` é só a peça que
   desenha: o ⋮ aparece com o menu do PAPEL ou com os itens do acerto e sem item
   nenhum ele não existe (match-card.tsx:81-89/144-148/344-393).
@@ -2949,3 +2950,103 @@ menu do card por papel.
 - A seção "Categorias livres" fechava com a janela de datas "fora desta fatia";
   ela entrou neste lote (ver "Janela de datas do torneio"). A linha foi corrigida
   no lugar.
+
+## Lote de 29-09-2026: agenda no calendário do Brasil, bloqueio fora dos seletores e motivo opcional
+
+Correção em cima do lote da janela de datas (d80b143): o "hoje" da agenda passou
+a ser o do calendário do Brasil em TODOS os caminhos, o horário coberto por
+bloqueio saiu dos seletores de horário e o motivo do fechamento/cancelamento
+deixou de ser obrigatório.
+
+### Agenda no calendário do Brasil (BUG-0094 / DEC-0018)
+
+- **Decisão:** o produto segue o calendário do Brasil (UTC-3 fixo) em tudo — o
+  "hoje" da agenda nunca é o relógio do aparelho nem UTC puro, e as regras vêm
+  do domínio (`brazilDayKey`, window-rules.ts:10-15, e o `BRAZIL_UTC_OFFSET_MS`
+  do pagamento), não de um offset reimplementado no app.
+- **Rótulos:** a tira compara por CHAVE (`YYYY-MM-DD`): "Hoje", "Amanhã" e
+  "Ontem" saem da comparação com o dia do Brasil (`buildDateTab`,
+  schedule-view.ts:84-107) e o dia comum formata a própria chave em UTC
+  (`formatDayLabel` com `timeZone: "UTC"`, format/date.ts:21-24 e :53-55) — em
+  fuso a oeste de Greenwich o rótulo não anda um dia para trás.
+- **Dia inicial:** a agenda abre em HOJE, com clamp — antes do primeiro dia da
+  lista abre no primeiro, depois do último abre no último
+  (`resolveInitialScheduleDayKey`, schedule-view.ts:158-166), e o valor do
+  `Tabs` usa o mesmo clamp ANTES do render (schedule.tsx:137-149). O critério
+  anterior era `tabs[0]`, que jogava o torneio de outra semana no primeiro dia
+  da janela.
+- **O dia vira sozinho:** `useBrazilTodayDayKey` (brazil-today.ts:22-72)
+  recalcula no foco da tela (`useFocusEffect`), na volta do app ao primeiro
+  plano (AppState) e num timer para a próxima meia-noite do Brasil (03:00 UTC;
+  `resolveNextBrazilMidnightMs`, :11-15) — sem reabrir a tela. Antes o "hoje" era
+  capturado uma única vez e congelava até o remount.
+- **Torneio SEM fim (legacy):** usa o MESMO calendário — `buildScheduleDateTabs`
+  recebe `todayDayKey` (schedule-view.ts:58-80) em vez de um `Date` do aparelho
+  formatado em UTC puro.
+- **Testes:** schedule-view.test.ts:51 (virada 02:59→28 e 03:00→29, os clamps e o
+  "Ontem" na lista) e brazil-today.test.ts:11 (próxima meia-noite do Brasil).
+
+### Horário bloqueado não aparece nos seletores (IBX-0163)
+
+- **Uma fonte só:** `buildSlotTimeOptions` (slot-options.ts:39-104) recebe
+  `unavailabilityBlocks` e PULA o horário em que `findUnavailabilityConflict`
+  (unavailability-rules.ts:24-57) acha bloqueio — a MESMA função que o servidor
+  usa para recusar; o app não reimplementa o bloqueio (a cópia local de
+  `rangesOverlap`, slot-options.ts:27-37, decide só a sobreposição com o slot
+  OCUPADO, com a mesma semântica de fim exclusivo).
+- **Alcance:** todos os seletores de horário, porque todos são o MESMO diálogo
+  (`ScheduleProposalDialog`, prop `unavailabilityBlocks`,
+  schedule-proposal-dialog.tsx:61 e :180-218): agendar/reservar/reagendar do
+  organizador (organizer-actions.tsx:165-169, com a query `unavailability.list`
+  só habilitada para o organizador, e :624) e propor/propor outro horário do
+  jogador (match-agreement-provider.tsx:602-606 e :731). O encaixe manual da
+  chave (`swapSlots`) troca inscrição de lugar e não tem seletor de horário —
+  nada a filtrar ali.
+- **Regra por caso:** quadra X esconde só X; bloqueio sem quadra ("Todas as
+  quadras") esconde de todas; "Dia todo" (sem horas) esconde o dia; no modo sem
+  quadra o diálogo já oferece o dia inteiro como faixa e o bloqueio geral segue
+  derrubando o slot. Dia sem nenhum horário livre cai no estado vazio existente
+  ("Nenhum horário disponível") — sem copy nova.
+- **Escondido ≠ liberado:** o bloqueio coberto (que não vira alerta próprio)
+  continua recusando no servidor — a visibilidade da LISTA não é a regra de
+  recusa.
+- **Testes:** slot-options.test.ts:143 (esconde a faixa bloqueada e mantém o
+  resto; "Todas as quadras", dia todo e a quadra ainda não escolhida).
+
+### Motivo opcional no fechamento e no cancelamento (IBX-0164 / DEC-0019, decisão B)
+
+- **Opcional de ponta a ponta:** fechar quadra/período e cancelar jogo(s)
+  aceitam motivo vazio. O esquema virou `.trim().max(80)` com vazio → `null`
+  (`unavailabilityReasonSchema`, contract.ts:266-272, usado no create e no
+  update, :288/:324) e a coluna ficou nullable (tables.ts:326); o "Informe o
+  motivo." e o mínimo de 3 chars morreram, o teto de 80 fica.
+- **Rótulo:** o campo é só "Motivo", sem "(opcional)" — a ausência do símbolo de
+  obrigatório já diz (reason-field.tsx:30) — e o `FieldError` e o `isRequired`
+  do campo "Outro" saíram junto (reason-field.tsx:59-70).
+- **Chip desmarca:** `toggleReasonPreset` (unavailability-derived.ts:39-46) — o
+  toque no chip JÁ marcado limpa o valor (some o chip e o campo "Outro" sai
+  junto, porque o texto do Outro é derivado do valor) e o toque em outro preset
+  troca; texto livre no "Outro" morre no toque que marca um preset. Os quatro
+  chips (reason-field.tsx:38-51) usam o mesmo toggle nos dois diálogos.
+- **Sem separador solto:** a lista devolve `reason: string | null`
+  (contract.ts:529; `record.reason ?? null` em unavailability.ts:41) e as caudas
+  do chip saem condicionalmente — `buildUnavailabilityChipLabel`
+  (unavailability-derived.ts:98-111) monta "Quadra 2 | 16:00 às 20:00" ou
+  "Todas as quadras | Dia todo" sem faixa de motivo vazia; a recusa do servidor
+  segue as MESMAS caudas por `reasonTail` (unavailability-rules.ts:59-79).
+- **Cancelamento:** o diálogo não promete mais o motivo no aviso ("Os N jogos
+  voltam para A definir e os jogadores recebem o aviso.",
+  cancel-matches-dialog.tsx:69-70) e os dois diálogos enviam `null` para
+  vazio/só espaços (block-court-dialog.tsx:111, cancel-matches-dialog.tsx:46).
+- **Testes:** unavailability-derived.test.ts:31 (marca, desmarca no segundo
+  toque e limpa o Outro) e :112 (rótulo sem motivo, sem separador solto).
+
+### Correção desta spec
+
+- A linha das "Recusas do contrato" do lote de 28-09 dizia "motivo de 3 a 80
+  chars"; vale o motivo OPCIONAL de até 80 chars, com vazio virando nulo — a
+  linha foi corrigida no lugar.
+- As citações file:line do lote de 28-09 foram repontadas para o código como ele
+  ficou depois desta rodada (schedule-view, format/date, schedule.tsx, os dois
+  diálogos, reason-field, organizer-actions, contract/tables/match_writes/
+  unavailability e unavailability-derived com os testes).

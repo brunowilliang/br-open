@@ -411,7 +411,11 @@ export async function applyMatchSchedule(
  */
 export async function applyMatchSuspension(
   ctx: OrmMutationCtx,
-  input: { match: MatchRecord; reason: string; tournament: TournamentRecord }
+  input: {
+    match: MatchRecord;
+    reason: null | string;
+    tournament: TournamentRecord;
+  }
 ): Promise<MatchRecord> {
   const { match, tournament } = input;
   // O aviso carrega o horário que SAIU da agenda: depois do update ele some.
@@ -457,7 +461,7 @@ export async function applyMatchSuspension(
           ? { matchDate: suspendedSlot.matchDate }
           : {}),
         matchId: match.id,
-        reason: input.reason,
+        ...(input.reason ? { reason: input.reason } : {}),
         ...(suspendedSlot.startMinute === null
           ? {}
           : { startMinute: suspendedSlot.startMinute }),

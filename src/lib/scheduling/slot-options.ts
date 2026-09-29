@@ -1,4 +1,8 @@
 import { formatMinuteToHHMM } from "@/lib/format/time";
+import {
+  findUnavailabilityConflict,
+  type TournamentUnavailability,
+} from "@convex/domains/tournament/unavailability-rules";
 
 type ScheduleSlot = {
   courtId: string;
@@ -42,6 +46,10 @@ export function buildSlotTimeOptions(input: {
   ranges: TimeRange[];
   /** Slot da própria linha em edição — não pode bloquear o próprio horário. */
   slotIdToIgnore?: string | null;
+  /** Bloqueios CRUS da agenda (a MESMA lista que o servidor usa para recusar,
+   * via `findUnavailabilityConflict`): horário coberto por bloqueio não é
+   * oferecido. Dia todo e "todas as quadras" saem da própria regra. */
+  unavailabilityBlocks: readonly TournamentUnavailability[];
 }): SlotTimeOption[] {
   const options: SlotTimeOption[] = [];
   const relevantSlots =
@@ -61,6 +69,19 @@ export function buildSlotTimeOptions(input: {
       minute += 30
     ) {
       const endMinute = minute + input.durationMinutes;
+
+      if (
+        findUnavailabilityConflict({
+          blocks: input.unavailabilityBlocks,
+          courtId: input.courtId,
+          dayKey: input.matchDate,
+          endMinute,
+          startMinute: minute,
+        }) !== null
+      ) {
+        continue;
+      }
+
       const isDisabled = relevantSlots.some((slot) =>
         rangesOverlap({
           leftEndMinute: endMinute,

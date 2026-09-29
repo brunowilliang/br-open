@@ -263,9 +263,13 @@ const unavailabilityDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
 
-const unavailabilityReasonSchema = requiredString("Informe o motivo.").pipe(
-  z.string().min(3, "Informe o motivo.").max(80, "Use um motivo mais curto.")
-);
+/** Motivo opcional: ausente, nulo ou só espaços viram "sem motivo" (nulo). */
+const unavailabilityReasonSchema = z
+  .string()
+  .trim()
+  .max(80, "Use um motivo mais curto.")
+  .nullish()
+  .transform((value) => value || null);
 
 const unavailabilityMinuteSchema = z
   .number()
@@ -522,7 +526,7 @@ export const tournamentUnavailabilitySchema = z.object({
   date: z.string(),
   endMinute: z.number().int().nullable(),
   id: z.string(),
-  reason: z.string(),
+  reason: z.string().nullable(),
   startMinute: z.number().int().nullable(),
 });
 

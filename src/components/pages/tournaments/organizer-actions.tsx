@@ -24,6 +24,7 @@ import { formatEntrySideLabel } from "@/lib/tournaments/tournament-details-deriv
 import { buildUnavailabilitySpans } from "@/lib/tournaments/unavailability-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 import type { OrganizerMatchMenuKind } from "@/lib/tournaments/organizer-match-menu";
+import type { TournamentUnavailability } from "@convex/domains/tournament/unavailability-rules";
 import { resolveTournamentWindow } from "@convex/domains/tournament/window-rules";
 
 /** W.O. — vencedor escolhido, placar vazio (mesma semântica do backend). */
@@ -159,6 +160,13 @@ export function OrganizerActionsHost(props: {
   const occupiedSlots: OccupiedSlot[] = (occupiedSlotsQuery.data ?? []).map(
     ({ matchId, ...slot }) => ({ ...slot, slotId: matchId })
   );
+  // Os bloqueios são a lista CRUA do servidor: o diálogo de agendar/reservar
+  // esconde o horário coberto por fechamento de quadra ou de dia.
+  const unavailabilityQuery = useQuery({
+    ...crpc.tournament.unavailability.list.staticQueryOptions({ tournamentId }),
+    enabled: isOrganizer,
+  });
+  const unavailabilityBlocks = unavailabilityQuery.data ?? [];
 
   // O ato que ENCERRA o torneio (a pendência só existe enquanto ele não
   // concluir; quem tira o item da tela é a releitura, nada otimista).
@@ -211,6 +219,7 @@ export function OrganizerActionsHost(props: {
           }}
           request={request}
           tournamentId={tournamentId}
+          unavailabilityBlocks={unavailabilityBlocks}
         />
       ) : null}
     </OrganizerActionsContext.Provider>
@@ -224,6 +233,7 @@ function OrganizerDialog(props: {
   onClose: () => void;
   request: OrganizerDialogRequest;
   tournamentId: string;
+  unavailabilityBlocks: TournamentUnavailability[];
 }) {
   if (props.request.action === "cancel_matches") {
     return (
@@ -251,6 +261,7 @@ function OrganizerDialog(props: {
       onClose={props.onClose}
       request={props.request}
       tournamentId={props.tournamentId}
+      unavailabilityBlocks={props.unavailabilityBlocks}
     />
   );
 }
@@ -438,8 +449,15 @@ function OrganizerMatchController(props: {
   onClose: () => void;
   request: OrganizerMatchActionRequest;
   tournamentId: string;
+  unavailabilityBlocks: TournamentUnavailability[];
 }) {
-  const { occupiedSlots, onClose, request, tournamentId } = props;
+  const {
+    occupiedSlots,
+    onClose,
+    request,
+    tournamentId,
+    unavailabilityBlocks,
+  } = props;
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const { toast } = useToast();
@@ -603,6 +621,7 @@ function OrganizerMatchController(props: {
               ? "Reservar horário"
               : "Agendar confronto"
         }
+        unavailabilityBlocks={unavailabilityBlocks}
         windowEndDayKey={window.endDayKey}
         windowStartDayKey={window.startDayKey}
       />

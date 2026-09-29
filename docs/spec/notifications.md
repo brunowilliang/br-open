@@ -12,6 +12,13 @@
 > do cancelamento em lote mais a janela do torneio (`match.suspended`,
 > `window_extended`, `window_expired`) — e as copies do feed passam a citar o
 > horário/placar no corpo e a dizer o próximo passo.
+>
+> **29-09-2026:** com o motivo do fechar quadra/período e do Cancelar jogos
+> opcional (contrato em `docs/spec/tournaments.md`, seção "Motivo opcional no
+> fechamento e no cancelamento"), as copies desta frente trataram o vazio: a
+> suspensão sai sem o parêntese quando não há motivo, o `metadata` deixa de
+> carregar a chave vazia e as três recusas de agendar em quadra bloqueada perdem
+> o parêntese vazio.
 
 ## Visão geral
 
@@ -174,18 +181,21 @@ têm três avisos informativos:
 
 | `eventType` | Quando nasce | Quem recebe | `metadata` |
 |---|---|---|---|
-| `tournament.match.suspended` | o organizador cancela em LOTE os confrontos que têm horário (`Cancelar jogos` → `applyMatchSuspension`, `convex/functions/tournament/_shared/match_writes.ts`): o confronto volta a "a definir" e segue VIVO | os DOIS lados do confronto (criador + parceiro de cada inscrição) | `matchId`, `reason` e o horário que SAIU da agenda (`matchDate` + `startMinute`: o lote só cancela confronto COM horário, então os dois vêm sempre) |
+| `tournament.match.suspended` | o organizador cancela em LOTE os confrontos que têm horário (`Cancelar jogos` → `applyMatchSuspension`, `convex/functions/tournament/_shared/match_writes.ts`): o confronto volta a "a definir" e segue VIVO | os DOIS lados do confronto (criador + parceiro de cada inscrição) | `matchId` e o horário que SAIU da agenda (`matchDate` + `startMinute`: o lote só cancela confronto COM horário, então os dois vêm sempre); `reason` só entra quando há motivo, e sem motivo a chave é OMITIDA do `metadata` (nunca vai string vazia) |
 | `tournament.window_expired` | a janela venceu e ficou confronto SEM horário: o cron de hora em hora (`notifyWindowOverflow`, `convex/functions/tournament/window.ts`) avisa no dia do fim e de novo a cada dia enquanto persistir, sem encerrar nada; o marcador `tournament.windowNoticeSentAt` segura a repetição no mesmo dia | os GESTORES da organização (único evento desta família na allowlist `ORGANIZER_RECIPIENT_EVENTS`, `convex/functions/notification/orchestrator.ts:101-105`) | `endDate` (dia de fim da janela) |
 | `tournament.window_extended` | o organizador salva o torneio com o fim ANDANDO para frente (`management.update`); editar qualquer outro campo não emite | os inscritos ATIVOS (criador + parceiro de cada inscrição) | `endDate` (novo dia de fim) |
 
 Copies, com o dado no corpo: "Seu jogo do dia 13/10 às 16:00 em Copa Verão foi
-suspenso (motivo: Chuva). Combinem um novo horário com o outro lado."; "A janela
-de Copa Verão vai até 20/10 e ainda tem confronto sem horário. Estenda a janela
-no Editar torneio."; "O torneio foi estendido até 22/10. Os dias do novo período
-já podem receber jogos." Os três emissores sempre mandam o dado da cauda
-(horário, motivo, dia de fim); o fallback para o texto base que existe no
-template (`suspensionReasonTail`, `windowEndLabel`) fica como rede, sem estado
-que o alcance hoje. As copies ficam pinadas em `tests/content.test.ts:439-491`.
+suspenso (motivo: Chuva). Combinem um novo horário com o outro lado."; sem motivo
+a MESMA frase sai sem o parêntese: "Seu jogo do dia 13/10 às 16:00 em Copa Verão
+foi suspenso. Combinem um novo horário com o outro lado." (motivo em branco no
+`metadata` vale como sem motivo); "A janela de Copa Verão vai até 20/10 e ainda
+tem confronto sem horário. Estenda a janela no Editar torneio."; "O torneio foi
+estendido até 22/10. Os dias do novo período já podem receber jogos." O horário
+que saiu da agenda vai SEMPRE no aviso de suspensão e o motivo vai só quando
+existe: o aviso nasce sem a chave `reason` e `suspensionReasonTail` devolve vazio
+(`windowEndLabel` segue como rede do texto base da janela, sem estado que o
+alcance hoje). As copies ficam pinadas em `tests/content.test.ts:428-527`.
 O aviso de suspensão abre o CONFRONTO (`getMatchUrl` com `?matchId=`,
 `definitions.ts`): é por lá que os dois lados combinam o novo horário.
 
@@ -195,8 +205,28 @@ ou o separador " | " do app; hora sempre "DD/MM às HH:MM"
 (`formatMatchSlotLabel`) e dia curto "DD/MM" (`formatMatchMonthDay`), ambos de
 `convex/domains/match/labels.ts`; a quadra entra como ", na {quadra}" e só quando
 é do torneio; bloqueio de agenda de DIA INTEIRO é "Dia todo", nunca "00:00 às
-23:59" (`src/lib/tournaments/unavailability-derived.ts:73-79`); cauda sem dado sai
-da frase em vez de virar placeholder.
+23:59" (`src/lib/tournaments/unavailability-derived.ts:84-94`); cauda sem dado sai
+da frase em vez de virar placeholder; motivo vazio (ou só espaços) não gera
+parênteses vazios, nem no aviso de suspensão nem na recusa de agendar.
+
+### Motivo opcional no bloqueio e no cancelamento
+
+O motivo do fechar quadra/período (`tournament.unavailability.set`) e do Cancelar
+jogos (`tournament.matches.cancelMatches`) deixou de ser obrigatório:
+
+O contrato do motivo (opcional, aparado, teto de 80, `reason: string | null` e a
+coluna nullable) mora em `docs/spec/tournaments.md`, seção "Motivo opcional no
+fechamento e no cancelamento"; aqui fica só o que a copy faz com a ausência.
+
+- **Aviso sem parêntese vazio:** o `metadata` do `tournament.match.suspended`
+  omite a chave `reason` quando não há motivo (`applyMatchSuspension`,
+  `convex/functions/tournament/_shared/match_writes.ts`) e a copy cai na
+  variante sem o trecho `(motivo: ...)`.
+- **Recusa de agendar em quadra bloqueada** (`formatUnavailabilityConflict`,
+  `convex/domains/tournament/unavailability-rules.ts`): as três variantes (quadra
+  específica, período do dia, dia inteiro) tratam o vazio, então a frase nunca
+  sai com `()`: "Quadra Central está indisponível em 30/09 das 16:00 às 20:00."
+  sem motivo, "... das 16:00 às 20:00 (Chuva)." com motivo.
 
 ### Destaque (`bodyHighlights`)
 

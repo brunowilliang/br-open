@@ -464,6 +464,39 @@ describe("avisos de janela e cancelamento", () => {
     );
   });
 
+  it("cancelamento sem motivo mantém o horário que saiu", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.match.suspended",
+      metadata: {
+        matchDate: "2026-10-13",
+        matchId: "match-9",
+        startMinute: 960,
+      },
+    });
+
+    expect(content.body).toBe(
+      "Seu jogo do dia 13/10 às 16:00 em Copa Verão foi suspenso. Combinem um novo horário com o outro lado."
+    );
+  });
+
+  it("motivo em branco no metadata vale como sem motivo", () => {
+    const content = buildNotificationContent({
+      ...base,
+      eventType: "tournament.match.suspended",
+      metadata: {
+        matchDate: "2026-10-13",
+        matchId: "match-9",
+        reason: "   ",
+        startMinute: 960,
+      },
+    });
+
+    expect(content.body).toBe(
+      "Seu jogo do dia 13/10 às 16:00 em Copa Verão foi suspenso. Combinem um novo horário com o outro lado."
+    );
+  });
+
   it("torneio estendido cita o novo último dia", () => {
     const content = buildNotificationContent({
       ...base,

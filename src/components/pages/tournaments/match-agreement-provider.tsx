@@ -597,6 +597,13 @@ function MatchAgreementController(props: {
   const occupiedSlots = (occupiedSlotsQuery.data ?? []).map(
     ({ matchId: slotMatchId, ...slot }) => ({ ...slot, slotId: slotMatchId })
   );
+  // Os bloqueios entram CRUS (a mesma lista que o servidor usa para recusar):
+  // com a quadra ainda não escolhida, só o bloqueio de todas as quadras barra.
+  const unavailabilityQuery = useQuery({
+    ...crpc.tournament.unavailability.list.staticQueryOptions({ tournamentId }),
+    enabled: isScheduleAction && canSeeOccupiedSlots,
+  });
+  const unavailabilityBlocks = unavailabilityQuery.data ?? [];
 
   const proposeSchedule = useMutation({
     mutationFn: crpcClient.tournament.agreements.proposeSchedule.mutate,
@@ -721,6 +728,7 @@ function MatchAgreementController(props: {
         }}
         slotIdToIgnore={playerMatch.match.id}
         title={actionLabel}
+        unavailabilityBlocks={unavailabilityBlocks}
         unchangedMessage={MATCH_AGREEMENT_MESSAGE.sameScheduleProposal}
         windowEndDayKey={window.endDayKey}
         windowStartDayKey={window.startDayKey}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { DEFAULT_MATCH_CONFIG } from "../../match/contract";
+import { BRAZIL_UTC_OFFSET_MS } from "../../payment/rules";
 import {
   CancelTournamentMatchesSchema,
   CreateTournamentSchema,
@@ -9,6 +10,7 @@ import {
   SetTournamentUnavailabilitySchema,
   UpdateTournamentSchema,
 } from "../contract";
+import { brazilDayKey } from "../window-rules";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -225,12 +227,19 @@ describe("CreateTournamentSchema categorias", () => {
 describe("CreateTournamentSchema janela de datas", () => {
   it("aceita o fim no MESMO dia do início, mesmo com horas diferentes", () => {
     const input = buildTournamentInput(3);
+    // Meia-noite brasileira do dia do início, fixada depois às 14:00 BRT: o
+    // deslocamento de 6h cai às 08:00 do MESMO dia em qualquer hora do relógio.
+    const dayStart =
+      input.startDate - ((input.startDate + BRAZIL_UTC_OFFSET_MS) % DAY_MS);
+    const startDate = dayStart + 14 * 60 * 60 * 1000;
+    const endDate = startDate - 6 * 60 * 60 * 1000;
     const result = CreateTournamentSchema.safeParse({
       ...input,
-      // 6h antes do início ainda é o mesmo dia brasileiro do início.
-      endDate: input.startDate - 6 * 60 * 60 * 1000,
+      endDate,
+      startDate,
     });
 
+    expect(brazilDayKey(endDate)).toBe(brazilDayKey(startDate));
     expect(result.success).toBe(true);
   });
 
@@ -352,17 +361,64 @@ describe("SetTournamentUnavailabilitySchema", () => {
     }
   });
 
-  it("recusa data fora do formato de dia e motivo curto demais", () => {
+  it("recusa data fora do formato de dia", () => {
     expect(
       SetTournamentUnavailabilitySchema.safeParse({
         ...base,
         date: "12/10/2026",
       }).success
     ).toBe(false);
-    expect(
-      SetTournamentUnavailabilitySchema.safeParse({ ...base, reason: "Ch" })
-        .success
-    ).toBe(false);
+  });
+
+  it("motivo é opcional: ausente ou em branco vira sem motivo", () => {
+    const absent = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      reason: undefined,
+    });
+    expect(absent.success).toBe(true);
+    if (absent.success) {
+      expect(absent.data.reason).toBeNull();
+    }
+
+    const blank = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      reason: "   ",
+    });
+    expect(blank.success).toBe(true);
+    if (blank.success) {
+      expect(blank.data.reason).toBeNull();
+    }
+
+    // Curto agora passa; o teto continua e o motivo vem aparado.
+    const short = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      reason: "Ch",
+    });
+    expect(short.success).toBe(true);
+    if (short.success) {
+      expect(short.data.reason).toBe("Ch");
+    }
+
+    const trimmed = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      reason: "  Chuva  ",
+    });
+    expect(trimmed.success).toBe(true);
+    if (trimmed.success) {
+      expect(trimmed.data.reason).toBe("Chuva");
+    }
+
+    const long = SetTournamentUnavailabilitySchema.safeParse({
+      ...base,
+      reason: "x".repeat(81),
+    });
+    expect(long.success).toBe(false);
+    if (!long.success) {
+      const issue = long.error.issues.find(
+        (item) => item.message === "Use um motivo mais curto."
+      );
+      expect(issue?.path.join(".")).toBe("reason");
+    }
   });
 });
 
@@ -375,6 +431,20 @@ describe("CancelTournamentMatchesSchema", () => {
 
   it("aceita um lote com motivo", () => {
     expect(CancelTournamentMatchesSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("aceita o lote sem motivo", () => {
+    const absent = CancelTournamentMatchesSchema.safeParse({
+      ...base,
+      reason: undefined,
+    });
+    expect(absent.success).toBe(true);
+
+    const blank = CancelTournamentMatchesSchema.safeParse({
+      ...base,
+      reason: "",
+    });
+    expect(blank.success).toBe(true);
   });
 
   it("recusa lote vazio e acima do teto", () => {

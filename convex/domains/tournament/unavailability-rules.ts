@@ -12,7 +12,7 @@ export type TournamentUnavailability = {
   date: string;
   endMinute?: null | number;
   id: string;
-  reason: string;
+  reason: null | string;
   startMinute?: null | number;
 };
 
@@ -66,15 +66,16 @@ export function formatUnavailabilityConflict(input: {
     typeof block.startMinute === "number" && typeof block.endMinute === "number"
       ? ` das ${formatMatchMinute(block.startMinute)} às ${formatMatchMinute(block.endMinute)}`
       : "";
-  const reason = block.reason.trim();
+  const reason = block.reason?.trim() ?? "";
+  const reasonTail = reason ? ` (${reason})` : "";
 
   if (typeof block.courtId === "string") {
-    return `${input.courtName ?? "A quadra"} está indisponível em ${day}${range} (${reason}).`;
+    return `${input.courtName ?? "A quadra"} está indisponível em ${day}${range}${reasonTail}.`;
   }
   if (range) {
-    return `O período de ${day}${range} está indisponível (${reason}).`;
+    return `O período de ${day}${range} está indisponível${reasonTail}.`;
   }
-  return `O dia ${day} está indisponível (${reason}).`;
+  return `O dia ${day} está indisponível${reasonTail}.`;
 }
 
 /** Mesma chave natural do `set`: setar o mesmo bloqueio de novo so troca o motivo. */

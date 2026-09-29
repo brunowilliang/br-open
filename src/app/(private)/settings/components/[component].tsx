@@ -1213,6 +1213,7 @@ function MatchCardVariantsSection() {
           onSubmit={close}
           slotIdToIgnore={request.galleryCase.playerMatch.match.id}
           title={actionLabel}
+          unavailabilityBlocks={[]}
           unchangedMessage={MATCH_AGREEMENT_MESSAGE.sameScheduleProposal}
         />
       ) : null}

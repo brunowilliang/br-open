@@ -25,6 +25,7 @@ import { resolveScheduleDateBounds } from "@/lib/scheduling/schedule-view";
 import { isSameScheduleSlot } from "@/lib/scheduling/slot-equality";
 import { buildSlotTimeOptions } from "@/lib/scheduling/slot-options";
 import type { Court } from "@convex/domains/match/contract";
+import type { TournamentUnavailability } from "@convex/domains/tournament/unavailability-rules";
 import { brazilDayKey } from "@convex/domains/tournament/window-rules";
 
 /** Slot ocupado NEUTRO: cada domínio manda o id dele (`challengeId`,
@@ -55,6 +56,9 @@ type ScheduleProposalDialogProps = {
   occupiedSlots: OccupiedSlot[];
   onSubmit: (value: ScheduleProposalFormValue) => Promise<void> | void;
   title: string;
+  /** Bloqueios de indisponibilidade do torneio (lista CRUA, a mesma do
+   * servidor): horário coberto por bloqueio não entra na lista. */
+  unavailabilityBlocks: TournamentUnavailability[];
   /** Aviso (neutro) enquanto o slot for o MESMO do `initialValue`: o envio fica
    * bloqueado e aviso e bloqueio caem juntos na primeira mudança. Ausente = o
    * diálogo aceita repetir (o reagendamento do organizador é um no-op). */
@@ -112,6 +116,7 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
     onSubmit,
     title,
     unchangedMessage,
+    unavailabilityBlocks,
     windowEndDayKey,
     windowStartDayKey,
   } = props;
@@ -183,6 +188,7 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
             matchDate,
             occupiedSlots: [],
             ranges: [{ endMinute: 1440, startMinute: 0 }],
+            unavailabilityBlocks,
           })
         : [];
     }
@@ -198,6 +204,7 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
       occupiedSlots,
       ranges: selectedCourt.availability[selectedDayKey],
       slotIdToIgnore,
+      unavailabilityBlocks,
     });
   }, [
     defaultDurationMinutes,
@@ -207,6 +214,7 @@ export const ScheduleProposalDialog = (props: ScheduleProposalDialogProps) => {
     selectedDayKey,
     skipsCourt,
     slotIdToIgnore,
+    unavailabilityBlocks,
   ]);
 
   useEffect(() => {

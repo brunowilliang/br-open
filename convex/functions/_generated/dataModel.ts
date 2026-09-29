@@ -1284,7 +1284,7 @@ export type DataModel = {
       createdByUserId?: null | Id<"user">;
       date: string;
       endMinute?: null | number;
-      reason: string;
+      reason?: null | string;
       startMinute?: null | number;
       tournamentId: Id<"tournament">;
       _id: Id<"tournamentUnavailability">;

@@ -130,6 +130,34 @@ describe("formatUnavailabilityConflict", () => {
       })
     ).toBe("A quadra está indisponível em 12/10 (Falta de luz).");
   });
+
+  it("sem motivo a copy não deixa parênteses vazio", () => {
+    expect(
+      formatUnavailabilityConflict({
+        block: { ...wholeDay, reason: null },
+        courtName: null,
+      })
+    ).toBe("O dia 12/10 está indisponível.");
+    expect(
+      formatUnavailabilityConflict({
+        block: { ...afternoon, reason: null },
+        courtName: null,
+      })
+    ).toBe("O período de 12/10 das 16:00 às 20:00 está indisponível.");
+    expect(
+      formatUnavailabilityConflict({
+        block: { ...courtThreeNight, reason: null },
+        courtName: "Quadra 3",
+      })
+    ).toBe("Quadra 3 está indisponível em 12/10 das 19:00 às 22:00.");
+    // Motivo em branco (linha gravada antes da regra nova) vale como sem motivo.
+    expect(
+      formatUnavailabilityConflict({
+        block: { ...wholeDay, reason: "   " },
+        courtName: null,
+      })
+    ).toBe("O dia 12/10 está indisponível.");
+  });
 });
 
 describe("findDuplicateUnavailability", () => {

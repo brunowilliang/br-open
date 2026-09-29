@@ -9,6 +9,7 @@ import {
   formatUnavailabilitySpanLabel,
   resolveReasonPreset,
   selectVisibleUnavailabilityBlocks,
+  toggleReasonPreset,
 } from "./unavailability-derived";
 
 describe("resolveReasonPreset", () => {
@@ -24,6 +25,34 @@ describe("resolveReasonPreset", () => {
 
   it("has no preset with an empty reason", () => {
     expect(resolveReasonPreset("   ")).toBeNull();
+  });
+});
+
+describe("toggleReasonPreset", () => {
+  it("marca o preset no primeiro toque", () => {
+    expect(toggleReasonPreset({ current: "", preset: "Chuva" })).toBe("Chuva");
+    expect(toggleReasonPreset({ current: "Quadra", preset: "Calor" })).toBe(
+      "Calor"
+    );
+  });
+
+  it("desmarca no segundo toque e limpa o texto do Outro", () => {
+    const afterSecondTap = toggleReasonPreset({
+      current: "Chuva",
+      preset: "Chuva",
+    });
+
+    expect(afterSecondTap).toBe("");
+    // Valor vazio = nenhum chip marcado E campo "Outro" vazio (customReason "").
+    expect(resolveReasonPreset(afterSecondTap)).toBeNull();
+    // Mesmo com o texto escrito em caixa/espaços diferentes, o toque desmarca.
+    expect(toggleReasonPreset({ current: "  chuva ", preset: "Chuva" })).toBe(
+      ""
+    );
+    // Texto livre no Outro morre no toque que marca outro preset.
+    expect(
+      toggleReasonPreset({ current: "Quadra molhada", preset: "Chuva" })
+    ).toBe("Chuva");
   });
 });
 
@@ -78,6 +107,25 @@ describe("buildUnavailabilityChipLabel", () => {
         startMinute: null,
       })
     ).toBe("Chuva | Todas as quadras | Dia todo");
+  });
+
+  it("sem motivo o rótulo começa na quadra, sem separador solto", () => {
+    expect(
+      buildUnavailabilityChipLabel({
+        courtName: "Quadra 2",
+        endMinute: 1200,
+        reason: null,
+        startMinute: 960,
+      })
+    ).toBe("Quadra 2 | 16:00 às 20:00");
+    expect(
+      buildUnavailabilityChipLabel({
+        courtName: null,
+        endMinute: null,
+        reason: "   ",
+        startMinute: null,
+      })
+    ).toBe("Todas as quadras | Dia todo");
   });
 });
 

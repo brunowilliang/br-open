@@ -31,7 +31,7 @@ export type BlockCourtDialogInput = {
   courtId: null | string;
   date: string;
   endMinute: null | number;
-  reason: string;
+  reason: null | string;
   startMinute: null | number;
 };
 
@@ -61,7 +61,6 @@ export function BlockCourtDialog(props: BlockCourtDialogProps) {
   const [reason, setReason] = useState("");
   const [dateError, setDateError] = useState("");
   const [periodError, setPeriodError] = useState("");
-  const [reasonError, setReasonError] = useState("");
   const dateBounds = useMemo(
     () =>
       resolveScheduleDateBounds({
@@ -100,13 +99,8 @@ export function BlockCourtDialog(props: BlockCourtDialogProps) {
         ? "Informe o fim do período."
         : ""
     );
-    setReasonError(reason.trim().length < 3 ? "Informe o motivo." : "");
 
-    if (
-      !date ||
-      reason.trim().length < 3 ||
-      (startMinute !== undefined && endMinute === undefined)
-    ) {
+    if (!date || (startMinute !== undefined && endMinute === undefined)) {
       return;
     }
 
@@ -114,7 +108,7 @@ export function BlockCourtDialog(props: BlockCourtDialogProps) {
       courtId: courtValue === ALL_COURTS_VALUE ? null : courtValue,
       date,
       endMinute: endMinute === undefined ? null : Number(endMinute),
-      reason: reason.trim(),
+      reason: reason.trim().length > 0 ? reason.trim() : null,
       startMinute: startMinute === undefined ? null : Number(startMinute),
     });
   }
@@ -300,12 +294,8 @@ export function BlockCourtDialog(props: BlockCourtDialogProps) {
             ) : null}
 
             <ReasonField
-              error={reasonError}
               isDisabled={props.isPending}
-              onChange={(next) => {
-                setReasonError("");
-                setReason(next);
-              }}
+              onChange={setReason}
               value={reason}
             />
 

@@ -1,15 +1,15 @@
-import { Chip, FieldError, Input, Label, TextField } from "heroui-native";
+import { Chip, Input, Label, TextField } from "heroui-native";
 import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/core/text";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import {
   resolveReasonPreset,
+  toggleReasonPreset,
   UNAVAILABILITY_REASON_PRESETS,
 } from "@/lib/tournaments/unavailability-derived";
 
 type ReasonFieldProps = {
-  error?: string;
   isDisabled?: boolean;
   onChange: (reason: string) => void;
   value: string;
@@ -40,7 +40,9 @@ export function ReasonField(props: ReasonFieldProps) {
                     disabled={props.isDisabled}
                     key={preset}
                     onPress={() => {
-                      props.onChange(preset);
+                      props.onChange(
+                        toggleReasonPreset({ current: props.value, preset })
+                      );
                     }}
                     size="md"
                     variant="soft"
@@ -54,7 +56,7 @@ export function ReasonField(props: ReasonFieldProps) {
         </ScrollShadow>
       </View>
 
-      <TextField isInvalid={Boolean(props.error)} isRequired>
+      <TextField>
         <Label>Outro</Label>
         <Input
           className="bg-surface-secondary"
@@ -65,7 +67,6 @@ export function ReasonField(props: ReasonFieldProps) {
           value={customReason}
           variant="secondary"
         />
-        <FieldError>{props.error ?? ""}</FieldError>
       </TextField>
     </View>
   );
