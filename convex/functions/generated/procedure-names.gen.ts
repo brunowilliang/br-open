@@ -170,8 +170,8 @@ export const procedureNames = {
     { column: 3, line: 224, name: "tournament/management:generateUploadUrl" },
     { column: 3, line: 196, name: "tournament/management:getById" },
     { column: 3, line: 177, name: "tournament/management:listMine" },
-    { column: 3, line: 421, name: "tournament/management:publish" },
-    { column: 3, line: 445, name: "tournament/management:remove" },
+    { column: 3, line: 420, name: "tournament/management:publish" },
+    { column: 3, line: 444, name: "tournament/management:remove" },
     { column: 3, line: 263, name: "tournament/management:update" },
   ],
   "tournament/matches.ts": [
