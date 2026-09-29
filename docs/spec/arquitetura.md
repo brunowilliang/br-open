@@ -63,6 +63,26 @@ TS path aliases: `@/*` → `src/*`, `@convex/*` → `convex/*` (inclui
 - **HeroUI Native + Uniwind** para componentes e estilos; `onPress`, não onClick.
 - **Gate frontend:** `bun run check` (lint + typecheck) + `bun run test src`.
 
+### Overlay do cabeçalho (blur × degradê)
+
+O overlay do `PageHeader` (`src/components/core/page/header.tsx`) aparece conforme
+o scroll (`DEFAULT_HEADER_BLUR_DISTANCE`) atrás do conteúdo: no **iOS** é blur
+progressivo (`PageBlurOverlay`, `blur.tsx`, via
+`@sbaiahmed1/react-native-blur`); no **Android** é degradê da cor de fundo do
+tema até transparente (`PageGradientOverlay`, `gradient.tsx`, via
+`expo-linear-gradient`) — mesma família visual do rodapé, com
+`useThemeColor("background")` + `colorKit.setAlpha` e a direção
+`PageOverlayDirection` reusada do blur.
+
+A escolha por plataforma vive em um lugar só: `getPageOverlayKind(Platform.OS)`
+(`src/components/core/page/overlay-kind.ts`) — `android` → `gradient`, resto →
+`blur`. O header só consome a função; trocar a regra é mexer só nesse arquivo.
+
+O `PageFooter` (`footer.tsx`) usa hoje o degradê Uniwind
+(`bg-linear-to-t from-background to-background/0`) em todas as plataformas; o
+branch de blur (`isBlurred` + `PageBlurOverlay`) existe no componente, mas está
+dormente — nenhum chamador liga a prop.
+
 ## Vocabulário canônico (padronização executada)
 
 Resultado da padronização executada em 22-07-2026, confirmado no código:

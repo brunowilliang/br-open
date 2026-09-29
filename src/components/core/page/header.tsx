@@ -1,6 +1,7 @@
 import { cn } from "better-styled";
 import type { ComponentProps } from "react";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -10,6 +11,8 @@ import { Header } from "../header";
 import { PageBlurOverlay } from "./blur";
 import { DEFAULT_HEADER_BLUR_DISTANCE } from "./constants";
 import { usePageContext } from "./context";
+import { PageGradientOverlay } from "./gradient";
+import { getPageOverlayKind } from "./overlay-kind";
 
 type PageHeaderProps = ComponentProps<typeof Header> & {
   /**
@@ -27,6 +30,7 @@ type PageHeaderProps = ComponentProps<typeof Header> & {
 export const PageHeader = (props: PageHeaderProps) => {
   const context = usePageContext();
   const { overlay = false, ...headerProps } = props;
+  const overlayKind = getPageOverlayKind(Platform.OS);
 
   useEffect(() => {
     if (overlay) {
@@ -47,7 +51,7 @@ export const PageHeader = (props: PageHeaderProps) => {
     headerProps.onLayout?.(event);
   };
 
-  const blurAnimatedStyle = useAnimatedStyle(() => ({
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       context.scrollY.value,
       [0, DEFAULT_HEADER_BLUR_DISTANCE],
@@ -69,9 +73,13 @@ export const PageHeader = (props: PageHeaderProps) => {
       <Animated.View
         className="absolute inset-0"
         pointerEvents="none"
-        style={[blurAnimatedStyle]}
+        style={[overlayAnimatedStyle]}
       >
-        <PageBlurOverlay direction="blurredTopClearBottom" />
+        {overlayKind === "blur" ? (
+          <PageBlurOverlay direction="blurredTopClearBottom" />
+        ) : (
+          <PageGradientOverlay direction="blurredTopClearBottom" />
+        )}
       </Animated.View>
 
       {headerProps.children}

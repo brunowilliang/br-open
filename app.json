@@ -27,7 +27,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.brunoidonate.bropen",
+      "package": "com.brunogarcia.bropen",
+      "googleServicesFile": "./google-services.json",
       "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "runtimeVersion": "1.1.0"
     },

@@ -8,13 +8,22 @@ import { withUniwind } from "uniwind";
  */
 export const PageProgressiveBlurView = withUniwind(ProgressiveBlurView);
 
+/**
+ * Direction of a page edge overlay: the "blurred" edge is the opaque one
+ * (frosted on the blur overlay, solid theme background on the gradient one),
+ * the opposite edge is clear.
+ */
+export type PageOverlayDirection =
+  | "blurredTopClearBottom"
+  | "blurredBottomClearTop";
+
 type PageBlurOverlayProps = {
   /**
    * Progressive blur direction.
    * - "blurredTopClearBottom" for headers (frosted at the top edge).
    * - "blurredBottomClearTop" for footers (frosted at the bottom edge).
    */
-  direction: "blurredTopClearBottom" | "blurredBottomClearTop";
+  direction: PageOverlayDirection;
 };
 
 /**
