@@ -3,7 +3,7 @@ import { useValue } from "@legendapp/state/react";
 import { useMutation } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, Dialog, Menu, Tabs, useToast } from "heroui-native";
+import { Button, Dialog, Menu, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -29,6 +29,7 @@ import {
   useTournamentContextInvalidation,
 } from "@/components/pages/tournaments/organizer-actions";
 import { PlayerMatchPanel } from "@/components/pages/tournaments/player-match-panel";
+import { CategorySelect } from "@/components/ui/category-select";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -81,8 +82,8 @@ export default function TournamentBracketRoute() {
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const { toast } = useToast();
-  // Alturas flutuantes que a abertura da chave desconta (o header com a tab das
-  // categorias e a barra de navegação de baixo): o header se mede aqui porque o
+  // Alturas flutuantes que a abertura da chave desconta (o header com o seletor
+  // de categorias e a barra de navegação de baixo): o header se mede aqui porque o
   // `Page` é filho deste mesmo componente (o contexto da Page nasce daqui pra
   // dentro); a barra é irmã da tela e publica a altura dela no store.
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -272,7 +273,7 @@ export default function TournamentBracketRoute() {
     [categoriesById, courtNameOf, trees, cardHeights]
   );
 
-  // One category on the canvas at a time; the tab bar picks which.
+  // One category on the canvas at a time; the category select picks which.
   const activeTreeLayout = useMemo(() => {
     if (treeLayouts.length === 0) {
       return null;
@@ -515,11 +516,11 @@ export default function TournamentBracketRoute() {
   const hasBracketMenu =
     isOrganizer && (isFirstDraw || tournament?.status === "drawn");
   // The draw skips categories with fewer than 2 active entries, so a listed
-  // category may have no bracket: only offer tabs that render a tree.
-  const categoryTabs = categories.filter((category) =>
+  // category may have no bracket: the select only offers the ones with a tree.
+  const selectableCategories = categories.filter((category) =>
     trees.some((tree) => tree.id === category.id)
   );
-  const hasMultipleCategories = categoryTabs.length > 1;
+  const hasMultipleCategories = selectableCategories.length > 1;
   return (
     <Page>
       <Page.Header
@@ -562,23 +563,12 @@ export default function TournamentBracketRoute() {
             </Page.Header.Right>
           </View>
           {hasMultipleCategories && activeTreeLayout ? (
-            <Tabs
-              onValueChange={(value) => {
-                handleCategoryChange(value);
-              }}
+            <CategorySelect
+              categories={selectableCategories}
+              onChange={handleCategoryChange}
+              tabMode="type"
               value={activeTreeLayout.tree.id}
-            >
-              <Tabs.List>
-                <Tabs.ScrollView>
-                  <Tabs.Indicator />
-                  {categoryTabs.map((category) => (
-                    <Tabs.Trigger key={category.id} value={category.id}>
-                      <Tabs.Label>{category.name}</Tabs.Label>
-                    </Tabs.Trigger>
-                  ))}
-                </Tabs.ScrollView>
-              </Tabs.List>
-            </Tabs>
+            />
           ) : null}
         </View>
       </Page.Header>

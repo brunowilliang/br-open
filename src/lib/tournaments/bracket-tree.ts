@@ -59,8 +59,8 @@ export function bracketFitZoom(input: {
 
 export const PAN_VISIBILITY_BAND = 24;
 
-/** Folga entre a coluna da abertura e o header flutuante (a tab do chaveamento,
- * medida pela tela): o card não nasce colado nela. */
+/** Folga entre a coluna da abertura e o header flutuante (o seletor de
+ * categorias do chaveamento, medido pela tela): o card não nasce colado nele. */
 export const BRACKET_OPENING_HEADER_GAP = 16;
 
 /** Faixa vertical ÚTIL da abertura: começa abaixo do header flutuante com a

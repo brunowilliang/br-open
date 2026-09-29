@@ -52,8 +52,8 @@ type BracketCanvasProps = {
   /** Versão monotônica do foco: mudar (re-entrada na tela) re-enquadra a chave
    * no fit SEM remontar o canvas (o remount por foco piscava a tela). */
   focusSeed: number;
-  /** Altura do header flutuante (a tab do chaveamento) medida pela tela: entra
-   * na faixa útil do enquadramento de abertura. */
+  /** Altura do header flutuante (o seletor de categorias do chaveamento) medida
+   * pela tela: entra na faixa útil do enquadramento de abertura. */
   headerInset: number;
   layout: BracketTreeLayout;
   renderCard: (card: BracketCanvasCard) => ReactNode;

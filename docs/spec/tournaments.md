@@ -2322,7 +2322,7 @@ de uma superfície para outra é o dado que ela tem.
   do jogador (`pages/tournaments/player-overview.tsx`), a lista "Próximos jogos"
   da home (`pages/home/player-dashboard.tsx`), os cards do painel "Seu
   confronto" (`player-match-panel.tsx`) e o NÓ do chaveamento (via
-  `BracketMatchCard`, bracket.tsx:528). Nas superfícies do ACERTO quem hospeda o
+  `BracketMatchCard`, bracket.tsx:417). Nas superfícies do ACERTO quem hospeda o
   card é o `AgreementMatchCard`, que injeta o `agreement` (chip, rodapé e menu
   do Combinar jogo) e a ordem dos lados (`sideOrder="viewer"`; a agenda usa
   `sideOrder="match"`). Quem manda
@@ -2348,7 +2348,7 @@ de uma superfície para outra é o dado que ela tem.
   relativa (prazo de 10 dias e de 3 dias, aberto e encerrado) e o card da
   competição aparece no bloco do topo.
 - Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
-  bracket.tsx:339); as agendas e o "Próximo jogo" não recebem `modality` (o
+  bracket.tsx:250 e :398); as agendas e o "Próximo jogo" não recebem `modality` (o
   `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
 
 ### O nó do chaveamento é o MESMO card
@@ -2371,7 +2371,8 @@ de uma superfície para outra é o dado que ela tem.
 - **Modalidade é PROP** (`modality?: "doubles" | "singles"`, match-card.tsx:105):
   sem ela o card mantém a inferência pelo parceiro; com `doubles` TODA ponta
   desenha o par de avatares e com `singles` um só. Quem informa é o chaveamento
-  (a modalidade desce no `renderCard`, bracket.tsx:480 e :495) e a galeria.
+  (a modalidade desce no `renderCard` e entra na prop em bracket.tsx:441) e a
+  galeria.
 - **Indefinido é SINAL DO CALLER** (`challengedDefined`/`challengerDefined`,
   match-card.tsx:85 e :90), um por lado e nunca uma heurística sobre o texto: os
   dois lados podem estar em estados diferentes. Ausente = lado definido; o
@@ -2414,7 +2415,7 @@ de uma superfície para outra é o dado que ela tem.
   a aba volta a ganhar foco: a tela incrementa um `focusSeed` monotônico e o
   canvas re-enquadra a MESMA instância (sem o pisca do remount). A largura do
   card e o vão do cotovelo são constantes da rota (`CARD_WIDTH = 320` e
-  `CONNECTOR_WIDTH = 32`, bracket.tsx:66-67) — o card na tela nasce ~1:1.
+  `CONNECTOR_WIDTH = 32`, bracket.tsx:74-75) — o card na tela nasce ~1:1.
 
 ### Fora desta fatia (delta acumulado do domínio)
 
@@ -2641,13 +2642,16 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   `name` + `liveEntryCount` (`tournamentOrganizerCategorySchema`,
   contract.ts:248; management.ts:199) — o número que sustenta as travas ANTES do
   toque.
-- **Um só rótulo no app inteiro:** o nome livre viaja para a inscrição, a chave,
-  a lista de inscrições, as pendências (`categoryDisplayName` da view,
-  registry.ts:307), o dashboard do jogador (dashboard.ts:217/344) e o checkout
-  (`sourceLabel`, charge.ts:627; `resolveCheckoutSourceIdentity`,
-  checkout-source.ts:24). A recusa de gênero cita o nome ("Você não pode se
-  inscrever em {nome}. A categoria aceita apenas o gênero masculino/feminino.",
-  entry-rules.ts:69); o chip curto ("Homens"/"Mulheres") segue igual.
+- **Um só rótulo no app inteiro:** o nome livre viaja para a inscrição, a lista
+  de inscrições, as pendências (`categoryDisplayName` da view, registry.ts:307),
+  o dashboard do jogador (dashboard.ts:217/344) e o checkout (`sourceLabel`,
+  charge.ts:627; `resolveCheckoutSourceIdentity`, checkout-source.ts:24). A
+  chave saiu desta lista em 29-09-2026: lá a aba passou a mostrar o TIPO em cima
+  e o nome embaixo, com a lista agrupada (ver "Seletor de categoria do
+  chaveamento", no fim do doc). A recusa de gênero cita o nome ("Você não pode
+  se inscrever em {nome}. A categoria aceita apenas o gênero
+  masculino/feminino.", entry-rules.ts:69); o chip curto ("Homens"/"Mulheres")
+  segue igual.
 - **Cascata:** o ORM exige índice na coluna FK filha para apagar em cascata —
   `tournamentMatchAgreement` ganhou índice `categoryId` e
   `tournamentMatchAgreementEvent` ganhou `tournamentId` (tables.ts:262/302); sem
@@ -2711,9 +2715,11 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   `liveEntryCount` na edição (:140).
 - **Nome livre nas superfícies do jogador:** o rodapé de inscrição mostra o nome
   e, embaixo, o tipo técnico (`typeLabel` = `buildCategoryTypeLabel`,
-  tournaments/[tournamentId]/index.tsx:348); a casa do torneio, a aba Inscrições
-  e as tabs da chave leem `category.name` (index.tsx:275/338, entries.tsx:471/485,
-  bracket.tsx:689).
+  tournaments/[tournamentId]/index.tsx:348); a casa do torneio e a aba Inscrições
+  leem `category.name` (index.tsx:275/338, entries.tsx:471/485). A barra da
+  chave deixou de ler o nome cru em 29-09-2026 (a citação antiga
+  `bracket.tsx:689` já estava driftada): ela é o seletor de duas linhas com a
+  lista agrupada por tipo (bracket.tsx:565-572 e a seção no fim do doc).
 - **Painel de inscrição:** tocar na categoria JÁ selecionada desmarca (sem
   seleção o CTA do painel fica desabilitado) e o "Voltar" fecha o painel ZERANDO
   seleção, parceiro e termo de busca — reabrir começa do zero
@@ -3203,3 +3209,65 @@ e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
   do `category-editor` e do `_layout.tsx`/`index.tsx` do wizard foram
   repontadas para o código como ele ficou depois desta rodada (cada uma
   conferida no disco).
+
+## Seletor de categoria do chaveamento (29-09-2026)
+
+A barra de abas de texto da chave virou a peça aprovada na galeria: uma aba por
+TIPO (modalidade + gênero) com duas linhas (tipo em cima, nome embaixo) e o
+toque abrindo o Select do HeroUI com a lista agrupada por tipo.
+
+- **Peça única, genérica:** `CategorySelect`
+  (src/components/ui/category-select.tsx) monta só com os primitivos da casa —
+  `Tabs` (List/ScrollView/Indicator/Trigger/Label) + `Select` (Trigger
+  `variant="unstyled"` + `TriggerIndicator`, `Content` com `ListLabel` por
+  grupo e os itens do `SelectOptionItem`). Duas leituras pelo prop `tabMode`,
+  ambas visíveis na galeria: `"type"` (uma aba por tipo, usada na chave) e
+  `"active"` (uma aba com a seleção).
+- **Composição (asChild, sem wrapper):** o Select raiz usa `asChild` para montar
+  POR CIMA do `Tabs.Trigger` — um wrapper entre o ScrollView e o item desloca o
+  eixo X que o Indicator mede (a leitura literal do `asChild` em volta do
+  Trigger sobrescrevia a medição da Tabs e foi descartada). O `Select.Portal`
+  mora dentro do trigger e teleporta quando aberto.
+- **Agrupamento e ordem (helper puro):**
+  `buildCategorySelectGroups`/`buildCategorySelectTabs`
+  (src/lib/tournaments/category-select-derived.ts:51 e :95) — grupos na ordem
+  canônica (simples masculino, simples feminino, duplas masculinas, duplas
+  femininas, duplas mistas, :38-49), sem grupo vazio, itens pelo nome
+  normalizado do servidor (`buildCategorySelectGroupKey`, :28) e rótulos pelo
+  `buildCategoryTypeLabel` que já existia. Testes:
+  category-select-derived.test.ts (9).
+- **Regra de largura:** até 2 itens a barra ocupa a largura toda e divide
+  igual — 1 = cheio, 2 = metades (`Tabs.List` com `w-full` e cada Trigger com
+  `flex-1`, category-select.tsx:51 e :74); de 3 pra cima vale a rolagem
+  horizontal do `Tabs.ScrollView` (`CATEGORY_SELECT_SPLIT_MAX = 2`, :28 e :47).
+- **Cores por seleção:** o item ativo fica TODO em foreground (tipo, nome e
+  chevron) e os demais em muted — via render function do `Tabs.Trigger`
+  (`isSelected`, :73-99) e o chevron lendo o tema com `useThemeColor` (:35-36 e
+  :103-106).
+- **Raio:** barra e indicador são pill (`rounded-full`, :51 e :56); os itens da
+  lista seguem `rounded-xl` (select-option-item.tsx:25) e o painel mantém o
+  raio da lib (`--radius-3xl` = 24px,
+  node_modules/heroui-native/lib/module/styles/theme.css:115).
+- **Menu:** largura fixa de 280pt (`CATEGORY_SELECT_MENU_WIDTH`, :24 e :111) e a
+  lista rola por dentro acima do teto de 450pt do `SelectScrollContent`
+  (select-scroll-content.tsx:27).
+- **Na chave:** bracket.tsx:565-572 usa `tabMode="type"` com o gate de 2+
+  categorias COM chave (bracket.tsx:518-523) — 1 categoria não ganha seletor; a
+  altura do header segue MEDIDA e descontada na abertura (bracket.tsx:89 e
+  :529).
+- **Galeria:** "Seletor 1" a "Seletor 5" (1, 2, 3, 4+ itens e a leitura "uma
+  aba" com a seleção) em settings/components/[component].tsx:2088-2158, entrada
+  "Seletor de categoria" no component-registry.ts:79-84.
+
+### Correção desta spec
+
+- O item "Um só rótulo no app inteiro" (seção de 28-09) deixou de valer para a
+  CHAVE: lá o rótulo passou a ser o par tipo + nome com a lista agrupada; o
+  nome segue rótulo único nas outras superfícies (corrigido no lugar).
+- A citação `bracket.tsx:689` (seção de 28-09) estava driftada e foi repontada:
+  a barra da chave agora é o `CategorySelect` (bracket.tsx:565-572).
+- As citações de `bracket.tsx` do bloco do card (lote de 23-09) foram
+  repontadas com o disco na mão: `:528` → `:417` (o render do
+  `BracketMatchCard`), `:339` → `:250` e `:398` (a modalidade desce), `:480` e
+  `:495` → `:441` (a prop `modality`) e `:66-67` → `:74-75`
+  (`CARD_WIDTH`/`CONNECTOR_WIDTH`).

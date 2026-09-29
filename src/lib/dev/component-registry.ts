@@ -76,6 +76,12 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "category-editor",
     title: "Categorias",
   },
+  {
+    description:
+      "Seletor de categoria do chaveamento com a lista agrupada, para aprovação",
+    id: "category-select",
+    title: "Seletor de categoria",
+  },
 ];
 
 export function findComponentGalleryEntry(
