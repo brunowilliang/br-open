@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.brunogarcia.bropen",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CADisableMinimumFrameDurationOnPhone": true
       },
       "runtimeVersion": "1.1.0"
     },

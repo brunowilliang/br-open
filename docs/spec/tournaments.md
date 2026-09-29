@@ -636,12 +636,15 @@
   "popover" width={240}`) com os itens Agendar/Reagendar (label dinâmico
   por `match.matchDate`, Calendar03Icon) e Resultado (Edit02Icon), nos
   confrontos definidos e não encerrados; a partida ENCERRADA troca o par por
-  "Editar resultado" (quem decide é o card, pela `matchStatus`) e sem item
-  nenhum o menu nem é desenhado — o ⋮ nasce do builder do PAPEL, não do card
-  (CORREÇÃO 28-09-2026: a agenda passou a desenhar o menu do organizador no card
-  e as telas do jogador desenham o menu do acerto; o "sem handler" desta linha
-  valia para o card nu. Ver "Menu único por papel no card" no lote de
-  28-09-2026, no fim do doc); e swap
+  "Editar resultado" (quem decide é o card, pela `matchStatus`); sem item
+  nenhum o menu nem é desenhado — o ⋮ nasce do builder do PAPEL, não do card. O
+  menu é UM só por papel e vale para TODA superfície do papel: o organizador
+  leva o MESMO menu ao chaveamento e à agenda (BUG-0092), com o canal de ações
+  no `OrganizerActionsHost` montado uma vez no `_layout` do torneio; o jogador
+  desenha o do acerto no chaveamento, na agenda, no "Próximo jogo", nos
+  "Próximos jogos" da home e no painel do confronto — a pendência de acerto não
+  desenha card: o "Combinar" dela cai nesse card pelo deep link com o `matchId`
+  ("Menu único por papel no card", lote de 28-09-2026, no fim do doc); e swap
   de POSIÇÃO (toque no jogador de um confronto →
   toque no jogador a trocar → `swapSlots` — troca EXATAMENTE as duas
   inscrições clicadas, jogador por jogador, sem mover
@@ -2022,9 +2025,10 @@ avanço é revelado no `bracket.published`.
   regras de partida campo a campo na aba Regras; o seletor "Formato do
   torneio" e `match-config-presets` foram extintos (22-08, usuário).
 - **Torneio não snapshota matchConfig por partida** — `publishResult` valida
-  o placar contra `tournament.matchConfig` ao vivo. Seguro porque `update` é
-  travado fora de
-  draft/published: pós-sorteio o config é imutável na prática.
+  o placar contra `tournament.matchConfig` ao vivo. `update` é travado só em
+  `finished`/`cancelled` (draft/published/drawn/ongoing seguem editáveis),
+  então o config pode mudar pós-sorteio; nada revalida agenda/resultados já
+  lançados contra o config novo — a validação vale para o que vier depois.
 - **Editor único de resultado publicado (IBX-0028)** — o organizador corrige
   placar/vencedor/W.O. de partida já publicada via `editResult`; trocar quem
   avança só entra enquanto a partida seguinte não foi jogada (`CONFLICT`
@@ -2302,9 +2306,10 @@ de uma superfície para outra é o dado que ela tem.
   PRIMEIRA ação) quando a tela manda `onConcludePress` — só a FINAL, com a
   pendência de conclusão viva e o torneio aberto —, "Agendar"/"Reagendar" (o
   rótulo segue o `matchDate`), "Resultado" e, na partida ENCERRADA, "Editar
-  resultado" no lugar do par. Sem handler nenhum — as agendas e o "Próximo
-  jogo" — o menu não existe (BUG-0070); a casca do nó também não manda nenhum
-  com o torneio encerrado ou cancelado.
+  resultado" no lugar do par. Sem item de NENHUM dos builders o menu não existe
+  — o que trava o ⋮ é isso, não a superfície (o chaveamento e a agenda desenham
+  o menu do PAPEL; ver "Menu único por papel no card" no lote de 28-09-2026); a
+  casca do nó também não manda nenhum com o torneio encerrado ou cancelado.
 
 ### `entry-card.tsx` (`EntryCard`) — o card da inscrição
 

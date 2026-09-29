@@ -286,8 +286,7 @@ export const update = authMutation
     );
 
     // Janela: definir/encurtar o fim só passa sem confronto agendado além dele
-    // que ainda dê pra remarcar (publicado não volta pra agenda); estender (ou
-    // tirar o fim) avisa quem está no torneio.
+    // que ainda dê pra remarcar; só o fim ANDANDO para frente avisa os inscritos.
     const nextEndDayKey =
       input.endDate === null || input.endDate === undefined
         ? null

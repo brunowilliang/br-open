@@ -425,18 +425,24 @@ próprio é trabalho futuro (exige migration, fora deste corte).
 
 ### Notas de fiação (Etapa 2, Frontend)
 
-- Nada consome a query ainda. O `WidgetAlert` já aceita o shape
-  (`ui/widget-alert.tsx`: `WidgetAlertDescriptionLine`/`Part` são os mesmos
-  tipos do contrato) — o cliente mapeia `severity: info` → `status="accent"`,
-  renderiza `actionLabel`/`secondaryActionLabel` como os botões e **executa
-  `action`/`secondaryAction`** (nada de mapa `kind` → handler na tela). Ou seja:
-  `pay_tournament_entry` vira `createCharge` na inscrição de
-  `action.params.entryId`, `accept_partner_invite`/`decline_partner_invite`
-  viram `respondPartnerInvite` e `open_route` abre `route` com os `params` DO
-  ITEM (o destino é o par do item — o `action` não carrega params nesse caso).
-- Os builders derivados duplicados no cliente (`buildTournament*Alert`) passam a
-  ser APAGADOS quando as telas consumirem o servidor — é o cutover obrigatório do
-  PLN-0008 (senão vira a terceira cópia da regra).
+- **Entregue:** o `PendingAlerts` (`ui/pending-alerts.tsx`) é o componente
+  único e está montado nas duas homes — organizador e jogador
+  (`pages/home/organizer-dashboard.tsx`, `pages/home/player-dashboard.tsx`) — e
+  nas casas do torneio (`pages/tournaments/organizer-overview.tsx`,
+  `pages/tournaments/player-overview.tsx`). O `WidgetAlert` aceita o shape
+  (`ui/widget-alert.tsx`: `WidgetAlertDescriptionLine` e
+  `WidgetAlertDescriptionPart` são os mesmos tipos do contrato): o status sai de
+  `severity` (`PENDING_ALERT_STATUS`: `info` → `accent`), os rótulos viram os
+  botões e quem executa é `resolvePendingAction`
+  (`lib/pendings/pendings-view.ts`) + o runner
+  (`lib/pendings/use-pending-action-runner.ts`) — nada de mapa `kind` → handler
+  na tela. Ou seja: `pay_tournament_entry` abre o checkout da inscrição de
+  `action.params.entryId` (quem cria a cobrança é o checkout),
+  `accept_partner_invite`/`decline_partner_invite` viram `respondPartnerInvite` e
+  `open_route` abre `route` com os `params` DO ITEM (o destino é o par do item
+  — o `action` não carrega params nesse caso).
+- Os builders derivados duplicados no cliente (`buildTournament*Alert`) foram
+  APAGADOS no cutover do PLN-0008: a regra vive só no servidor.
 
 ## Decisões e apontamentos
 

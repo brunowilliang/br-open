@@ -53,8 +53,8 @@ export function buildTournamentDatesSummary(input: {
 
   if (input.startDate > 0) {
     const start = formatShortDate(new Date(input.startDate));
-    // Janela de UM dia (o create manda o fim igual ao início): repetir a mesma
-    // data duas vezes só gera ruído, então vale o rótulo curto.
+    // Fim igual ao início (dado legado/API: o form exige o dia seguinte):
+    // repetir a mesma data só gera ruído, então vale o rótulo curto.
     const end = input.endDate ? formatShortDate(new Date(input.endDate)) : null;
 
     parts.push(end && end !== start ? `${start} a ${end}` : `Início ${start}`);
