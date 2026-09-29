@@ -41,10 +41,7 @@ import {
   type MatchAgreementSideOrder,
   type PlayerMatch,
 } from "@/lib/tournaments/match-agreement-view";
-import {
-  formatEntrySideLabel,
-  isBracketPublic,
-} from "@/lib/tournaments/tournament-details-derived";
+import { formatEntrySideLabel } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 /** W.O. — vencedor escolhido, placar vazio (mesma semântica do backend). */
@@ -586,7 +583,7 @@ function MatchAgreementController(props: {
     request.action === "propose_schedule";
   const canSeeOccupiedSlots = Boolean(
     tournament &&
-      (tournament.isTournamentOrganizer || isBracketPublic(tournament.status))
+      (tournament.isTournamentOrganizer || tournament.bracketReleased)
   );
   const occupiedSlotsQuery = useQuery({
     ...crpc.tournament.matches.listOccupiedSlots.staticQueryOptions({

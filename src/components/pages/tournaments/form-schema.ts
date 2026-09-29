@@ -38,6 +38,14 @@ const tournamentFormDateSchema = z
   .min(1, "Informe a data.")
   .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Data inválida.");
 
+/** Data ISO opcional: em branco = sem data combinada (a chave abre no início). */
+const tournamentOptionalFormDateSchema = z
+  .string()
+  .refine(
+    (value) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value),
+    "Data inválida."
+  );
+
 /** Categoria no editor: `id` local identifica a linha no diff do servidor;
  * `liveEntryCount` chega só na edição e sustenta as travas. */
 const TournamentCategoryFormSchema = UpdateCategoryInputSchema.safeExtend({
@@ -51,6 +59,7 @@ export const TournamentSchema = z
       CreateTournamentSchema.shape.allowMultipleEntriesPerType,
     approvalMode: CreateTournamentSchema.shape.approvalMode,
     avatarStorageId: CreateTournamentSchema.shape.avatarStorageId,
+    bracketReleaseAt: tournamentOptionalFormDateSchema,
     categories: z
       .array(TournamentCategoryFormSchema)
       .min(1, "Crie pelo menos uma categoria."),
@@ -76,6 +85,26 @@ export const TournamentSchema = z
         message: "O prazo de inscrições deve ser anterior à data de início.",
         path: ["registrationDeadlineAt"],
       });
+    }
+
+    // Divulgação entre o prazo e o início: mesmas frases do contrato, senão o
+    // submit passaria e o servidor recusaria.
+    if (value.bracketReleaseAt) {
+      if (value.bracketReleaseAt < value.registrationDeadlineAt) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "A divulgação da chave não pode ser antes do prazo de inscrições.",
+          path: ["bracketReleaseAt"],
+        });
+      } else if (value.bracketReleaseAt > value.startDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "A divulgação da chave não pode ser depois do início do torneio.",
+          path: ["bracketReleaseAt"],
+        });
+      }
     }
 
     // Fim obrigatório: nunca antes do início e nunca no mesmo dia.

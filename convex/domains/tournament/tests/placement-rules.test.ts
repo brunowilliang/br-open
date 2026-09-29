@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   canPlaceEntries,
+  collectAffectedPlacementSides,
   findBoardEntryCoordinates,
   listOpenFirstRoundSides,
   listUsableFirstRoundSides,
@@ -409,5 +410,71 @@ describe("planEntryRemoval", () => {
   it("idempotente: entry fora da chave é no-op", () => {
     const board = boardFromEntries(["a", "b"]);
     expect(planEntryRemoval({ board, entryId: "z" })).toEqual({ updates: [] });
+  });
+});
+
+describe("collectAffectedPlacementSides", () => {
+  it("encaixe: quem já estava na mesa entra, quem chegou fica fora", () => {
+    const board = [
+      row({ entryAId: "a", id: "m1-0", round: 1, slotInRound: 0 }),
+      row({ id: "m1-1", round: 1, slotInRound: 1 }),
+      row({ id: "m2-0", round: 2, slotInRound: 0 }),
+    ];
+    const { updates } = planEntryFit({
+      board,
+      entryId: "e",
+      pickSide: firstSide,
+    });
+
+    expect(
+      collectAffectedPlacementSides({
+        excludedEntryId: "e",
+        rows: board,
+        updates,
+      })
+    ).toEqual(["a"]);
+  });
+
+  it("cancelamento: sobra quem ficou no confronto, o lado que saiu fica fora", () => {
+    const board = boardFromEntries(["a", "b", "c", "d"]);
+    const { updates } = planEntryRemoval({ board, entryId: "b" });
+
+    expect(
+      collectAffectedPlacementSides({
+        excludedEntryId: "b",
+        rows: board,
+        updates,
+      })
+    ).toEqual(["a"]);
+  });
+
+  it("cancelamento do bye solitário não deixa ninguém afetado", () => {
+    const board = boardFromEntries(["a", "b", "c"]);
+    // O bye é quem ficou sozinho numa linha da 1ª rodada (o layout do sorteio
+    // decide qual entrada é), e a saída dele só limpa as linhas que ele alimentava.
+    const byeRow = board.find(
+      (candidate) => candidate.status === "walkover"
+    ) as PlacementBoardMatch;
+    const byeEntryId = byeRow.winnerEntryId as string;
+    const { updates } = planEntryRemoval({ board, entryId: byeEntryId });
+
+    expect(updates.length).toBeGreaterThan(0);
+    expect(
+      collectAffectedPlacementSides({
+        excludedEntryId: byeEntryId,
+        rows: board,
+        updates,
+      })
+    ).toEqual([]);
+  });
+
+  it("sem linhas reescritas não há afetado", () => {
+    expect(
+      collectAffectedPlacementSides({
+        excludedEntryId: "a",
+        rows: boardFromEntries(["a", "b"]),
+        updates: [],
+      })
+    ).toEqual([]);
   });
 });

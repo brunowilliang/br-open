@@ -28,10 +28,24 @@ export function resolveTournamentEndDate(input: {
   return shiftDayKey(input.startDate, 1);
 }
 
-/** Prazo automático: 2 dias antes do início, nunca no passado (o limite do
+/** Prazo automático: 3 dias antes do início, nunca no passado (o limite do
  * campo é hoje). Início hoje não tem dia válido — o prazo tem de ser anterior
  * ao início — e o campo fica em branco pro organizador decidir. */
 export function buildAutoRegistrationDeadline(input: {
+  startDate: string;
+  todayDayKey: string;
+}): string {
+  const threeDaysBefore = shiftDayKey(input.startDate, -3);
+  const bounded =
+    threeDaysBefore < input.todayDayKey ? input.todayDayKey : threeDaysBefore;
+
+  return bounded >= input.startDate ? "" : bounded;
+}
+
+/** Divulgação automática: 2 dias antes do início, nunca no passado. O próprio
+ * dia do início vale (a chave abre junto com o torneio); só um início já
+ * passado (torneio legado na edição) fica em branco. */
+export function buildAutoBracketReleaseDate(input: {
   startDate: string;
   todayDayKey: string;
 }): string {
@@ -39,14 +53,14 @@ export function buildAutoRegistrationDeadline(input: {
   const bounded =
     twoDaysBefore < input.todayDayKey ? input.todayDayKey : twoDaysBefore;
 
-  return bounded >= input.startDate ? "" : bounded;
+  return bounded > input.startDate ? "" : bounded;
 }
 
-/** O prazo acompanha o início só enquanto ninguém editou à mão: vazio ou ainda
- * igual ao último automático aplicado pelo formulário. */
-export function shouldDeadlineFollowStartDate(input: {
-  deadline: string;
-  lastAutoDeadline: string;
+/** Campo de data acompanha o início só enquanto ninguém editou à mão: vazio ou
+ * ainda igual ao último automático aplicado pelo formulário. */
+export function shouldDateFollowStartDate(input: {
+  lastAutoValue: string;
+  value: string;
 }): boolean {
-  return input.deadline === "" || input.deadline === input.lastAutoDeadline;
+  return input.value === "" || input.value === input.lastAutoValue;
 }

@@ -1353,6 +1353,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           categories: Array<{
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
@@ -1421,6 +1423,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -1476,6 +1480,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -1532,12 +1538,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1556,12 +1562,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1580,12 +1586,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1604,7 +1610,7 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerA: {
@@ -1623,7 +1629,7 @@ export const api: {
             username: string | null;
           } | null;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1642,12 +1648,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1666,12 +1672,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1690,12 +1696,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1714,12 +1720,12 @@ export const api: {
           categoryId: string;
           createdAt: number;
           createdByUserId: string | null;
-          entryRound: number | null;
+          entryRound?: number | null;
           id: string;
           partnerUserId: string | null;
           playerAId: string;
           playerBId: string | null;
-          seedRank: number | null;
+          seedRank?: number | null;
           status:
             | "pending_partner"
             | "pending_approval"
@@ -1747,6 +1753,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -1802,6 +1810,7 @@ export const api: {
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
+          bracketReleaseAt?: number | null;
           categories: Array<{
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
@@ -1848,6 +1857,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -1915,6 +1926,8 @@ export const api: {
             approvalMode: "auto" | "manual";
             avatarStorageId: string | null;
             avatarUrl?: string | null;
+            bracketReleaseAt: number | null;
+            bracketReleased: boolean;
             city: string;
             courts: Array<{
               availability: {
@@ -1971,6 +1984,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -2026,6 +2041,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -2085,6 +2102,7 @@ export const api: {
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
+          bracketReleaseAt?: number | null;
           categories: Array<{
             entryFeeCents: number;
             gender: "male" | "female" | "mixed";
@@ -2133,6 +2151,8 @@ export const api: {
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
           avatarUrl?: string | null;
+          bracketReleaseAt: number | null;
+          bracketReleased: boolean;
           city: string;
           courts: Array<{
             availability: {
@@ -3293,12 +3313,18 @@ export const internal: {
         "mutation",
         "internal",
         {},
-        { drawn: number; started: number }
+        { drawn: number; released: number; started: number }
       >;
       performDraw: FunctionReference<
         "mutation",
         "internal",
         { expectedStatus?: "drawn" | "published"; tournamentId: string },
+        { ok: true } | { error: string; ok: false }
+      >;
+      performRelease: FunctionReference<
+        "mutation",
+        "internal",
+        { tournamentId: string },
         { ok: true } | { error: string; ok: false }
       >;
       performStart: FunctionReference<

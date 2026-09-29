@@ -13,6 +13,7 @@ import {
   resolvePaidActivation,
   resolvePartnerGenderTarget,
   resolvePartnerSearchGender,
+  scopeEntryPlacement,
   selectUsernameMatches,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
@@ -391,15 +392,20 @@ describe("validateWalkoverWinner (M4)", () => {
   });
 });
 
-describe("refineTournamentWindow — prazo vs início (strict)", () => {
+describe("refineTournamentWindow — prazo vs início (strict) e divulgação", () => {
   const DAY = 86_400_000;
   const START = 1_800_000_000_000;
 
-  function parseWindow(registrationDeadlineAt: number, startDate: number) {
+  function parseWindow(
+    registrationDeadlineAt: number,
+    startDate: number,
+    bracketReleaseAt?: null | number
+  ) {
     return CreateTournamentSchema.safeParse({
       allowMultipleEntriesPerType: true,
       approvalMode: "auto",
       avatarStorageId: null,
+      ...(bracketReleaseAt === undefined ? {} : { bracketReleaseAt }),
       categories: [
         {
           entryFeeCents: 0,
@@ -434,6 +440,49 @@ describe("refineTournamentWindow — prazo vs início (strict)", () => {
   it("prazo posterior ao início é rejeitado", () => {
     const result = parseWindow(START + DAY, START);
     expect(result.success).toBeFalse();
+  });
+
+  it("sem data (ou com null) segue sem divulgação agendada", () => {
+    expect(parseWindow(START - DAY, START).success).toBeTrue();
+    expect(parseWindow(START - DAY, START, null).success).toBeTrue();
+  });
+
+  it("divulgação entre o prazo e o início é aceita, inclusive no instante do prazo", () => {
+    expect(parseWindow(START - DAY, START, START - DAY / 2).success).toBeTrue();
+    expect(parseWindow(START - DAY, START, START - DAY).success).toBeTrue();
+  });
+
+  it("divulgação antes do prazo é rejeitada", () => {
+    const result = parseWindow(START - DAY, START, START - DAY - 1);
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path.join(".") === "bracketReleaseAt"
+      );
+      expect(issue?.message).toBe(
+        "A divulgação da chave não pode ser antes do prazo de inscrições."
+      );
+    }
+  });
+
+  it("divulgação no MESMO dia do início é aceita (o start dispara pelo dia)", () => {
+    // 23h antes do início, mesmo dia do calendário brasileiro.
+    expect(
+      parseWindow(START - 2 * DAY, START, START - 3_600_000).success
+    ).toBeTrue();
+  });
+
+  it("divulgação depois do dia do início é rejeitada", () => {
+    const result = parseWindow(START - DAY, START, START + DAY);
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path.join(".") === "bracketReleaseAt"
+      );
+      expect(issue?.message).toBe(
+        "A divulgação da chave não pode ser depois do início do torneio."
+      );
+    }
   });
 });
 
@@ -1150,5 +1199,34 @@ describe("aviso de inscricao cancelada", () => {
       resolveEntryCancelledRecipients(["gestor-1", "gestor-1"], "jogador-1")
     ).toEqual(["gestor-1"]);
     expect(resolveEntryCancelledRecipients([], "jogador-1")).toEqual([]);
+  });
+});
+
+describe("fase de entrada e cabeça de chave na LISTA de inscrições", () => {
+  const entry = {
+    categoryId: "cat-1",
+    entryRound: 2,
+    id: "entry-1",
+    playerA: null,
+    seedRank: 1,
+    status: "active",
+  };
+
+  it("organizador recebe os dois campos", () => {
+    expect(scopeEntryPlacement(entry, { includePlacement: true })).toEqual(
+      entry
+    );
+  });
+
+  it("público não recebe nem a chave nem o valor nulo", () => {
+    const publicEntry = scopeEntryPlacement(entry, { includePlacement: false });
+    expect(publicEntry).toEqual({
+      categoryId: "cat-1",
+      id: "entry-1",
+      playerA: null,
+      status: "active",
+    });
+    expect("entryRound" in publicEntry).toBe(false);
+    expect("seedRank" in publicEntry).toBe(false);
   });
 });

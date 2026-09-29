@@ -25,8 +25,8 @@ import {
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
 type PlayerMatchPanelProps = {
-  /** A chave inteira ainda está privada: o painel é o que o jogador vê. */
-  showBracketNote?: boolean;
+  /** Confronto que o card de cima ("Próximo jogo") já desenha: sai do painel. */
+  excludeMatchId?: null | string;
   tournamentId: string;
   /** Confronto que a url abriu (`matchId` do aviso): o ref que a página (dona
    * do scroll) mede para rolar até o card dele. */
@@ -36,8 +36,8 @@ type PlayerMatchPanelProps = {
 
 /**
  * Confronto do PRÓPRIO jogador na tela do torneio: adversário, quadra, horário,
- * status e o menu do COMBINAR JOGO. Usa a porta `listMyMatches` (o resto da
- * chave continua privado) e não desenha nada quando não há o que combinar.
+ * status e o menu do COMBINAR JOGO. Usa a porta `listMyMatches` (uma porta por
+ * jogador, não a chave inteira) e não desenha nada quando não há o que combinar.
  */
 export function PlayerMatchPanel(props: PlayerMatchPanelProps) {
   const { tournamentId } = props;
@@ -45,7 +45,9 @@ export function PlayerMatchPanel(props: PlayerMatchPanelProps) {
   const tournament = useValue(bucket$.data.tournament);
   const entriesById = useValue(bucket$.derived.entriesById);
   const { runAction } = useMatchAgreement();
-  const matches = useNegotiablePlayerMatches(tournamentId);
+  const matches = useNegotiablePlayerMatches(tournamentId).filter(
+    (playerMatch) => playerMatch.match.id !== props.excludeMatchId
+  );
   const runAgreementAction = useCallback<RunMatchCardAgreementAction>(
     (request) => {
       runAction({ ...request, tournamentId });
@@ -62,11 +64,6 @@ export function PlayerMatchPanel(props: PlayerMatchPanelProps) {
       <Text color="muted" variant="description" weight="medium">
         {MATCH_AGREEMENT_COPY.panelTitle}
       </Text>
-      {props.showBracketNote ? (
-        <Text color="muted" variant="description">
-          {MATCH_AGREEMENT_COPY.panelBracketNote}
-        </Text>
-      ) : null}
       {matches.map((playerMatch) => (
         <View
           key={playerMatch.match.id}

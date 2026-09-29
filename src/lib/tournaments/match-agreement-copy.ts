@@ -16,7 +16,6 @@ export const MATCH_AGREEMENT_COPY = {
   counterSchedule: "Propor outro horário",
   declineResult: "Recusar resultado",
   declineSchedule: "Recusar horário",
-  panelBracketNote: "A chave completa abre quando o torneio começar.",
   panelTitle: "Seu confronto",
   proposeSchedule: "Propor horário",
   sendResult: "Enviar resultado",

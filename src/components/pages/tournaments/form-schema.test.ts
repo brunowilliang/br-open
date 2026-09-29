@@ -14,6 +14,7 @@ function buildValidValues() {
     allowMultipleEntriesPerType: true,
     approvalMode: "auto",
     avatarStorageId: null,
+    bracketReleaseAt: "",
     categories: [
       {
         entryFeeCents: 0,
@@ -71,6 +72,68 @@ describe("TournamentSchema registration window", () => {
     });
 
     expect(result.success).toBeFalse();
+  });
+});
+
+describe("TournamentSchema bracket release", () => {
+  test("em branco passa (a chave abre só no início)", () => {
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        bracketReleaseAt: "",
+      }).success
+    ).toBeTrue();
+  });
+
+  test("no mesmo dia do prazo ou do início passa", () => {
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        bracketReleaseAt: "2026-09-14",
+      }).success
+    ).toBeTrue();
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        bracketReleaseAt: "2026-09-15",
+      }).success
+    ).toBeTrue();
+  });
+
+  test("antes do prazo é recusada com a mensagem do servidor", () => {
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      bracketReleaseAt: "2026-09-13",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path[0] === "bracketReleaseAt"
+      );
+
+      expect(issue?.message).toBe(
+        "A divulgação da chave não pode ser antes do prazo de inscrições."
+      );
+    }
+  });
+
+  test("depois do início é recusada com a mensagem do servidor", () => {
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      bracketReleaseAt: "2026-09-16",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path[0] === "bracketReleaseAt"
+      );
+
+      expect(issue?.message).toBe(
+        "A divulgação da chave não pode ser depois do início do torneio."
+      );
+    }
   });
 });
 

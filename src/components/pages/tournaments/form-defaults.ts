@@ -10,6 +10,7 @@ export function buildCreateTournamentDefaultValues(): TournamentScreenValues {
     allowMultipleEntriesPerType: DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
     approvalMode: DEFAULT_TOURNAMENT_APPROVAL_MODE,
     avatarStorageId: null,
+    bracketReleaseAt: "",
     categories: [],
     city: "",
     courts: [],

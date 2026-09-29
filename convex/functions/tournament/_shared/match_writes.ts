@@ -16,6 +16,7 @@ import type {
 import {
   canReserveUnreadySlot,
   findCourtSlotConflict,
+  isBracketReleased,
 } from "../../../domains/tournament/scheduling-rules";
 import {
   validateTournamentMatchScore,
@@ -225,6 +226,43 @@ async function matchFeederMatchesExist(
 }
 
 /**
+ * Aviso de AGENDA (agendado, reagendado, suspenso) é do JOGADOR: antes da
+ * DIVULGAÇÃO a agenda é privada do organizador e nada sai — o aviso não é
+ * adiado, simplesmente não existe (a agenda aparece no app depois da solta).
+ */
+async function notifyMatchSlotChange(
+  ctx: OrmMutationCtx,
+  input: {
+    eventType:
+      | "tournament.match.rescheduled"
+      | "tournament.match.scheduled"
+      | "tournament.match.suspended";
+    match: MatchRecord;
+    metadata: Record<string, unknown>;
+    tournament: TournamentRecord;
+  }
+) {
+  if (!isBracketReleased(input.tournament)) {
+    return;
+  }
+  const recipients = await entryRecipientUserIds(ctx, [
+    input.match.entryAId,
+    input.match.entryBId,
+  ]);
+  if (recipients.length === 0) {
+    return;
+  }
+  await scheduleTournamentNotification(ctx, {
+    eventType: input.eventType,
+    metadata: input.metadata,
+    recipientUserIds: recipients,
+    sourceEntityId: input.match.id as string,
+    sourceEntityType: "tournamentMatch",
+    tournamentId: input.tournament.id as Id<"tournament">,
+  });
+}
+
+/**
  * Agendamento (organizador ou acerto dos dois lados): exige chave sorteada ou
  * torneio em andamento, quadra do torneio, janela do torneio, agenda livre e
  * sem bloqueio. A ocupação vem da duração padrão, nunca do endMinute do
@@ -375,30 +413,22 @@ export async function applyMatchSchedule(
     .where(eq(tournamentMatch.id, match.id as never))
     .returning();
 
-  const recipients = await entryRecipientUserIds(ctx, [
-    match.entryAId,
-    match.entryBId,
-  ]);
-  if (recipients.length > 0) {
-    await scheduleTournamentNotification(ctx, {
-      eventType: wasScheduled
-        ? "tournament.match.rescheduled"
-        : "tournament.match.scheduled",
-      // A copy do aviso carrega o que muda: quando e onde ficou o confronto.
-      metadata: {
-        courtName: (tournament.courts ?? []).find(
-          (court: { id: string }) => court.id === input.courtId
-        )?.name,
-        matchDate: input.matchDate,
-        matchId: match.id,
-        startMinute: input.startMinute,
-      },
-      recipientUserIds: recipients,
-      sourceEntityId: match.id as string,
-      sourceEntityType: "tournamentMatch",
-      tournamentId: tournament.id as Id<"tournament">,
-    });
-  }
+  await notifyMatchSlotChange(ctx, {
+    eventType: wasScheduled
+      ? "tournament.match.rescheduled"
+      : "tournament.match.scheduled",
+    match,
+    // A copy do aviso carrega o que muda: quando e onde ficou o confronto.
+    metadata: {
+      courtName: (tournament.courts ?? []).find(
+        (court: { id: string }) => court.id === input.courtId
+      )?.name,
+      matchDate: input.matchDate,
+      matchId: match.id,
+      startMinute: input.startMinute,
+    },
+    tournament,
+  });
 
   return updated;
 }
@@ -449,29 +479,21 @@ export async function applyMatchSuspension(
     tournamentId: tournament.id as Id<"tournament">,
   });
 
-  const recipients = await entryRecipientUserIds(ctx, [
-    match.entryAId,
-    match.entryBId,
-  ]);
-  if (recipients.length > 0) {
-    await scheduleTournamentNotification(ctx, {
-      eventType: "tournament.match.suspended",
-      metadata: {
-        ...(suspendedSlot.matchDate
-          ? { matchDate: suspendedSlot.matchDate }
-          : {}),
-        matchId: match.id,
-        ...(input.reason ? { reason: input.reason } : {}),
-        ...(suspendedSlot.startMinute === null
-          ? {}
-          : { startMinute: suspendedSlot.startMinute }),
-      },
-      recipientUserIds: recipients,
-      sourceEntityId: match.id as string,
-      sourceEntityType: "tournamentMatch",
-      tournamentId: tournament.id as Id<"tournament">,
-    });
-  }
+  await notifyMatchSlotChange(ctx, {
+    eventType: "tournament.match.suspended",
+    match,
+    metadata: {
+      ...(suspendedSlot.matchDate
+        ? { matchDate: suspendedSlot.matchDate }
+        : {}),
+      matchId: match.id,
+      ...(input.reason ? { reason: input.reason } : {}),
+      ...(suspendedSlot.startMinute === null
+        ? {}
+        : { startMinute: suspendedSlot.startMinute }),
+    },
+    tournament,
+  });
 
   return updated;
 }

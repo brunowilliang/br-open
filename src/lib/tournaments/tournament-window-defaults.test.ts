@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  buildAutoBracketReleaseDate,
   buildAutoRegistrationDeadline,
   resolveTournamentEndDate,
-  shouldDeadlineFollowStartDate,
+  shouldDateFollowStartDate,
 } from "./tournament-window-defaults";
 
 describe("resolveTournamentEndDate", () => {
@@ -57,16 +58,16 @@ describe("resolveTournamentEndDate", () => {
 });
 
 describe("buildAutoRegistrationDeadline", () => {
-  test("2 dias antes do início", () => {
+  test("3 dias antes do início", () => {
     expect(
       buildAutoRegistrationDeadline({
         startDate: "2027-10-07",
         todayDayKey: "2027-09-01",
       })
-    ).toBe("2027-10-05");
+    ).toBe("2027-10-04");
   });
 
-  test("início - 2 no passado usa o limite permitido (hoje)", () => {
+  test("início - 3 no passado usa o limite permitido (hoje)", () => {
     expect(
       buildAutoRegistrationDeadline({
         startDate: "2027-09-03",
@@ -99,37 +100,84 @@ describe("buildAutoRegistrationDeadline", () => {
         startDate: "2027-11-01",
         todayDayKey: "2027-09-01",
       })
-    ).toBe("2027-10-30");
+    ).toBe("2027-10-29");
   });
 });
 
-describe("shouldDeadlineFollowStartDate", () => {
+describe("buildAutoBracketReleaseDate", () => {
+  test("2 dias antes do início", () => {
+    expect(
+      buildAutoBracketReleaseDate({
+        startDate: "2027-10-07",
+        todayDayKey: "2027-09-01",
+      })
+    ).toBe("2027-10-05");
+  });
+
+  test("início - 2 no passado usa o limite permitido (hoje)", () => {
+    expect(
+      buildAutoBracketReleaseDate({
+        startDate: "2027-09-03",
+        todayDayKey: "2027-09-01",
+      })
+    ).toBe("2027-09-01");
+  });
+
+  test("no dia do início a divulgação vale (a chave abre no mesmo dia)", () => {
+    expect(
+      buildAutoBracketReleaseDate({
+        startDate: "2027-09-01",
+        todayDayKey: "2027-09-01",
+      })
+    ).toBe("2027-09-01");
+  });
+
+  test("início já passado (torneio legado na edição) fica em branco", () => {
+    expect(
+      buildAutoBracketReleaseDate({
+        startDate: "2027-08-20",
+        todayDayKey: "2027-09-01",
+      })
+    ).toBe("");
+  });
+
+  test("virada de mês e ano", () => {
+    expect(
+      buildAutoBracketReleaseDate({
+        startDate: "2027-01-01",
+        todayDayKey: "2026-12-01",
+      })
+    ).toBe("2026-12-30");
+  });
+});
+
+describe("shouldDateFollowStartDate", () => {
   test("campo vazio (create) acompanha", () => {
     expect(
-      shouldDeadlineFollowStartDate({ deadline: "", lastAutoDeadline: "" })
+      shouldDateFollowStartDate({ lastAutoValue: "", value: "" })
     ).toBeTrue();
   });
 
   test("ainda igual ao último automático acompanha", () => {
     expect(
-      shouldDeadlineFollowStartDate({
-        deadline: "2027-10-05",
-        lastAutoDeadline: "2027-10-05",
+      shouldDateFollowStartDate({
+        lastAutoValue: "2027-10-05",
+        value: "2027-10-05",
       })
     ).toBeTrue();
   });
 
-  test("prazo editado à mão não acompanha (inclusive o do torneio na edição)", () => {
+  test("data editada à mão não acompanha (inclusive a do torneio na edição)", () => {
     expect(
-      shouldDeadlineFollowStartDate({
-        deadline: "2027-10-06",
-        lastAutoDeadline: "2027-10-05",
+      shouldDateFollowStartDate({
+        lastAutoValue: "2027-10-05",
+        value: "2027-10-06",
       })
     ).toBeFalse();
     expect(
-      shouldDeadlineFollowStartDate({
-        deadline: "2027-10-05",
-        lastAutoDeadline: "",
+      shouldDateFollowStartDate({
+        lastAutoValue: "",
+        value: "2027-10-05",
       })
     ).toBeFalse();
   });

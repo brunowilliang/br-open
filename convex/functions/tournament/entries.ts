@@ -26,6 +26,7 @@ import {
   resolveCallerEligibility,
   resolveEntryCancelledRecipients,
   resolveEntryStatusAfterPartnerAccepted,
+  scopeEntryPlacement,
   selectViewerTournamentEntryIds,
   validateEntryGenders,
 } from "../../domains/tournament/entry-rules";
@@ -1161,10 +1162,15 @@ export const listForTournament = authQuery
     };
 
     return Promise.all(
-      entries.map(async (entry) => ({
-        ...serializeEntry(entry),
-        playerA: await cardFor(entry.playerAId as string | null),
-        playerB: await cardFor(entry.playerBId as string | null),
-      }))
+      entries.map(async (entry) => {
+        const payload = {
+          ...serializeEntry(entry),
+          playerA: await cardFor(entry.playerAId as string | null),
+          playerB: await cardFor(entry.playerBId as string | null),
+        };
+        return scopeEntryPlacement(payload, {
+          includePlacement: isTournamentOrganizer,
+        });
+      })
     );
   });

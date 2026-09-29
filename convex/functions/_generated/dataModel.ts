@@ -963,6 +963,8 @@ export type DataModel = {
       allowMultipleEntriesPerType: boolean;
       approvalMode?: null | string;
       avatarStorageId?: null | string;
+      bracketReleaseAt?: null | number;
+      bracketReleasedAt?: null | number;
       city: string;
       courts?: null | any;
       coverStorageId?: null | string;
@@ -991,6 +993,8 @@ export type DataModel = {
       | "allowMultipleEntriesPerType"
       | "approvalMode"
       | "avatarStorageId"
+      | "bracketReleaseAt"
+      | "bracketReleasedAt"
       | "city"
       | "courts"
       | "coverStorageId"

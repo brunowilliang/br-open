@@ -17,6 +17,7 @@ import { resolveResultEditReverb } from "../../domains/tournament/score-rules";
 import { resolveMatchOccupiedEndMinute } from "../../domains/match/scheduling";
 import { isTournamentClosed } from "../../domains/tournament/management-rules";
 import {
+  isBracketReleased,
   isScheduledTournamentMatch,
   resolveBulkCancelPlan,
 } from "../../domains/tournament/scheduling-rules";
@@ -356,18 +357,13 @@ export const listForTournament = authQuery
       ctx,
       input.tournamentId as Id<"tournament">
     );
-    // Same gate as listBracket: the drawn bracket is PRIVATE to the organizer
-    // until the tournament starts — non-organizers only see ongoing/finished
-    // matches.
+    // A chave sorteada e PRIVADA do organizador ate a DIVULGACAO: solta na data
+    // combinada (cron) ou no inicio do torneio, ela abre inteira.
     const viewerContext = await getViewerContext(ctx, ctx.userId);
     const isOrganizer =
       viewerContext.activeActor.kind === "organization" &&
       viewerContext.activeActor.id === record.organizationId;
-    if (
-      !isOrganizer &&
-      record.status !== "ongoing" &&
-      record.status !== "finished"
-    ) {
+    if (!(isOrganizer || isBracketReleased(record))) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "A chave ainda não está disponível.",
@@ -383,8 +379,8 @@ export const listForTournament = authQuery
 /**
  * Occupied court slots for the schedule dialog: every scheduled match's
  * [start, start + defaultDurationMinutes) window, so the client can offer only
- * free times per court/day. Same gate as listForTournament: the drawn bracket is
- * private until the tournament starts.
+ * free times per court/day. Same gate as listForTournament: private until the
+ * bracket is released.
  */
 export const listOccupiedSlots = authQuery
   .input(TournamentByIdSchema)
@@ -398,11 +394,7 @@ export const listOccupiedSlots = authQuery
     const isOrganizer =
       viewerContext.activeActor.kind === "organization" &&
       viewerContext.activeActor.id === record.organizationId;
-    if (
-      !isOrganizer &&
-      record.status !== "ongoing" &&
-      record.status !== "finished"
-    ) {
+    if (!(isOrganizer || isBracketReleased(record))) {
       throw new CRPCError({
         code: "FORBIDDEN",
         message: "A chave ainda não está disponível.",

@@ -9,7 +9,6 @@ import {
   buildTournamentDetailsRole,
   buildTournamentDetailsScreenState,
   buildTournamentNavigationTabItems,
-  isBracketPublic,
   type TournamentDetailsAccess,
   type TournamentDetailsRole,
 } from "./tournament-details-derived";
@@ -149,8 +148,8 @@ function createTournamentDetailsBucket(tournamentId: string) {
 
         return {
           ...buildTournamentDetailsAccess({
+            bracketReleased: tournament.bracketReleased,
             role,
-            status: tournament.status,
           }),
           role,
         };
@@ -208,7 +207,7 @@ function createTournamentDetailsBucket(tournamentId: string) {
           return false;
         }
 
-        return access.canManage || isBracketPublic(tournament.status);
+        return access.canOpenBracket;
       },
       tabItems: () => {
         const access = bucket$.derived.access.get();

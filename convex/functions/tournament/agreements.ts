@@ -42,6 +42,7 @@ import {
   tournamentMatchAgreementEvent,
 } from "../../domains/tournament/tables";
 import { resolveTournamentWindow } from "../../domains/tournament/window-rules";
+import { isBracketReleased } from "../../domains/tournament/scheduling-rules";
 import { authMutation, authQuery } from "../../lib/crpc";
 import type { NotificationEventType } from "../../shared/notifications/protocol";
 import {
@@ -831,9 +832,9 @@ export const cancelScore = authMutation
   });
 
 /**
- * Confrontos do PRÓPRIO jogador no torneio: é esta porta que abre o confronto
- * para quem joga antes de o torneio começar. Nada do resto da chave entra aqui —
- * a chave sorteada continua privada (`listForTournament` não muda).
+ * Confrontos do PRÓPRIO jogador no torneio. Antes da DIVULGACAO não devolve
+ * nada: o painel "Seu confronto" nasce com a chave divulgada (data combinada ou
+ * início), junto com o COMBINAR JOGO. Nada do resto da chave entra aqui.
  */
 export const listMyMatches = authQuery
   .input(TournamentByIdSchema)
@@ -843,6 +844,9 @@ export const listMyMatches = authQuery
       ctx,
       input.tournamentId as Id<"tournament">
     );
+    if (!isBracketReleased(record)) {
+      return [];
+    }
     const playerProfileId = await requireActivePlayerProfile(ctx);
     const categories = await ctx.orm.query.tournamentCategory.findMany({
       limit: MAX_TOURNAMENT_CATEGORIES,

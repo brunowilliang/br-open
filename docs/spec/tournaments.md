@@ -863,7 +863,8 @@
   cliente. Contrato para a UI: `tournament.matches.listOccupiedSlots({
   tournamentId })` devolve `{matchId, courtId, matchDate, startMinute,
   endMinute}` de todo confronto agendado, com o MESMO gate do
-  `listForTournament` (chave privada até começar). UI ENTREGUE (Frontend):
+  `listForTournament` (chave privada até a divulgação; no legado, até o
+  início). UI ENTREGUE (Frontend):
   o `bracket.tsx` busca `listOccupiedSlots` (query `enabled` só pro
   organizador, mesma audiência do dialog), renomeia `matchId` para o
   `slotId` NEUTRO e passa ao `ScheduleProposalDialog` com
@@ -966,9 +967,9 @@
   da aba Regras (organizador personaliza campo a campo).
 - `src/lib/tournaments/tournament-details-derived.ts` (+
   `tournament-details-derived.test.ts`, 11 testes): papéis
-  organizer>player>guest, access por status (chave pública só em
-  ongoing/finished para não-organizador), tabs filtradas por access,
-  placeholder da chave com a data de início, `getEntryStatusChip` e
+  organizer>player>guest, access por DIVULGAÇÃO (`bracketReleased` — carimbo ou
+  `ongoing`/`finished`), tabs filtradas por access, placeholder da chave com a
+  data combinada (legado sem data: início), `getEntryStatusChip` e
   `getTournamentStatusChip` (o chip de ESTADO do torneio: `published`/`drawn`
   decididos pela janela, o resto pelo vocabulário do status).
 
@@ -1314,9 +1315,9 @@
   parceiro não retira a proposta do colega), proposta IDÊNTICA à mesa recusada
   SEM evento e proposta nova sobre canal fechado é REABERTURA
   (`kind: "reopened"`, o `agreedAt` fica). `listMyMatches` é a porta que abre os
-  confrontos do jogador antes do início (a chave sorteada segue privada em
-  `listForTournament`) e `listAgreementEvents` devolve o histórico (hoje sem
-  consumidor no app).
+  confrontos do jogador a partir da DIVULGAÇÃO (antes dela devolve `[]`; a chave
+  sorteada segue privada em `listForTournament` até a solta) e
+  `listAgreementEvents` devolve o histórico (hoje sem consumidor no app).
 - **lifecycle.ts** — `conclude` (o ato do organizador que encerra: guarda a
   regra pura `resolveTournamentConclusionError` — `ongoing` + campeão em toda
   categoria sorteada —, vira o status em `finished` e notifica
@@ -2084,7 +2085,7 @@ segue por e-mail).
 A página do torneio deixa de ter tabs (decisão do usuário no PLN-0007): **página única** por papel, inscrição vira bloco no corpo com **BottomSheet** (decisão 6), pendências ficam só no organizador (decisão 1).
 
 - **Layout (`tournaments/[tournamentId]/_layout.tsx`):** `Tabs`+`FloatingTabBar` → `Stack` (bootstrap do bucket preservado; BUG-0033 intacto). `tabItems`/`buildTournamentNavigationTabItems`/`canOpenEntries` EXTINTOS (cutover); rotas `bracket`/`entries`/`schedule`/`rules` continuam existindo como telas empilhadas.
-- **Acesso novo:** organizador ganha menu ⋮ "Chave" (`canOpenBracket`) e ⋮ "Inscrições" (rota `entries`, `initialTab="pending"`); jogador/guest chegam à chave quando pública.
+- **Acesso novo:** organizador ganha menu ⋮ "Chave" (`canOpenBracket`) e ⋮ "Inscrições" (rota `entries`, `initialTab="pending"`); jogador/guest chegam à chave quando DIVULGADA (data combinada ou início).
 - **Overview (`index.tsx`):** chips de categorias do topo e contagem global na meta line SAEM; meta line = `Início <data> · <estado da janela>` sempre com label (`buildRegistrationWindowState`); organizador ganha chip de ciclo (`getTournamentCycleChip`: draft/published/drawn/ongoing/finished/cancelled → cor semântica).
 - **Bloco de inscrição (`tournament-join-sheet.tsx`, substitui o extinto `tournament-join-footer.tsx`):** card terciário "a partir de R$X" + CTA no CORPO (some o overlay `Page.Footer` com form, defeitos 4.1/4.5); CTA abre **BottomSheet** heroui-native (`isOpen` controlado; linhas de categoria no molde `SelectOptionItem` com taxa+`vacancyLabel`+"Lotada" desabilitada; campo de parceiro com checagem ao vivo `searchByUsername` + `useBottomSheetAwareHandlers`/`keyboardBehavior="extend"`; confirmar = MESMAS mutations `entries.create` → `charge.createCharge` → checkout). Jogador já inscrito: CTA "Inscrever-se em outra categoria".
 - **Inscritos confirmados:** jogador vê TODOS os confirmados do torneio (decisão 1) — a lista mora na aba Inscrições, no segmento **Confirmados**, e desde o IBX-0080 convive com o segmento **Minhas** (as inscrições do viewer), linhas planas `bg-surface-secondary` (nomes via `formatEntrySideLabel` + categoria); pendências NUNCA pro jogador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`).
@@ -2099,10 +2100,10 @@ O usuário marcou a lista de dashboards item a item e fechou o conteúdo das tel
 - **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
 - **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
 - **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
-- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (até 28-09 era "o primeiro `scheduled` com data/hora"; hoje é o primeiro confronto com os DOIS lados definidos e sem vencedor, com ou sem horário, ao lado do painel "Seu confronto" da chave privada; adversário via `formatEntrySideLabel`).
+- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (até 28-09 era "o primeiro `scheduled` com data/hora"; hoje é o primeiro confronto com os DOIS lados definidos e sem vencedor, com ou sem horário, ao lado do painel "Seu confronto" (casa do jogador, com a chave divulgada; a tela da chave não o mostra); adversário via `formatEntrySideLabel`).
 - **Casa guest:** só a descrição.
 - **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
-- **Invariável:** o PAINEL de pendências da aba Inscrições segue só do organizador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`) — o jogador recebe os ALERTAS do servidor na casa do torneio (`PendingAlerts`, escopo player) e no painel do próprio confronto; privacidade da chave pré-início e chave congelada pós-início (bracket) intocados.
+- **Invariável:** o PAINEL de pendências da aba Inscrições segue só do organizador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`) — o jogador recebe os ALERTAS do servidor na casa do torneio (`PendingAlerts`, escopo player) e no painel do próprio confronto; privacidade da chave pré-DIVULGAÇÃO e chave congelada pós-início (bracket) intocados.
 
 ## IBX-0074 · CUTOVER DO RODAPÉ NO TORNEIO — JoinFooter global (20-09, sem commit)
 
@@ -2490,8 +2491,9 @@ evento no histórico.
   fechado com kind `overridden` — os dois caminhos ficam no histórico.
 - **Leituras:** `listMyMatches` devolve `playerMatchSchema` (o confronto, os dois
   canais, `mySide` e `totalRounds`) SÓ para o jogador ativo — é a porta que abre
-  o confronto antes do início; a chave sorteada segue privada em
-  `listForTournament` (organizador, ou `ongoing`/`finished`). `listAgreementEvents`
+  o confronto a partir da DIVULGAÇÃO (antes dela, `[]`); a chave sorteada segue
+  privada em `listForTournament` (organizador, ou carimbo/`ongoing`/`finished`).
+  `listAgreementEvents`
   é o histórico (sem consumidor no app hoje).
 - **Avisos:** cada passo notifica o lado que NÃO agiu (`schedule_proposed`/
   `score_proposed`/`schedule_declined`/`score_declined`/`schedule_cancelled`/
@@ -2549,12 +2551,14 @@ evento no histórico.
   confronto ficar agendado.", "A proposta saiu da mesa: dá para enviar outro
   horário quando quiser."). O texto de erro do SERVIDOR vence o fallback do
   toast.
-- **Casa do jogador (torneio), com a chave ainda privada:** a tela monta
+- **Casa do jogador (torneio), com a chave divulgada:** a tela monta
   `PendingAlerts` (pendências do servidor, escopo player) + o painel "Seu
   confronto" (`player-match-panel.tsx` — um `MatchCard` por confronto
-  negociável, com a nota "A chave completa abre quando o torneio começar.") + a
-  seção "Próximo jogo"; sem próximo jogo, sem pendência e sem painel o bloco não
-  existe.
+  negociável) + a seção "Próximo jogo"; sem próximo jogo, sem pendência e sem
+  painel o bloco não existe. Antes da divulgação sobra só `PendingAlerts` (o
+  painel depende de `bracketReleased` + confronto do viewer) e a nota "A chave
+  completa abre quando o torneio começar." saiu — a copy `panelBracketNote` não
+  existe mais.
 - **Deep-link `?matchId=`:** o aviso de "próximo jogo" e as pendências levam a
   casa do torneio com o id; `resolveMatchFocus` decide UM alvo (o card do
   "Próximo jogo" OU o card do painel dos próprios jogos) e a página rola até ele
@@ -3113,24 +3117,27 @@ e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
   `onValueChange` do range (`resolveTournamentEndDate`,
   tournament-window-defaults.ts:20-29; chamada em index.tsx:196-203).
 - **Prazo automático:** `buildAutoRegistrationDeadline`
-  (tournament-window-defaults.ts:34-43) devolve max(hoje do Brasil, início − 2)
+  (tournament-window-defaults.ts:34-43) devolve max(hoje do Brasil, início − 3)
   e fica VAZIO quando esse valor alcança o início (início hoje) — o
-  organizador escolhe, e o `maxValue` do campo é início − 1 (index.tsx:316-318
-  e :412). O prazo acompanha o início só enquanto o form guardar o último valor
-  automático ou nada (`shouldDeadlineFollowStartDate`, :47-52, com o
-  `autoDeadlineRef`, index.tsx:162 e :206-226) — editado à mão, congela. O
+  organizador escolhe, e o `maxValue` do campo é início − 1 (index.tsx:341-343
+  e :444). O prazo acompanha o início só enquanto o form guardar o último valor
+  automático ou nada (`shouldDateFollowStartDate`, :61-66, com o
+  `autoDeadlineRef`, index.tsx:165 e :212-230) — editado à mão, congela. O
   valor automático não conta como edição do organizador (`shouldDirty: false`,
-  :223).
+  :227).
 - **Payload e legado:** o create manda sempre a data escolhida
   (`_layout.tsx:114`) e o update também, por spread do input de create (:170);
   o torneio LEGADO sem fim abre com o campo vazio (:149-152) e o salvar exige a
   escolha.
 - **Testes:** tournament-window-defaults.test.ts:9 (fim igual/anterior vira o
-  dia seguinte, branco segue branco, virada de mês/ano), :59 (o prazo: os dois
-  dias antes, o teto de hoje, o início amanhã caindo no hoje, :78, e o início
-  hoje em branco, :87) e :106 (o congelamento ao editar à mão);
-  form-schema.test.ts:78, :87 e :119 (fim no dia seguinte passa, fim igual
-  recusa com a copy nova, legado sem fim abre mas o salvar recusa).
+  dia seguinte, branco segue branco, virada de mês/ano), :61 (o prazo: 3 dias
+  antes, o teto de hoje em :70, o início amanhã caindo no hoje em :79, o início
+  hoje em branco em :88 e a virada de mês em :97) e :155 (o congelamento ao
+  editar à mão, agora servindo prazo E divulgação);
+  form-schema.test.ts:141, :150 e :182 (fim no dia seguinte passa, fim igual
+  recusa com a copy nova, legado sem fim abre mas o salvar recusa) e :79-:121
+  (a divulgação: em branco passa, no mesmo dia do prazo/início passa, antes do
+  prazo e depois do início recusam com a mensagem do servidor).
 - **Pendência conhecida:** o `refineTournamentWindow` do servidor
   (contract.ts:191-231) recusa só fim ANTERIOR ao início — fim no mesmo dia
   passa no contrato; a trava do dia seguinte é do formulário (registro também
@@ -3276,3 +3283,120 @@ toque abrindo o Select do HeroUI com a lista agrupada por tipo.
   `BracketMatchCard`), `:339` → `:250` e `:398` (a modalidade desce), `:480` e
   `:495` → `:441` (a prop `modality`) e `:66-67` → `:74-75`
   (`CARD_WIDTH`/`CONNECTOR_WIDTH`).
+
+## Divulgação da chave: o modelo de datas do torneio (PLN-0001 / IBX-0182 — 29-09-2026)
+
+A janela do torneio ganhou uma TERCEIRA data. Além do prazo de inscrições e do
+início, o organizador combina quando a CHAVE abre para os jogadores: antes
+disso, a chave sorteada ficava privada até o dia do início e o jogador só
+descobria o próprio confronto com o torneio já começando.
+
+### As três datas e a validação
+
+- **Prazo ≤ divulgação ≤ início:** o prazo segue anterior ao início (por
+  instante) e a divulgação sai DO PRAZO até o DIA do início — comparação por dia
+  do calendário brasileiro, então o próprio dia do início vale, mesmo critério
+  do fim da janela. Fora disso o contrato recusa com "A divulgação da chave não
+  pode ser antes do prazo de inscrições." ou "A divulgação da chave não pode ser
+  depois do início do torneio."; o formulário usa as MESMAS frases, senão o
+  submit passaria e o servidor recusaria (form-schema.ts).
+- **Contrato:** `bracketReleaseAt` (a data combinada, em ms) e
+  `bracketReleasedAt` (o instante real da solta, carimbado pelo cron). O payload
+  do torneio expõe a data combinada e o derivado `bracketReleased`; no update,
+  `bracketReleaseAt` AUSENTE deixa o campo intocado e `null` limpa a data.
+- **Campo do formulário (Detalhes):** "Divulgação da chave", OPCIONAL, com
+  Description "Nesse dia a chave abre para os jogadores. Se ainda não houver
+  sorteio, ele acontece automaticamente."; o mínimo é o prazo e o máximo é o
+  início. Criar sem escolher deixa em branco (torneio sem data combinada).
+- **Automáticos:** escolhido o início, o prazo vira início − 3 e a divulgação
+  início − 2, nunca no passado (o limite do campo é hoje). Fica em branco quando
+  não sobra dia válido: início hoje zera o prazo (não existe dia anterior a
+  partir de hoje) e início já passado — legado na edição — zera a divulgação. Os
+  dois acompanham o início só enquanto o form guardar o último automático ou
+  nada; editado à mão, congela. O automático não conta como edição do
+  organizador (não suja o form pro aviso de sair sem salvar).
+
+### O cron: início > divulgação > sorteio
+
+O `auto-start-tournaments` (de hora em hora) resolve UMA ação por torneio, nesta
+prioridade:
+
+- **Início chegou:** começa — sortearia antes se ainda não houvesse sorteio,
+  como sempre.
+- **Divulgação chegou:** sem sorteio, SORTEIA no mesmo tick e então solta; com a
+  chave já sorteada, só solta. Nunca re-sorteia por cima do organizador: ajuste
+  fino e re-sorteio seguem só na mão dele.
+- **Prazo de inscrições fechou:** um torneio publicado sorteia sozinho e fica
+  `drawn` (a prévia do organizador com ajuste de pé).
+
+Tudo idempotente por estado: repetir a rodada (ou uma ação manual no meio) não
+sorteia, não solta e não inicia duas vezes; a solta carimba `bracketReleasedAt`
+uma única vez. O cron não re-sorteia depois da solta, mas o re-sorteio MANUAL
+segue liberado para o organizador enquanto o torneio não começou (decisão do
+usuário): a divulgação solta a chave, não a congela.
+
+### Visibilidade: a chave abre na divulgação
+
+`isBracketReleased` (scheduling-rules.ts) é o critério único — divulgação
+carimbada OU status `ongoing`/`finished`. Antes dela só o organizador lê o
+quadro; para todos os outros:
+
+- `matches.listForTournament` e `matches.listOccupiedSlots` recusam com FORBIDDEN
+  ("A chave ainda não está disponível.");
+- `agreements.listMyMatches` devolve `[]` — o painel "Seu confronto" nasce com a
+  divulgação, junto com o COMBINAR JOGO: ele aparece na CASA do jogador quando
+  `bracketReleased` e existe confronto negociável do viewer (`showOwnMatch` em
+  `player-overview.tsx`) — a tela da chave não o desenha;
+- a CASA do jogador ignora o torneio inteiro: nem o próximo jogo nem o resultado
+  publicado entram antes da solta;
+- a LISTA de inscrições entrega fase de entrada e cabeça de chave
+  (`entryRound`/`seedRank`) só ao organizador: para os demais os dois campos
+  saem do payload (antes, qualquer autenticado lia bye/fase em torneio
+  discoverable);
+- as abas Chave e Agenda não aparecem para o não-organizador, e a tela da chave
+  mostra o texto de espera "Chave divulgada em {data}." com a data combinada —
+  no legado sem data, "Chave disponível a partir de {data}, quando o torneio
+  começar.".
+
+### Avisos
+
+- **Chave publicada** (`tournament.bracket.published` — "Chave publicada", "Os
+  confrontos de {torneio} já estão definidos: veja com quem você joga e a ordem
+  das rodadas."): UMA vez por torneio, para todo inscrito ativo, no instante da
+  solta — pelo cron na data combinada ou, no legado, pelo início. Torneio já
+  divulgado NÃO recebe o aviso de novo quando o start chega.
+- **Chave ajustada** (`tournament.match.reassigned` — "Seu próximo adversário em
+  {torneio} pode ter mudado: confira a chave antes de jogar."): sai depois da
+  divulgação quando a inscrição ENTRA no quadro por pagamento tardio (o encaixe
+  mexe no confronto de quem já estava) e quando ela SAI por cancelamento — um
+  aviso por cancelamento, para quem FICOU no confronto afetado. Quem entrou ou
+  saiu não recebe.
+- **Agenda** (`tournament.match.scheduled`/`rescheduled`/`suspended`): só saem
+  depois da DIVULGAÇÃO. O organizador monta e desmonta a agenda em privado e os
+  dois lados não recebem nada antes da solta — o aviso não é adiado, ele não
+  existe (a agenda aparece no app junto com a chave).
+
+### Legado
+
+Torneio sem a data combinada (null) mantém o comportamento de sempre: a chave
+fica privada até o INÍCIO, quando `ongoing` passa a contar como divulgada — sem
+backfill e sem migração. Nada muda para quem nunca combinou a data.
+
+### Correção desta spec
+
+- O "prazo automático" do item IBX-0170 estava com o valor antigo (início − 2) e
+  o helper ainda chamava `shouldDeadlineFollowStartDate`: o prazo é início − 3 e
+  o `shouldDateFollowStartDate` agora serve prazo E divulgação. Linha, citações
+  e a linha de testes foram corrigidas no lugar.
+- O acesso citado pelas seções antigas — "chave pública só em ongoing/finished"
+  (inventário do "Frontend implementado"), a "Acesso novo" do IBX-0071 e as
+  citações do `listMyMatches` ("porta que abre o confronto antes do início", no
+  "Backend implementado" e em "Combinar jogo") — foi corrigido para o critério
+  novo: a DIVULGAÇÃO, que no legado sem data continua sendo o início.
+- O painel "Seu confronto" era citado como superfície da chave ainda privada:
+  ele vive na CASA do jogador a partir da divulgação (`bracketReleased` +
+  confronto negociável do viewer; `showOwnMatch` em `player-overview.tsx`), a
+  tela da chave não o desenha mais e a nota `panelBracketNote` saiu com o gate.
+  Junto, o gate do `listOccupiedSlots` deixou de ser "até começar" (vale a
+  divulgação; no legado, o início). Trechos ajustados em "Dialogs e components",
+  "Casa jogador" (IBX-0071), "Combinar jogo" e "Visibilidade".

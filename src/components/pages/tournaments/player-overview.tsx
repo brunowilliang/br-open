@@ -14,7 +14,6 @@ import { selectNextPlayerMatch } from "@/lib/tournaments/player-overview-derived
 import {
   formatBracketStage,
   formatEntryPlayerNames,
-  isBracketPublic,
 } from "@/lib/tournaments/tournament-details-derived";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
 
@@ -86,11 +85,15 @@ export function PlayerOverview(props: PlayerOverviewProps) {
       .map((match) => match.round)
   );
 
-  // Chave ainda privada: o painel do PRÓPRIO confronto é a superfície do
-  // jogador (o "Próximo jogo" acima só existe com a chave aberta).
+  // Divulgada a chave, o painel lista os confrontos do jogador que ainda dá
+  // para combinar (`listMyMatches` só devolve com a chave solta).
   const myMatches = useNegotiablePlayerMatches(tournament.id);
-  const showOwnMatch =
-    !isBracketPublic(tournament.status) && myMatches.length > 0;
+  const showOwnMatch = tournament.bracketReleased && myMatches.length > 0;
+  // O card de cima cobre o próximo confronto: o painel não repete o mesmo jogo.
+  const nextMatchCardId =
+    nextMatch && viewerSideEntry && opponentSideEntry
+      ? nextMatch.id
+      : undefined;
   const focus = resolveMatchFocus({
     focusMatchId: props.focusMatchId,
     nextMatchId: nextMatch?.id,
@@ -113,9 +116,9 @@ export function PlayerOverview(props: PlayerOverviewProps) {
 
       {showOwnMatch ? (
         <PlayerMatchPanel
+          excludeMatchId={nextMatchCardId}
           focusCardRef={props.focusCardRef}
           focusMatchId={focus.panelFocusMatchId}
-          showBracketNote
           tournamentId={tournament.id}
         />
       ) : null}

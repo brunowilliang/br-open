@@ -59,15 +59,62 @@ export function shouldAutoDrawTournament(input: {
   return input.registrationDeadlineMs <= input.nowMs;
 }
 
+/**
+ * A DIVULGACAO agendada chegou: o cron sorteia (se ainda nao houver sorteio) e
+ * solta a chave para os jogadores nesse instante. Sem data (ou com data ausente,
+ * o torneio legado) nao ha divulgacao agendada — a abertura continua sendo o
+ * inicio; ja solto, nunca repete (idempotente por estado, como os passos acima).
+ */
+export function shouldAutoReleaseTournament(input: {
+  bracketReleaseAtMs: null | number | undefined;
+  bracketReleasedAtMs: null | number | undefined;
+  nowMs: number;
+  status: string;
+}): boolean {
+  if (input.status !== "published" && input.status !== "drawn") {
+    return false;
+  }
+  const releaseAtMs = input.bracketReleaseAtMs ?? null;
+  if (releaseAtMs === null || !Number.isFinite(releaseAtMs)) {
+    return false;
+  }
+  if ((input.bracketReleasedAtMs ?? null) !== null) {
+    return false;
+  }
+  return releaseAtMs <= input.nowMs;
+}
+
+/**
+ * A chave esta DIVULGADA (solta para os jogadores): o cron carimbou
+ * `bracketReleasedAt` na data combinada OU o torneio ja comecou. `ongoing` e
+ * `finished` contam como divulgado de proposito: torneio legado, sem os campos
+ * novos, mantem o comportamento de sempre (chave publica so no inicio). Ate a
+ * divulgacao o quadro inteiro e privado do organizador.
+ */
+export function isBracketReleased(input: {
+  bracketReleasedAt: Date | null | undefined;
+  status: string;
+}): boolean {
+  if (input.status === "ongoing" || input.status === "finished") {
+    return true;
+  }
+  return (input.bracketReleasedAt ?? null) !== null;
+}
+
 /** Ação automática do cron para um torneio elegível (`null` deixa quieto). */
 export function resolveTournamentAutoAction(input: {
+  bracketReleaseAtMs: null | number | undefined;
+  bracketReleasedAtMs: null | number | undefined;
   nowMs: number;
   registrationDeadlineMs: number;
   startDateMs: number;
   status: string;
-}): "draw" | "start" | null {
+}): "draw" | "release" | "start" | null {
   if (shouldAutoStartTournament(input)) {
     return "start";
+  }
+  if (shouldAutoReleaseTournament(input)) {
+    return "release";
   }
   return shouldAutoDrawTournament(input) ? "draw" : null;
 }

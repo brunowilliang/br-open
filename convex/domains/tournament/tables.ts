@@ -21,6 +21,13 @@ export const tournament = convexTable(
     allowMultipleEntriesPerType: boolean().notNull(),
     approvalMode: text(),
     avatarStorageId: text(),
+    // Data COMBINADA da divulgacao da chave: o cron solta o quadro para os
+    // jogadores nesse instante. Nula = sem divulgacao agendada (a chave abre so
+    // no inicio, comportamento de sempre).
+    bracketReleaseAt: timestamp(),
+    // Instante em que o cron SOLTOU a chave. ongoing/finished tambem contam como
+    // divulgado, entao torneio antigo nao precisa desta marca.
+    bracketReleasedAt: timestamp(),
     city: text().notNull(),
     courts: json<Record<string, unknown>[]>(),
     coverStorageId: text(),

@@ -27,6 +27,7 @@ const TOURNAMENT_FORM_ERROR_GROUPS: TournamentFormErrorGroup[] = [
       "description",
       "startDate",
       "registrationDeadlineAt",
+      "bracketReleaseAt",
       "avatarStorageId",
       "coverStorageId",
     ],

@@ -232,12 +232,16 @@ export const create = authMutation
   .mutation(async ({ ctx, input }) => {
     const organizationId = await requireActiveManager(ctx);
     const now = new Date();
-    const { categories, endDate, ...tournamentInput } = input;
+    const { bracketReleaseAt, categories, endDate, ...tournamentInput } = input;
 
     const [created] = await ctx.orm
       .insert(tournament)
       .values({
         ...tournamentInput,
+        // Sem data informada a chave nao tem divulgacao agendada (abre so no inicio).
+        ...(bracketReleaseAt === null || bracketReleaseAt === undefined
+          ? {}
+          : { bracketReleaseAt: new Date(bracketReleaseAt) }),
         createdAt: now,
         // Sem fim informado o torneio nasce sem teto (comportamento de hoje).
         ...(endDate === null || endDate === undefined
@@ -351,11 +355,21 @@ export const update = authMutation
     );
 
     const now = new Date();
-    const { categories, endDate, tournamentId, ...rest } = input;
+    const { bracketReleaseAt, categories, endDate, tournamentId, ...rest } =
+      input;
     const [updated] = await ctx.orm
       .update(tournament)
       .set({
         ...rest,
+        // Ausente = divulgacao intocada; nulo = volta a nao ter data combinada.
+        ...(bracketReleaseAt === undefined
+          ? {}
+          : {
+              bracketReleaseAt:
+                bracketReleaseAt === null
+                  ? unsetToken
+                  : new Date(bracketReleaseAt),
+            }),
         // Ausente = janela intocada; nulo = volta a ficar sem teto.
         ...(endDate === undefined
           ? {}

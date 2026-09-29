@@ -41,9 +41,10 @@ import { HugeIcons } from "@/components/ui/huge-icons";
 import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";
 import {
+  buildAutoBracketReleaseDate,
   buildAutoRegistrationDeadline,
   resolveTournamentEndDate,
-  shouldDeadlineFollowStartDate,
+  shouldDateFollowStartDate,
 } from "@/lib/tournaments/tournament-window-defaults";
 
 const DATE_LOCALE = "pt-BR";
@@ -65,15 +66,17 @@ type TournamentDatePickerFieldProps = {
   description: string;
   error?: string;
   isDisabled: boolean;
+  isRequired?: boolean;
   label: string;
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
-  name: "registrationDeadlineAt";
+  name: "registrationDeadlineAt" | "bracketReleaseAt";
 };
 
 function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
   const { control } = useFormContext<TournamentScreenValues>();
   const { field, fieldState } = useController({ control, name: props.name });
+  const isRequired = props.isRequired ?? true;
 
   // minValue > maxValue não é definido na state machine do calendário: a data
   // focada alterna entre os limites e o loop de update derruba o React, então
@@ -82,10 +85,10 @@ function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
     !(props.minValue && props.maxValue) ||
     props.minValue.compare(props.maxValue) <= 0;
   return (
-    <TextField isInvalid={Boolean(fieldState.error)} isRequired>
+    <TextField isInvalid={Boolean(fieldState.error)} isRequired={isRequired}>
       <DatePicker
         formatDate={formatDateLabel}
-        isRequired
+        isRequired={isRequired}
         locale={DATE_LOCALE}
         onValueChange={(nextValue) => {
           if (!nextValue || Array.isArray(nextValue)) {
@@ -157,9 +160,10 @@ type TournamentRangePickerFieldProps = {
 function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
   const { control, getValues, setValue } =
     useFormContext<TournamentScreenValues>();
-  // Último prazo aplicado AUTOMATICAMENTE por este campo: enquanto o form
-  // guardar esse valor (ou nada), o prazo segue o início.
+  // Últimos valores aplicados AUTOMATICAMENTE por este campo: enquanto o form
+  // guardar cada um (ou nada), prazo e divulgação seguem o início.
   const autoDeadlineRef = useRef("");
+  const autoReleaseRef = useRef("");
   const startDateValue = useWatch({ control, name: "startDate" });
   const endDateValue = useWatch({ control, name: "endDate" });
   const rangeOption = useMemo(
@@ -206,9 +210,9 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
         const deadline = getValues("registrationDeadlineAt");
 
         if (
-          shouldDeadlineFollowStartDate({
-            deadline,
-            lastAutoDeadline: autoDeadlineRef.current,
+          shouldDateFollowStartDate({
+            lastAutoValue: autoDeadlineRef.current,
+            value: deadline,
           })
         ) {
           const autoDeadline = buildAutoRegistrationDeadline({
@@ -217,9 +221,29 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
           });
 
           autoDeadlineRef.current = autoDeadline;
-          // Sem `shouldDirty`: o prazo automático não conta como edição do
-          // organizador nem suja o form pro aviso de sair sem salvar.
+          // Sem `shouldDirty`: os automáticos não contam como edição do
+          // organizador nem sujam o form pro aviso de sair sem salvar.
           setValue("registrationDeadlineAt", autoDeadline, {
+            shouldDirty: false,
+            shouldValidate: true,
+          });
+        }
+
+        const release = getValues("bracketReleaseAt");
+
+        if (
+          shouldDateFollowStartDate({
+            lastAutoValue: autoReleaseRef.current,
+            value: release,
+          })
+        ) {
+          const autoRelease = buildAutoBracketReleaseDate({
+            startDate: next.startDate,
+            todayDayKey: brazilDayKey(Date.now()),
+          });
+
+          autoReleaseRef.current = autoRelease;
+          setValue("bracketReleaseAt", autoRelease, {
             shouldDirty: false,
             shouldValidate: true,
           });
@@ -313,8 +337,16 @@ export default function TournamentDetailsRoute() {
     control._formState
   );
   const startDateValue = useWatch({ control, name: "startDate" });
+  const deadlineValue = useWatch({ control, name: "registrationDeadlineAt" });
   const deadlineMaxValue = startDateValue
     ? parseCalendarDate(startDateValue).subtract({ days: 1 })
+    : undefined;
+  const releaseState = getFieldState("bracketReleaseAt", control._formState);
+  const releaseMinValue = deadlineValue
+    ? parseCalendarDate(deadlineValue)
+    : today(getLocalTimeZone());
+  const releaseMaxValue = startDateValue
+    ? parseCalendarDate(startDateValue)
     : undefined;
   return (
     <Page>
@@ -412,6 +444,17 @@ export default function TournamentDetailsRoute() {
           maxValue={deadlineMaxValue}
           minValue={today(getLocalTimeZone())}
           name="registrationDeadlineAt"
+        />
+
+        <TournamentDatePickerField
+          description="Nesse dia a chave abre para os jogadores. Se ainda não houver sorteio, ele acontece automaticamente."
+          error={releaseState.error?.message}
+          isDisabled={isDisabled}
+          isRequired={false}
+          label="Divulgação da chave"
+          maxValue={releaseMaxValue}
+          minValue={releaseMinValue}
+          name="bracketReleaseAt"
         />
 
         <MediaConfirmDialog

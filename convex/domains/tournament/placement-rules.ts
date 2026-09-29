@@ -390,6 +390,38 @@ export function planEntryRemoval(input: {
 }
 
 /**
+ * Lados que FICARAM nas linhas que o encaixe/cancelamento reescreveu: e quem ve
+ * o proprio confronto mudar (quem entrou ou saiu nao recebe o aviso). A leitura
+ * e do ANTES e do DEPOIS da linha, porque a re-derivacao acima da 1a rodada
+ * tambem limpa a lateral que o vencedor-ausente alimentava.
+ */
+export function collectAffectedPlacementSides(input: {
+  excludedEntryId: string;
+  rows: readonly {
+    entryAId: null | string | undefined;
+    entryBId: null | string | undefined;
+    id: string;
+  }[];
+  updates: readonly PlacementPersistUpdate[];
+}): string[] {
+  const affected: Record<string, true> = {};
+  for (const update of input.updates) {
+    const before = input.rows.find((row) => row.id === update.id);
+    for (const entryId of [
+      before?.entryAId,
+      before?.entryBId,
+      update.entryAId,
+      update.entryBId,
+    ]) {
+      if (entryId && entryId !== input.excludedEntryId) {
+        affected[entryId] = true;
+      }
+    }
+  }
+  return Object.keys(affected);
+}
+
+/**
  * Grows a FULL bracket one power of two by inserting a new first round below: existing
  * rows move up one round (pairs preserved — schedules stay attached to the same pair)
  * and each entrant descends into its own new round-1 row as a resolved bye. The caller

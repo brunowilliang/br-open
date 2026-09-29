@@ -13,6 +13,7 @@ import {
   tournamentCategorySchema,
   tournamentSchema,
 } from "../../../domains/tournament/contract";
+import { isBracketReleased } from "../../../domains/tournament/scheduling-rules";
 import type { NotificationEventType } from "../../../shared/notifications/protocol";
 import { resolveStorageUrl } from "../../../shared/media-rules";
 
@@ -131,6 +132,8 @@ export async function serializeTournament(
     approvalMode: record.approvalMode ?? "auto",
     avatarStorageId: record.avatarStorageId ?? null,
     avatarUrl,
+    bracketReleaseAt: record.bracketReleaseAt?.getTime() ?? null,
+    bracketReleased: isBracketReleased(record),
     courts: record.courts ?? [],
     coverStorageId: record.coverStorageId ?? null,
     coverUrl,

@@ -21,7 +21,10 @@ import {
   tournamentEntry,
   tournamentMatch,
 } from "../../domains/tournament/tables";
-import { resolveTournamentAutoAction } from "../../domains/tournament/scheduling-rules";
+import {
+  isBracketReleased,
+  resolveTournamentAutoAction,
+} from "../../domains/tournament/scheduling-rules";
 import { authMutation, authQuery, privateMutation } from "../../lib/crpc";
 import { internal } from "../_generated/api";
 import type { MutationCtx } from "../generated/server";
@@ -393,6 +396,29 @@ async function notifyPartnerInvitesAwaitingReply(
   }
 }
 
+/** Inscritos ativos de todas as categorias: quem recebe o aviso "a chave saiu". */
+async function collectActiveEntrantRecipients(
+  ctx: OrmCtx,
+  categories: readonly { id: string }[]
+) {
+  const recipients = new Set<Id<"user">>();
+  for (const category of categories) {
+    const entries = await getActiveEntries(
+      ctx,
+      category.id as Id<"tournamentCategory">
+    );
+    for (const entry of entries) {
+      if (entry.createdByUserId) {
+        recipients.add(entry.createdByUserId as Id<"user">);
+      }
+      if (entry.partnerUserId) {
+        recipients.add(entry.partnerUserId as Id<"user">);
+      }
+    }
+  }
+  return recipients;
+}
+
 /**
  * The start CORE — the manual action and the auto-start cron share ONE path
  * (status → ongoing, public bracket, `tournament.bracket.published` to every
@@ -449,28 +475,20 @@ export const performStart = privateMutation
       .set({ status: "ongoing", updatedAt: now })
       .where(eq(tournament.id, record.id as never));
 
-    // Notify every active entrant across all categories.
-    const recipients = new Set<Id<"user">>();
-    for (const category of categories) {
-      const entries = await getActiveEntries(
+    // Aviso "a chave saiu" UMA vez por torneio: com a chave ja divulgada na data
+    // combinada, quem esta no torneio ja recebeu — o start nao repete.
+    if (!isBracketReleased(record)) {
+      const recipients = await collectActiveEntrantRecipients(
         ormCtx,
-        category.id as Id<"tournamentCategory">
+        categories
       );
-      for (const entry of entries) {
-        if (entry.createdByUserId) {
-          recipients.add(entry.createdByUserId as Id<"user">);
-        }
-        if (entry.partnerUserId) {
-          recipients.add(entry.partnerUserId as Id<"user">);
-        }
+      if (recipients.size > 0) {
+        await scheduleTournamentNotification(ctx as never, {
+          eventType: "tournament.bracket.published",
+          recipientUserIds: [...recipients],
+          tournamentId: record.id as Id<"tournament">,
+        });
       }
-    }
-    if (recipients.size > 0) {
-      await scheduleTournamentNotification(ctx as never, {
-        eventType: "tournament.bracket.published",
-        recipientUserIds: [...recipients],
-        tournamentId: record.id as Id<"tournament">,
-      });
     }
 
     // Unanswered partner invites never reach the bracket (only ACTIVE entries
@@ -502,17 +520,77 @@ export const start = authMutation
   });
 
 /**
- * Cron body (hourly) das transicoes automaticas de torneio. Duas janelas:
- * o PRAZO DE INSCRICAO fecha e o torneio sorteia sozinho (fica `drawn`, a previa
- * do organizador com ajuste e re-sorteio de pe) e, no DIA DE INICIO, ele comeca
- * (um `published` que ainda nao sorteou sorteia e comeca no mesmo tick, como
- * sempre). Sem prazo, ou com prazo depois do dia de inicio, nada muda em relacao
- * ao comportamento antigo. Idempotente por status: repetir a rodada (ou uma acao
- * manual no meio) nunca sorteia nem inicia duas vezes.
+ * A DIVULGACAO CORE — solta a chave inteira para os jogadores na data combinada
+ * (`bracketReleaseAt`) e avisa todo inscrito ativo. So o cron chama: o instante
+ * da decisao e a data do torneio. Idempotente por estado: chave ja solta devolve
+ * ok sem repetir o aviso; sem sorteio, erro declarado (o cron tenta o sorteio
+ * antes, no mesmo tick).
+ */
+export const performRelease = privateMutation
+  .input(z.object({ tournamentId: z.string().min(1) }))
+  .output(
+    z.union([
+      z.object({ ok: z.literal(true) }),
+      z.object({ error: z.string(), ok: z.literal(false) }),
+    ])
+  )
+  .mutation(async ({ ctx, input }) => {
+    const ormCtx = ctx as unknown as OrmCtx;
+    const record = await getTournamentRecordOrThrow(
+      ormCtx,
+      input.tournamentId as Id<"tournament">
+    );
+    if (record.status !== "drawn") {
+      return {
+        error: "A chave precisa ser sorteada antes da divulgação.",
+        ok: false,
+      };
+    }
+    if (isBracketReleased(record)) {
+      return { ok: true };
+    }
+
+    const now = new Date();
+    await ctx.orm
+      .update(tournament)
+      .set({ bracketReleasedAt: now, updatedAt: now })
+      .where(eq(tournament.id, record.id as never));
+
+    const categories = await getCategories(
+      ormCtx,
+      record.id as Id<"tournament">
+    );
+    const recipients = await collectActiveEntrantRecipients(ormCtx, categories);
+    if (recipients.size > 0) {
+      await scheduleTournamentNotification(ctx as never, {
+        eventType: "tournament.bracket.published",
+        recipientUserIds: [...recipients],
+        tournamentId: record.id as Id<"tournament">,
+      });
+    }
+
+    return { ok: true };
+  });
+
+/**
+ * Cron body (hourly) das transicoes automaticas de torneio. Tres janelas: o
+ * PRAZO DE INSCRICAO fecha e o torneio sorteia sozinho (fica `drawn`, a previa
+ * do organizador com ajuste e re-sorteio de pe); a DIVULGACAO chega e ele solta
+ * a chave (sorteando antes, se ainda nao houver sorteio); e, no DIA DE INICIO,
+ * ele comeca (um `published` que ainda nao sorteou sorteia e comeca no mesmo
+ * tick, como sempre). Sem prazo, ou com prazo depois do dia de inicio, nada muda
+ * em relacao ao comportamento antigo. Idempotente por estado: repetir a rodada
+ * (ou uma acao manual no meio) nunca sorteia, solta nem inicia duas vezes.
  */
 export const autoStartTournaments = privateMutation
   .input(z.object({}))
-  .output(z.object({ drawn: z.number(), started: z.number() }))
+  .output(
+    z.object({
+      drawn: z.number(),
+      released: z.number(),
+      started: z.number(),
+    })
+  )
   .mutation(async ({ ctx }) => {
     const eligible = await ctx.orm.query.tournament.findMany({
       limit: 100,
@@ -520,12 +598,15 @@ export const autoStartTournaments = privateMutation
     });
 
     let drawn = 0;
+    let released = 0;
     let started = 0;
     const nowMs = Date.now();
 
     for (const record of eligible) {
       const tournamentId = record.id as string;
       const action = resolveTournamentAutoAction({
+        bracketReleaseAtMs: record.bracketReleaseAt?.getTime() ?? null,
+        bracketReleasedAtMs: record.bracketReleasedAt?.getTime() ?? null,
         nowMs,
         registrationDeadlineMs: record.registrationDeadlineAt.getTime(),
         startDateMs: record.startDate.getTime(),
@@ -562,6 +643,17 @@ export const autoStartTournaments = privateMutation
         }
       }
 
+      if (action === "release") {
+        const releaseResult = await ctx.runMutation(
+          internal.tournament.bracket.performRelease,
+          { tournamentId }
+        );
+        if (releaseResult.ok) {
+          released += 1;
+        }
+        continue;
+      }
+
       if (action === "start") {
         const result = await ctx.runMutation(
           internal.tournament.bracket.performStart,
@@ -572,7 +664,7 @@ export const autoStartTournaments = privateMutation
         }
       }
     }
-    return { drawn, started };
+    return { drawn, released, started };
   });
 
 export const listBracket = authQuery

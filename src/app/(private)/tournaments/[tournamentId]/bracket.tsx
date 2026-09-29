@@ -20,7 +20,6 @@ import {
   buildPlayerAgreementCard,
   useMatchAgreement,
   useMatchAgreementView,
-  useNegotiablePlayerMatches,
   type RunMatchAgreementAction,
 } from "@/components/pages/tournaments/match-agreement-provider";
 import {
@@ -28,7 +27,6 @@ import {
   useOrganizerActions,
   useTournamentContextInvalidation,
 } from "@/components/pages/tournaments/organizer-actions";
-import { PlayerMatchPanel } from "@/components/pages/tournaments/player-match-panel";
 import { CategorySelect } from "@/components/ui/category-select";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -104,7 +102,6 @@ export default function TournamentBracketRoute() {
   const { runAction } = useMatchAgreement();
   const { run } = useOrganizerActions();
   const { byMatchId: myMatchesByMatchId } = useMatchAgreementView(tournamentId);
-  const myMatches = useNegotiablePlayerMatches(tournamentId);
   // O host do acerto vive no casco privado e não conhece a tela: quem sabe o
   // torneio do nó é o card, então o id vai junto na ação.
   const runAgreementAction = useCallback<RunMatchAgreementAction>(
@@ -505,6 +502,7 @@ export default function TournamentBracketRoute() {
     tournament && access && !access.canOpenBracket
       ? buildBracketPlaceholder({
           access,
+          bracketReleaseAtMs: tournament.bracketReleaseAt,
           startDateMs: tournament.startDate,
         })
       : null;
@@ -580,14 +578,6 @@ export default function TournamentBracketRoute() {
       ) : isLoading ? (
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
           <LoadingState />
-        </Page.ScrollView>
-      ) : bracketPlaceholder && myMatches.length > 0 ? (
-        <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">
-          <PlayerMatchPanel showBracketNote tournamentId={tournamentId} />
-          <EmptyState
-            description={bracketPlaceholder}
-            title="Chave em preparação"
-          />
         </Page.ScrollView>
       ) : bracketPlaceholder ? (
         <Page.ScrollView contentContainerClassName="grow px-4 pb-safe-offset-4">

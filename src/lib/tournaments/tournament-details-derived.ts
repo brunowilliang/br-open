@@ -14,11 +14,6 @@ export type TournamentDetailsAccess = {
   canOpenSchedule: boolean;
 };
 
-/** Chave pública só a partir de `ongoing` (a fase `drawn` é do organizador). */
-export function isBracketPublic(status: string): boolean {
-  return status === "ongoing" || status === "finished";
-}
-
 export function buildTournamentDetailsRole(input: {
   isTournamentOrganizer: boolean;
   viewerEntryIds: string[];
@@ -60,16 +55,15 @@ export function buildTournamentDetailsScreenState(input: {
 }
 
 export function buildTournamentDetailsAccess(input: {
+  bracketReleased: boolean;
   role: TournamentDetailsRole;
-  status: string;
 }): TournamentDetailsAccess {
   const canManage = input.role === "organizer";
-  const bracketPublic = isBracketPublic(input.status);
 
   return {
     canManage,
-    canOpenBracket: canManage || bracketPublic,
-    canOpenSchedule: canManage || bracketPublic,
+    canOpenBracket: canManage || input.bracketReleased,
+    canOpenSchedule: canManage || input.bracketReleased,
   };
 }
 
@@ -111,8 +105,11 @@ export function buildTournamentNavigationTabItems(
   return items.length > 1 ? items : [];
 }
 
+/** Texto de espera do não-organizador antes da divulgação: com data combinada
+ * mostra a data; torneio legado sem data cai no início. */
 export function buildBracketPlaceholder(input: {
   access: TournamentDetailsAccess;
+  bracketReleaseAtMs: null | number;
   startDateMs: number;
 }): null | string {
   if (input.access.canOpenBracket) {
@@ -122,7 +119,11 @@ export function buildBracketPlaceholder(input: {
   const formatted = new Intl.DateTimeFormat("pt-BR", {
     day: "numeric",
     month: "short",
-  }).format(new Date(input.startDateMs));
+  }).format(new Date(input.bracketReleaseAtMs ?? input.startDateMs));
+
+  if (input.bracketReleaseAtMs !== null) {
+    return `Chave divulgada em ${formatted}.`;
+  }
 
   return `Chave disponível a partir de ${formatted}, quando o torneio começar.`;
 }

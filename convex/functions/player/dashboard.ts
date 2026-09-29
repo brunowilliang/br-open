@@ -17,6 +17,7 @@ import {
   type DashResult,
 } from "../../domains/player/dashboard-rules";
 import { resolveCategoryTotalRounds } from "../../domains/tournament/bracket-rules";
+import { isBracketReleased } from "../../domains/tournament/scheduling-rules";
 import {
   buildRecentMonthKeys,
   monthKeyWindowStartMs,
@@ -252,6 +253,12 @@ export const getOverview = authQuery
       if (!tournament) {
         continue;
       }
+      // A chave só pertence ao jogador depois da DIVULGAÇÃO (`isBracketReleased`:
+      // data cumprida ou torneio já iniciado/encerrado; o legado sem data fica
+      // fechado até o início): antes dela nada do quadro entra na casa.
+      if (!isBracketReleased(tournament)) {
+        continue;
+      }
       const [asEntryA, asEntryB] = await Promise.all([
         ctx.orm.query.tournamentMatch.findMany({
           limit: MATCH_SCAN_LIMIT,
@@ -296,9 +303,9 @@ export const getOverview = authQuery
           continue;
         }
 
-        // Próximo jogo: os dois lados definidos e a partida viva, na chave
-        // sorteada (mesmo par de status do gate de agendamento). Sem data o
-        // confronto entra igual: o horário é que ainda não existe.
+        // Próximo jogo: os dois lados definidos e a partida viva, na chave ja
+        // DIVULGADA (o par de status exclui o `finished`, cujo resto e resultado).
+        // Sem data o confronto entra igual: o horário é que ainda não existe.
         const bracketLive =
           tournament.status === "drawn" || tournament.status === "ongoing";
         if (

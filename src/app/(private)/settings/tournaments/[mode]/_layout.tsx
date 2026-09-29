@@ -100,6 +100,9 @@ function toCreateTournamentInput(
     allowMultipleEntriesPerType: values.allowMultipleEntriesPerType,
     approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
+    bracketReleaseAt: values.bracketReleaseAt
+      ? tournamentDateToEpochMs(values.bracketReleaseAt)
+      : null,
     categories: values.categories.map((category) => ({
       entryFeeCents: category.entryFeeCents,
       gender: category.gender,
@@ -133,6 +136,10 @@ function toTournamentScreenValues(
     allowMultipleEntriesPerType: tournament.allowMultipleEntriesPerType,
     approvalMode: tournament.approvalMode,
     avatarStorageId: tournament.avatarStorageId,
+    bracketReleaseAt:
+      tournament.bracketReleaseAt === null
+        ? ""
+        : epochMsToTournamentDate(tournament.bracketReleaseAt),
     categories: managed.categories.map((category) => ({
       entryFeeCents: category.entryFeeCents,
       gender: category.gender,

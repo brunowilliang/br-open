@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Id } from "../_generated/dataModel";
 import {
   canPlaceEntries,
+  collectAffectedPlacementSides,
   listOpenFirstRoundSides,
   planBracketBirth,
   planBracketGrowth,
@@ -12,6 +13,7 @@ import {
   type PlacementPersistUpdate,
 } from "../../domains/tournament/placement-rules";
 import { tournamentMatch } from "../../domains/tournament/tables";
+import { isBracketReleased } from "../../domains/tournament/scheduling-rules";
 import type { MutationCtx } from "../generated/server";
 import { privateMutation } from "../../lib/crpc";
 import {
@@ -20,6 +22,7 @@ import {
   scheduleTournamentNotification,
   type OrmCtx,
 } from "./_shared/guards";
+import { entryRecipientUserIds } from "./_shared/match_writes";
 import { shuffle, toSwapBoard } from "./_shared/board";
 
 /** Random open side for the fit. */
@@ -80,6 +83,55 @@ async function insertPlacementRow(
     updatedAt: now,
     walkover: insert.walkover,
     winnerEntryId: insert.winnerEntryId as Id<"tournamentEntry"> | null,
+  });
+}
+
+/**
+ * Aviso de confronto reajustado para quem FICOU numa linha que o encaixe ou o
+ * cancelamento reescreveu, com a chave JA divulgada (antes disso ninguem le o
+ * quadro, entao o aviso seria vazamento). Uma vez por escrita, com o mesmo
+ * evento do ajuste manual do organizador.
+ */
+async function notifyAffectedSidesAfterRelease(
+  ctx: MutationCtx,
+  input: {
+    categoryId: string;
+    excludedEntryId: string;
+    rows: readonly {
+      entryAId: null | string | undefined;
+      entryBId: null | string | undefined;
+      id: string;
+    }[];
+    tournament: { bracketReleasedAt: Date | null | undefined; status: string };
+    tournamentId: Id<"tournament">;
+    updates: readonly PlacementPersistUpdate[];
+  }
+) {
+  if (!isBracketReleased(input.tournament)) {
+    return;
+  }
+  const affected = collectAffectedPlacementSides({
+    excludedEntryId: input.excludedEntryId,
+    rows: input.rows,
+    updates: input.updates,
+  });
+  if (affected.length === 0) {
+    return;
+  }
+  // Ponte de sempre: mutation privada nao tem identidade de auth.
+  const recipients = await entryRecipientUserIds(ctx as unknown as OrmCtx, [
+    ...affected,
+  ]);
+  if (recipients.length === 0) {
+    return;
+  }
+  await scheduleTournamentNotification(ctx, {
+    eventType: "tournament.match.reassigned",
+    metadata: { categoryId: input.categoryId },
+    recipientUserIds: recipients,
+    sourceEntityId: input.categoryId,
+    sourceEntityType: "tournamentCategory",
+    tournamentId: input.tournamentId,
   });
 }
 
@@ -182,6 +234,16 @@ export const placeActiveEntry = privateMutation
           rowVersion: current?.rowVersion ?? 0,
         });
       }
+      // O crescimento preserva os pares e nao avisa; a chegada em si tambem nao
+      // (quem entrou sabe que entrou).
+      await notifyAffectedSidesAfterRelease(ctx, {
+        categoryId: input.categoryId,
+        excludedEntryId: input.entryId,
+        rows: matches,
+        tournament: tournamentRecord,
+        tournamentId: tournamentRecord.id as Id<"tournament">,
+        updates,
+      });
       return { placed: true };
     }
 
@@ -254,5 +316,15 @@ export const removeCancelledEntry = privateMutation
         rowVersion: current?.rowVersion ?? 0,
       });
     }
+    // A vaga que fica "A definir" muda o confronto de quem sobrou: com a chave
+    // divulgada, o lado afetado recebe o aviso uma vez por cancelamento.
+    await notifyAffectedSidesAfterRelease(ctx, {
+      categoryId: input.categoryId,
+      excludedEntryId: input.entryId,
+      rows: matches,
+      tournament: tournamentRecord,
+      tournamentId: tournamentRecord.id as Id<"tournament">,
+      updates,
+    });
     return { removed: true };
   });

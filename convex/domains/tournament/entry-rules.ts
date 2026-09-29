@@ -312,3 +312,25 @@ export function resolveEntryCancelledRecipients(
 ): string[] {
   return [...new Set(managerUserIds)].filter((id) => id !== actorUserId);
 }
+
+export type EntryPlacementFields = {
+  entryRound?: number | null;
+  seedRank?: number | null;
+};
+
+/**
+ * A fase de entrada e a cabeça de chave organizam a chave: a LISTA de
+ * inscrições só entrega os dois ao ORGANIZADOR — para os demais os campos saem
+ * do payload (em torneio discoverable o público lia bye/fase antes da
+ * divulgação). Sem cópia no caminho do organizador.
+ */
+export function scopeEntryPlacement<T extends EntryPlacementFields>(
+  entry: T,
+  options: { includePlacement: boolean }
+): Omit<T, "entryRound" | "seedRank"> | T {
+  if (options.includePlacement) {
+    return entry;
+  }
+  const { entryRound, seedRank, ...publicEntry } = entry;
+  return publicEntry;
+}

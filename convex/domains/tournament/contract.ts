@@ -88,12 +88,24 @@ const tournamentEndDateSchema = z
   .nullable()
   .optional();
 
+// Opcional de propósito: sem data, a chave abre só no início (comportamento de
+// sempre) e o app antigo, que não manda o campo, segue funcionando.
+const tournamentBracketReleaseSchema = z
+  .number({
+    error: (issue) =>
+      issue.input === undefined ? undefined : "Data de divulgação inválida.",
+  })
+  .int("Data de divulgação inválida.")
+  .nullable()
+  .optional();
+
 export const TournamentSchemaBase = {
   approvalMode: enumField(
     TournamentApprovalModeOptions,
     "Selecione o modo de aprovação."
   ),
   avatarStorageId: tournamentMediaStorageIdSchema,
+  bracketReleaseAt: tournamentBracketReleaseSchema,
   city: requiredString("Informe a cidade.").pipe(z.string().min(1)),
   courts: CourtsSchema,
   coverStorageId: tournamentMediaStorageIdSchema,
@@ -190,6 +202,7 @@ function refineCategoryNames(value: CategoryNameInput, ctx: z.RefinementCtx) {
 
 function refineTournamentWindow(
   value: {
+    bracketReleaseAt?: null | number;
     endDate?: null | number;
     registrationDeadlineAt: number;
     startDate: number;
@@ -202,6 +215,27 @@ function refineTournamentWindow(
       message: "O prazo de inscrições deve ser anterior à data de início.",
       path: ["registrationDeadlineAt"],
     });
+  }
+  // Divulgação: sai depois do PRAZO (a chave não abre com inscrição viva) e até o
+  // DIA do início (o start dispara pelo dia do calendário brasileiro, então uma
+  // divulgação no mesmo dia vale — mesmo critério do fim da janela).
+  const bracketReleaseAt = value.bracketReleaseAt ?? null;
+  if (bracketReleaseAt !== null) {
+    if (bracketReleaseAt < value.registrationDeadlineAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "A divulgação da chave não pode ser antes do prazo de inscrições.",
+        path: ["bracketReleaseAt"],
+      });
+    } else if (brazilDayKey(bracketReleaseAt) > brazilDayKey(value.startDate)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "A divulgação da chave não pode ser depois do início do torneio.",
+        path: ["bracketReleaseAt"],
+      });
+    }
   }
   // Comparação por DIA (calendário brasileiro): fim e início no mesmo dia são
   // a janela de um dia, mesmo com horas diferentes.
@@ -367,6 +401,11 @@ export const tournamentSchema = z.object({
   approvalMode: z.enum(TournamentApprovalModeOptions),
   avatarStorageId: z.string().nullable(),
   avatarUrl: z.string().nullable().optional(),
+  // Data combinada da divulgação (null = sem data: abre só no início).
+  bracketReleaseAt: z.number().nullable(),
+  // Derivado: a chave já está solta para os jogadores (cron na data combinada ou
+  // torneio já iniciado).
+  bracketReleased: z.boolean(),
   city: z.string(),
   courts: CourtsSchema.default([]).catch([]),
   coverStorageId: z.string().nullable(),
@@ -428,12 +467,15 @@ export const tournamentEntrySchema = z.object({
   categoryId: z.string(),
   createdAt: z.number(),
   createdByUserId: z.string().nullable(),
-  entryRound: z.number().int().nullable(),
+  // Fase de entrada e cabeça de chave organizam a chave: a LISTA de inscrições
+  // só entrega os dois ao organizador e os omite para os demais (em torneio
+  // discoverable o público lia bye/fase antes da divulgação) — daí o opcional.
+  entryRound: z.number().int().nullable().optional(),
   id: z.string(),
   partnerUserId: z.string().nullable(),
   playerAId: z.string(),
   playerBId: z.string().nullable(),
-  seedRank: z.number().int().nullable(),
+  seedRank: z.number().int().nullable().optional(),
   status: z.enum(TournamentEntryStatusOptions),
   updatedAt: z.number(),
 });

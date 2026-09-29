@@ -18,7 +18,6 @@ import {
   formatEntryPlayerNames,
   formatEntrySideLabel,
   getTournamentStatusChip,
-  isBracketPublic,
   resolveTournamentEntriesTab,
   walkoverWinnerSide,
 } from "./tournament-details-derived";
@@ -107,36 +106,25 @@ describe("buildTournamentDetailsScreenState", () => {
   });
 });
 
-describe("isBracketPublic / buildTournamentDetailsAccess", () => {
-  test("bracket public only in ongoing/finished", () => {
-    expect(isBracketPublic("ongoing")).toBeTrue();
-    expect(isBracketPublic("finished")).toBeTrue();
-    expect(isBracketPublic("draft")).toBeFalse();
-    expect(isBracketPublic("published")).toBeFalse();
-    expect(isBracketPublic("drawn")).toBeFalse();
+describe("buildTournamentDetailsAccess", () => {
+  test("organizer sees everything even sem divulgação", () => {
+    expect(
+      buildTournamentDetailsAccess({
+        bracketReleased: false,
+        role: "organizer",
+      })
+    ).toEqual({
+      canManage: true,
+      canOpenBracket: true,
+      canOpenSchedule: true,
+    });
   });
 
-  test("organizer sees everything in any status (including private draft)", () => {
-    for (const status of [
-      "draft",
-      "published",
-      "drawn",
-      "ongoing",
-      "finished",
-    ]) {
+  test("não-organizador sem divulgação: bracket/schedule fechados", () => {
+    for (const role of ["guest", "player"] as const) {
       expect(
-        buildTournamentDetailsAccess({ role: "organizer", status })
+        buildTournamentDetailsAccess({ bracketReleased: false, role })
       ).toEqual({
-        canManage: true,
-        canOpenBracket: true,
-        canOpenSchedule: true,
-      });
-    }
-  });
-
-  test("non-organizer without public bracket: bracket/schedule closed", () => {
-    for (const status of ["draft", "published", "drawn"]) {
-      expect(buildTournamentDetailsAccess({ role: "player", status })).toEqual({
         canManage: false,
         canOpenBracket: false,
         canOpenSchedule: false,
@@ -144,9 +132,11 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
     }
   });
 
-  test("non-organizer in ongoing/finished: bracket/schedule open, no manage", () => {
-    for (const status of ["ongoing", "finished"]) {
-      expect(buildTournamentDetailsAccess({ role: "guest", status })).toEqual({
+  test("não-organizador com chave divulgada: abre mesmo antes do início", () => {
+    for (const role of ["guest", "player"] as const) {
+      expect(
+        buildTournamentDetailsAccess({ bracketReleased: true, role })
+      ).toEqual({
         canManage: false,
         canOpenBracket: true,
         canOpenSchedule: true,
@@ -156,12 +146,13 @@ describe("isBracketPublic / buildTournamentDetailsAccess", () => {
 });
 
 describe("buildBracketPlaceholder", () => {
-  test("no access: placeholder with the start date", () => {
+  test("sem acesso e sem data combinada: placeholder com o início", () => {
     const placeholder = buildBracketPlaceholder({
       access: buildTournamentDetailsAccess({
+        bracketReleased: false,
         role: "guest",
-        status: "published",
       }),
+      bracketReleaseAtMs: null,
       startDateMs: new Date(2026, 7, 25).getTime(),
     });
 
@@ -169,13 +160,28 @@ describe("buildBracketPlaceholder", () => {
     expect(placeholder).toContain("25 de ago");
   });
 
-  test("with access: null (bracket renders)", () => {
+  test("sem acesso com data combinada: o texto é a data da divulgação", () => {
+    const placeholder = buildBracketPlaceholder({
+      access: buildTournamentDetailsAccess({
+        bracketReleased: false,
+        role: "player",
+      }),
+      bracketReleaseAtMs: new Date(2026, 7, 23).getTime(),
+      startDateMs: new Date(2026, 7, 25).getTime(),
+    });
+
+    expect(placeholder).toContain("Chave divulgada em");
+    expect(placeholder).toContain("23 de ago");
+  });
+
+  test("com acesso: null (bracket renders)", () => {
     expect(
       buildBracketPlaceholder({
         access: buildTournamentDetailsAccess({
+          bracketReleased: true,
           role: "player",
-          status: "ongoing",
         }),
+        bracketReleaseAtMs: null,
         startDateMs: Date.now(),
       })
     ).toBeNull();
@@ -308,10 +314,10 @@ describe("getTournamentStatusChip", () => {
 });
 
 describe("buildTournamentNavigationTabItems", () => {
-  test("guest em published ve Overview e Entries (chave e agenda fechadas pre-ongoing)", () => {
+  test("sem divulgação o não-organizador vê Overview e Entries", () => {
     const access = buildTournamentDetailsAccess({
+      bracketReleased: false,
       role: "guest",
-      status: "published",
     });
 
     expect(
@@ -319,10 +325,10 @@ describe("buildTournamentNavigationTabItems", () => {
     ).toEqual(["overview", "entries"]);
   });
 
-  test("player em ongoing ve todas as abas na ordem", () => {
+  test("chave divulgada abre todas as abas na ordem", () => {
     const access = buildTournamentDetailsAccess({
+      bracketReleased: true,
       role: "player",
-      status: "ongoing",
     });
 
     expect(
@@ -330,10 +336,10 @@ describe("buildTournamentNavigationTabItems", () => {
     ).toEqual(["overview", "bracket", "schedule", "entries"]);
   });
 
-  test("organizer em draft ve todas as abas", () => {
+  test("organizer vê todas as abas mesmo sem divulgação", () => {
     const access = buildTournamentDetailsAccess({
+      bracketReleased: false,
       role: "organizer",
-      status: "draft",
     });
 
     expect(

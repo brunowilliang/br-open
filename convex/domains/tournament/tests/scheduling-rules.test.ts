@@ -5,10 +5,12 @@ import { resolveMatchOccupiedEndMinute } from "../../match/scheduling";
 import {
   canReserveUnreadySlot,
   findCourtSlotConflict,
+  isBracketReleased,
   isScheduledTournamentMatch,
   resolveBulkCancelPlan,
   resolveTournamentAutoAction,
   shouldAutoDrawTournament,
+  shouldAutoReleaseTournament,
   shouldAutoStartTournament,
   type TournamentScheduledMatch,
 } from "../scheduling-rules";
@@ -217,6 +219,8 @@ describe("shouldAutoDrawTournament (IBX-0098)", () => {
 
   it("sorteia quando o prazo fecha e NÃO inicia o torneio", () => {
     const base = {
+      bracketReleaseAtMs: null,
+      bracketReleasedAtMs: null,
       registrationDeadlineMs: deadlineMs,
       startDateMs: startDayMs,
     };
@@ -247,6 +251,8 @@ describe("shouldAutoDrawTournament (IBX-0098)", () => {
   it("no dia do início o start ganha: um published sorteia e inicia no mesmo tick", () => {
     expect(
       resolveTournamentAutoAction({
+        bracketReleaseAtMs: null,
+        bracketReleasedAtMs: null,
         nowMs: brt("2026-09-25T03:05:00Z"),
         registrationDeadlineMs: deadlineMs,
         startDateMs: startDayMs,
@@ -257,6 +263,8 @@ describe("shouldAutoDrawTournament (IBX-0098)", () => {
 
   it("drawn já tem chave: não re-sorteia sozinho e não produz ação", () => {
     const base = {
+      bracketReleaseAtMs: null,
+      bracketReleasedAtMs: null,
       registrationDeadlineMs: deadlineMs,
       startDateMs: startDayMs,
     };
@@ -289,6 +297,8 @@ describe("shouldAutoDrawTournament (IBX-0098)", () => {
     ).toBeFalse();
     expect(
       resolveTournamentAutoAction({
+        bracketReleaseAtMs: null,
+        bracketReleasedAtMs: null,
         nowMs: brt("2026-09-25T03:05:00Z"),
         registrationDeadlineMs: lateDeadlineMs,
         startDateMs: startDayMs,
@@ -312,6 +322,122 @@ describe("shouldAutoDrawTournament (IBX-0098)", () => {
     ).toBeFalse();
     expect(
       shouldAutoDrawTournament({ ...base, nowMs: brt("2026-09-25T15:00:00Z") })
+    ).toBeTrue();
+  });
+});
+
+describe("shouldAutoReleaseTournament / isBracketReleased (divulgação da chave)", () => {
+  // Prazo 20/09 22:00 BRT, divulgação 23/09 09:00 BRT (12:00 UTC), início 25/09.
+  const deadlineMs = Date.UTC(2026, 8, 21, 1, 0, 0);
+  const releaseMs = Date.UTC(2026, 8, 23, 12, 0, 0);
+  const startDayMs = Date.UTC(2026, 8, 25, 3, 0, 0);
+  const brt = (isoUtc: string) => Date.parse(isoUtc);
+  const base = { bracketReleaseAtMs: releaseMs, bracketReleasedAtMs: null };
+
+  it("solta no instante combinado, mesmo já sorteado, e nunca repete", () => {
+    expect(
+      shouldAutoReleaseTournament({
+        ...base,
+        nowMs: releaseMs - 1,
+        status: "drawn",
+      })
+    ).toBeFalse();
+    expect(
+      shouldAutoReleaseTournament({
+        ...base,
+        nowMs: releaseMs,
+        status: "drawn",
+      })
+    ).toBeTrue();
+    // Idempotente por estado: marca carimbada, o cron não solta nem avisa de novo.
+    expect(
+      shouldAutoReleaseTournament({
+        ...base,
+        bracketReleasedAtMs: releaseMs,
+        nowMs: releaseMs + 3_600_000,
+        status: "drawn",
+      })
+    ).toBeFalse();
+  });
+
+  it("sem data (legado) não tem divulgação agendada", () => {
+    for (const bracketReleaseAtMs of [null, undefined]) {
+      expect(
+        shouldAutoReleaseTournament({
+          bracketReleaseAtMs,
+          bracketReleasedAtMs: null,
+          nowMs: brt("2026-09-24T12:00:00Z"),
+          status: "published",
+        })
+      ).toBeFalse();
+    }
+  });
+
+  it("só published/drawn soltam: os demais estados ficam quietos", () => {
+    for (const status of ["draft", "ongoing", "finished", "cancelled"]) {
+      expect(
+        shouldAutoReleaseTournament({ ...base, nowMs: releaseMs, status })
+      ).toBeFalse();
+    }
+  });
+
+  it("prioridade do cron: start > release > draw", () => {
+    // No dia do início o start ganha (ele já publica a chave inteira).
+    expect(
+      resolveTournamentAutoAction({
+        ...base,
+        nowMs: brt("2026-09-25T03:05:00Z"),
+        registrationDeadlineMs: deadlineMs,
+        startDateMs: startDayMs,
+        status: "drawn",
+      })
+    ).toBe("start");
+    // Divulgação vencida ganha do sorteio do prazo: o cron sorteia ANTES de soltar.
+    expect(
+      resolveTournamentAutoAction({
+        ...base,
+        nowMs: releaseMs,
+        registrationDeadlineMs: deadlineMs,
+        startDateMs: startDayMs,
+        status: "published",
+      })
+    ).toBe("release");
+    // Antes da divulgação o prazo fechado ainda sorteia (a prévia privada).
+    expect(
+      resolveTournamentAutoAction({
+        ...base,
+        nowMs: brt("2026-09-22T12:00:00Z"),
+        registrationDeadlineMs: deadlineMs,
+        startDateMs: startDayMs,
+        status: "published",
+      })
+    ).toBe("draw");
+  });
+
+  it("isBracketReleased: chave privada até a marca ou o início", () => {
+    // Sorteada e sem divulgação (inclusive o legado, sem o campo): privada.
+    expect(
+      isBracketReleased({ bracketReleasedAt: null, status: "drawn" })
+    ).toBeFalse();
+    expect(
+      isBracketReleased({ bracketReleasedAt: undefined, status: "published" })
+    ).toBeFalse();
+    expect(
+      isBracketReleased({ bracketReleasedAt: null, status: "cancelled" })
+    ).toBeFalse();
+    // Solta pelo cron na data combinada.
+    expect(
+      isBracketReleased({
+        bracketReleasedAt: new Date(releaseMs),
+        status: "drawn",
+      })
+    ).toBeTrue();
+    // ongoing/finished contam como divulgado: torneio antigo segue como sempre foi.
+    expect(
+      isBracketReleased({ bracketReleasedAt: null, status: "ongoing" })
+    ).toBeTrue();
+    expect(
+      isBracketReleased({ bracketReleasedAt: null, status: "finished" })
     ).toBeTrue();
   });
 });
