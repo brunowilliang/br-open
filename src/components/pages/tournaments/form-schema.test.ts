@@ -28,6 +28,7 @@ function buildValidValues() {
     courts: [],
     coverStorageId: null,
     description: undefined,
+    endDate: "2026-09-20",
     locationNotes: undefined,
     matchConfig: {
       ...DEFAULT_MATCH_CONFIG,
@@ -74,19 +75,31 @@ describe("TournamentSchema registration window", () => {
 });
 
 describe("TournamentSchema tournament window", () => {
-  test("end on the start day and later passes", () => {
-    expect(
-      TournamentSchema.safeParse({
-        ...buildValidValues(),
-        endDate: "2026-09-15",
-      }).success
-    ).toBeTrue();
+  test("end after the start day passes", () => {
     expect(
       TournamentSchema.safeParse({
         ...buildValidValues(),
         endDate: "2026-09-30",
       }).success
     ).toBeTrue();
+  });
+
+  test("end on the start day is rejected with the next-day copy", () => {
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      endDate: "2026-09-15",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const endIssue = result.error.issues.find(
+        (issue) => issue.path[0] === "endDate"
+      );
+
+      expect(endIssue?.message).toBe(
+        "O fim do torneio deve ser pelo menos o dia seguinte ao início."
+      );
+    }
   });
 
   test("end before the start is rejected on the end field", () => {
@@ -103,8 +116,26 @@ describe("TournamentSchema tournament window", () => {
     }
   });
 
-  test("without an end the window stays open", () => {
-    expect(TournamentSchema.safeParse(buildValidValues()).success).toBeTrue();
+  test("torneio LEGADO sem fim abre mas o salvar recusa até escolher o período", () => {
+    // O form do legado chega com `endDate: ""` (fim nulo no servidor): a
+    // opção do picker monta só com o início e o SALVAR exige o fim.
+    expect(
+      buildTournamentRangeOption({ startDate: "2026-09-15" })
+    ).toBeDefined();
+
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      endDate: "",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const endIssue = result.error.issues.find(
+        (issue) => issue.path[0] === "endDate"
+      );
+
+      expect(endIssue?.message).toBe("Informe a data.");
+    }
   });
 });
 

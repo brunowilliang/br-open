@@ -13,6 +13,10 @@ import {
   type CourtTimeRange,
 } from "@/lib/courts/court-availability";
 import { formatMinuteToHHMM } from "@/lib/format/time";
+import {
+  closeRemovedExpandedId,
+  toggleSingleExpandedId,
+} from "@/lib/tournaments/accordion-selection";
 import type { Court, CourtDay } from "@convex/domains/match/contract";
 import {
   Add01Icon,
@@ -134,6 +138,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
   >({});
   const [draftName, setDraftName] = useState("");
   const [editingCourtId, setEditingCourtId] = useState<string | null>(null);
+  const [expandedCourtId, setExpandedCourtId] = useState<string | undefined>();
   const [isCourtDialogOpen, setIsCourtDialogOpen] = useState(false);
   const [isRangeDialogOpen, setIsRangeDialogOpen] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -179,6 +184,14 @@ export function CourtEditor(props: { isDisabled: boolean }) {
       shouldTouch: true,
       shouldValidate: true,
     });
+  }
+
+  // No default o Accordion manda `undefined` quando o item tocado é o aberto;
+  // `isCollapsible={false}` mandaria o mesmo id, que o valor controlado ignora.
+  function handleExpandedChange(toggledCourtId: string | undefined) {
+    setExpandedCourtId((currentId) =>
+      toggleSingleExpandedId(currentId, toggledCourtId)
+    );
   }
 
   function getActiveDay(courtId: string) {
@@ -259,6 +272,9 @@ export function CourtEditor(props: { isDisabled: boolean }) {
 
   function handleRemoveCourt(courtId: string) {
     onChange(value.filter((court) => court.id !== courtId));
+    setExpandedCourtId((currentId) =>
+      closeRemovedExpandedId(currentId, courtId)
+    );
     closeCourtDialog();
   }
 
@@ -420,7 +436,9 @@ export function CourtEditor(props: { isDisabled: boolean }) {
           <Accordion
             classNames={{ container: "gap-3 overflow-visible" }}
             hideSeparator
-            selectionMode="multiple"
+            onValueChange={handleExpandedChange}
+            selectionMode="single"
+            value={expandedCourtId}
           >
             {value.map((court) => (
               <Accordion.Item

@@ -7,7 +7,7 @@ import {
   type AutocompleteOption,
 } from "heroui-native-pro";
 import { useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +19,10 @@ import { PersonCard } from "@/components/ui/person-card";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 const PageFooter = Animated.createAnimatedComponent(Page.Footer);
+
+// Teto curto pra lista não virar parede; piso pra continuar rolável em tela baixa.
+const CATEGORY_LIST_MAX_HEIGHT = 400;
+const CATEGORY_LIST_MIN_HEIGHT = 160;
 
 export type JoinFooterPrice = {
   amount: string;
@@ -115,6 +119,15 @@ export function JoinFooter(props: JoinFooterProps) {
   );
   // Abaixo da safe area pra o diálogo não ficar sob o teclado.
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  // Metade da área útil = folga do placar: o painel nunca passa da tela.
+  const categoryListMaxHeight = Math.max(
+    CATEGORY_LIST_MIN_HEIGHT,
+    Math.min(
+      CATEGORY_LIST_MAX_HEIGHT,
+      Math.round((windowHeight - insets.top - insets.bottom) / 2)
+    )
+  );
 
   function confirmSelection() {
     setIsOpen(false);
@@ -216,106 +229,122 @@ export function JoinFooter(props: JoinFooterProps) {
                 ) : null}
               </View>
               {props.categories && props.categories.length > 0 ? (
-                <View className="gap-1">
-                  {props.categories.map((category) => {
-                    const isSelected = category.id === selectedCategoryId;
-                    // Cheia ou incompatível: mesmo estado desabilitado, muda
-                    // só o motivo exibido no chip.
-                    const isUnavailable =
-                      category.isFull || category.isIneligible;
-                    const ineligibleReason = category.isIneligible
-                      ? category.ineligibleReason
-                      : null;
+                // Padrão da casa (select-scroll-content): lista longa rola por dentro.
+                <ScrollShadow
+                  color="surface-secondary"
+                  style={{ maxHeight: categoryListMaxHeight }}
+                >
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {/* Segura o toque da lista: na linha indisponível o
+                        PressableFeedback disabled não assume o responder e o
+                        MorphButton (ancestral do ScrollView) trava o pan. */}
+                    <View
+                      className="gap-1"
+                      onStartShouldSetResponder={() => true}
+                    >
+                      {props.categories.map((category) => {
+                        const isSelected = category.id === selectedCategoryId;
+                        // Cheia ou incompatível: mesmo estado desabilitado, muda
+                        // só o motivo exibido no chip.
+                        const isUnavailable =
+                          category.isFull || category.isIneligible;
+                        const ineligibleReason = category.isIneligible
+                          ? category.ineligibleReason
+                          : null;
 
-                    return (
-                      <PressableFeedback
-                        isDisabled={isUnavailable}
-                        key={category.id}
-                        onPress={() => {
-                          // Tocar de novo na categoria já selecionada desmarca:
-                          // sem seleção o CTA do painel fica desabilitado.
-                          const nextCategoryId = isSelected
-                            ? null
-                            : category.id;
+                        return (
+                          <PressableFeedback
+                            isDisabled={isUnavailable}
+                            key={category.id}
+                            onPress={() => {
+                              // Tocar de novo na categoria já selecionada desmarca:
+                              // sem seleção o CTA do painel fica desabilitado.
+                              const nextCategoryId = isSelected
+                                ? null
+                                : category.id;
 
-                          setSelectedCategoryId(nextCategoryId);
-                          props.onCategoryChange?.(nextCategoryId);
-                        }}
-                      >
-                        <Card
-                          className={cn(
-                            "flex-row items-center justify-between px-4 py-3",
-                            isSelected && "bg-accent-soft",
-                            isUnavailable && "opacity-disabled"
-                          )}
-                          variant="transparent"
-                        >
-                          <View className="gap-1">
-                            <Text
-                              color={isSelected ? "accent" : "foreground"}
-                              numberOfLines={1}
-                              weight={isSelected ? "semibold" : undefined}
+                              setSelectedCategoryId(nextCategoryId);
+                              props.onCategoryChange?.(nextCategoryId);
+                            }}
+                          >
+                            <Card
+                              className={cn(
+                                "flex-row items-center justify-between px-4 py-3",
+                                isSelected && "bg-accent-soft",
+                                isUnavailable && "opacity-disabled"
+                              )}
+                              variant="transparent"
                             >
-                              {category.displayName}
-                            </Text>
-                            {category.typeLabel ? (
-                              <Text
-                                color="muted"
-                                numberOfLines={1}
-                                variant="description"
-                              >
-                                {category.typeLabel}
-                              </Text>
-                            ) : null}
-                            <View className="flex-row items-center gap-1">
-                              {/* Sem motivo (perfil legado SEM gênero) a linha fica
-                                  SEM chip DE PROPÓSITO: vagas não explicam. */}
-                              {category.isIneligible ? (
-                                ineligibleReason ? (
-                                  <Chip className="bg-muted/20" size="sm">
-                                    <Chip.Label className="text-foreground/80">
-                                      {ineligibleReason}
-                                    </Chip.Label>
-                                  </Chip>
-                                ) : null
-                              ) : category.isFull ? (
-                                <Chip className="bg-muted/20" size="sm">
-                                  <Chip.Label className="text-foreground/80">
-                                    Lotada
-                                  </Chip.Label>
-                                </Chip>
-                              ) : category.vacancyLabel ? (
-                                <Chip
-                                  className={cn(!isSelected && "bg-muted/20")}
-                                  size="sm"
-                                  variant="soft"
+                              <View className="gap-1">
+                                <Text
+                                  color={isSelected ? "accent" : "foreground"}
+                                  numberOfLines={1}
+                                  weight={isSelected ? "semibold" : undefined}
                                 >
-                                  <Chip.Label
-                                    className={cn(
-                                      !isSelected && "text-foreground/80"
-                                    )}
+                                  {category.displayName}
+                                </Text>
+                                {category.typeLabel ? (
+                                  <Text
+                                    color="muted"
+                                    numberOfLines={1}
+                                    variant="description"
                                   >
-                                    {category.vacancyLabel}
-                                  </Chip.Label>
-                                </Chip>
-                              ) : null}
-                            </View>
-                          </View>
+                                    {category.typeLabel}
+                                  </Text>
+                                ) : null}
+                                <View className="flex-row items-center gap-1">
+                                  {/* Sem motivo (perfil legado SEM gênero) a linha fica
+                                  SEM chip DE PROPÓSITO: vagas não explicam. */}
+                                  {category.isIneligible ? (
+                                    ineligibleReason ? (
+                                      <Chip className="bg-muted/20" size="sm">
+                                        <Chip.Label className="text-foreground/80">
+                                          {ineligibleReason}
+                                        </Chip.Label>
+                                      </Chip>
+                                    ) : null
+                                  ) : category.isFull ? (
+                                    <Chip className="bg-muted/20" size="sm">
+                                      <Chip.Label className="text-foreground/80">
+                                        Lotada
+                                      </Chip.Label>
+                                    </Chip>
+                                  ) : category.vacancyLabel ? (
+                                    <Chip
+                                      className={cn(
+                                        !isSelected && "bg-muted/20"
+                                      )}
+                                      size="sm"
+                                      variant="soft"
+                                    >
+                                      <Chip.Label
+                                        className={cn(
+                                          !isSelected && "text-foreground/80"
+                                        )}
+                                      >
+                                        {category.vacancyLabel}
+                                      </Chip.Label>
+                                    </Chip>
+                                  ) : null}
+                                </View>
+                              </View>
 
-                          <View>
-                            <Text
-                              color={isSelected ? "accent" : "foreground"}
-                              weight={isSelected ? "semibold" : undefined}
-                            >
-                              {category.priceLabel}
-                            </Text>
-                          </View>
-                          <PressableFeedback.Highlight />
-                        </Card>
-                      </PressableFeedback>
-                    );
-                  })}
-                </View>
+                              <View>
+                                <Text
+                                  color={isSelected ? "accent" : "foreground"}
+                                  weight={isSelected ? "semibold" : undefined}
+                                >
+                                  {category.priceLabel}
+                                </Text>
+                              </View>
+                              <PressableFeedback.Highlight />
+                            </Card>
+                          </PressableFeedback>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </ScrollShadow>
               ) : null}
               {isDoubles ? (
                 // FadeIn explícito: o bloco MONTA TARDE (só em doubles) e a prop

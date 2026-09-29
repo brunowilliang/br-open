@@ -25,7 +25,7 @@ import {
   DateRangePicker,
   RangeCalendar,
 } from "heroui-native-pro";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useController, useFormContext, useWatch } from "react-hook-form";
 
 import { Image } from "@/components/core/image";
@@ -36,9 +36,15 @@ import {
   parseTournamentRangeValue,
   type TournamentScreenValues,
 } from "@/components/pages/tournaments/form-schema";
+import { brazilDayKey } from "@convex/domains/tournament/window-rules";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";
+import {
+  buildAutoRegistrationDeadline,
+  resolveTournamentEndDate,
+  shouldDeadlineFollowStartDate,
+} from "@/lib/tournaments/tournament-window-defaults";
 
 const DATE_LOCALE = "pt-BR";
 
@@ -142,9 +148,6 @@ function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
 type TournamentRangePickerFieldProps = {
   endError?: string;
   isDisabled: boolean;
-  /** No create o fim vazio vira o MESMO dia do início; na edição o vazio
-   * preserva o torneio sem teto (legado). */
-  mode: "create" | "edit";
   startError?: string;
 };
 
@@ -152,7 +155,11 @@ type TournamentRangePickerFieldProps = {
  * torneio numa seleção (dois toques), e o form guarda as duas datas como
  * sempre. */
 function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
-  const { control, setValue } = useFormContext<TournamentScreenValues>();
+  const { control, getValues, setValue } =
+    useFormContext<TournamentScreenValues>();
+  // Último prazo aplicado AUTOMATICAMENTE por este campo: enquanto o form
+  // guardar esse valor (ou nada), o prazo segue o início.
+  const autoDeadlineRef = useRef("");
   const startDateValue = useWatch({ control, name: "startDate" });
   const endDateValue = useWatch({ control, name: "endDate" });
   const rangeOption = useMemo(
@@ -187,10 +194,36 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
           shouldDirty: true,
           shouldValidate: true,
         });
-        setValue("endDate", next.endDate, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
+        setValue(
+          "endDate",
+          resolveTournamentEndDate({
+            endDate: next.endDate,
+            startDate: next.startDate,
+          }),
+          { shouldDirty: true, shouldValidate: true }
+        );
+
+        const deadline = getValues("registrationDeadlineAt");
+
+        if (
+          shouldDeadlineFollowStartDate({
+            deadline,
+            lastAutoDeadline: autoDeadlineRef.current,
+          })
+        ) {
+          const autoDeadline = buildAutoRegistrationDeadline({
+            startDate: next.startDate,
+            todayDayKey: brazilDayKey(Date.now()),
+          });
+
+          autoDeadlineRef.current = autoDeadline;
+          // Sem `shouldDirty`: o prazo automático não conta como edição do
+          // organizador nem suja o form pro aviso de sair sem salvar.
+          setValue("registrationDeadlineAt", autoDeadline, {
+            shouldDirty: false,
+            shouldValidate: true,
+          });
+        }
       }}
       value={rangeOption}
     >
@@ -231,11 +264,8 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
         </DateRangePicker.Portal>
       </DateRangePicker.Select>
       <Description>
-        {`Toque no dia de início e depois no dia do fim. Fora da janela ninguém agenda, nem você.${
-          props.mode === "create"
-            ? " Sem escolher o fim, o torneio termina no mesmo dia do início."
-            : ""
-        }`}
+        Toque no dia de início e depois no dia do fim. O fim fica pelo menos no
+        dia seguinte ao início.
       </Description>
       <FieldError>{error ?? ""}</FieldError>
     </DateRangePicker>
@@ -371,7 +401,6 @@ export default function TournamentDetailsRoute() {
         <TournamentRangePickerField
           endError={endDateState.error?.message}
           isDisabled={isDisabled}
-          mode={mode}
           startError={startDateState.error?.message}
         />
 

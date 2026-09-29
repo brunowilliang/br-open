@@ -94,7 +94,7 @@
   `RuleCard`/`RuleExpandableContent` (`components/ui/rule-card.tsx`, QA R13:
   accordion igual às seções de Regras). **Gatilho do accordion: TOCAR NO
   CARD** — header inteiro pressable (mecânica `RuleToggleRow`,
-  `rule-card.tsx:154-180`; o Switch é só INDICADOR DE ESTADO com
+  `rule-card.tsx:159-197`; o Switch é só INDICADOR DE ESTADO com
   `pointerEvents="none"`), não apenas o Switch: habilitar expande animado
   os campos (fade + `AccordionLayoutTransition`), desabilitar recolhe para
   só nome + Switch. Erro do array ("Selecione pelo menos uma categoria.")
@@ -102,7 +102,7 @@
   original; a leitura "dentro do primeiro card" do T2 não vingou), envolto
   em `Animated.View` com entering=`FadeIn` 180ms / exiting=`FadeOut` 120ms /
   layout=`AccordionLayoutTransition` — as mesmas transições do
-  `RuleExpandableContent` (`rule-card.tsx:28-29`, `92-103`): aparece/some
+  `RuleExpandableContent` (`rule-card.tsx:28-29`, `93-104`): aparece/some
   animado com reflow suave; revalidação on-the-fly ao habilitar uma
   categoria preservada. Campos: NumberField BRL de taxa (0 =
   grátis; Input `variant="secondary"` — QA round 8: o
@@ -1045,6 +1045,10 @@
   com ~45+ inscritos~~ — ✔ RESOLVIDO no R18: minZoom dinâmico = zoom exato
   do fit (`bracketFitZoom`); o zoom-out alcança SEMPRE o enquadramento
   completo, em qualquer tamanho de chave.
+- Fim do torneio no CONTRATO: `refineTournamentWindow` (contract.ts:191-231)
+  recusa só fim ANTERIOR ao início via dia brasileiro — `fim == início` passa. O
+  formulário já exige fim ≥ início + 1 (lote de 29-09 (2)); a trava do servidor
+  ficou pendente.
 
 ## Backend implementado (slice 2 — 22-08-2026)
 
@@ -2110,12 +2114,12 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
 - **r20 (20-09, pedido do usuário): chip de modalidade fora do seletor de categorias.** O `Chip` com `MODALITY_LABEL[category.modality]` no item de categoria era redundante — o `displayName` da categoria já traz a modalidade ("Simples Masculino", "Duplas"...). Chip e const `MODALITY_LABEL` extintos (único uso era o chip; o campo `modality` do tipo fica — alimenta o bloco de duplas via `selectedCategory?.modality`). Item da lista segue com displayName + vagas/Lotada + seleção, no desenho atual do usuário.
 - **r25 (20-09, pedido do usuário): filtro de gênero na busca e no convite de parceiro.** Regra: Duplas Masculinas → parceiro Masculino; Duplas Femininas → parceira Feminina; Mistas → OPOSTO de quem convida. SERVER-SIDE: `searchByUsername` ganhou `categoryId` obrigatório no input e resolve o alvo com `resolvePartnerGenderTarget` (auth user + categoria — o cliente não manda gender); create valida a MESMA regra pela extensão de `validateEntryGenders` (supersede do "v1 não valida não-mistas" — teste antigo removido, novo suite r25 cobre as 3 combinações + nulos + burla via create). Gênero NULL decidido: candidato não aparece na busca E o create recusa com mensagem pt-BR ("...gênero masculino definido no perfil"); caller sem gênero em mista → busca `[]` e create recusa ("mistas exigem o gênero definido nos dois"). Dados DEV: 83 perfis — 69 M, 1 F, 13 NULL. Wiring de transição na página (r25: busca habilitada quando todas as duplas inscríveis compartilham o mesmo gênero) SUPERSEDED pelo r26 — a busca usa a categoria selecionada no painel. APONTADO: regra é do PARCEIRO — caller com gênero divergente da categoria fixa passa no create (fora do pedido; decisão de produto se/quando o usuário quiser). Nota técnica: migrations devem ser SELF-CONTAINED (sem import de domínio) — o checksum cobre o bundle deployado e import de `entry-rules.ts` driftava a cada edição do domínio (corrigido na 20260920_091746: reescrita inline + re-apply; journal 16/16, drift []). FIX da review: pins do gate fixo viram `toBe` com a MENSAGEM EXATA pt-BR (masculina/feminina, parceiro nulo incluso) e a busca ganhou over-fetch — pré-filtro 25, cap 10 DEPOIS do filtro de gênero + exclusão do caller (prefixo popular não devolve `[]` com válido além do corte).
 - **r26 (20-09, continuação do r25): a busca de parceiro usa a CATEGORIA SELECIONADA no painel.** O wiring de transição do r25 na página ("habilita só quando TODAS as duplas inscríveis compartilham o mesmo gênero") saiu — cutover limpo. O `JoinFooter` ganhou `onCategoryChange?: (categoryId: null | string) => void`: dispara a cada mudança do painel (escolha de categoria e reset na confirmação; a seleção segue estado interno dele) e a página guarda `selectedCategoryId` pra alimentar `players.searchByUsername` (`categoryId` obrigatório do contrato r25; gênero continua 100% server-side, o cliente nunca manda). Gate da busca: categoria selecionada E `modality === "doubles"` + termo válido (3-30 chars) — duplas sem categoria escolhida = busca desabilitada. Galeria intocada (prop opcional; `join-footer.tsx`, `tournaments/[tournamentId]/index.tsx`).
-- **r22 (20-09, contrato r18-A): busca de parceiro em lista + diálogo neutro.** `players.searchByUsername` passou a devolver `TournamentPlayerCard[]` (array alfabético ≤10 por prefixo; `[]` = ninguém). O rodapé do torneio adaptou o consumo: a página (`index.tsx:324-330`) normaliza o `data` do interop e mapeia a lista em `partnerOptions` (types nomeados do contrato); o `Autocomplete` do painel já lista múltiplos itens. Estado inicial do diálogo (apontamento de QA): com campo vazio não grita mais "Nenhum jogador encontrado." — o `Empty` (`join-footer.tsx:400-404`) é neutro ("Busque pelo nome ou @username.") até existir termo válido buscado (mesmo corte de 3 chars do gate da página), e só então vira "Nenhum jogador encontrado.".
+- **r22 (20-09, contrato r18-A): busca de parceiro em lista + diálogo neutro.** `players.searchByUsername` passou a devolver `TournamentPlayerCard[]` (array alfabético ≤10 por prefixo; `[]` = ninguém). O rodapé do torneio adaptou o consumo: a página (`index.tsx:324-330`) normaliza o `data` do interop e mapeia a lista em `partnerOptions` (types nomeados do contrato); o `Autocomplete` do painel já lista múltiplos itens. Estado inicial do diálogo (apontamento de QA): com campo vazio não grita mais "Nenhum jogador encontrado." — o `Empty` (`join-footer.tsx:446-450`) é neutro ("Busque pelo nome ou @username.") até existir termo válido buscado (mesmo corte de 3 chars do gate da página), e só então vira "Nenhum jogador encontrado.".
 - **r18-A (20-09, backend, decisão A do orquestrador): busca de parceiro vira PREFIXO.** Veredito do r18 (busca EXATA, dado saudável — 78 users com username no DEV) virou contrato novo: `players.searchByUsername` retorna LISTA (`TournamentPlayerCard[]`, ≤10, alfabética por username) via `startsWith` no índice único de `username` + seleção pura `selectUsernameMatches` (`entry-rules.ts`; testada: prefixo parcial, case-insensitive via normalização, limite, sem-username nunca aparece). MESMO nome e input `{username}` — output muda de `card | null` pra `array` (cutover limpo: único consumidor era o rodapé). O Frontend adapta o autocomplete ao array depois deste pouso.
 - **r19 (20-09, bug ao vivo): re-inscrição explodia com 500 cru de índice único.** Causa provada em sonda: entry TERMINAL (cancelled/rejected) segurava `(categoryId, playerAId)` no unique index PARA SEMPRE — `playerAId` é NOT NULL e `cancel`/`reject` só mudavam status; o guard H3 ignora terminais de propósito (re-inscrição após cancelar é fluxo legítimo), então o INSERT colidia no banco ("Unique index 'categoryId_playerAId' violation"). Fix: espelhos de reserva `activeAId`/`activeBId` (colunas opcionais novas; preenchidas nos inserts via `entrySlotFields`; limpas com `unsetToken` em TODA transição terminal — `cancel`, `reject`, recusa de convite, estouro de pagamento no `charge.ts`, cancelamento do torneio no `lifecycle.ts`), unique indexes trocados pra `categoryId_activeAId`/`categoryId_activeBId` (mesma proteção pra entradas vivas — awaiting_payment/active inclusive; playerB tem o próprio índice), terminais saem do índice e a re-inscrição volta a funcionar. Backfill das entries vivas pré-existentes: migration `20260920_091746_backfill_tournament_entry_slots` (roda no deploy autorizado; sem ela o guard continua protegendo, o índice é rede extra). Testes de slot por status + matches de busca em `domains/tournament/tests/entry-rules.test.ts`.
 - **r27 (20-09, regra de produto nova + ao vivo): gate do CALLER por gênero, contato do rodapé pro Frontend e perfis femininos no DEV.** (a) **Regra:** categoria de gênero FIXO (Simples Masculino/Feminino e Duplas Masculinas/Femininas) só aceita quem se inscreve com o gênero da categoria; **mista segue o r25** (caller qualquer gênero definido, parceiro o OPOSTO); perfil sem gênero é recusado igual ao r25. Isso fecha o furo que o r25 tinha APONTADO (só o parceiro era validado): um perfil masculino entrava em Duplas Femininas convidando uma parceira. Fonte única pura `resolveCallerEligibility(categoria, gênero do caller)` → `{eligible, label, reason}`; `validateEntryGenders` COMPÕE ela com o gate do parceiro; o `create` a roda antes de capacidade/duplicata (mensagem nova pt-BR, mesma família: "Você não pode se inscrever em Duplas Femininas. A categoria aceita apenas o gênero feminino."). (b) **Contrato pro Frontend (tela do torneio):** `tournamentDiscoverySchema.categories` passa a `tournamentDiscoveryCategorySchema` com `viewerEligible: boolean | null` + `viewerIneligibleReason: string | null` POR categoria — `null` = viewer sem ator jogador (organizador/guest, nada a gatear), `false` = categoria incompatível com o motivo pronto pra exibir; o client decide entre desabilitar ou esconder SEM duplicar a regra (e o valor de `viewerIneligibleReason` É O RÓTULO CURTO do chip, ver b3). `management.getById` (organizador) segue com o shape antigo. (b2) **MEDIUM da review (corrigido na sequência):** `players.searchByUsername` não consultava o gate do caller — Camila (F) em Duplas Masculinas recebia 5 homens sugeridos enquanto a leitura marcava `viewerEligible=false` e o create recusaria. Agora a busca chama a fonte única `resolvePartnerSearchGender` (caller + alvo) e devolve `[]` quando o caller é inelegível; pins novos em `entry-rules.test.ts` (camila x duplas masculinas, bruno x duplas femininas, sem gênero, mista sem gênero = `[]`; aceites legítimos inalterados) com prova de mutação (o mutant "caller não consultado" quebra 4 pins). (b3) **Micro-ajuste de copy (20-09, feedback do usuário ao vivo): o chip mostra RÓTULO CURTO, o erro mostra a FRASE.** O `viewerIneligibleReason` do discovery carregava a frase inteira da recusa e estourava o chip do rodapé; agora `resolveCallerEligibility` devolve `{eligible, label, reason}` — `label` (≤2 palavras) é o que a leitura publica e o chip pinta, `reason` (frase completa, INALTERADA byte-a-byte) é o que o `create` recusa. Strings FINAIS (escolha do usuário): gênero definido divergente = **`Mulheres`** na categoria feminina e **`Homens`** na masculina; gênero ausente (categoria fixa ou mista) = **sem chip** (`label: null`, o caso é legado porque a escrita do perfil exige gender — a frase longa continua no erro do create). Shape do contrato intocado (mesmos campos; só o valor do campo mudou, o Frontend exibe o que vier). Pins em `entry-rules.test.ts`: os dois textos convivem (erro exato + rótulo exato) e um pin novo garante ≤2 palavras e ausência de travessão; prova de mutação com o mutant "rótulo = frase longa" quebrando 4 pins. (c) **LOW do r25 fechado:** `players.searchByUsername` corta o loop ao atingir o `SEARCH_LIMIT` (antes serializava até 25 cards e descartava o resto no cap). (d) **DEV (kindred-yak-142, PROD intocado):** 8 contas/perfis FEMININOS com username via o MESMO caminho do seed `scripts/seed-tournament-dev.mjs` (sign-up HTTP + `player.profile.upsert`; usernames agrupados por prefixo ca/ma/pa de propósito); conta de teste **camila.rocha@bropen.local / Dracena2026**; read-back: 9 perfis Feminino (8 com username) contra 69 Masculino/13 nulos no DEV. Categorias pra teste já existiam na **Copa Vila Tênis Clube** (published, prazo 28/09): Duplas Femininas e Duplas Mistas VAZIAS (maxEntries null), Simples Feminino lotada (4/4). Provas ao vivo no DEV: campos novos no `getById`, recusa do caller em duplas E simples (gênero errado vence o "lotada"), gate do parceiro r25 de pé, busca "ca"/"ma" devolvendo as parceiras (self excluído) e "br" devolvendo 4 homens pra mista. Pins r27 com prova de mutação em `entry-rules.test.ts` (**72 testes no arquivo**, contados no estado final) + script de mutação fora da árvore.
-- **r29 (20-09, decisão do usuário): categoria incompatível entra DESABILITADA COM O MOTIVO (nunca escondida).** Decisão dele sobre o contrato r27: o seletor do rodapé exibe a categoria incompatível em vez de sumir com ela. **Vocabulário reusado (sem variante nova):** MESMA linha desabilitada do "Lotada" — `PressableFeedback isDisabled` + `opacity-disabled` no Card (`join-footer.tsx:229-243`); o chip muted (`bg-muted/20` + `text-foreground/80`) que hoje mostra "Lotada" passa a mostrar o MOTIVO quando a categoria é incompatível (`join-footer.tsx:256-262`), na FRENTE da cadeia (incompatível > lotada > vagas). **Origem do motivo:** `viewerIneligibleReason` do contrato de discovery (`tournamentDiscoverySchema.categories[].viewerEligible/viewerIneligibleReason`, r27) — o cliente NÃO escreve copy própria nem recalcula gênero: a página só repassa os campos (`index.tsx:332-347`) e o `JoinFooterCategory` ganhou `isIneligible`/`ineligibleReason` (`join-footer.tsx:30-43`). `viewerEligible` null (organizador/guest) e true = comportamento anterior intacto; LOTADA segue no `isFull`/`vacancyLabel` de sempre. **CTA:** o botão de confirmação do painel soma `selectedCategory?.isIneligible` ao próprio `isDisabled` (`join-footer.tsx:425-437`) — gate DENTRO do CTA pela lição do H1 do r24 (o `isDisabled` da raiz do MorphButton trava só o press da raiz — `morph-button.js:146`), então o toque não chega ao `entries.create`. **Superfícies informativas de categoria APONTADAS (não mexidas nesta leva, não são escolha):** `tournaments/[tournamentId]/entries.tsx:486-538` (a lista por segmento — o bloco "Suas inscrições" MIGROU da casa para o segmento Minhas no IBX-0080), `tournaments/[tournamentId]/bracket.tsx:562-580` (tabs de categoria da chave) e a galeria `settings/components/[component].tsx:205-282`. **Path (r28):** o diretório do componente core mudou de nome — caminho novo `src/components/core/page` (`Page`, `BackButton` e `usePageContext` inalterados; os imports foram trocados em 44 arquivos) e este doc usa o caminho novo.
-- **r30 (20-09, bug ao vivo do usuário): a busca de parceiro mostra SPINNER, não "Nenhum jogador encontrado.", enquanto procura.** Ele digitou rápido ("caio") e o painel respondeu "Nenhum jogador encontrado." no meio da busca. **Causa confirmada no pacote** (`heroui-native-pro@1.0.0-beta.10`): `Autocomplete.Empty` monta sempre que `visibleItemCount === 0` (`autocomplete.js:567`), sem NENHUM conhecimento de fetch — e no modo assíncrono oficial o filtro é sempre-true (`filter={() => true}`), então "0 itens" cobre tanto a busca em voo quanto o vazio real; o texto era decidido pelo TERMO cru (`hasSearchedPartnerTerm`, `join-footer.tsx:104`), verdadeiro já a partir de 3 chars. A anatomy do Autocomplete NÃO tem slot de Loading (Trigger/Portal/Content/SearchField/List/Item/Empty — docs do MCP Pro), então o carregando entrou com o `LoadingState` DO APP (Spinner + `accessibilityRole="progressbar"`, `ui/loading-state.tsx`) NO LUGAR do Empty: sem variante visual nova e sem copy nova. **Contrato:** `JoinFooter.isPartnerSearchPending?: boolean` (prop opcional) = busca em andamento (janela do debounce OU fetch); a página liga com `partnerQuery.isFetching || debouncedPartnerSearch !== partnerSearch.trim().toLowerCase()` (`index.tsx:316-318`, passada em `:537`) e o painel só troca o Empty com termo VÁLIDO (`isPartnerSearching`, `join-footer.tsx:108-109`). **Estados:** termo <3 = neutro "Busque pelo nome ou @username." (inalterado); termo ≥3 EM VOO = LoadingState; termo ≥3 RESOLVIDO com 0 resultados = "Nenhum jogador encontrado." (só então). Galeria segue sem a prop (opcional = comportamento atual). **Chain do chip (steering do mesmo round, escolha do usuário):** o token de categoria incompatível mudou por decisão dele — incompatível COM motivo mostra o motivo (rótulo curto do servidor: femininas = "Mulheres", masculinas = "Homens"); incompatível SEM motivo (perfil SEM gênero/legado, `ineligibleReason` null) fica SEM chip DE PROPÓSITO e NÃO cai para lotada/vagas (senão a linha desabilitada mostraria "Lotada" ou as vagas sem explicar o bloqueio); depois vem "Lotada"; depois as vagas. Ordem codificada em `join-footer.tsx:253-284`; o TEXTO segue vindo do servidor — nenhuma copy nova no client.
+- **r29 (20-09, decisão do usuário): categoria incompatível entra DESABILITADA COM O MOTIVO (nunca escondida).** Decisão dele sobre o contrato r27: o seletor do rodapé exibe a categoria incompatível em vez de sumir com ela. **Vocabulário reusado (sem variante nova):** MESMA linha desabilitada do "Lotada" — `PressableFeedback isDisabled` + `opacity-disabled` no Card (`join-footer.tsx:256-277`); o chip muted (`bg-muted/20` + `text-foreground/80`) que hoje mostra "Lotada" passa a mostrar o MOTIVO quando a categoria é incompatível (`join-footer.tsx:298-328`), na FRENTE da cadeia (incompatível > lotada > vagas). **Origem do motivo:** `viewerIneligibleReason` do contrato de discovery (`tournamentDiscoverySchema.categories[].viewerEligible/viewerIneligibleReason`, r27) — o cliente NÃO escreve copy própria nem recalcula gênero: a página só repassa os campos (`index.tsx:332-347`) e o `JoinFooterCategory` ganhou `isIneligible`/`ineligibleReason` (`join-footer.tsx:34-47`). `viewerEligible` null (organizador/guest) e true = comportamento anterior intacto; LOTADA segue no `isFull`/`vacancyLabel` de sempre. **CTA:** o botão de confirmação do painel soma `selectedCategory?.isIneligible` ao próprio `isDisabled` (`join-footer.tsx:478-483`) — gate DENTRO do CTA pela lição do H1 do r24 (o `isDisabled` da raiz do MorphButton trava só o press da raiz — `morph-button.js:146`), então o toque não chega ao `entries.create`. **Superfícies informativas de categoria APONTADAS (não mexidas nesta leva, não são escolha):** `tournaments/[tournamentId]/entries.tsx:486-538` (a lista por segmento — o bloco "Suas inscrições" MIGROU da casa para o segmento Minhas no IBX-0080), `tournaments/[tournamentId]/bracket.tsx:562-580` (tabs de categoria da chave) e a galeria `settings/components/[component].tsx:205-282`. **Path (r28):** o diretório do componente core mudou de nome — caminho novo `src/components/core/page` (`Page`, `BackButton` e `usePageContext` inalterados; os imports foram trocados em 44 arquivos) e este doc usa o caminho novo.
+- **r30 (20-09, bug ao vivo do usuário): a busca de parceiro mostra SPINNER, não "Nenhum jogador encontrado.", enquanto procura.** Ele digitou rápido ("caio") e o painel respondeu "Nenhum jogador encontrado." no meio da busca. **Causa confirmada no pacote** (`heroui-native-pro@1.0.0-beta.10`): `Autocomplete.Empty` monta sempre que `visibleItemCount === 0` (`autocomplete.js:567`), sem NENHUM conhecimento de fetch — e no modo assíncrono oficial o filtro é sempre-true (`filter={() => true}`), então "0 itens" cobre tanto a busca em voo quanto o vazio real; o texto era decidido pelo TERMO cru (`hasSearchedPartnerTerm`, `join-footer.tsx:110`), verdadeiro já a partir de 3 chars. A anatomy do Autocomplete NÃO tem slot de Loading (Trigger/Portal/Content/SearchField/List/Item/Empty — docs do MCP Pro), então o carregando entrou com o `LoadingState` DO APP (Spinner + `accessibilityRole="progressbar"`, `ui/loading-state.tsx`) NO LUGAR do Empty: sem variante visual nova e sem copy nova. **Contrato:** `JoinFooter.isPartnerSearchPending?: boolean` (prop opcional) = busca em andamento (janela do debounce OU fetch); a página liga com `partnerQuery.isFetching || debouncedPartnerSearch !== partnerSearch.trim().toLowerCase()` (`index.tsx:316-318`, passada em `:537`) e o painel só troca o Empty com termo VÁLIDO (`isPartnerSearching`, `join-footer.tsx:112-113`). **Estados:** termo <3 = neutro "Busque pelo nome ou @username." (inalterado); termo ≥3 EM VOO = LoadingState; termo ≥3 RESOLVIDO com 0 resultados = "Nenhum jogador encontrado." (só então). Galeria segue sem a prop (opcional = comportamento atual). **Chain do chip (steering do mesmo round, escolha do usuário):** o token de categoria incompatível mudou por decisão dele — incompatível COM motivo mostra o motivo (rótulo curto do servidor: femininas = "Mulheres", masculinas = "Homens"); incompatível SEM motivo (perfil SEM gênero/legado, `ineligibleReason` null) fica SEM chip DE PROPÓSITO e NÃO cai para lotada/vagas (senão a linha desabilitada mostraria "Lotada" ou as vagas sem explicar o bloqueio); depois vem "Lotada"; depois as vagas. Ordem codificada em `join-footer.tsx:298-328`; o TEXTO segue vindo do servidor — nenhuma copy nova no client.
 
 ## QA no simulador (20-09, sem commit) — BUG-0045 e a copy do convite
 
@@ -2235,7 +2239,7 @@ torneio" (`pages/tournaments/organizer-overview.tsx:70`, `isPending` da
 e "Partidas" (`:84`, status de `entries` **ou** de `matches` — o valor lê os
 dois). Os status são flags novos do bucket (`identity.entriesLoading` /
 `identity.matchesLoading`), alimentados pelo `_layout` do cluster
-(`_layout.tsx:175-176`, entries, e `:180-183`, matches) e zerados no `reset()`. A
+(`_layout.tsx:176-178`, entries, e `:181-185`, matches) e zerados no `reset()`. A
 casa do jogador não tem `KpiCard`. Nenhum rótulo, valor, layout ou texto mudou —
 detalhe e tabela
 completa em `dashboard.md` (seção do IBX-0087).
@@ -2617,11 +2621,11 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   é bloqueado** com inscrição viva ("A categoria X tem inscrições e não pode ser
   removida.") e com chave montada. Nome repetido no MESMO payload fecha nos TRÊS
   pontos: o card marca as linhas duplicadas (`collectDuplicateCategoryIds`,
-  category-editor.tsx:90), o diálogo barra no toque (`isCategoryNameTaken`,
-  :154/172) e o SALVAR também — `TournamentSchema.superRefine` (form-schema.ts:69)
+  category-editor.tsx:94), o diálogo barra no toque (`isCategoryNameTaken`,
+  :160/178) e o SALVAR também — `TournamentSchema.superRefine` (form-schema.ts:72)
   joga a issue nas linhas duplicadas com a mesma frase do contrato
-  (:80-91; `zodResolver` em tournament-form-controller.tsx:66;
-  form-schema.test.ts:108) — e o servidor fecha pelo refine do contrato.
+  (:101-112; `zodResolver` em tournament-form-controller.tsx:66;
+  form-schema.test.ts:176) — e o servidor fecha pelo refine do contrato.
 - **`allowMultipleEntriesPerType`:** boolean obrigatório no create/update
   (contract.ts:195/215), gravado na tabela (tables.ts:21), exposto no
   `tournamentSchema` (:267) e com o default do produto LIGADO
@@ -2657,8 +2661,8 @@ elegibilidade; o nome é rótulo e chave de unicidade.
 
 - **Aba Categorias do wizard = lista editável** (`CategoryEditor`,
   src/components/ui/category-editor.tsx) no MOLDE da tela de quadras
-  (`CourtEditor`): um card por categoria num accordion com vários abertos
-  (`selectionMode="multiple"`), trigger com o NOME e o resumo "tipo | taxa |
+  (`CourtEditor`): um card por categoria num accordion de UM aberto por vez
+  (`selectionMode="single"` controlado pelo grupo; lote de 29-09 (2)), trigger com o NOME e o resumo "tipo | taxa |
   vagas" ("Grátis"/"Sem limite" quando for o caso; `buildCategoryCardSummary`,
   category-editor-derived.ts:86), lápis abrindo o diálogo, e o conteúdo com
   Modalidade (Simples/Duplas), Gênero (Masculino/Feminino/Misto, com Misto
@@ -2666,7 +2670,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   inscrição gratuita.") e "Limitar vagas" (Switch + NumberStepper 2..128). Sem
   categoria, o empty state "Nenhuma categoria cadastrada" com "Adicionar
   Categoria"; no rodapé, "Adicionar Nova Categoria" desabilita no teto com
-  "Limite de 50 categorias atingido." (category-editor.tsx:423-433).
+  "Limite de 50 categorias atingido." (category-editor.tsx:427-440).
 - **Diálogo Cria/Edita:** "Nome da categoria" (placeholder "Ex.: Categoria A" e,
   na edição, "Atualize o nome. Ele é o rótulo da categoria no app inteiro."),
   validando no toque com as MESMAS frases do servidor ("Informe o nome da
@@ -2679,7 +2683,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   (`buildLiveEntryCountLabel`/`buildRemoveBlockedReason`/`buildLockedFieldsReason`,
   category-editor-derived.ts:159-172). O nome
   duplicado marca as DUAS linhas do card (`collectDuplicateCategoryIds`) e a
-  troca de Modalidade acontece no CARD (Segment, category-editor.tsx:266-280):
+  troca de Modalidade acontece no CARD (Segment, category-editor.tsx:272-299):
   passar para simples com "Misto" escolhido cai para masculino
   (`resolveCategoryGender`, :273) — o diálogo só edita o nome.
 - **O `id` do update é decidido pelo DISCRIMINADOR, não pelo id do card:** toda
@@ -2691,20 +2695,20 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   recém-criada sai SEM `id` (= insert) e a persistida manda o id do servidor. É
   esse recorte que evita o "Uma das categorias não existe mais nesse torneio."
   (o diff do servidor trata id desconhecido como NOT_FOUND); o mapeamento do
-  update usa o helper (settings/tournaments/[mode]/_layout.tsx:169).
-- **Aba Ajustes:** linha nova "Permitir mais de uma inscrição no mesmo tipo" com
-  Switch e a explicação "Ligado, o jogador pode se inscrever em mais de uma
-  categoria do mesmo tipo. Desligado, vale uma inscrição por tipo."
-  (settings.tsx:228), nascendo do default do contrato (form-defaults.ts:10) e indo
-  no payload de create/update.
+  update usa o helper (settings/tournaments/[mode]/_layout.tsx:174).
+- **Aba Ajustes:** card no padrão de Regras (`RuleCard` + `RuleToggleRow` com
+  checkbox) com o título "Várias inscrições" e a descrição "O jogador pode se
+  inscrever em mais de uma categoria." (settings.tsx:228-242), nascendo do
+  default do contrato (form-defaults.ts:10) e indo no payload de create/update
+  (revisado no lote de 29-09 (2)).
 - **O form do wizard** trocou os presets por `UpdateCategoryInputSchema`
-  (`TournamentCategoryFormSchema`, form-schema.ts:38, com `id` obrigatório e
+  (`TournamentCategoryFormSchema`, form-schema.ts:43, com `id` obrigatório e
   `liveEntryCount` opcional) e a lista mínima fala "Crie pelo menos uma
   categoria."; `TOURNAMENT_CATEGORY_PRESETS`, `getTournamentCategoryPreset` e
   `buildCategoryDisplayNameFromKey` MORRERAM. O mapeamento carrega o `id` no
   update ("o diff do servidor casa a categoria pelo `id`: o update NÃO pode
-  perder", settings/tournaments/[mode]/_layout.tsx:165/169) e repassa
-  `liveEntryCount` na edição (:138).
+  perder", settings/tournaments/[mode]/_layout.tsx:171/174) e repassa
+  `liveEntryCount` na edição (:140).
 - **Nome livre nas superfícies do jogador:** o rodapé de inscrição mostra o nome
   e, embaixo, o tipo técnico (`typeLabel` = `buildCategoryTypeLabel`,
   tournaments/[tournamentId]/index.tsx:348); a casa do torneio, a aba Inscrições
@@ -2713,7 +2717,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
 - **Painel de inscrição:** tocar na categoria JÁ selecionada desmarca (sem
   seleção o CTA do painel fica desabilitado) e o "Voltar" fecha o painel ZERANDO
   seleção, parceiro e termo de busca — reabrir começa do zero
-  (join-footer.tsx:232-240 e :435).
+  (join-footer.tsx:262-268 e :463-470).
 
 ### Fora desta fatia
 
@@ -2734,20 +2738,26 @@ menu do card por papel.
 
 - **Criar/editar:** o par de datas é UM campo (`TournamentRangePickerField` com o
   `DateRangePicker` do heroui-native-pro,
-  settings/tournaments/[mode]/index.tsx:212-231) e o mesmo form serve create e
+  settings/tournaments/[mode]/index.tsx:157-273) e o mesmo form serve create e
   edit. O rótulo é "13/10/2026 a 20/10/2026" ("Início 13/10/2026" no torneio sem
-  fim; `buildTournamentRangeOption`, form-schema.ts:145; o wire do picker é JSON
-  `{start,end}` e volta por `parseTournamentRangeValue`, :167). O FIM é OPCIONAL
-  no form: sem escolha o create manda o MESMO dia do início e a edição ao vivo sem
-  fim REMOVE o teto (form-schema.ts:53-62); o payload sai em epoch ms no
+  fim; `buildTournamentRangeOption`, form-schema.ts:153; o wire do picker é JSON
+  `{start,end}` e volta por `parseTournamentRangeValue`, form-schema.ts:175). O
+  FIM é OBRIGATÓRIO no form (form-schema.ts:61-63): o create manda sempre a data
+  escolhida, o update também, e o torneio legado sem fim abre com o campo vazio e
+  exige a escolha no salvar — o texto anterior ("sem escolha o create manda o
+  MESMO dia do início e a edição REMOVE o teto") foi corrigido no lote de 29-09
+  (2). O payload sai em epoch ms no
   `toCreateTournamentInput`/`toUpdateTournamentInput`
-  (settings/tournaments/[mode]/_layout.tsx:167-183).
+  (settings/tournaments/[mode]/_layout.tsx:96-125 e :165-178).
 - **Recusas:** o prazo de inscrições antes do início e o fim antes do início
   fecham nos DOIS lados com a MESMA frase — "O fim do torneio não pode ser antes
-  do início." (refine do form, form-schema.ts:81-88; `refineTournamentWindow` no
-  contrato, contract.ts:191-217, comparação por DIA brasileiro: fim e início no
-  mesmo dia são a janela de um dia). Encurtar o fim abaixo de um confronto já
-  agendado E AINDA SEM RESULTADO é recusado no update (`management.ts:307-323`):
+  do início." (refine do form, form-schema.ts:82-87; `refineTournamentWindow` no
+  contrato, contract.ts:191-231, comparação por DIA brasileiro). Fim e início no
+  MESMO dia o formulário passou a recusar com "O fim do torneio deve ser pelo
+  menos o dia seguinte ao início." (form-schema.ts:87-95) e o contrato ainda
+  aceita — pendência registrada no lote de 29-09 (2). Encurtar o fim abaixo de um
+  confronto já agendado E AINDA SEM RESULTADO é recusado no update
+  (`management.ts:307-323`):
   a regra é `findScheduledMatchesBeyondWindowEnd` (window-rules.ts:61-76), que
   IGNORA o confronto com resultado publicado, e a recusa diz "Há N confrontos
   agendados depois de X e ainda sem resultado. Remarque esses jogos antes de
@@ -3050,3 +3060,146 @@ deixou de ser obrigatório.
   ficou depois desta rodada (schedule-view, format/date, schedule.tsx, os dois
   diálogos, reason-field, organizer-actions, contract/tables/match_writes/
   unavailability e unavailability-derived com os testes).
+
+## Lote de 29-09-2026 (2): Minhas Competições ordenadas, fim obrigatório no formulário, painel de inscrever rolável e acordeão de um por vez
+
+Segunda leva de 29-09, em cima do lote fechado no commit 326f9ec: Minhas
+Competições do organizador ganhou ordem com o card de criar fixo, o formulário
+do torneio passou a exigir o fim (com prazo automático), o painel de inscrever
+ganhou teto e rolagem própria, a multi-inscrição virou card no padrão de Regras
+e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
+
+### Minhas Competições: card de criar fixo e ordem por status (IBX-0166)
+
+- **Card de criar fora da ordem:** `orderCompetitionItems`
+  (competitions-order.ts:58-75) separa o item `kind: "create-tournament"` e
+  devolve `[...pinned, ...torneios]` — o card fica SEMPRE no índice 0,
+  independente da posição em que entra na lista.
+- **Ordem do resto:** por grupo de status — ongoing, published, drawn, draft,
+  finished, cancelled (`STATUS_GROUPS`, :18-25; status fora do vocabulário cai
+  no fim, :34-37) — e, dentro do grupo, pela data de início (epoch ms) mais
+  próxima; encerrado e cancelado INVERTEM, o mais recente primeiro
+  (`MOST_RECENT_FIRST`, :32, e `compareCompetitionItems`, :39-50).
+- **Só o organizador:** a ordenação roda apenas no ramo do card de criar
+  (competitions.tsx:141-147); o ramo do jogador segue `toTournamentItems` puro
+  (:149). O item ganhou `startDate` (:33, preenchido em :53) — é o critério de
+  desempate.
+- **Testes:** competitions-order.test.ts:23 (grupo antes da data e a inversão de
+  encerrado/cancelado), :58 (a ordem dos seis grupos), :98 (o índice 0 em
+  qualquer posição de entrada), :121 e :129 (listas degeneradas e empate de
+  data).
+
+### Formulário do torneio: fim obrigatório e prazo automático (IBX-0170)
+
+- **Fim obrigatório:** `endDate` deixou de ser opcional e usa o mesmo esquema do
+  início (form-schema.ts:36-38 e :63) — vazio recusa com "Informe a data." e o
+  fim no MESMO dia recusa com "O fim do torneio deve ser pelo menos o dia
+  seguinte ao início." (:88-95); fim anterior ao início segue com a copy antiga
+  (:83-88). O campo de período (`DateRangePicker`, index.tsx:157-273) é
+  `isRequired` (:182) e o Description diz "O fim fica pelo menos no dia seguinte
+  ao início." (:266-269).
+- **Auto-ajuste:** fim igual ou anterior ao início vira início + 1 no
+  `onValueChange` do range (`resolveTournamentEndDate`,
+  tournament-window-defaults.ts:20-29; chamada em index.tsx:196-203).
+- **Prazo automático:** `buildAutoRegistrationDeadline`
+  (tournament-window-defaults.ts:34-43) devolve max(hoje do Brasil, início − 2)
+  e fica VAZIO quando esse valor alcança o início (início hoje) — o
+  organizador escolhe, e o `maxValue` do campo é início − 1 (index.tsx:316-318
+  e :412). O prazo acompanha o início só enquanto o form guardar o último valor
+  automático ou nada (`shouldDeadlineFollowStartDate`, :47-52, com o
+  `autoDeadlineRef`, index.tsx:162 e :206-226) — editado à mão, congela. O
+  valor automático não conta como edição do organizador (`shouldDirty: false`,
+  :223).
+- **Payload e legado:** o create manda sempre a data escolhida
+  (`_layout.tsx:114`) e o update também, por spread do input de create (:170);
+  o torneio LEGADO sem fim abre com o campo vazio (:149-152) e o salvar exige a
+  escolha.
+- **Testes:** tournament-window-defaults.test.ts:9 (fim igual/anterior vira o
+  dia seguinte, branco segue branco, virada de mês/ano), :59 (o prazo: os dois
+  dias antes, o teto de hoje, o início amanhã caindo no hoje, :78, e o início
+  hoje em branco, :87) e :106 (o congelamento ao editar à mão);
+  form-schema.test.ts:78, :87 e :119 (fim no dia seguinte passa, fim igual
+  recusa com a copy nova, legado sem fim abre mas o salvar recusa).
+- **Pendência conhecida:** o `refineTournamentWindow` do servidor
+  (contract.ts:191-231) recusa só fim ANTERIOR ao início — fim no mesmo dia
+  passa no contrato; a trava do dia seguinte é do formulário (registro também
+  em "Pendências conhecidas").
+
+### Painel de inscrever: teto, rolagem interna e o gesto preso no ScrollView (IBX-0169 / BUG-0096)
+
+- **Teto e rolagem:** a lista de categorias ganhou `maxHeight` = metade da área
+  útil (`round((windowHeight − insets.top − insets.bottom) / 2)`, com piso 160 e
+  teto 400 — join-footer.tsx:24-25 e :124-130) e rola por dentro:
+  `ScrollShadow color="surface-secondary"` + `ScrollView` com o indicador
+  desligado (:233-237), o padrão da casa (scroll-shadow.tsx, o mesmo do
+  autocomplete de parceiro, :404). As sombras são as da lib: aparecem só com
+  conteúdo rolando e somem nas pontas.
+- **Arrasto em qualquer ponto:** a `View` que embrulha os itens prende o
+  responder dentro do ScrollView (`onStartShouldSetResponder={() => true}`,
+  :238-243) — sem ela, o toque numa linha DESABILITADA não é assumido pelo
+  `Pressable` (o responder dele é `!disabled`, Pressability.js:448-451) e quem
+  assume é o `Pressable` do `MorphButton` ancestral (morph-button.js:142-147),
+  que trava o pan do scroll. O vão entre as linhas (o `gap-1`, agora dentro da
+  trava) deixou de alternar a seleção.
+- **Sem teste puro:** é geometria/responder de lib; o smoke é do usuário.
+
+### Multi-inscrição vira card no padrão de Regras (IBX-0171)
+
+- **Card:** o item saiu do `Switch` solto e virou `RuleCard` + `RuleToggleRow`
+  (settings.tsx:228-242) — o mesmo par dos toggles de Regras: checkbox à
+  esquerda, toque em QUALQUER ponto do card alterna. Textos aprovados: "Várias
+  inscrições" e "O jogador pode se inscrever em mais de uma categoria."
+  (:230/:233).
+- **Indicador opcional:** `ToggleableRuleCard` e `RuleToggleRow` ganharam
+  `indicator?: "checkbox" | "switch"` (padrão checkbox — rule-card.tsx:110, :128
+  e :146-147); qualquer um dos dois fica com `pointerEvents="none"` e a linha
+  inteira é o alvo (a a11y só vira `switch` no modo switch, :160-186). O call
+  site usa o padrão.
+- **Servidor intacto:** a flag `allowMultipleEntriesPerType` e o gate seguem
+  como estavam (nenhum arquivo de convex/ mudou nesta rodada).
+
+### Acordeão de Categorias/Quadras: um por vez e a armadilha do `isCollapsible` (IBX-0172 / BUG-0097)
+
+- **Um ativo por vez:** Categorias e Quadras (criar e editar) usam `Accordion`
+  `selectionMode="single"` CONTROLADO pelo grupo — um id em `useState` por
+  editor (category-editor.tsx:81-83; court-editor.tsx:141) com
+  `value`/`onValueChange` no grupo (category-editor.tsx:226-228;
+  court-editor.tsx:439-441). O item não tem estado próprio: ele compara
+  `aberto = id === value`.
+- **A regra fica no grupo:** `toggleSingleExpandedId`
+  (accordion-selection.ts:4-9) — tocar no aberto fecha, tocar em outro troca — e
+  `closeRemovedExpandedId` (:12-17) zera o registro quando o item sai da lista
+  (category-editor.tsx:203; court-editor.tsx:276); categoria NOVA já abre
+  (category-editor.tsx:196).
+- **Armadilha do primitivo (BUG-0097):** com `isCollapsible={false}` o primitivo
+  manda de volta o MESMO id do item tocado (accordion.js:133) e o estado
+  controlado ignora valor igual ao prop (`if (val !== prop) handleChange(val)`,
+  use-controllable-state.ts:74) — o card aberto nunca fechava. No default
+  (`true`) o primitivo manda `undefined` quando o tocado é o aberto e o id
+  quando é outro; o toggle do grupo fecha de verdade. Os dois editores ficam no
+  default.
+- **Galeria:** a fixture abre um id só (`initialExpandedCategoryId`,
+  [component].tsx:1942 e :2026).
+- **Testes:** accordion-selection.test.ts:13-25 (o ramo do primitivo espelhado e
+  composto com o helper) e :59-83 (tocar no aberto fecha, tocar em outro troca,
+  com tudo fechado abre e a sequência nunca deixa dois abertos).
+
+### Correção desta spec
+
+- A frase do lote de 28-09 ("O FIM é OPCIONAL no form…") deixou de valer: o fim
+  é obrigatório no formulário e a edição não remove mais teto — a linha foi
+  corrigida no lugar, junto das citações (form-schema.ts:61-63, index.tsx).
+- A "Recusas" do lote de 28-09 dizia que o fim antes do início e o fim no mesmo
+  dia fechavam nos dois lados com a MESMA frase; agora o formulário recusa o
+  MESMO dia com a copy nova e o contrato ainda aceita (pendência acima) — o
+  texto foi ajustado no lugar.
+- A linha da "Aba Ajustes" do lote de 28-09 (Switch solto e o texto "Permitir
+  mais de uma inscrição no mesmo tipo") foi corrigida para o card de Regras com
+  os textos aprovados.
+- A linha do lote de 28-09 ("um card por categoria num accordion com vários
+  abertos", `selectionMode="multiple"`) virou um item aberto por vez — corrigida
+  no lugar.
+- As citações file:line do rodapé de inscrição (lotes de 20-09), do `rule-card`,
+  do `category-editor` e do `_layout.tsx`/`index.tsx` do wizard foram
+  repontadas para o código como ele ficou depois desta rodada (cada uma
+  conferida no disco).

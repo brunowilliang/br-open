@@ -1939,7 +1939,7 @@ function TournamentStatusVariantsSection() {
 type CategoryEditorGalleryVariant = {
   categories: TournamentCategoryDraft[];
   /** Fixture abre o card direto: a expansão do editor é estado interno. */
-  expandedCategoryIds?: string[];
+  expandedCategoryId?: string;
   note: string;
   title: string;
 };
@@ -1985,7 +1985,7 @@ const galleryCategoryEditorVariants: CategoryEditorGalleryVariant[] = [
         name: "Categoria A",
       }),
     ],
-    expandedCategoryIds: ["gallery-a"],
+    expandedCategoryId: "gallery-a",
     note: "Card aberto: modalidade, gênero, taxa e vagas.",
     title: "Categorias 3 | aberta",
   },
@@ -1994,8 +1994,8 @@ const galleryCategoryEditorVariants: CategoryEditorGalleryVariant[] = [
       buildGalleryCategory({ id: "gallery-a", name: "Categoria A" }),
       buildGalleryCategory({ id: "gallery-b", name: "categoria a" }),
     ],
-    expandedCategoryIds: ["gallery-a", "gallery-b"],
-    note: "Nome repetido no mesmo tipo: o FieldError marca as duas linhas e o salvar fica bloqueado.",
+    expandedCategoryId: "gallery-a",
+    note: "Nome repetido no mesmo tipo: o FieldError marca a linha aberta e o salvar fica bloqueado.",
     title: "Categorias 4 | duplicado",
   },
   {
@@ -2006,7 +2006,7 @@ const galleryCategoryEditorVariants: CategoryEditorGalleryVariant[] = [
         name: "Categoria B",
       }),
     ],
-    expandedCategoryIds: ["gallery-c"],
+    expandedCategoryId: "gallery-c",
     note: "Com inscrição viva, modalidade e gênero ficam travados e o Remover fica bloqueado com o motivo ANTES do toque.",
     title: "Categorias 5 | travada",
   },
@@ -2014,7 +2014,7 @@ const galleryCategoryEditorVariants: CategoryEditorGalleryVariant[] = [
 
 function CategoryEditorFixture(props: {
   categories: TournamentCategoryDraft[];
-  expandedCategoryIds?: string[];
+  expandedCategoryId?: string;
 }) {
   const form = useForm<{ categories: TournamentCategoryDraft[] }>({
     defaultValues: { categories: props.categories },
@@ -2023,7 +2023,7 @@ function CategoryEditorFixture(props: {
   return (
     <FormProvider {...form}>
       <CategoryEditor
-        initialExpandedCategoryIds={props.expandedCategoryIds}
+        initialExpandedCategoryId={props.expandedCategoryId}
         isDisabled={false}
       />
     </FormProvider>
@@ -2041,7 +2041,7 @@ function CategoryEditorVariantsSection() {
         >
           <CategoryEditorFixture
             categories={variant.categories}
-            expandedCategoryIds={variant.expandedCategoryIds}
+            expandedCategoryId={variant.expandedCategoryId}
           />
         </VariantSection>
       ))}

@@ -29,6 +29,10 @@ import { ErrorMessage } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
 import { fieldUpdateOptions } from "@/components/ui/rule-card";
 import {
+  closeRemovedExpandedId,
+  toggleSingleExpandedId,
+} from "@/lib/tournaments/accordion-selection";
+import {
   buildCategoryCardSummary,
   buildCategoryCreateDefaults,
   buildCategoryId,
@@ -50,8 +54,8 @@ type CategoriesFormValues = {
  * menu "Salvar" e estados de submit ficam na rota do wizard. `liveEntryCountById`
  * vem do `management.getById` (ausente no torneio ainda não salvo). */
 export function CategoryEditor(props: {
-  /** Expansão inicial dos cards (a galeria abre um fixture); o wizard não passa. */
-  initialExpandedCategoryIds?: string[];
+  /** Card aberto ao montar (a galeria abre um fixture); o wizard não passa. */
+  initialExpandedCategoryId?: string;
   isDisabled: boolean;
 }) {
   const isDisabled = props.isDisabled;
@@ -74,9 +78,9 @@ export function CategoryEditor(props: {
   const [editingCategoryId, setEditingCategoryId] = useState<null | string>(
     null
   );
-  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>(
-    props.initialExpandedCategoryIds ?? []
-  );
+  const [expandedCategoryId, setExpandedCategoryId] = useState<
+    string | undefined
+  >(props.initialExpandedCategoryId);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [nameError, setNameError] = useState<null | string>(null);
 
@@ -105,9 +109,11 @@ export function CategoryEditor(props: {
     );
   }
 
-  function handleExpandedChange(nextValue: string | string[] | undefined) {
-    setExpandedCategoryIds(
-      Array.isArray(nextValue) ? nextValue : nextValue ? [nextValue] : []
+  // No default o Accordion manda `undefined` quando o item tocado é o aberto;
+  // `isCollapsible={false}` mandaria o mesmo id, que o valor controlado ignora.
+  function handleExpandedChange(toggledCategoryId: string | undefined) {
+    setExpandedCategoryId((currentId) =>
+      toggleSingleExpandedId(currentId, toggledCategoryId)
     );
   }
 
@@ -187,14 +193,14 @@ export function CategoryEditor(props: {
     };
 
     onChange([...value, category]);
-    setExpandedCategoryIds((currentIds) => [...currentIds, category.id]);
+    setExpandedCategoryId(category.id);
     closeCategoryDialog();
   }
 
   function handleRemoveCategory(categoryId: string) {
     onChange(value.filter((category) => category.id !== categoryId));
-    setExpandedCategoryIds((currentIds) =>
-      currentIds.filter((id) => id !== categoryId)
+    setExpandedCategoryId((currentId) =>
+      closeRemovedExpandedId(currentId, categoryId)
     );
     closeCategoryDialog();
   }
@@ -218,8 +224,8 @@ export function CategoryEditor(props: {
             classNames={{ container: "gap-3 overflow-visible" }}
             hideSeparator
             onValueChange={handleExpandedChange}
-            selectionMode="multiple"
-            value={expandedCategoryIds}
+            selectionMode="single"
+            value={expandedCategoryId}
           >
             {value.map((category) => {
               const liveEntryCount = category.liveEntryCount ?? 0;

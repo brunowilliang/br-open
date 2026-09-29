@@ -58,9 +58,9 @@ export const TournamentSchema = z
     courts: CreateTournamentSchema.shape.courts,
     coverStorageId: CreateTournamentSchema.shape.coverStorageId,
     description: CreateTournamentSchema.shape.description,
-    // Opcional no formulário: sem escolha o create manda o MESMO dia do início
-    // e a edição sem fim remove o teto (torneio de sempre).
-    endDate: tournamentFormDateSchema.optional(),
+    // Obrigatório como o início: o legado sem fim abre com o campo vazio e o
+    // SALVAR exige escolher o período.
+    endDate: tournamentFormDateSchema,
     locationNotes: CreateTournamentSchema.shape.locationNotes,
     matchConfig: TournamentMatchConfigFormSchema,
     name: CreateTournamentSchema.shape.name,
@@ -78,10 +78,18 @@ export const TournamentSchema = z
       });
     }
 
+    // Fim obrigatório: nunca antes do início e nunca no mesmo dia.
     if (value.endDate && value.endDate < value.startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "O fim do torneio não pode ser antes do início.",
+        path: ["endDate"],
+      });
+    } else if (value.endDate && value.endDate === value.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "O fim do torneio deve ser pelo menos o dia seguinte ao início.",
         path: ["endDate"],
       });
     }

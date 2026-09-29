@@ -12,7 +12,6 @@ import {
   Label,
   Menu,
   Select,
-  Switch,
   TextField,
 } from "heroui-native";
 import { useState } from "react";
@@ -22,7 +21,11 @@ import Animated from "react-native-reanimated";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { RuleCard } from "@/components/ui/rule-card";
+import {
+  RuleCard,
+  RuleToggleRow,
+  fieldUpdateOptions,
+} from "@/components/ui/rule-card";
 import type { TournamentScreenValues } from "@/components/pages/tournaments/form-schema";
 import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { HugeIcons } from "@/components/ui/huge-icons";
@@ -222,28 +225,21 @@ export default function TournamentSettingsRoute() {
           <FieldError>{approvalModeError ?? ""}</FieldError>
         </TextField>
 
-        <View className="flex-row items-center gap-3">
-          <View className="min-w-0 flex-1">
-            <Text weight="medium">
-              Permitir mais de uma inscrição no mesmo tipo
-            </Text>
-            <Text color="muted" variant="description">
-              Ligado, o jogador pode se inscrever em mais de uma categoria do
-              mesmo tipo. Desligado, vale uma inscrição por tipo.
-            </Text>
-          </View>
-          <Switch
+        <RuleCard>
+          <RuleToggleRow
+            description="O jogador pode se inscrever em mais de uma categoria."
+            enabled={allowMultipleEntriesPerType}
             isDisabled={isDisabled}
-            isSelected={allowMultipleEntriesPerType}
-            onSelectedChange={(nextValue) => {
-              setValue("allowMultipleEntriesPerType", nextValue, {
-                shouldDirty: true,
-                shouldTouch: true,
-                shouldValidate: true,
-              });
+            label="Várias inscrições"
+            onToggle={(nextEnabled) => {
+              setValue(
+                "allowMultipleEntriesPerType",
+                nextEnabled,
+                fieldUpdateOptions
+              );
             }}
           />
-        </View>
+        </RuleCard>
 
         {showDelete ? (
           <Animated.View className="gap-2" layout={AccordionLayoutTransition}>

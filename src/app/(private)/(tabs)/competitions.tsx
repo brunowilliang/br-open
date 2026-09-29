@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import { getViewerMode } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
+import { orderCompetitionItems } from "@/lib/tournaments/competitions-order";
 import { getCompetitionListSurface } from "@/lib/tournaments/competitions-surface";
 import type { Tournament } from "@convex/domains/tournament/contract";
 import { Search01Icon } from "@hugeicons/core-free-icons";
@@ -29,6 +30,7 @@ type TournamentListItem = {
   kind: "tournament";
   name: null | string;
   registrationDeadlineAt: number;
+  startDate: number;
   state: null | string;
   status: string;
 };
@@ -48,6 +50,7 @@ function toTournamentItems(
     kind: "tournament",
     name: tournament.name,
     registrationDeadlineAt: tournament.registrationDeadlineAt,
+    startDate: tournament.startDate,
     state: tournament.state,
     status: tournament.status,
   }));
@@ -137,10 +140,10 @@ export default function CompetitionsTab() {
 
   const listItems = useMemo<CompetitionListItem[]>(() => {
     if (surface.showsCreateCard) {
-      return [
+      return orderCompetitionItems([
         ...myTournamentItems,
         { id: CREATE_TOURNAMENT_CARD_ID, kind: "create-tournament" },
-      ];
+      ]);
     }
 
     return toTournamentItems(participatingTournaments.data ?? []);

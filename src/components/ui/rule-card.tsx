@@ -8,6 +8,7 @@ import {
   Checkbox,
   PressableFeedback,
   Surface,
+  Switch,
 } from "heroui-native";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import { View } from "react-native";
@@ -106,6 +107,7 @@ type ToggleableRuleCardProps = {
   description: string;
   enabled: boolean;
   error?: ReactNode;
+  indicator?: "checkbox" | "switch";
   info?: InfoContent;
   isDisabled?: boolean;
   label: string;
@@ -113,7 +115,7 @@ type ToggleableRuleCardProps = {
 };
 
 /**
- * Card with a checkbox toggle row in the header. When {@link enabled}, renders
+ * Card with a toggle row in the header. When {@link enabled}, renders
  * its children inside a {@link RuleExpandableContent}. Use for rules that can
  * be turned on/off while preserving their last configured value.
  */
@@ -123,6 +125,7 @@ export function ToggleableRuleCard(props: ToggleableRuleCardProps) {
       <RuleToggleRow
         description={props.description}
         enabled={props.enabled}
+        indicator={props.indicator}
         isDisabled={props.isDisabled}
         label={props.label}
         onToggle={props.onToggle}
@@ -139,22 +142,27 @@ export function ToggleableRuleCard(props: ToggleableRuleCardProps) {
 type RuleToggleRowProps = {
   description: string;
   enabled: boolean;
+  /** Indicador do fim da linha: `checkbox` (padrão) ou `switch`. Os dois ficam
+   * com `pointerEvents="none"` — quem recebe o toque é o row inteiro. */
+  indicator?: "checkbox" | "switch";
   isDisabled?: boolean;
   label: string;
   onToggle: (nextEnabled: boolean) => void;
 };
 
 /**
- * A standalone checkbox toggle row (checkbox + label + description) without a
- * card wrapper. Use inside {@link RuleExpandableContent} for nested toggles,
- * or pair with {@link RuleCard} when you need a custom layout. For the common
+ * A standalone toggle row (indicator + label + description) without a card
+ * wrapper. Use inside {@link RuleExpandableContent} for nested toggles, or pair
+ * with {@link RuleCard} when you need a custom layout. For the common
  * "toggleable card" pattern prefer {@link ToggleableRuleCard}.
  */
 export function RuleToggleRow(props: RuleToggleRowProps) {
+  const isSwitch = props.indicator === "switch";
+
   return (
     <PressableFeedback
       accessibilityLabel={props.label}
-      accessibilityRole="checkbox"
+      accessibilityRole={isSwitch ? "switch" : "checkbox"}
       accessibilityState={{
         checked: props.enabled,
         disabled: props.isDisabled,
@@ -165,11 +173,19 @@ export function RuleToggleRow(props: RuleToggleRowProps) {
         props.onToggle(!props.enabled);
       }}
     >
-      <Checkbox
-        isDisabled={props.isDisabled}
-        isSelected={props.enabled}
-        pointerEvents="none"
-      />
+      {isSwitch ? (
+        <Switch
+          isDisabled={props.isDisabled}
+          isSelected={props.enabled}
+          pointerEvents="none"
+        />
+      ) : (
+        <Checkbox
+          isDisabled={props.isDisabled}
+          isSelected={props.enabled}
+          pointerEvents="none"
+        />
+      )}
       <View className="flex-1" pointerEvents="none">
         <Text weight="medium">{props.label}</Text>
         <Text color="muted" variant="description">
