@@ -12,7 +12,10 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "CADisableMinimumFrameDurationOnPhone": true
+        "CADisableMinimumFrameDurationOnPhone": true,
+        "CFBundleDevelopmentRegion": "pt-BR",
+        "CFBundleLocalizations": ["pt-BR"],
+        "NSFaceIDUsageDescription": "Permita que o BR Open use o Face ID para proteger o seu acesso."
       },
       "runtimeVersion": "1.1.0"
     },

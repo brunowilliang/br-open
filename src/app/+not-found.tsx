@@ -10,13 +10,13 @@ export default function NotFound() {
       <View className="centered gap-1">
         <Text className="text-6xl leading-0">☹️</Text>
         <Text color="accent" size="2xl" weight="medium">
-          Page not found
+          Página não encontrada
         </Text>
         <Text color="muted" size="xl" weight="medium">
-          Oops, nothing to see here
+          Não tem nada aqui.
         </Text>
       </View>
-      <Button onPress={() => router.replace("/")}>Back to home</Button>
+      <Button onPress={() => router.replace("/")}>Voltar para o início</Button>
     </View>
   );
 }
