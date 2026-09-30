@@ -103,6 +103,7 @@ export const searchByUsername = authQuery
         await serializePlayerCard(ctx, {
           avatarStorageId: profile.avatarStorageId,
           fullName: profile.fullName,
+          image: match.image ?? null,
           nickname: profile.nickname,
           playerProfileId: profile.id as string,
           username: match.username,

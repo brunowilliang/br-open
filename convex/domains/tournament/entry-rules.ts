@@ -222,14 +222,16 @@ export function entrySlotFields<T extends string>(input: {
 }
 
 /** Quem não tem username nem chega aqui: o índice não contém essas linhas. */
-export function selectUsernameMatches(input: {
+export function selectUsernameMatches<
+  T extends { id: string; username?: null | string },
+>(input: {
   limit: number;
   prefix: string;
-  users: ReadonlyArray<{ id: string; username?: null | string }>;
-}): Array<{ id: string; username: string }> {
+  users: readonly T[];
+}): Array<T & { username: string }> {
   return input.users
     .filter(
-      (user): user is { id: string; username: string } =>
+      (user): user is T & { username: string } =>
         typeof user.username === "string" &&
         user.username.startsWith(input.prefix)
     )

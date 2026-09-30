@@ -26,11 +26,19 @@ async function serializePlayerProfile(
     name: record.nickname ?? record.fullName,
     userId: record.userId,
   });
+  // Sem avatar próprio, o perfil cai na foto do provedor (Google) guardada na
+  // linha do auth user, igual ao card do dashboard.
+  const user = await ctx.orm.query.user.findFirst({
+    where: { id: record.userId },
+  });
 
   return playerProfileSchema.parse({
     ...record,
     avatarStorageId: record.avatarStorageId ?? null,
-    avatarUrl: await resolveStorageUrl(ctx, record.avatarStorageId),
+    avatarUrl:
+      (await resolveStorageUrl(ctx, record.avatarStorageId)) ??
+      user?.image ??
+      null,
     fullName,
     nickname,
   });

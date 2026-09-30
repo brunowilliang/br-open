@@ -108,9 +108,9 @@ export const procedureNames = {
     { column: 3, line: 149, name: "player/dashboard:getOverview" },
   ],
   "player/profile.ts": [
-    { column: 3, line: 55, name: "player/profile:generateUploadUrl" },
-    { column: 3, line: 41, name: "player/profile:get" },
-    { column: 3, line: 64, name: "player/profile:upsert" },
+    { column: 3, line: 63, name: "player/profile:generateUploadUrl" },
+    { column: 3, line: 49, name: "player/profile:get" },
+    { column: 3, line: 72, name: "player/profile:upsert" },
   ],
   "seed.ts": [
     { column: 3, line: 1317, name: "seed:doublesAgendaScenario" },

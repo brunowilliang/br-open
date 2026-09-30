@@ -226,13 +226,15 @@ export async function scheduleTournamentNotification(
 /**
  * Player card for read surfaces (bracket/entries/invite search): profile
  * basics + auth username. `username` comes from the auth user (lowercase
- * canonical form); null when the profile/user has no username yet.
+ * canonical form); null when the profile/user has no username yet. The avatar
+ * falls back to the auth user image (Google), like the dashboard card.
  */
 export async function serializePlayerCard(
   ctx: QueryCtx | MutationCtx,
   input: {
     avatarStorageId: string | null | undefined;
     fullName: string | null | undefined;
+    image: string | null | undefined;
     nickname: string | null | undefined;
     playerProfileId: string;
     username: string | null | undefined;
@@ -246,7 +248,7 @@ export async function serializePlayerCard(
     }
   );
   return {
-    avatarUrl,
+    avatarUrl: avatarUrl ?? input.image ?? null,
     fullName: input.fullName ?? null,
     nickname: input.nickname ?? null,
     playerProfileId: input.playerProfileId,

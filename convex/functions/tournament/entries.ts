@@ -1133,8 +1133,11 @@ export const listForTournament = authQuery
       limit: 500,
       where: { id: { in: userIds } },
     });
-    const usernameByUserId = new Map(
-      userRows.map((user) => [user.id as string, user.username ?? null])
+    const userMetaByUserId = new Map(
+      userRows.map((user) => [
+        user.id as string,
+        { image: user.image ?? null, username: user.username ?? null },
+      ])
     );
 
     const cardCache = new Map<string, TournamentPlayerCard>();
@@ -1150,12 +1153,14 @@ export const listForTournament = authQuery
       if (!profile) {
         return null;
       }
+      const userMeta = userMetaByUserId.get(profile.userId as string);
       const card = await serializePlayerCard(ctx, {
         avatarStorageId: profile.avatarStorageId,
         fullName: profile.fullName,
+        image: userMeta?.image ?? null,
         nickname: profile.nickname,
         playerProfileId: profile.id as string,
-        username: usernameByUserId.get(profile.userId as string) ?? null,
+        username: userMeta?.username ?? null,
       });
       cardCache.set(playerProfileId, card);
       return card;
