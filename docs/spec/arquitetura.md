@@ -78,10 +78,8 @@ A escolha por plataforma vive em um lugar só: `getPageOverlayKind(Platform.OS)`
 (`src/components/core/page/overlay-kind.ts`) — `android` → `gradient`, resto →
 `blur`. O header só consome a função; trocar a regra é mexer só nesse arquivo.
 
-O `PageFooter` (`footer.tsx`) usa hoje o degradê Uniwind
-(`bg-linear-to-t from-background to-background/0`) em todas as plataformas; o
-branch de blur (`isBlurred` + `PageBlurOverlay`) existe no componente, mas está
-dormente — nenhum chamador liga a prop.
+O `PageFooter` (`footer.tsx`) usa o degradê Uniwind
+(`bg-linear-to-t from-background to-background/0`) em todas as plataformas.
 
 ## Vocabulário canônico (padronização executada)
 

@@ -4,7 +4,7 @@ import { withUniwind } from "uniwind";
 
 /**
  * uniwind-aware ProgressiveBlurView so className styling is supported.
- * Shared by the header and footer blur overlays.
+ * Used by the header blur overlay.
  */
 export const PageProgressiveBlurView = withUniwind(ProgressiveBlurView);
 
@@ -19,15 +19,14 @@ export type PageOverlayDirection =
 
 type PageBlurOverlayProps = {
   /**
-   * Progressive blur direction.
-   * - "blurredTopClearBottom" for headers (frosted at the top edge).
-   * - "blurredBottomClearTop" for footers (frosted at the bottom edge).
+   * Progressive blur direction — the page header uses
+   * "blurredTopClearBottom".
    */
   direction: PageOverlayDirection;
 };
 
 /**
- * Shared progressive-blur overlay used by both PageHeader and PageFooter.
+ * Progressive-blur overlay of the `PageHeader`.
  */
 export const PageBlurOverlay = (props: PageBlurOverlayProps) => {
   const fallbackColor = useThemeColor("background");

@@ -10,6 +10,3 @@ export const DEFAULT_SCROLL_EVENT_THROTTLE = 16;
 
 /** Pixels scrolled before the header blur reaches full opacity. */
 export const DEFAULT_HEADER_BLUR_DISTANCE = 64;
-
-/** Pixels remaining to the scroll end before the footer blur reaches full opacity. */
-export const DEFAULT_FOOTER_BLUR_DISTANCE = 64;
