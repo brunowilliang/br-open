@@ -2,6 +2,9 @@ export type ComponentGalleryEntry = {
   description: string;
   /** Route param da tela de variantes (`/settings/components/[component]`). */
   id: string;
+  /** A seção monta a própria moldura (tela inteira): a rota não desenha a da
+   * galeria para esta entrada. */
+  isFullscreen?: boolean;
   title: string;
 };
 
