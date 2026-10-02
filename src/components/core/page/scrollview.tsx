@@ -1,5 +1,11 @@
 import { cn } from "better-styled";
-import type { ComponentProps, Ref } from "react";
+import {
+  type ComponentProps,
+  type Ref,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { View } from "react-native";
 import {
@@ -39,6 +45,37 @@ export const PageKeyboardAwareScrollView = (
   }
 ) => {
   const context = usePageContext();
+  const isAwaitingHeaderInset =
+    context.isHeaderPending && context.headerHeight === 0;
+  const [hasCommitted, setHasCommitted] = useState(false);
+  const [isSettleBypassed, setIsSettleBypassed] = useState(false);
+
+  // Sem isto o 1º render já montaria os filhos (isHeaderPending nasce false) e
+  // o commit seguinte os desmontaria — efeitos de mount rodariam 2x.
+  useLayoutEffect(() => {
+    setHasCommitted(true);
+  }, []);
+
+  // Rede de segurança: se o onLayout do header não chegar, o conteúdo não pode
+  // ficar preso fora da tela.
+  useEffect(() => {
+    if (!isAwaitingHeaderInset || isSettleBypassed) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setIsSettleBypassed(true);
+    }, 250);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [isAwaitingHeaderInset, isSettleBypassed]);
+
+  // Segura a 1ª pintura até o 1º commit e o inset landar: os filhos montam
+  // depois do paddingTop final, na posição final (sem deslocamento visível).
+  const shouldHoldContent =
+    (!hasCommitted || isAwaitingHeaderInset) && !isSettleBypassed;
 
   // Runs on the UI thread (Reanimated worklet) so scroll tracking never blocks
   // the JS thread. The KeyboardAwareScrollView forwards `onScroll` to its inner
@@ -84,7 +121,9 @@ export const PageKeyboardAwareScrollView = (
       scrollEventThrottle={
         props.scrollEventThrottle ?? DEFAULT_SCROLL_EVENT_THROTTLE
       }
-    />
+    >
+      {shouldHoldContent ? null : props.children}
+    </RNKeyboardAwareScrollView>
   );
 };
 

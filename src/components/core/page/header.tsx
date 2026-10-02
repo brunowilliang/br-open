@@ -1,6 +1,6 @@
 import { cn } from "better-styled";
 import type { ComponentProps } from "react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Platform } from "react-native";
 import Animated, {
   Extrapolation,
@@ -42,11 +42,22 @@ export const PageHeader = (props: PageHeaderProps) => {
     };
   }, [context.setHeaderHeight, overlay]);
 
+  // Fecha o gate do conteúdo antes do 1º frame pintar (o onLayout chega depois
+  // do commit); o scroll só monta os filhos quando o inset deste header landar.
+  useLayoutEffect(() => {
+    if (overlay) {
+      return;
+    }
+
+    context.setHeaderPending(true);
+  }, [context.setHeaderPending, overlay]);
+
   const handleLayout = (
     event: Parameters<NonNullable<typeof headerProps.onLayout>>[0]
   ) => {
     if (!overlay) {
       context.setHeaderHeight(event.nativeEvent.layout.height);
+      context.setHeaderPending(false);
     }
     headerProps.onLayout?.(event);
   };

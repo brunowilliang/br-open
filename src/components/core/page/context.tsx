@@ -5,9 +5,13 @@ type PageContextValue = {
   contentHeight: SharedValue<number>;
   footerHeight: number;
   headerHeight: number;
+  /** `true` enquanto um Page.Header (não-overlay) ainda não mediu a altura:
+   *  o Page.ScrollView segura a 1ª pintura do conteúdo até o inset landar. */
+  isHeaderPending: boolean;
   scrollY: SharedValue<number>;
   setFooterHeight: (height: number) => void;
   setHeaderHeight: (height: number) => void;
+  setHeaderPending: (isPending: boolean) => void;
   viewportHeight: SharedValue<number>;
 };
 
@@ -33,18 +37,28 @@ export const PageRoot = (props: PageRootProps) => {
   const viewportHeight = useSharedValue(0);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
+  const [isHeaderPending, setHeaderPending] = useState(false);
 
   const value = useMemo(
     () => ({
       contentHeight,
       footerHeight,
       headerHeight,
+      isHeaderPending,
       scrollY,
       setFooterHeight,
       setHeaderHeight,
+      setHeaderPending,
       viewportHeight,
     }),
-    [contentHeight, footerHeight, headerHeight, scrollY, viewportHeight]
+    [
+      contentHeight,
+      footerHeight,
+      headerHeight,
+      isHeaderPending,
+      scrollY,
+      viewportHeight,
+    ]
   );
 
   return (
