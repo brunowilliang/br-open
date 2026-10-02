@@ -6,7 +6,6 @@ import {
   Description,
   FieldError,
   Input,
-  InputGroup,
   Label,
   PressableFeedback,
   Select,
@@ -15,7 +14,7 @@ import {
   TextField,
   useToast,
 } from "heroui-native";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { View } from "react-native";
@@ -23,13 +22,13 @@ import { z } from "zod";
 
 import { Image } from "@/components/core/image";
 import { Text } from "@/components/core/text";
+import { AddressFields } from "@/components/ui/address-fields";
 import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { SelectOptionItem } from "@/components/ui/select-option-item";
 import { ExpandableSection } from "@/components/ui/expandable-section";
 import { SelectScrollContent } from "@/components/ui/select-scroll-content";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { applyCepInputChange, formatCep } from "@/lib/format/cep";
 import { applyPhoneInputChange, formatPhoneBR } from "@/lib/format/phone";
 import {
   applyPixInputChange,
@@ -49,7 +48,6 @@ import {
   type ImageCropArea,
   type ImageCropAsset,
 } from "@/lib/uploads/image-crop";
-import { fetchAddressByCep, ViaCepNotFoundError } from "@/lib/uploads/viacep";
 import {
   isPhysicalOrganizationType,
   ORGANIZER_TYPES,
@@ -1153,218 +1151,20 @@ function ConditionalOutroField(props: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Address section — owns the CEP lookup state so the spinner can render
-// inside the CEP input (right side) and the other fields disable during lookup.
-// ---------------------------------------------------------------------------
-
 function AddressSection(props: {
   form: UseFormReturn<OrganizationFormValues>;
   isSubmitPending: boolean;
 }) {
-  const [isCepLookingUp, setIsCepLookingUp] = useState(false);
-  const cepLookupRef = useRef<null | string>(null);
-  const isLocked = props.isSubmitPending || isCepLookingUp;
-
-  async function handleCepChange(rawValue: string | undefined) {
-    const cep = (rawValue ?? "").replace(/\D/g, "");
-
-    if (cep.length === 8 && cep !== cepLookupRef.current) {
-      cepLookupRef.current = cep;
-      setIsCepLookingUp(true);
-
-      try {
-        const result = await fetchAddressByCep(cep);
-
-        props.form.setValue("address.street", result.street, {
-          shouldDirty: true,
-        });
-        props.form.setValue("address.district", result.district, {
-          shouldDirty: true,
-        });
-        props.form.setValue("address.city", result.city, {
-          shouldDirty: true,
-        });
-        props.form.setValue("address.state", result.state, {
-          shouldDirty: true,
-        });
-        await props.form.trigger();
-      } catch (error) {
-        const message =
-          error instanceof ViaCepNotFoundError
-            ? "CEP não encontrado."
-            : "Não foi possível buscar o CEP.";
-
-        props.form.setError("address.cep", { message });
-      } finally {
-        setIsCepLookingUp(false);
-        cepLookupRef.current = null;
-      }
-    }
-  }
-
   return (
     <ExpandableSection
       description="Localização da sede."
       sectionKey="endereco"
       title="Endereço"
     >
-      <Controller
-        control={props.form.control}
-        name={"address.cep"}
-        render={({ field, fieldState }) => (
-          <TextField
-            className="w-full"
-            isInvalid={Boolean(fieldState.error)}
-            isRequired
-          >
-            <Label>CEP</Label>
-            <InputGroup>
-              <InputGroup.Input
-                editable={!props.isSubmitPending}
-                keyboardType="numeric"
-                onBlur={field.onBlur}
-                onChangeText={(text) => {
-                  const next = formatCep(
-                    applyCepInputChange(String(field.value ?? ""), text)
-                  );
-                  field.onChange(next);
-                  handleCepChange(next);
-                }}
-                placeholder="00000-000"
-                returnKeyType="search"
-                value={formatCep(String(field.value ?? ""))}
-                variant="secondary"
-              />
-              {isCepLookingUp ? (
-                <InputGroup.Suffix isDecorative>
-                  <Spinner size="sm" />
-                </InputGroup.Suffix>
-              ) : null}
-            </InputGroup>
-            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-          </TextField>
-        )}
-      />
-
-      <Controller
-        control={props.form.control}
-        name={"address.street"}
-        render={({ field, fieldState }) => (
-          <TextField
-            className="w-full"
-            isInvalid={Boolean(fieldState.error)}
-            isRequired
-          >
-            <Label>Endereço</Label>
-            <Input
-              editable={!isLocked}
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-          </TextField>
-        )}
-      />
-      <Controller
-        control={props.form.control}
-        name={"address.number"}
-        render={({ field, fieldState }) => (
-          <TextField
-            className="w-full"
-            isInvalid={Boolean(fieldState.error)}
-            isRequired
-          >
-            <Label>Número</Label>
-            <Input
-              editable={!isLocked}
-              keyboardType="numeric"
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-          </TextField>
-        )}
-      />
-      <Controller
-        control={props.form.control}
-        name={"address.complement"}
-        render={({ field }) => (
-          <TextField className="w-full">
-            <Label>Complemento</Label>
-            <Input
-              editable={!isLocked}
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-          </TextField>
-        )}
-      />
-      <Controller
-        control={props.form.control}
-        name={"address.district"}
-        render={({ field }) => (
-          <TextField className="w-full">
-            <Label>Bairro</Label>
-            <Input
-              editable={!isLocked}
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-          </TextField>
-        )}
-      />
-      <Controller
-        control={props.form.control}
-        name={"address.city"}
-        render={({ field, fieldState }) => (
-          <TextField
-            className="w-full"
-            isInvalid={Boolean(fieldState.error)}
-            isRequired
-          >
-            <Label>Cidade</Label>
-            <Input
-              editable={!isLocked}
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-          </TextField>
-        )}
-      />
-      <Controller
-        control={props.form.control}
-        name={"address.state"}
-        render={({ field, fieldState }) => (
-          <TextField
-            className="w-full"
-            isInvalid={Boolean(fieldState.error)}
-            isRequired
-          >
-            <Label>Estado</Label>
-            <Input
-              autoCapitalize="characters"
-              editable={!isLocked}
-              maxLength={2}
-              onBlur={field.onBlur}
-              onChangeText={field.onChange}
-              value={String(field.value ?? "")}
-              variant="secondary"
-            />
-            <FieldError>{fieldState.error?.message ?? ""}</FieldError>
-          </TextField>
-        )}
+      <AddressFields
+        form={props.form}
+        isSubmitPending={props.isSubmitPending}
+        variant="secondary"
       />
     </ExpandableSection>
   );

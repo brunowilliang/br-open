@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { CourtsSchema, MatchConfigSchema } from "../match/contract";
+import {
+  addressSchema,
+  type OrganizationAddress,
+} from "../organization/contract";
 import { enumField, requiredString } from "../../utils/contract.zod";
 import { brazilDayKey } from "./window-rules";
 
@@ -100,6 +104,10 @@ const tournamentBracketReleaseSchema = z
   .optional();
 
 export const TournamentSchemaBase = {
+  // Mesmo shape da organization (addressSchema). Nulo/ausente de propósito:
+  // torneio legado e cliente antigo seguem válidos; se informado, o endereço
+  // inteiro é validado (cep de 8 dígitos, número, UF...).
+  address: addressSchema.nullable().optional(),
   approvalMode: enumField(
     TournamentApprovalModeOptions,
     "Selecione o modo de aprovação."
@@ -124,6 +132,15 @@ export const TournamentSchemaBase = {
     "Selecione a visibilidade do torneio."
   ),
 };
+
+/** Leitura do endereço guardado: o formato antigo (texto livre) e valores fora
+ * do shape viram nulo; o torneio segue sem endereço em vez de quebrar a leitura. */
+export function normalizeStoredTournamentAddress(
+  value: unknown
+): OrganizationAddress | null {
+  const parsed = addressSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 /**
  * Normalizacao canonica do nome da categoria para a unicidade (mesma regra do
@@ -397,6 +414,9 @@ export const tournamentDiscoveryCategorySchema =
   });
 
 export const tournamentSchema = z.object({
+  // Nulo = torneio legado, sem endereço guardado (mesmo recorte de
+  // locationNotes: o tipo tolera ausência).
+  address: addressSchema.nullable().optional(),
   allowMultipleEntriesPerType: z.boolean(),
   approvalMode: z.enum(TournamentApprovalModeOptions),
   avatarStorageId: z.string().nullable(),

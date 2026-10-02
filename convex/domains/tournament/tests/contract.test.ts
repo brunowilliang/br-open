@@ -7,6 +7,7 @@ import {
   CreateTournamentSchema,
   MAX_TOURNAMENT_CATEGORIES,
   MAX_TOURNAMENT_MATCH_CANCEL_BATCH,
+  normalizeStoredTournamentAddress,
   SetTournamentUnavailabilitySchema,
   UpdateTournamentSchema,
 } from "../contract";
@@ -41,6 +42,93 @@ function buildTournamentInput(bestOfSets: number) {
     visibility: "public",
   };
 }
+
+const FULL_ADDRESS = {
+  cep: "01001000",
+  city: "São Paulo",
+  complement: "Sala 2",
+  district: "Sé",
+  number: "100",
+  state: "SP",
+  street: "Praça da Sé",
+};
+
+describe("TournamentSchemaBase address (shape da organization)", () => {
+  it("aceita o endereço no create e no update", () => {
+    const created = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      address: { ...FULL_ADDRESS, cep: "01001-000" },
+    });
+    const updated = UpdateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      address: FULL_ADDRESS,
+      tournamentId: "tournament-1",
+    });
+
+    expect(created.success).toBe(true);
+    expect(updated.success).toBe(true);
+    if (created.success) {
+      // Cep normalizado para 8 dígitos, igual ao perfil da organização.
+      expect(created.data.address).toMatchObject({
+        cep: "01001000",
+        number: "100",
+        state: "SP",
+      });
+    }
+  });
+
+  it("recusa endereço inválido quando informado", () => {
+    const badCep = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      address: { ...FULL_ADDRESS, cep: "123" },
+    });
+    const badState = CreateTournamentSchema.safeParse({
+      ...buildTournamentInput(3),
+      address: { ...FULL_ADDRESS, state: "São Paulo" },
+    });
+
+    expect(badCep.success).toBe(false);
+    expect(badState.success).toBe(false);
+    if (!badCep.success) {
+      expect(
+        badCep.error.issues.find(
+          (item) => item.path.join(".") === "address.cep"
+        )?.message
+      ).toBe("CEP inválido (8 dígitos).");
+    }
+  });
+
+  it("sem endereço ou com null segue válido (legado e limpeza)", () => {
+    expect(
+      CreateTournamentSchema.safeParse(buildTournamentInput(3)).success
+    ).toBe(true);
+    expect(
+      CreateTournamentSchema.safeParse({
+        ...buildTournamentInput(3),
+        address: null,
+      }).success
+    ).toBe(true);
+    expect(
+      UpdateTournamentSchema.safeParse({
+        ...buildTournamentInput(3),
+        address: null,
+        tournamentId: "tournament-1",
+      }).success
+    ).toBe(true);
+  });
+});
+
+describe("normalizeStoredTournamentAddress", () => {
+  it("mantém objeto válido e zera texto antigo ou shape inválido", () => {
+    expect(normalizeStoredTournamentAddress(FULL_ADDRESS)).toMatchObject({
+      cep: "01001000",
+      number: "100",
+    });
+    expect(normalizeStoredTournamentAddress("Rua Tiradentes, 638")).toBeNull();
+    expect(normalizeStoredTournamentAddress(null)).toBeNull();
+    expect(normalizeStoredTournamentAddress({ cep: "123" })).toBeNull();
+  });
+});
 
 describe("CreateTournamentSchema matchConfig", () => {
   it("aceita melhor de 1, 3 e 5 sets", () => {

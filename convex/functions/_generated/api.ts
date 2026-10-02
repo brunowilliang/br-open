@@ -1418,6 +1418,15 @@ export const api: {
         { tournamentId: string },
         {
           activeEntryCount: number;
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1488,6 +1497,15 @@ export const api: {
         "public",
         {},
         Array<{
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1545,6 +1563,15 @@ export const api: {
         "public",
         {},
         Array<{
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1818,6 +1845,15 @@ export const api: {
         "public",
         { tournamentId: string },
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1876,6 +1912,15 @@ export const api: {
         "mutation",
         "public",
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1922,6 +1967,15 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -1991,6 +2045,15 @@ export const api: {
             tournamentId: string;
           }>;
           tournament: {
+            address?: {
+              cep: string;
+              city: string;
+              complement?: string;
+              district?: string;
+              number: string;
+              state: string;
+              street: string;
+            } | null;
             allowMultipleEntriesPerType: boolean;
             approvalMode: "auto" | "manual";
             avatarStorageId: string | null;
@@ -2049,6 +2112,15 @@ export const api: {
         "public",
         {},
         Array<{
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -2106,6 +2178,15 @@ export const api: {
         "public",
         { tournamentId: string },
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -2168,6 +2249,15 @@ export const api: {
         "mutation",
         "public",
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;
@@ -2216,6 +2306,15 @@ export const api: {
           visibility: "public" | "private";
         },
         {
+          address?: {
+            cep: string;
+            city: string;
+            complement?: string;
+            district?: string;
+            number: string;
+            state: string;
+            street: string;
+          } | null;
           allowMultipleEntriesPerType: boolean;
           approvalMode: "auto" | "manual";
           avatarStorageId: string | null;

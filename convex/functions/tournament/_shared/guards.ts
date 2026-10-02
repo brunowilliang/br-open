@@ -10,6 +10,7 @@ import type {
   tournamentCategory,
 } from "../../../domains/tournament/tables";
 import {
+  normalizeStoredTournamentAddress,
   tournamentCategorySchema,
   tournamentSchema,
 } from "../../../domains/tournament/contract";
@@ -130,6 +131,7 @@ export async function serializeTournament(
 
   return tournamentSchema.parse({
     ...record,
+    address: normalizeStoredTournamentAddress(record.address),
     approvalMode: record.approvalMode ?? "auto",
     avatarStorageId: record.avatarStorageId ?? null,
     avatarUrl,

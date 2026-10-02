@@ -16,6 +16,9 @@ import * as playerTables from "../player/tables";
 export const tournament = convexTable(
   "tournament",
   {
+    // Endereço do local no mesmo shape da organization (OrganizationAddress).
+    // Nulo/ausente = torneio legado; texto do formato antigo é lido como nulo.
+    address: json<Record<string, unknown>>(),
     // Nasce LIGADO (DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE): desligado, o
     // servidor barra nova inscricao do jogador que ja tem uma viva no tipo.
     allowMultipleEntriesPerType: boolean().notNull(),

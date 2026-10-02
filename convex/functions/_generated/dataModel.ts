@@ -994,6 +994,7 @@ export type DataModel = {
   };
   tournament: {
     document: {
+      address?: null | any;
       allowMultipleEntriesPerType: boolean;
       approvalMode?: null | string;
       avatarStorageId?: null | string;
@@ -1024,6 +1025,7 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "address"
       | "allowMultipleEntriesPerType"
       | "approvalMode"
       | "avatarStorageId"
