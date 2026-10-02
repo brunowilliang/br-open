@@ -32,7 +32,7 @@
   competição e no banner do torneio). Rótulo e cor saem de
   `getTournamentStatusChip` (`tournament-details-derived.ts`): `draft`
   Rascunho (neutro), `published`/`drawn` decididos pela JANELA de inscrição
-  (Inscrições abertas em `success`, Inscrições encerradas em `warning` — a
+  (Inscrições abertas e Inscrições encerradas AMBAS em `accent` — a
   mesma `isRegistrationOpen` do servidor), `ongoing` Em andamento (warning),
   `finished` Encerrado (neutro) e `cancelled` Cancelado (danger). O prazo de
   inscrição é relido a cada render (o relógio é o do aparelho, não o do
@@ -157,8 +157,10 @@
   da PRÓPRIA rota; nunca `useGlobalSearchParams` aqui, que segue a rota
   focada e fazia um detalhe empilhado trocar de bucket no meio da pilha);
   hidratação destravada pelo `reset()` do bucket (discovery sempre; matches
-  gated por `shouldFetchMatches`; entries sempre), Tabs+FloatingTabBar com
-  ícones e `resolveValueFromRouteName` (index→overview; QA round 6).
+  gated por `shouldFetchMatches`; entries sempre). **Navegação:** Tabs+FloatingTabBar
+  com ícones e `resolveValueFromRouteName` (index→overview; QA round 6) até o
+  lote de 02-10-2026, que trocou tudo por um `Stack` sem Tabs/FloatingTabBar
+  (ver "Lote de 02-10-2026" no fim do doc).
   O `reset()` e a amarração do ator rodam em efeito de LAYOUT (antes do
   primeiro frame): em efeito comum o bucket quente do Map pintava um frame com
   o payload da visita anterior. A hidratação da descoberta também observa o
@@ -167,19 +169,19 @@
   `bootstrapStatus: "error"`: com ele a hidratação da descoberta NÃO escreve
   `ready`, e quando o contexto limpa o mesmo efeito re-deriva o estado sem
   precisar de push novo do torneio.
-- **Overview do organizador** (QA round 9) — `OrganizerOverview`
-  (`components/pages/tournaments/`): `WidgetAlert` accent
-  (N aguardando aprovação) + `WidgetAlert` warning (N aguardando pagamento)
-  + grid 2x2 de `KpiCard` (Inscrições ativas, Pendências, Categorias,
-  Partidas concluídas/total — "—" antes do sorteio; **linhas vacant do
-  IBX-0035 NÃO contam no total**)
-  + uma linha `Text` muted com a JANELA do torneio ("Início {dd/mm} ·
-  Inscrições até {dd/mm}"), montada por `buildTournamentDatesSummary`
-  (só os campos preenchidos; DATA LOCAL, `formatShortDate` sem `timeZone` —
-  o epoch é a meia-noite local de quem criou o dado no DatePicker, então o
-  formatador local devolve o MESMO dia: em UTC só quebraria num fuso a
-  leste de Greenwich); builders PUROS em
-  `src/lib/tournaments/organizer-overview-derived.ts` (+ teste co-localizado).
+- **Overview do organizador** (QA round 9; composição nova no lote de
+  02-10-2026) — `OrganizerOverview` (`components/pages/tournaments/`): a faixa
+  de fase (`TournamentPhaseBand`) + `PendingAlerts` do servidor (no lugar dos
+  `WidgetAlert` de aprovação/pagamento) + abas `TournamentOverviewTabs`, cujo
+  painel "Visão geral" traz "Datas do torneio"/"Prazo de inscrição"
+  (condicionais `w-1/2`/`flex-1`), "Receita do torneio" (12 meses do
+  `getRevenueSeries` filtrados pelos entryIds) e o par "Partidas" (X/Y —
+  **linhas vacant do IBX-0035 NÃO contam no total**) / "Inscrições"
+  (N "ativa(s)"; abre a aba Inscrições). O grid 2x2 e a linha da janela
+  (`buildTournamentDatesSummary`) foram EXTINTOS no lote; os builders PUROS
+  seguem em `organizer-overview-derived.ts` (`buildTournamentEntriesKpi`/
+  `buildTournamentMatchesKpi`) + `tournament-details-derived.ts` (KPIs de
+  data/fase), com testes co-localizados.
 - **`index.tsx`** (overview) — composição da página (QA round 6, RUL-0007):
   `TournamentBanner` (stretch h-90 com
   gradiente, avatar `size-28 rounded-3xl border-2`, chip "Torneio" + o
@@ -641,8 +643,9 @@
   menu é UM só por papel e vale para TODA superfície do papel: o organizador
   leva o MESMO menu ao chaveamento e à agenda (BUG-0092), com o canal de ações
   no `OrganizerActionsHost` montado uma vez no `_layout` do torneio; o jogador
-  desenha o do acerto no chaveamento, na agenda, no "Próximo jogo", nos
-  "Próximos jogos" da home e no painel do confronto — a pendência de acerto não
+  desenha o do acerto no chaveamento, na agenda, na fila "Próximos jogos" da
+  casa e nos "Próximos jogos" da home (o painel "Seu confronto" morreu no lote
+  de 02-10-2026, absorvido pela fila) — a pendência de acerto não
   desenha card: o "Combinar" dela cai nesse card pelo deep link com o `matchId`
   ("Menu único por papel no card", lote de 28-09-2026, no fim do doc); e swap
   de POSIÇÃO (toque no jogador de um confronto →
@@ -770,10 +773,11 @@
   domínio; sem UI, o único consumidor das linhas `vacant`/bye re-deriváveis
   passa a ser o sorteio/move. Trailing por estado: chip de status. A rota abre
   em Confirmados (o param `?initialTab=pending` abre a outra aba).
-  Lista `Page.ScrollView` +
-  map + `Footer pb-floating-tab-bar-4`.
-- **`schedule.tsx`** (Agenda — **TAB da FloatingTabBar desde IBX-0033 B**,
-  sem BackButton) — ESTRUTURA DA AGENDA (QA round 7): header com janela 7/15
+  Lista `Page.ScrollView`
+  (`pb-safe-offset-4`) + map + `Footer pb-safe-offset-4` (a barra flutuante
+  saiu da casa no lote de 02-10-2026).
+- **`schedule.tsx`** (Agenda — **TAB da FloatingTabBar entre IBX-0033 B e o
+  lote de 02-10-2026**, hoje empilhada com BackButton no header) — ESTRUTURA DA AGENDA (QA round 7): header com janela 7/15
   dias (Menu ⋮ terciário) + tabs de data ("Hoje" + próximos dias), corpo por
   período (manhã/tarde/noite via `SCHEDULE_PERIOD_META`), partidas como
   `MatchCard` (`ui/match-card.tsx`, o MESMO card da chave) alimentadas pelos
@@ -958,10 +962,10 @@
   testes): o rascunho do placar (linhas livres, tie-break anexo, W.O.) e a
   igualdade de horário (data + início + quadra) — o gate de "mesma proposta" do
   CLIENTE, espelho do gate do servidor.
-- `src/lib/tournaments/player-overview-derived.ts` + `match-focus.ts` (+
-  testes): o próximo jogo do jogador (com ou sem horário) e o alvo único do
-  deep-link `matchId` (o card do "Próximo jogo" OU um card do painel, nunca os
-  dois).
+  `src/lib/tournaments/player-overview-derived.ts` + `match-focus.ts` (+
+  testes): a fila "Próximos jogos" do jogador (`selectPlayerNextMatches`, com ou
+  sem horário, ordenada pela pendência do acerto) e o alvo único do deep-link
+  `matchId` (o card focado da fila, nunca dois).
 - ~~`src/lib/tournaments/match-config-presets.ts` (+ teste, 10 testes —
   R10)~~ — REMOVIDO no R12: presets de formato extintos junto com o seletor
   da aba Regras (organizador personaliza campo a campo).
@@ -2100,8 +2104,8 @@ O usuário marcou a lista de dashboards item a item e fechou o conteúdo das tel
 - **Navegação restaurada (`_layout.tsx`):** `Tabs` + `FloatingTabBar` de volta como no HEAD (overview/chave/agenda/inscrições filtradas por acesso); `tabItems` na store e `buildTournamentNavigationTabItems` + tipos em `tournament-details-derived.ts` recriados. O fix IBX-0067 (entries em erro → bootstrap error) foi MANTIDO no layout restaurado.
 - **Rodapé fixo de inscrição (âncora de ação):** jogador e guest ganham de volta o `Page.Footer` fixo (card terciário "Inscreva-se / a partir de R$X / por jogador" + CTA). O CTA abre o **BottomSheet existente** (`TournamentJoinSheet` agora exportado; card do corpo `TournamentRegistrationBlock` extinto). O rodapé SÓ existe com janela aberta e categoria com vaga (`registrationState.open` + `joinableCategories.length > 0`) — prazo/estados respeitados (correção v3 mantida); H1 do sheet (handlers dentro do conteúdo) intacto.
 - **Casa organizador (texto):** WidgetAlerts de aprovação/pagamento com ação "Ver" FICAM; "Receita do torneio" (soma no cliente do `bySource` de `payment.dashboard.getRevenueSeries` filtrado pelos entryIds do torneio; janela 12 meses), "Inscrições" (N ativas) e "Partidas" (X/Y; "0" sem chave) em texto.
-- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + "Próximo jogo"** (até 28-09 era "o primeiro `scheduled` com data/hora"; hoje é o primeiro confronto com os DOIS lados definidos e sem vencedor, com ou sem horário, ao lado do painel "Seu confronto" (casa do jogador, com a chave divulgada; a tela da chave não o mostra); adversário via `formatEntrySideLabel`).
-- **Casa guest:** só a descrição.
+- **Casa jogador:** WidgetAlerts derivados das PRÓPRIAS entries (pagamento pendente quando viewer é o pagador; convite de dupla aguardando resposta), bloco "Suas inscrições" com ações — **MIGRADO no IBX-0080 (21-09-2026) para o segmento "Minhas" da aba Inscrições; a casa do jogador mantém alertas do servidor + a fila "Próximos jogos"** (até 28-09 era "o primeiro `scheduled` com data/hora"; hoje são TODOS os confrontos do viewer com os DOIS lados definidos e sem vencedor, com ou sem horário, ordenados pela pendência do acerto; o painel "Seu confronto" morreu no lote de 02-10-2026); adversário via `formatEntrySideLabel`.
+- **Casa guest:** a faixa de fase + os KPIs "Datas do torneio"/"Inscrições" e as abas `TournamentOverviewTabs` sem painel (começa em Informações) — desenho do lote de 02-10-2026 (`guest-overview.tsx`).
 - **REMOVIDOS da casa:** chip de ciclo (`getTournamentCycleChip` extinto), meta line de janela, WidgetAlert de janela fechada, chart "Inscritos por categoria" (`tournament-entries-chart.tsx` + `buildTournamentEntriesByCategorySeries` extintos), chart "Evolução das inscrições" (`buildTournamentEntriesEvolutionSeries` extinto), bloco "Inscreva-se" no corpo, EmptyState "Inscrições abertas" do guest, lista "Inscritos confirmados" (a lista de inscritos mora na aba Inscrições).
 - **Invariável:** o PAINEL de pendências da aba Inscrições segue só do organizador (`entries.tsx` mostra o segmento Pendências só com `isOrganizer`) — o jogador recebe os ALERTAS do servidor na casa do torneio (`PendingAlerts`, escopo player) e no painel do próprio confronto; privacidade da chave pré-DIVULGAÇÃO e chave congelada pós-início (bracket) intocados.
 
@@ -2113,8 +2117,8 @@ Decisão do usuário na thread: o rodapé de inscrição global do IBX-0074 (spe
 - **Parceiro por busca viva:** debounce 500ms + `players.searchByUsername` (MESMA query exata do extinto sheet) alimenta `partnerOptions`; o autocomplete roda no modo assíncrono oficial da doc (`filter={() => true}` + `onInputChange`), com Empty "Nenhum jogador encontrado." cobrindo o não-achou; o servidor continua validando o convite no create. `PersonCard` renderiza o avatar real (`avatarUrl` do player card).
 - **Confirmação:** MESMA sequência do sheet — `entries.create` → (`awaiting_payment`) `charge.createCharge` → checkout; toasts idênticos por status (convite de parceiro / aprovação / inscrito); em voo `isActionPending` + "Enviando...". Diferença declarada: o painel fecha e reseta JÁ no confirmar (o sheet ficava aberto no erro; agora o toast explica e reabrir é um toque).
 - **CTA do painel (`joinConfirmLabel`):** "Inscrever e pagar" (todas as categorias com taxa) / "Confirmar inscrição" (todas grátis) / "Inscrever-se" (misto).
-- **Gate de montagem inalterado:** janela aberta (`registrationState.open`) + categoria com vaga; organizador sem rodapé; jogador com entrada ativa ganha "Inscrever em outra categoria".
-- **r16 (20-09, QA ao vivo): JoinFooter acima da floating tab bar via prop.** O usuário viu a tab bar flutuante da tela do torneio cobrindo o rodapé. Decisão final DELE: o padding é da tela — `JoinFooter` ganhou `footerClassName?: string` (o `cn` do app não resolve conflito de classes, default via ternário): o default é `pb-floating-tab-bar-4`, que embute safe area + gap + altura da barra via CSS var global; ela cai no default do tema (16px, sem safe area) só numa sessão em que NENHUMA barra montou, e como é global e guarda o último valor medido, quem usa o rodapé sem barra passa a classe explícita — é por isso que a GALERIA passa `pb-safe-offset-3`, e a página do torneio passa `footerClassName="pb-floating-tab-bar-4"` (`index.tsx:535`) para o rodapé sentar acima da barra.
+- **Gate de montagem inalterado:** janela aberta (`registrationState.open`) + categoria com vaga; organizador sem rodapé; jogador com entrada ativa ganha o rótulo "Nova inscrição" (`join-block.tsx:140`).
+- **r16 (20-09, QA ao vivo): JoinFooter acima da floating tab bar via prop.** O usuário viu a tab bar flutuante da tela do torneio cobrindo o rodapé. Decisão final DELE: o padding é da tela — `JoinFooter` ganhou `footerClassName?: string` (o `cn` do app não resolve conflito de classes, default via ternário): o default ERA `pb-floating-tab-bar-4` (embutia safe area + gap + altura da barra via CSS var global, e só valia depois que alguma barra tinha montado) — **hoje o default é `pb-safe-offset-4` (`join-footer.tsx:149`) desde o lote de 02-10-2026**, e quem usa o rodapé numa superfície com barra passa a classe explícita: a GALERIA passa `pb-safe-offset-3` e a página do torneio passava `footerClassName="pb-floating-tab-bar-4"` para o rodapé sentar acima da barra (a casa não tem mais barra; o `JoinBlock` passa `pb-safe-offset-4`).
 - **r17 (20-09, QA ao vivo): preço com centavos.** O valor do rodapé renderizava "R$ 5" (0 casas) — o `formatEntryFeeLabel` em `tournament-details-derived.ts` era uma duplicata local de `Intl.NumberFormat` com `maximumFractionDigits: 0`. Extinto (cutover limpo): a pílula (`index.tsx:552-560`) e o `priceLabel` por categoria (`index.tsx:343-346`) usam o formatter canônico do app `formatCurrencyCents` (`src/lib/format/currency.ts`, pt-BR default 2 casas → "R$ 5,00"; zero segue "Grátis"). O overview do organizador já usava o canônico; nenhuma outra superfície de preço cru encontrada na varredura.
 - **r20 (20-09, pedido do usuário): chip de modalidade fora do seletor de categorias.** O `Chip` com `MODALITY_LABEL[category.modality]` no item de categoria era redundante — o `displayName` da categoria já traz a modalidade ("Simples Masculino", "Duplas"...). Chip e const `MODALITY_LABEL` extintos (único uso era o chip; o campo `modality` do tipo fica — alimenta o bloco de duplas via `selectedCategory?.modality`). Item da lista segue com displayName + vagas/Lotada + seleção, no desenho atual do usuário.
 - **r25 (20-09, pedido do usuário): filtro de gênero na busca e no convite de parceiro.** Regra: Duplas Masculinas → parceiro Masculino; Duplas Femininas → parceira Feminina; Mistas → OPOSTO de quem convida. SERVER-SIDE: `searchByUsername` ganhou `categoryId` obrigatório no input e resolve o alvo com `resolvePartnerGenderTarget` (auth user + categoria — o cliente não manda gender); create valida a MESMA regra pela extensão de `validateEntryGenders` (supersede do "v1 não valida não-mistas" — teste antigo removido, novo suite r25 cobre as 3 combinações + nulos + burla via create). Gênero NULL decidido: candidato não aparece na busca E o create recusa com mensagem pt-BR ("...gênero masculino definido no perfil"); caller sem gênero em mista → busca `[]` e create recusa ("mistas exigem o gênero definido nos dois"). Dados DEV: 83 perfis — 69 M, 1 F, 13 NULL. Wiring de transição na página (r25: busca habilitada quando todas as duplas inscríveis compartilham o mesmo gênero) SUPERSEDED pelo r26 — a busca usa a categoria selecionada no painel. APONTADO: regra é do PARCEIRO — caller com gênero divergente da categoria fixa passa no create (fora do pedido; decisão de produto se/quando o usuário quiser). Nota técnica: migrations devem ser SELF-CONTAINED (sem import de domínio) — o checksum cobre o bundle deployado e import de `entry-rules.ts` driftava a cada edição do domínio (corrigido na 20260920_091746: reescrita inline + re-apply; journal 16/16, drift []). FIX da review: pins do gate fixo viram `toBe` com a MENSAGEM EXATA pt-BR (masculina/feminina, parceiro nulo incluso) e a busca ganhou over-fetch — pré-filtro 25, cap 10 DEPOIS do filtro de gênero + exclusão do caller (prefixo popular não devolve `[]` com válido além do corte).
@@ -2199,8 +2203,8 @@ ORGANIZADOR não mudou nada.**
   (`isOrganizer = role === "organizer"`).
 - **Migração do bloco "Suas inscrições" (overview do jogador → segmento Minhas):** o card
   migrou com o MESMO markup (categoria + chip via `getEntryStatusChip` + as ações) e o
-  overview deixou de renderizá-lo — lá ficam os alertas do servidor e o "Próximo jogo"
-  (`pages/tournaments/player-overview.tsx:93-101` e `:103-113`; as props `onCancelEntry`/
+  overview deixou de renderizá-lo — lá ficam os alertas do servidor e a fila
+  "Próximos jogos" (`pages/tournaments/player-overview.tsx`; as props `onCancelEntry`/
   `onPayEntry`/`onRespondInvite` foram extintas, e as citações de molde do par de ícones
   recusar/aceitar que a spec `dashboard.md` fazia para aquele arquivo passaram a apontar
   para o ramo mine desta tela, com a extinção registrada lá). As AÇÕES ficaram com um dono
@@ -2324,10 +2328,9 @@ de uma superfície para outra é o dado que ela tem.
 ### Superfícies
 
 - `MatchCard`: a agenda do torneio
-  (`tournaments/[tournamentId]/schedule.tsx`), o "Próximo jogo" da casa
+  (`tournaments/[tournamentId]/schedule.tsx`), a fila "Próximos jogos" da casa
   do jogador (`pages/tournaments/player-overview.tsx`), a lista "Próximos jogos"
-  da home (`pages/home/player-dashboard.tsx`), os cards do painel "Seu
-  confronto" (`player-match-panel.tsx`) e o NÓ do chaveamento (via
+  da home (`pages/home/player-dashboard.tsx`) e o NÓ do chaveamento (via
   `BracketMatchCard`, bracket.tsx:417). Nas superfícies do ACERTO quem hospeda o
   card é o `AgreementMatchCard`, que injeta o `agreement` (chip, rodapé e menu
   do Combinar jogo) e a ordem dos lados (`sideOrder="viewer"`; a agenda usa
@@ -2335,26 +2338,31 @@ de uma superfície para outra é o dado que ela tem.
   o `walkoverWinner` do W.O. é a agenda do torneio, pelo item
   (`lib/tournaments/schedule-items.ts:82`), e
   o nó, pela casca (`bracket-match-card.tsx:105` e `:168`).
-- O "Próximo jogo" da casa do jogador e a lista da home NÃO filtram por
-  agendamento: entram os confrontos com os dois lados definidos e sem vencedor,
-  com OU sem horário — sem data o card sai com o chip "A definir" e o rodapé de
-  proposta/agendamento não desenha.
+- A fila "Próximos jogos" da casa do jogador (ordenada pela pendência do
+  acerto: o que espera a ação do viewer vem primeiro, "A definir" por último) e
+  a lista da home NÃO filtram por agendamento: entram os confrontos com os dois
+  lados definidos e sem vencedor, com OU sem horário — sem data o card sai com
+  o chip "A definir" e o rodapé de proposta/agendamento não desenha.
 - `EntryCard`: a aba Inscrições (`tournaments/[tournamentId]/entries.tsx:470`, o
   `<EntryCard>` do map) nos seus segmentos; as AÇÕES de cada segmento saem do
   componente local `EntryRowActions` (`entries.tsx:49`) e a nota do convite de
   `resolveInviteNote` (`entries.tsx:187`).
 - A galeria dev (Configurações → Componentes) é a terceira superfície, com uma
-  entrada por card (`src/lib/dev/component-registry.ts:46` e :51, títulos
-  "Partida" e "Inscrições"): `galleryMatchCardCases`
-  (`settings/components/[component].tsx:718`, 13 casos, render :964) e
-  `galleryEntryCardCases` (`:1001`, 5 casos, render :1086); os casos do nó saem
-  na largura da chave (`nodeWidth` → `w-80`, `:967`). O chip de estado tem
-  entrada própria (`component-registry.ts:71`, "Estado do torneio"):
-  `galleryTournamentStatusCases` (`:1519`) cobre os seis estados com data VIVA
-  relativa (prazo de 10 dias e de 3 dias, aberto e encerrado) e o card da
-  competição aparece no bloco do topo.
+  entrada por componente no registry (`src/lib/dev/component-registry.ts`: as
+  entradas dos cards são :49, "Partida", e :54, "Inscrições"). Desde o IBX-0188
+  a rota `settings/components/[component].tsx` é só a moldura: resolve a
+  entrada no registry e desenha `COMPONENT_GALLERY_SECTIONS[id]`
+  (`src/components/pages/settings/index.ts`), uma pasta
+  `src/components/pages/settings/<id>/` por seção — `galleryMatchCardCases`
+  (`match-card/index.tsx`, 13 casos) e `galleryEntryCardCases`
+  (`entry-card/index.tsx`, 5 casos); os casos do nó saem na largura da chave
+  (`nodeWidth` → `w-80`). O chip de estado tem entrada própria
+  (`component-registry.ts:74`, "Estado do torneio"):
+  `galleryTournamentStatusCases` (`tournament-status/index.tsx`) cobre os seis
+  estados com data VIVA relativa (prazo de 10 dias e de 3 dias, aberto e
+  encerrado) e o card da competição aparece no bloco do topo.
 - Só a chave e a galeria conhecem a MODALIDADE (a modalidade é da CATEGORIA,
-  bracket.tsx:250 e :398); as agendas e o "Próximo jogo" não recebem `modality` (o
+  bracket.tsx:250 e :398); as agendas e a fila "Próximos jogos" não recebem `modality` (o
   `ScheduledMatchItem` não carrega) e nelas o card infere a dupla pelo parceiro.
 
 ### O nó do chaveamento é o MESMO card
@@ -2409,8 +2417,9 @@ de uma superfície para outra é o dado que ela tem.
   oneColumn, columnCeiling))` — cabe uma coluna no viewport com o respiro de 24
   de cada lado, o teto é a faixa útil e nunca há upscale — e a coluna sai
   CENTRADA na horizontal e no meio da FAIXA ÚTIL: o vão entre o header flutuante
-  medido (`headerInset`, o tab das categorias) e a barra flutuante de baixo
-  (`bottomInset` = altura da barra + safe area + folga de 12), nunca o viewport
+  medido (`headerInset`, o tab das categorias) e o rodapé seguro da tela
+  (`bottomInset`; desde o lote de 02-10-2026 é só o `insets.bottom` — a barra
+  flutuante saiu da casa), nunca o viewport
   cru; com a chave inteira já no zoom de abertura não há o que deslocar e o
   estado cai no fit centrado (`bracketOpeningTransform`). O piso do gesto
   continua a chave inteira (`bracketFitZoom`) e o estado inicial e cada
@@ -2552,16 +2561,18 @@ evento no histórico.
   horário quando quiser."). O texto de erro do SERVIDOR vence o fallback do
   toast.
 - **Casa do jogador (torneio), com a chave divulgada:** a tela monta
-  `PendingAlerts` (pendências do servidor, escopo player) + o painel "Seu
-  confronto" (`player-match-panel.tsx` — um `MatchCard` por confronto
-  negociável) + a seção "Próximo jogo"; sem próximo jogo, sem pendência e sem
-  painel o bloco não existe. Antes da divulgação sobra só `PendingAlerts` (o
-  painel depende de `bracketReleased` + confronto do viewer) e a nota "A chave
-  completa abre quando o torneio começar." saiu — a copy `panelBracketNote` não
-  existe mais.
-- **Deep-link `?matchId=`:** o aviso de "próximo jogo" e as pendências levam a
-  casa do torneio com o id; `resolveMatchFocus` decide UM alvo (o card do
-  "Próximo jogo" OU o card do painel dos próprios jogos) e a página rola até ele
+  `PendingAlerts` (pendências do servidor, escopo player) + a fila "Próximos
+  jogos" (`selectPlayerNextMatches` — todo confronto do viewer com os DOIS lados
+  definidos e sem desfecho, com ou sem horário; a ordem é a da pendência do
+  acerto: o que espera a ação do viewer primeiro e o "A definir" por último),
+  com um `AgreementMatchCard` por jogo; sem próximos jogos e sem pendência o
+  bloco não existe. O painel "Seu confronto" (`player-match-panel.tsx`) MORREU
+  no lote de 02-10-2026 — a fila o absorveu e a copy `panelTitle` saiu junto;
+  antes da divulgação sobra só `PendingAlerts` (a nota "A chave completa abre
+  quando o torneio começar." saiu — a copy `panelBracketNote` não existe mais).
+- **Deep-link `?matchId=`:** o aviso de "próximos jogos" e as pendências levam a
+  casa do torneio com o id; `resolveMatchFocus` decide UM alvo dentro da fila
+  (o primeiro card ou um item dela) e a página rola até ele
   (`measureLayout` e `y - (insets.top + 72)`).
 - **Apontamento:** o aceite do horário usa os MESMOS ids de toast no card
   (`accept-match-schedule-*`) e no CTA da pendência, com copy diferente — quem
@@ -2576,18 +2587,23 @@ evento no histórico.
   folga. A própria `FloatingTabBar` mede-se no `onLayout`, publica no store e
   escreve as CSS vars `--floating-tab-bar-height/-bottom-offset/-spacing-*` nos
   temas light/dark — são elas que sustentam as utilities
-  `pb-floating-tab-bar[-offset-*]` das telas.
-- **A chave é a única que precisa do número em JS:** a tela do chaveamento mede o
-  header (o tab das categorias é `Page.Header` overlay) e lê a altura da barra,
-  entregando `headerInset`/`bottomInset` ao `BracketCanvas`; a faixa útil da
-  abertura é `[headerInset + 16, viewportHeight − bottomInset − 24]` — o
-  enquadramento nunca esconde o card atrás do tab de cima nem da barra de baixo.
+  `pb-floating-tab-bar[-offset-*]` das telas — **a casa do torneio saiu do
+  mecanismo no lote de 02-10-2026**: sem barra, ela usa `pb-safe-offset-4`.
+- **A chave lê o número em JS:** a tela do chaveamento mede o header (o tab
+  das categorias é `Page.Header` overlay) e entrega `headerInset`/`bottomInset`
+  ao `BracketCanvas`; desde o lote de 02-10-2026 o `bottomInset` é só o
+  `insets.bottom` da tela (o `getFloatingTabBarSpacing`/`floatingTabBarHeight$`
+  não entram mais aqui) e a faixa útil da abertura é `[headerInset + 16,
+  viewportHeight − bottomInset − 24]` — o enquadramento nunca esconde o card
+  atrás do tab de cima nem do rodapé seguro.
 - **Tabs dos layouts:** o cluster privado usa `FloatingTabBar` com 2 itens
   ("Início"/"Dashboard" no modo jogador/organização e "Minhas Competições",
-  `detachInactiveScreens={false}`); o torneio tem as tabs
-  `overview|Chave|Agenda|Inscrições` filtradas por acesso e o
-  `getNavigationParams` PRESERVA os params da aba e injeta o `tournamentId` a
-  cada troca (um `matchId` aberto não se perde ao navegar e voltar).
+  `detachInactiveScreens={false}`); **o torneio saiu das tabs no lote de
+  02-10-2026**: `_layout.tsx` é um `Stack` (`index`/`bracket`/`entries`/
+  `schedule`; `headerShown: false`, fundo do tema) e as telas empilham por push
+  com o voltar no header — as portas por papel vivem nos menus do header da
+  página índice (ver o lote no fim do doc); o `getNavigationParams` do Tabs
+  morreu com ele (o `Stack` preserva a tela de baixo ao voltar).
 - **`(private)/_layout.tsx`** monta o `MatchAgreementHost` (um só para o app) e
   mantém `checkout/[chargeId]` como `fullScreenModal`.
 
@@ -2955,8 +2971,8 @@ menu do card por papel.
 - **Jogador:** a fonte dele é o acerto (`buildPlayerAgreementCard.menuItems` →
   `buildPlayerAgreementMenu` → `resolveMatchAgreementMenuActions`,
   match-agreement-provider.tsx:80-107 e match-agreement-view.ts:278-315) e é ela
-  que o "Próximo jogo" da casa do torneio e o "Próximos jogos" da home usam, via
-  `AgreementMatchCard` (agreement-match-card.tsx:25-29; player-overview.tsx:129-156;
+  que a fila "Próximos jogos" da casa do torneio e a lista da home usam, via
+  `AgreementMatchCard` (agreement-match-card.tsx:25-29;
   player-dashboard.tsx:129-150). Nas PENDÊNCIAS o card é o `WidgetAlert` com o CTA
   do item (`resolvePendingAction`, pending-alerts.tsx:51-84) — ali não há
   `MatchCard` nem menu.
@@ -3268,8 +3284,8 @@ toque abrindo o Select do HeroUI com a lista agrupada por tipo.
   altura do header segue MEDIDA e descontada na abertura (bracket.tsx:89 e
   :529).
 - **Galeria:** "Seletor 1" a "Seletor 5" (1, 2, 3, 4+ itens e a leitura "uma
-  aba" com a seleção) em settings/components/[component].tsx:2088-2158, entrada
-  "Seletor de categoria" no component-registry.ts:79-84.
+  aba" com a seleção) em `src/components/pages/settings/category-select/index.tsx`,
+  entrada "Seletor de categoria" no component-registry.ts:85-88.
 
 ### Correção desta spec
 
@@ -3343,10 +3359,10 @@ quadro; para todos os outros:
 
 - `matches.listForTournament` e `matches.listOccupiedSlots` recusam com FORBIDDEN
   ("A chave ainda não está disponível.");
-- `agreements.listMyMatches` devolve `[]` — o painel "Seu confronto" nasce com a
-  divulgação, junto com o COMBINAR JOGO: ele aparece na CASA do jogador quando
-  `bracketReleased` e existe confronto negociável do viewer (`showOwnMatch` em
-  `player-overview.tsx`) — a tela da chave não o desenha;
+- `agreements.listMyMatches` devolve `[]` — o COMBINAR JOGO nasce com a
+  divulgação: ele entra na CASA do jogador pela fila "Próximos jogos" quando
+  `bracketReleased` (o antigo painel "Seu confronto", gate `showOwnMatch`, foi
+  extinto no lote de 02-10-2026 — a tela da chave nunca o desenhou);
 - a CASA do jogador ignora o torneio inteiro: nem o próximo jogo nem o resultado
   publicado entram antes da solta;
 - a LISTA de inscrições entrega fase de entrada e cabeça de chave
@@ -3394,9 +3410,111 @@ backfill e sem migração. Nada muda para quem nunca combinou a data.
   "Backend implementado" e em "Combinar jogo") — foi corrigido para o critério
   novo: a DIVULGAÇÃO, que no legado sem data continua sendo o início.
 - O painel "Seu confronto" era citado como superfície da chave ainda privada:
-  ele vive na CASA do jogador a partir da divulgação (`bracketReleased` +
-  confronto negociável do viewer; `showOwnMatch` em `player-overview.tsx`), a
-  tela da chave não o desenha mais e a nota `panelBracketNote` saiu com o gate.
+  ele viveu na CASA do jogador a partir da divulgação (`bracketReleased` +
+  confronto negociável do viewer; `showOwnMatch` em `player-overview.tsx`) e a
+  tela da chave não o desenhava; **o painel foi extinto no lote de 02-10-2026**
+  (a fila "Próximos jogos" absorveu o acerto e `player-match-panel.tsx`/
+  `showOwnMatch` não existem mais), e a nota `panelBracketNote` já tinha saído
+  com o gate.
   Junto, o gate do `listOccupiedSlots` deixou de ser "até começar" (vale a
   divulgação; no legado, o início). Trechos ajustados em "Dialogs e components",
   "Casa jogador" (IBX-0071), "Combinar jogo" e "Visibilidade".
+
+## Lote de 02-10-2026: a casa por papel, o padrão da vitrine na página real e a galeria dev (IBX-0188/0189/0190)
+
+A casa do torneio virou três páginas de papel na MESMA moldura: o `index.tsx`
+segue dono do estado (banner, rodapé, diálogos e os menus do header) e escolhe o
+overview pelo papel; a navegação saiu do Tabs flutuante para o Stack e a galeria
+dev ganhou a entrada de tela inteira "Torneio".
+
+- **Navegação da casa (IBX-0190):** `_layout.tsx` trocou `Tabs`+`FloatingTabBar`
+  por `Stack` (telas `index`/`bracket`/`entries`/`schedule`, `headerShown:
+  false` e fundo do tema; push/voltar reais) — `detachInactiveScreens`,
+  `TOURNAMENT_TAB_ICONS`/`TOURNAMENT_TAB_ROUTE_NAMES` e o
+  `resolveTournamentTabValueFromRouteName` saíram junto. O
+  `buildTournamentNavigationTabItems` + tipos + o `tabItems` da store foram
+  EXTINTOS de novo (o cutover de 19/09 foi revertido por este; os testes deles
+  saíram e `canOpenBracket`/`canOpenSchedule` ficaram).
+- **Portas por papel no header da página índice:** organizador = `OrganizerMenu`
+  (Editar; "Chave" `canOpenBracket`; "Agenda" `canOpenSchedule`; "Inscrições"
+  com `?initialTab=pending`; "Regras"; "Publicar" em `draft`; "Cancelar
+  torneio" em `published`/`drawn` — danger); jogador/visitante =
+  `TournamentScreensMenu` NOVO (⋮ com `Menu.Label` "Telas": "Chaveamento"/
+  "Agenda"/"Inscrições") — os dois navegam por push e só montam com o papel
+  resolvido; `canOpenBracket`/`canOpenSchedule` seguem de
+  `buildTournamentDetailsAccess` (organizador OU chave divulgada).
+- **Voltar e respiro:** `BackButton` nos headers de `bracket` (Chaveamento),
+  `entries` (Inscrições) e `schedule` (Agenda) — o padrão das telas internas; a
+  lista e o `Page.Footer` de entries/schedule usam `pb-safe-offset-4` e o
+  ScrollView da índice é `grow pb-safe-offset-4` (o wrapper `gap-4 px-4 pt-4
+  pb-floating-tab-bar-4` saiu — os overviews já trazem `gap-3 px-4 pt-4`); o
+  `JoinBlock` passa `footerClassName="pb-safe-offset-4"` ao `JoinFooter`; o
+  canvas do chaveamento enquadra com `insets` (sem `getFloatingTabBarSpacing`).
+- **Casa por papel (IBX-0189):** `PlayerOverview`/`GuestOverview`/
+  `OrganizerOverview` substituem o overview de branches; os três abrem pela
+  `TournamentPhaseBand` — faixa única de fase (`buildTournamentPhaseLine`: só o
+  próximo marco futuro em contagem regressiva — prazo das inscrições abertas,
+  "Chaveamento sai em N dias"; encerrado com o dia; "Torneio cancelado" em
+  danger; sem marco, sem faixa) — e fecham nas abas `TournamentOverviewTabs`
+  ("Visão geral" quando o papel tem painel + Informações/Regulamento/Premiação).
+  - **Visitante:** faixa + KPIs "Datas do torneio"/"Inscrições"; abas sem painel
+    (começa em Informações).
+  - **Jogador:** faixa + `PendingAlerts` + painel com "Datas do torneio"/
+    "Inscrições", "Status" (chip soft com as entries do viewer) e "Minhas
+    inscrições" (N "ativa(s)"; abre a aba Inscrições — os dois últimos só com
+    inscrição do viewer) + a fila "Próximos jogos" (em "Combinar jogo": ordem
+    por pendência do acerto).
+  - **Organizador:** faixa + `PendingAlerts` + painel com "Datas do torneio"/
+    "Prazo de inscrição", "Receita do torneio" (12 meses filtrados pelos
+    entryIds), "Partidas" (X/Y) e "Inscrições" (N "ativa(s)"; abre a aba) —
+    células condicionais `w-1/2`/`flex-1` quando o par não completa.
+- **Peças do lote:** `tournament-banner` (chip "Torneio" accent + o
+  `TournamentStatusChip` na mesma fileira; chip de local estático),
+  `organizer-menu`, `cancel-tournament-dialog` (danger-soft), `join-block` (o
+  `JoinFooter` global), `tournament-overview-tabs`, `tournament-phase-band` e
+  `tournament-screens-menu`.
+- **Galeria dev (IBX-0188 + IBX-0190):** a entrada `tournament` do registry
+  (`isFullscreen: true`, título "Torneio", "Casa do torneio nos três papéis")
+  monta a tela inteira em dev: `TournamentBanner` + os três overviews REAIS
+  (jogador/visitante sobre o fixture da célula; organizador com o id da célula)
+  e um menu ⋮ com os grupos Papel (Visitante/Jogador/Organizador), Status do
+  torneio (os estados) e Telas (Chaveamento/Agenda/Inscrições — mocks locais de
+  `gallery-screens.tsx`, com o MESMO acesso por célula e voltar próprio);
+  vitrine congelada, os mocks seguem com as lacunas anotadas fora da spec.
+- **Decisões deste lote:** `Stack` em vez de tab bar vazia (empilhado com
+  voltar só existe em `Stack`); o menu novo vive só na página índice (telas
+  internas = voltar + título + o Right que já tinham); "Chaveamento" no menu
+  novo/vitrine contra "Chave" no `OrganizerMenu` fica assim até decisão do
+  Bruno; a vitrine da galeria NÃO substitui a página real.
+- **Cores e variantes de chip (aprovadas no fechamento do lote):** o chip
+  "Torneio" do banner (e o da galeria de status) é `accent`/`primary` — saiu o
+  soft; os dois estados da janela de inscrição são `accent` ("Inscrições
+  abertas"/"Inscrições encerradas" — saíram success/warning); e o chip de local
+  do banner é `default` com o texto muted — saiu o accent.
+
+### Correção desta spec
+
+- O inventário do `_layout.tsx` (Tabs+FloatingTabBar) e as menções da casa às
+  tabs/barra ("TAB da FloatingTabBar", `Footer pb-floating-tab-bar-4`) foram
+  corrigidos no lugar.
+- A seção "Enquadramento da chave e o espaço da barra flutuante" foi ajustada: a
+  casa saiu do mecanismo da barra (Stack; `pb-safe-offset-4`; `bottomInset` =
+  `insets.bottom`) — a util segue viva para o cluster privado e o wizard.
+- O painel "Seu confronto" (`player-match-panel.tsx`, `showOwnMatch`,
+  `panelTitle`) foi extinto neste lote: as citações dele em "Combinar jogo", nas
+  superfícies do `MatchCard`, no bloco do `listMyMatches` e na correção do
+  IBX-0182 apontam hoje para a fila "Próximos jogos" (`selectPlayerNextMatches`).
+- A galeria dev deixou de citar `settings/components/[component].tsx` como dona
+  das seções: os caminhos agora são `src/components/pages/settings/<id>/`
+  (IBX-0188), e a entrada de tela inteira "Torneio" foi registrada acima.
+- O r16 do JoinFooter: a página do torneio não passa mais
+  `pb-floating-tab-bar-4` — o default do `JoinFooter` é `pb-safe-offset-4` e o
+  `JoinBlock` passa `pb-safe-offset-4`.
+- As cores citadas do `TournamentStatusChip` na seção "Design aprovado"
+  ("abertas em success / encerradas em warning") foram corrigidas para `accent`
+  (as duas, como o app já estava), a seção "Overview do organizador (QA round
+  9)" foi reescrita para a composição do lote (faixa/pendências/abas; grid 2x2
+  e janela extintos) e a linha "Casa guest" alinhada à irmã da casa jogador.
+- As variantes de chip aprovadas no fechamento do lote (Torneio soft→primary no
+  banner e na galeria de status; local accent→default/muted) estão registradas
+  no bullet "Cores e variantes de chip" acima.
