@@ -38,9 +38,10 @@ de CLI, de máquina e de agente.
 |-----|-------|
 | [arquitetura.md](arquitetura.md) | Stack, estrutura de pastas, backend (kitcn/CRPC), frontend, nomenclatura, gates de verificação |
 | [auth.md](auth.md) | Auth/Conta: login (e-mail+senha, Apple, Google), senha, troca de e-mail OTP, contas vinculadas, e-mails Resend |
+| [account.md](account.md) | Exclusão de conta (fluxo in-app, requisito Apple 5.1.1): régua de bloqueios × resoluções automáticas, contrato `account/deletion` (status/requestCode/confirm com union), OTP próprio com caps/cooldown, anonimização ("Jogador removido"/"Organizador removido"), cascata de inscrições/estornos/W.O. e a tela em Login e segurança |
 | [tournaments.md](tournaments.md) | Torneios (implementado — domínio, CRPC e telas): eliminatória direta, categorias modalidade × gênero, duplas com convite por username, chave navegável, inscrições, agenda, checkout |
 | [organization.md](organization.md) | Organização, ator ativo (auth de domínio), padronização executada |
 | [payments.md](payments.md) | Payments: inscrição de torneio via PIX com split Woovi, checkout, webhook, dashboard do organizador, hub do jogador, saque (withdraw) |
 | [dashboard.md](dashboard.md) | Dashboards por persona: dash pessoal do jogador (próximos jogos, V/D, categorias, parceiro) e séries de receita da organização — contratos de leitura do IBX-0071 |
 | [pendings.md](pendings.md) | Pendências/alertas centralizados (`pendings.list`): shape do item, kinds por escopo, ordem, caps e autorização por ator, dispensa por superfície (`pendings.dismiss`, IBX-0085) e o seed de DEV do cenário (IBX-0090) — contrato de leitura do IBX-0076 |
-| [notifications.md](notifications.md) | Notificações: os 16 eventos, pipeline de criação (`createForRecipients`), apresentação acionável (`presentation` + mapa evento → ação + gates de estado), central, deliveries/push, preferências — contrato do IBX-0077 |
+| [notifications.md](notifications.md) | Notificações: os 31 eventos, pipeline de criação (`createForRecipients`), apresentação acionável (`presentation` + mapa evento → ação + gates de estado), central, deliveries/push, preferências — contrato do IBX-0077 |

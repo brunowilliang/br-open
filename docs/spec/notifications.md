@@ -19,13 +19,19 @@
 > suspensão sai sem o parêntese quando não há motivo, o `metadata` deixa de
 > carregar a chave vazia e as três recusas de agendar em quadra bloqueada perdem
 > o parêntese vazio.
+>
+> **02-10-2026:** o catálogo vai a 31 tipos — o lote da exclusão de conta
+> (`docs/spec/account.md`) entra com dois avisos informativos
+> (`tournament.player.removed`, para adversário/parceiro, e
+> `tournament.entry.player_removed`, para os gestores): os acionáveis seguem 3
+> e os informativos vão a 28.
 
 ## Visão geral
 
 Um subsistema único de notificação para o app inteiro, com três peças:
 
-1. **O evento** (`eventType`): 29 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
-   (`convex/shared/notifications/protocol.ts:1-30`), cada um com template pt-BR
+1. **O evento** (`eventType`): 31 tipos catalogados em `NOTIFICATION_EVENT_TYPES`
+   (`convex/shared/notifications/protocol.ts:1-33`), cada um com template pt-BR
    próprio no mapa `definitions`
    (`convex/domains/notification/definitions.ts`).
 2. **A central** (`notificationFeed`): uma linha por destinatário, criada no
@@ -124,7 +130,7 @@ builder devolve `null` (item vira informativo). Nunca nasce botão morto.
 | `tournament.partner.invited` | jogador | Aceitar · Recusar | `accept_partner_invite` · `decline_partner_invite` | `{ entryId }` |
 | `tournament.match.ready` | jogador | Combinar horário | `open_route` | `null` (o destino é a url do item) |
 
-Os outros 26 eventos são **informativos** (`presentation: null`).
+Os outros 28 eventos são **informativos** (`presentation: null`).
 
 O aviso de "próximo jogo" é o único ACIONÁVEL POR NAVEGAÇÃO: a url do item leva
 `?matchId=` (`getMatchReadyUrl`, `definitions.ts`) e o item abre o Combinar jogo
