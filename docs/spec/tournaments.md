@@ -44,11 +44,26 @@
   (R10) — seções de regras de partida parametrizadas por `prefix` e o grid
   2xN read-only, ambos globalizados.
 
-### Wizard `/settings/tournaments/[mode]` (cluster `[mode]`, 6 tabs + FloatingTabBar)
+### Wizard `/settings/tournaments/[mode]` (cluster `[mode]`, 7 tabs fixas no header)
 - **`src/lib/tournaments/tournament-form-navigation.ts`** — tabs
-  Detalhes·Local·Categorias·Quadras·Regras·Ajustes (**Regras entre Quadras e
-  Ajustes desde o R10**,
-  `TOURNAMENT_FORM_TAB_ITEMS` :66-72).
+  Detalhes·Imagens·Local·Categorias·Quadras·Regras·Ajustes (**Imagens entre
+  Detalhes e Local desde o lote de 02-10-2026 (2)**; Regras entre Quadras e
+  Ajustes desde o R10; sem ícones desde o lote (2)) + os helpers
+  `getCreateTournamentFormNavigation`/`getEditTournamentFormNavigation` (href
+  do push preservando o `mode`).
+- **Abas fixas no header (`form-header.tsx` + `_layout.tsx`)** — o chrome do
+  wizard monta UMA vez no `_layout`, dentro do `<Page>` e FORA da key
+  `id:updatedAt` do form de edição (`<Page><TournamentFormHeader/>…</Page>` nos
+  dois modos): `Page.Header` com voltar, SubTitle "Criar Torneio"/"Editar
+  Torneio", título = aba ativa e menu ⋮ **Salvar** (`CheckmarkCircle02Icon`),
+  mais a fita `Tabs` (ScrollView + Indicator com animação de 250ms) controlada
+  pela ROTA (`useSegments` contra `TOURNAMENT_FORM_TAB_ITEMS`); o toque navega
+  preservando o `mode` e o navigator segue com `tabBar={() => null}` (as 7
+  rotas continuam reais — URL e voltar de verdade —, só sem barra desenhada).
+  As telas são só conteúdo (`Page.ScrollView`), SEM `Page` próprio — um `Page`
+  aninhado sombreia o provider do header e o conteúdo passa a nascer sob ele.
+  A validação cai na aba do grupo de erro (`form-validation.ts`, com o grupo
+  "Imagens incompletas" novo).
 - **`src/components/pages/tournaments/form-schema.ts`** — `TournamentSchema`
   (shapes do contrato Convex; datas ISO `YYYY-MM-DD` com conversão
   epoch↔calendar; `registrationDeadlineAt < startDate`); presets das 5
@@ -58,12 +73,12 @@
   regras campo a campo) — a aba é a **seção global de match-rules**
   (`MatchRulesSection` com `prefix="matchConfig"` — módulo
   `src/components/match-rules/`) DIRETO no
-  `Page.ScrollView`; header com menu ⋮ → Salvar (`onSubmitPress`,
-  desabilitado enquanto `isSubmitPending`). Arquivos
+  `Page.ScrollView`; o Salvar é o menu ⋮ do chrome fixo (`onSubmitPress`
+  via store, desabilitado enquanto `isSubmitPending`). Arquivos
   `match-config-presets.{ts,test.ts}` REMOVIDOS no R12.
 - **`form-defaults.ts` / `form-validation.ts`** — defaults
   (`DEFAULT_MATCH_CONFIG`) e grupos de erro→tab (**R10**: grupo "Regras
-  incompletas" → tab `rules`, `form-validation.ts:55-59`). `form-schema.ts`
+  incompletas" → tab `rules`, `form-validation.ts:60-64`). `form-schema.ts`
   ganhou o refine `TournamentMatchConfigFormSchema` —
   `CreateTournamentSchema.shape.matchConfig.superRefine` com
   `getBestOfSetValidationError` (bestOf ∈ {1,3,5}, :12-27), espelhando o
@@ -80,16 +95,28 @@
   `Page.Header.Title` da tab ativa (label de `useSegments` contra
   `TOURNAMENT_FORM_TAB_ITEMS`, default "Detalhes") com o loading só na área
   de conteúdo; erro/inválido/sem-permissão mantêm o header de título único.
-- **`[mode]/index.tsx`** (Detalhes) — capa/avatar (padrão de mídia), nome,
-  descrição, DatePicker de início + prazo (mínimo hoje; prazo com
-  `maxValue` = véspera do início — QA round 7: dia do início e posteriores
-  barrados no calendário). **Mídia sem overlay (IBX-0064):** banner e avatar
-  SEM overlay escuro com texto — o toque abre o dialog de confirmação
-  "Quer alterar o banner?"/"Quer alterar o avatar?" (`MediaConfirmDialog`
-  global em `src/components/ui/media-confirm-dialog.tsx`; 1 dialog por tela
-  com alvo dinâmico) e o CONFIRMAR
-  chama o fluxo de troca de hoje (`onMediaPress` → picker/crop/upload);
-  `PressableFeedback` desabilitado durante o upload (`isMediaUploading`).
+- **`[mode]/index.tsx`** (Detalhes) — nome, descrição, o par de datas
+  (início/fim), o prazo de inscrições e a "Divulgação da chave" (obrigatória
+  desde o lote de 02-10-2026 (2)); **a capa e o avatar SAÍRAM daqui para a aba
+  Imagens**. Datas com mínimo hoje; o prazo com `maxValue` = véspera do início
+  (QA round 7: dia do início e posteriores barrados no calendário) e o fim
+  pode ser o próprio dia do início; o prazo automático é início − 3 e a
+  divulgação início − 2, os dois seguindo o início até serem editados à mão.
+- **`[mode]/images.tsx`** (Imagens — seção NOVA do lote de 02-10-2026 (2)) —
+  capa (`aspect-video`) + avatar sobreposto (`-mt-20`), cada um um
+  `PressableFeedback`; o toque abre o `MediaConfirmDialog` com alvo dinâmico
+  (banner/avatar — o global em `src/components/ui/media-confirm-dialog.tsx`) e
+  o CONFIRMAR chama `onMediaPress` (picker/crop/upload do padrão de mídia);
+  desabilitado no upload (`isMediaUploading`). **Mídia sem overlay (IBX-0064,
+  agora aqui):** banner e avatar SEM overlay escuro com texto.
+- **`[mode]/location.tsx`** (Local) — o bloco de endereço COMPARTILHADO
+  (`AddressFields`, `src/components/ui/address-fields.tsx`) no padrão da
+  organização: CEP (máscara + busca ViaCEP preenchendo rua/bairro/cidade/UF,
+  com spinner e SEM erro quando não acha — o preenchimento manual assume),
+  Endereço, Número, Bairro, Cidade, Estado (Select com as 27 UFs de
+  `src/lib/format/states.ts`), Complemento; placeholders em todos. No torneio
+  os campos saem SEM `variant` (default); a organização consome o MESMO
+  componente com `variant="secondary"`.
 - **`[mode]/categories.tsx`** — uma categoria por card das 5; card NO MOLDE
   `RuleCard`/`RuleExpandableContent` (`components/ui/rule-card.tsx`, QA R13:
   accordion igual às seções de Regras). **Gatilho do accordion: TOCAR NO
@@ -104,12 +131,12 @@
   layout=`AccordionLayoutTransition` — as mesmas transições do
   `RuleExpandableContent` (`rule-card.tsx:28-29`, `93-104`): aparece/some
   animado com reflow suave; revalidação on-the-fly ao habilitar uma
-  categoria preservada. Campos: NumberField BRL de taxa (0 =
-  grátis; Input `variant="secondary"` — QA round 8: o
-  default `--color-field` ≡ `--color-surface` nos dois temas e o input sumia
-  no card `bg-surface`; secondary renderiza `--color-default`, que contrasta
-  em light e dark) + Switch Limitar vagas + NumberStepper (dica de potências
-  de 2); estado = array `categories` do form.
+  categoria preservada. Campos: NumberField BRL de taxa (0 = grátis; input
+  SEM variante desde o lote de 02-10-2026 (2) — decisão do usuário: no wizard
+  todo campo fica default; a leitura do QA round 8, que usava
+  `variant="secondary"` para contrastar com o card, foi revertida) + Switch
+  Limitar vagas + NumberStepper (dica de potências de 2); estado = array
+  `categories` do form.
 - **`[mode]/settings.tsx`** — visibilidade (pública/privada), aprovação
   (auto/manual), delete (QA rounds 7-8): `Animated.View gap-2` +
   `AccordionLayoutTransition` envolvendo `RuleCard`
@@ -979,7 +1006,7 @@
 
 ### Pendências conhecidas
 - ~~`tournamentPlayerCardSchema` incompleto~~ — ✔ resolvido e deployado
-  22-08 (contract.ts:441-447 declara os 5 campos; view type paliativo
+  22-08 (contract.ts:503-509 declara os 5 campos; view type paliativo
   removido do frontend).
 - Deep-link `/tournaments/:id` das notificações resolve para o cluster
   (rota existe); falta registrar o prefixo no mapa de deep-links do app se
@@ -1053,10 +1080,11 @@
   com ~45+ inscritos~~ — ✔ RESOLVIDO no R18: minZoom dinâmico = zoom exato
   do fit (`bracketFitZoom`); o zoom-out alcança SEMPRE o enquadramento
   completo, em qualquer tamanho de chave.
-- Fim do torneio no CONTRATO: `refineTournamentWindow` (contract.ts:191-231)
-  recusa só fim ANTERIOR ao início via dia brasileiro — `fim == início` passa. O
-  formulário já exige fim ≥ início + 1 (lote de 29-09 (2)); a trava do servidor
-  ficou pendente.
+- ~~Fim do torneio: o formulário exigia fim ≥ início + 1 e a trava do servidor
+  ficou pendente (lote de 29-09 (2))~~ — ✔ FECHADO no lote de 02-10-2026 (2):
+  `fim == início` VALE nos dois lados — o form-schema aceita o mesmo recorte do
+  `refineTournamentWindow` (contract.ts:220-270, recusa só fim ANTERIOR ao
+  início via dia brasileiro).
 
 ## Backend implementado (slice 2 — 22-08-2026)
 
@@ -1926,10 +1954,11 @@ avanço é revelado no `bracket.published`.
 
 ## Telas aprovadas (padrões do repo)
 
-- **Criação/edição**: wizard `/settings/tournaments/[mode]`
-  (cluster `[mode]`, tabs telas + `FloatingTabBar`), tabs **Detalhes · Local
-  · Categorias · Quadras · Configurações**. Aba Categorias = checkboxes das
-  5 categorias (SM/SF/DM/DF/MX) + taxa + vagas de cada uma.
+- **Criação/edição**: wizard `/settings/tournaments/[mode]` (cluster `[mode]`,
+  tabs fixas no header desde o lote de 02-10-2026 (2)), tabs **Detalhes ·
+  Imagens · Local · Categorias · Quadras · Regras · Ajustes**. Aba Categorias
+  = a lista editável (`CategoryEditor`) — nome livre, modalidade/gênero, taxa
+  e vagas por card.
 - **Detalhe**: cluster `/tournaments/[tournamentId]` — header do torneio +
   chips de categoria; tabs **Chaveamento · Agenda · Inscrições**; access model
   `guest|player|organizer`; store Legend-State por bucket, React
@@ -2618,21 +2647,21 @@ elegibilidade; o nome é rótulo e chave de unicidade.
 
 - **Modelo:** `tournamentCategory` passa a ter `name` (texto obrigatório) +
   `nameKey` (`normalizeCategoryNameKey` = trim + caixa baixa pt-BR,
-  contract.ts:108) e o índice único `tournamentId_modality_gender_nameKey`
-  (tables.ts:76): dentro do MESMO tipo o nome não se repete — "Simples Masculino
+  contract.ts:149-151) e o índice único `tournamentId_modality_gender_nameKey`
+  (tables.ts:92-97): dentro do MESMO tipo o nome não se repete — "Simples Masculino
   A" e "Simples Masculino B" convivem, o mesmo nome em tipos diferentes também —
   e nada além do teto limita quantas categorias o torneio tem. O `displayName`
   DERIVADO morreu: `buildCategoryDisplayName` e os mapas de rótulo saíram do
   backend e o rótulo de tipo ("Simples masculino", "Duplas mistas") passou a ser
   do app (`buildCategoryTypeLabel`, src/lib/tournaments/category-editor-derived.ts:54).
-- **Teto de 50:** `MAX_TOURNAMENT_CATEGORIES = 50` (contract.ts:47) é o limite do
+- **Teto de 50:** `MAX_TOURNAMENT_CATEGORIES = 50` (contract.ts:52) é o limite do
   payload E o teto das leituras de categoria — o `limit: 10` antigo truncava a
   lista em silêncio acima de 10 categorias e foi trocado pela constante em
   management/discovery/entries/bracket/lifecycle/agreements/match_writes e nos
   scans das pendências (registry.ts:61).
 - **Diff por `id`, nunca delete+recreate:** o update manda TODAS as categorias
   vigentes e a edição carrega o `id` de cada uma (`UpdateCategoryInputSchema`,
-  contract.ts:155). `resolveCategorySyncPlan` (category-rules.ts:70) decide: `id`
+  contract.ts:196). `resolveCategorySyncPlan` (category-rules.ts:70) decide: `id`
   presente = update, ausente = insert, ausente do payload = delete; `id`
   desconhecido recusa ("Uma das categorias não existe mais nesse torneio."). Os
   DELETES rodam antes dos inserts (um nome liberado no mesmo payload não bate no
@@ -2650,12 +2679,12 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   category-editor.tsx:94), o diálogo barra no toque (`isCategoryNameTaken`,
   :160/178) e o SALVAR também — `TournamentSchema.superRefine` (form-schema.ts:72)
   joga a issue nas linhas duplicadas com a mesma frase do contrato
-  (:101-112; `zodResolver` em tournament-form-controller.tsx:66;
-  form-schema.test.ts:176) — e o servidor fecha pelo refine do contrato.
+  (:122-136; `zodResolver` em tournament-form-controller.tsx:66;
+  form-schema.test.ts:296) — e o servidor fecha pelo refine do contrato.
 - **`allowMultipleEntriesPerType`:** boolean obrigatório no create/update
-  (contract.ts:195/215), gravado na tabela (tables.ts:21), exposto no
-  `tournamentSchema` (:267) e com o default do produto LIGADO
-  (`DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE = true`, contract.ts:40). LIGADO, o
+  (contract.ts:275/295), gravado na tabela (tables.ts:24), exposto no
+  `tournamentSchema` (:420) e com o default do produto LIGADO
+  (`DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE = true`, contract.ts:45). LIGADO, o
   jogador pode ter inscrição viva em mais de uma categoria do mesmo tipo;
   DESLIGADO, o servidor barra a inscrição NOVA — no `create` para o caller
   (entries.ts:517) e para o PARCEIRO convidado no ramo de duplas (:606), e no
@@ -2665,7 +2694,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   nem trava aprovação/pagamento em voo.
 - **Leitura do organizador:** `management.getById` devolve `categories[]` com
   `name` + `liveEntryCount` (`tournamentOrganizerCategorySchema`,
-  contract.ts:248; management.ts:199) — o número que sustenta as travas ANTES do
+  contract.ts:398; management.ts:199) — o número que sustenta as travas ANTES do
   toque.
 - **Um só rótulo no app inteiro:** o nome livre viaja para a inscrição, a lista
   de inscrições, as pendências (`categoryDisplayName` da view, registry.ts:307),
@@ -2679,7 +2708,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   segue igual.
 - **Cascata:** o ORM exige índice na coluna FK filha para apagar em cascata —
   `tournamentMatchAgreement` ganhou índice `categoryId` e
-  `tournamentMatchAgreementEvent` ganhou `tournamentId` (tables.ts:262/302); sem
+  `tournamentMatchAgreementEvent` ganhou `tournamentId` (tables.ts:285/326); sem
   eles, apagar categoria/torneio com acerto gravado estourava a FK.
 - **Seed de DEV:** os cenários plantam categorias com nome de fixture
   (`PENDENCY_SEED_CATEGORY_NAME_BY_TYPE`, pendency-plan.ts:15;
@@ -2699,7 +2728,7 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   inscrição gratuita.") e "Limitar vagas" (Switch + NumberStepper 2..128). Sem
   categoria, o empty state "Nenhuma categoria cadastrada" com "Adicionar
   Categoria"; no rodapé, "Adicionar Nova Categoria" desabilita no teto com
-  "Limite de 50 categorias atingido." (category-editor.tsx:427-440).
+  "Limite de 50 categorias atingido." (category-editor.tsx:423-438).
 - **Diálogo Cria/Edita:** "Nome da categoria" (placeholder "Ex.: Categoria A" e,
   na edição, "Atualize o nome. Ele é o rótulo da categoria no app inteiro."),
   validando no toque com as MESMAS frases do servidor ("Informe o nome da
@@ -2724,20 +2753,20 @@ elegibilidade; o nome é rótulo e chave de unicidade.
   recém-criada sai SEM `id` (= insert) e a persistida manda o id do servidor. É
   esse recorte que evita o "Uma das categorias não existe mais nesse torneio."
   (o diff do servidor trata id desconhecido como NOT_FOUND); o mapeamento do
-  update usa o helper (settings/tournaments/[mode]/_layout.tsx:174).
+  update usa o helper (settings/tournaments/[mode]/_layout.tsx:194).
 - **Aba Ajustes:** card no padrão de Regras (`RuleCard` + `RuleToggleRow` com
   checkbox) com o título "Várias inscrições" e a descrição "O jogador pode se
-  inscrever em mais de uma categoria." (settings.tsx:228-242), nascendo do
+  se inscrever em mais de uma categoria." (settings.tsx:186-200), nascendo do
   default do contrato (form-defaults.ts:10) e indo no payload de create/update
   (revisado no lote de 29-09 (2)).
 - **O form do wizard** trocou os presets por `UpdateCategoryInputSchema`
-  (`TournamentCategoryFormSchema`, form-schema.ts:43, com `id` obrigatório e
+  (`TournamentCategoryFormSchema`, form-schema.ts:44, com `id` obrigatório e
   `liveEntryCount` opcional) e a lista mínima fala "Crie pelo menos uma
   categoria."; `TOURNAMENT_CATEGORY_PRESETS`, `getTournamentCategoryPreset` e
   `buildCategoryDisplayNameFromKey` MORRERAM. O mapeamento carrega o `id` no
   update ("o diff do servidor casa a categoria pelo `id`: o update NÃO pode
-  perder", settings/tournaments/[mode]/_layout.tsx:171/174) e repassa
-  `liveEntryCount` na edição (:140).
+  perder", settings/tournaments/[mode]/_layout.tsx:193-194) e repassa
+  `liveEntryCount` na edição (:163).
 - **Nome livre nas superfícies do jogador:** o rodapé de inscrição mostra o nome
   e, embaixo, o tipo técnico (`typeLabel` = `buildCategoryTypeLabel`,
   tournaments/[tournamentId]/index.tsx:348); a casa do torneio e a aba Inscrições
@@ -2769,24 +2798,24 @@ menu do card por papel.
 
 - **Criar/editar:** o par de datas é UM campo (`TournamentRangePickerField` com o
   `DateRangePicker` do heroui-native-pro,
-  settings/tournaments/[mode]/index.tsx:157-273) e o mesmo form serve create e
+  settings/tournaments/[mode]/index.tsx:150-285) e o mesmo form serve create e
   edit. O rótulo é "13/10/2026 a 20/10/2026" ("Início 13/10/2026" no torneio sem
-  fim; `buildTournamentRangeOption`, form-schema.ts:153; o wire do picker é JSON
-  `{start,end}` e volta por `parseTournamentRangeValue`, form-schema.ts:175). O
-  FIM é OBRIGATÓRIO no form (form-schema.ts:61-63): o create manda sempre a data
+  fim; `buildTournamentRangeOption`, form-schema.ts:176; o wire do picker é JSON
+  `{start,end}` e volta por `parseTournamentRangeValue`, form-schema.ts:198). O
+  FIM é OBRIGATÓRIO no form (form-schema.ts:65): o create manda sempre a data
   escolhida, o update também, e o torneio legado sem fim abre com o campo vazio e
   exige a escolha no salvar — o texto anterior ("sem escolha o create manda o
   MESMO dia do início e a edição REMOVE o teto") foi corrigido no lote de 29-09
   (2). O payload sai em epoch ms no
   `toCreateTournamentInput`/`toUpdateTournamentInput`
-  (settings/tournaments/[mode]/_layout.tsx:96-125 e :165-178).
+  (settings/tournaments/[mode]/_layout.tsx:95-135 e :185-198).
 - **Recusas:** o prazo de inscrições antes do início e o fim antes do início
   fecham nos DOIS lados com a MESMA frase — "O fim do torneio não pode ser antes
-  do início." (refine do form, form-schema.ts:82-87; `refineTournamentWindow` no
-  contrato, contract.ts:191-231, comparação por DIA brasileiro). Fim e início no
-  MESMO dia o formulário passou a recusar com "O fim do torneio deve ser pelo
-  menos o dia seguinte ao início." (form-schema.ts:87-95) e o contrato ainda
-  aceita — pendência registrada no lote de 29-09 (2). Encurtar o fim abaixo de um
+  do início." (refine do form; `refineTournamentWindow` no
+  contrato, contract.ts:220-270, comparação por DIA brasileiro). **Fim e início
+  no MESMO dia VALEM nos dois lados desde o lote de 02-10-2026 (2)** — a trava
+  do "dia seguinte" do formulário morreu e a pendência do lote de 29-09 (2)
+  fechou com ela. Encurtar o fim abaixo de um
   confronto já agendado E AINDA SEM RESULTADO é recusado no update
   (`management.ts:307-323`):
   a regra é `findScheduledMatchesBeyondWindowEnd` (window-rules.ts:61-76), que
@@ -2835,7 +2864,7 @@ menu do card por papel.
   de início deve ser antes do término."; motivo de até 80 chars e OPCIONAL
   (vazio vira nulo — o mínimo de 3 morreu no lote de 29-09); `courtId` não nulo
   precisa existir no torneio ("Quadra inválida.")
-  (contract.ts:262-311 + functions/tournament/unavailability.ts:65-70).
+  (contract.ts:318-362 + functions/tournament/unavailability.ts:65-70).
 - **Cancelar jogo(s):** o item `cancel_matches` do menu do card vale para UM jogo
   (organizer-match-menu.ts:83-96) e o MODO SELEÇÃO da agenda para o lote
   (long-press marca o primeiro, toque alterna; o botão "Cancelar jogos" do topo
@@ -2938,7 +2967,7 @@ menu do card por papel.
   segue a MESMA leitura de lado — a dupla de quem propôs lê "Proposta enviada",
   não "Confirmar horário" (`buildPlayerAgreementChip`, match-agreement-view.ts:44-129;
   os facts e o menu em :313-347). O cliente continua sem comparar id de usuário,
-  como o contrato promete (contract.ts:637-645).
+  como o contrato promete (contract.ts:699-701).
 - **Sweep no encaixe manual da chave:** trocar inscrições de lugar (`swapSlots`)
   reescreve os lados e chama `sweepMatchAgreements` com `actorSide: "organizer"` e
   kind `overridden` nos DOIS canais do confronto reescrito
@@ -3058,8 +3087,8 @@ deixou de ser obrigatório.
 
 - **Opcional de ponta a ponta:** fechar quadra/período e cancelar jogo(s)
   aceitam motivo vazio. O esquema virou `.trim().max(80)` com vazio → `null`
-  (`unavailabilityReasonSchema`, contract.ts:266-272, usado no create e no
-  update, :288/:324) e a coluna ficou nullable (tables.ts:326); o "Informe o
+  (`unavailabilityReasonSchema`, contract.ts:318-323, usado no create e no
+  update, :339/:375) e a coluna ficou nullable (tables.ts:326); o "Informe o
   motivo." e o mínimo de 3 chars morreram, o teto de 80 fica.
 - **Rótulo:** o campo é só "Motivo", sem "(opcional)" — a ausência do símbolo de
   obrigatório já diz (reason-field.tsx:30) — e o `FieldError` e o `isRequired`
@@ -3070,7 +3099,7 @@ deixou de ser obrigatório.
   troca; texto livre no "Outro" morre no toque que marca um preset. Os quatro
   chips (reason-field.tsx:38-51) usam o mesmo toggle nos dois diálogos.
 - **Sem separador solto:** a lista devolve `reason: string | null`
-  (contract.ts:529; `record.reason ?? null` em unavailability.ts:41) e as caudas
+  (contract.ts:591; `record.reason ?? null` em unavailability.ts:41) e as caudas
   do chip saem condicionalmente — `buildUnavailabilityChipLabel`
   (unavailability-derived.ts:98-111) monta "Quadra 2 | 16:00 às 20:00" ou
   "Todas as quadras | Dia todo" sem faixa de motivo vazia; a recusa do servidor
@@ -3123,41 +3152,42 @@ e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
 ### Formulário do torneio: fim obrigatório e prazo automático (IBX-0170)
 
 - **Fim obrigatório:** `endDate` deixou de ser opcional e usa o mesmo esquema do
-  início (form-schema.ts:36-38 e :63) — vazio recusa com "Informe a data." e o
-  fim no MESMO dia recusa com "O fim do torneio deve ser pelo menos o dia
-  seguinte ao início." (:88-95); fim anterior ao início segue com a copy antiga
-  (:83-88). O campo de período (`DateRangePicker`, index.tsx:157-273) é
-  `isRequired` (:182) e o Description diz "O fim fica pelo menos no dia seguinte
-  ao início." (:266-269).
-- **Auto-ajuste:** fim igual ou anterior ao início vira início + 1 no
+  início (form-schema.ts) — vazio recusa com "Informe a data."; **o fim no
+  MESMO dia passou a VALER no lote de 02-10-2026 (2)** (a recusa do "dia
+  seguinte" morreu; fim anterior ao início segue com a copy antiga). O campo de
+  período (`DateRangePicker`, index.tsx) é `isRequired`.
+- **Auto-ajuste:** fim ANTERIOR ao início vira o próprio início no
   `onValueChange` do range (`resolveTournamentEndDate`,
-  tournament-window-defaults.ts:20-29; chamada em index.tsx:196-203).
+  tournament-window-defaults.ts — revisado no lote de 02-10-2026 (2): o clamp
+  é no início, não em início + 1; o fim igual fica como está).
 - **Prazo automático:** `buildAutoRegistrationDeadline`
   (tournament-window-defaults.ts:34-43) devolve max(hoje do Brasil, início − 3)
   e fica VAZIO quando esse valor alcança o início (início hoje) — o
-  organizador escolhe, e o `maxValue` do campo é início − 1 (index.tsx:341-343
-  e :444). O prazo acompanha o início só enquanto o form guardar o último valor
+  organizador escolhe, e o `maxValue` do campo é início − 1 (index.tsx:310
+  e :356). O prazo acompanha o início só enquanto o form guardar o último valor
   automático ou nada (`shouldDateFollowStartDate`, :61-66, com o
-  `autoDeadlineRef`, index.tsx:165 e :212-230) — editado à mão, congela. O
+  `autoDeadlineRef`, index.tsx:155 e :202-220) — editado à mão, congela. O
   valor automático não conta como edição do organizador (`shouldDirty: false`,
-  :227).
+  :217).
 - **Payload e legado:** o create manda sempre a data escolhida
-  (`_layout.tsx:114`) e o update também, por spread do input de create (:170);
-  o torneio LEGADO sem fim abre com o campo vazio (:149-152) e o salvar exige a
+  (`_layout.tsx:125`) e o update também, por spread do input de create (:190);
+  o torneio LEGADO sem fim abre com o campo vazio (:171-174) e o salvar exige a
   escolha.
-- **Testes:** tournament-window-defaults.test.ts:9 (fim igual/anterior vira o
-  dia seguinte, branco segue branco, virada de mês/ano), :61 (o prazo: 3 dias
-  antes, o teto de hoje em :70, o início amanhã caindo no hoje em :79, o início
-  hoje em branco em :88 e a virada de mês em :97) e :155 (o congelamento ao
-  editar à mão, agora servindo prazo E divulgação);
-  form-schema.test.ts:141, :150 e :182 (fim no dia seguinte passa, fim igual
-  recusa com a copy nova, legado sem fim abre mas o salvar recusa) e :79-:121
-  (a divulgação: em branco passa, no mesmo dia do prazo/início passa, antes do
+- **Testes:** tournament-window-defaults.test.ts (revisados no lote de
+  02-10-2026 (2): fim igual FICA no mesmo dia, fim anterior vira o início,
+  branco segue branco, virada de mês/ano; o prazo: 3 dias antes, o teto de
+  hoje, o início amanhã caindo no hoje, o início hoje em branco e a virada de
+  mês; o congelamento ao editar à mão, servindo prazo E divulgação);
+  form-schema.test.ts (revisados no mesmo lote: fim no mesmo dia passa, fim
+  anterior recusa, legado sem fim abre mas o salvar recusa; a divulgação vazia
+  RECUSA com "Informe a data.", no mesmo dia do prazo/início passa, antes do
   prazo e depois do início recusam com a mensagem do servidor).
-- **Pendência conhecida:** o `refineTournamentWindow` do servidor
-  (contract.ts:191-231) recusa só fim ANTERIOR ao início — fim no mesmo dia
-  passa no contrato; a trava do dia seguinte é do formulário (registro também
-  em "Pendências conhecidas").
+- **Pendência conhecida:** ~~o `refineTournamentWindow` do servidor
+  (contract.ts:220-270) recusa só fim ANTERIOR ao início — fim no mesmo dia
+  passa no contrato; a trava do dia seguinte é do formulário~~ ✔ FECHADA no
+  lote de 02-10-2026 (2): o formulário passou a aceitar o mesmo recorte do
+  contrato (fim no mesmo dia vale nos dois; registro também em "Pendências
+  conhecidas").
 
 ### Painel de inscrever: teto, rolagem interna e o gesto preso no ScrollView (IBX-0169 / BUG-0096)
 
@@ -3180,10 +3210,10 @@ e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
 ### Multi-inscrição vira card no padrão de Regras (IBX-0171)
 
 - **Card:** o item saiu do `Switch` solto e virou `RuleCard` + `RuleToggleRow`
-  (settings.tsx:228-242) — o mesmo par dos toggles de Regras: checkbox à
+  (settings.tsx:186-200) — o mesmo par dos toggles de Regras: checkbox à
   esquerda, toque em QUALQUER ponto do card alterna. Textos aprovados: "Várias
   inscrições" e "O jogador pode se inscrever em mais de uma categoria."
-  (:230/:233).
+  (:191/:188).
 - **Indicador opcional:** `ToggleableRuleCard` e `RuleToggleRow` ganharam
   `indicator?: "checkbox" | "switch"` (padrão checkbox — rule-card.tsx:110, :128
   e :146-147); qualquer um dos dois fica com `pointerEvents="none"` e a linha
@@ -3222,11 +3252,11 @@ e o acordeão de Categorias/Quadras passou a manter um item aberto por vez.
 
 - A frase do lote de 28-09 ("O FIM é OPCIONAL no form…") deixou de valer: o fim
   é obrigatório no formulário e a edição não remove mais teto — a linha foi
-  corrigida no lugar, junto das citações (form-schema.ts:61-63, index.tsx).
+  corrigida no lugar, junto das citações (form-schema.ts:65, index.tsx).
 - A "Recusas" do lote de 28-09 dizia que o fim antes do início e o fim no mesmo
-  dia fechavam nos dois lados com a MESMA frase; agora o formulário recusa o
-  MESMO dia com a copy nova e o contrato ainda aceita (pendência acima) — o
-  texto foi ajustado no lugar.
+  dia fechavam nos dois lados com a MESMA frase; o formulário passou a recusar o
+  MESMO dia com a copy nova — SUPERSEDE no lote de 02-10-2026 (2), que liberou o
+  MESMO dia nos dois lados — o texto foi ajustado no lugar.
 - A linha da "Aba Ajustes" do lote de 28-09 (Switch solto e o texto "Permitir
   mais de uma inscrição no mesmo tipo") foi corrigida para o card de Regras com
   os textos aprovados.
@@ -3320,10 +3350,12 @@ descobria o próprio confronto com o torneio já começando.
   `bracketReleasedAt` (o instante real da solta, carimbado pelo cron). O payload
   do torneio expõe a data combinada e o derivado `bracketReleased`; no update,
   `bracketReleaseAt` AUSENTE deixa o campo intocado e `null` limpa a data.
-- **Campo do formulário (Detalhes):** "Divulgação da chave", OPCIONAL, com
-  Description "Nesse dia a chave abre para os jogadores. Se ainda não houver
-  sorteio, ele acontece automaticamente."; o mínimo é o prazo e o máximo é o
-  início. Criar sem escolher deixa em branco (torneio sem data combinada).
+- **Campo do formulário (Detalhes):** "Divulgação da chave", **OBRIGATÓRIA
+  desde o lote de 02-10-2026 (2)** — o form usa o mesmo esquema obrigatório das
+  outras datas ("Informe a data.") e o contrato segue tolerando ausência
+  (legado). Description "Nesse dia a chave abre para os jogadores. Se ainda não
+  houver sorteio, ele acontece automaticamente."; o mínimo do campo é o prazo
+  (ou hoje, sem prazo) e o máximo é o dia do início.
 - **Automáticos:** escolhido o início, o prazo vira início − 3 e a divulgação
   início − 2, nunca no passado (o limite do campo é hoje). Fica em branco quando
   não sobra dia válido: início hoje zera o prazo (não existe dia anterior a
@@ -3499,7 +3531,8 @@ dev ganhou a entrada de tela inteira "Torneio".
   corrigidos no lugar.
 - A seção "Enquadramento da chave e o espaço da barra flutuante" foi ajustada: a
   casa saiu do mecanismo da barra (Stack; `pb-safe-offset-4`; `bottomInset` =
-  `insets.bottom`) — a util segue viva para o cluster privado e o wizard.
+  `insets.bottom`) — a util vive no cluster privado (o wizard saiu da barra no
+  lote de 02-10-2026 (2)).
 - O painel "Seu confronto" (`player-match-panel.tsx`, `showOwnMatch`,
   `panelTitle`) foi extinto neste lote: as citações dele em "Combinar jogo", nas
   superfícies do `MatchCard`, no bloco do `listMyMatches` e na correção do
@@ -3518,3 +3551,89 @@ dev ganhou a entrada de tela inteira "Torneio".
 - As variantes de chip aprovadas no fechamento do lote (Torneio soft→primary no
   banner e na galeria de status; local accent→default/muted) estão registradas
   no bullet "Cores e variantes de chip" acima.
+
+## Lote de 02-10-2026 (2): abas fixas no header, seção Imagens, fim no mesmo dia e o endereço compartilhado (IBX-0197/0198/0199)
+
+O wizard de criar/editar torneio fechou com o desenho FINAL das abas — o chrome
+(header + fita de tabs) monta UMA vez no `_layout` e as 7 telas são só
+conteúdo —, a mídia ganhou a seção própria Imagens, o fim passou a poder ser o
+próprio dia do início (form e contrato alinhados), a divulgação da chave virou
+obrigatória no formulário e o Local trocou os campos soltos pelo MESMO bloco de
+endereço do perfil da organização. Tudo em cima do lote (1) do dia, sem commit.
+
+- **Abas fixas no header (IBX-0199):** o chrome vive em
+  `src/components/pages/tournaments/form-header.tsx` (`TournamentFormHeader`) e
+  o `_layout.tsx` o monta nos dois modos —
+  `<Page><TournamentFormHeader/><Create|EditTournamentForm/></Page>` — FORA da
+  key `id:updatedAt` do form de edição (a key continua, abaixo do chrome, para
+  re-semear o form depois de salvar). O header é `Page.Header` com voltar,
+  SubTitle "Criar Torneio"/"Editar Torneio", título = label da aba ativa e menu
+  ⋮ **Salvar** (`CheckmarkCircle02Icon`; desabilitado enquanto
+  `isSubmitPending`), e abaixo a fita `Tabs` do heroui-native
+  (`Tabs.ScrollView` + Indicator com animação de `translateX`/`width` em
+  250ms). A aba ativa vem da ROTA (`useSegments` contra
+  `TOURNAMENT_FORM_TAB_ITEMS`) e o toque navega por
+  `getCreate/EditTournamentFormNavigation`, preservando o `mode`; o navigator
+  do cluster segue com `tabBar={() => null}` — as 7 rotas continuam reais (URL
+  e voltar de verdade), só sem barra desenhada, e o `FloatingTabBar` por tela
+  morreu. As telas são só o `Page.ScrollView` com os campos, SEM `Page`
+  próprio: um `Page` aninhado sombreia o provider do header (o inset fica 0 e o
+  conteúdo nasce sob ele). **Caminho do desenho:** na mesma rodada o strip
+  chegou a usar mecanismos de settle (medição própria das tabs, offset
+  memorizado, re-pin de scroll e uma transição de rota dedicada,
+  `form-route-transition`); todos foram EXTINTOS — com o chrome fora do remount
+  do form, nada disso existe no código.
+- **Seção Imagens (IBX-0197):** a mídia (capa e avatar) saiu do Detalhes para a
+  tela nova `[mode]/images.tsx` e o form ganhou o grupo de erro "Imagens
+  incompletas" (`form-validation.ts`: `avatarStorageId`/`coverStorageId` → tab
+  `images`) — detalhes no bullet do wizard acima.
+- **Fim no mesmo dia (IBX-0197):** o form-schema aceita `endDate == startDate`
+  (a recusa do "dia seguinte" morreu; resta "O fim do torneio não pode ser
+  antes do início.") e `resolveTournamentEndDate`
+  (tournament-window-defaults.ts) clampa fim anterior NO INÍCIO, não em
+  início + 1; o contrato (`refineTournamentWindow`) já aceitava o mesmo dia — a
+  pendência do lote de 29-09 (2) fechou com os dois lados dizendo o mesmo.
+- **Divulgação obrigatória (IBX-0197):** `bracketReleaseAt` deixou o esquema
+  opcional e usa o mesmo `tournamentFormDateSchema` das outras datas ("Informe
+  a data."); o contrato segue tolerando ausência (legado) e o automático
+  (início − 2, nunca no passado) continua preenchendo o campo no create.
+- **Endereço compartilhado (IBX-0198/0199):** wizard e perfil da organização
+  dividem `AddressFields` (`src/components/ui/address-fields.tsx`) — ordem
+  CEP·Endereço·Número·Bairro·Cidade·Estado(select UF)·Complemento, placeholder
+  em todos e CEP tolerante (máscara + ViaCEP preenchendo rua/bairro/cidade/UF;
+  não achou/falhou = SEM erro, o preenchimento manual assume); as 27 UFs vivem
+  em `src/lib/format/states.ts` (novo). No contrato, o torneio ganhou `address`
+  no shape da organização (`addressSchema`, nulo/ausente para legado; coluna
+  `json` e `normalizeStoredTournamentAddress` — formato antigo ou inválido vira
+  nulo na leitura); `city`/`state`/`locationNotes` seguem no contrato para o
+  legado, mas o form manda o `address` (espelhando `city`/`state` no topo e
+  omitindo `locationNotes` — o update retém por omissão) e a hidratação cai no
+  topo quando o objeto não veio. A organização consome o MESMO componente com
+  `variant="secondary"` (e o CEP dela também ficou tolerante).
+- **Campos sem variante no wizard (IBX-0199):** todos os campos/selects do
+  wizard ficaram SEM `variant="secondary"` (default) — incluindo os editores de
+  Categoria/Quadra, os gatilhos de data e o Estado do `AddressFields` (a
+  variante é PROP: torneio default, organização `"secondary"`; no select, a org
+  mantém `bg-default`). A variante secondary sobrevive SÓ no perfil da
+  organização (o card do acordeon).
+- **Base (IBX-0199):** o gate de settle do `Page.ScrollView` — o conteúdo não
+  monta antes do inset do header landar — sustenta o chrome montado uma vez;
+  mecânica em `arquitetura.md`.
+
+### Correção desta spec
+
+- O cabeçalho e o bullet de navegação do wizard deixaram de citar "6 tabs +
+  `FloatingTabBar`": são 7 tabs fixas no header, sem ícones (Imagens entre
+  Detalhes e Local), com os helpers `getCreate/EditTournamentFormNavigation`.
+- O bullet do Detalhes perdeu a capa/avatar (foram para os bullets novos de
+  Imagens e Local, que não existiam) e o Salvar saiu do header de cada tela
+  para o menu ⋮ do chrome fixo (o bullet de Regras idem).
+- A linha da taxa em Categorias citava o `variant="secondary"` do QA round 8 —
+  revertida pela decisão do lote (todo campo do wizard fica default).
+- As pendências de fim de torneio ("dia seguinte") fecharam em três lugares:
+  "Pendências conhecidas", "Recusas" do lote de 28-09 e os bullets do lote de
+  29-09 (2) (fim obrigatório, auto-ajuste, testes e pendência conhecida).
+- O "Campo do formulário (Detalhes)" da divulgação deixou de ser OPCIONAL e o
+  resumo "Criação/edição" (tabs telas + `FloatingTabBar`) foi alinhado.
+- A cláusula da barra flutuante na "Correção desta spec" do lote (1) não cita
+  mais o wizard (ele saiu da barra).

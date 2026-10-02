@@ -1,6 +1,7 @@
 # Arquitetura — Estado atual
 
 > Verificado em 10-08-2026 contra o código do repo (src/, convex/, AGENTS.md).
+> Revisado em 02-10-2026 com o lote IBX-0199 (gate de settle do `Page.ScrollView`).
 
 ## Stack
 
@@ -80,6 +81,22 @@ A escolha por plataforma vive em um lugar só: `getPageOverlayKind(Platform.OS)`
 
 O `PageFooter` (`footer.tsx`) usa o degradê Uniwind
 (`bg-linear-to-t from-background to-background/0`) em todas as plataformas.
+
+### Gate de settle do `Page.ScrollView`
+
+O conteúdo do `Page.ScrollView` NÃO monta antes do inset do header landar. O
+`PageRoot` (`context.tsx`) expõe `isHeaderPending`/`setHeaderPending`; o
+`PageHeader` não-overlay liga o gate no `useLayoutEffect` de montagem (antes do
+primeiro frame — o `onLayout` chega depois do commit) e o `onLayout` do MESMO
+header mede a altura e fecha o gate no mesmo batch (`header.tsx`). O scroll
+segura os filhos até o PRIMEIRO commit (`hasCommitted`, via `useLayoutEffect` —
+sem isso o 1º render já montaria os filhos e o commit seguinte os desmontaria,
+rodando os efeitos de mount 2x) E enquanto `isHeaderPending && headerHeight ===
+0`; a montagem sai já com o `paddingTop` final — sem deslocamento visível.
+**Rede de segurança:**
+250ms sem layout liberam o conteúdo (`isSettleBypassed`, `scrollview.tsx`),
+para nada ficar preso fora da tela. O gate é só do `Page.ScrollView`:
+`Page.LegendList` e `Page.View` não passam por ele.
 
 ## Vocabulário canônico (padronização executada)
 
