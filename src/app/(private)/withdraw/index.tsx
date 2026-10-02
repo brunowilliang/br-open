@@ -14,6 +14,7 @@ import { DialogCloseButton } from "@/components/ui/dialog-close-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { HugeIcons } from "@/components/ui/huge-icons";
+import { LoadingState } from "@/components/ui/loading-state";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
 import { formatCurrencyCents } from "@/lib/format/currency";
 import { useWithdrawApi } from "@/lib/withdraw/api";
@@ -29,6 +30,25 @@ import {
 } from "@/lib/withdraw/errors";
 import { useWithdrawIdempotencyKey } from "@/lib/withdraw/idempotency";
 import { buildWithdrawFeeLines } from "@/lib/withdraw/info";
+import { Table } from "heroui-native-pro";
+import Animated, { LinearTransition } from "react-native-reanimated";
+
+/** Estado único de chave PIX ausente: a tela e o dialog de detalhes mostram o
+ * mesmo bloco (sem cadastro não há destino nem tabela de taxa). */
+function MissingPixKeyEmptyState(props: { onPress: () => void }) {
+  return (
+    <EmptyState
+      buttonLabel="Cadastrar"
+      buttonOnPress={props.onPress}
+      buttonSize="sm"
+      buttonVariant="primary"
+      className="px-0 py-3"
+      description="Para sacar, conecte a chave PIX da sua organização no perfil."
+      icon={Key01Icon}
+      title="Chave PIX não cadastrada"
+    />
+  );
+}
 
 export default function WithdrawScreen() {
   const router = useRouter();
@@ -46,6 +66,11 @@ export default function WithdrawScreen() {
   const { attemptKey, confirmed } = useWithdrawIdempotencyKey();
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+  function handleOpenPixProfile() {
+    setIsInfoOpen(false);
+    router.navigate("/settings/organization/profile");
+  }
 
   const balance = balanceQuery.data;
   const feeCents =
@@ -134,23 +159,22 @@ export default function WithdrawScreen() {
         <Page.Header.Right />
       </Page.Header>
 
-      {balanceQuery.isError ? (
+      {balanceQuery.isPending ? (
+        <Page.View className="centered px-4">
+          <LoadingState />
+        </Page.View>
+      ) : balanceQuery.isError ? (
         isMissingPaymentAccountError(balanceQuery.error) ? (
-          <EmptyState
-            buttonLabel="Cadastrar chave PIX"
-            buttonOnPress={() => {
-              router.navigate("/settings/organization/profile");
-            }}
-            buttonVariant="secondary"
-            description="Para sacar, conecte a chave PIX da sua organização no perfil."
-            icon={Key01Icon}
-            title="Conta de pagamento não configurada"
-          />
+          <Page.View className="centered px-4">
+            <MissingPixKeyEmptyState onPress={handleOpenPixProfile} />
+          </Page.View>
         ) : (
-          <ErrorState
-            error={balanceQuery.error}
-            message="Não foi possível carregar o saldo."
-          />
+          <Page.View className="centered px-4">
+            <ErrorState
+              error={balanceQuery.error}
+              message="Não foi possível carregar o saldo."
+            />
+          </Page.View>
         )
       ) : (
         <>
@@ -168,7 +192,10 @@ export default function WithdrawScreen() {
               />
 
               {/* Sacar tudo + info */}
-              <View className="flex-row items-center gap-1">
+              <Animated.View
+                className="flex-row items-center gap-1"
+                layout={LinearTransition}
+              >
                 <Button
                   isDisabled={availableCents <= 0}
                   onPress={() => {
@@ -194,35 +221,37 @@ export default function WithdrawScreen() {
                     icon={InformationCircleIcon}
                   />
                 </Button>
-              </View>
-
-              {/* Taxa ao vivo quando há valor digitado */}
-              {hasValue && balance !== undefined ? (
-                <View className="gap-0.5 pt-2">
-                  <View className="flex-row items-center gap-2">
-                    <Text color="muted" variant="description">
-                      Taxa de saque
-                    </Text>
-                    <Text size="sm" weight="medium">
-                      {isFree ? "Grátis" : formatCurrencyCents(feeCents)}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center gap-2">
-                    <Text color="muted" variant="description">
-                      Você recebe
-                    </Text>
-                    <Text
-                      color={liquidCents > 0 ? undefined : "danger"}
-                      size="sm"
-                      weight="medium"
-                    >
-                      {formatCurrencyCents(liquidCents)}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
+              </Animated.View>
             </View>
           </Page.View>
+
+          {/* Taxa ao vivo quando há valor digitado */}
+          <View className="centered h-17">
+            {hasValue && balance !== undefined ? (
+              <>
+                <View className="centered flex-row gap-1">
+                  <Text color="muted" variant="description">
+                    Taxa de saque:
+                  </Text>
+                  <Text size="sm" weight="medium">
+                    {isFree ? "Grátis" : formatCurrencyCents(feeCents)}
+                  </Text>
+                </View>
+                <View className="centered flex-row gap-1">
+                  <Text color="muted" variant="description">
+                    Você recebe:
+                  </Text>
+                  <Text
+                    color={liquidCents > 0 ? undefined : "danger"}
+                    size="sm"
+                    weight="medium"
+                  >
+                    {formatCurrencyCents(liquidCents)}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
 
           {/* Teclado + confirmação */}
           <View className="gap-4 px-4 pb-safe-offset-4">
@@ -257,60 +286,117 @@ export default function WithdrawScreen() {
           <Dialog.Content className="gap-4 p-5">
             <DialogCloseButton className="absolute top-4 right-4 z-100" />
             <Dialog.Title>Detalhes do saque</Dialog.Title>
+            <Dialog.Description>
+              Confira para onde o PIX vai, o valor mínimo de saque e a taxa
+              aplicada em cada faixa.
+            </Dialog.Description>
 
             {pixKey ? (
-              <View className="gap-0.5">
-                <Text color="muted" variant="description">
-                  Destino
-                </Text>
-                <Text weight="semibold">{accountName ?? "Chave PIX"}</Text>
-                <Text color="muted" size="sm">
-                  {pixKey}
-                </Text>
+              <View className="gap-3 pt-4 pb-2">
+                <Table>
+                  <Table.Content>
+                    <Table.Header>
+                      <Table.Column flex={1.5}>
+                        <Text
+                          color="muted"
+                          variant="description"
+                          weight="semibold"
+                        >
+                          Destino
+                        </Text>
+                      </Table.Column>
+                      <Table.Column>
+                        <Text
+                          align="right"
+                          className="flex-1"
+                          color="muted"
+                          variant="description"
+                          weight="semibold"
+                        >
+                          Chave PIX
+                        </Text>
+                      </Table.Column>
+                    </Table.Header>
+
+                    <Table.Body>
+                      <Table.Row>
+                        <Table.Cell>
+                          <Text
+                            color="muted"
+                            numberOfLines={1}
+                            variant="description"
+                          >
+                            {accountName}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Text
+                            align="right"
+                            className="flex-1"
+                            color="muted"
+                            variant="description"
+                          >
+                            {pixKey}
+                          </Text>
+                        </Table.Cell>
+                      </Table.Row>
+                    </Table.Body>
+                  </Table.Content>
+                </Table>
+
+                {balance === undefined ? null : (
+                  <Table>
+                    <Table.Content>
+                      <Table.Header>
+                        <Table.Column flex={2.7}>
+                          <Text
+                            color="muted"
+                            variant="description"
+                            weight="semibold"
+                          >
+                            Mínimo de saque
+                          </Text>
+                        </Table.Column>
+                        <Table.Column>
+                          <Text
+                            align="center"
+                            className="flex-1"
+                            color="muted"
+                            variant="description"
+                            weight="semibold"
+                          >
+                            Taxa
+                          </Text>
+                        </Table.Column>
+                      </Table.Header>
+
+                      <Table.Body>
+                        {buildWithdrawFeeLines(balance).map((line) => (
+                          <Table.Row key={line.label}>
+                            <Table.Cell>
+                              <Text color="muted" variant="description">
+                                {line.label}
+                              </Text>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Text
+                                align="right"
+                                className="flex-1"
+                                color="muted"
+                                variant="description"
+                              >
+                                {line.value}
+                              </Text>
+                            </Table.Cell>
+                          </Table.Row>
+                        ))}
+                      </Table.Body>
+                    </Table.Content>
+                  </Table>
+                )}
               </View>
             ) : (
-              <View className="gap-1">
-                <Text weight="semibold">Nenhuma chave PIX cadastrada</Text>
-                <Text color="muted" variant="description">
-                  Cadastre a chave PIX antes de sacar.
-                </Text>
-                <Button
-                  onPress={() => {
-                    setIsInfoOpen(false);
-                    router.navigate("/settings/organization/profile");
-                  }}
-                  size="sm"
-                  variant="secondary"
-                >
-                  Cadastrar chave PIX
-                </Button>
-              </View>
-            )}
-
-            {balance === undefined ? null : (
-              <View className="gap-1">
-                <View className="flex-row items-center justify-between">
-                  <Text color="muted" variant="description">
-                    Mínimo de saque
-                  </Text>
-                  <Text size="sm" weight="medium">
-                    {formatCurrencyCents(balance.minWithdrawCents)}
-                  </Text>
-                </View>
-                {buildWithdrawFeeLines(balance).map((line) => (
-                  <View
-                    className="flex-row items-center justify-between"
-                    key={line.label}
-                  >
-                    <Text color="muted" variant="description">
-                      {line.label}
-                    </Text>
-                    <Text size="sm" weight="medium">
-                      {line.value}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              <MissingPixKeyEmptyState onPress={handleOpenPixProfile} />
             )}
           </Dialog.Content>
         </Dialog.Portal>

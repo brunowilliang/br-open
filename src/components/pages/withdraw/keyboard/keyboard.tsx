@@ -1,5 +1,5 @@
-import { cn } from "better-styled";
 import { Eraser01Icon } from "@hugeicons/core-free-icons";
+import { cn } from "better-styled";
 import { Card, PressableFeedback } from "heroui-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
@@ -87,7 +87,7 @@ export function Keyboard({ onKeyPress, isEmpty }: KeyboardProps) {
           isDisabled={isEmpty}
           onPress={() => onKeyPress("backspace")}
           render={
-            <HugeIcons className="size-7 rotate-180" icon={Eraser01Icon} />
+            <HugeIcons className="size-6.5 rotate-180" icon={Eraser01Icon} />
           }
         />
       </View>
