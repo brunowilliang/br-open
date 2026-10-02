@@ -35,6 +35,11 @@ const monthDayUtcFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 });
 
+const monthDayLongFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "numeric",
+  month: "short",
+});
+
 export function formatShortDate(date: Date): string {
   return shortDateFormatter.format(date);
 }
@@ -56,6 +61,14 @@ export function formatDayLabel(date: Date): string {
 
 export function formatMonthDay(date: Date): string {
   return monthDayFormatter.format(date);
+}
+
+/** Dia com o mês abreviado com ponto ("13 de out."), o formato das datas de
+ * exibição do torneio. Formata em LOCAL: as datas do torneio chegam em
+ * meia-noite local de quem criou o dado, e é o dia local que precisa ser
+ * devolvido. */
+export function formatMonthDayLong(date: Date): string {
+  return monthDayLongFormatter.format(date);
 }
 
 export function formatMatchMonthDay(matchDate: string): string {

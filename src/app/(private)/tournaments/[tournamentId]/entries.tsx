@@ -400,7 +400,9 @@ export default function TournamentEntriesRoute() {
       <Page.Header>
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row">
-            <Page.Header.Left />
+            <Page.Header.Left>
+              <Page.Header.BackButton />
+            </Page.Header.Left>
             <Page.Header.Center>
               <Page.Header.Title>Inscrições</Page.Header.Title>
             </Page.Header.Center>
@@ -459,7 +461,7 @@ export default function TournamentEntriesRoute() {
         </Page.ScrollView>
       ) : (
         <Page.ScrollView
-          contentContainerClassName="grow gap-2 px-4 pb-floating-tab-bar-offset-4"
+          contentContainerClassName="grow gap-2 px-4 pb-safe-offset-4"
           showsVerticalScrollIndicator={false}
         >
           {visibleEntries.map((entry) => {
@@ -513,7 +515,7 @@ export default function TournamentEntriesRoute() {
           })}
         </Page.ScrollView>
       )}
-      <Page.Footer className="pb-floating-tab-bar-4" />
+      <Page.Footer className="pb-safe-offset-4" />
 
       <CancelEntryDialog
         categoryLabel={cancelEntryTarget?.categoryName}

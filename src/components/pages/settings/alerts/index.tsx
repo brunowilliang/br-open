@@ -86,7 +86,7 @@ export function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="Copy nova (hoje o estado só existe como chip Aguardando parceiro, lib/tournaments/tournament-details-derived.ts:124). A descrição traz o nome de quem foi convidado, a categoria e a competição, com o NOME em negrito (mesma régua do cartão 5: um destaque por linha e o dado que decide é de quem se espera resposta; categoria e competição ficam sem destaque: apontado). info = accent: o vocabulário do alerta não tem info (alert.md da versão instalada e ui/widget-alert.tsx:33)."
+        note="Copy nova (hoje o estado só existe como chip Sem parceiro, lib/tournaments/tournament-details-derived.ts:104). A descrição traz o nome de quem foi convidado, a categoria e a competição, com o NOME em negrito (mesma régua do cartão 5: um destaque por linha e o dado que decide é de quem se espera resposta; categoria e competição ficam sem destaque: apontado). info = accent: o vocabulário do alerta não tem info (alert.md da versão instalada e ui/widget-alert.tsx:33)."
         title="Alerta 6 | PROPOSTA | Torneio (jogador): convite de dupla enviado"
       >
         <WidgetAlert
@@ -97,7 +97,7 @@ export function AlertsVariantsSection() {
       </VariantSection>
 
       <VariantSection
-        note="Copy nova (hoje o estado só existe como chip Aguardando aprovação, lib/tournaments/tournament-details-derived.ts:123). Sem destaque: a frase não tem palavra-chave (nem nome, nem valor, nem prazo) — apontado. info = accent, mesmo motivo do cartão 6."
+        note="Copy nova (hoje o estado só existe como chip Em análise, lib/tournaments/tournament-details-derived.ts:103). Sem destaque: a frase não tem palavra-chave (nem nome, nem valor, nem prazo) — apontado. info = accent, mesmo motivo do cartão 6."
         title="Alerta 7 | PROPOSTA | Torneio (jogador): inscrição aguardando aprovação do organizador"
       >
         <WidgetAlert

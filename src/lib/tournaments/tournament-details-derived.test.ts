@@ -4,12 +4,15 @@ import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/cont
 
 import {
   buildBracketPlaceholder,
+  buildTournamentDatesKpi,
+  buildTournamentDeadlineKpi,
   buildTournamentEntriesTabItems,
+  buildTournamentEntryStatusKpi,
+  buildTournamentPhaseLine,
   buildRegistrationWindowState,
   buildTournamentActiveEntriesCountByCategory,
   buildTournamentCategoryVacancy,
   buildTournamentDetailsAccess,
-  buildTournamentNavigationTabItems,
   buildTournamentDetailsRole,
   buildTournamentDetailsScreenState,
   buildTournamentJoinOptions,
@@ -264,7 +267,7 @@ describe("getTournamentStatusChip", () => {
         registrationDeadlineMs: deadlineMs,
         status: "published",
       })
-    ).toEqual({ color: "success", label: "Inscrições abertas" });
+    ).toEqual({ color: "accent", label: "Inscrições abertas" });
 
     expect(
       getTournamentStatusChip({
@@ -272,7 +275,7 @@ describe("getTournamentStatusChip", () => {
         registrationDeadlineMs: deadlineMs,
         status: "drawn",
       })
-    ).toEqual({ color: "success", label: "Inscrições abertas" });
+    ).toEqual({ color: "accent", label: "Inscrições abertas" });
 
     expect(
       getTournamentStatusChip({
@@ -280,7 +283,7 @@ describe("getTournamentStatusChip", () => {
         registrationDeadlineMs: deadlineMs,
         status: "drawn",
       })
-    ).toEqual({ color: "warning", label: "Inscrições encerradas" });
+    ).toEqual({ color: "accent", label: "Inscrições encerradas" });
   });
 
   test("cada status do vocabulario tem o seu chip", () => {
@@ -310,41 +313,6 @@ describe("getTournamentStatusChip", () => {
         status: "archived",
       })
     ).toEqual({ color: "default", label: "archived" });
-  });
-});
-
-describe("buildTournamentNavigationTabItems", () => {
-  test("sem divulgação o não-organizador vê Overview e Entries", () => {
-    const access = buildTournamentDetailsAccess({
-      bracketReleased: false,
-      role: "guest",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "entries"]);
-  });
-
-  test("chave divulgada abre todas as abas na ordem", () => {
-    const access = buildTournamentDetailsAccess({
-      bracketReleased: true,
-      role: "player",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "bracket", "schedule", "entries"]);
-  });
-
-  test("organizer vê todas as abas mesmo sem divulgação", () => {
-    const access = buildTournamentDetailsAccess({
-      bracketReleased: false,
-      role: "organizer",
-    });
-
-    expect(
-      buildTournamentNavigationTabItems(access).map((item) => item.value)
-    ).toEqual(["overview", "bracket", "schedule", "entries"]);
   });
 });
 
@@ -823,5 +791,186 @@ describe("walkoverWinnerSide", () => {
     expect(
       walkoverWinnerSide({ ...playedWalkover, winnerEntryId: "entry-c" })
     ).toBeNull();
+  });
+});
+
+describe("buildTournamentPhaseLine", () => {
+  const now = new Date(2026, 9, 1, 9).getTime();
+  const deadline = new Date(2026, 9, 11).getTime();
+  const releaseAt = new Date(2026, 9, 4).getTime();
+  const base = {
+    bracketReleaseAt: releaseAt as null | number,
+    bracketReleased: false,
+    now,
+    registrationDeadlineAt: deadline,
+    status: "published",
+  };
+
+  test("inscrições abertas contam pro fim do prazo", () => {
+    expect(buildTournamentPhaseLine(base)).toEqual({
+      color: "default",
+      label: "Faltam 10 dias para as inscrições terminarem",
+    });
+  });
+
+  test("véspera e dia do prazo", () => {
+    expect(
+      buildTournamentPhaseLine({
+        ...base,
+        now: new Date(2026, 9, 10).getTime(),
+      })
+    ).toEqual({ color: "default", label: "As inscrições terminam amanhã" });
+
+    expect(
+      buildTournamentPhaseLine({
+        ...base,
+        registrationDeadlineAt: new Date(2026, 9, 1, 18).getTime(),
+      })
+    ).toEqual({ color: "default", label: "As inscrições terminam hoje" });
+  });
+
+  test("encerradas e chave por sair contam pro chaveamento", () => {
+    const closed = {
+      ...base,
+      registrationDeadlineAt: new Date(2026, 8, 28).getTime(),
+    };
+
+    expect(buildTournamentPhaseLine(closed)).toEqual({
+      color: "default",
+      label: "Chaveamento sai em 3 dias",
+    });
+
+    expect(
+      buildTournamentPhaseLine({
+        ...closed,
+        now: new Date(2026, 9, 3).getTime(),
+      })
+    ).toEqual({ color: "default", label: "Chaveamento sai amanhã" });
+
+    expect(
+      buildTournamentPhaseLine({
+        ...closed,
+        bracketReleaseAt: new Date(2026, 9, 4, 23).getTime(),
+        now: new Date(2026, 9, 4, 9).getTime(),
+      })
+    ).toEqual({ color: "default", label: "Chaveamento sai hoje" });
+  });
+
+  test("sem marco futuro acionável não tem faixa", () => {
+    const closed = {
+      ...base,
+      registrationDeadlineAt: new Date(2026, 8, 28).getTime(),
+    };
+
+    expect(
+      buildTournamentPhaseLine({ ...closed, bracketReleased: true })
+    ).toBeNull();
+    expect(
+      buildTournamentPhaseLine({ ...closed, bracketReleaseAt: null })
+    ).toBeNull();
+    expect(
+      buildTournamentPhaseLine({
+        ...base,
+        now: new Date(2026, 9, 13).getTime(),
+        status: "ongoing",
+      })
+    ).toBeNull();
+  });
+
+  test("encerrado cita o fim (sem fim no dado, sai sem dia)", () => {
+    expect(
+      buildTournamentPhaseLine({
+        ...base,
+        endDate: new Date(2026, 9, 14).getTime(),
+        now: new Date(2026, 9, 15).getTime(),
+        status: "finished",
+      })
+    ).toEqual({ color: "default", label: "Torneio encerrado em 14 de out." });
+
+    expect(
+      buildTournamentPhaseLine({
+        ...base,
+        endDate: null,
+        now: new Date(2026, 9, 15).getTime(),
+        status: "finished",
+      })
+    ).toEqual({ color: "default", label: "Torneio encerrado" });
+  });
+
+  test("cancelado sai em vermelho (sem dia no dado)", () => {
+    expect(buildTournamentPhaseLine({ ...base, status: "cancelled" })).toEqual({
+      color: "danger",
+      label: "Torneio cancelado",
+    });
+  });
+});
+
+describe("buildTournamentDatesKpi", () => {
+  const startDate = new Date(2026, 9, 13).getTime();
+
+  test("janela no mesmo mês vira '13 a 14 de out.'", () => {
+    expect(
+      buildTournamentDatesKpi({
+        endDate: new Date(2026, 9, 14).getTime(),
+        startDate,
+      })
+    ).toBe("13 a 14 de out.");
+  });
+
+  test("meses diferentes nomeiam os dois dias", () => {
+    expect(
+      buildTournamentDatesKpi({
+        endDate: new Date(2026, 10, 2).getTime(),
+        startDate,
+      })
+    ).toBe("13 de out. a 2 de nov.");
+  });
+
+  test("torneio de um dia (ou sem fim) mostra o dia sozinho", () => {
+    expect(buildTournamentDatesKpi({ startDate })).toBe("13 de out.");
+
+    expect(buildTournamentDatesKpi({ endDate: startDate, startDate })).toBe(
+      "13 de out."
+    );
+  });
+
+  test("sem data de início não há valor", () => {
+    expect(buildTournamentDatesKpi({ startDate: 0 })).toBeNull();
+  });
+});
+
+describe("buildTournamentDeadlineKpi", () => {
+  test("prazo vira 'até 11 de out.'", () => {
+    expect(buildTournamentDeadlineKpi(new Date(2026, 9, 11).getTime())).toBe(
+      "até 11 de out."
+    );
+  });
+
+  test("sem prazo não há valor", () => {
+    expect(buildTournamentDeadlineKpi(0)).toBeNull();
+  });
+});
+
+describe("buildTournamentEntryStatusKpi", () => {
+  test("uma ativa já deixa o geral 'Inscrito', mesmo com outra aguardando", () => {
+    expect(
+      buildTournamentEntryStatusKpi(["awaiting_payment", "active"])
+    ).toEqual({ color: "success", label: "Inscrito" });
+  });
+
+  test("sem ativa, a aguardando mais avançada manda", () => {
+    expect(buildTournamentEntryStatusKpi(["pending_approval"])).toEqual({
+      color: "warning",
+      label: "Em análise",
+    });
+
+    expect(
+      buildTournamentEntryStatusKpi(["pending_partner", "awaiting_payment"])
+    ).toEqual({ color: "warning", label: "A pagar" });
+  });
+
+  test("sem inscrição viva não há status geral", () => {
+    expect(buildTournamentEntryStatusKpi([])).toBeNull();
+    expect(buildTournamentEntryStatusKpi(["rejected", "cancelled"])).toBeNull();
   });
 });

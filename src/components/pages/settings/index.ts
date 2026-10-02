@@ -13,6 +13,7 @@ import { NotificationVariantsSection } from "@/components/pages/settings/notific
 import { CheckoutStatusVariantsSection } from "@/components/pages/settings/payment-status";
 import { StandingsCardVariantsSection } from "@/components/pages/settings/standings-card";
 import { TextVariantsSection } from "@/components/pages/settings/text";
+import { TournamentVariantsSection } from "@/components/pages/settings/tournament";
 import { TournamentStatusVariantsSection } from "@/components/pages/settings/tournament-status";
 
 /**
@@ -33,5 +34,6 @@ export const COMPONENT_GALLERY_SECTIONS: Record<string, ComponentType> = {
   "payment-status": CheckoutStatusVariantsSection,
   "standings-card": StandingsCardVariantsSection,
   text: TextVariantsSection,
+  tournament: TournamentVariantsSection,
   "tournament-status": TournamentStatusVariantsSection,
 };

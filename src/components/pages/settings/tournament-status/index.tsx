@@ -36,7 +36,7 @@ const galleryTournamentStatusCases: {
     title: "Estado 3 | inscrições encerradas",
   },
   {
-    note: "Chave em disputa. Fica com a mesma cor de inscrições encerradas, como o vocabulário aprovado.",
+    note: "Chave em disputa. O andamento mantém o amarelo; o azul é a cor das inscrições (abertas e encerradas).",
     registrationDeadlineAt: galleryTournamentNowMs - GALLERY_DAY_MS * 5,
     status: "ongoing",
     title: "Estado 4 | em andamento",
@@ -74,7 +74,7 @@ export function TournamentStatusVariantsSection() {
         title="No header do torneio"
       >
         <View className="flex-row items-center gap-1.5">
-          <Chip color="accent" size="sm" variant="soft">
+          <Chip color="accent" size="sm" variant="primary">
             <Chip.Label>Torneio</Chip.Label>
           </Chip>
           <TournamentStatusChip

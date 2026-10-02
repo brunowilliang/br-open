@@ -8,7 +8,6 @@ import {
   buildTournamentDetailsAccess,
   buildTournamentDetailsRole,
   buildTournamentDetailsScreenState,
-  buildTournamentNavigationTabItems,
   type TournamentDetailsAccess,
   type TournamentDetailsRole,
 } from "./tournament-details-derived";
@@ -208,11 +207,6 @@ function createTournamentDetailsBucket(tournamentId: string) {
         }
 
         return access.canOpenBracket;
-      },
-      tabItems: () => {
-        const access = bucket$.derived.access.get();
-
-        return access ? buildTournamentNavigationTabItems(access) : [];
       },
     },
     identity: {

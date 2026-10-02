@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import type { TournamentMatchWithSides } from "./bracket-view";
-import { selectNextPlayerMatch } from "./player-overview-derived";
+import type { PlayerMatch } from "./match-agreement-view";
+import { selectPlayerNextMatches } from "./player-overview-derived";
 
 function buildMatch(
   overrides: Partial<TournamentMatchWithSides> = {}
@@ -28,83 +29,73 @@ function buildMatch(
 
 const VIEWER = ["entry-me"];
 
-describe("selectNextPlayerMatch", () => {
+const IDLE_CHANNEL = {
+  agreedAt: null,
+  proposal: null,
+  proposedAt: null,
+  proposedByMe: false,
+  proposedBySide: null,
+  state: "idle",
+} as const;
+
+const PROPOSAL = {
+  courtId: "court-1",
+  endMinute: 600,
+  matchDate: "2026-10-04",
+  startMinute: 540,
+};
+
+function buildPlayerMatch(input: {
+  match: TournamentMatchWithSides;
+  schedule?: Partial<PlayerMatch["agreements"]["schedule"]>;
+  score?: Partial<PlayerMatch["agreements"]["score"]>;
+}): PlayerMatch {
+  return {
+    agreements: {
+      matchId: input.match.id,
+      schedule: { ...IDLE_CHANNEL, ...input.schedule },
+      score: { ...IDLE_CHANNEL, ...input.score },
+    },
+    match: input.match,
+    mySide: "a",
+    totalRounds: 1,
+  };
+}
+
+function idsOf(matches: readonly TournamentMatchWithSides[]): string[] {
+  return matches.map((match) => match.id);
+}
+
+describe("selectPlayerNextMatches", () => {
   it("sem data o confronto conta: a chave saiu e o jogo é dele", () => {
-    const next = selectNextPlayerMatch({
+    const matches = selectPlayerNextMatches({
       matches: [buildMatch()],
+      playerMatches: [],
       viewerEntryIds: VIEWER,
     });
 
-    expect(next?.id).toBe("match-1");
-    expect(next?.matchDate).toBeNull();
-    expect(next?.status).toBe("pending");
-  });
-
-  it("com data o confronto continua aparecendo", () => {
-    const next = selectNextPlayerMatch({
-      matches: [
-        buildMatch({
-          matchDate: "2026-10-04",
-          startMinute: 540,
-          status: "scheduled",
-        }),
-      ],
-      viewerEntryIds: VIEWER,
-    });
-
-    expect(next?.matchDate).toBe("2026-10-04");
-  });
-
-  it("a rodada mais próxima manda, agendada ou não", () => {
-    const next = selectNextPlayerMatch({
-      matches: [
-        buildMatch({
-          id: "final",
-          matchDate: "2026-10-04",
-          round: 2,
-          status: "scheduled",
-        }),
-        buildMatch({ id: "semifinal", round: 1 }),
-      ],
-      viewerEntryIds: VIEWER,
-    });
-
-    expect(next?.id).toBe("semifinal");
-  });
-
-  it("dentro da rodada, a sem data vem primeiro (é a que espera ação)", () => {
-    const next = selectNextPlayerMatch({
-      matches: [
-        buildMatch({
-          id: "agendado",
-          matchDate: "2026-10-04",
-          startMinute: 540,
-          status: "scheduled",
-        }),
-        buildMatch({ id: "sem-horario" }),
-      ],
-      viewerEntryIds: VIEWER,
-    });
-
-    expect(next?.id).toBe("sem-horario");
+    expect(idsOf(matches)).toEqual(["match-1"]);
+    expect(matches[0]?.matchDate).toBeNull();
+    expect(matches[0]?.status).toBe("pending");
   });
 
   it("fica fora o que não é jogo dele, o que tem lado indefinido e o decidido", () => {
-    const next = selectNextPlayerMatch({
+    const matches = selectPlayerNextMatches({
       matches: [
         buildMatch({ entryAId: "entry-x", entryBId: "entry-y", id: "alheio" }),
         buildMatch({ entryBId: null, id: "lado-aberto" }),
         buildMatch({ id: "encerrado", status: "finished" }),
         buildMatch({ id: "decidido", winnerEntryId: "entry-me" }),
       ],
+      playerMatches: [],
       viewerEntryIds: VIEWER,
     });
 
-    expect(next).toBeUndefined();
+    expect(matches).toEqual([]);
   });
 
   it("o viewer pode estar no lado B", () => {
-    const next = selectNextPlayerMatch({
+    const matches = selectPlayerNextMatches({
       matches: [
         buildMatch({
           entryAId: "entry-them",
@@ -112,9 +103,156 @@ describe("selectNextPlayerMatch", () => {
           id: "lado-b",
         }),
       ],
+      playerMatches: [],
       viewerEntryIds: VIEWER,
     });
 
-    expect(next?.id).toBe("lado-b");
+    expect(idsOf(matches)).toEqual(["lado-b"]);
+  });
+
+  it("quem espera o MEU aceite vem primeiro; a proposta enviada vem antes do A definir", () => {
+    const aguardaMeuAceite = buildMatch({ id: "aguarda-meu-aceite" });
+    const propostaEnviada = buildMatch({ id: "proposta-enviada" });
+    const aDefinir = buildMatch({ id: "a-definir" });
+    const matches = selectPlayerNextMatches({
+      matches: [aDefinir, propostaEnviada, aguardaMeuAceite],
+      playerMatches: [
+        buildPlayerMatch({
+          match: aguardaMeuAceite,
+          schedule: {
+            proposal: PROPOSAL,
+            proposedAt: 1,
+            proposedBySide: "b",
+            state: "negotiating",
+          },
+        }),
+        buildPlayerMatch({
+          match: propostaEnviada,
+          schedule: {
+            proposal: PROPOSAL,
+            proposedAt: 1,
+            proposedByMe: true,
+            proposedBySide: "a",
+            state: "negotiating",
+          },
+        }),
+      ],
+      viewerEntryIds: VIEWER,
+    });
+
+    expect(idsOf(matches)).toEqual([
+      "aguarda-meu-aceite",
+      "proposta-enviada",
+      "a-definir",
+    ]);
+  });
+
+  it("resultado pendente e agendado sem pendência ficam antes do A definir", () => {
+    const pendenteDeResultado = buildMatch({ id: "pendente-resultado" });
+    const agendadoLimpo = buildMatch({
+      id: "agendado-limpo",
+      matchDate: "2026-10-04",
+      startMinute: 540,
+      status: "scheduled",
+    });
+    const aDefinir = buildMatch({ id: "a-definir" });
+    const matches = selectPlayerNextMatches({
+      matches: [aDefinir, agendadoLimpo, pendenteDeResultado],
+      playerMatches: [
+        buildPlayerMatch({
+          match: pendenteDeResultado,
+          schedule: {
+            agreedAt: 1,
+            proposal: PROPOSAL,
+            proposedAt: 1,
+            proposedBySide: "a",
+            state: "agreed",
+          },
+        }),
+      ],
+      viewerEntryIds: VIEWER,
+    });
+
+    expect(idsOf(matches)).toEqual([
+      "pendente-resultado",
+      "agendado-limpo",
+      "a-definir",
+    ]);
+  });
+
+  it("a ação do resultado também espera o meu aceite no topo da fila", () => {
+    const resultadoRecebido = buildMatch({ id: "resultado-recebido" });
+    const horarioRecebido = buildMatch({ id: "horario-recebido" });
+    const matches = selectPlayerNextMatches({
+      matches: [horarioRecebido, resultadoRecebido],
+      playerMatches: [
+        buildPlayerMatch({
+          match: resultadoRecebido,
+          score: {
+            proposal: {
+              score: { sets: [], winnerEntryId: null },
+              walkover: false,
+            },
+            proposedAt: 1,
+            proposedBySide: "b",
+            state: "negotiating",
+          },
+        }),
+        buildPlayerMatch({
+          match: horarioRecebido,
+          schedule: {
+            proposal: PROPOSAL,
+            proposedAt: 1,
+            proposedBySide: "b",
+            state: "negotiating",
+          },
+        }),
+      ],
+      viewerEntryIds: VIEWER,
+    });
+
+    // Mesmo degrau (os dois esperam o meu aceite) e sem data para desempatar:
+    // a ordem preserva a entrada, como no sort estável do motor.
+    expect(idsOf(matches)).toEqual(["horario-recebido", "resultado-recebido"]);
+  });
+
+  it("sem a leitura do acerto a data decide, e o A definir fica por último", () => {
+    const comData = buildMatch({
+      id: "com-data",
+      matchDate: "2026-10-04",
+      startMinute: 540,
+      status: "scheduled",
+    });
+    const semData = buildMatch({ id: "sem-data" });
+    const matches = selectPlayerNextMatches({
+      matches: [semData, comData],
+      playerMatches: [],
+      viewerEntryIds: VIEWER,
+    });
+
+    expect(idsOf(matches)).toEqual(["com-data", "sem-data"]);
+  });
+
+  it("dentro do mesmo degrau vale a rodada e depois a data", () => {
+    const matches = selectPlayerNextMatches({
+      matches: [
+        buildMatch({
+          id: "final",
+          matchDate: "2026-10-04",
+          round: 2,
+          status: "scheduled",
+        }),
+        buildMatch({
+          id: "semifinal",
+          matchDate: "2026-10-05",
+          round: 1,
+          status: "scheduled",
+        }),
+      ],
+      playerMatches: [],
+      viewerEntryIds: VIEWER,
+    });
+
+    expect(idsOf(matches)).toEqual(["semifinal", "final"]);
   });
 });

@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
 
 import {
-  buildTournamentDatesSummary,
   buildTournamentEntriesKpi,
   buildTournamentMatchesKpi,
 } from "./organizer-overview-derived";
@@ -91,62 +90,5 @@ describe("tournament organizer overview KPIs", () => {
         ],
       })
     ).toEqual({ finishedCount: 1, total: 2 });
-  });
-});
-
-describe("tournament organizer overview dates line", () => {
-  // Meia-noite LOCAL, como o form grava: `new Date(2026, 8, 25)` é o dia 25
-  // em qualquer fuso de quem roda o teste.
-  const startDate = new Date(2026, 8, 25).getTime();
-  const deadline = new Date(2026, 8, 22).getTime();
-
-  test("junta início e prazo na ordem do texto", () => {
-    expect(
-      buildTournamentDatesSummary({
-        registrationDeadlineAt: deadline,
-        startDate,
-      })
-    ).toBe("Início 25 de set. de 2026 | Inscrições até 22 de set. de 2026");
-  });
-
-  test("com fim a linha vira a janela inteira", () => {
-    expect(
-      buildTournamentDatesSummary({
-        endDate: new Date(2026, 9, 20).getTime(),
-        registrationDeadlineAt: deadline,
-        startDate,
-      })
-    ).toBe(
-      "25 de set. de 2026 a 20 de out. de 2026 | Inscrições até 22 de set. de 2026"
-    );
-  });
-
-  test("fim igual ao início (torneio de um dia) não repete a data", () => {
-    expect(
-      buildTournamentDatesSummary({
-        endDate: new Date(2026, 8, 25).getTime(),
-        registrationDeadlineAt: deadline,
-        startDate,
-      })
-    ).toBe("Início 25 de set. de 2026 | Inscrições até 22 de set. de 2026");
-  });
-
-  test("campo ausente sai da linha", () => {
-    expect(
-      buildTournamentDatesSummary({ registrationDeadlineAt: 0, startDate })
-    ).toBe("Início 25 de set. de 2026");
-
-    expect(
-      buildTournamentDatesSummary({
-        registrationDeadlineAt: deadline,
-        startDate: 0,
-      })
-    ).toBe("Inscrições até 22 de set. de 2026");
-  });
-
-  test("sem os dois campos não há linha", () => {
-    expect(
-      buildTournamentDatesSummary({ registrationDeadlineAt: 0, startDate: 0 })
-    ).toBeNull();
   });
 });

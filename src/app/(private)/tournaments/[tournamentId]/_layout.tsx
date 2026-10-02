@@ -1,38 +1,13 @@
-import {
-  Calendar03Icon,
-  Home01Icon,
-  HierarchySquare01Icon,
-  UserMultipleIcon,
-} from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
 import { useQuery } from "@tanstack/react-query";
-import { Tabs, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "heroui-native";
 import { useEffect, useLayoutEffect } from "react";
 
-import {
-  FloatingTabBar,
-  type FloatingTabBarItem,
-} from "@/components/navigation/floating-tab-bar";
 import { OrganizerActionsHost } from "@/components/pages/tournaments/organizer-actions";
 import { getViewerActorKey } from "@/lib/actors/viewer-mode";
 import { useCRPC } from "@/lib/convex/crpc";
 import { getTournamentDetailsBucket$ } from "@/lib/tournaments/tournament-details-store";
-import type { TournamentNavigationTabValue } from "@/lib/tournaments/tournament-details-derived";
-
-const TOURNAMENT_TAB_ICONS = {
-  bracket: HierarchySquare01Icon,
-  entries: UserMultipleIcon,
-  overview: Home01Icon,
-  schedule: Calendar03Icon,
-} satisfies Record<TournamentNavigationTabValue, FloatingTabBarItem["icon"]>;
-
-const TOURNAMENT_TAB_ROUTE_NAMES = {
-  bracket: "bracket",
-  entries: "entries",
-  overview: "index",
-  schedule: "schedule",
-} satisfies Record<TournamentNavigationTabValue, string>;
 
 const TOURNAMENT_DETAIL_SCREEN_NAMES = [
   "index",
@@ -53,7 +28,7 @@ export default function TournamentDetailsLayout() {
     : rawTournamentId;
 
   if (!tournamentId) {
-    return <TournamentDetailsTabs tournamentId={undefined} />;
+    return <TournamentDetailsStack />;
   }
 
   return <TournamentDetailsLayoutContent tournamentId={tournamentId} />;
@@ -216,79 +191,24 @@ function TournamentDetailsLayoutContent(props: { tournamentId: string }) {
 
   return (
     <OrganizerActionsHost tournamentId={tournamentId}>
-      <TournamentDetailsTabs tournamentId={tournamentId} />
+      <TournamentDetailsStack />
     </OrganizerActionsHost>
   );
 }
 
-function TournamentDetailsTabs(props: { tournamentId?: string }) {
+function TournamentDetailsStack() {
   const backgroundColor = useThemeColor("background");
 
   return (
-    <Tabs
-      detachInactiveScreens={false}
+    <Stack
       screenOptions={{
-        animation: "fade",
+        contentStyle: { backgroundColor },
         headerShown: false,
-        sceneStyle: { backgroundColor },
       }}
-      tabBar={(tabBarProps) =>
-        props.tournamentId ? (
-          <TournamentTabsWithFloatingTabBar
-            tabBarProps={tabBarProps}
-            tournamentId={props.tournamentId}
-          />
-        ) : null
-      }
     >
       {TOURNAMENT_DETAIL_SCREEN_NAMES.map((name) => (
-        <Tabs.Screen key={name} name={name} />
+        <Stack.Screen key={name} name={name} />
       ))}
-    </Tabs>
+    </Stack>
   );
-}
-
-function TournamentTabsWithFloatingTabBar(props: {
-  tabBarProps: Parameters<
-    NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
-  >[0];
-  tournamentId: string;
-}) {
-  const { tabBarProps, tournamentId } = props;
-  const bucket$ = getTournamentDetailsBucket$(tournamentId);
-  const tabItems = useValue(bucket$.derived.tabItems);
-  const items = tabItems.map((item) => ({
-    ...item,
-    icon: TOURNAMENT_TAB_ICONS[item.value],
-  }));
-
-  return (
-    <FloatingTabBar
-      {...tabBarProps}
-      getNavigationParams={(input) => ({
-        ...input.routeParams,
-        tournamentId,
-      })}
-      items={items}
-      resolveValueFromRouteName={resolveTournamentTabValueFromRouteName}
-      routeNames={TOURNAMENT_TAB_ROUTE_NAMES}
-    />
-  );
-}
-
-function resolveTournamentTabValueFromRouteName(
-  routeName: string
-): TournamentNavigationTabValue | null {
-  switch (routeName) {
-    case "bracket":
-      return "bracket";
-    case "entries":
-      return "entries";
-    case "index":
-      return "overview";
-    case "schedule":
-      return "schedule";
-    default:
-      return null;
-  }
 }

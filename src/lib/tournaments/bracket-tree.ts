@@ -64,11 +64,12 @@ export const PAN_VISIBILITY_BAND = 24;
 export const BRACKET_OPENING_HEADER_GAP = 16;
 
 /** Faixa vertical ÚTIL da abertura: começa abaixo do header flutuante com a
- * folga e termina acima da barra de navegação (e do padding do enquadramento).
- * É dentro dela que a coluna do foco cabe e ancora — a centragem no viewport
- * inteiro deixava o topo atrás da tab e a base sob a barra. */
+ * folga e termina acima do rodapé seguro da tela (e do padding do
+ * enquadramento). É dentro dela que a coluna do foco cabe e ancora — a
+ * centragem no viewport inteiro deixava o topo atrás do header e a base sob o
+ * rodapé. */
 export function bracketOpeningBand(input: {
-  /** Espaço que a barra de navegação ocupa na base (`getFloatingTabBarSpacing`). */
+  /** Espaço seguro da base da tela (o `insets.bottom` do chamador). */
   bottomInset: number;
   headerInset: number;
   viewportHeight: number;

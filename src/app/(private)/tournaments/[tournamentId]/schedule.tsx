@@ -269,7 +269,9 @@ export default function TournamentScheduleRoute() {
       <Page.Header>
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row items-center">
-            <Page.Header.Left />
+            <Page.Header.Left>
+              <Page.Header.BackButton />
+            </Page.Header.Left>
             <Page.Header.Center>
               <Page.Header.Title>Agenda</Page.Header.Title>
             </Page.Header.Center>
@@ -388,7 +390,7 @@ export default function TournamentScheduleRoute() {
 
       <Page.ScrollView
         contentContainerClassName={cn(
-          "grow gap-3 px-4 pb-floating-tab-bar-offset-4",
+          "grow gap-3 px-4 pb-safe-offset-4",
           showStatusState && "centered"
         )}
         showsVerticalScrollIndicator={false}
@@ -562,7 +564,7 @@ export default function TournamentScheduleRoute() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog>
-      <Page.Footer className="pb-floating-tab-bar-4" />
+      <Page.Footer className="pb-safe-offset-4" />
     </Page>
   );
 }

@@ -9,10 +9,6 @@ import { View } from "react-native";
 
 import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import {
-  floatingTabBarHeight$,
-  getFloatingTabBarSpacing,
-} from "@/lib/navigation/floating-tab-bar-layout";
 
 import { BracketCanvas } from "@/components/pages/tournaments/bracket-canvas";
 import { BracketMatchCard } from "@/components/pages/tournaments/bracket-match-card";
@@ -80,17 +76,12 @@ export default function TournamentBracketRoute() {
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const { toast } = useToast();
-  // Alturas flutuantes que a abertura da chave desconta (o header com o seletor
-  // de categorias e a barra de navegação de baixo): o header se mede aqui porque o
-  // `Page` é filho deste mesmo componente (o contexto da Page nasce daqui pra
-  // dentro); a barra é irmã da tela e publica a altura dela no store.
+  // Alturas que a abertura da chave desconta (o header com o seletor de
+  // categorias): o header se mede aqui porque o `Page` é filho deste mesmo
+  // componente (o contexto da Page nasce daqui pra dentro).
   const [headerHeight, setHeaderHeight] = useState(0);
-  const floatingTabBarHeight = useValue(floatingTabBarHeight$);
   const insets = useSafeAreaInsets();
-  const bottomInset = getFloatingTabBarSpacing({
-    bottomInset: insets.bottom,
-    height: floatingTabBarHeight,
-  });
+  const bottomInset = insets.bottom;
   const bucket$ = getTournamentDetailsBucket$(tournamentId);
   const bootstrapStatus = useValue(bucket$.identity.bootstrapStatus);
   const access = useValue(bucket$.derived.access);
@@ -114,9 +105,8 @@ export default function TournamentBracketRoute() {
   const [cardHeights, setCardHeights] = useState<BracketCardHeights>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isRedrawDialogOpen, setIsRedrawDialogOpen] = useState(false);
-  // Inactive tab screens stay mounted (detachInactiveScreens={false}), so this
-  // canvas survives with the last visit's transform: re-entering the tab must
-  // re-seed the fit on the SAME instance — remounting by key blinks the screen.
+  // A Chave pode voltar ao foco sem remontar (pilha): a re-entrada re-semeia o
+  // enquadramento do canvas; remontar por key piscava a tela.
   const hasFocusedBracket = useRef(false);
   const [bracketFocusSeed, setBracketFocusSeed] = useState(0);
   useFocusEffect(
@@ -529,7 +519,9 @@ export default function TournamentBracketRoute() {
       >
         <View className="flex-1 flex-col gap-2">
           <View className="flex-1 flex-row">
-            <Page.Header.Left />
+            <Page.Header.Left>
+              <Page.Header.BackButton />
+            </Page.Header.Left>
             <Page.Header.Center>
               <Page.Header.Title>Chaveamento</Page.Header.Title>
             </Page.Header.Center>

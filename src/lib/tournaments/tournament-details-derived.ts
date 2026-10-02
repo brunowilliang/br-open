@@ -1,6 +1,8 @@
 import type { TournamentEntryWithPlayers } from "@convex/domains/tournament/contract";
 import { isRegistrationOpen } from "@convex/domains/tournament/entry-rules";
 
+import { formatMonthDayLong } from "@/lib/format/date";
+import { countCalendarDays } from "@/lib/format/relative-time";
 import {
   formatPlayerCardName,
   UNDEFINED_PLAYER_NAME,
@@ -67,44 +69,6 @@ export function buildTournamentDetailsAccess(input: {
   };
 }
 
-export type TournamentNavigationTabValue =
-  | "bracket"
-  | "entries"
-  | "overview"
-  | "schedule";
-
-export type TournamentNavigationTabItem = {
-  badgeCount: number;
-  label: string;
-  value: TournamentNavigationTabValue;
-};
-
-/** Abas filtradas pelo acesso do papel; a barra só é montada com 2+ itens. */
-export function buildTournamentNavigationTabItems(
-  access: TournamentDetailsAccess
-): TournamentNavigationTabItem[] {
-  const allItems: TournamentNavigationTabItem[] = [
-    { badgeCount: 0, label: "Overview", value: "overview" },
-    { badgeCount: 0, label: "Chave", value: "bracket" },
-    { badgeCount: 0, label: "Agenda", value: "schedule" },
-    { badgeCount: 0, label: "Inscrições", value: "entries" },
-  ];
-
-  const items = allItems.filter((item) => {
-    if (item.value === "bracket") {
-      return access.canOpenBracket;
-    }
-
-    if (item.value === "schedule") {
-      return access.canOpenSchedule;
-    }
-
-    return true;
-  });
-
-  return items.length > 1 ? items : [];
-}
-
 /** Texto de espera do não-organizador antes da divulgação: com data combinada
  * mostra a data; torneio legado sem data cai no início. */
 export function buildBracketPlaceholder(input: {
@@ -116,10 +80,9 @@ export function buildBracketPlaceholder(input: {
     return null;
   }
 
-  const formatted = new Intl.DateTimeFormat("pt-BR", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(input.bracketReleaseAtMs ?? input.startDateMs));
+  const formatted = formatMonthDayLong(
+    new Date(input.bracketReleaseAtMs ?? input.startDateMs)
+  );
 
   if (input.bracketReleaseAtMs !== null) {
     return `Chave divulgada em ${formatted}.`;
@@ -135,10 +98,10 @@ export type TournamentEntryStatusChip = {
 
 const ENTRY_STATUS_CHIPS: Record<string, TournamentEntryStatusChip> = {
   active: { color: "success", label: "Confirmada" },
-  awaiting_payment: { color: "warning", label: "Aguardando pagamento" },
+  awaiting_payment: { color: "warning", label: "A pagar" },
   cancelled: { color: "default", label: "Cancelada" },
-  pending_approval: { color: "warning", label: "Aguardando aprovação" },
-  pending_partner: { color: "warning", label: "Aguardando parceiro" },
+  pending_approval: { color: "warning", label: "Em análise" },
+  pending_partner: { color: "warning", label: "Sem parceiro" },
   rejected: { color: "danger", label: "Recusada" },
 };
 
@@ -167,8 +130,8 @@ export function getTournamentStatusChip(input: {
 }): TournamentStatusChip {
   if (input.status === "published" || input.status === "drawn") {
     return isRegistrationOpen(input)
-      ? { color: "success", label: "Inscrições abertas" }
-      : { color: "warning", label: "Inscrições encerradas" };
+      ? { color: "accent", label: "Inscrições abertas" }
+      : { color: "accent", label: "Inscrições encerradas" };
   }
 
   return (
@@ -302,6 +265,148 @@ export function formatBracketStage(round: number, totalRounds: number): string {
     default:
       return `Rodada ${round}`;
   }
+}
+
+export type TournamentPhaseLine = {
+  color: "danger" | "default";
+  label: string;
+};
+
+/** Faixa de fase: só o PRÓXIMO marco futuro acionável, em contagem regressiva —
+ * prazo das inscrições abertas ou chaveamento com data por sair —, o encerrado
+ * com o dia do fim e o cancelado (vermelho). As falas de início/andamento
+ * repetiam os KPIs e saíram: sem marco, sem faixa. O cancelado sai sem dia (o
+ * servidor não guarda a data). */
+export function buildTournamentPhaseLine(input: {
+  bracketReleased: boolean;
+  bracketReleaseAt?: null | number;
+  endDate?: null | number;
+  now: number;
+  registrationDeadlineAt: number;
+  status: string;
+}): null | TournamentPhaseLine {
+  if (input.status === "cancelled") {
+    return { color: "danger", label: "Torneio cancelado" };
+  }
+
+  if (input.status === "finished") {
+    const endDate = input.endDate ?? null;
+
+    return endDate !== null && endDate > 0
+      ? {
+          color: "default",
+          label: `Torneio encerrado em ${formatMonthDayLong(new Date(endDate))}`,
+        }
+      : { color: "default", label: "Torneio encerrado" };
+  }
+
+  if (
+    isRegistrationOpen({
+      nowMs: input.now,
+      registrationDeadlineMs: input.registrationDeadlineAt,
+      status: input.status,
+    })
+  ) {
+    const daysLeft = countCalendarDays({
+      from: input.now,
+      to: input.registrationDeadlineAt,
+    });
+
+    if (daysLeft <= 0) {
+      return { color: "default", label: "As inscrições terminam hoje" };
+    }
+
+    if (daysLeft === 1) {
+      return { color: "default", label: "As inscrições terminam amanhã" };
+    }
+
+    return {
+      color: "default",
+      label: `Faltam ${daysLeft} dias para as inscrições terminarem`,
+    };
+  }
+
+  const releaseAt = input.bracketReleaseAt ?? null;
+
+  if (!input.bracketReleased && releaseAt !== null && input.now < releaseAt) {
+    const daysLeft = countCalendarDays({ from: input.now, to: releaseAt });
+
+    if (daysLeft <= 0) {
+      return { color: "default", label: "Chaveamento sai hoje" };
+    }
+
+    if (daysLeft === 1) {
+      return { color: "default", label: "Chaveamento sai amanhã" };
+    }
+
+    return { color: "default", label: `Chaveamento sai em ${daysLeft} dias` };
+  }
+
+  return null;
+}
+
+/** Valor do KPI de datas ("Datas do torneio"): "13 a 14 de out."; um dia só
+ * vira "13 de out."; sem data de início, null. */
+export function buildTournamentDatesKpi(input: {
+  endDate?: null | number;
+  startDate: number;
+}): null | string {
+  if (input.startDate <= 0) {
+    return null;
+  }
+
+  const start = new Date(input.startDate);
+  const end = input.endDate ? new Date(input.endDate) : null;
+
+  if (!end || end.getTime() === start.getTime()) {
+    return formatMonthDayLong(start);
+  }
+
+  return end.getMonth() === start.getMonth()
+    ? `${start.getDate()} a ${formatMonthDayLong(end)}`
+    : `${formatMonthDayLong(start)} a ${formatMonthDayLong(end)}`;
+}
+
+/** Valor do KPI de inscrições ("Inscrições"): "até 11 de out."; sem prazo,
+ * null. */
+export function buildTournamentDeadlineKpi(
+  registrationDeadlineAt: number
+): null | string {
+  if (registrationDeadlineAt <= 0) {
+    return null;
+  }
+
+  return `até ${formatMonthDayLong(new Date(registrationDeadlineAt))}`;
+}
+
+export type TournamentEntryStatusKpi = {
+  color: "success" | "warning";
+  label: string;
+};
+
+/** Chip do status GERAL no KPI ("Status"), nas cores da casa: a inscrição mais
+ * "avançada" manda — com uma ativa o geral já é "Inscrito" (verde), ainda que
+ * outra esteja aguardando. Sem nenhuma viva (só recusada/cancelada), null. */
+export function buildTournamentEntryStatusKpi(
+  statuses: readonly string[]
+): null | TournamentEntryStatusKpi {
+  if (statuses.includes("active")) {
+    return { color: "success", label: "Inscrito" };
+  }
+
+  if (statuses.includes("awaiting_payment")) {
+    return { color: "warning", label: "A pagar" };
+  }
+
+  if (statuses.includes("pending_approval")) {
+    return { color: "warning", label: "Em análise" };
+  }
+
+  if (statuses.includes("pending_partner")) {
+    return { color: "warning", label: "Sem parceiro" };
+  }
+
+  return null;
 }
 
 export type TournamentRegistrationWindowState = {

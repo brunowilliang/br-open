@@ -85,6 +85,12 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     id: "category-select",
     title: "Seletor de categoria",
   },
+  {
+    description: "Casa do torneio nos três papéis, para aprovação",
+    id: "tournament",
+    isFullscreen: true,
+    title: "Torneio",
+  },
 ];
 
 export function findComponentGalleryEntry(

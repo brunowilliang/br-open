@@ -42,8 +42,8 @@ const ZOOM_TIMING = {
 type BracketCanvasCard = BracketTreeLayout["cards"][number];
 
 type BracketCanvasProps = {
-  /** Espaço que a barra de navegação flutuante ocupa na base da tela
-   * (`getFloatingTabBarSpacing`): entra na faixa útil da abertura. */
+  /** Espaço seguro da base da tela (o `insets.bottom` do chamador): entra na
+   * faixa útil da abertura. */
   bottomInset: number;
   /** Largura do card e do cotovelo em pt de GRAFO: é o que define quantas
    * colunas cabem no enquadramento de abertura. */

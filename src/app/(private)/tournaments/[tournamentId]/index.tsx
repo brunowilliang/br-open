@@ -1,55 +1,28 @@
-import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "@convex/domains/payment/contract";
-import type { TournamentPlayerCard } from "@convex/domains/tournament/contract";
-import type { ApiOutputs } from "@convex/shared/api";
-import {
-  Calendar03Icon,
-  Cancel01Icon,
-  ClipboardIcon,
-  Edit02Icon,
-  Location06Icon,
-  MoreVerticalIcon,
-  PlayIcon,
-  UserMultipleIcon,
-  VolleyballIcon,
-} from "@hugeicons/core-free-icons";
 import { useValue } from "@legendapp/state/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "better-styled";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Chip, Dialog, Menu, useToast } from "heroui-native";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { View, type LayoutChangeEvent } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { useToast } from "heroui-native";
+import { useCallback, useRef, useState } from "react";
+import type { View } from "react-native";
 import type { KeyboardAwareScrollViewRef } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
 
-import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
-import { usePageContext } from "@/components/core/page/context";
-import { Text } from "@/components/core/text";
+import { CancelTournamentDialog } from "@/components/pages/tournaments/cancel-tournament-dialog";
 import { GuestOverview } from "@/components/pages/tournaments/guest-overview";
+import { JoinBlock } from "@/components/pages/tournaments/join-block";
+import { OrganizerMenu } from "@/components/pages/tournaments/organizer-menu";
 import { OrganizerOverview } from "@/components/pages/tournaments/organizer-overview";
 import { PlayerOverview } from "@/components/pages/tournaments/player-overview";
-import { DialogCloseButton } from "@/components/ui/dialog-close-button";
+import { TournamentBanner } from "@/components/pages/tournaments/tournament-banner";
+import { TournamentScreensMenu } from "@/components/pages/tournaments/tournament-screens-menu";
 import { ErrorState } from "@/components/ui/error-state";
-import { HugeIcons } from "@/components/ui/huge-icons";
-import {
-  JoinFooter,
-  type JoinFooterCategory,
-  type JoinFooterPartnerOption,
-} from "@/components/ui/join-footer";
+import type { JoinFooterCategory } from "@/components/ui/join-footer";
 import { LoadingState } from "@/components/ui/loading-state";
-import { TournamentStatusChip } from "@/components/ui/tournament-status-chip";
 import { useCRPC, useCRPCClient } from "@/lib/convex/crpc";
-import { formatCurrencyCents } from "@/lib/format/currency";
 import { getToastErrorMessage } from "@/lib/errors/toast-message";
-import { buildNewChargeCheckoutHref } from "@/lib/payments/checkout-route";
-import { formatCompetitionMeta } from "@/lib/format/competition";
+import { formatCurrencyCents } from "@/lib/format/currency";
 import { buildCategoryTypeLabel } from "@/lib/tournaments/category-editor-derived";
 import {
   buildRegistrationWindowState,
@@ -68,7 +41,6 @@ export default function TournamentOverviewRoute() {
     matchId?: string | string[];
     tournamentId: string;
   }>();
-  const router = useRouter();
   const crpc = useCRPC();
   const crpcClient = useCRPCClient();
   const queryClient = useQueryClient();
@@ -94,70 +66,6 @@ export default function TournamentOverviewRoute() {
       crpc.tournament.discovery.getById.queryFilter({ tournamentId })
     );
   }
-
-  // Inscrição pelo rodapé: create → (awaiting_payment) abre o checkout sem
-  // cobrança, que cria/reusa a cobrança já na tela. O POST à Woovi não entra
-  // no caminho do toque.
-  const createEntry = useMutation({
-    mutationFn: crpcClient.tournament.entries.create.mutate,
-    mutationKey: crpc.tournament.entries.create.mutationKey(),
-    onError: (error) => {
-      toast.show({
-        description: getToastErrorMessage(
-          error,
-          "Não foi possível entrar no torneio. Tente novamente."
-        ),
-        id: "tournament-join-error",
-        label: "Falha na inscrição",
-        variant: "danger",
-      });
-    },
-    onSuccess: (entry, variables) => {
-      if (entry.status === "awaiting_payment") {
-        router.navigate(
-          buildNewChargeCheckoutHref({
-            sourceId: entry.id,
-            sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
-          })
-        );
-        return;
-      }
-
-      toast.show({
-        description:
-          entry.status === "pending_partner"
-            ? variables.partnerUsername
-              ? `Convite enviado para @${variables.partnerUsername}. Ele precisa aceitar para fechar a dupla.`
-              : "Convite enviado. Ele precisa aceitar para fechar a dupla."
-            : entry.status === "pending_approval"
-              ? "Sua inscrição aguarda aprovação da organização."
-              : "Você está inscrito no torneio!",
-        id: "tournament-join-success",
-        label: "Inscrição enviada",
-        variant: "success",
-      });
-    },
-  });
-
-  // players.searchByUsername devolve LISTA alfabética (≤10, [] = ninguém) por
-  // prefixo; o servidor resolve o gênero pela categoria, o cliente nunca
-  // manda gender.
-  const [partnerSearch, setPartnerSearch] = useState("");
-  const [debouncedPartnerSearch, setDebouncedPartnerSearch] = useState("");
-  // Categoria escolhida no painel do JoinFooter, em tempo real: alimenta a
-  // busca de parceiro; o painel continua dono da seleção.
-  const [selectedCategoryId, setSelectedCategoryId] = useState<null | string>(
-    null
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedPartnerSearch(partnerSearch.trim().toLowerCase()),
-      500
-    );
-
-    return () => clearTimeout(timer);
-  }, [partnerSearch]);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
@@ -293,43 +201,6 @@ export default function TournamentOverviewRoute() {
   const hasActiveEntry =
     role === "player" && (tournament?.viewerEntryIds.length ?? 0) > 0;
 
-  // A busca de parceiro usa a categoria selecionada no painel; sem categoria
-  // — ou numa singles — fica desabilitada. O servidor resolve o gênero pela
-  // categoria; o cliente nunca manda gender.
-  const selectedJoinCategory = joinableCategories.find(
-    (category) => category.id === selectedCategoryId
-  );
-
-  const partnerQuery = useQuery({
-    ...crpc.tournament.players.searchByUsername.staticQueryOptions({
-      categoryId: selectedCategoryId ?? "",
-      username: debouncedPartnerSearch,
-    }),
-    enabled:
-      selectedJoinCategory?.modality === "doubles" &&
-      debouncedPartnerSearch.length >= 3 &&
-      debouncedPartnerSearch.length <= 30,
-    staleTime: 15_000,
-  });
-
-  // Busca de parceiro EM ANDAMENTO: janela do debounce (o termo cru já mudou
-  // e o debounced ainda não acompanhou) ou fetch da query em curso — o rodapé
-  // troca o Empty pelo LoadingState nesse caso.
-  const isPartnerSearchPending =
-    partnerQuery.isFetching ||
-    debouncedPartnerSearch !== partnerSearch.trim().toLowerCase();
-
-  const partnerCards = (
-    Array.isArray(partnerQuery.data) ? partnerQuery.data : []
-  ) as TournamentPlayerCard[];
-  const partnerOptions: JoinFooterPartnerOption[] = partnerCards.map(
-    (card) => ({
-      avatarUrl: card.avatarUrl,
-      fullName: card.fullName ?? card.nickname ?? `@${card.username ?? ""}`,
-      username: card.username ?? "",
-    })
-  );
-
   // A elegibilidade do ator desce do servidor como veio: viewerEligible ===
   // false vira linha DESABILITADA com o viewerIneligibleReason; nenhuma regra
   // de gênero é recalculada nem categoria escondida aqui.
@@ -365,111 +236,34 @@ export default function TournamentOverviewRoute() {
         </Page.Header.Left>
         <Page.Header.Center />
         <Page.Header.Right>
-          {!showStatusState && tournament && isOrganizer ? (
-            <Menu>
-              <Menu.Trigger asChild>
-                <Button isIconOnly size="sm" variant="secondary">
-                  <HugeIcons icon={MoreVerticalIcon} />
-                </Button>
-              </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Overlay className="bg-backdrop" />
-                <Menu.Content presentation="popover" width={240}>
-                  <Menu.Item
-                    onPress={() => {
-                      router.navigate({
-                        params: { mode: "edit", tournamentId },
-                        pathname: "/settings/tournaments/[mode]",
-                      });
-                    }}
-                  >
-                    <Menu.ItemTitle>Editar</Menu.ItemTitle>
-                    <HugeIcons icon={Edit02Icon} />
-                  </Menu.Item>
-                  {access?.canOpenBracket ? (
-                    <Menu.Item
-                      onPress={() => {
-                        router.navigate({
-                          params: { tournamentId },
-                          pathname: "/tournaments/[tournamentId]/bracket",
-                        });
-                      }}
-                    >
-                      <Menu.ItemTitle>Chave</Menu.ItemTitle>
-                      <HugeIcons icon={VolleyballIcon} />
-                    </Menu.Item>
-                  ) : null}
-                  {access?.canOpenSchedule ? (
-                    <Menu.Item
-                      onPress={() => {
-                        router.navigate({
-                          params: { tournamentId },
-                          pathname: "/tournaments/[tournamentId]/schedule",
-                        });
-                      }}
-                    >
-                      <Menu.ItemTitle>Agenda</Menu.ItemTitle>
-                      <HugeIcons icon={Calendar03Icon} />
-                    </Menu.Item>
-                  ) : null}
-                  {isOrganizer ? (
-                    <Menu.Item
-                      onPress={() => {
-                        router.navigate({
-                          params: { initialTab: "pending", tournamentId },
-                          pathname: "/tournaments/[tournamentId]/entries",
-                        });
-                      }}
-                    >
-                      <Menu.ItemTitle>Inscrições</Menu.ItemTitle>
-                      <HugeIcons icon={UserMultipleIcon} />
-                    </Menu.Item>
-                  ) : null}
-                  <Menu.Item
-                    onPress={() => {
-                      router.navigate({
-                        params: { tournamentId },
-                        pathname: "/tournaments/[tournamentId]/rules",
-                      });
-                    }}
-                  >
-                    <Menu.ItemTitle>Regras</Menu.ItemTitle>
-                    <HugeIcons icon={ClipboardIcon} />
-                  </Menu.Item>
-                  {tournament.status === "draft" ? (
-                    <Menu.Item
-                      onPress={() => {
-                        publishTournament.mutate({ tournamentId });
-                      }}
-                    >
-                      <Menu.ItemTitle>Publicar</Menu.ItemTitle>
-                      <HugeIcons icon={PlayIcon} />
-                    </Menu.Item>
-                  ) : null}
-                  {/* Cancelar só antes do início: o servidor ainda aceita
-                      depois, e é isso que o app deixa de oferecer. */}
-                  {tournament.status === "published" ||
-                  tournament.status === "drawn" ? (
-                    <Menu.Item
-                      onPress={() => {
-                        setIsCancelDialogOpen(true);
-                      }}
-                      variant="danger"
-                    >
-                      <Menu.ItemTitle>Cancelar torneio</Menu.ItemTitle>
-                      <HugeIcons className="text-danger" icon={Cancel01Icon} />
-                    </Menu.Item>
-                  ) : null}
-                </Menu.Content>
-              </Menu.Portal>
-            </Menu>
+          {!showStatusState && tournament ? (
+            isOrganizer ? (
+              <OrganizerMenu
+                canOpenBracket={access?.canOpenBracket ?? false}
+                canOpenSchedule={access?.canOpenSchedule ?? false}
+                onCancelPress={() => {
+                  setIsCancelDialogOpen(true);
+                }}
+                onPublish={() => {
+                  publishTournament.mutate({ tournamentId });
+                }}
+                status={tournament.status}
+                tournamentId={tournamentId}
+              />
+            ) : (
+              <TournamentScreensMenu
+                canOpenBracket={access?.canOpenBracket ?? false}
+                canOpenSchedule={access?.canOpenSchedule ?? false}
+                tournamentId={tournamentId}
+              />
+            )
           ) : null}
         </Page.Header.Right>
       </Page.Header>
 
       <Page.ScrollView
         contentContainerClassName={cn(
-          "grow",
+          "grow pb-safe-offset-4",
           showStatusState && "centered gap-4 px-4"
         )}
         ref={scrollRef}
@@ -484,206 +278,49 @@ export default function TournamentOverviewRoute() {
           tournament && (
             <>
               <TournamentBanner tournament={tournament} />
-              <View className="gap-4 px-4 pt-4 pb-floating-tab-bar-4">
-                {role === "organizer" && (
-                  <OrganizerOverview
-                    onPendingActionPerformed={invalidateTournamentContext}
-                    tournamentId={tournamentId}
-                  />
-                )}
-                {role === "player" && (
-                  <PlayerOverview
-                    focusCardRef={focusMatchId ? focusCardRef : undefined}
-                    focusMatchId={focusMatchId}
-                    onPendingActionPerformed={invalidateTournamentContext}
-                    tournament={tournament}
-                  />
-                )}
-                {role === "guest" && <GuestOverview tournament={tournament} />}
-              </View>
+              {role === "organizer" && (
+                <OrganizerOverview
+                  onPendingActionPerformed={invalidateTournamentContext}
+                  tournamentId={tournamentId}
+                />
+              )}
+              {role === "player" && (
+                <PlayerOverview
+                  focusCardRef={focusMatchId ? focusCardRef : undefined}
+                  focusMatchId={focusMatchId}
+                  onPendingActionPerformed={invalidateTournamentContext}
+                  tournament={tournament}
+                />
+              )}
+              {role === "guest" && <GuestOverview tournament={tournament} />}
             </>
           )
         )}
       </Page.ScrollView>
 
       {/* Rodapé fixo de inscrição = JoinFooter: só existe com a janela aberta
-          e categoria com vaga; a confirmação é o wiring da página
+          e categoria com vaga; o bloco leva o fluxo de inscrição
           (create → charge → checkout). */}
       {!showStatusState &&
       role !== "organizer" &&
       registrationState?.open &&
       joinableCategories.length > 0 ? (
-        <JoinFooter
-          actionLabel={
-            hasActiveEntry ? "Inscrever em outra categoria" : "Inscrever-se"
-          }
+        <JoinBlock
           categories={joinFooterCategories}
-          confirmLabel={
-            createEntry.isPending ? "Enviando..." : joinConfirmLabel
-          }
-          description="Selecione a sua categoria"
-          footerClassName="pb-floating-tab-bar-4"
-          isActionPending={createEntry.isPending}
-          isPartnerSearchPending={isPartnerSearchPending}
-          onAction={(selection) => {
-            if (!selection.categoryId) {
-              return;
-            }
-            createEntry.mutate({
-              categoryId: selection.categoryId,
-              ...(selection.partnerUsername
-                ? { partnerUsername: selection.partnerUsername }
-                : {}),
-            });
-          }}
-          onCategoryChange={setSelectedCategoryId}
-          onSearchPartner={setPartnerSearch}
-          partnerOptions={partnerOptions}
-          price={
-            minFeeCents > 0
-              ? {
-                  amount: formatCurrencyCents(minFeeCents),
-                  prefix: "a partir de",
-                  suffix: "/jogador",
-                }
-              : { amount: "Grátis" }
-          }
-          title="Inscreva-se"
+          confirmLabel={joinConfirmLabel}
+          hasActiveEntry={hasActiveEntry}
+          minFeeCents={minFeeCents}
         />
       ) : null}
 
-      <Dialog isOpen={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay />
-          <Dialog.Content className="gap-4 p-5">
-            <DialogCloseButton className="absolute top-4 right-4 z-100" />
-            <Dialog.Title>Cancelar torneio</Dialog.Title>
-            <Text color="muted" variant="description">
-              Todas as inscrições serão canceladas. Inscrições pagas serão
-              estornadas automaticamente pelo valor integral.
-            </Text>
-            <View className="flex-row gap-2 self-end">
-              <Button
-                onPress={() => {
-                  setIsCancelDialogOpen(false);
-                }}
-                size="sm"
-                variant="secondary"
-              >
-                <Button.Label>Voltar</Button.Label>
-              </Button>
-              <Button
-                isDisabled={cancelTournament.isPending}
-                onPress={() => {
-                  cancelTournament.mutate({ tournamentId });
-                }}
-                size="sm"
-                variant="danger-soft"
-              >
-                <Button.Label>Cancelar torneio</Button.Label>
-              </Button>
-            </View>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
+      <CancelTournamentDialog
+        isOpen={isCancelDialogOpen}
+        isPending={cancelTournament.isPending}
+        onConfirm={() => {
+          cancelTournament.mutate({ tournamentId });
+        }}
+        onOpenChange={setIsCancelDialogOpen}
+      />
     </Page>
-  );
-}
-
-/**
- * Stretch banner: reage ao scroll da página (SharedValue da UI thread) com o
- * efeito "stretch to zoom" no overscroll: a posição do scroll dirigindo a
- * escala do banner.
- */
-function TournamentBanner(props: {
-  tournament: ApiOutputs["tournament"]["discovery"]["getById"];
-}) {
-  const { tournament } = props;
-  const context = usePageContext();
-  const bannerHeight = useSharedValue(0);
-
-  const handleLayout = (event: LayoutChangeEvent) => {
-    bannerHeight.value = event.nativeEvent.layout.height;
-  };
-
-  const bannerAnimatedStyle = useAnimatedStyle(() => {
-    const height = bannerHeight.value;
-
-    if (height === 0) {
-      return {};
-    }
-
-    const scrollY = context.scrollY.value;
-
-    if (scrollY >= 0) {
-      return {};
-    }
-
-    return {
-      transform: [
-        {
-          translateY: interpolate(
-            scrollY,
-            [-height, 0],
-            [-height / 2, 0],
-            Extrapolation.CLAMP
-          ),
-        },
-        {
-          scale: interpolate(
-            scrollY,
-            [-height, 0],
-            [2, 1],
-            Extrapolation.CLAMP
-          ),
-        },
-      ],
-    };
-  });
-
-  return (
-    <View className="h-90" onLayout={handleLayout}>
-      <Animated.View className="absolute inset-0" style={bannerAnimatedStyle}>
-        <Image
-          className="absolute h-full w-full"
-          contentFit="cover"
-          fallback="blue"
-          source={tournament.coverUrl ?? undefined}
-          transition={250}
-        />
-        <View className="absolute h-full w-full bg-linear-to-t from-0 from-background" />
-      </Animated.View>
-
-      {/* Bloco do título como filho ABSOLUTO da base da capa: sobe pelo próprio
-          tamanho sem medir altura — o marginTop medido pintava um frame com ele
-          abaixo da capa (e o resto da página deslocado) antes de subir. */}
-      <View className="absolute right-0 bottom-0 left-0 flex-row items-center gap-2 px-4">
-        <Image
-          className="size-28 rounded-3xl border-2 border-white/80 bg-surface"
-          fallback="green"
-          source={tournament.avatarUrl ?? undefined}
-        />
-        <View className="flex-1 gap-1.5">
-          <View className="flex-row items-center gap-1.5">
-            <Chip color="accent" size="sm" variant="soft">
-              <Chip.Label>Torneio</Chip.Label>
-            </Chip>
-            <TournamentStatusChip
-              registrationDeadlineAt={tournament.registrationDeadlineAt}
-              status={tournament.status}
-            />
-          </View>
-          <Text numberOfLines={2} variant="title">
-            {tournament.name}
-          </Text>
-          <Chip color="accent" size="sm" variant="soft">
-            <HugeIcons className="size-3 text-accent" icon={Location06Icon} />
-            <Chip.Label>
-              {formatCompetitionMeta(tournament.city, tournament.state)}
-            </Chip.Label>
-          </Chip>
-        </View>
-      </View>
-    </View>
   );
 }

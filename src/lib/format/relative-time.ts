@@ -49,3 +49,14 @@ export function formatRelativeDay(timestamp: number, now: number): string {
     month: "short",
   });
 }
+
+/** Dias INTEIROS de calendário de `from` até `to` (0 = mesmo dia, negativo =
+ * passado), contando meia-noites LOCAIS: `Math.round` absorve o DST (23h/25h). */
+export function countCalendarDays(input: { from: number; to: number }): number {
+  const fromMidnight = new Date(input.from);
+  fromMidnight.setHours(0, 0, 0, 0);
+  const toMidnight = new Date(input.to);
+  toMidnight.setHours(0, 0, 0, 0);
+
+  return Math.round((toMidnight.getTime() - fromMidnight.getTime()) / DAY_MS);
+}

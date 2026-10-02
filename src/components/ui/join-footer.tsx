@@ -68,7 +68,7 @@ type JoinFooterProps = {
   categories?: JoinFooterCategory[];
   confirmLabel?: string;
   description?: string;
-  /** Padding da base, decisão da TELA (default `pb-floating-tab-bar-4`). */
+  /** Padding da base, decisão da TELA (default `pb-safe-offset-4`). */
   footerClassName?: string;
   isActionDisabled?: boolean;
   /** Ação em andamento: trava os CTAs (a página troca o rótulo por "Enviando..."). */
@@ -145,8 +145,8 @@ export function JoinFooter(props: JoinFooterProps) {
   return (
     <PageFooter
       className={cn(
-        "flex-col items-center px-8",
-        props.footerClassName ?? "pb-floating-tab-bar-4"
+        "flex-col items-center px-8 pt-4",
+        props.footerClassName ?? "pb-safe-offset-4"
       )}
       entering={FadeIn.delay(250)}
       exiting={FadeOut.delay(250)}
