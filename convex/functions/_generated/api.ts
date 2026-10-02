@@ -21,6 +21,71 @@ import { anyApi, componentsGeneric } from "convex/server";
  * ```
  */
 export const api: {
+  account: {
+    deletion: {
+      confirm: FunctionReference<
+        "mutation",
+        "public",
+        { code: string },
+        | {
+            blockers: Array<{
+              code:
+                | "organization_active_tournament"
+                | "organization_money_in_flight"
+                | "organization_locked_balance"
+                | "organization_other_members";
+              count: number;
+              organizationIds: Array<string>;
+              scope: "player" | "organization";
+              summary: string;
+              tournamentIds: Array<string>;
+            }>;
+            status: "blocked";
+          }
+        | { status: "code_expired" }
+        | { status: "deleted" }
+        | { attemptsLeft: number; status: "invalid_code" }
+        | { status: "too_many_attempts" }
+      >;
+      requestCode: FunctionReference<
+        "mutation",
+        "public",
+        {},
+        { sentAt: number }
+      >;
+      status: FunctionReference<
+        "query",
+        "public",
+        {},
+        {
+          blockers: Array<{
+            code:
+              | "organization_active_tournament"
+              | "organization_money_in_flight"
+              | "organization_locked_balance"
+              | "organization_other_members";
+            count: number;
+            organizationIds: Array<string>;
+            scope: "player" | "organization";
+            summary: string;
+            tournamentIds: Array<string>;
+          }>;
+          canDelete: boolean;
+          resolutions: Array<{
+            code:
+              | "entries_cancelled"
+              | "entries_refunded"
+              | "pix_cancelled"
+              | "matches_walkover"
+              | "drafts_deleted";
+            count: number;
+            scope: "player" | "organization";
+            summary: string;
+          }>;
+        }
+      >;
+    };
+  };
   notification: {
     feed: {
       list: FunctionReference<
@@ -60,7 +125,9 @@ export const api: {
             | "tournament.window_extended"
             | "tournament.window_expired"
             | "tournament.finished"
-            | "tournament.cancelled";
+            | "tournament.cancelled"
+            | "tournament.entry.player_removed"
+            | "tournament.player.removed";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -150,7 +217,9 @@ export const api: {
             | "tournament.window_extended"
             | "tournament.window_expired"
             | "tournament.finished"
-            | "tournament.cancelled";
+            | "tournament.cancelled"
+            | "tournament.entry.player_removed"
+            | "tournament.player.removed";
           id: string;
           isRead: boolean;
           occurredAt: number;
@@ -2576,6 +2645,42 @@ export const api: {
  * ```
  */
 export const internal: {
+  account: {
+    deletion: {
+      execute: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        any
+      >;
+    };
+    deletionCode: {
+      discardCode: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        any
+      >;
+      readPending: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        {
+          codeHash: string;
+          email: string;
+          requestedAtMs: number;
+          rowId: string;
+        } | null
+      >;
+      send: FunctionReference<"action", "internal", { userId: string }, any>;
+      storeSentCode: FunctionReference<
+        "mutation",
+        "internal",
+        { codeHash: string; rowId: string; sentAtMs: number },
+        any
+      >;
+    };
+  };
   generated: {
     aggregate: {
       aggregateBackfill: FunctionReference<"mutation", "internal", any, any>;
@@ -2809,7 +2914,9 @@ export const internal: {
             | "tournament.window_extended"
             | "tournament.window_expired"
             | "tournament.finished"
-            | "tournament.cancelled";
+            | "tournament.cancelled"
+            | "tournament.entry.player_removed"
+            | "tournament.player.removed";
           metadata?: Record<string, any>;
           recipientUserIds: Array<string>;
           sourceEntityId?: string;
@@ -3210,6 +3317,19 @@ export const internal: {
     };
   };
   seed: {
+    accountDeletionScenario: FunctionReference<
+      "mutation",
+      "internal",
+      { primaryUserEmail: string },
+      {
+        blockerTournamentId: string;
+        botOrganizationId: string;
+        organizationId: string;
+        playerProfileId: string;
+        tournamentsCreated: number;
+        userId: string;
+      }
+    >;
     doublesAgendaScenario: FunctionReference<
       "mutation",
       "internal",
@@ -3296,6 +3416,12 @@ export const internal: {
         usersCreated: number;
       }
     >;
+    removeScenarioOrganization: FunctionReference<
+      "mutation",
+      "internal",
+      { confirm: "remove-scenario-organization-dev"; organizationId: string },
+      { deletedCharges: number; deletedTournaments: number }
+    >;
     wipeTournaments: FunctionReference<
       "mutation",
       "internal",
@@ -3332,6 +3458,14 @@ export const internal: {
         "internal",
         { tournamentId: string },
         { ok: true } | { error: string; ok: false }
+      >;
+    };
+    entries: {
+      cancelEntriesForAccountRemoval: FunctionReference<
+        "mutation",
+        "internal",
+        { entryIds: Array<string> },
+        { cancelledCount: number; refundStartedCount: number }
       >;
     };
     lifecycle: {

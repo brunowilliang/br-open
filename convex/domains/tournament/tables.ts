@@ -155,6 +155,9 @@ export const tournamentEntry = convexTable(
       tournamentEntry.activeBId
     ),
     index("createdByUserId").on(tournamentEntry.createdByUserId),
+    // A ORM exige indice na coluna filha pra aplicar o `set null` no delete de
+    // `user`; as demais FKs de usuario do arquivo seguem a mesma regra.
+    index("partnerUserId").on(tournamentEntry.partnerUserId),
   ]
 );
 
@@ -206,6 +209,7 @@ export const tournamentMatch = convexTable(
     index("entryBId").on(tournamentMatch.entryBId),
     index("winnerEntryId").on(tournamentMatch.winnerEntryId),
     index("matchDate").on(tournamentMatch.matchDate),
+    index("scheduledById").on(tournamentMatch.scheduledById),
   ]
 );
 
@@ -225,7 +229,10 @@ export const tournamentMatchEdit = convexTable(
       .notNull()
       .references(() => tournamentMatch.id, { onDelete: "cascade" }),
   },
-  (tournamentMatchEdit) => [index("matchId").on(tournamentMatchEdit.matchId)]
+  (tournamentMatchEdit) => [
+    index("editedByUserId").on(tournamentMatchEdit.editedByUserId),
+    index("matchId").on(tournamentMatchEdit.matchId),
+  ]
 );
 
 // Acerto do confronto: UMA linha por confronto + canal (`schedule`/`score`) com a
@@ -285,6 +292,7 @@ export const tournamentMatchAgreement = convexTable(
       tournamentMatchAgreement.tournamentId,
       tournamentMatchAgreement.state
     ),
+    index("proposedByUserId").on(tournamentMatchAgreement.proposedByUserId),
   ]
 );
 
@@ -313,6 +321,7 @@ export const tournamentMatchAgreementEvent = convexTable(
     index("matchId").on(tournamentMatchAgreementEvent.matchId),
     // Indice da CASCATA (mesmo motivo do `categoryId` do acordo).
     index("tournamentId").on(tournamentMatchAgreementEvent.tournamentId),
+    index("actorUserId").on(tournamentMatchAgreementEvent.actorUserId),
   ]
 );
 
@@ -342,5 +351,6 @@ export const tournamentUnavailability = convexTable(
       tournamentUnavailability.tournamentId,
       tournamentUnavailability.date
     ),
+    index("createdByUserId").on(tournamentUnavailability.createdByUserId),
   ]
 );

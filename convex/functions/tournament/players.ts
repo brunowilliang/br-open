@@ -96,6 +96,10 @@ export const searchByUsername = authQuery
       if (!profile || profile.id === viewerProfileId) {
         continue;
       }
+      // Conta excluída não é parceiro sugerível.
+      if (profile.removedAt) {
+        continue;
+      }
       if (profile.gender !== partnerGender) {
         continue;
       }

@@ -59,6 +59,21 @@ describe("nome humano de um perfil para copy que nomeia a pessoa", () => {
     ).toBe("Jogador");
   });
 
+  it("perfil anonimizado vira 'Jogador removido', nunca o nome antigo", () => {
+    expect(
+      buildPlayerProfileDisplayName({
+        fullName: "Marina Costa",
+        name: "conta",
+        nickname: "Mari",
+        removed: true,
+        userId: "user-1",
+      })
+    ).toBe("Jogador removido");
+    expect(
+      buildPlayerDisplayName({ name: null, removed: true, userId: null })
+    ).toBe("Jogador removido");
+  });
+
   it("nao inventa campo: so usa os tres nomes vivos do app", () => {
     expect(buildPlayerDisplayName({ name: "  Ana  ", userId: "user-1" })).toBe(
       "Ana"

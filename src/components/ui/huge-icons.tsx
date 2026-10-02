@@ -9,6 +9,7 @@ const HugeIconsUiwind = withUniwind(HugeiconsIcon, {
   position: { fromClassName: "className", styleProperty: "position" },
   right: { fromClassName: "className", styleProperty: "right" },
   top: { fromClassName: "className", styleProperty: "top" },
+  transform: { fromClassName: "className", styleProperty: "transform" },
   width: { fromClassName: "className", styleProperty: "width" },
 });
 

@@ -16,6 +16,7 @@ import {
 import { isBracketReleased } from "../../../domains/tournament/scheduling-rules";
 import type { NotificationEventType } from "../../../shared/notifications/protocol";
 import { resolveStorageUrl } from "../../../shared/media-rules";
+import { PLAYER_REMOVED_NAME } from "../../../domains/player/identity";
 
 export type TournamentRecord = InferSelectModel<typeof tournament>;
 export type TournamentCategoryRecord = InferSelectModel<
@@ -237,9 +238,19 @@ export async function serializePlayerCard(
     image: string | null | undefined;
     nickname: string | null | undefined;
     playerProfileId: string;
+    removed?: boolean;
     username: string | null | undefined;
   }
 ) {
+  if (input.removed) {
+    return {
+      avatarUrl: null,
+      fullName: PLAYER_REMOVED_NAME,
+      nickname: null,
+      playerProfileId: input.playerProfileId,
+      username: null,
+    };
+  }
   const avatarUrl = await resolveStorageUrl(
     ctx,
     input.avatarStorageId ?? null,

@@ -16,6 +16,7 @@ import {
   scopeEntryPlacement,
   selectUsernameMatches,
   selectViewerTournamentEntryIds,
+  shouldDecideArrivalWalkover,
   validateEntryGenders,
 } from "../entry-rules";
 import {
@@ -1228,5 +1229,38 @@ describe("fase de entrada e cabeça de chave na LISTA de inscrições", () => {
     });
     expect("entryRound" in publicEntry).toBe(false);
     expect("seedRank" in publicEntry).toBe(false);
+  });
+});
+
+describe("chegada do segundo lado numa vaga", () => {
+  it("resolve por W.O. quando a inscrição que guardava a vaga foi cancelada", () => {
+    expect(
+      shouldDecideArrivalWalkover({
+        otherEntryId: "entry-cancelada",
+        otherEntryStatus: "cancelled",
+      })
+    ).toBe(true);
+  });
+
+  it("não decide com adversário vivo nem com a vaga ainda esperando o outro lado", () => {
+    expect(
+      shouldDecideArrivalWalkover({
+        otherEntryId: "entry-viva",
+        otherEntryStatus: "active",
+      })
+    ).toBe(false);
+    expect(
+      shouldDecideArrivalWalkover({
+        otherEntryId: null,
+        otherEntryStatus: null,
+      })
+    ).toBe(false);
+    // Linha do adversário ausente (não deveria acontecer): sem status, sem W.O.
+    expect(
+      shouldDecideArrivalWalkover({
+        otherEntryId: "entry-sumida",
+        otherEntryStatus: null,
+      })
+    ).toBe(false);
   });
 });

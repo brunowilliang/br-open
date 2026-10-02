@@ -14,10 +14,12 @@ import type { ActionCtx, MutationCtx, QueryCtx } from './server';
 import type { OrmTriggerContext } from 'kitcn/orm';
 
 const procedureRegistry = {
+  "accountDeletionScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").accountDeletionScenario>("seed:accountDeletionScenario"), () => (require("../seed") as Record<string, unknown>)["accountDeletionScenario"])],
   "doublesAgendaScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").doublesAgendaScenario>("seed:doublesAgendaScenario"), () => (require("../seed") as Record<string, unknown>)["doublesAgendaScenario"])],
   "doublesScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").doublesScenario>("seed:doublesScenario"), () => (require("../seed") as Record<string, unknown>)["doublesScenario"])],
   "pendencyScenario": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").pendencyScenario>("seed:pendencyScenario"), () => (require("../seed") as Record<string, unknown>)["pendencyScenario"])],
   "preview": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").preview>("seed:preview"), () => (require("../seed") as Record<string, unknown>)["preview"])],
+  "removeScenarioOrganization": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").removeScenarioOrganization>("seed:removeScenarioOrganization"), () => (require("../seed") as Record<string, unknown>)["removeScenarioOrganization"])],
   "wipeTournaments": ["mutation", typedProcedureResolver(createGeneratedFunctionReference<"mutation", "internal", typeof import("../seed").wipeTournaments>("seed:wipeTournaments"), () => (require("../seed") as Record<string, unknown>)["wipeTournaments"])],
 } as const;
 

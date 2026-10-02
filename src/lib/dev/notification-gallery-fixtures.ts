@@ -15,7 +15,7 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
  * digitada aqui — texto alterado no servidor aparece na galeria sem tocar neste
  * arquivo. Fixture é só o INPUT (ator, competição e os ids do emissor).
  *
- * `NOTIFICATION_GALLERY_GROUPS` cobre os 29 tipos do catálogo, um a um; um teste
+ * `NOTIFICATION_GALLERY_GROUPS` cobre os 31 tipos do catálogo, um a um; um teste
  * co-localizado garante que o conjunto é EXATAMENTE o catálogo.
  */
 
@@ -24,10 +24,11 @@ import type { NotificationCardItem } from "@/lib/notifications/notification-view
 const ORGANIZER_EVENT_TYPES: readonly NotificationEventType[] = [
   "tournament.entry.created",
   "tournament.entry.cancelled",
+  "tournament.entry.player_removed",
   "tournament.window_expired",
 ];
 
-/** Ação real de hoje por evento acionável (3 dos 29): rótulo do builder de
+/** Ação real de hoje por evento acionável (3 dos 31): rótulo do builder de
  * apresentação, mutation executada pelo runner de pendências. Evento fora do
  * mapa é INFORMATIVO (`buildNotificationPresentation` devolve `null`). */
 export const GALLERY_ACTION_NOTES: Partial<
@@ -49,29 +50,31 @@ export const GALLERY_TEMPLATE_LINES: Record<NotificationEventType, number> = {
   "tournament.entry.cancelled": 80,
   "tournament.entry.confirmed": 89,
   "tournament.entry.created": 96,
-  "tournament.entry.refund_requested": 103,
-  "tournament.entry.refunded": 113,
-  "tournament.entry.rejected": 120,
-  "tournament.finished": 127,
-  "tournament.match.ready": 134,
-  "tournament.match.reassigned": 143,
-  "tournament.match.rescheduled": 150,
-  "tournament.match.result": 157,
-  "tournament.match.result_edited": 164,
-  "tournament.match.schedule_cancelled": 171,
-  "tournament.match.schedule_declined": 178,
-  "tournament.match.schedule_proposed": 185,
-  "tournament.match.scheduled": 196,
-  "tournament.match.score_cancelled": 203,
-  "tournament.match.score_declined": 212,
-  "tournament.match.score_proposed": 221,
-  "tournament.match.suspended": 230,
-  "tournament.partner.awaiting_reply": 237,
-  "tournament.partner.invite_cancelled": 244,
-  "tournament.partner.invited": 251,
-  "tournament.partner.responded": 258,
-  "tournament.window_expired": 269,
-  "tournament.window_extended": 278,
+  "tournament.entry.player_removed": 103,
+  "tournament.entry.refund_requested": 110,
+  "tournament.entry.refunded": 120,
+  "tournament.entry.rejected": 127,
+  "tournament.finished": 134,
+  "tournament.match.ready": 141,
+  "tournament.match.reassigned": 150,
+  "tournament.match.rescheduled": 157,
+  "tournament.match.result": 164,
+  "tournament.match.result_edited": 171,
+  "tournament.match.schedule_cancelled": 178,
+  "tournament.match.schedule_declined": 185,
+  "tournament.match.schedule_proposed": 192,
+  "tournament.match.scheduled": 203,
+  "tournament.match.score_cancelled": 210,
+  "tournament.match.score_declined": 219,
+  "tournament.match.score_proposed": 228,
+  "tournament.match.suspended": 237,
+  "tournament.partner.awaiting_reply": 244,
+  "tournament.partner.invite_cancelled": 251,
+  "tournament.partner.invited": 258,
+  "tournament.partner.responded": 265,
+  "tournament.player.removed": 276,
+  "tournament.window_expired": 291,
+  "tournament.window_extended": 300,
 };
 
 const GALLERY_EXTRA_NOTES: Partial<Record<NotificationEventType, string>> = {
@@ -240,6 +243,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
     eventTypes: [
       "tournament.entry.created",
       "tournament.entry.cancelled",
+      "tournament.entry.player_removed",
       "tournament.window_expired",
     ],
     title: "Torneio | inscrição (organizador)",
@@ -270,6 +274,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
       "tournament.match.suspended",
       "tournament.match.result",
       "tournament.match.result_edited",
+      "tournament.player.removed",
     ],
     title: "Torneio | chave e partidas (jogador)",
   },
@@ -283,7 +288,7 @@ export const NOTIFICATION_GALLERY_GROUPS: {
   },
 ];
 
-/** Os 29 tipos na ordem em que a galeria desenha (numeração dos títulos). */
+/** Os 31 tipos na ordem em que a galeria desenha (numeração dos títulos). */
 export const NOTIFICATION_GALLERY_EVENT_TYPES: readonly NotificationEventType[] =
   NOTIFICATION_GALLERY_GROUPS.flatMap((group) => group.eventTypes);
 

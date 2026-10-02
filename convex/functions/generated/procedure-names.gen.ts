@@ -3,6 +3,18 @@
 // Do not edit manually. Run `kitcn codegen` to regenerate.
 
 export const procedureNames = {
+  "account/deletion.ts": [
+    { column: 3, line: 219, name: "account/deletion:confirm" },
+    { column: 3, line: 276, name: "account/deletion:execute" },
+    { column: 3, line: 168, name: "account/deletion:requestCode" },
+    { column: 3, line: 158, name: "account/deletion:status" },
+  ],
+  "account/deletionCode.ts": [
+    { column: 3, line: 70, name: "account/deletionCode:discardCode" },
+    { column: 3, line: 29, name: "account/deletionCode:readPending" },
+    { column: 3, line: 83, name: "account/deletionCode:send" },
+    { column: 3, line: 58, name: "account/deletionCode:storeSentCode" },
+  ],
   "notification/feed.ts": [
     { column: 3, line: 92, name: "notification/feed:list" },
     { column: 3, line: 150, name: "notification/feed:markAllRead" },
@@ -11,13 +23,13 @@ export const procedureNames = {
     { column: 3, line: 203, name: "notification/feed:removeAll" },
   ],
   "notification/orchestrator.ts": [
-    { column: 3, line: 349, name: "notification/orchestrator:claimPendingDeliveries" },
-    { column: 3, line: 236, name: "notification/orchestrator:createForRecipients" },
-    { column: 3, line: 424, name: "notification/orchestrator:markDeliveryResults" },
-    { column: 3, line: 471, name: "notification/orchestrator:releaseLock" },
-    { column: 3, line: 582, name: "notification/orchestrator:retractNotifications" },
-    { column: 3, line: 478, name: "notification/orchestrator:sendPending" },
-    { column: 62, line: 662, name: "notification/orchestrator:sweepStaleInProgressDeliveries" },
+    { column: 3, line: 350, name: "notification/orchestrator:claimPendingDeliveries" },
+    { column: 3, line: 237, name: "notification/orchestrator:createForRecipients" },
+    { column: 3, line: 425, name: "notification/orchestrator:markDeliveryResults" },
+    { column: 3, line: 472, name: "notification/orchestrator:releaseLock" },
+    { column: 3, line: 583, name: "notification/orchestrator:retractNotifications" },
+    { column: 3, line: 479, name: "notification/orchestrator:sendPending" },
+    { column: 62, line: 663, name: "notification/orchestrator:sweepStaleInProgressDeliveries" },
   ],
   "notification/settings.ts": [
     { column: 3, line: 117, name: "notification/settings:setPreference" },
@@ -105,19 +117,21 @@ export const procedureNames = {
     { column: 3, line: 36, name: "pendings/list:list" },
   ],
   "player/dashboard.ts": [
-    { column: 3, line: 149, name: "player/dashboard:getOverview" },
+    { column: 3, line: 152, name: "player/dashboard:getOverview" },
   ],
   "player/profile.ts": [
-    { column: 3, line: 63, name: "player/profile:generateUploadUrl" },
-    { column: 3, line: 49, name: "player/profile:get" },
-    { column: 3, line: 72, name: "player/profile:upsert" },
+    { column: 3, line: 67, name: "player/profile:generateUploadUrl" },
+    { column: 3, line: 53, name: "player/profile:get" },
+    { column: 3, line: 76, name: "player/profile:upsert" },
   ],
   "seed.ts": [
-    { column: 3, line: 1317, name: "seed:doublesAgendaScenario" },
-    { column: 3, line: 1052, name: "seed:doublesScenario" },
-    { column: 3, line: 712, name: "seed:pendencyScenario" },
-    { column: 3, line: 267, name: "seed:preview" },
-    { column: 3, line: 1642, name: "seed:wipeTournaments" },
+    { column: 3, line: 1928, name: "seed:accountDeletionScenario" },
+    { column: 3, line: 1331, name: "seed:doublesAgendaScenario" },
+    { column: 3, line: 1066, name: "seed:doublesScenario" },
+    { column: 3, line: 726, name: "seed:pendencyScenario" },
+    { column: 3, line: 281, name: "seed:preview" },
+    { column: 3, line: 2239, name: "seed:removeScenarioOrganization" },
+    { column: 3, line: 2320, name: "seed:wipeTournaments" },
   ],
   "tournament/agreements.ts": [
     { column: 3, line: 401, name: "tournament/agreements:acceptSchedule" },
@@ -149,12 +163,13 @@ export const procedureNames = {
   "tournament/entries.ts": [
     { column: 3, line: 782, name: "tournament/entries:approve" },
     { column: 3, line: 879, name: "tournament/entries:cancel" },
+    { column: 3, line: 981, name: "tournament/entries:cancelEntriesForAccountRemoval" },
     { column: 3, line: 487, name: "tournament/entries:create" },
-    { column: 3, line: 1060, name: "tournament/entries:listForTournament" },
+    { column: 3, line: 1158, name: "tournament/entries:listForTournament" },
     { column: 3, line: 831, name: "tournament/entries:reject" },
     { column: 3, line: 672, name: "tournament/entries:respondPartnerInvite" },
-    { column: 3, line: 1016, name: "tournament/entries:setEntryRound" },
-    { column: 3, line: 972, name: "tournament/entries:setSeed" },
+    { column: 3, line: 1114, name: "tournament/entries:setEntryRound" },
+    { column: 3, line: 1070, name: "tournament/entries:setSeed" },
   ],
   "tournament/lifecycle.ts": [
     { column: 3, line: 374, name: "tournament/lifecycle:applyRefundOutcome" },

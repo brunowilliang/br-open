@@ -2,6 +2,9 @@ const PLAYER_NAME_FALLBACK = "Jogador";
 const PLAYER_IDENTIFIER_LENGTH = 4;
 const PLAYER_IDENTIFIER_MOD = 10 ** PLAYER_IDENTIFIER_LENGTH;
 
+/** Rotulo do perfil de quem excluiu a conta: o nome nunca fica, so a marca. */
+export const PLAYER_REMOVED_NAME = "Jogador removido";
+
 function buildPlayerIdentifier(userId: string) {
   let hash = 0;
 
@@ -14,8 +17,13 @@ function buildPlayerIdentifier(userId: string) {
 
 export function buildPlayerDisplayName(input: {
   name?: null | string;
+  removed?: boolean;
   userId?: null | string;
 }) {
+  if (input.removed) {
+    return PLAYER_REMOVED_NAME;
+  }
+
   const trimmedName = input.name?.trim();
 
   if (trimmedName) {
@@ -44,11 +52,13 @@ export function buildPlayerProfileDisplayName(input: {
   fullName?: null | string;
   name?: null | string;
   nickname?: null | string;
+  removed?: boolean;
   userId?: null | string;
 }) {
   return buildPlayerDisplayName({
     name:
       input.fullName?.trim() || input.nickname?.trim() || input.name?.trim(),
+    removed: input.removed,
     userId: input.userId,
   });
 }

@@ -9,9 +9,11 @@ export const playerProfile = convexTable("playerProfile", {
   gender: text(),
   nickname: text(),
   phone: text(),
+  // Na exclusao da conta o perfil vira "Jogador removido": `userId` sai com
+  // unsetToken (null colidiria no indice unico) e `removedAt` marca a saida.
+  removedAt: timestamp(),
   updatedAt: timestamp().notNull(),
   userId: id("user")
-    .notNull()
     .unique()
-    .references(() => authTables.user.id, { onDelete: "cascade" }),
+    .references(() => authTables.user.id, { onDelete: "set null" }),
 });

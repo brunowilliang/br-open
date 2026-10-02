@@ -279,6 +279,7 @@ async function collectPlayerEntryPendings(
         fullName: profile.fullName,
         name: userById.get(profile.userId as string)?.name,
         nickname: profile.nickname,
+        removed: Boolean(profile.removedAt),
         userId: profile.userId as string,
       }),
     ])
@@ -673,6 +674,7 @@ async function collectPlayerAgreementPendings(
         fullName: row.fullName,
         name: userById.get(row.userId as string)?.name,
         nickname: row.nickname,
+        removed: Boolean(row.removedAt),
         userId: row.userId as string,
       }),
     ])
@@ -684,6 +686,7 @@ async function collectPlayerAgreementPendings(
         fullName: proposerProfileByUserId.get(userId)?.fullName,
         name: userById.get(userId)?.name,
         nickname: proposerProfileByUserId.get(userId)?.nickname,
+        removed: Boolean(proposerProfileByUserId.get(userId)?.removedAt),
         userId,
       }),
     ])

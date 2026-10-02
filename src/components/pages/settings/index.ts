@@ -4,6 +4,7 @@ import { AlertsVariantsSection } from "@/components/pages/settings/alerts";
 import { CategoryEditorVariantsSection } from "@/components/pages/settings/category-editor";
 import { CategorySelectVariantsSection } from "@/components/pages/settings/category-select";
 import { ChartCrosshairGallerySection } from "@/components/pages/settings/chart-crosshair";
+import { DeleteAccountVariantsSection } from "@/components/pages/settings/delete-account";
 import { EntryCardVariantsSection } from "@/components/pages/settings/entry-card";
 import { JoinFooterVariantsSection } from "@/components/pages/settings/join-footer";
 import { KpiVariantsSection } from "@/components/pages/settings/kpi";
@@ -25,6 +26,7 @@ export const COMPONENT_GALLERY_SECTIONS: Record<string, ComponentType> = {
   "category-editor": CategoryEditorVariantsSection,
   "category-select": CategorySelectVariantsSection,
   "chart-crosshair": ChartCrosshairGallerySection,
+  "delete-account": DeleteAccountVariantsSection,
   "entry-card": EntryCardVariantsSection,
   "join-footer": JoinFooterVariantsSection,
   kpi: KpiVariantsSection,

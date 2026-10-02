@@ -432,7 +432,7 @@ describe("NotificationCard", () => {
       }
     }
 
-    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(29);
+    expect(NOTIFICATION_GALLERY_EVENT_TYPES).toHaveLength(31);
     expect(mismatches).toEqual([]);
   });
 });

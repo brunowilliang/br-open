@@ -1,5 +1,6 @@
 import { defineSchema } from "kitcn/orm";
 
+import * as accountTables from "../domains/account/tables";
 import { defineAuthRelations } from "../domains/auth/relations";
 import * as authTables from "../domains/auth/tables";
 import { defineNotificationRelations } from "../domains/notification/relations";
@@ -13,6 +14,7 @@ import { defineTournamentRelations } from "../domains/tournament/relations";
 import * as tournamentTables from "../domains/tournament/tables";
 
 export const tables = {
+  ...accountTables,
   ...authTables,
   ...notificationTables,
   ...paymentTables,

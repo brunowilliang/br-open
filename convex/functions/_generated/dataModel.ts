@@ -70,6 +70,38 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  accountDeletionCode: {
+    document: {
+      attempts: number;
+      codeHash: string;
+      createdAt: number;
+      expiresAt: number;
+      requestedAt: number;
+      sentAt?: null | number;
+      updatedAt: number;
+      userId: Id<"user">;
+      _id: Id<"accountDeletionCode">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "attempts"
+      | "codeHash"
+      | "createdAt"
+      | "expiresAt"
+      | "requestedAt"
+      | "sentAt"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      accountDeletionCode_userId_unique: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   aggregate_bucket: {
     document: {
       count: number;
@@ -825,8 +857,9 @@ export type DataModel = {
       gender?: null | string;
       nickname?: null | string;
       phone?: null | string;
+      removedAt?: null | number;
       updatedAt: number;
-      userId: Id<"user">;
+      userId?: null | Id<"user">;
       _id: Id<"playerProfile">;
       _creationTime: number;
     };
@@ -839,6 +872,7 @@ export type DataModel = {
       | "gender"
       | "nickname"
       | "phone"
+      | "removedAt"
       | "updatedAt"
       | "userId";
     indexes: {
@@ -1105,6 +1139,7 @@ export type DataModel = {
       categoryId_activeBId: ["categoryId", "activeBId", "_creationTime"];
       categoryId_status: ["categoryId", "status", "_creationTime"];
       createdByUserId: ["createdByUserId", "_creationTime"];
+      partnerUserId: ["partnerUserId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -1165,6 +1200,7 @@ export type DataModel = {
       entryAId: ["entryAId", "_creationTime"];
       entryBId: ["entryBId", "_creationTime"];
       matchDate: ["matchDate", "_creationTime"];
+      scheduledById: ["scheduledById", "_creationTime"];
       winnerEntryId: ["winnerEntryId", "_creationTime"];
     };
     searchIndexes: {};
@@ -1215,6 +1251,7 @@ export type DataModel = {
       entryAId_state: ["entryAId", "state", "_creationTime"];
       entryBId_state: ["entryBId", "state", "_creationTime"];
       matchId_channel: ["matchId", "channel", "_creationTime"];
+      proposedByUserId: ["proposedByUserId", "_creationTime"];
       tournamentId_state: ["tournamentId", "state", "_creationTime"];
     };
     searchIndexes: {};
@@ -1249,6 +1286,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      actorUserId: ["actorUserId", "_creationTime"];
       matchId: ["matchId", "_creationTime"];
       tournamentId: ["tournamentId", "_creationTime"];
     };
@@ -1276,6 +1314,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      editedByUserId: ["editedByUserId", "_creationTime"];
       matchId: ["matchId", "_creationTime"];
     };
     searchIndexes: {};
@@ -1308,6 +1347,7 @@ export type DataModel = {
     indexes: {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
+      createdByUserId: ["createdByUserId", "_creationTime"];
       tournamentId_date: ["tournamentId", "date", "_creationTime"];
     };
     searchIndexes: {};

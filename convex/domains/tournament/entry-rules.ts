@@ -221,6 +221,19 @@ export function entrySlotFields<T extends string>(input: {
   };
 }
 
+/**
+ * Vaga de chave guardada por inscrição CANCELADA (em torneio em andamento só a
+ * exclusão de conta cancela): quando o segundo lado chega, o confronto resolve
+ * na hora por W.O. para quem chegou — a vaga não fica esperando um jogo que
+ * nunca acontece. Sem o outro lado, não há o que decidir.
+ */
+export function shouldDecideArrivalWalkover(input: {
+  otherEntryId: null | string;
+  otherEntryStatus: null | string;
+}): boolean {
+  return input.otherEntryId !== null && input.otherEntryStatus === "cancelled";
+}
+
 /** Quem não tem username nem chega aqui: o índice não contém essas linhas. */
 export function selectUsernameMatches<
   T extends { id: string; username?: null | string },

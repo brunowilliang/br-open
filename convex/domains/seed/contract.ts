@@ -135,3 +135,28 @@ export type DoublesAgendaScenarioInput = z.infer<
 export type DoublesAgendaScenarioResult = z.infer<
   typeof doublesAgendaScenarioResultSchema
 >;
+
+/**
+ * Cenario de EXCLUSAO de conta: bloqueio (torneio a concluir), resolucoes
+ * (PIX aberto, convite, jogo pendente, estorno) e historico jogado na conta do
+ * email informado. DEV-only; o email e obrigatorio pelo mesmo motivo dos outros.
+ */
+export const AccountDeletionScenarioSchema = z.object({
+  primaryUserEmail: z.string().email(),
+});
+
+export const accountDeletionScenarioResultSchema = z.object({
+  blockerTournamentId: z.string(),
+  botOrganizationId: z.string(),
+  organizationId: z.string(),
+  playerProfileId: z.string(),
+  tournamentsCreated: z.number().int().nonnegative(),
+  userId: z.string(),
+});
+
+export type AccountDeletionScenarioInput = z.infer<
+  typeof AccountDeletionScenarioSchema
+>;
+export type AccountDeletionScenarioResult = z.infer<
+  typeof accountDeletionScenarioResultSchema
+>;

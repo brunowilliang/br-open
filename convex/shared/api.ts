@@ -10,6 +10,13 @@ import type { httpRouter } from "../functions/http";
 import type { tables } from "../functions/schema";
 
 export const api = {
+  account: {
+    deletion: {
+      confirm: createApiLeaf<"mutation", typeof import("../functions/account/deletion").confirm>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/account/deletion").confirm>("account/deletion:confirm"), { auth: "required", type: "mutation" }),
+      requestCode: createApiLeaf<"mutation", typeof import("../functions/account/deletion").requestCode>(createGeneratedFunctionReference<"mutation", "public", typeof import("../functions/account/deletion").requestCode>("account/deletion:requestCode"), { auth: "required", type: "mutation" }),
+      status: createApiLeaf<"query", typeof import("../functions/account/deletion").status>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/account/deletion").status>("account/deletion:status"), { auth: "required", type: "query" }),
+    },
+  },
   notification: {
     feed: {
       list: createApiLeaf<"query", typeof import("../functions/notification/feed").list>(createGeneratedFunctionReference<"query", "public", typeof import("../functions/notification/feed").list>("notification/feed:list"), { auth: "required", type: "query" }),

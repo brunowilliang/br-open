@@ -18,19 +18,23 @@ async function serializePlayerProfile(
   ctx: QueryCtx | MutationCtx,
   record: PlayerProfileRecord
 ) {
+  const removed = Boolean(record.removedAt);
   const fullName = buildPlayerDisplayName({
     name: record.fullName,
+    removed,
     userId: record.userId,
   });
-  const nickname = buildPlayerDisplayName({
-    name: record.nickname ?? record.fullName,
-    userId: record.userId,
-  });
+  const nickname = removed
+    ? null
+    : buildPlayerDisplayName({
+        name: record.nickname ?? record.fullName,
+        userId: record.userId,
+      });
   // Sem avatar próprio, o perfil cai na foto do provedor (Google) guardada na
-  // linha do auth user, igual ao card do dashboard.
-  const user = await ctx.orm.query.user.findFirst({
-    where: { id: record.userId },
-  });
+  // linha do auth user; removido perdeu o userId e não tem conta para buscar.
+  const user = record.userId
+    ? await ctx.orm.query.user.findFirst({ where: { id: record.userId } })
+    : null;
 
   return playerProfileSchema.parse({
     ...record,

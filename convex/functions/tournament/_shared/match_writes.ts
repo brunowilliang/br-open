@@ -13,6 +13,7 @@ import type {
   MatchAgreementChannel,
   TournamentMatchScore,
 } from "../../../domains/tournament/contract";
+import { shouldDecideArrivalWalkover } from "../../../domains/tournament/entry-rules";
 import {
   canReserveUnreadySlot,
   findCourtSlotConflict,
@@ -499,6 +500,73 @@ export async function applyMatchSuspension(
 }
 
 /**
+ * O segundo lado chegou numa vaga guardada por inscrição CANCELADA (jogador que
+ * excluiu a conta): decide o confronto por W.O. para quem chegou, pelo MESMO
+ * caminho do resultado publicado, e avisa o lado que avança com o evento de
+ * saída do fluxo de exclusão. Sem inscrição morta na vaga, devolve false.
+ */
+async function decideCancelledSlotArrival(
+  ctx: OrmMutationCtx,
+  input: {
+    arrivingEntryId: string;
+    matchId: Id<"tournamentMatch">;
+    otherEntryId: null | string;
+    tournament: TournamentRecord;
+  }
+): Promise<boolean> {
+  if (!input.otherEntryId) {
+    return false;
+  }
+  const otherEntry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { id: input.otherEntryId as Id<"tournamentEntry"> },
+  });
+  if (
+    !shouldDecideArrivalWalkover({
+      otherEntryId: input.otherEntryId,
+      otherEntryStatus: otherEntry?.status ?? null,
+    })
+  ) {
+    return false;
+  }
+
+  const current = await ctx.orm.query.tournamentMatch.findFirst({
+    where: { id: input.matchId },
+  });
+  if (
+    !current ||
+    current.publishedAt ||
+    current.status === "vacant" ||
+    !(current.entryAId && current.entryBId)
+  ) {
+    return false;
+  }
+
+  await applyMatchResult(ctx, {
+    match: current,
+    score: {
+      sets: [{ aGames: 0, bGames: 0, kind: "set" }],
+      winnerEntryId: input.arrivingEntryId,
+    },
+    tournament: input.tournament,
+    walkover: true,
+  });
+
+  const recipients = await entryRecipientUserIds(ctx, [input.arrivingEntryId]);
+  if (recipients.length > 0) {
+    await scheduleTournamentNotification(ctx, {
+      eventType: "tournament.player.removed",
+      metadata: { audience: "opponent", matchId: input.matchId as string },
+      recipientUserIds: recipients,
+      sourceEntityId: input.matchId as string,
+      sourceEntityType: "tournamentMatch",
+      tournamentId: input.tournament.id as Id<"tournament">,
+    });
+  }
+
+  return true;
+}
+
+/**
  * Publicação do resultado (organizador ou confirmação dos dois lados): trava
  * publishedAt, avança o vencedor para a vaga seguinte ainda não publicada e
  * avisa os dois lados.
@@ -585,14 +653,27 @@ export async function applyMatchResult(
         updatedAt: now,
       })
       .where(eq(tournamentMatch.id, next.id as never));
-    await notifyMatchReady(ctx, {
-      after: { ...nextSides, [side]: winnerEntryId as string },
-      before: nextSides,
-      categoryId: match.categoryId as Id<"tournamentCategory">,
-      matchId: next.id as string,
-      round: next.round,
+
+    // A vaga podia estar guardada por uma inscrição cancelada (em andamento só
+    // a exclusão de conta cancela): com o segundo lado, o confronto resolve na
+    // hora por W.O. e o aviso de "próximo jogo" não sai — não há jogo a marcar.
+    const decidedByArrival = await decideCancelledSlotArrival(ctx, {
+      arrivingEntryId: winnerEntryId,
+      matchId: next.id as Id<"tournamentMatch">,
+      otherEntryId:
+        side === "entryAId" ? nextSides.entryBId : nextSides.entryAId,
       tournament,
     });
+    if (!decidedByArrival) {
+      await notifyMatchReady(ctx, {
+        after: { ...nextSides, [side]: winnerEntryId as string },
+        before: nextSides,
+        categoryId: match.categoryId as Id<"tournamentCategory">,
+        matchId: next.id as string,
+        round: next.round,
+        tournament,
+      });
+    }
   }
 
   const recipients = await entryRecipientUserIds(ctx, [

@@ -7,6 +7,8 @@ import * as authTables from "../domains/auth/tables";
 import { SOURCE_TYPE_TOURNAMENT_ENTRY } from "../domains/payment/contract";
 import { paymentCharge } from "../domains/payment/tables";
 import {
+  AccountDeletionScenarioSchema,
+  accountDeletionScenarioResultSchema,
   SEED_EMAIL_DOMAIN,
   SEED_EMAIL_PREFIX,
   DoublesAgendaScenarioSchema,
@@ -20,6 +22,17 @@ import {
   type DoublesAgendaScenarioResult,
   type DoublesScenarioResult,
 } from "../domains/seed/contract";
+import {
+  ACCOUNT_DELETION_SEED_CATEGORIES,
+  ACCOUNT_DELETION_SEED_HOUSE_NAME,
+  ACCOUNT_DELETION_SEED_ORGANIZATION_NAME,
+  ACCOUNT_DELETION_SEED_PIX_TTL_MS,
+  ACCOUNT_DELETION_SEED_SLUG_PREFIX,
+  ACCOUNT_DELETION_SEED_TOURNAMENTS,
+  ACCOUNT_DELETION_SEED_VIEWER_GENDER,
+  type AccountDeletionSeedCategory,
+} from "../domains/seed/account-deletion-plan";
+import { getEnv } from "../lib/get-env";
 import { defaultSeedRuleConfig, seedPlayers } from "../domains/seed/data";
 import {
   DOUBLES_SEED_AGENDA_ACTIVE_TARGET,
@@ -59,6 +72,7 @@ import {
   DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
   normalizeCategoryNameKey,
   type TournamentGender,
+  TournamentGenderOptions,
   type TournamentModality,
 } from "../domains/tournament/contract";
 import * as tournamentTables from "../domains/tournament/tables";
@@ -154,7 +168,7 @@ async function resetSeedData(ctx: SeedCtx) {
     ctx,
     "playerProfile",
     playerProfiles
-      .filter((profile) => seedUserIds.has(profile.userId))
+      .filter((profile) => profile.userId && seedUserIds.has(profile.userId))
       .map((profile) => profile.id)
   );
 
@@ -1622,7 +1636,671 @@ export const doublesAgendaScenario = privateMutation
     };
   });
 
+// ---------------------------------------------------------------------------
+// Cenario de EXCLUSAO de conta: a conta do alvo ganha o bloqueio (torneio a
+// concluir), as resolucoes (PIX aberto, convite, jogo pendente, estorno) e o
+// historico jogado. Idempotente pelos nomes; nunca faz reset.
+// ---------------------------------------------------------------------------
+
+function buildAccountDeletionSlug(userId: Id<"user">, role: string) {
+  return `${ACCOUNT_DELETION_SEED_SLUG_PREFIX}-${role}-${String(userId).replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+}
+
+async function ensureAccountDeletionOrganization(
+  ctx: SeedCtx,
+  input: { name: string; ownerUserId: Id<"user">; slug: string }
+) {
+  const existingOrganization = await ctx.orm.query.organization.findFirst({
+    where: { slug: input.slug },
+  });
+  let organization = existingOrganization;
+  let created = false;
+
+  if (!organization) {
+    const now = new Date();
+    const [createdOrganization] = await ctx.orm
+      .insert(authTables.organization)
+      .values({
+        createdAt: now,
+        metadata: { accountDeletionScenario: true, seed: true },
+        name: input.name,
+        slug: input.slug,
+        updatedAt: now,
+      })
+      .returning();
+    organization = createdOrganization;
+    created = true;
+  }
+
+  const membership = await ctx.orm.query.member.findFirst({
+    where: {
+      organizationId: organization.id as Id<"organization">,
+      userId: input.ownerUserId,
+    },
+  });
+  if (!membership) {
+    await ctx.orm.insert(authTables.member).values({
+      createdAt: new Date(),
+      organizationId: organization.id as Id<"organization">,
+      role: "owner",
+      userId: input.ownerUserId,
+    });
+  }
+
+  return { created, organization };
+}
+
+async function ensureAccountDeletionTournament(
+  ctx: SeedCtx,
+  input: {
+    description: string;
+    name: string;
+    organizationId: Id<"organization">;
+    status: string;
+  }
+) {
+  const existingTournament = await ctx.orm.query.tournament.findFirst({
+    where: { name: input.name, organizationId: input.organizationId },
+  });
+  if (existingTournament) {
+    return { created: false, tournament: existingTournament };
+  }
+
+  const now = new Date();
+  const [createdTournament] = await ctx.orm
+    .insert(tournamentTables.tournament)
+    .values({
+      allowMultipleEntriesPerType: DEFAULT_ALLOW_MULTIPLE_ENTRIES_PER_TYPE,
+      city: "Dracena",
+      courts: [],
+      createdAt: now,
+      description: input.description,
+      locationNotes: "",
+      matchConfig: defaultSeedRuleConfig.matchConfig,
+      name: input.name,
+      organizationId: input.organizationId,
+      registrationDeadlineAt: addDays(now, 7),
+      startDate: addDays(now, -7),
+      state: "SP",
+      status: input.status,
+      updatedAt: now,
+      visibility: "public",
+    })
+    .returning();
+
+  return { created: true, tournament: createdTournament };
+}
+
+async function ensureAccountDeletionCategory(
+  ctx: SeedCtx,
+  input: {
+    category: AccountDeletionSeedCategory;
+    entryFeeCents: number;
+    tournamentId: Id<"tournament">;
+  }
+) {
+  const nameKey = normalizeCategoryNameKey(input.category.name);
+  // O enum e a fonte: rotulo ("Masculino") gravado aqui quebra o getById.
+  const gender = z.enum(TournamentGenderOptions).parse(input.category.gender);
+  const existingCategory = await ctx.orm.query.tournamentCategory.findFirst({
+    where: {
+      gender,
+      modality: input.category.modality,
+      nameKey,
+      tournamentId: input.tournamentId,
+    },
+  });
+  if (existingCategory) {
+    return { category: existingCategory, created: false };
+  }
+
+  // Plantio antigo gravou rotulo no lugar do enum: conserta a linha existente
+  // em vez de duplicar (o indice unico e por genero).
+  const sameNameCategories = await ctx.orm.query.tournamentCategory.findMany({
+    limit: 3,
+    where: {
+      modality: input.category.modality,
+      nameKey,
+      tournamentId: input.tournamentId,
+    },
+  });
+  const legacyCategory = sameNameCategories.find(
+    (row) =>
+      !(TournamentGenderOptions as readonly string[]).includes(row.gender)
+  );
+  if (legacyCategory) {
+    const [repairedCategory] = await ctx.orm
+      .update(tournamentTables.tournamentCategory)
+      .set({ gender, updatedAt: new Date() })
+      .where(eq(tournamentTables.tournamentCategory.id, legacyCategory.id))
+      .returning();
+    return { category: repairedCategory, created: false };
+  }
+
+  const now = new Date();
+  const [createdCategory] = await ctx.orm
+    .insert(tournamentTables.tournamentCategory)
+    .values({
+      createdAt: now,
+      entryFeeCents: input.entryFeeCents,
+      gender,
+      modality: input.category.modality,
+      name: input.category.name,
+      nameKey,
+      tournamentId: input.tournamentId,
+      updatedAt: now,
+    })
+    .returning();
+
+  return { category: createdCategory, created: true };
+}
+
+async function upsertAccountDeletionEntry(
+  ctx: SeedCtx,
+  input: {
+    categoryId: Id<"tournamentCategory">;
+    createdByUserId: Id<"user">;
+    partner?: null | { profileId: Id<"playerProfile">; userId: Id<"user"> };
+    playerAId: Id<"playerProfile">;
+    status: string;
+  }
+) {
+  const existingEntry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { activeAId: input.playerAId, categoryId: input.categoryId },
+  });
+  if (existingEntry) {
+    return { created: false, entry: existingEntry };
+  }
+
+  await ensureSeedEntry(ctx, {
+    categoryId: input.categoryId,
+    createdByUserId: input.createdByUserId,
+    partnerUserId: input.partner?.userId ?? null,
+    playerAId: input.playerAId,
+    playerBId: input.partner?.profileId ?? null,
+    status: input.status,
+  });
+
+  const entry = await ctx.orm.query.tournamentEntry.findFirst({
+    where: { activeAId: input.playerAId, categoryId: input.categoryId },
+  });
+  if (!entry) {
+    throw new Error("Inscrição do cenário de exclusão não nasceu.");
+  }
+  return { created: true, entry };
+}
+
+async function ensureAccountDeletionCharge(
+  ctx: SeedCtx,
+  input: {
+    amountCents: number;
+    correlationId: string;
+    entryId: Id<"tournamentEntry">;
+    organizationId: Id<"organization">;
+    playerProfileId: Id<"playerProfile">;
+    sourceLabel: string;
+    status: "PAID" | "PENDING";
+  }
+) {
+  const existingCharge = await ctx.orm.query.paymentCharge.findFirst({
+    where: { correlationId: input.correlationId },
+  });
+  if (existingCharge) {
+    return { charge: existingCharge, created: false };
+  }
+
+  const now = new Date();
+  const [createdCharge] = await ctx.orm
+    .insert(paymentCharge)
+    .values({
+      amountCents: input.amountCents,
+      correlationId: input.correlationId,
+      createdAt: now,
+      expiresAt:
+        input.status === "PENDING"
+          ? new Date(now.getTime() + ACCOUNT_DELETION_SEED_PIX_TTL_MS)
+          : undefined,
+      organizationId: input.organizationId,
+      paidAt: input.status === "PAID" ? now : undefined,
+      playerProfileId: input.playerProfileId,
+      sourceId: input.entryId as string,
+      sourceLabel: input.sourceLabel,
+      sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+      status: input.status,
+      updatedAt: now,
+    })
+    .returning();
+
+  return { charge: createdCharge, created: true };
+}
+
+async function ensureAccountDeletionMatch(
+  ctx: SeedCtx,
+  input: {
+    categoryId: Id<"tournamentCategory">;
+    entryAId: Id<"tournamentEntry">;
+    entryBId: Id<"tournamentEntry">;
+    publishedAt?: Date;
+    round: number;
+    score?: Record<string, unknown>;
+    slotInRound: number;
+    status: string;
+    winnerEntryId?: Id<"tournamentEntry">;
+  }
+) {
+  const existingMatch = await ctx.orm.query.tournamentMatch.findFirst({
+    where: {
+      categoryId: input.categoryId,
+      round: input.round,
+      slotInRound: input.slotInRound,
+    },
+  });
+  if (existingMatch) {
+    return { created: false, match: existingMatch };
+  }
+
+  const now = new Date();
+  const [createdMatch] = await ctx.orm
+    .insert(tournamentTables.tournamentMatch)
+    .values({
+      categoryId: input.categoryId,
+      createdAt: now,
+      entryAId: input.entryAId,
+      entryBId: input.entryBId,
+      ...(input.publishedAt ? { publishedAt: input.publishedAt } : {}),
+      round: input.round,
+      rowVersion: input.publishedAt ? 1 : 0,
+      ...(input.score ? { score: input.score } : {}),
+      slotInRound: input.slotInRound,
+      status: input.status,
+      updatedAt: now,
+      walkover: false,
+      ...(input.winnerEntryId ? { winnerEntryId: input.winnerEntryId } : {}),
+    })
+    .returning();
+
+  return { created: true, match: createdMatch };
+}
+
+export const accountDeletionScenario = privateMutation
+  .input(AccountDeletionScenarioSchema)
+  .output(accountDeletionScenarioResultSchema)
+  .mutation(async ({ ctx, input }) => {
+    if (getEnv().DEPLOY_ENV === "production") {
+      throw new Error("O cenário de exclusão de conta é DEV-only.");
+    }
+
+    const primaryUser = await requirePrimaryUser(ctx, input.primaryUserEmail);
+    const userId = primaryUser.id as Id<"user">;
+    const core = await seedCoreUsers(ctx);
+    const profileResult = await ensureSeedPlayerProfile(ctx, userId, {
+      emailLocalPart: "account-deletion",
+      fullName: primaryUser.name || "Conta do Bruno",
+      gender: ACCOUNT_DELETION_SEED_VIEWER_GENDER,
+      image: seedPlayers[0]!.image,
+      nickname: "Alvo",
+    });
+    const targetProfileId = profileResult.profile.id as Id<"playerProfile">;
+
+    const botProfiles = (
+      await ctx.orm.query.playerProfile.findMany({
+        limit: core.userIds.length,
+        where: { userId: { in: core.userIds } },
+      })
+    )
+      .filter((profile) => profile.userId && profile.userId !== userId)
+      .sort((left, right) =>
+        (left.userId as string) < (right.userId as string) ? -1 : 1
+      );
+    const bot = (index: number) => {
+      const profile = botProfiles[index];
+      if (!profile?.userId) {
+        throw new Error("Elenco do seed insuficiente para o cenário.");
+      }
+      return {
+        profileId: profile.id as Id<"playerProfile">,
+        userId: profile.userId as Id<"user">,
+      };
+    };
+
+    const ownerOrganization = await ensureAccountDeletionOrganization(ctx, {
+      name: ACCOUNT_DELETION_SEED_ORGANIZATION_NAME,
+      ownerUserId: userId,
+      slug: buildAccountDeletionSlug(userId, "owner"),
+    });
+    const ownerOrganizationId = ownerOrganization.organization
+      .id as Id<"organization">;
+    const houseOrganization = await ensureAccountDeletionOrganization(ctx, {
+      name: ACCOUNT_DELETION_SEED_HOUSE_NAME,
+      ownerUserId: bot(0).userId,
+      slug: buildAccountDeletionSlug(userId, "house"),
+    });
+    const houseOrganizationId = houseOrganization.organization
+      .id as Id<"organization">;
+
+    let tournamentsCreated = 0;
+    const countTournament = (result: { created: boolean }) => {
+      if (result.created) {
+        tournamentsCreated += 1;
+      }
+    };
+
+    // BLOQUEIO: em andamento com a final JA jogada -> pendencia "Concluir
+    // torneio" e bloqueio da regua na mesma peca.
+    const blockerTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Torneio em andamento esperando a conclusão do organizador.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.blocker.name,
+      organizationId: ownerOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.blocker.status,
+    });
+    countTournament(blockerTournament);
+    const blockerTournamentId = blockerTournament.tournament
+      .id as Id<"tournament">;
+    const blockerCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.singles,
+      entryFeeCents: 0,
+      tournamentId: blockerTournamentId,
+    });
+    const blockerCategoryId = blockerCategory.category
+      .id as Id<"tournamentCategory">;
+    const blockerTargetEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: blockerCategoryId,
+      createdByUserId: userId,
+      playerAId: targetProfileId,
+      status: "active",
+    });
+    const blockerBotEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: blockerCategoryId,
+      createdByUserId: bot(1).userId,
+      playerAId: bot(1).profileId,
+      status: "active",
+    });
+    await ensureAccountDeletionMatch(ctx, {
+      categoryId: blockerCategoryId,
+      entryAId: blockerTargetEntry.entry.id as Id<"tournamentEntry">,
+      entryBId: blockerBotEntry.entry.id as Id<"tournamentEntry">,
+      publishedAt: addDays(new Date(), -1),
+      round: 1,
+      score: {
+        sets: [
+          { aGames: 6, bGames: 3, kind: "set" },
+          { aGames: 6, bGames: 4, kind: "set" },
+        ],
+        winnerEntryId: blockerTargetEntry.entry.id as string,
+      },
+      slotInRound: 0,
+      status: "finished",
+      winnerEntryId: blockerTargetEntry.entry.id as Id<"tournamentEntry">,
+    });
+
+    // RASCUNHO sem inscricao: resolvido sozinho no confirm.
+    const draftTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Rascunho que a exclusão apaga junto.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.draft.name,
+      organizationId: ownerOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.draft.status,
+    });
+    countTournament(draftTournament);
+
+    // PIX ABERTO: inscricao aguardando pagamento + cobranca PENDING viva.
+    const openPixTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Inscrição aguardando pagamento com PIX em aberto.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.openPix.name,
+      organizationId: houseOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.openPix.status,
+    });
+    countTournament(openPixTournament);
+    const openPixCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.singles,
+      entryFeeCents: ACCOUNT_DELETION_SEED_TOURNAMENTS.openPix.entryFeeCents,
+      tournamentId: openPixTournament.tournament.id as Id<"tournament">,
+    });
+    const openPixEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: openPixCategory.category.id as Id<"tournamentCategory">,
+      createdByUserId: userId,
+      playerAId: targetProfileId,
+      status: "awaiting_payment",
+    });
+    await ensureAccountDeletionCharge(ctx, {
+      amountCents: ACCOUNT_DELETION_SEED_TOURNAMENTS.openPix.entryFeeCents,
+      correlationId: `${ACCOUNT_DELETION_SEED_SLUG_PREFIX}:pix:${openPixEntry.entry.id}`,
+      entryId: openPixEntry.entry.id as Id<"tournamentEntry">,
+      organizationId: houseOrganizationId,
+      playerProfileId: targetProfileId,
+      sourceLabel: ACCOUNT_DELETION_SEED_TOURNAMENTS.openPix.name,
+      status: "PENDING",
+    });
+
+    // CONVITE ENVIADO: dupla pendente do alvo com um bot (o convite morre).
+    const inviteTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Convite de dupla enviado pelo alvo, sem resposta.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.invite.name,
+      organizationId: houseOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.invite.status,
+    });
+    countTournament(inviteTournament);
+    const inviteCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.doubles,
+      entryFeeCents: ACCOUNT_DELETION_SEED_TOURNAMENTS.invite.entryFeeCents,
+      tournamentId: inviteTournament.tournament.id as Id<"tournament">,
+    });
+    await upsertAccountDeletionEntry(ctx, {
+      categoryId: inviteCategory.category.id as Id<"tournamentCategory">,
+      createdByUserId: userId,
+      partner: bot(2),
+      playerAId: targetProfileId,
+      status: "pending_partner",
+    });
+
+    // JOGO PENDENTE: partida sem resultado vira W.O. no confirm.
+    const pendingMatchTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Partida pendente do alvo que a exclusão decide por W.O.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.pendingMatch.name,
+      organizationId: houseOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.pendingMatch.status,
+    });
+    countTournament(pendingMatchTournament);
+    const pendingMatchCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.singles,
+      entryFeeCents: 0,
+      tournamentId: pendingMatchTournament.tournament.id as Id<"tournament">,
+    });
+    const pendingMatchCategoryId = pendingMatchCategory.category
+      .id as Id<"tournamentCategory">;
+    const pendingTargetEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: pendingMatchCategoryId,
+      createdByUserId: userId,
+      playerAId: targetProfileId,
+      status: "active",
+    });
+    const pendingBotEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: pendingMatchCategoryId,
+      createdByUserId: bot(3).userId,
+      playerAId: bot(3).profileId,
+      status: "active",
+    });
+    await ensureAccountDeletionMatch(ctx, {
+      categoryId: pendingMatchCategoryId,
+      entryAId: pendingTargetEntry.entry.id as Id<"tournamentEntry">,
+      entryBId: pendingBotEntry.entry.id as Id<"tournamentEntry">,
+      round: 1,
+      slotInRound: 0,
+      status: "pending",
+    });
+
+    // HISTORICO JOGADO: torneio encerrado com partida publicada (resultado
+    // fica; o perfil vira "Jogador removido").
+    const historyTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Histórico jogado que a exclusão preserva.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.history.name,
+      organizationId: houseOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.history.status,
+    });
+    countTournament(historyTournament);
+    const historyCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.singles,
+      entryFeeCents: 0,
+      tournamentId: historyTournament.tournament.id as Id<"tournament">,
+    });
+    const historyCategoryId = historyCategory.category
+      .id as Id<"tournamentCategory">;
+    const historyTargetEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: historyCategoryId,
+      createdByUserId: userId,
+      playerAId: targetProfileId,
+      status: "active",
+    });
+    const historyBotEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: historyCategoryId,
+      createdByUserId: bot(4).userId,
+      playerAId: bot(4).profileId,
+      status: "active",
+    });
+    await ensureAccountDeletionMatch(ctx, {
+      categoryId: historyCategoryId,
+      entryAId: historyTargetEntry.entry.id as Id<"tournamentEntry">,
+      entryBId: historyBotEntry.entry.id as Id<"tournamentEntry">,
+      publishedAt: addDays(new Date(), -3),
+      round: 1,
+      score: {
+        sets: [
+          { aGames: 4, bGames: 6, kind: "set" },
+          { aGames: 6, bGames: 7, kind: "set" },
+        ],
+        winnerEntryId: historyBotEntry.entry.id as string,
+      },
+      slotInRound: 0,
+      status: "finished",
+      winnerEntryId: historyBotEntry.entry.id as Id<"tournamentEntry">,
+    });
+
+    // ESTORNO PENDENTE: inscricao ATIVA ja paga, que o confirm estorna.
+    const refundTournament = await ensureAccountDeletionTournament(ctx, {
+      description: "Inscrição paga que a exclusão manda para estorno.",
+      name: ACCOUNT_DELETION_SEED_TOURNAMENTS.refund.name,
+      organizationId: houseOrganizationId,
+      status: ACCOUNT_DELETION_SEED_TOURNAMENTS.refund.status,
+    });
+    countTournament(refundTournament);
+    const refundCategory = await ensureAccountDeletionCategory(ctx, {
+      category: ACCOUNT_DELETION_SEED_CATEGORIES.singles,
+      entryFeeCents: ACCOUNT_DELETION_SEED_TOURNAMENTS.refund.entryFeeCents,
+      tournamentId: refundTournament.tournament.id as Id<"tournament">,
+    });
+    const refundEntry = await upsertAccountDeletionEntry(ctx, {
+      categoryId: refundCategory.category.id as Id<"tournamentCategory">,
+      createdByUserId: userId,
+      playerAId: targetProfileId,
+      status: "active",
+    });
+    await ensureAccountDeletionCharge(ctx, {
+      amountCents: ACCOUNT_DELETION_SEED_TOURNAMENTS.refund.entryFeeCents,
+      correlationId: `${ACCOUNT_DELETION_SEED_SLUG_PREFIX}:paid:${refundEntry.entry.id}`,
+      entryId: refundEntry.entry.id as Id<"tournamentEntry">,
+      organizationId: houseOrganizationId,
+      playerProfileId: targetProfileId,
+      sourceLabel: ACCOUNT_DELETION_SEED_TOURNAMENTS.refund.name,
+      status: "PAID",
+    });
+
+    return {
+      blockerTournamentId: blockerTournamentId as string,
+      botOrganizationId: houseOrganizationId as string,
+      organizationId: ownerOrganizationId as string,
+      playerProfileId: targetProfileId as string,
+      tournamentsCreated,
+      userId: userId as string,
+    };
+  });
+
 const WIPE_TOURNAMENTS_CONFIRMATION = "wipe-tournaments-dev";
+
+const REMOVE_SCENARIO_ORGANIZATION_CONFIRMATION =
+  "remove-scenario-organization-dev";
+
+/**
+ * DEV-only: apaga UMA organizacao de cenario com seus torneios (a cascata leva
+ * categorias, inscricoes, chave e acerto) e as cobrancas de inscricao. Existe
+ * para desfazer org de cenario duplicada por replantio.
+ */
+export const removeScenarioOrganization = privateMutation
+  .input(
+    z.object({
+      confirm: z.literal(REMOVE_SCENARIO_ORGANIZATION_CONFIRMATION),
+      organizationId: z.string().min(1),
+    })
+  )
+  .output(
+    z.object({
+      deletedCharges: z.number(),
+      deletedTournaments: z.number(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    if (getEnv().DEPLOY_ENV === "production") {
+      throw new Error("A limpeza de organizacao de cenario e DEV-only.");
+    }
+
+    let deletedCharges = 0;
+    let deletedTournaments = 0;
+    const tournaments = await ctx.orm.query.tournament.findMany({
+      limit: 100,
+      where: { organizationId: input.organizationId as Id<"organization"> },
+    });
+    for (const record of tournaments) {
+      const categories = await ctx.orm.query.tournamentCategory.findMany({
+        limit: 500,
+        where: { tournamentId: record.id as Id<"tournament"> },
+      });
+      for (const category of categories) {
+        const entries = await ctx.orm.query.tournamentEntry.findMany({
+          limit: 500,
+          where: { categoryId: category.id as Id<"tournamentCategory"> },
+        });
+        for (const entry of entries) {
+          // Cobranca nao tem FK para a inscricao: sai na mao (mesmo motivo do
+          // wipe).
+          const charges = await ctx.orm.query.paymentCharge.findMany({
+            limit: 50,
+            where: {
+              sourceId: entry.id as string,
+              sourceType: SOURCE_TYPE_TOURNAMENT_ENTRY,
+            },
+          });
+          for (const charge of charges) {
+            await ctx.orm
+              .delete(paymentCharge)
+              .where(eq(paymentCharge.id, charge.id));
+            deletedCharges += 1;
+          }
+        }
+      }
+
+      await ctx.orm
+        .delete(tournamentTables.tournament)
+        .where(eq(tournamentTables.tournament.id, record.id));
+      deletedTournaments += 1;
+    }
+
+    await ctx.orm
+      .delete(authTables.member)
+      .where(
+        eq(
+          authTables.member.organizationId,
+          input.organizationId as Id<"organization">
+        )
+      );
+    await ctx.orm
+      .delete(authTables.organization)
+      .where(
+        eq(
+          authTables.organization.id,
+          input.organizationId as Id<"organization">
+        )
+      );
+
+    return { deletedCharges, deletedTournaments };
+  });
 
 /**
  * DEV-only: apaga TODOS os torneios do deployment (a cascata das FKs leva

@@ -53,6 +53,7 @@ async function resolveSideLabel(
         fullName: profile.fullName,
         name: users.find((user) => user.id === profile.userId)?.name,
         nickname: profile.nickname,
+        removed: Boolean(profile.removedAt),
         userId: profile.userId as string,
       })
     )

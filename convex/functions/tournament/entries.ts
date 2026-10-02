@@ -41,7 +41,7 @@ import { canRequestRefund } from "../../domains/payment/rules";
 
 type EntryRecord = InferSelectModel<typeof tournamentEntry>;
 type CategoryRecord = InferSelectModel<typeof tournamentCategory>;
-import { authMutation, authQuery } from "../../lib/crpc";
+import { authMutation, authQuery, privateMutation } from "../../lib/crpc";
 import {
   getViewerContext,
   requireActivePlayerProfile,
@@ -966,6 +966,104 @@ export const cancel = authMutation
     return serializeEntry(updated);
   });
 
+export const cancelEntriesForAccountRemoval = privateMutation
+  .input(
+    z.object({
+      entryIds: z.array(z.string().min(1)).min(1).max(300),
+    })
+  )
+  .output(
+    z.object({
+      cancelledCount: z.number().int().nonnegative(),
+      refundStartedCount: z.number().int().nonnegative(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    let cancelledCount = 0;
+    let refundStartedCount = 0;
+
+    for (const entryId of input.entryIds) {
+      const entry = await ctx.orm.query.tournamentEntry.findFirst({
+        where: { id: entryId as Id<"tournamentEntry"> },
+      });
+      if (
+        !entry ||
+        entry.status === "cancelled" ||
+        entry.status === "rejected"
+      ) {
+        continue;
+      }
+      const { tournament: currentTournament } = await getCategoryAndTournament(
+        ctx as unknown as OrmCtx,
+        entry.categoryId as Id<"tournamentCategory">
+      );
+      const now = new Date();
+      const [updated] = await ctx.orm
+        .update(tournamentEntry)
+        .set({
+          activeAId: unsetToken,
+          activeBId: unsetToken,
+          status: "cancelled",
+          updatedAt: now,
+        })
+        .where(eq(tournamentEntry.id, entry.id as Id<"tournamentEntry">))
+        .returning();
+
+      // Em andamento a chave fica ("Adversario avanca" via W.O. e decidido no
+      // fluxo da conta); antes do inicio o espelho da chave tambem solta a vaga.
+      if (
+        currentTournament.status === "published" ||
+        currentTournament.status === "drawn"
+      ) {
+        await removeEntryFromBracket(ctx, { entry: updated });
+      }
+
+      const refundStarted = await scheduleEntryRefund(ctx, {
+        entry: updated,
+        tournamentId: currentTournament.id as Id<"tournament">,
+      });
+      if (refundStarted) {
+        refundStartedCount += 1;
+      }
+      const actorUserId = entry.createdByUserId as Id<"user"> | null;
+      await notifyEntryCancelledForManagers(ctx, {
+        actorUserId,
+        entry: updated,
+        refundStarted,
+        tournament: currentTournament,
+      });
+      await notifyPartnerInviteCancelled(ctx, {
+        actorUserId,
+        entry: updated,
+        tournament: currentTournament,
+      });
+      // Dupla que ja tinha aceitado: o convite cancelado nao cobre, o parceiro
+      // recebe o aviso da saida pelo mesmo evento da exclusao.
+      if (
+        entry.status !== "pending_partner" &&
+        entry.partnerUserId &&
+        entry.partnerUserId !== entry.createdByUserId
+      ) {
+        await scheduleTournamentNotification(ctx, {
+          actorUserId,
+          eventType: "tournament.player.removed",
+          metadata: {
+            audience: "partner",
+            cancelled: true,
+            entryId: entry.id as string,
+          },
+          recipientUserIds: [entry.partnerUserId as Id<"user">],
+          sourceEntityId: entry.id as string,
+          sourceEntityType: "tournamentEntry",
+          tournamentId: currentTournament.id as Id<"tournament">,
+        });
+      }
+      cancelledCount += 1;
+    }
+
+    return { cancelledCount, refundStartedCount };
+  });
+
 export const setSeed = authMutation
   .input(SetEntrySeedSchema)
   .output(tournamentEntrySchema)
@@ -1160,6 +1258,7 @@ export const listForTournament = authQuery
         image: userMeta?.image ?? null,
         nickname: profile.nickname,
         playerProfileId: profile.id as string,
+        removed: Boolean(profile.removedAt),
         username: userMeta?.username ?? null,
       });
       cardCache.set(playerProfileId, card);

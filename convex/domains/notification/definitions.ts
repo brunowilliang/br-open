@@ -100,6 +100,13 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
       title: "Nova inscrição",
     }),
   },
+  "tournament.entry.player_removed": {
+    getUrl: getTournamentUrl,
+    template: (input) => ({
+      body: `Um jogador excluiu a conta e saiu de ${input.tournamentName}. As vagas e partidas pendentes dele já foram resolvidas.`,
+      title: "Jogador excluiu a conta",
+    }),
+  },
   "tournament.entry.refund_requested": {
     getUrl: getTournamentUrl,
     template: (input) => ({
@@ -264,6 +271,21 @@ const definitions: Record<NotificationEventType, NotificationDefinition> = {
           : "recusou o convite: a inscrição foi cancelada e as vagas voltaram."
       }`,
       title: "Convite respondido",
+    }),
+  },
+  "tournament.player.removed": {
+    getUrl: getMatchUrl,
+    template: (input) => ({
+      body:
+        input.metadata?.audience === "partner"
+          ? input.metadata?.cancelled
+            ? `Seu parceiro de dupla excluiu a conta e a inscrição de vocês em ${input.tournamentName} foi cancelada.`
+            : `Seu parceiro de dupla excluiu a conta. As partidas pendentes da dupla em ${input.tournamentName} foram decididas por W.O.`
+          : `O adversário da sua partida em ${input.tournamentName} excluiu a conta. A partida foi decidida por W.O. e você avança.`,
+      title:
+        input.metadata?.audience === "partner"
+          ? "Parceiro excluiu a conta"
+          : "Adversário excluiu a conta",
     }),
   },
   "tournament.window_expired": {

@@ -4,6 +4,7 @@ import { Text } from "@/components/core/text";
 import { ChangePasswordDialog } from "@/components/pages/player/change-password-dialog";
 import { LinkedAccountsSection } from "@/components/pages/player/linked-accounts-section";
 import { ProfileSecuritySection } from "@/components/pages/player/profile-security-section";
+import { DeleteAccountSection } from "@/components/pages/settings/delete-account/real";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import {
@@ -74,6 +75,9 @@ export default function SettingsSecurityRoute() {
               Contas vinculadas
             </Text>
             <LinkedAccountsSection accounts={accountRows} />
+            {currentEmail ? (
+              <DeleteAccountSection email={currentEmail} />
+            ) : null}
           </Page.ScrollView>
         )}
       </Page>

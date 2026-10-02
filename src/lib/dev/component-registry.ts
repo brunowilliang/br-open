@@ -91,6 +91,11 @@ export const COMPONENT_GALLERY_ENTRIES: ComponentGalleryEntry[] = [
     isFullscreen: true,
     title: "Torneio",
   },
+  {
+    description: "Fluxo de exclusão de conta em 4 passos, para aprovação",
+    id: "delete-account",
+    title: "Apagar conta",
+  },
 ];
 
 export function findComponentGalleryEntry(

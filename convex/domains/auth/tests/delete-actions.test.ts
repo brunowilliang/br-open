@@ -28,15 +28,18 @@ describe("user delete foreign key actions", () => {
     expect(getOnDeleteAction(authTables.session.userId)).toBe("cascade");
     expect(getOnDeleteAction(authTables.account.userId)).toBe("cascade");
     expect(getOnDeleteAction(authTables.userPreference.userId)).toBe("cascade");
-    expect(getOnDeleteAction(playerTables.playerProfile.userId)).toBe(
-      "cascade"
-    );
     expect(
       getOnDeleteAction(notificationTables.notificationPreference.userId)
     ).toBe("cascade");
     expect(
       getOnDeleteAction(notificationTables.notificationDevice.userId)
     ).toBe("cascade");
+  });
+
+  it("keeps the removed player profile anonymous with a set null link", () => {
+    expect(getOnDeleteAction(playerTables.playerProfile.userId)).toBe(
+      "set null"
+    );
   });
 
   it("cascades notification feed rows for dev reset deletes", () => {

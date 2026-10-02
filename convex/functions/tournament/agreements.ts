@@ -1016,6 +1016,7 @@ export const listAgreementEvents = authQuery
             fullName: actorProfile?.fullName,
             name: userById.get(userId)?.name,
             nickname: actorProfile?.nickname,
+            removed: Boolean(actorProfile?.removedAt),
             userId,
           }),
         ];

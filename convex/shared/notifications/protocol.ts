@@ -28,6 +28,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   "tournament.window_expired",
   "tournament.finished",
   "tournament.cancelled",
+  "tournament.entry.player_removed",
+  "tournament.player.removed",
 ] as const;
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];

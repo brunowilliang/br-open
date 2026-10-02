@@ -32,6 +32,7 @@ import type { QueryCtx } from "../generated/server";
 import { resolveStorageUrl } from "../../shared/media-rules";
 import { authQuery } from "../../lib/crpc";
 import type { AuthenticatedCtx } from "../../lib/crpc";
+import { PLAYER_REMOVED_NAME } from "../../domains/player/identity";
 import { getCategoryMatches } from "../tournament/_shared/board";
 import { requireActivePlayerProfile } from "../viewer/context";
 
@@ -98,13 +99,15 @@ function createPlayerCardLoader(ctx: QueryCtx) {
           playerProfileId,
         } satisfies PlayerDashboardPlayerCard;
       }
-      const user = await ctx.orm.query.user.findFirst({
-        where: { id: profile.userId },
-      });
+      const user = profile.userId
+        ? await ctx.orm.query.user.findFirst({ where: { id: profile.userId } })
+        : null;
       const avatarUrl = await resolveStorageUrl(ctx, profile.avatarStorageId);
       return {
         avatarUrl: avatarUrl ?? user?.image ?? null,
-        fullName: profile.fullName?.trim() || user?.name || "Jogador",
+        fullName: profile.removedAt
+          ? PLAYER_REMOVED_NAME
+          : profile.fullName?.trim() || user?.name || "Jogador",
         // O apelido viaja CRU: o fallback para o nome e do cliente, igual ao
         // `formatEntryPlayerNames` das superficies do torneio.
         nickname: profile.nickname?.trim() || null,
