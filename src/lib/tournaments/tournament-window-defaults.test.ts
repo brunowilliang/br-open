@@ -17,22 +17,22 @@ describe("resolveTournamentEndDate", () => {
     ).toBe("2026-10-20");
   });
 
-  test("fim no MESMO dia do início vira o dia seguinte", () => {
+  test("fim no MESMO dia do início fica como está", () => {
     expect(
       resolveTournamentEndDate({
         endDate: "2026-10-14",
         startDate: "2026-10-14",
       })
-    ).toBe("2026-10-15");
+    ).toBe("2026-10-14");
   });
 
-  test("fim anterior ao início vira o dia seguinte", () => {
+  test("fim anterior ao início vira o dia do início", () => {
     expect(
       resolveTournamentEndDate({
         endDate: "2026-10-10",
         startDate: "2026-10-14",
       })
-    ).toBe("2026-10-15");
+    ).toBe("2026-10-14");
   });
 
   test("fim em branco (legado sem teto) segue em branco", () => {
@@ -41,19 +41,13 @@ describe("resolveTournamentEndDate", () => {
     ).toBe("");
   });
 
-  test("vira o mês e o ano", () => {
+  test("fim anterior vira o dia do início na virada de mês", () => {
     expect(
       resolveTournamentEndDate({
-        endDate: "2026-09-30",
-        startDate: "2026-09-30",
+        endDate: "2026-09-29",
+        startDate: "2026-10-01",
       })
     ).toBe("2026-10-01");
-    expect(
-      resolveTournamentEndDate({
-        endDate: "2026-12-31",
-        startDate: "2026-12-31",
-      })
-    ).toBe("2027-01-01");
   });
 });
 

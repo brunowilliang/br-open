@@ -1,8 +1,4 @@
-import {
-  Alert02Icon,
-  CheckmarkCircle02Icon,
-  MoreVerticalIcon,
-} from "@hugeicons/core-free-icons";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
 import {
   AccordionLayoutTransition,
   Button,
@@ -10,7 +6,6 @@ import {
   Dialog,
   FieldError,
   Label,
-  Menu,
   Select,
   TextField,
 } from "heroui-native";
@@ -44,18 +39,8 @@ const approvalModeOptions = [
 ];
 
 export default function TournamentSettingsRoute() {
-  const { isSubmitPending, mode, onDelete, onSubmitPress, showDelete } =
-    useTournamentFormRoute();
+  const { isSubmitPending, onDelete, showDelete } = useTournamentFormRoute();
   const isDisabled = isSubmitPending;
-  const subtitle = mode === "create" ? "Criar Torneio" : "Editar Torneio";
-
-  function handleSubmitPress() {
-    if (isSubmitPending) {
-      return;
-    }
-
-    onSubmitPress();
-  }
   const { control, getValues, setValue } =
     useFormContext<TournamentScreenValues>();
   const { errors } = useFormState({
@@ -95,176 +80,150 @@ export default function TournamentSettingsRoute() {
   }
 
   return (
-    <Page>
-      <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
-        <Page.Header.Center>
-          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
-          <Page.Header.Title>Ajustes</Page.Header.Title>
-        </Page.Header.Center>
-        <Page.Header.Right>
-          <Menu>
-            <Menu.Trigger asChild>
-              <Button isIconOnly size="sm" variant="ghost">
-                <HugeIcons icon={MoreVerticalIcon} />
-              </Button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Overlay className="bg-backdrop" />
-              <Menu.Content presentation="popover" width={240}>
-                <Menu.Item onPress={handleSubmitPress}>
-                  <Menu.ItemTitle>Salvar</Menu.ItemTitle>
-                  <HugeIcons icon={CheckmarkCircle02Icon} />
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu>
-        </Page.Header.Right>
-      </Page.Header>
+    <>
+      <Page.ScrollView>
+        <View className="gap-4 px-4 pb-safe-offset-4">
+          <TextField isInvalid={Boolean(visibilityError)} isRequired>
+            <Label>Visibilidade do torneio</Label>
+            <Select
+              isDisabled={isDisabled}
+              onValueChange={(nextValue) => {
+                if (nextValue && !Array.isArray(nextValue)) {
+                  setValue(
+                    "visibility",
+                    nextValue.value as TournamentScreenValues["visibility"],
+                    {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    }
+                  );
+                }
+              }}
+              selectionMode="single"
+              value={visibilityOptions.find(
+                (option) => option.value === visibility
+              )}
+            >
+              <Select.Trigger>
+                <Select.Value
+                  className="font-normal"
+                  numberOfLines={1}
+                  placeholder="Escolha uma opção"
+                />
+                <Select.TriggerIndicator />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Overlay />
+                <SelectScrollContent label="Escolha uma opção" width="trigger">
+                  {visibilityOptions.map((option) => (
+                    <SelectOptionItem
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                    />
+                  ))}
+                </SelectScrollContent>
+              </Select.Portal>
+            </Select>
+            <Description>
+              Define quem pode encontrar o torneio na busca. Torneios privados
+              ficam visíveis apenas para a organização.
+            </Description>
+            <FieldError>{visibilityError ?? ""}</FieldError>
+          </TextField>
 
-      <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
-        <TextField isInvalid={Boolean(visibilityError)} isRequired>
-          <Label>Visibilidade do torneio</Label>
-          <Select
-            isDisabled={isDisabled}
-            onValueChange={(nextValue) => {
-              if (nextValue && !Array.isArray(nextValue)) {
+          <TextField isInvalid={Boolean(approvalModeError)} isRequired>
+            <Label>Aprovação de inscrições</Label>
+            <Select
+              isDisabled={isDisabled}
+              onValueChange={(nextValue) => {
+                if (nextValue && !Array.isArray(nextValue)) {
+                  setValue(
+                    "approvalMode",
+                    nextValue.value as TournamentScreenValues["approvalMode"],
+                    {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    }
+                  );
+                }
+              }}
+              selectionMode="single"
+              value={approvalModeOptions.find(
+                (option) => option.value === approvalMode
+              )}
+            >
+              <Select.Trigger>
+                <Select.Value
+                  className="font-normal"
+                  numberOfLines={1}
+                  placeholder="Escolha uma opção"
+                />
+                <Select.TriggerIndicator />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Overlay />
+                <SelectScrollContent label="Escolha uma opção" width="trigger">
+                  {approvalModeOptions.map((option) => (
+                    <SelectOptionItem
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                    />
+                  ))}
+                </SelectScrollContent>
+              </Select.Portal>
+            </Select>
+            <Description>
+              Automática: o jogador confirma (e paga, se houver taxa) direto.
+              Manual: você aprova cada inscrição.
+            </Description>
+            <FieldError>{approvalModeError ?? ""}</FieldError>
+          </TextField>
+
+          <RuleCard>
+            <RuleToggleRow
+              description="O jogador pode se inscrever em mais de uma categoria."
+              enabled={allowMultipleEntriesPerType}
+              isDisabled={isDisabled}
+              label="Várias inscrições"
+              onToggle={(nextEnabled) => {
                 setValue(
-                  "visibility",
-                  nextValue.value as TournamentScreenValues["visibility"],
-                  {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  }
+                  "allowMultipleEntriesPerType",
+                  nextEnabled,
+                  fieldUpdateOptions
                 );
-              }
-            }}
-            selectionMode="single"
-            value={visibilityOptions.find(
-              (option) => option.value === visibility
-            )}
-          >
-            <Select.Trigger>
-              <Select.Value
-                className="font-normal"
-                numberOfLines={1}
-                placeholder="Escolha uma opção"
-              />
-              <Select.TriggerIndicator />
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Overlay />
-              <SelectScrollContent label="Escolha uma opção" width="trigger">
-                {visibilityOptions.map((option) => (
-                  <SelectOptionItem
-                    key={option.value}
-                    label={option.label}
-                    value={option.value}
-                  />
-                ))}
-              </SelectScrollContent>
-            </Select.Portal>
-          </Select>
-          <Description>
-            Define quem pode encontrar o torneio na busca. Torneios privados
-            ficam visíveis apenas para a organização.
-          </Description>
-          <FieldError>{visibilityError ?? ""}</FieldError>
-        </TextField>
+              }}
+            />
+          </RuleCard>
 
-        <TextField isInvalid={Boolean(approvalModeError)} isRequired>
-          <Label>Aprovação de inscrições</Label>
-          <Select
-            isDisabled={isDisabled}
-            onValueChange={(nextValue) => {
-              if (nextValue && !Array.isArray(nextValue)) {
-                setValue(
-                  "approvalMode",
-                  nextValue.value as TournamentScreenValues["approvalMode"],
-                  {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  }
-                );
-              }
-            }}
-            selectionMode="single"
-            value={approvalModeOptions.find(
-              (option) => option.value === approvalMode
-            )}
-          >
-            <Select.Trigger>
-              <Select.Value
-                className="font-normal"
-                numberOfLines={1}
-                placeholder="Escolha uma opção"
-              />
-              <Select.TriggerIndicator />
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Overlay />
-              <SelectScrollContent label="Escolha uma opção" width="trigger">
-                {approvalModeOptions.map((option) => (
-                  <SelectOptionItem
-                    key={option.value}
-                    label={option.label}
-                    value={option.value}
-                  />
-                ))}
-              </SelectScrollContent>
-            </Select.Portal>
-          </Select>
-          <Description>
-            Automática: o jogador confirma (e paga, se houver taxa) direto.
-            Manual: você aprova cada inscrição.
-          </Description>
-          <FieldError>{approvalModeError ?? ""}</FieldError>
-        </TextField>
-
-        <RuleCard>
-          <RuleToggleRow
-            description="O jogador pode se inscrever em mais de uma categoria."
-            enabled={allowMultipleEntriesPerType}
-            isDisabled={isDisabled}
-            label="Várias inscrições"
-            onToggle={(nextEnabled) => {
-              setValue(
-                "allowMultipleEntriesPerType",
-                nextEnabled,
-                fieldUpdateOptions
-              );
-            }}
-          />
-        </RuleCard>
-
-        {showDelete ? (
-          <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
-            <RuleCard className="gap-3 border border-danger-soft bg-danger-soft">
-              <View className="flex-row items-center gap-2">
-                <HugeIcons className="text-danger" icon={Alert02Icon} />
-                <Text color="danger">Deletar torneio</Text>
-              </View>
-              <Text color="danger" variant="description">
-                Remove permanentemente o torneio e todas as configurações
-                vinculadas.
-              </Text>
-              <Button
-                className="self-start"
-                isDisabled={isDisabled || !onDelete}
-                onPress={() => {
-                  setIsDeleteDialogOpen(true);
-                }}
-                variant="danger-soft"
-              >
-                <Button.Label>Deletar torneio</Button.Label>
-              </Button>
-            </RuleCard>
-          </Animated.View>
-        ) : null}
+          {showDelete ? (
+            <Animated.View className="gap-2" layout={AccordionLayoutTransition}>
+              <RuleCard className="gap-3 border border-danger-soft bg-danger-soft">
+                <View className="flex-row items-center gap-2">
+                  <HugeIcons className="text-danger" icon={Alert02Icon} />
+                  <Text color="danger">Deletar torneio</Text>
+                </View>
+                <Text color="danger" variant="description">
+                  Remove permanentemente o torneio e todas as configurações
+                  vinculadas.
+                </Text>
+                <Button
+                  className="self-start"
+                  isDisabled={isDisabled || !onDelete}
+                  onPress={() => {
+                    setIsDeleteDialogOpen(true);
+                  }}
+                  variant="danger-soft"
+                >
+                  <Button.Label>Deletar torneio</Button.Label>
+                </Button>
+              </RuleCard>
+            </Animated.View>
+          ) : null}
+        </View>
       </Page.ScrollView>
 
       <Dialog
@@ -313,6 +272,6 @@ export default function TournamentSettingsRoute() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog>
-    </Page>
+    </>
   );
 }

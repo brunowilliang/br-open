@@ -11,10 +11,17 @@ import {
 
 function buildValidValues() {
   return {
+    address: {
+      cep: "01001000",
+      city: "Sao Paulo",
+      number: "120",
+      state: "SP",
+      street: "Rua das Palmeiras",
+    },
     allowMultipleEntriesPerType: true,
     approvalMode: "auto",
     avatarStorageId: null,
-    bracketReleaseAt: "",
+    bracketReleaseAt: "2026-09-14",
     categories: [
       {
         entryFeeCents: 0,
@@ -25,19 +32,16 @@ function buildValidValues() {
         name: "Categoria A",
       },
     ],
-    city: "Sao Paulo",
     courts: [],
     coverStorageId: null,
     description: undefined,
     endDate: "2026-09-20",
-    locationNotes: undefined,
     matchConfig: {
       ...DEFAULT_MATCH_CONFIG,
     },
     name: "Circuito Paulista",
     registrationDeadlineAt: "2026-09-14",
     startDate: "2026-09-15",
-    state: "SP",
     visibility: "public",
   };
 }
@@ -76,13 +80,20 @@ describe("TournamentSchema registration window", () => {
 });
 
 describe("TournamentSchema bracket release", () => {
-  test("em branco passa (a chave abre só no início)", () => {
-    expect(
-      TournamentSchema.safeParse({
-        ...buildValidValues(),
-        bracketReleaseAt: "",
-      }).success
-    ).toBeTrue();
+  test("em branco é recusada com 'Informe a data.'", () => {
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      bracketReleaseAt: "",
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path[0] === "bracketReleaseAt"
+      );
+
+      expect(issue?.message).toBe("Informe a data.");
+    }
   });
 
   test("no mesmo dia do prazo ou do início passa", () => {
@@ -147,22 +158,13 @@ describe("TournamentSchema tournament window", () => {
     ).toBeTrue();
   });
 
-  test("end on the start day is rejected with the next-day copy", () => {
-    const result = TournamentSchema.safeParse({
-      ...buildValidValues(),
-      endDate: "2026-09-15",
-    });
-
-    expect(result.success).toBeFalse();
-    if (!result.success) {
-      const endIssue = result.error.issues.find(
-        (issue) => issue.path[0] === "endDate"
-      );
-
-      expect(endIssue?.message).toBe(
-        "O fim do torneio deve ser pelo menos o dia seguinte ao início."
-      );
-    }
+  test("end on the start day passes", () => {
+    expect(
+      TournamentSchema.safeParse({
+        ...buildValidValues(),
+        endDate: "2026-09-15",
+      }).success
+    ).toBeTrue();
   });
 
   test("end before the start is rejected on the end field", () => {
@@ -198,6 +200,60 @@ describe("TournamentSchema tournament window", () => {
       );
 
       expect(endIssue?.message).toBe("Informe a data.");
+    }
+  });
+});
+
+describe("TournamentSchema address", () => {
+  test("com endereço preenchido passa", () => {
+    expect(TournamentSchema.safeParse(buildValidValues()).success).toBeTrue();
+  });
+
+  test("cep com máscara normaliza igual ao perfil da organização", () => {
+    const values = buildValidValues();
+    const result = TournamentSchema.safeParse({
+      ...values,
+      address: { ...values.address, cep: "01001-000" },
+    });
+
+    expect(result.success).toBeTrue();
+    if (result.success) {
+      expect(result.data.address.cep).toBe("01001000");
+    }
+  });
+
+  test("campo obrigatório vazio barra com a mensagem da organização", () => {
+    const values = buildValidValues();
+    const result = TournamentSchema.safeParse({
+      ...values,
+      address: { ...values.address, street: "" },
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path.join(".") === "address.street"
+      );
+
+      expect(issue?.message).toBe("Campo obrigatório.");
+    }
+  });
+
+  test("legado sem endereço abre vazio e o salvar exige o CEP", () => {
+    // O form do legado chega com o endereço em branco (nulo no servidor): o
+    // SALVAR exige o CEP com a mensagem do contrato.
+    const result = TournamentSchema.safeParse({
+      ...buildValidValues(),
+      address: { cep: "", city: "", number: "", state: "", street: "" },
+    });
+
+    expect(result.success).toBeFalse();
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (item) => item.path[0] === "address"
+      );
+
+      expect(issue?.message).toBe("Informe o CEP.");
     }
   });
 });

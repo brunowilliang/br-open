@@ -15,9 +15,10 @@ import {
 import { useThemeColor, useToast } from "heroui-native";
 import { useMemo } from "react";
 
+import { Page } from "@/components/core/page";
 import { Text } from "@/components/core/text";
-import { FloatingTabBar } from "@/components/navigation/floating-tab-bar";
 import { buildCreateTournamentDefaultValues } from "@/components/pages/tournaments/form-defaults";
+import { TournamentFormHeader } from "@/components/pages/tournaments/form-header";
 import {
   epochMsToTournamentDate,
   tournamentDateToEpochMs,
@@ -33,10 +34,8 @@ import { buildCategoryUpdatePayload } from "@/lib/tournaments/category-editor-de
 import { normalizeRouteParam } from "@/lib/router/normalize-param";
 import {
   TOURNAMENT_FORM_TAB_ITEMS,
-  TOURNAMENT_FORM_TAB_ROUTE_NAMES,
-  getCreateTournamentFormPathname,
-  getEditTournamentFormPathname,
-  resolveTournamentFormTabValueFromRouteName,
+  getCreateTournamentFormNavigation,
+  getEditTournamentFormNavigation,
   type TournamentFormTabValue,
 } from "@/lib/tournaments/tournament-form-navigation";
 import {
@@ -97,6 +96,15 @@ function toCreateTournamentInput(
   values: TournamentScreenValues
 ): CreateTournamentInput {
   return {
+    address: {
+      cep: values.address.cep,
+      city: values.address.city,
+      complement: values.address.complement || undefined,
+      district: values.address.district || undefined,
+      number: values.address.number,
+      state: values.address.state,
+      street: values.address.street,
+    },
     allowMultipleEntriesPerType: values.allowMultipleEntriesPerType,
     approvalMode: values.approvalMode,
     avatarStorageId: values.avatarStorageId,
@@ -110,19 +118,18 @@ function toCreateTournamentInput(
       modality: category.modality,
       name: category.name,
     })),
-    city: values.city,
+    city: values.address.city,
     courts: values.courts,
     coverStorageId: values.coverStorageId,
     description: values.description,
     endDate: tournamentDateToEpochMs(values.endDate),
-    locationNotes: values.locationNotes,
     matchConfig: values.matchConfig,
     name: values.name,
     registrationDeadlineAt: tournamentDateToEpochMs(
       values.registrationDeadlineAt
     ),
     startDate: tournamentDateToEpochMs(values.startDate),
-    state: values.state,
+    state: values.address.state,
     visibility: values.visibility,
   };
 }
@@ -133,6 +140,15 @@ function toTournamentScreenValues(
   const tournament = managed.tournament;
 
   return {
+    address: {
+      cep: tournament.address?.cep ?? "",
+      city: tournament.address?.city || tournament.city,
+      complement: tournament.address?.complement ?? "",
+      district: tournament.address?.district ?? "",
+      number: tournament.address?.number ?? "",
+      state: tournament.address?.state || tournament.state,
+      street: tournament.address?.street ?? "",
+    },
     allowMultipleEntriesPerType: tournament.allowMultipleEntriesPerType,
     approvalMode: tournament.approvalMode,
     avatarStorageId: tournament.avatarStorageId,
@@ -149,7 +165,6 @@ function toTournamentScreenValues(
       modality: category.modality,
       name: category.name,
     })),
-    city: tournament.city,
     courts: tournament.courts,
     coverStorageId: tournament.coverStorageId,
     description: tournament.description ?? "",
@@ -157,14 +172,12 @@ function toTournamentScreenValues(
       tournament.endDate === null
         ? ""
         : epochMsToTournamentDate(tournament.endDate),
-    locationNotes: tournament.locationNotes ?? "",
     matchConfig: tournament.matchConfig,
     name: tournament.name,
     registrationDeadlineAt: epochMsToTournamentDate(
       tournament.registrationDeadlineAt
     ),
     startDate: epochMsToTournamentDate(tournament.startDate),
-    state: tournament.state,
     visibility: tournament.visibility,
   };
 }
@@ -205,17 +218,7 @@ function TournamentFormTabs(props: {
           headerShown: false,
           sceneStyle: { backgroundColor },
         }}
-        tabBar={(tabBarProps) => (
-          <FloatingTabBar
-            {...tabBarProps}
-            items={TOURNAMENT_FORM_TAB_ITEMS}
-            resolveValueFromRouteName={
-              resolveTournamentFormTabValueFromRouteName
-            }
-            routeNames={TOURNAMENT_FORM_TAB_ROUTE_NAMES}
-            triggerClassName="w-11"
-          />
-        )}
+        tabBar={() => null}
       >
         {TOURNAMENT_FORM_TAB_ITEMS.map((item) => (
           <RouterTabs.Screen key={item.routeName} name={item.routeName} />
@@ -425,18 +428,14 @@ export default function TournamentFormLayout() {
 
   function handleValidationTabRequest(tab: TournamentFormTabValue) {
     if (target.mode === "create") {
-      router.navigate({
-        params: { mode: "new" },
-        pathname: getCreateTournamentFormPathname(tab),
-      });
+      router.navigate(getCreateTournamentFormNavigation(tab));
       return;
     }
 
     if (target.mode === "edit") {
-      router.navigate({
-        params: { mode: "edit", tournamentId: target.tournamentId },
-        pathname: getEditTournamentFormPathname(tab),
-      });
+      router.navigate(
+        getEditTournamentFormNavigation(tab, target.tournamentId)
+      );
     }
   }
 
@@ -485,11 +484,14 @@ export default function TournamentFormLayout() {
     }
 
     return (
-      <CreateTournamentForm
-        isPending={createTournament.isPending}
-        onSubmit={handleCreate}
-        onValidationTabRequest={handleValidationTabRequest}
-      />
+      <Page>
+        <TournamentFormHeader />
+        <CreateTournamentForm
+          isPending={createTournament.isPending}
+          onSubmit={handleCreate}
+          onValidationTabRequest={handleValidationTabRequest}
+        />
+      </Page>
     );
   }
 
@@ -516,14 +518,17 @@ export default function TournamentFormLayout() {
   }
 
   return (
-    <EditTournamentForm
-      isPending={updateTournament.isPending || deleteTournament.isPending}
-      key={`${tournamentQuery.data.tournament.id}:${tournamentQuery.data.tournament.updatedAt}`}
-      managed={tournamentQuery.data}
-      onDelete={handleDelete}
-      onSubmit={handleUpdate}
-      onValidationTabRequest={handleValidationTabRequest}
-      tournamentId={target.tournamentId}
-    />
+    <Page>
+      <TournamentFormHeader />
+      <EditTournamentForm
+        isPending={updateTournament.isPending || deleteTournament.isPending}
+        key={`${tournamentQuery.data.tournament.id}:${tournamentQuery.data.tournament.updatedAt}`}
+        managed={tournamentQuery.data}
+        onDelete={handleDelete}
+        onSubmit={handleUpdate}
+        onValidationTabRequest={handleValidationTabRequest}
+        tournamentId={target.tournamentId}
+      />
+    </Page>
   );
 }

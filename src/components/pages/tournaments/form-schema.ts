@@ -2,6 +2,7 @@ import { getLocalTimeZone, parseDate } from "@internationalized/date";
 import { z } from "zod";
 
 import { getBestOfSetValidationError } from "@convex/domains/match/contract";
+import { addressSchema } from "@convex/domains/organization/contract";
 import {
   CreateTournamentSchema,
   UpdateCategoryInputSchema,
@@ -38,14 +39,6 @@ const tournamentFormDateSchema = z
   .min(1, "Informe a data.")
   .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Data inválida.");
 
-/** Data ISO opcional: em branco = sem data combinada (a chave abre no início). */
-const tournamentOptionalFormDateSchema = z
-  .string()
-  .refine(
-    (value) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value),
-    "Data inválida."
-  );
-
 /** Categoria no editor: `id` local identifica a linha no diff do servidor;
  * `liveEntryCount` chega só na edição e sustenta as travas. */
 const TournamentCategoryFormSchema = UpdateCategoryInputSchema.safeExtend({
@@ -55,30 +48,38 @@ const TournamentCategoryFormSchema = UpdateCategoryInputSchema.safeExtend({
 
 export const TournamentSchema = z
   .object({
+    address: addressSchema,
     allowMultipleEntriesPerType:
       CreateTournamentSchema.shape.allowMultipleEntriesPerType,
     approvalMode: CreateTournamentSchema.shape.approvalMode,
     avatarStorageId: CreateTournamentSchema.shape.avatarStorageId,
-    bracketReleaseAt: tournamentOptionalFormDateSchema,
+    bracketReleaseAt: tournamentFormDateSchema,
     categories: z
       .array(TournamentCategoryFormSchema)
       .min(1, "Crie pelo menos uma categoria."),
-    city: CreateTournamentSchema.shape.city,
     courts: CreateTournamentSchema.shape.courts,
     coverStorageId: CreateTournamentSchema.shape.coverStorageId,
     description: CreateTournamentSchema.shape.description,
     // Obrigatório como o início: o legado sem fim abre com o campo vazio e o
     // SALVAR exige escolher o período.
     endDate: tournamentFormDateSchema,
-    locationNotes: CreateTournamentSchema.shape.locationNotes,
     matchConfig: TournamentMatchConfigFormSchema,
     name: CreateTournamentSchema.shape.name,
     registrationDeadlineAt: tournamentFormDateSchema,
     startDate: tournamentFormDateSchema,
-    state: CreateTournamentSchema.shape.state,
     visibility: CreateTournamentSchema.shape.visibility,
   })
   .superRefine((value, ctx) => {
+    for (const field of ["cep", "street", "number", "city", "state"] as const) {
+      if (!value.address[field]?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Campo obrigatório.",
+          path: ["address", field],
+        });
+      }
+    }
+
     if (value.registrationDeadlineAt >= value.startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -107,18 +108,11 @@ export const TournamentSchema = z
       }
     }
 
-    // Fim obrigatório: nunca antes do início e nunca no mesmo dia.
+    // Fim obrigatório: nunca antes do início (no mesmo dia vale).
     if (value.endDate && value.endDate < value.startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "O fim do torneio não pode ser antes do início.",
-        path: ["endDate"],
-      });
-    } else if (value.endDate && value.endDate === value.startDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "O fim do torneio deve ser pelo menos o dia seguinte ao início.",
         path: ["endDate"],
       });
     }

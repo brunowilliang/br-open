@@ -358,10 +358,7 @@ export function CategoryEditor(props: {
                         <Text weight="medium">Taxa de inscrição</Text>
                         <NumberField.Group>
                           <NumberField.DecrementButton />
-                          <NumberField.Input
-                            keyboardType="decimal-pad"
-                            variant="secondary"
-                          />
+                          <NumberField.Input keyboardType="decimal-pad" />
                           <NumberField.IncrementButton />
                         </NumberField.Group>
                         <Text color="muted" variant="description">
@@ -465,14 +462,12 @@ export function CategoryEditor(props: {
                 <Label>Nome da categoria</Label>
                 <Input
                   autoCapitalize="words"
-                  className="bg-surface-secondary"
                   editable={!isDisabled}
                   onChangeText={handleDraftNameChange}
                   onSubmitEditing={handleSaveCategory}
                   placeholder="Ex.: Categoria A"
                   returnKeyType="done"
                   value={draftName}
-                  variant="secondary"
                 />
                 <Description>
                   {isEditingCategory

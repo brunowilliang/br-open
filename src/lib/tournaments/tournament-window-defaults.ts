@@ -14,18 +14,18 @@ function shiftDayKey(dayKey: string, days: number): string {
   );
 }
 
-/** Fim da janela quando o início muda: o torneio dura PELO MENOS até o dia
- * seguinte ao início, então um fim igual ou anterior vira início + 1. Fim em
- * branco (torneio legado sem teto) segue em branco. */
+/** Fim da janela quando o início muda: o fim pode ser o próprio dia do início,
+ * então um fim anterior vira o início. Fim em branco (torneio legado sem teto)
+ * segue em branco. */
 export function resolveTournamentEndDate(input: {
   endDate: string;
   startDate: string;
 }): string {
-  if (input.endDate === "" || input.endDate > input.startDate) {
+  if (input.endDate === "" || input.endDate >= input.startDate) {
     return input.endDate;
   }
 
-  return shiftDayKey(input.startDate, 1);
+  return input.startDate;
 }
 
 /** Prazo automático: 3 dias antes do início, nunca no passado (o limite do

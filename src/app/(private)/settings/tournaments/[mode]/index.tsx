@@ -5,17 +5,10 @@ import {
   type CalendarDate,
 } from "@internationalized/date";
 import {
-  CheckmarkCircle02Icon,
-  MoreVerticalIcon,
-} from "@hugeicons/core-free-icons";
-import {
-  Button,
   Description,
   FieldError,
   Input,
   Label,
-  Menu,
-  PressableFeedback,
   TextArea,
   TextField,
 } from "heroui-native";
@@ -25,10 +18,9 @@ import {
   DateRangePicker,
   RangeCalendar,
 } from "heroui-native-pro";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useController, useFormContext, useWatch } from "react-hook-form";
 
-import { Image } from "@/components/core/image";
 import { Page } from "@/components/core/page";
 import {
   buildTournamentRangeOption,
@@ -37,8 +29,6 @@ import {
   type TournamentScreenValues,
 } from "@/components/pages/tournaments/form-schema";
 import { brazilDayKey } from "@convex/domains/tournament/window-rules";
-import { HugeIcons } from "@/components/ui/huge-icons";
-import { MediaConfirmDialog } from "@/components/ui/media-confirm-dialog";
 import { useTournamentFormRoute } from "@/lib/tournaments/tournament-form-store";
 import {
   buildAutoBracketReleaseDate,
@@ -109,7 +99,7 @@ function TournamentDatePickerField(props: TournamentDatePickerFieldProps) {
       >
         <Label>{props.label}</Label>
         <DatePicker.Select isDisabled={props.isDisabled} presentation="popover">
-          <DatePicker.Trigger className="bg-surface-secondary">
+          <DatePicker.Trigger>
             <DatePicker.Value
               className="font-normal"
               placeholder="Selecione a data"
@@ -256,7 +246,7 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
         isDisabled={props.isDisabled}
         presentation="popover"
       >
-        <DateRangePicker.Trigger className="bg-surface-secondary">
+        <DateRangePicker.Trigger>
           <DateRangePicker.Value
             className="font-normal"
             placeholder="Selecione o período"
@@ -288,8 +278,8 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
         </DateRangePicker.Portal>
       </DateRangePicker.Select>
       <Description>
-        Toque no dia de início e depois no dia do fim. O fim fica pelo menos no
-        dia seguinte ao início.
+        Toque no dia de início e depois no dia do fim. O fim pode ser no mesmo
+        dia do início.
       </Description>
       <FieldError>{error ?? ""}</FieldError>
     </DateRangePicker>
@@ -297,29 +287,8 @@ function TournamentRangePickerField(props: TournamentRangePickerFieldProps) {
 }
 
 export default function TournamentDetailsRoute() {
-  const {
-    avatarUrl,
-    coverUrl,
-    isMediaBusy,
-    isSubmitPending,
-    mode,
-    onMediaPress,
-    onSubmitPress,
-  } = useTournamentFormRoute();
+  const { isSubmitPending } = useTournamentFormRoute();
   const isDisabled = isSubmitPending;
-  const isMediaUploading = isMediaBusy;
-  const subtitle = mode === "create" ? "Criar Torneio" : "Editar Torneio";
-  const [mediaTarget, setMediaTarget] = useState<null | "avatar" | "cover">(
-    null
-  );
-
-  function handleSubmitPress() {
-    if (isSubmitPending) {
-      return;
-    }
-
-    onSubmitPress();
-  }
   const { control, getFieldState } = useFormContext<TournamentScreenValues>();
   const { field: nameField, fieldState: nameState } = useController({
     control,
@@ -349,129 +318,55 @@ export default function TournamentDetailsRoute() {
     ? parseCalendarDate(startDateValue)
     : undefined;
   return (
-    <Page>
-      <Page.Header>
-        <Page.Header.Left>
-          <Page.Header.BackButton />
-        </Page.Header.Left>
-        <Page.Header.Center>
-          <Page.Header.SubTitle>{subtitle}</Page.Header.SubTitle>
-          <Page.Header.Title>Detalhes</Page.Header.Title>
-        </Page.Header.Center>
-        <Page.Header.Right>
-          <Menu>
-            <Menu.Trigger asChild>
-              <Button isIconOnly size="sm" variant="ghost">
-                <HugeIcons icon={MoreVerticalIcon} />
-              </Button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Overlay className="bg-backdrop" />
-              <Menu.Content presentation="popover" width={240}>
-                <Menu.Item onPress={handleSubmitPress}>
-                  <Menu.ItemTitle>Salvar</Menu.ItemTitle>
-                  <HugeIcons icon={CheckmarkCircle02Icon} />
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu>
-        </Page.Header.Right>
-      </Page.Header>
-
-      <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-floating-tab-bar-offset-4">
-        <PressableFeedback
-          className="aspect-video w-full overflow-hidden rounded-3xl"
-          isDisabled={isDisabled || isMediaUploading}
-          onPress={() => setMediaTarget("cover")}
-        >
-          <Image
-            className="size-full"
-            contentFit="cover"
-            fallback="blue"
-            source={coverUrl ?? undefined}
-          />
-          <PressableFeedback.Highlight />
-        </PressableFeedback>
-
-        <PressableFeedback
-          className="-mt-20 self-center rounded-full"
-          isDisabled={isDisabled || isMediaUploading}
-          onPress={() => setMediaTarget("avatar")}
-        >
-          <Image
-            alt="Perfil"
-            className="size-30 rounded-full"
-            fallback="blue"
-            source={avatarUrl ?? undefined}
-          />
-          <PressableFeedback.Highlight />
-        </PressableFeedback>
-
-        <TextField isInvalid={Boolean(nameState.error)} isRequired>
-          <Label>Nome do torneio</Label>
-          <Input
-            editable={!isDisabled}
-            onBlur={nameField.onBlur}
-            onChangeText={nameField.onChange}
-            placeholder="Ex.: Circuito de Tênis de Verão"
-            value={nameField.value}
-          />
-          <FieldError>{nameState.error?.message ?? ""}</FieldError>
-        </TextField>
-        <TextField isInvalid={Boolean(descriptionState.error)}>
-          <Label>Descrição do torneio</Label>
-          <TextArea
-            editable={!isDisabled}
-            onBlur={descriptionField.onBlur}
-            onChangeText={descriptionField.onChange}
-            placeholder="Conte um pouco sobre o torneio, público e premiação."
-            value={descriptionField.value ?? ""}
-          />
-          <FieldError>{descriptionState.error?.message ?? ""}</FieldError>
-        </TextField>
-
-        <TournamentRangePickerField
-          endError={endDateState.error?.message}
-          isDisabled={isDisabled}
-          startError={startDateState.error?.message}
+    <Page.ScrollView contentContainerClassName="gap-4 px-4 pb-safe-offset-4">
+      <TextField isInvalid={Boolean(nameState.error)} isRequired>
+        <Label>Nome do torneio</Label>
+        <Input
+          editable={!isDisabled}
+          onBlur={nameField.onBlur}
+          onChangeText={nameField.onChange}
+          placeholder="Ex.: Circuito de Tênis de Verão"
+          value={nameField.value}
         />
-
-        <TournamentDatePickerField
-          description="As inscrições encerram nesse dia. O sorteio vem depois."
-          error={deadlineState.error?.message}
-          isDisabled={isDisabled}
-          label="Prazo de inscrições"
-          maxValue={deadlineMaxValue}
-          minValue={today(getLocalTimeZone())}
-          name="registrationDeadlineAt"
+        <FieldError>{nameState.error?.message ?? ""}</FieldError>
+      </TextField>
+      <TextField isInvalid={Boolean(descriptionState.error)}>
+        <Label>Descrição do torneio</Label>
+        <TextArea
+          editable={!isDisabled}
+          onBlur={descriptionField.onBlur}
+          onChangeText={descriptionField.onChange}
+          placeholder="Conte um pouco sobre o torneio, público e premiação."
+          value={descriptionField.value ?? ""}
         />
+        <FieldError>{descriptionState.error?.message ?? ""}</FieldError>
+      </TextField>
 
-        <TournamentDatePickerField
-          description="Nesse dia a chave abre para os jogadores. Se ainda não houver sorteio, ele acontece automaticamente."
-          error={releaseState.error?.message}
-          isDisabled={isDisabled}
-          isRequired={false}
-          label="Divulgação da chave"
-          maxValue={releaseMaxValue}
-          minValue={releaseMinValue}
-          name="bracketReleaseAt"
-        />
+      <TournamentRangePickerField
+        endError={endDateState.error?.message}
+        isDisabled={isDisabled}
+        startError={startDateState.error?.message}
+      />
 
-        <MediaConfirmDialog
-          isOpen={mediaTarget !== null}
-          onConfirm={() => {
-            if (mediaTarget) {
-              onMediaPress?.(mediaTarget);
-            }
-          }}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setMediaTarget(null);
-            }
-          }}
-          target={mediaTarget === "cover" ? "banner" : "avatar"}
-        />
-      </Page.ScrollView>
-    </Page>
+      <TournamentDatePickerField
+        description="As inscrições encerram nesse dia. O sorteio vem depois."
+        error={deadlineState.error?.message}
+        isDisabled={isDisabled}
+        label="Prazo de inscrições"
+        maxValue={deadlineMaxValue}
+        minValue={today(getLocalTimeZone())}
+        name="registrationDeadlineAt"
+      />
+
+      <TournamentDatePickerField
+        description="Nesse dia a chave abre para os jogadores. Se ainda não houver sorteio, ele acontece automaticamente."
+        error={releaseState.error?.message}
+        isDisabled={isDisabled}
+        label="Divulgação da chave"
+        maxValue={releaseMaxValue}
+        minValue={releaseMinValue}
+        name="bracketReleaseAt"
+      />
+    </Page.ScrollView>
   );
 }

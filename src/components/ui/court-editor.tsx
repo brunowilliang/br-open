@@ -653,14 +653,12 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                 <Label>Nome da quadra</Label>
                 <Input
                   autoCapitalize="words"
-                  className="bg-surface-secondary"
                   editable={!isDisabled}
                   onChangeText={handleDraftNameChange}
                   onSubmitEditing={handleSaveCourt}
                   placeholder="Ex.: Quadra 1"
                   returnKeyType="done"
                   value={draftName}
-                  variant="secondary"
                 />
                 <Description>
                   {isEditingCourt
@@ -792,7 +790,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                     selectionMode="single"
                     value={getSelectedOption(TIME_OPTIONS, rangeStartMinute)}
                   >
-                    <Select.Trigger className="bg-surface-secondary">
+                    <Select.Trigger>
                       <Select.Value
                         className="font-normal"
                         placeholder="--:--"
@@ -830,7 +828,7 @@ export function CourtEditor(props: { isDisabled: boolean }) {
                     selectionMode="single"
                     value={getSelectedOption(TIME_OPTIONS, rangeEndMinute)}
                   >
-                    <Select.Trigger className="bg-surface-secondary">
+                    <Select.Trigger>
                       <Select.Value
                         className="font-normal"
                         placeholder="--:--"
